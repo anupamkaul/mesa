@@ -1,4 +1,4 @@
-/* $Id: t_vb_program.c,v 1.14.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_vb_program.c,v 1.14.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -279,8 +279,7 @@ static GLboolean run_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
     * clipping planes, but they're not supported by vertex programs.
     */
 
-   VB->ClipOrMask = store->ormask;
-   VB->ClipMask = store->clipmask;
+   VB->ClipMask = store->clipormask ? store->clipmask : 0;
 
    return GL_TRUE;
 }
@@ -403,21 +402,13 @@ static void check_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
        * which the program needs for inputs.
        */
 
-      stage->inputs = ctx->VertexProgram.Current->InputsRead;
-
-#if 000
-      if (stage->privatePtr)
-	 stage->run = run_validate_program;
-      stage->inputs = VERT_BIT_NORMAL|VERT_BIT_MATERIAL;
-      if (ctx->Light._NeedVertices)
-	 stage->inputs |= VERT_BIT_EYE; /* effectively, even when lighting in obj */
-      if (ctx->Light.ColorMaterialEnabled)
-	 stage->inputs |= VERT_BIT_COLOR0;
-
-      stage->outputs = VERT_BIT_COLOR0;
-      if (ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR)
-	 stage->outputs |= VERT_BIT_COLOR1;
-#endif
+      stage->inputs[0] = ctx->VertexProgram.Current->InputsRead;
+      stage->inputs[1] = 0;
+      
+      /* But what about the outputs???
+       */
+      stage->outputs[0] = stage->inputs[0] | VERT_BIT_POS | VERT_BIT_COLOR0;
+      stage->outputs[1] = stage->inputs[1];
    }
 }
 
@@ -445,22 +436,17 @@ static void dtr( struct gl_pipeline_stage *stage )
    }
 }
 
-/**
- * Public description of this pipeline stage.
- */
-const struct gl_pipeline_stage _tnl_vertex_program_stage =
+struct gl_pipeline_stage *_tnl_vertex_program_stage( GLcontext *ctx )
 {
-   "vertex-program",
-   _NEW_ALL,	/*XXX FIX */	/* recheck */
-   _NEW_ALL,	/*XXX FIX */    /* recalc -- modelview dependency
-				 * otherwise not captured by inputs
-				 * (which may be VERT_BIT_POS) */
-   GL_FALSE,			/* active */
-   /*0*/ VERT_BIT_POS,				/* inputs  XXX OK? */
-   VERT_BIT_CLIP | VERT_BIT_COLOR0,			/* outputs XXX OK? */
-   0,				/* changed_inputs */
-   NULL,			/* private_data */
-   dtr,				/* destroy */
-   check_vp,			/* check */
-   run_init_vp			/* run -- initially set to ctr */
-};
+   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "vertex-program";
+   stage->recheck = _NEW_ALL;
+   stage->recalc = _NEW_ALL;
+   stage->active = GL_FALSE;
+   stage->destroy = dtr;
+   stage->check = check_vp;
+   stage->run = run_init_vp;
+
+   return stage;
+}

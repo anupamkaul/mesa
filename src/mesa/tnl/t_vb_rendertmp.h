@@ -1,4 +1,4 @@
-/* $Id: t_vb_rendertmp.h,v 1.9 2002/02/13 00:53:20 keithw Exp $ */
+/* $Id: t_vb_rendertmp.h,v 1.9.2.1 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -74,7 +74,9 @@ static void TAG(render_points)( GLcontext *ctx,
 
    RESET_OCCLUSION;
    INIT(GL_POINTS);
-   RENDER_POINTS( start, count );
+   for (j=start; j<count; j++ ) {
+      RENDER_POINT( ELT(j) );
+   }
    POSTFIX;
 }
 

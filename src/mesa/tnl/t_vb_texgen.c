@@ -1,4 +1,4 @@
-/* $Id: t_vb_texgen.c,v 1.13.2.1 2002/10/15 16:56:53 keithw Exp $ */
+/* $Id: t_vb_texgen.c,v 1.13.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -588,36 +588,27 @@ static void check_texgen( GLcontext *ctx, struct gl_pipeline_stage *stage )
    stage->active = 0;
 
    if (ctx->Texture._TexGenEnabled && !ctx->VertexProgram.Enabled) {
-      GLuint inputs = 0;
-      GLuint outputs = 0;
 
-      if (ctx->Texture._GenFlags & TEXGEN_OBJ_LINEAR)
-	 inputs |= VERT_BIT_POS;
+      stage->inputs[0] = 0;
+      stage->inputs[1] = 0;
+      stage->outputs[0] = 0;
+      stage->outputs[1] = 0;
 
-      if (ctx->Texture._GenFlags & TEXGEN_NEED_EYE_COORD)
-	 inputs |= VERT_BIT_EYE;
+      if (ctx->Texture._GenFlags & (TEXGEN_OBJ_LINEAR|TEXGEN_NEED_EYE_COORD))
+	 SET_BIT(stage->inputs, VERT_ATTRIB_POS);
 
       if (ctx->Texture._GenFlags & TEXGEN_NEED_NORMALS)
-	 inputs |= VERT_BIT_NORMAL;
+	 SET_BIT(stage->inputs, VERT_ATTRIB_NORMAL);
 
       for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++)
-	 if (ctx->Texture._TexGenEnabled & ENABLE_TEXGEN(i))
-	 {
-	    outputs |= VERT_BIT_TEX(i);
-
-	    /* Need the original input in case it contains a Q coord:
-	     * (sigh)
-	     */
-	    inputs |= VERT_BIT_TEX(i);
-
-	    /* Something for Feedback? */
+	 if (ctx->Texture._TexGenEnabled & ENABLE_TEXGEN(i)) {
+	    SET_BIT(stage->outputs, VERT_ATTRIB_TEX0+i);
+	    SET_BIT(stage->inputs, VERT_ATTRIB_TEX0+i);
 	 }
 
       if (stage->privatePtr)
 	 stage->run = run_validate_texgen_stage;
       stage->active = 1;
-      stage->inputs = inputs;
-      stage->outputs = outputs;
    }
 }
 
@@ -672,17 +663,17 @@ static void free_texgen_data( struct gl_pipeline_stage *stage )
 
 
 
-const struct gl_pipeline_stage _tnl_texgen_stage =
+struct gl_pipeline_stage *_tnl_texgen_stage( GLcontext *ctx )
 {
-   "texgen",			/* name */
-   _NEW_TEXTURE,		/* when to call check() */
-   _NEW_TEXTURE,		/* when to invalidate stored data */
-   GL_FALSE,			/* active? */
-   0,				/* inputs */
-   0,				/* outputs */
-   0,				/* changed_inputs */
-   NULL,			/* private data */
-   free_texgen_data,		/* destructor */
-   check_texgen,		/* check */
-   alloc_texgen_data		/* run -- initially set to alloc data */
-};
+   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "texgen";
+   stage->recheck = _NEW_TEXTURE;
+   stage->recalc = _NEW_TEXTURE;
+   stage->active = GL_FALSE;
+   stage->destroy = free_texgen_data;
+   stage->check = check_texgen;
+   stage->run = alloc_texgen_data;
+
+   return stage;
+}

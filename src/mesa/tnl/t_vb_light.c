@@ -1,4 +1,4 @@
-/* $Id: t_vb_light.c,v 1.18.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_vb_light.c,v 1.18.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -40,9 +40,9 @@
 #include "t_context.h"
 #include "t_pipeline.h"
 
-#define LIGHT_TWOSIDE       0x2
-#define LIGHT_COLORMATERIAL 0x4
-#define MAX_LIGHT_FUNC      0x8
+#define LIGHT_TWOSIDE       0x1
+#define LIGHT_MATERIAL      0x2
+#define MAX_LIGHT_FUNC      0x4
 
 typedef void (*light_func)( GLcontext *ctx,
 			    struct vertex_buffer *VB,
@@ -50,7 +50,6 @@ typedef void (*light_func)( GLcontext *ctx,
 			    GLvector4f *input );
 
 struct light_stage_data {
-   struct gl_client_array FloatColor; 
    struct gl_client_array LitColor[2];
    struct gl_client_array LitSecondary[2];
    GLvector1ui LitIndex[2];
@@ -74,15 +73,15 @@ static light_func _tnl_light_ci_tab[MAX_LIGHT_FUNC];
 #define IDX              (0)
 #include "t_vb_lighttmp.h"
 
-#define TAG(x)           x##_tw
+#define TAG(x)           x##_twoside
 #define IDX              (LIGHT_TWOSIDE)
 #include "t_vb_lighttmp.h"
 
-#define TAG(x)           x##_cm
+#define TAG(x)           x##_mat
 #define IDX              (LIGHT_MATERIAL)
 #include "t_vb_lighttmp.h"
 
-#define TAG(x)           x##_tw_cm
+#define TAG(x)           x##_twoside_mat
 #define IDX              (LIGHT_TWOSIDE|LIGHT_MATERIAL)
 #include "t_vb_lighttmp.h"
 
@@ -93,9 +92,9 @@ static void init_lighting( void )
 
    if (!done) {
       init_light_tab();
-      init_light_tab_tw();
-      init_light_tab_cm();
-      init_light_tab_tw_cm();
+      init_light_tab_twoside();
+      init_light_tab_mat();
+      init_light_tab_twoside_mat();
       done = 1;
    }
 }
@@ -107,19 +106,14 @@ static GLboolean run_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
    GLvector4f *input = ctx->_NeedEyeCoords ? VB->EyePtr : VB->ObjPtr;
-   GLuint ind;
+   GLuint ind = 0;
 
-   /* Make sure we can talk about elements 0..2 in the vector we are
-    * lighting.
-    */
-   if (input->size <= 2) {
-      if (stage->changed_inputs & (VERT_BIT_EYE|VERT_BIT_POS)) {
-	 copy_data( input, stage->pos_tmp );
-	 _mesa_vector4f_clean_elem(input, VB->Count, 2);
-      }
+   if ((ctx->Light.ColorMaterialEnabled && (VB->Active & VERT_BITS_COLOR)) || 
+       VB->Active & VERT_BITS_MATERIAL)
+      ind |= LIGHT_MATERIAL;
 
-      input = stage->postmp;
-   }
+   if (ctx->Light.Model.TwoSide)
+      ind |= LIGHT_TWOSIDE;
 
    /* The individual functions know about replaying side-effects
     * vs. full re-execution. 
@@ -155,13 +149,7 @@ static GLboolean run_validate_lighting( GLcontext *ctx,
    else
       tab = _tnl_light_ci_tab;
 
-   if (ctx->Light.ColorMaterialEnabled)
-      ind |= LIGHT_COLORMATERIAL;
-
-   if (ctx->Light.Model.TwoSide)
-      ind |= LIGHT_TWOSIDE;
-
-   LIGHT_STAGE_DATA(stage)->light_func_tab = &tab[ind];
+   LIGHT_STAGE_DATA(stage)->light_func_tab = tab;
 
    /* This and the above should only be done on _NEW_LIGHT:
     */
@@ -173,13 +161,13 @@ static GLboolean run_validate_lighting( GLcontext *ctx,
    return stage->run( ctx, stage );
 }
 
-static void alloc_4chan( struct gl_client_array *a, GLuint sz )
+static void alloc_4f( struct gl_client_array *a, GLuint sz )
 {
-   a->Ptr = ALIGN_MALLOC( sz * sizeof(GLchan) * 4, 32 );
+   a->Ptr = ALIGN_MALLOC( sz * sizeof(GLfloat) * 4, 32 );
    a->Size = 4;
-   a->Type = CHAN_TYPE;
+   a->Type = GL_FLOAT;
    a->Stride = 0;
-   a->StrideB = sizeof(GLchan) * 4;
+   a->StrideB = sizeof(GLfloat) * 4;
    a->Enabled = 0;
    a->Flags = 0;
 }
@@ -204,12 +192,10 @@ static GLboolean run_init_lighting( GLcontext *ctx,
     */
    init_lighting();
 
-   store->FloatColor.Ptr = 0;
-
-   alloc_4chan( &store->LitColor[0], size );
-   alloc_4chan( &store->LitColor[1], size );
-   alloc_4chan( &store->LitSecondary[0], size );
-   alloc_4chan( &store->LitSecondary[1], size );
+   alloc_4f( &store->LitColor[0], size );
+   alloc_4f( &store->LitColor[1], size );
+   alloc_4f( &store->LitSecondary[0], size );
+   alloc_4f( &store->LitSecondary[1], size );
 
    _mesa_vector1ui_alloc( &store->LitIndex[0], 0, size, 32 );
    _mesa_vector1ui_alloc( &store->LitIndex[1], 0, size, 32 );
@@ -232,18 +218,22 @@ static void check_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
    if (stage->active) {
       if (stage->privatePtr)
 	 stage->run = run_validate_lighting;
-      stage->inputs = VERT_BIT_NORMAL|VERT_BIT_MATERIAL;
+      
       if (ctx->Light._NeedVertices)
-	 stage->inputs |= VERT_BIT_EYE; /* effectively, even when lighting in obj */
-      if (ctx->Light.ColorMaterialEnabled)
-	 stage->inputs |= VERT_BIT_COLOR0;
+	 SET_BIT(stage->inputs, VERT_ATTRIB_POS);
+      else
+	 CLEAR_BIT(stage->inputs, VERT_ATTRIB_POS);
 
-      stage->outputs = VERT_BIT_COLOR0;
-      if (ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR)
-	 stage->outputs |= VERT_BIT_COLOR1;
+      if (ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR) {
+	 SET_BIT(stage->outputs, VERT_BIT_COLOR1);
+	 SET_BIT(stage->outputs, VERT_BIT_BACK_COLOR1);
+      }
+      else {
+	 CLEAR_BIT(stage->outputs, VERT_BIT_COLOR1);
+	 CLEAR_BIT(stage->outputs, VERT_BIT_BACK_COLOR1);
+      }
    }
 }
-
 
 static void dtr( struct gl_pipeline_stage *stage )
 {
@@ -255,9 +245,6 @@ static void dtr( struct gl_pipeline_stage *stage )
       ALIGN_FREE( store->LitSecondary[0].Ptr );
       ALIGN_FREE( store->LitSecondary[1].Ptr );
 
-      if (store->FloatColor.Ptr)
-	 ALIGN_FREE( store->FloatColor.Ptr );
-
       _mesa_vector1ui_free( &store->LitIndex[0] );
       _mesa_vector1ui_free( &store->LitIndex[1] );
       FREE( store );
@@ -265,19 +252,40 @@ static void dtr( struct gl_pipeline_stage *stage )
    }
 }
 
-const struct gl_pipeline_stage _tnl_lighting_stage =
+struct gl_pipeline_stage *_tnl_lighting_stage( GLcontext *ctx )
 {
-   "lighting",			/* name */
-   _NEW_LIGHT,			/* recheck */
-   _NEW_LIGHT|_NEW_MODELVIEW,	/* recalc -- modelview dependency
-				 * otherwise not captured by inputs
-				 * (which may be VERT_BIT_POS) */
-   GL_FALSE,			/* active? */
-   0,				/* inputs */
-   0,				/* outputs */
-   0,				/* changed_inputs */
-   NULL,			/* private_data */
-   dtr,				/* destroy */
-   check_lighting,		/* check */
-   run_init_lighting		/* run -- initially set to ctr */
-};
+   stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "lighting";
+   stage->recheck = _NEW_LIGHT;
+   stage->recalc = _NEW_LIGHT|_NEW_MODELVIEW;
+   stage->active = GL_FALSE;
+   stage->destroy = dtr;
+   stage->check = check_lighting;
+   stage->run = run_init_lighting;
+
+   SET_BIT(stage->inputs, VERT_ATTRIB_NORMAL);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_FRONT_AMBIENT);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_FRONT_DIFFUSE);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_FRONT_SPECULAR);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_FRONT_EMISSION);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_FRONT_SHININESS);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_FRONT_INDEXES);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_BACK_AMBIENT);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_BACK_DIFFUSE);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_BACK_SPECULAR);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_BACK_EMISSION);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_BACK_SHININESS);
+   SET_BIT(stage->inputs, VERT_ATTRIB_MAT_BACK_INDEXES);
+
+   if (ctx->Visual.rgbMode) {
+      SET_BIT(stage->outputs, VERT_ATTRIB_COLOR0);
+      SET_BIT(stage->outputs, VERT_ATTRIB_BACK_COLOR0);
+   }
+   else {
+      SET_BIT(stage->outputs, VERT_BIT_INDEX0);
+      SET_BIT(stage->outputs, VERT_BIT_BACK_INDEX0);
+   }
+   
+   return stage;
+}

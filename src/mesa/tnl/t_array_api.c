@@ -1,4 +1,4 @@
-/* $Id: t_array_api.c,v 1.27.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_array_api.c,v 1.27.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -150,9 +150,13 @@ _tnl_DrawArrays(GLenum mode, GLint start, GLsizei count)
       /* Locked drawarrays.  Reuse any previously transformed data.
        */
       _tnl_vb_bind_arrays( ctx, ctx->Array.LockFirst, ctx->Array.LockCount );
-      VB->FirstPrimitive = start;
-      VB->Primitive[start] = mode | PRIM_BEGIN | PRIM_END | PRIM_LAST;
-      VB->PrimitiveLength[start] = count;
+
+      VB->Primitive = &tmp_prim;
+      VB->Primitive[0].flags = mode | PRIM_BEGIN | PRIM_END | PRIM_LAST;
+      VB->Primitive[0].start = start;
+      VB->Primitive[0].finish = start + count;
+      VB->NrPrimitives = 1;
+
       tnl->Driver.RunPipeline( ctx );
    } 
    else {
@@ -229,9 +233,12 @@ _tnl_DrawArrays(GLenum mode, GLint start, GLsizei count)
 
 	 _tnl_vb_bind_arrays( ctx, j - minimum, j + nr );
 
-	 VB->FirstPrimitive = 0;
-	 VB->Primitive[0] = mode | PRIM_BEGIN | PRIM_END | PRIM_LAST;
-	 VB->PrimitiveLength[0] = nr + minimum;
+	 VB->Primitive = &tmp_prim;
+	 VB->Primitive[0].flags = mode | PRIM_BEGIN | PRIM_END | PRIM_LAST;
+	 VB->Primitive[0].start = 0;
+	 VB->Primitive[0].finish = nr + minimum;
+	 VB->NrPrimitives = 1;
+
 	 tnl->pipeline.run_input_changes |= ctx->Array._Enabled;
 	 tnl->Driver.RunPipeline( ctx );
 	 tnl->pipeline.run_input_changes |= ctx->Array._Enabled;

@@ -1,4 +1,4 @@
-/* $Id: t_vb_points.c,v 1.8 2002/01/22 14:35:17 brianp Exp $ */
+/* $Id: t_vb_points.c,v 1.8.2.1 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -108,17 +108,21 @@ static void free_point_data( struct gl_pipeline_stage *stage )
    }
 }
 
-const struct gl_pipeline_stage _tnl_point_attenuation_stage =
+
+struct gl_pipeline_stage *_tnl_normal_transform_stage( GLcontext *ctx )
 {
-   "point size attenuation",	/* name */
-   _NEW_POINT,			/* build_state_change */
-   _NEW_POINT,			/* run_state_change */
-   GL_FALSE,			/* active */
-   VERT_BIT_EYE,			/* inputs */
-   VERT_BIT_POINT_SIZE,		/* outputs */
-   0,				/* changed_inputs (temporary value) */
-   NULL,			/* stage private data */
-   free_point_data,		/* destructor */
-   check_point_size,		/* check */
-   alloc_point_data		/* run -- initially set to alloc data */
+   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "normal transform";
+   stage->recheck = _NEW_POINT;
+   stage->recalc = _NEW_POINT;
+   stage->active = GL_FALSE;
+   stage->destroy = free_point_data;
+   stage->check = check_point_size;
+   stage->run = alloc_point_data;
+
+   SET_BIT(stage->inputs, VERT_ATTRIB_POS);
+   SET_BIT(stage->outputs, VERT_ATTRIB_POINTSIZE);
+
+   return stage;
 };

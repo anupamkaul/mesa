@@ -1,4 +1,4 @@
-/* $Id: t_context.h,v 1.43.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_context.h,v 1.43.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -45,59 +45,34 @@
 
 
 /**
- * Flags that describe the inputs and outputs of pipeline stages.  We
- * reuse the VERT_BIT_* flags defined in mtypes.h and add a bunch of
- * new ones.
- */
-#define VERT_ATTRIB_INDEX    VERT_ATTRIB_SIX
-#define VERT_ATTRIB_EDGEFLAG VERT_ATTRIB_SEVEN
-/* */
-#define VERT_ATTRIB_MAT_FRONT_AMBIENT           16
-#define VERT_ATTRIB_MAT_FRONT_DIFFUSE           17
-#define VERT_ATTRIB_MAT_FRONT_SPECULAR          18 
-#define VERT_ATTRIB_MAT_FRONT_EMISSION          19
-#define VERT_ATTRIB_MAT_FRONT_SHININESS         20
-#define VERT_ATTRIB_MAT_FRONT_INDEXES           21
-#define VERT_ATTRIB_MAT_BACK_AMBIENT            22
-#define VERT_ATTRIB_MAT_BACK_DIFFUSE            23
-#define VERT_ATTRIB_MAT_BACK_SPECULAR           24
-#define VERT_ATTRIB_MAT_BACK_EMISSION           25
-#define VERT_ATTRIB_MAT_BACK_SHININESS          26
-#define VERT_ATTRIB_MAT_BACK_INDEXES            27
-#define VERT_ATTRIB_BACK_COLOR0                 28
-#define VERT_ATTRIB_BACK_COLOR1                 29
-#define VERT_ATTRIB_BACK_INDEX                  30
+ * Extend the VERT_ATTRIB_ definitions from mtypes.h.  Don't bother
+ * defining the VERT_BIT equivalents as we have to use 2 32bit bitsets
+ * to talk about these now.
+ */ 
+#define VERT_ATTRIB_INDEX                       16 /* not naturally a float */
+#define VERT_ATTRIB_EDGEFLAG                    17 /* not naturally a float */
+#define VERT_ATTRIB_POINTSIZE                   18 
+#define VERT_ATTRIB_MAT_FRONT_AMBIENT           19 
+#define VERT_ATTRIB_MAT_FRONT_DIFFUSE           20 
+#define VERT_ATTRIB_MAT_FRONT_SPECULAR          21 
+#define VERT_ATTRIB_MAT_FRONT_EMISSION          22
+#define VERT_ATTRIB_MAT_FRONT_SHININESS         23
+#define VERT_ATTRIB_MAT_FRONT_INDEXES           24
+#define VERT_ATTRIB_MAT_BACK_AMBIENT            25
+#define VERT_ATTRIB_MAT_BACK_DIFFUSE            26
+#define VERT_ATTRIB_MAT_BACK_SPECULAR           27
+#define VERT_ATTRIB_MAT_BACK_EMISSION           28
+#define VERT_ATTRIB_MAT_BACK_SHININESS          29
+#define VERT_ATTRIB_MAT_BACK_INDEXES            30
+#define VERT_ATTRIB_BACK_COLOR0                 31 
+#define VERT_ATTRIB_BACK_COLOR1                 32 
+#define VERT_ATTRIB_BACK_INDEX                  33 
 
-/* bits 0..5 defined in mtypes.h */
-#define VERT_BIT_INDEX       VERT_BIT_SIX    /* a free vertex attrib bit */
-#define VERT_BIT_EDGEFLAG    VERT_BIT_SEVEN  /* a free vertex attrib bit */
-/* bits 8..15 defined in mtypes.h */
-#define VERT_BIT_MAT_FRONT_AMBIENT           (1 << 16)
-#define VERT_BIT_MAT_FRONT_DIFFUSE           (1 << 17)
-#define VERT_BIT_MAT_FRONT_SPECULAR          (1 << 18) 
-#define VERT_BIT_MAT_FRONT_EMISSION          (1 << 19)
-#define VERT_BIT_MAT_FRONT_SHININESS         (1 << 20)
-#define VERT_BIT_MAT_FRONT_INDEXES           (1 << 21)
-#define VERT_BIT_MAT_BACK_AMBIENT            (1 << 22)
-#define VERT_BIT_MAT_BACK_DIFFUSE            (1 << 23)
-#define VERT_BIT_MAT_BACK_SPECULAR           (1 << 24)
-#define VERT_BIT_MAT_BACK_EMISSION           (1 << 25)
-#define VERT_BIT_MAT_BACK_SHININESS          (1 << 26)
-#define VERT_BIT_MAT_BACK_INDEXES            (1 << 27)
-#define VERT_BIT_BACK_COLOR                  (1 << 28)
-#define VERT_BIT_BACK_SPECULAR               (1 << 29)
+#define TEST_BIT( bset, bit ) (bset[bit/32] & (1<<(bit&31)))
+#define SET_BIT( bset, bit )  (bset[bit/32] |= (1<<(bit&31)))
+#define CLEAR_BIT( bset, bit )  (bset[bit/32] &= ~(1<<(bit&31)))
 
 
-#define VERT_BITS_MATERIAL (VERT_BIT_MAT_FRONT_AMBIENT           |	\
-			    VERT_BIT_MAT_FRONT_DIFFUSE           |	\
-			    VERT_BIT_MAT_FRONT_SPECULAR          |	\
-			    VERT_BIT_MAT_FRONT_EMISSION          |	\
-			    VERT_BIT_MAT_FRONT_SHININESS_INDEXES |	\
-			    VERT_BIT_MAT_BACK_AMBIENT            |	\
-			    VERT_BIT_MAT_BACK_DIFFUSE            |	\
-			    VERT_BIT_MAT_BACK_SPECULAR           |	\
-			    VERT_BIT_MAT_BACK_EMISSION           |	\
-			    VERT_BIT_MAT_BACK_SHININESS_INDEXES)
 
 
 /* Numbers for sizing immediate structs.
@@ -111,14 +86,17 @@ struct vertex_block
 {
    GLuint refcount;
    GLuint vertex_format[4];
-   GLubyte *verts;
+   GLuint vertex_size;
+   GLuint block_size;
+   GLubyte verts[1];
 }
 
 
-struct r200_prim {
+struct tnl_prim 
+{
    GLuint start;
    GLuint end;
-   GLuint prim;
+   GLuint flags;
 };
 
 
@@ -144,7 +122,6 @@ typedef struct vertex_buffer
    GLvector4f  *EyePtr;		                
    GLvector4f  *ClipPtr;	                
    GLvector4f  *NdcPtr;                         
-   GLubyte     ClipOrMask;	                
    GLubyte     *ClipMask;		        
    GLfloat     *NormalLengthPtr;	        
    GLvector4f  *PointSizePtr;	/* why not just a float *? */
@@ -152,9 +129,14 @@ typedef struct vertex_buffer
    struct tnl_prim  *Primitive;	              /* primitive descriptors */
    GLuint           nrPrimitives;	      /* nr */
 
-   /* All other vertex data
-    */
    GLvector4f *AttribPtr[TNL_ATTRIB_MAX]; 
+   /* All other vertex data.  Edgeflag & Index are included in here as
+    * float arrays.  This may have to change later.
+    */
+
+   GLuint AttribActive;
+   /* Bitmap: Which arrays are non-zero?
+    */
 
    GLuint LastClipped;
    /* Private data from _tnl_render_stage that has no business being
@@ -183,12 +165,12 @@ struct gl_pipeline_stage {
 				 */
 
    GLboolean active;		/* True if runnable in current state */
-   GLuint inputs;		/* VERT_* inputs to the stage */
-   GLuint outputs;		/* VERT_* outputs of the stage */
+   GLuint inputs[2];		/* VERT_* inputs to the stage */
+   GLuint outputs[2];		/* VERT_* outputs of the stage */
 
    /* Set in _tnl_run_pipeline():
     */
-   GLuint changed_inputs;	/* Generated value -- inputs to the
+   GLuint changed_inputs[2];	/* Generated value -- inputs to the
 				 * stage that have changed since last
 				 * call to 'run'.
 				 */
@@ -222,8 +204,8 @@ struct gl_pipeline {
    GLuint build_state_trigger;	  /* state changes which require build */
    GLuint build_state_changes;    /* state changes since last build */
    GLuint run_state_changes;	  /* state changes since last run */
-   GLuint run_input_changes;	  /* VERT_* changes since last run */
-   GLuint inputs;		  /* VERT_* inputs to pipeline */
+   GLuint run_input_changes[2];	  /* VERT_* changes since last run */
+   GLuint inputs[2];		  /* VERT_* inputs to pipeline */
    struct gl_pipeline_stage stages[MAX_PIPELINE_STAGES+1];
    GLuint nr_stages;
 };
@@ -235,11 +217,10 @@ struct tnl_eval_store {
    GLuint EvalMap1AttribFlags;  /* GL_NV_vertex_program */
    GLuint EvalMap2AttribFlags;  /* GL_NV_vertex_program */
    GLuint EvalNewState;
-   struct immediate *im;	/* used for temporary data */
 };
 
 
-typedef void (*points_func)( GLcontext *ctx, GLuint first, GLuint last );
+typedef void (*point_func)( GLcontext *ctx, GLuint v1 );
 typedef void (*line_func)( GLcontext *ctx, GLuint v1, GLuint v2 );
 typedef void (*triangle_func)( GLcontext *ctx,
                                GLuint v1, GLuint v2, GLuint v3 );
@@ -271,11 +252,6 @@ struct tnl_device_driver {
    /* Alert tnl-aware drivers of changes to material.
     */
 
-   GLboolean (*NotifyBegin)(GLcontext *ctx, GLenum p);
-   /* Allow drivers to hook in optimized begin/end engines.
-    * Return value:  GL_TRUE - driver handled the begin
-    *                GL_FALSE - driver didn't handle the begin
-    */
 
    /***
     *** Rendering -- These functions called only from t_vb_render.c
@@ -314,7 +290,7 @@ struct tnl_device_driver {
       void (*ClippedLine)( GLcontext *ctx, GLuint v0, GLuint v1 );
       /* Render a line between the two vertices given by indexes v0 and v1. */
 
-      points_func           Points; /* must now respect vb->elts */
+      point_func            Point;
       line_func             Line;
       triangle_func         Triangle;
       quad_func             Quad;
@@ -371,7 +347,9 @@ typedef struct {
 
    /* Display list extensions
     */
-   GLuint opcode_vertex_cassette;
+   GLuint opcode_vertex_block;
+   GLuint opcode_begin;
+   GLuint opcode_end;
 
    /* Pipeline
     */
@@ -382,16 +360,7 @@ typedef struct {
     */
    struct vertex_arrays imm_inputs;
    struct vertex_arrays array_inputs;
-   GLuint *tmp_primitive;
-   GLuint *tmp_primitive_length;
-
-   /* Set when executing an internally generated begin/end object.  If
-    * such an object is encountered in a display list, it will be
-    * replayed only if the list is outside any existing begin/end
-    * objects.  
-    */
-   GLboolean ReplayHardBeginEnd;
-
+ 
    /* Note which vertices need copying over succesive immediates.
     * Will add save versions to precompute vertex copying where
     * possible.
@@ -399,13 +368,7 @@ typedef struct {
    struct vertex_block *ExecCopySource;
    GLuint ExecCopyCount;
    GLuint ExecCopyElts[IMM_MAX_COPIED_VERTS];
-   GLuint ExecCopyTexSize;
    GLuint ExecParity;
-
-   GLuint DlistPrimitive;
-   GLuint DlistPrimitiveLength;
-   GLuint DlistLastPrimitive;
-
 
    /* Probably need a better configuration mechanism:
     */
@@ -419,7 +382,8 @@ typedef struct {
    struct tnl_eval_store eval;
 
    /* We have our own dispatch table for EXECUTE modes.  In COMPILE
-    * and COMPILE_AND_EXECUTE, we plug directly into ctx->Save.
+    * and COMPILE_AND_EXECUTE, we plug directly into ctx->Save?
+    * 
     */
    struct _glapi_table *Exec;	/* Execute funcs */
 

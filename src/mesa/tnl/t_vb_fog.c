@@ -1,4 +1,4 @@
-/* $Id: t_vb_fog.c,v 1.17.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_vb_fog.c,v 1.17.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -147,6 +147,7 @@ static GLboolean run_fog_stage( GLcontext *ctx,
       if (!ctx->_NeedEyeCoords) {
 	 const GLfloat *m = ctx->ModelviewMatrixStack.Top->m;
 	 GLfloat plane[4];
+	 GLint sz = VB->AttrPtr[VERT_ATTR_POS]->size;
 
 	 /* Use this to store calculated eye z values:
 	  */
@@ -160,17 +161,14 @@ static GLboolean run_fog_stage( GLcontext *ctx,
 	 /* Full eye coords weren't required, just calculate the
 	  * eye Z values.
 	  */
-	 _mesa_dotprod_tab[VB->ObjPtr->size]( (GLfloat *) input->data,
-					      4 * sizeof(GLfloat),
-					      VB->ObjPtr, plane );
+	 _mesa_dotprod_tab[sz]( (GLfloat *) input->data,
+				4 * sizeof(GLfloat),
+				VB->ObjPtr, plane );
 
-	 input->count = VB->ObjPtr->count;
+	 input->count = VB->Count;
       }
       else {
 	 input = &store->input;
-
-	 if (VB->EyePtr->size < 2)
-	    _mesa_vector4f_clean_elem( VB->EyePtr, VB->Count, 2 );
 
 	 input->data = (GLfloat (*)[4]) &(VB->EyePtr->data[0][2]);
 	 input->start = VB->EyePtr->start+2;
@@ -194,11 +192,15 @@ static GLboolean run_fog_stage( GLcontext *ctx,
 static void check_fog_stage( GLcontext *ctx, struct gl_pipeline_stage *stage )
 {
    stage->active = ctx->Fog.Enabled && !ctx->VertexProgram.Enabled;
-
-   if (ctx->Fog.FogCoordinateSource == GL_FRAGMENT_DEPTH_EXT)
-      stage->inputs = VERT_BIT_EYE;
-   else
-      stage->inputs = VERT_BIT_FOG;
+   
+   if (ctx->Fog.FogCoordinateSource == GL_FRAGMENT_DEPTH_EXT) {
+      SET_BIT(stage->inputs, VERT_BIT_POS);
+      CLEAR_BIT(stage->inputs, VERT_BIT_FOG);
+   }
+   else {
+      CLEAR_BIT(stage->inputs, VERT_BIT_POS);
+      SET_BIT(stage->inputs, VERT_BIT_FOG);
+   }
 }
 
 
@@ -238,17 +240,17 @@ static void free_fog_data( struct gl_pipeline_stage *stage )
 }
 
 
-const struct gl_pipeline_stage _tnl_fog_coordinate_stage =
+struct gl_pipeline_stage *_tnl_fog_stage( GLcontext *ctx )
 {
-   "build fog coordinates",	/* name */
-   _NEW_FOG,			/* check_state */
-   _NEW_FOG,			/* run_state */
-   GL_FALSE,			/* active? */
-   0,				/* inputs */
-   VERT_BIT_FOG,		/* outputs */
-   0,				/* changed_inputs */
-   NULL,			/* private_data */
-   free_fog_data,		/* dtr */
-   check_fog_stage,		/* check */
-   alloc_fog_data		/* run -- initially set to init. */
-};
+   stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "fog";
+   stage->recheck = _NEW_FOG;
+   stage->recalc = _NEW_FOG;
+   stage->active = GL_FALSE;
+   stage->destroy = free_fog_data;
+   stage->check = check_fog_stage;
+   stage->run = alloc_fog_data;
+
+   return stage;
+}

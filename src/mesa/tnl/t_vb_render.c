@@ -1,4 +1,4 @@
-/* $Id: t_vb_render.c,v 1.31.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_vb_render.c,v 1.31.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -93,8 +93,8 @@
 
 /* Vertices, with the possibility of clipping.
  */
-#define RENDER_POINTS( start, count ) \
-   tnl->Driver.Render.Points( ctx, start, count )
+#define RENDER_POINT( v1 ) \
+   if (!mask[v1]) PointFunc( ctx, v1 )
 
 #define RENDER_LINE( v1, v2 )			\
 do {						\
@@ -134,11 +134,12 @@ do {							\
    const GLuint * const elt = VB->Elts;				\
    const GLubyte *mask = VB->ClipMask;				\
    const GLuint sz = VB->ClipPtr->size;				\
+   const point_func PointFunc = tnl->Driver.Render.Point;		\
    const line_func LineFunc = tnl->Driver.Render.Line;		\
    const triangle_func TriangleFunc = tnl->Driver.Render.Triangle;	\
    const quad_func QuadFunc = tnl->Driver.Render.Quad;		\
    const GLboolean stipple = ctx->Line.StippleFlag;		\
-   (void) (LineFunc && TriangleFunc && QuadFunc);		\
+   (void) (LineFunc && TriangleFunc && QuadFunc && PointFunc);	\
    (void) elt; (void) mask; (void) sz; (void) stipple;
 
 #define TAG(x) clip_##x##_verts
@@ -205,8 +206,8 @@ static void clip_elt_triangles( GLcontext *ctx,
 
 /* Vertices, no clipping.
  */
-#define RENDER_POINTS( start, count ) \
-   tnl->Driver.Render.Points( ctx, start, count )
+#define RENDER_POINT( v1 ) \
+   PointFunc( ctx, v1 )
 
 #define RENDER_LINE( v1, v2 ) \
    LineFunc( ctx, v1, v2 )
@@ -223,11 +224,12 @@ static void clip_elt_triangles( GLcontext *ctx,
    TNLcontext *tnl = TNL_CONTEXT(ctx);				\
    struct vertex_buffer *VB = &tnl->vb;				\
    const GLuint * const elt = VB->Elts;				\
+   const point_func PointFunc = tnl->Driver.Render.Point;		\
    const line_func LineFunc = tnl->Driver.Render.Line;		\
    const triangle_func TriangleFunc = tnl->Driver.Render.Triangle;	\
    const quad_func QuadFunc = tnl->Driver.Render.Quad;		\
    const GLboolean stipple = ctx->Line.StippleFlag;		\
-   (void) (LineFunc && TriangleFunc && QuadFunc);		\
+   (void) (LineFunc && TriangleFunc && QuadFunc && PointFunc);	\
    (void) elt; (void) stipple
 
 #define RESET_STIPPLE if (stipple) tnl->Driver.Render.ResetLineStipple( ctx )
@@ -293,7 +295,7 @@ static GLboolean run_render( GLcontext *ctx,
 
    ASSERT(tnl->Driver.Render.BuildVertices);
    ASSERT(tnl->Driver.Render.PrimitiveNotify);
-   ASSERT(tnl->Driver.Render.Points);
+   ASSERT(tnl->Driver.Render.Point);
    ASSERT(tnl->Driver.Render.Line);
    ASSERT(tnl->Driver.Render.Triangle);
    ASSERT(tnl->Driver.Render.Quad);
@@ -306,7 +308,7 @@ static GLboolean run_render( GLcontext *ctx,
 
    tnl->Driver.Render.BuildVertices( ctx, 0, VB->Count, new_inputs );
 
-   if (VB->ClipOrMask) {
+   if (VB->ClipMask) {
       tab = VB->Elts ? clip_render_tab_elts : clip_render_tab_verts;
       clip_render_tab_elts[GL_TRIANGLES] = clip_elt_triangles;
    }
@@ -358,41 +360,45 @@ static GLboolean run_render( GLcontext *ctx,
  */
 static void check_render( GLcontext *ctx, struct gl_pipeline_stage *stage )
 {
-   GLuint inputs = VERT_BIT_CLIP;
    GLuint i;
 
+   stage->inputs[0] = 0;
+   stage->inputs[1] = 0;
+
+   SET_BIT(stage->inputs, VERT_ATTRIB_POS);
+
    if (ctx->Visual.rgbMode) {
-      inputs |= VERT_BIT_COLOR0;
+      SET_BIT(stage->inputs, VERT_ATTRIB_COLOR0);
 
       if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR)
-	 inputs |= VERT_BIT_COLOR1;
+	 SET_BIT(stage->inputs, VERT_ATTRIB_COLOR1);
 
       if (ctx->Texture._EnabledUnits) {
 	 for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++) {
 	    if (ctx->Texture.Unit[i]._ReallyEnabled)
-	       inputs |= VERT_BIT_TEX(i);
+	       SET_BIT(stage->inputs, VERT_ATTRIB_TEX0 + i);
 	 }
       }
    }
    else {
-      inputs |= VERT_BIT_INDEX;
+      SET_BIT(stage->inputs, VERT_ATTRIB_INDEX);
    }
 
    if (ctx->Point._Attenuated)
-      inputs |= VERT_BIT_POINT_SIZE;
+      SET_BIT(stage->inputs, VERT_ATTRIB_POINTSIZE);
 
    /* How do drivers turn this off?
     */
    if (ctx->Fog.Enabled)
-      inputs |= VERT_BIT_FOG;
+      SET_BIT(stage->inputs, VERT_ATTRIB_FOG);
 
    if (ctx->_TriangleCaps & DD_TRI_UNFILLED)
-      inputs |= VERT_BIT_EDGEFLAG;
+      SET_BIT(stage->inputs, VERT_ATTRIB_EDGEFLAG);
 
+   /* ??? */
    if (ctx->RenderMode==GL_FEEDBACK)
-      inputs |= VERT_BITS_TEX_ANY;
-
-   stage->inputs = inputs;
+      for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++) 
+	 SET_BIT(stage->inputs, VERT_ATTRIB_TEX0 + i);
 }
 
 
@@ -403,25 +409,26 @@ static void dtr( struct gl_pipeline_stage *stage )
 }
 
 
-const struct gl_pipeline_stage _tnl_render_stage =
+
+struct gl_pipeline_stage *_tnl_render_stage( GLcontext *ctx )
 {
-   "render",			/* name */
-   (_NEW_BUFFERS |
-    _DD_NEW_SEPARATE_SPECULAR |
-    _DD_NEW_FLATSHADE |
-    _NEW_TEXTURE|
-    _NEW_LIGHT|
-    _NEW_POINT|
-    _NEW_FOG|
-    _DD_NEW_TRI_UNFILLED |
-    _NEW_RENDERMODE),		/* re-check (new inputs, interp function) */
-   0,				/* re-run (always runs) */
-   GL_TRUE,			/* active? */
-   0,				/* inputs (set in check_render) */
-   0,				/* outputs */
-   0,				/* changed_inputs */
-   NULL,			/* private data */
-   dtr,				/* destructor */
-   check_render,		/* check */
-   run_render			/* run */
-};
+   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "render";
+   stage->recheck = (_NEW_BUFFERS |
+		     _DD_NEW_SEPARATE_SPECULAR |
+		     _DD_NEW_FLATSHADE |
+		     _NEW_TEXTURE|
+		     _NEW_LIGHT|
+		     _NEW_POINT|
+		     _NEW_FOG|
+		     _DD_NEW_TRI_UNFILLED |
+		     _NEW_RENDERMODE);
+   stage->recalc = 0;		/* always reruns */
+   stage->active = GL_TRUE;
+   stage->destroy = dtr;
+   stage->check = check_render;
+   stage->run = run_render;
+
+   return stage;
+}

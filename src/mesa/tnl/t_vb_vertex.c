@@ -1,4 +1,4 @@
-/* $Id: t_vb_vertex.c,v 1.14.2.1 2002/10/15 16:56:53 keithw Exp $ */
+/* $Id: t_vb_vertex.c,v 1.14.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -143,35 +143,18 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
 	 /* Separate modelview transformation:
 	  * Use combined ModelProject to avoid some depth artifacts
 	  */
-	 if (ctx->ModelviewMatrixStack.Top->type == MATRIX_IDENTITY)
-	    VB->EyePtr = VB->AttrPtr[VERT_ATTRIB_POS];
-	 else
-	    VB->EyePtr = TransformRaw( &store->eye,
-                                       ctx->ModelviewMatrixStack.Top,
-				       VB->AttrPtr[VERT_ATTRIB_POS]);
+	 VB->EyePtr = TransformRaw( &store->eye,
+				    ctx->ModelviewMatrixStack.Top,
+				    VB->AttrPtr[VERT_ATTRIB_POS]);
 
-	 /* Need to make sure ClipPtr is clean to element 4, hence the
-	  * second & third conditions:
-	  */
-	 if (ctx->ProjectionMatrixStack.Top->type == MATRIX_IDENTITY &&
-	     (ctx->ModelviewMatrixStack.Top->type != MATRIX_IDENTITY ||
-	      VB->EyePtr->Size == 4))
-	    VB->ClipPtr = VB->EyePtr;
-	 else
-	    VB->ClipPtr = TransformRaw( &store->clip,
-                                        &ctx->_ModelProjectMatrix,
-					VB->AttrPtr[VERT_ATTRIB_POS] );
+	 VB->ClipPtr = TransformRaw( &store->clip,
+				     &ctx->_ModelProjectMatrix,
+				     VB->AttrPtr[VERT_ATTRIB_POS] );
       }
       else {
-	 /* Combined modelviewproject transform:
-	  */
-	 if (ctx->_ModelProjectMatrix.type == MATRIX_IDENTITY &&
-	     VB->AttrPtr[VERT_ATTRIB_POS]->Size == 4)
-	    VB->ClipPtr = VB->AttrPtr[VERT_ATTRIB_POS];
-	 else
-	    VB->ClipPtr = TransformRaw( &store->clip,
-                                        &ctx->_ModelProjectMatrix,
-					VB->AttrPtr[VERT_ATTRIB_POS] );
+	 VB->ClipPtr = TransformRaw( &store->clip,
+				     &ctx->_ModelProjectMatrix,
+				     VB->AttrPtr[VERT_ATTRIB_POS] );
       }
 
 
@@ -217,8 +200,7 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
 	    return GL_FALSE;
       }
 
-      VB->ClipOrMask = store->ormask;
-      VB->ClipMask = store->clipmask;
+      VB->ClipMask = store->ormask ? store->clipmask : 0;
 
       store->save_eyeptr = VB->EyePtr;
       store->save_clipptr = VB->ClipPtr;
@@ -230,8 +212,7 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
       VB->EyePtr = store->save_eyeptr;
       VB->ClipPtr = store->save_clipptr;
       VB->NdcPtr = store->save_ndcptr;
-      VB->ClipMask = store->clipmask;
-      VB->ClipOrMask = store->ormask;
+      VB->ClipMask = store->ormask ? store->clipmask : 0;
       if (store->andmask)
 	 return GL_FALSE;
    }
@@ -291,20 +272,27 @@ static void dtr( struct gl_pipeline_stage *stage )
 }
 
 
-const struct gl_pipeline_stage _tnl_vertex_transform_stage =
+
+struct gl_pipeline_stage *_tnl_vertex_transform_stage( GLcontext *ctx )
 {
-   "modelview/project/cliptest/divide",
-   0,				/* re-check -- always on */
-   _MESA_NEW_NEED_EYE_COORDS |
-   _NEW_MODELVIEW|
-   _NEW_PROJECTION|
-   _NEW_TRANSFORM,		/* re-run */
-   GL_TRUE,			/* active */
-   VERT_BIT_POS,		/* inputs */
-   VERT_BIT_EYE|VERT_BIT_CLIP,		/* outputs */
-   0,				/* changed_inputs */
-   NULL,			/* private data */
-   dtr,				/* destructor */
-   check_vertex,		/* check */
-   init_vertex_stage		/* run -- initially set to init */
-};
+   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "texture transform";
+   stage->recheck = 0;
+   stage->recalc = (_MESA_NEW_NEED_EYE_COORDS |
+		    _NEW_MODELVIEW|
+		    _NEW_PROJECTION|
+		    _NEW_TRANSFORM);
+
+   stage->active = GL_TRUE;
+   stage->destroy = dtr;
+   stage->check = check_vertex;
+   stage->run = init_vertex_stage;
+
+   SET_BIT( stage->inputs, VERT_ATTRIB_POS );
+   SET_BIT( stage->outputs, VERT_ATTRIB_POS );
+
+   return stage;
+}
+
+

@@ -1,4 +1,4 @@
-/* $Id: t_pipeline.c,v 1.22.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_pipeline.c,v 1.22.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -51,10 +51,12 @@ void _tnl_install_pipeline( GLcontext *ctx,
    ASSERT(pipe->nr_stages == 0);
 
    pipe->run_state_changes = ~0;
-   pipe->run_input_changes = ~0;
+   pipe->run_input_changes[0] = ~0;
+   pipe->run_input_changes[1] = ~0;
    pipe->build_state_changes = ~0;
    pipe->build_state_trigger = 0;
-   pipe->inputs = 0;
+   pipe->inputs[0] = 0;
+   pipe->inputs[1] = 0;
 
    /* Create a writeable copy of each stage.
     */
@@ -87,30 +89,44 @@ void _tnl_validate_pipeline( GLcontext *ctx )
    struct gl_pipeline *pipe = &tnl->pipeline;
    struct gl_pipeline_stage *s = pipe->stages;
    GLuint newstate = pipe->build_state_changes;
-   GLuint generated = 0;
-   GLuint changed_inputs = 0;
+   GLuint generated[2];
+   GLuint changed_inputs[2];
 
-   pipe->inputs = 0;
+   generated[0] = 0;
+   generated[1] = 0;
+   changed_inputs[0] = 0;
+   changed_inputs[1] = 0;
+   pipe->inputs[0] = 0;
+   pipe->inputs[1] = 0;
    pipe->build_state_changes = 0;
 
    for ( ; s->check ; s++) {
 
-      s->changed_inputs |= s->inputs & changed_inputs;
+      s->changed_inputs[0] |= s->inputs[0] & changed_inputs[0];
+      s->changed_inputs[1] |= s->inputs[1] & changed_inputs[1];
 
       if (s->check_state & newstate) {
 	 if (s->active) {
-	    GLuint old_outputs = s->outputs;
+	    GLuint old_outputs[2];
+	    old_outputs[0] = s->outputs[0];
+	    old_outputs[1] = s->outputs[1];
+
 	    s->check(ctx, s);
-	    if (!s->active)
-	       changed_inputs |= old_outputs;
+
+	    if (!s->active) {
+	       changed_inputs[0] |= old_outputs[0];
+	       changed_inputs[1] |= old_outputs[1];
+	    }
 	 }
 	 else
 	    s->check(ctx, s);
       }
 
       if (s->active) {
-	 pipe->inputs |= s->inputs & ~generated;
-	 generated |= s->outputs;
+	 pipe->inputs[0] |= s->inputs[0] & ~generated[0];
+	 pipe->inputs[1] |= s->inputs[1] & ~generated[1];
+	 generated[0] |= s->outputs[1];
+	 generated[0] |= s->outputs[1];
       }
    }
 }
@@ -124,12 +140,15 @@ void _tnl_run_pipeline( GLcontext *ctx )
    struct gl_pipeline *pipe = &tnl->pipeline;
    struct gl_pipeline_stage *s = pipe->stages;
    GLuint changed_state = pipe->run_state_changes;
-   GLuint changed_inputs = pipe->run_input_changes;
+   GLuint changed_inputs[2];
    GLboolean running = GL_TRUE;
    unsigned short __tmp;
 
+   changed_inputs[0] = pipe->run_input_changes[0];
+   changed_inputs[1] = pipe->run_input_changes[1];
+   pipe->run_input_changes[0] = 0;
+   pipe->run_input_changes[1] = 0;
    pipe->run_state_changes = 0;
-   pipe->run_input_changes = 0;
 
    /* Done elsewhere.
     */
@@ -143,18 +162,24 @@ void _tnl_run_pipeline( GLcontext *ctx )
     * state-changes.
     */
    for ( ; s->run ; s++) {
-      s->changed_inputs |= s->inputs & changed_inputs;
+      s->changed_inputs[0] |= s->inputs[0] & changed_inputs[0];
+      s->changed_inputs[1] |= s->inputs[1] & changed_inputs[1];
 
-      if (s->run_state & changed_state)
-	 s->changed_inputs = s->inputs;
+      if (s->run_state & changed_state) {
+	 s->changed_inputs[0] = s->inputs[0];
+	 s->changed_inputs[1] = s->inputs[1];
+      }
 
       if (s->active && running) {
-	 if (s->changed_inputs)
-	    changed_inputs |= s->outputs;
+	 if (s->changed_inputs[0] | s->changed_inputs[1]) {
+	    changed_inputs[0] |= s->outputs[0];
+	    changed_inputs[1] |= s->outputs[1];
+	 }
 
 	 running = s->run( ctx, s );
 
-	 s->changed_inputs = 0;
+	 s->changed_inputs[0] = 0;
+	 s->changed_inputs[1] = 0;
       }
    }
 

@@ -1,4 +1,4 @@
-/* $Id: t_vb_normals.c,v 1.15.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_vb_normals.c,v 1.15.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -183,17 +183,20 @@ static void free_normal_data( struct gl_pipeline_stage *stage )
 
 
 
-const struct gl_pipeline_stage _tnl_normal_transform_stage =
+struct gl_pipeline_stage *_tnl_normal_transform_stage( GLcontext *ctx )
 {
-   "normal transform",		/* name */
-   _TNL_NEW_NORMAL_TRANSFORM,	/* re-check */
-   _TNL_NEW_NORMAL_TRANSFORM,	/* re-run */
-   GL_FALSE,			/* active? */
-   VERT_BIT_NORMAL,		/* inputs */
-   VERT_BIT_NORMAL,		/* outputs */
-   0,				/* changed_inputs */
-   NULL,			/* private data */
-   free_normal_data,		/* destructor */
-   check_normal_transform,	/* check */
-   alloc_normal_data		/* run -- initially set to alloc */
+   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "normal transform";
+   stage->recheck = _TNL_NEW_NORMAL_TRANSFORM;
+   stage->recalc = _TNL_NEW_NORMAL_TRANSFORM;
+   stage->active = GL_FALSE;
+   stage->destroy = free_normal_data;
+   stage->check = check_normal_transform;
+   stage->run = alloc_normal_data;
+
+   SET_BIT(stage->inputs, VERT_ATTRIB_NORMAL);
+   SET_BIT(stage->outputs, VERT_ATTRIB_NORMAL);
+
+   return stage;
 };

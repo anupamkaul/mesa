@@ -1,4 +1,4 @@
-/* $Id: t_vb_texmat.c,v 1.8.2.1 2002/10/15 16:56:53 keithw Exp $ */
+/* $Id: t_vb_texmat.c,v 1.8.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -61,15 +61,18 @@ static void check_texmat( GLcontext *ctx, struct gl_pipeline_stage *stage )
    stage->active = 0;
 
    if (ctx->Texture._TexMatEnabled && !ctx->VertexProgram.Enabled) {
-      GLuint flags = 0;
-
-      for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++)
-	 if (ctx->Texture._TexMatEnabled & ENABLE_TEXMAT(i))
-	    flags |= VERT_BIT_TEX(i);
-
       stage->active = 1;
-      stage->inputs = flags;
-      stage->outputs = flags;
+      stage->inputs[0] = 0;
+      stage->inputs[1] = 0;
+      stage->outputs[0] = 0;
+      stage->outputs[1] = 0;
+
+      for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++) {
+	 if (ctx->Texture._TexMatEnabled & ENABLE_TEXMAT(i)) {
+	    SET_BIT(stage->outputs, VERT_ATTRIB_TEX0+i);
+	    SET_BIT(stage->inputs, VERT_ATTRIB_TEX0+i);
+	 }
+      }
    }
 }
 
@@ -134,19 +137,19 @@ static void free_texmat_data( struct gl_pipeline_stage *stage )
    }
 }
 
-
-
-const struct gl_pipeline_stage _tnl_texture_transform_stage =
+struct gl_pipeline_stage *_tnl_texture_transform_stage( GLcontext *ctx )
 {
-   "texture transform",			/* name */
-   _NEW_TEXTURE|_NEW_TEXTURE_MATRIX,	/* check_state */
-   _NEW_TEXTURE|_NEW_TEXTURE_MATRIX,	/* run_state */
-   GL_FALSE,				/* active? */
-   0,					/* inputs */
-   0,					/* outputs */
-   0,					/* changed_inputs */
-   NULL,				/* private data */
-   free_texmat_data,			/* destructor */
-   check_texmat,			/* check */
-   alloc_texmat_data,			/* run -- initially set to init */
-};
+   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+
+   stage->name = "texture transform";
+   stage->recheck = _NEW_TEXTURE|_NEW_TEXTURE_MATRIX;
+   stage->recalc = _NEW_TEXTURE|_NEW_TEXTURE_MATRIX;
+   stage->active = GL_FALSE;
+   stage->destroy = free_texmat_data;
+   stage->check = check_texmat;
+   stage->run = alloc_texmat_data;
+
+   return stage;
+}
+
+

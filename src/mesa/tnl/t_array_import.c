@@ -1,4 +1,4 @@
-/* $Id: t_array_import.c,v 1.25.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_array_import.c,v 1.25.2.2 2002/10/17 14:26:37 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -58,15 +58,15 @@ static void _tnl_import_vertex( GLcontext *ctx,
 			   writeable,
 			   &is_writeable);
 
-   inputs->Obj.data = (GLfloat (*)[4]) tmp->Ptr;
-   inputs->Obj.start = (GLfloat *) tmp->Ptr;
-   inputs->Obj.stride = tmp->StrideB;
-   inputs->Obj.size = tmp->Size;
-   inputs->Obj.flags &= ~(VEC_BAD_STRIDE|VEC_NOT_WRITEABLE);
-   if (inputs->Obj.stride != 4*sizeof(GLfloat))
-      inputs->Obj.flags |= VEC_BAD_STRIDE;
+   inputs->Attribs[VERT_ATTRIB_POS].data = (GLfloat (*)[4]) tmp->Ptr;
+   inputs->Attribs[VERT_ATTRIB_POS].start = (GLfloat *) tmp->Ptr;
+   inputs->Attribs[VERT_ATTRIB_POS].stride = tmp->StrideB;
+   inputs->Attribs[VERT_ATTRIB_POS].size = tmp->Size;
+   inputs->Attribs[VERT_ATTRIB_POS].flags &= ~(VEC_BAD_STRIDE|VEC_NOT_WRITEABLE);
+   if (inputs->Attribs[VERT_ATTRIB_POS].stride != 4*sizeof(GLfloat))
+      inputs->Attribs[VERT_ATTRIB_POS].flags |= VEC_BAD_STRIDE;
    if (!is_writeable)
-      inputs->Obj.flags |= VEC_NOT_WRITEABLE;
+      inputs->Attribs[VERT_ATTRIB_POS].flags |= VEC_NOT_WRITEABLE;
 }
 
 static void _tnl_import_normal( GLcontext *ctx,
@@ -288,20 +288,20 @@ void _tnl_vb_bind_arrays( GLcontext *ctx, GLint start, GLsizei count )
 
    if (inputs & VERT_BIT_POS) {
       _tnl_import_vertex( ctx, 0, 0 );
-      tmp->Obj.count = VB->Count;
-      VB->ObjPtr = &tmp->Obj;
+      tmp->Attribs[VERT_ATTRIB_POS].count = VB->Count;
+      VB->AttribPtr[VERT_ATTRIB_POS] = &tmp->Obj;
    }
 
    if (inputs & VERT_BIT_NORMAL) {
       _tnl_import_normal( ctx, 0, 0 );
-      tmp->Normal.count = VB->Count;
-      VB->NormalPtr = &tmp->Normal;
+      tmp->Attribs[VERT_ATTRIB_NORMAL].count = VB->Count;
+      VB->AttribPtr[VERT_ATTRIB_NORMAL] = &tmp->Attribs[VERT_ATTRIB_NORMAL];
    }
 
    if (inputs & VERT_BIT_COLOR0) {
       _tnl_import_color( ctx, 0, 0, 0 );
-      VB->ColorPtr[0] = &tmp->Color;
-      VB->ColorPtr[1] = 0;
+      VB->AttribPtr[VERT_ATTRIB_COLOR0] = &tmp->Attribs[VERT_ATTRIB_COLOR0];
+      VB->AttribPtr[VERT_ATTRIB_BACK_COLOR0] = 0;
    }
 
    if (inputs & VERT_BITS_TEX_ANY) {
@@ -309,8 +309,9 @@ void _tnl_vb_bind_arrays( GLcontext *ctx, GLint start, GLsizei count )
       for (unit = 0; unit < ctx->Const.MaxTextureUnits; unit++) {
 	 if (inputs & VERT_BIT_TEX(unit)) {
 	    _tnl_import_texcoord( ctx, unit, GL_FALSE, GL_FALSE );
-	    tmp->TexCoord[unit].count = VB->Count;
-	    VB->TexCoordPtr[unit] = &tmp->TexCoord[unit];
+	    tmp->Attribs[VERT_ATTRIB_TEX0+unit].count = VB->Count;
+	    VB->AttribPtr[VERT_ATTRIB_TEX0+unit] =
+	       &tmp->Attribs[VERT_ATTRIB_TEX0+unit];
 	 }
       }
    }
@@ -324,30 +325,35 @@ void _tnl_vb_bind_arrays( GLcontext *ctx, GLint start, GLsizei count )
 	 VB->IndexPtr[1] = 0;
       }
 
-      if (inputs & VERT_BIT_FOG) {
-	 _tnl_import_fogcoord( ctx, 0, 0 );
-	 tmp->FogCoord.count = VB->Count;
-	 VB->FogCoordPtr = &tmp->FogCoord;
-      }
-
       if (inputs & VERT_BIT_EDGEFLAG) {
 	 _tnl_import_edgeflag( ctx, GL_TRUE, sizeof(GLboolean) );
 	 VB->EdgeFlag = (GLboolean *) tmp->EdgeFlag.data;
       }
 
+
+      if (inputs & VERT_BIT_FOG) {
+	 _tnl_import_fogcoord( ctx, 0, 0 );
+	 tmp->Attribs[VERT_ATTRIB_FOG].count = VB->Count;
+	 VB->AttribPtr[VERT_ATTRIB_FOG] = &tmp->Attribs[VERT_ATTRIB_FOG];
+      }
+
       if (inputs & VERT_BIT_COLOR1) {
 	 _tnl_import_secondarycolor( ctx, 0, 0, 0 );
-	 VB->SecondaryColorPtr[0] = &tmp->SecondaryColor;
-	 VB->SecondaryColorPtr[1] = 0;
+	 tmp->Attribs[VERT_ATTRIB_COLOR1].count = VB->Count;
+	 VB->AttribPtr[VERT_ATTRIB_COLOR1] = &tmp->Attribs[VERT_ATTRIB_COLOR1];
+	 VB->AttribPtr[VERT_ATTRIB_BACK_COLOR1] = 0;
       }
    }
 
-   /* XXX not 100% sure this is finished.  Keith should probably inspect. */
+   /* If vertex programs are enabled, vertex-attrib arrays override
+    * the old type arrays, where enabled.
+    */
    if (ctx->VertexProgram.Enabled) {
       GLuint index;
       for (index = 0; index < VERT_ATTRIB_MAX; index++) {
          /* XXX check program->InputsRead to reduce work here */
          _tnl_import_attrib( ctx, index, GL_FALSE, GL_TRUE );
+         VB->AttribPtr[index].count = VB->Count;
          VB->AttribPtr[index] = &tmp->Attribs[index];
       }
    }

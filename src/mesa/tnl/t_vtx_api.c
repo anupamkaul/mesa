@@ -471,26 +471,26 @@ static void _tnl_Materialfv( GLenum face, GLenum pname,
 
    switch (pname) {
    case GL_EMISSION:
-      MAT( VERT_ATTRIB_FRONT_EMMISSION, 4, face, params );
+      MAT( VERT_ATTRIB_MAT_FRONT_EMMISSION, 4, face, params );
       break;
    case GL_AMBIENT:
-      MAT( VERT_ATTRIB_FRONT_AMBIENT, 4, face, params );
+      MAT( VERT_ATTRIB_MAT_FRONT_AMBIENT, 4, face, params );
       break;
    case GL_DIFFUSE:
-      MAT( VERT_ATTRIB_FRONT_DIFFUSE, 4, face, params );
+      MAT( VERT_ATTRIB_MAT_FRONT_DIFFUSE, 4, face, params );
       break;
    case GL_SPECULAR:
-      MAT( VERT_ATTRIB_FRONT_SPECULAR, 4, face, params );
+      MAT( VERT_ATTRIB_MAT_FRONT_SPECULAR, 4, face, params );
       break;
    case GL_SHININESS:
-      MAT( VERT_ATTRIB_FRONT_SHININESS, 1, face, params );
+      MAT( VERT_ATTRIB_MAT_FRONT_SHININESS, 1, face, params );
       break;
    case GL_COLOR_INDEXES:
-      MAT( VERT_ATTRIB_FRONT_EMMISSION, 3, face, params ); /* ??? */
+      MAT( VERT_ATTRIB_MAT_FRONT_INDEXES, 3, face, params ); /* ??? */
       break;
    case GL_AMBIENT_AND_DIFFUSE:
-      MAT( VERT_ATTRIB_FRONT_AMBIENT, 4, face, params );
-      MAT( VERT_ATTRIB_FRONT_DIFFUSE, 4, face, params );
+      MAT( VERT_ATTRIB_MAT_FRONT_AMBIENT, 4, face, params );
+      MAT( VERT_ATTRIB_MAT_FRONT_DIFFUSE, 4, face, params );
       break;
    default:
       _mesa_error( ctx, GL_INVALID_ENUM, where );
