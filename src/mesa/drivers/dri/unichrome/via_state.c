@@ -168,12 +168,6 @@ void viaEmitState(viaContextPtr vmesa)
       OUT_RING( ((HC_SubA_HLPRF << 24) | ctx->Line.StippleFactor) );
       ADVANCE_RING();
    }
-   else {
-      BEGIN_RING(2);
-      OUT_RING( ((HC_SubA_HLP << 24) | 0xFFFF) );         
-      OUT_RING( ((HC_SubA_HLPRF << 24) | 0xFFFF) );              
-      ADVANCE_RING();
-   }
 
    BEGIN_RING(1);
    OUT_RING( ((HC_SubA_HPixGC << 24) | 0x0) );             
@@ -840,6 +834,60 @@ get_wrap_mode( GLenum sWrap, GLenum tWrap )
     return v;
 }
 
+static u_int32_t
+get_minmag_filter( GLenum min, GLenum mag )
+{
+    u_int32_t v = 0;
+
+    switch (min) {
+    case GL_NEAREST:
+        v = HC_HTXnFLSs_Nearest |
+            HC_HTXnFLTs_Nearest;
+        break;
+    case GL_LINEAR:
+        v = HC_HTXnFLSs_Linear |
+            HC_HTXnFLTs_Linear;
+        break;
+    case GL_NEAREST_MIPMAP_NEAREST:
+        v = HC_HTXnFLSs_Nearest |
+            HC_HTXnFLTs_Nearest;
+        v |= HC_HTXnFLDs_Nearest;
+        break;
+    case GL_LINEAR_MIPMAP_NEAREST:
+        v = HC_HTXnFLSs_Linear |
+            HC_HTXnFLTs_Linear;
+        v |= HC_HTXnFLDs_Nearest;
+        break;
+    case GL_NEAREST_MIPMAP_LINEAR:
+        v = HC_HTXnFLSs_Nearest |
+            HC_HTXnFLTs_Nearest;
+        v |= HC_HTXnFLDs_Linear;
+        break;
+    case GL_LINEAR_MIPMAP_LINEAR:
+        v = HC_HTXnFLSs_Linear |
+            HC_HTXnFLTs_Linear;
+        v |= HC_HTXnFLDs_Linear;
+        break;
+    default:
+        break;
+    }
+
+    switch (mag) {
+    case GL_LINEAR:
+        v |= HC_HTXnFLSe_Linear |
+             HC_HTXnFLTe_Linear;
+	break;
+    case GL_NEAREST:
+        v |= HC_HTXnFLSe_Nearest |
+             HC_HTXnFLTe_Nearest;
+	break;
+    default:
+        break;
+    }
+
+    return v;
+}
+
 
 static GLboolean viaChooseTextureState(GLcontext *ctx) 
 {
@@ -868,59 +916,15 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
 	      fprintf(stderr, "format 1: 0x%04x\n", texObj1->Image[0][0]->Format);
 	}
 
+        vmesa->regEnable |= HC_HenTXMP_MASK | HC_HenTXCH_MASK | HC_HenTXPP_MASK;
 
         if (texUnit0->_ReallyEnabled) {
             struct gl_texture_object *texObj = texUnit0->_Current;
 
 	    if (VIA_DEBUG) fprintf(stderr, "texUnit0->_ReallyEnabled\n");    
-
-            vmesa->regEnable |= HC_HenTXMP_MASK | HC_HenTXCH_MASK | HC_HenTXPP_MASK;
    
-            switch (texObj->MinFilter) {
-            case GL_NEAREST:
-                vmesa->regHTXnTB_0 = HC_HTXnFLSs_Nearest |
-                                     HC_HTXnFLTs_Nearest;
-                break;
-            case GL_LINEAR:
-                vmesa->regHTXnTB_0 = HC_HTXnFLSs_Linear |
-                                     HC_HTXnFLTs_Linear;
-                break;
-            case GL_NEAREST_MIPMAP_NEAREST:
-                vmesa->regHTXnTB_0 = HC_HTXnFLSs_Nearest |
-                                     HC_HTXnFLTs_Nearest;
-                vmesa->regHTXnTB_0 |= HC_HTXnFLDs_Nearest;
-                break;
-            case GL_LINEAR_MIPMAP_NEAREST:
-                vmesa->regHTXnTB_0 = HC_HTXnFLSs_Linear |
-                                     HC_HTXnFLTs_Linear;
-                vmesa->regHTXnTB_0 |= HC_HTXnFLDs_Nearest;
-                break;
-            case GL_NEAREST_MIPMAP_LINEAR:
-                vmesa->regHTXnTB_0 = HC_HTXnFLSs_Nearest |
-                                     HC_HTXnFLTs_Nearest;
-                vmesa->regHTXnTB_0 |= HC_HTXnFLDs_Linear;
-                break;
-            case GL_LINEAR_MIPMAP_LINEAR:
-                vmesa->regHTXnTB_0 = HC_HTXnFLSs_Linear |
-                                     HC_HTXnFLTs_Linear;
-                vmesa->regHTXnTB_0 |= HC_HTXnFLDs_Linear;
-                break;
-            default:
-                break;
-            }
-
-    	    switch (texObj->MagFilter) {
-	    case GL_LINEAR:
-                vmesa->regHTXnTB_0 |= HC_HTXnFLSe_Linear |
-                                      HC_HTXnFLTe_Linear;
-		break;
-	    case GL_NEAREST:
-                vmesa->regHTXnTB_0 |= HC_HTXnFLSe_Nearest |
-                                      HC_HTXnFLTe_Nearest;
-		break;
-	    default:
- 	       break;
-            }
+	    vmesa->regHTXnTB_0 = get_minmag_filter( texObj->MinFilter,
+						    texObj->MagFilter );
 
 	    vmesa->regHTXnMPMD_0 &= ~(HC_HTXnMPMD_SMASK | HC_HTXnMPMD_TMASK);
 	    vmesa->regHTXnMPMD_0 |= get_wrap_mode( texObj->WrapS,
@@ -935,54 +939,8 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
         if (texUnit1->_ReallyEnabled) {
             struct gl_texture_object *texObj = texUnit1->_Current;
 
-            vmesa->regEnable |= HC_HenTXMP_MASK | HC_HenTXCH_MASK | HC_HenTXPP_MASK;
-
-            switch (texObj->MinFilter) {
-            case GL_NEAREST:
-                vmesa->regHTXnTB_1 = HC_HTXnFLSs_Nearest |
-                                     HC_HTXnFLTs_Nearest;
-                break;
-            case GL_LINEAR:
-                vmesa->regHTXnTB_1 = HC_HTXnFLSs_Linear |
-                                     HC_HTXnFLTs_Linear;
-                break;
-            case GL_NEAREST_MIPMAP_NEAREST:
-                vmesa->regHTXnTB_1 = HC_HTXnFLSs_Nearest |
-                                     HC_HTXnFLTs_Nearest;
-                vmesa->regHTXnTB_1 |= HC_HTXnFLDs_Nearest;
-                break ;
-            case GL_LINEAR_MIPMAP_NEAREST:
-                vmesa->regHTXnTB_1 = HC_HTXnFLSs_Linear |
-                                     HC_HTXnFLTs_Linear;
-                vmesa->regHTXnTB_1 |= HC_HTXnFLDs_Nearest;
-                break ;
-            case GL_NEAREST_MIPMAP_LINEAR:
-                vmesa->regHTXnTB_1 = HC_HTXnFLSs_Nearest |
-                                     HC_HTXnFLTs_Nearest;
-                vmesa->regHTXnTB_1 |= HC_HTXnFLDs_Linear;
-                break ;
-            case GL_LINEAR_MIPMAP_LINEAR:
-                vmesa->regHTXnTB_1 = HC_HTXnFLSs_Linear |
-                                     HC_HTXnFLTs_Linear;
-                vmesa->regHTXnTB_1 |= HC_HTXnFLDs_Linear;
-                break ;
-            default:
-                break;
-            }
-
-	    switch(texObj->MagFilter) {
-	    case GL_LINEAR:
-               vmesa->regHTXnTB_1 |= HC_HTXnFLSe_Linear |
-                                     HC_HTXnFLTe_Linear;
-	       break;
-	    case GL_NEAREST:
-               vmesa->regHTXnTB_1 |= HC_HTXnFLSe_Nearest |
-                                     HC_HTXnFLTe_Nearest;
-	       break;
-	    default:
-	       break;
-	    }
-	    
+	    vmesa->regHTXnTB_1 = get_minmag_filter( texObj->MinFilter,
+						    texObj->MagFilter );
 	    vmesa->regHTXnMPMD_1 &= ~(HC_HTXnMPMD_SMASK | HC_HTXnMPMD_TMASK);
 	    vmesa->regHTXnMPMD_1 |= get_wrap_mode( texObj->WrapS,
 						   texObj->WrapT );
