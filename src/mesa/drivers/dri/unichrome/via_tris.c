@@ -724,13 +724,15 @@ static void viaChooseVertexState( GLcontext *ctx )
    }
 
    /* t_context.c always includes a diffuse color */
-   EMIT_ATTR( _TNL_ATTRIB_COLOR0, EMIT_4UB_4F_BGRA, VIA_EMIT_RGBA, HC_HVPMSK_Cd );
+   EMIT_ATTR( _TNL_ATTRIB_COLOR0, EMIT_4UB_4F_BGRA, VIA_EMIT_RGBA, 
+	      HC_HVPMSK_Cd );
       
    vmesa->specoffset = 0;
    if (index & (_TNL_BIT_COLOR1|_TNL_BIT_FOG)) {
       if ((index & _TNL_BIT_COLOR1)) {
 	 vmesa->specoffset = vmesa->coloroffset + 1;
-	 EMIT_ATTR( _TNL_ATTRIB_COLOR1, EMIT_3UB_3F_BGR, VIA_EMIT_SPEC, HC_HVPMSK_Cs );
+	 EMIT_ATTR( _TNL_ATTRIB_COLOR1, EMIT_3UB_3F_BGR, VIA_EMIT_SPEC, 
+		    HC_HVPMSK_Cs );
       }
       else
 	 EMIT_PAD( 3 );
@@ -743,13 +745,16 @@ static void viaChooseVertexState( GLcontext *ctx )
 
    if (index & _TNL_BIT_TEX(0)) {
       if (vmesa->ptexHack)
-	 EMIT_ATTR( _TNL_ATTRIB_TEX0, EMIT_3F_XYW, VIA_EMIT_PTEX0, (HC_HVPMSK_S | HC_HVPMSK_T) );
+	 EMIT_ATTR( _TNL_ATTRIB_TEX0, EMIT_3F_XYW, VIA_EMIT_PTEX0, 
+		    (HC_HVPMSK_S | HC_HVPMSK_T) );
       else 
-	 EMIT_ATTR( _TNL_ATTRIB_TEX0, EMIT_2F, VIA_EMIT_TEX0, (HC_HVPMSK_S | HC_HVPMSK_T) );
+	 EMIT_ATTR( _TNL_ATTRIB_TEX0, EMIT_2F, VIA_EMIT_TEX0, 
+		    (HC_HVPMSK_S | HC_HVPMSK_T) );
    }
 
    if (index & _TNL_BIT_TEX(1)) {
-      EMIT_ATTR( _TNL_ATTRIB_TEX1, EMIT_2F, VIA_EMIT_TEX1, (HC_HVPMSK_S | HC_HVPMSK_T) );
+      EMIT_ATTR( _TNL_ATTRIB_TEX1, EMIT_2F, VIA_EMIT_TEX1, 
+		 (HC_HVPMSK_S | HC_HVPMSK_T) );
    }
 
    if (setupIndex != vmesa->setupIndex) {
@@ -858,15 +863,17 @@ void viaRasterPrimitive(GLcontext *ctx,
    RING_VARS;
 
    if (VIA_DEBUG & DEBUG_PRIMS) 
-      fprintf(stderr, "%s: %s/%s\n", __FUNCTION__, _mesa_lookup_enum_by_nr(glprim),
+      fprintf(stderr, "%s: %s/%s\n", 
+	      __FUNCTION__, _mesa_lookup_enum_by_nr(glprim),
 	      _mesa_lookup_enum_by_nr(hwprim));
 
    vmesa->renderPrimitive = glprim;
 
    if (hwprim != vmesa->hwPrimitive) {
       VIA_FINISH_PRIM(vmesa);
-    
-      viaCheckDma( vmesa, 1024 );	/* Ensure no wrapping inside this function  */
+
+      /* Ensure no wrapping inside this function  */    
+      viaCheckDma( vmesa, 1024 );	
 
       if (vmesa->newEmitState) {
 	 viaEmitState(vmesa);
@@ -883,7 +890,8 @@ void viaRasterPrimitive(GLcontext *ctx,
       switch (hwprim) {
       case GL_POINTS:
 	 vmesa->regCmdA_End |= HC_HPMType_Point | HC_HVCycle_Full;
-	 vmesa->regCmdA_End |= HC_HShading_Gouraud; /* always Gouraud shade points?!? */
+	 vmesa->regCmdA_End |= HC_HShading_Gouraud; /* always Gouraud 
+						       shade points?!? */
 	 break;
       case GL_LINES:
 	 vmesa->regCmdA_End |= HC_HPMType_Line | HC_HVCycle_Full;
@@ -993,7 +1001,8 @@ void viaFinishPrimitive(struct via_context *vmesa)
       assert(0);
    }
    else if (vmesa->dmaLow != vmesa->dmaLastPrim) {
-      GLuint cmdA = vmesa->regCmdA_End | HC_HPLEND_MASK | HC_HPMValidN_MASK | HC_HE3Fire_MASK;    
+      GLuint cmdA = (vmesa->regCmdA_End | HC_HPLEND_MASK | 
+		     HC_HPMValidN_MASK | HC_HE3Fire_MASK); 
       RING_VARS;
 
       vmesa->dmaLastPrim = 0;

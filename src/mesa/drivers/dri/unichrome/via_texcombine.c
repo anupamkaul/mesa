@@ -111,7 +111,8 @@ viaTexCombineState( struct via_context *vmesa,
    unsigned constant_alpha[3];
    unsigned bias_alpha = 0;
    unsigned abc_alpha = 0;
-   const struct gl_texture_unit const * texUnit = & vmesa->glCtx->Texture.Unit[unit];
+   const struct gl_texture_unit const * texUnit = 
+      &vmesa->glCtx->Texture.Unit[unit];
    unsigned env_color[4];
 
    /* It seems that the color clamping can be overwhelmed at the 4x
@@ -314,7 +315,9 @@ viaTexCombineState( struct via_context *vmesa,
       case GL_PREVIOUS:
 	 alpha_arg[i] = (unit == 0) ? HC_XTA_Adif : HC_XTA_Acur;
 	 alpha_arg[i] += alpha_operand_modifier[op];
-	 bias_alpha_arg[i] = (unit == 0) ? HC_HTXnTBLAbias_Adif : HC_HTXnTBLAbias_Acur;
+	 bias_alpha_arg[i] = (unit == 0 ? 
+			      HC_HTXnTBLAbias_Adif : 
+			      HC_HTXnTBLAbias_Acur);
 	 bias_alpha_arg[i] += bias_alpha_operand_modifier[op];
 	 break;
       }

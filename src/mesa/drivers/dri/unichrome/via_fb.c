@@ -133,11 +133,12 @@ via_alloc_texture(struct via_context *vmesa,
       t->index = fb.index;
 
       if (t->memType == VIA_MEM_AGP) {
-	 t->bufAddr = (unsigned char *)((GLuint)vmesa->viaScreen->agpLinearStart + fb.offset); 	
+	 t->bufAddr = (GLubyte *)((GLuint)vmesa->viaScreen->agpLinearStart +
+				  fb.offset); 	
 	 t->texBase = (GLuint)vmesa->agpBase + fb.offset;
       }
       else {
-	 t->bufAddr = (unsigned char *)(fb.offset + (GLuint)vmesa->driScreen->pFB);
+	 t->bufAddr = (GLubyte *)(fb.offset + (GLuint)vmesa->driScreen->pFB);
 	 t->texBase = fb.offset;
       }
 
@@ -192,7 +193,8 @@ via_release_pending_textures( struct via_context *vmesa )
    foreach_s( s, tmp, &vmesa->freed_tex_buffers ) {
       if (s->lastUsed < vmesa->lastBreadcrumbRead) {
 	 if (VIA_DEBUG & DEBUG_TEXTURE)
-	    fprintf(stderr, "%s: release tex sz %d lastUsed %x\n",__FUNCTION__, s->size, s->lastUsed); 
+	    fprintf(stderr, "%s: release tex sz %d lastUsed %x\n",
+		    __FUNCTION__, s->size, s->lastUsed); 
 	 remove_from_list(s);
 	 via_do_free_texture(vmesa, s);
       }

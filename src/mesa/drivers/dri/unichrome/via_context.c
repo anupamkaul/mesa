@@ -170,7 +170,8 @@ calculate_buffer_parameters( struct via_context *vmesa )
    /* Allocate back-buffer */
    if (vmesa->hasBack) {
       vmesa->back.bpp = vmesa->viaScreen->bitsPerPixel;
-      vmesa->back.pitch = (buffer_align( vmesa->driDrawable->w ) << shift) + extra;
+      vmesa->back.pitch = (buffer_align( vmesa->driDrawable->w ) << shift);
+      vmesa->back.pitch += extra;
       vmesa->back.pitch = MIN2(vmesa->back.pitch, vmesa->front.pitch);
       vmesa->back.size = vmesa->back.pitch * vmesa->driDrawable->h;
       if (vmesa->back.map)
@@ -191,7 +192,8 @@ calculate_buffer_parameters( struct via_context *vmesa )
       if (vmesa->depth.bpp == 24)
 	 vmesa->depth.bpp = 32;
 
-      vmesa->depth.pitch = (buffer_align( vmesa->driDrawable->w ) * (vmesa->depth.bpp/8)) + extra;
+      vmesa->depth.pitch = (buffer_align( vmesa->driDrawable->w ) * 
+			    (vmesa->depth.bpp/8)) + extra;
       vmesa->depth.size = vmesa->depth.pitch * vmesa->driDrawable->h;
 
       if (vmesa->depth.map)
@@ -420,7 +422,8 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     else
         shareCtx = NULL;
 
-    vmesa->glCtx = _mesa_create_context(mesaVis, shareCtx, &functions, (void*) vmesa);
+    vmesa->glCtx = _mesa_create_context(mesaVis, shareCtx, &functions,
+					(void*) vmesa);
     
     vmesa->shareCtx = shareCtx;
     
@@ -542,12 +545,14 @@ viaCreateContext(const __GLcontextModes *mesaVis,
 
     /* Hack this up in its place:
      */
-    vmesa->vblank_flags = getenv("VIA_VSYNC") ? VBLANK_FLAG_SYNC : VBLANK_FLAG_NO_IRQ;
+    vmesa->vblank_flags = (getenv("VIA_VSYNC") ? 
+			   VBLANK_FLAG_SYNC : VBLANK_FLAG_NO_IRQ);
 
     if (getenv("VIA_PAGEFLIP"))
        vmesa->allowPageFlip = 1;
    
-    vmesa->get_ust = (PFNGLXGETUSTPROC) glXGetProcAddress( (const GLubyte *) "__glXGetUST" );
+    vmesa->get_ust = 
+       (PFNGLXGETUSTPROC) glXGetProcAddress( (const GLubyte *) "__glXGetUST" );
     if ( vmesa->get_ust == NULL ) {
        vmesa->get_ust = get_ust_nop;
     }
@@ -568,7 +573,8 @@ void
 viaDestroyContext(__DRIcontextPrivate *driContextPriv)
 {
     GET_CURRENT_CONTEXT(ctx);
-    struct via_context *vmesa = (struct via_context *)driContextPriv->driverPrivate;
+    struct via_context *vmesa = 
+       (struct via_context *)driContextPriv->driverPrivate;
     struct via_context *current = ctx ? VIA_CONTEXT(ctx) : NULL;
     assert(vmesa); /* should never be null */
 
@@ -633,7 +639,8 @@ void viaXMesaWindowMoved(struct via_context *vmesa)
        vmesa->drawH != dPriv->h) 
       calculate_buffer_parameters( vmesa );
 
-   vmesa->drawXoff = (GLuint)(((dPriv->x * bytePerPixel) & 0x1f) / bytePerPixel);  
+   vmesa->drawXoff = (GLuint)(((dPriv->x * bytePerPixel) & 0x1f) / 
+			      bytePerPixel);  
    vmesa->drawX = dPriv->x - vmesa->drawXoff;
    vmesa->drawY = dPriv->y;
    vmesa->drawW = dPriv->w;
@@ -673,7 +680,8 @@ viaMakeCurrent(__DRIcontextPrivate *driContextPriv,
     }	
 
     if (driContextPriv) {
-        struct via_context *vmesa = (struct via_context *)driContextPriv->driverPrivate;
+        struct via_context *vmesa = 
+	   (struct via_context *)driContextPriv->driverPrivate;
 	GLcontext *ctx = vmesa->glCtx;
 
 	if ( vmesa->driDrawable != driDrawPriv ) {
@@ -735,12 +743,13 @@ viaSwapBuffers(__DRIdrawablePrivate *drawablePrivate)
 {
     __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *)drawablePrivate;
 
-    if (dPriv && dPriv->driContextPriv && dPriv->driContextPriv->driverPrivate) {
-        struct via_context *vmesa;
-        GLcontext *ctx;
-	
-        vmesa = (struct via_context *)dPriv->driContextPriv->driverPrivate;
-        ctx = vmesa->glCtx;
+    if (dPriv && 
+	dPriv->driContextPriv && 
+	dPriv->driContextPriv->driverPrivate) {
+        struct via_context *vmesa = 
+	   (struct via_context *)dPriv->driContextPriv->driverPrivate;
+        GLcontext *ctx = vmesa->glCtx;
+
         if (ctx->Visual.doubleBufferMode) {
             _mesa_notifySwapBuffers(ctx);
             if (vmesa->doPageFlip) {

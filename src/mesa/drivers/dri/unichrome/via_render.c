@@ -119,7 +119,8 @@ static GLboolean via_run_fastrender(GLcontext *ctx,
 }
 
 
-static void via_check_fastrender(GLcontext *ctx, struct tnl_pipeline_stage *stage)
+static void via_check_fastrender(GLcontext *ctx, 
+				 struct tnl_pipeline_stage *stage)
 {
    stage->inputs = TNL_CONTEXT(ctx)->render_inputs;
 }

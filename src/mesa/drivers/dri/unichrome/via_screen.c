@@ -162,7 +162,8 @@ viaInitDriver(__DRIscreenPrivate *sPriv)
 
    if ( driCompareGLXAPIVersion( 20030813 ) >= 0 ) {
       PFNGLXSCRENABLEEXTENSIONPROC glx_enable_extension =
-          (PFNGLXSCRENABLEEXTENSIONPROC) glXGetProcAddress( (const GLubyte *) "__glXScrEnableExtension" );
+          (PFNGLXSCRENABLEEXTENSIONPROC) glXGetProcAddress( 
+	     (const GLubyte *) "__glXScrEnableExtension" );
       void * const psc = sPriv->psc->screenConfigs;
 
       if ( glx_enable_extension != NULL ) {
@@ -321,7 +322,8 @@ viaFillInModes( unsigned pixel_bits, GLboolean have_back_buffer )
     modes = (*create_context_modes)( num_modes, sizeof( __GLcontextModes ) );
     m = modes;
     if ( ! driFillInModes( & m, fb_format, fb_type,
-			   depth_bits_array, stencil_bits_array, depth_buffer_factor,
+			   depth_bits_array, stencil_bits_array, 
+			   depth_buffer_factor,
 			   back_buffer_modes, back_buffer_factor,
 			   GLX_TRUE_COLOR ) ) {
 	fprintf( stderr, "[%s:%u] Error creating FBConfig!\n",
@@ -330,7 +332,8 @@ viaFillInModes( unsigned pixel_bits, GLboolean have_back_buffer )
     }
 
     if ( ! driFillInModes( & m, fb_format, fb_type,
-			   depth_bits_array, stencil_bits_array, depth_buffer_factor,
+			   depth_bits_array, stencil_bits_array, 
+			   depth_buffer_factor,
 			   back_buffer_modes, back_buffer_factor,
 			   GLX_DIRECT_COLOR ) ) {
 	fprintf( stderr, "[%s:%u] Error creating FBConfig!\n",
@@ -355,7 +358,8 @@ viaFillInModes( unsigned pixel_bits, GLboolean have_back_buffer )
  */
 #ifdef USE_NEW_INTERFACE
 PUBLIC
-void * __driCreateNewScreen( __DRInativeDisplay *dpy, int scrn, __DRIscreen *psc,
+void * __driCreateNewScreen( __DRInativeDisplay *dpy, int scrn,
+			     __DRIscreen *psc,
 			     const __GLcontextModes * modes,
 			     const __DRIversion * ddx_version,
 			     const __DRIversion * dri_version,

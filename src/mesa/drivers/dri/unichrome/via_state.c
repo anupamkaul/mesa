@@ -105,13 +105,13 @@ void viaEmitState(struct via_context *vmesa)
       pitch = vmesa->depth.pitch;
 	
       BEGIN_RING(6);
-      OUT_RING( ((HC_SubA_HZWBBasL << 24) | (offset & 0xFFFFFF)) );
-      OUT_RING( ((HC_SubA_HZWBBasH << 24) | ((offset & 0xFF000000) >> 24)) );	
-      OUT_RING( ((HC_SubA_HZWBType << 24) | HC_HDBLoc_Local | HC_HZONEasFF_MASK | 
-	         format | pitch) );            
-      OUT_RING( ((HC_SubA_HZWTMD << 24) | vmesa->regHZWTMD) );
-      OUT_RING( ((HC_SubA_HSTREF << 24) | vmesa->regHSTREF) );
-      OUT_RING( ((HC_SubA_HSTMD << 24) | vmesa->regHSTMD) );
+      OUT_RING( (HC_SubA_HZWBBasL << 24) | (offset & 0xFFFFFF) );
+      OUT_RING( (HC_SubA_HZWBBasH << 24) | ((offset & 0xFF000000) >> 24) );	
+      OUT_RING( (HC_SubA_HZWBType << 24) | HC_HDBLoc_Local | HC_HZONEasFF_MASK |
+	         format | pitch );            
+      OUT_RING( (HC_SubA_HZWTMD << 24) | vmesa->regHZWTMD );
+      OUT_RING( (HC_SubA_HSTREF << 24) | vmesa->regHSTREF );
+      OUT_RING( (HC_SubA_HSTMD << 24) | vmesa->regHSTMD );
       ADVANCE_RING();
    }
    else if (vmesa->hasDepth) {
@@ -129,54 +129,54 @@ void viaEmitState(struct via_context *vmesa)
       pitch = vmesa->depth.pitch;
 	
       BEGIN_RING(4);
-      OUT_RING( ((HC_SubA_HZWBBasL << 24) | (offset & 0xFFFFFF)) );
-      OUT_RING( ((HC_SubA_HZWBBasH << 24) | ((offset & 0xFF000000) >> 24)) );	
-      OUT_RING( ((HC_SubA_HZWBType << 24) | HC_HDBLoc_Local | HC_HZONEasFF_MASK | 
-	         format | pitch) );            
-      OUT_RING( ((HC_SubA_HZWTMD << 24) | vmesa->regHZWTMD) );
+      OUT_RING( (HC_SubA_HZWBBasL << 24) | (offset & 0xFFFFFF) );
+      OUT_RING( (HC_SubA_HZWBBasH << 24) | ((offset & 0xFF000000) >> 24) );
+      OUT_RING( (HC_SubA_HZWBType << 24) | HC_HDBLoc_Local | HC_HZONEasFF_MASK |
+	         format | pitch );
+      OUT_RING( (HC_SubA_HZWTMD << 24) | vmesa->regHZWTMD );
       ADVANCE_RING();
    }
     
    if (ctx->Color.AlphaEnabled) {
       BEGIN_RING(1);
-      OUT_RING( ((HC_SubA_HATMD << 24) | vmesa->regHATMD) );
+      OUT_RING( (HC_SubA_HATMD << 24) | vmesa->regHATMD );
       ADVANCE_RING();
       i++;
    }   
 
    if (ctx->Color.BlendEnabled) {
       BEGIN_RING(11);
-      OUT_RING( ((HC_SubA_HABLCsat << 24) | vmesa->regHABLCsat) );
-      OUT_RING( ((HC_SubA_HABLCop  << 24) | vmesa->regHABLCop) ); 
-      OUT_RING( ((HC_SubA_HABLAsat << 24) | vmesa->regHABLAsat) );        
-      OUT_RING( ((HC_SubA_HABLAop  << 24) | vmesa->regHABLAop) ); 
-      OUT_RING( ((HC_SubA_HABLRCa  << 24) | vmesa->regHABLRCa) ); 
-      OUT_RING( ((HC_SubA_HABLRFCa << 24) | vmesa->regHABLRFCa) );        
-      OUT_RING( ((HC_SubA_HABLRCbias << 24) | vmesa->regHABLRCbias) );    
-      OUT_RING( ((HC_SubA_HABLRCb  << 24) | vmesa->regHABLRCb) ); 
-      OUT_RING( ((HC_SubA_HABLRFCb << 24) | vmesa->regHABLRFCb) );        
-      OUT_RING( ((HC_SubA_HABLRAa  << 24) | vmesa->regHABLRAa) ); 
-      OUT_RING( ((HC_SubA_HABLRAb  << 24) | vmesa->regHABLRAb) ); 
+      OUT_RING( (HC_SubA_HABLCsat << 24) | vmesa->regHABLCsat );
+      OUT_RING( (HC_SubA_HABLCop  << 24) | vmesa->regHABLCop ); 
+      OUT_RING( (HC_SubA_HABLAsat << 24) | vmesa->regHABLAsat );        
+      OUT_RING( (HC_SubA_HABLAop  << 24) | vmesa->regHABLAop ); 
+      OUT_RING( (HC_SubA_HABLRCa  << 24) | vmesa->regHABLRCa ); 
+      OUT_RING( (HC_SubA_HABLRFCa << 24) | vmesa->regHABLRFCa );        
+      OUT_RING( (HC_SubA_HABLRCbias << 24) | vmesa->regHABLRCbias ); 
+      OUT_RING( (HC_SubA_HABLRCb  << 24) | vmesa->regHABLRCb ); 
+      OUT_RING( (HC_SubA_HABLRFCb << 24) | vmesa->regHABLRFCb );        
+      OUT_RING( (HC_SubA_HABLRAa  << 24) | vmesa->regHABLRAa ); 
+      OUT_RING( (HC_SubA_HABLRAb  << 24) | vmesa->regHABLRAb ); 
       ADVANCE_RING();
    }
     
    if (ctx->Fog.Enabled) {
       BEGIN_RING(3);
-      OUT_RING( ((HC_SubA_HFogLF << 24) | vmesa->regHFogLF) );        
-      OUT_RING( ((HC_SubA_HFogCL << 24) | vmesa->regHFogCL) );            
-      OUT_RING( ((HC_SubA_HFogCH << 24) | vmesa->regHFogCH) );            
+      OUT_RING( (HC_SubA_HFogLF << 24) | vmesa->regHFogLF ); 
+      OUT_RING( (HC_SubA_HFogCL << 24) | vmesa->regHFogCL ); 
+      OUT_RING( (HC_SubA_HFogCH << 24) | vmesa->regHFogCH ); 
       ADVANCE_RING();
    }
     
    if (ctx->Line.StippleFlag) {
       BEGIN_RING(2);
-      OUT_RING( ((HC_SubA_HLP << 24) | ctx->Line.StipplePattern) );           
-      OUT_RING( ((HC_SubA_HLPRF << 24) | ctx->Line.StippleFactor) );
+      OUT_RING( (HC_SubA_HLP << 24) | ctx->Line.StipplePattern ); 
+      OUT_RING( (HC_SubA_HLPRF << 24) | ctx->Line.StippleFactor );
       ADVANCE_RING();
    }
 
    BEGIN_RING(1);
-   OUT_RING( ((HC_SubA_HPixGC << 24) | 0x0) );             
+   OUT_RING( (HC_SubA_HPixGC << 24) | 0x0 ); 
    ADVANCE_RING();
     
    QWORD_PAD_RING();
@@ -515,8 +515,10 @@ void viaEmitState(struct via_context *vmesa)
       OUT_RING( stipple[0] );             
       OUT_RING( HC_HEADER2 );                     
       OUT_RING( (HC_ParaType_NotTex << 16) );
-      OUT_RING( ((HC_SubA_HSPXYOS << 24) | (((31 - vmesa->drawX) & 0x1f) << HC_HSPXOS_SHIFT)));
-      OUT_RING( ((HC_SubA_HSPXYOS << 24) | (((31 - vmesa->drawX) & 0x1f) << HC_HSPXOS_SHIFT)));
+      OUT_RING( (HC_SubA_HSPXYOS << 24) | 
+		(((31 - vmesa->drawX) & 0x1f) << HC_HSPXOS_SHIFT));
+      OUT_RING( (HC_SubA_HSPXYOS << 24) | 
+		(((31 - vmesa->drawX) & 0x1f) << HC_HSPXOS_SHIFT));
       ADVANCE_RING();
    }
    
@@ -539,7 +541,9 @@ static __inline__ GLuint viaPackColor(GLuint bpp,
    }
 }
 
-static void viaBlendEquationSeparate(GLcontext *ctx, GLenum rgbMode, GLenum aMode)
+static void viaBlendEquationSeparate(GLcontext *ctx,
+				     GLenum rgbMode, 
+				     GLenum aMode)
 {
     if (VIA_DEBUG & DEBUG_STATE) 
        fprintf(stderr, "%s in\n", __FUNCTION__);
@@ -548,7 +552,8 @@ static void viaBlendEquationSeparate(GLcontext *ctx, GLenum rgbMode, GLenum aMod
     ASSERT(rgbMode == aMode);
 
     /* Can only do GL_ADD equation in hardware */
-    FALLBACK(VIA_CONTEXT(ctx), VIA_FALLBACK_BLEND_EQ, rgbMode != GL_FUNC_ADD_EXT);
+    FALLBACK(VIA_CONTEXT(ctx), VIA_FALLBACK_BLEND_EQ, 
+	     rgbMode != GL_FUNC_ADD_EXT);
 
     /* BlendEquation sets ColorLogicOpEnabled in an unexpected
      * manner.
@@ -619,7 +624,8 @@ static void viaScissor(GLcontext *ctx, GLint x, GLint y,
        return;
 
     if (VIA_DEBUG & DEBUG_STATE)
-       fprintf(stderr, "%s %d,%d %dx%d, drawH %d\n", __FUNCTION__, x,y,w,h, vmesa->driDrawable->h);
+       fprintf(stderr, "%s %d,%d %dx%d, drawH %d\n", __FUNCTION__, 
+	       x,y,w,h, vmesa->driDrawable->h);
 
     if (vmesa->scissor) {
         VIA_FLUSH_DMA(vmesa); /* don't pipeline cliprect changes */
@@ -901,9 +907,10 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
 	    vmesa->regHTXnTB[0] &= ~(HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
             if (texObj->Image[0][texObj->BaseLevel]->Border > 0) {
 	       vmesa->regHTXnTB[0] |= (HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
-	       vmesa->regHTXnTBC[0] = PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
-						    FLOAT_TO_UBYTE(texObj->BorderColor[1]),
-						    FLOAT_TO_UBYTE(texObj->BorderColor[2]));
+	       vmesa->regHTXnTBC[0] = 
+		  PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
+				 FLOAT_TO_UBYTE(texObj->BorderColor[1]),
+				 FLOAT_TO_UBYTE(texObj->BorderColor[2]));
 	       vmesa->regHTXnTRAH[0] = FLOAT_TO_UBYTE(texObj->BorderColor[3]);
             }
 
@@ -933,9 +940,10 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
 	    vmesa->regHTXnTB[1] &= ~(HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
             if (texObj->Image[0][texObj->BaseLevel]->Border > 0) {
 	       vmesa->regHTXnTB[1] |= (HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
-	       vmesa->regHTXnTBC[1] = PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
-						    FLOAT_TO_UBYTE(texObj->BorderColor[1]),
-						    FLOAT_TO_UBYTE(texObj->BorderColor[2]));
+	       vmesa->regHTXnTBC[1] = 
+		  PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
+				 FLOAT_TO_UBYTE(texObj->BorderColor[1]),
+				 FLOAT_TO_UBYTE(texObj->BorderColor[2]));
 	       vmesa->regHTXnTRAH[1] = FLOAT_TO_UBYTE(texObj->BorderColor[3]);
             }
 
@@ -955,7 +963,8 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
         }
     }
     else {
-        vmesa->regEnable &= (~(HC_HenTXMP_MASK | HC_HenTXCH_MASK | HC_HenTXPP_MASK));
+        vmesa->regEnable &= ~(HC_HenTXMP_MASK | HC_HenTXCH_MASK | 
+			      HC_HenTXPP_MASK);
     }
     
     return GL_TRUE;
@@ -975,12 +984,10 @@ static void viaChooseColorState(GLcontext *ctx)
         vmesa->regEnable |= HC_HenABL_MASK;
         /* Ca  -- always from source color.
          */
-        vmesa->regHABLCsat = HC_HABLCsat_MASK | HC_HABLCa_OPC |
-                             HC_HABLCa_Csrc;
+        vmesa->regHABLCsat = HC_HABLCsat_MASK | HC_HABLCa_OPC | HC_HABLCa_Csrc;
         /* Aa  -- always from source alpha.
          */
-        vmesa->regHABLAsat = HC_HABLAsat_MASK | HC_HABLAa_OPA |
-                             HC_HABLAa_Asrc;
+        vmesa->regHABLAsat = HC_HABLAsat_MASK | HC_HABLAa_OPA | HC_HABLAa_Asrc;
         /* FCa -- depend on following condition.
          * FAa -- depend on following condition.
          */
@@ -1042,8 +1049,10 @@ static void viaChooseColorState(GLcontext *ctx)
                 if (vmesa->viaScreen->bitsPerPixel == 16) {
                     /* (1, 1, 1, 1)
                      */
-                    vmesa->regHABLCsat |= HC_HABLFCa_InvOPC | HC_HABLFCa_HABLRCa;
-                    vmesa->regHABLAsat |= HC_HABLFAa_InvOPA | HC_HABLFAa_HABLFRA;
+                    vmesa->regHABLCsat |= (HC_HABLFCa_InvOPC | 
+					   HC_HABLFCa_HABLRCa);
+                    vmesa->regHABLAsat |= (HC_HABLFAa_InvOPA | 
+					   HC_HABLFAa_HABLFRA);
                     vmesa->regHABLRFCa = 0x0;
                     vmesa->regHABLRAa = 0x0;
                 }
@@ -1080,15 +1089,18 @@ static void viaChooseColorState(GLcontext *ctx)
                      * So (f, f, f, 1) = (0, 0, 0, 1)
                      */
                     vmesa->regHABLCsat |= HC_HABLFCa_OPC | HC_HABLFCa_HABLRCa;
-                    vmesa->regHABLAsat |= HC_HABLFAa_InvOPA | HC_HABLFAa_HABLFRA;
+                    vmesa->regHABLAsat |= (HC_HABLFAa_InvOPA | 
+					   HC_HABLFAa_HABLFRA);
                     vmesa->regHABLRFCa = 0x0;
                     vmesa->regHABLRAa = 0x0;
                 }
                 else {
                     /* (f, f, f, 1), f = min(As, 1 - Ad)
                      */
-                    vmesa->regHABLCsat |= HC_HABLFCa_OPC | HC_HABLFCa_mimAsrcInvAdst;
-                    vmesa->regHABLAsat |= HC_HABLFAa_InvOPA | HC_HABLFAa_HABLFRA;
+                    vmesa->regHABLCsat |= (HC_HABLFCa_OPC | 
+					   HC_HABLFCa_mimAsrcInvAdst);
+                    vmesa->regHABLAsat |= (HC_HABLFAa_InvOPA | 
+					   HC_HABLFAa_HABLFRA);
                     vmesa->regHABLRFCa = 0x0;
                     vmesa->regHABLRAa = 0x0;
                 }

@@ -323,7 +323,7 @@ static GLboolean viaSwapInTexObject( struct via_context *vmesa,
 				     struct via_texture_object *viaObj )
 {
    const struct via_texture_image *baseImage = 
-      (struct via_texture_image *)viaObj->obj.Image[0][viaObj->obj.BaseLevel];   
+      (struct via_texture_image *)viaObj->obj.Image[0][viaObj->obj.BaseLevel]; 
 
    if (VIA_DEBUG & DEBUG_TEXTURE)
       fprintf(stderr, "%s\n", __FUNCTION__);
@@ -463,7 +463,7 @@ static GLboolean viaSetTexImages(GLcontext *ctx,
       lastLevel = MAX2(lastLevel, texObj->BaseLevel);
       lastLevel = MIN2(lastLevel, texObj->BaseLevel + baseImage->image.MaxLog2);
       lastLevel = MIN2(lastLevel, texObj->MaxLevel);
-      lastLevel = MAX2(firstLevel, lastLevel);        /* need at least one level */
+      lastLevel = MAX2(firstLevel, lastLevel);     /* need at least one level */
    }
 
    numLevels = lastLevel - firstLevel + 1;
@@ -489,7 +489,8 @@ static GLboolean viaSetTexImages(GLcontext *ctx,
       if (!viaSwapInTexObject(vmesa, viaObj)) {
  	 if (VIA_DEBUG & DEBUG_TEXTURE) 
 	    if (!vmesa->thrashing)
-	       fprintf(stderr, "Thrashing flag set for frame %d\n", vmesa->swap_count);
+	       fprintf(stderr, "Thrashing flag set for frame %d\n", 
+		       vmesa->swap_count);
 	 vmesa->thrashing = GL_TRUE;
 	 return GL_FALSE;
       }
@@ -525,18 +526,18 @@ static GLboolean viaSetTexImages(GLcontext *ctx,
       viaImage->texMem->lastUsed = vmesa->lastBreadcrumbWrite;
 
 
-      viaObj->regTexBaseAndPitch[i].baseL = (((HC_SubA_HTXnL0BasL + i) << 24) | 
-					(texBase & 0xFFFFFF));
+      viaObj->regTexBaseAndPitch[i].baseL = 
+	 ((HC_SubA_HTXnL0BasL + i) << 24) | (texBase & 0xFFFFFF);
 
-      viaObj->regTexBaseAndPitch[i].pitchLog2 = (((HC_SubA_HTXnL0Pit + i) << 24) |
-					    (p << 20));
+      viaObj->regTexBaseAndPitch[i].pitchLog2 = 
+	 ((HC_SubA_HTXnL0Pit + i) << 24) | (p << 20);
 					      
 					      
       /* The base high bytes for each 3 levels are packed
        * together into one register:
        */
       j = i / 3;
-      k = 3 - (i % 3);                                              
+      k = 3 - (i % 3);
       basH |= ((texBase & 0xFF000000) >> (k << 3));
       if (k == 1) {
 	 viaObj->regTexBaseH[j] = ((j + HC_SubA_HTXnL012BasH) << 24) | basH;
@@ -551,8 +552,10 @@ static GLboolean viaSetTexImages(GLcontext *ctx,
       widthExp |= (((GLuint)w & 0xF) << (m << 2));
       heightExp |= (((GLuint)h & 0xF) << (m << 2));
       if (m == 5) {
-	 viaObj->regTexWidthLog2[l] = ((l + HC_SubA_HTXnL0_5WE) << 24 | widthExp);
-	 viaObj->regTexHeightLog2[l] = ((l + HC_SubA_HTXnL0_5HE) << 24 | heightExp);  
+	 viaObj->regTexWidthLog2[l] = 
+	    (l + HC_SubA_HTXnL0_5WE) << 24 | widthExp;
+	 viaObj->regTexHeightLog2[l] = 
+	    (l + HC_SubA_HTXnL0_5HE) << 24 | heightExp;
 	 widthExp = 0;
 	 heightExp = 0;
       }
@@ -565,8 +568,8 @@ static GLboolean viaSetTexImages(GLcontext *ctx,
       viaObj->regTexBaseH[j] = ((j + HC_SubA_HTXnL012BasH) << 24) | basH;      
    }
    if (m != 5) {
-      viaObj->regTexWidthLog2[l] = ((l + HC_SubA_HTXnL0_5WE) << 24 | widthExp);
-      viaObj->regTexHeightLog2[l] = ((l + HC_SubA_HTXnL0_5HE) << 24 | heightExp);
+      viaObj->regTexWidthLog2[l] = (l + HC_SubA_HTXnL0_5WE) << 24 | widthExp;
+      viaObj->regTexHeightLog2[l] = (l + HC_SubA_HTXnL0_5HE) << 24 | heightExp;
    }
 
    return GL_TRUE;
@@ -721,7 +724,8 @@ static void viaTexImage(GLcontext *ctx,
 
    vmesa->clearTexCache = 1;
 
-   pixels = _mesa_validate_pbo_teximage(ctx, dims, width, height, 1, format, type,
+   pixels = _mesa_validate_pbo_teximage(ctx, dims, width, height, 1, 
+					format, type,
 					pixels, packing, "glTexImage");
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
