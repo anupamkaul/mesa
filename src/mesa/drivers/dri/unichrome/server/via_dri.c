@@ -446,10 +446,6 @@ static int VIADRIScreenInit(DRIDriverContext * ctx)
     
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[dri] frame buffer initialized.\n" );
  
-    /*pVIADRI->drixinerama = pVia->drixinerama;*/
-    /*=* John Sheng [2003.12.9] Tuxracer & VQ *=*/
-    pVIADRI->VQEnable = pVia->VQEnable;
-
     return VIADRIFinishScreenInit(ctx);
 }
 
@@ -509,7 +505,7 @@ VIADRIFinishScreenInit(DRIDriverContext * ctx)
                                sizeof(drm_sarea_t));
 	assert(saPriv);
 	memset(saPriv, 0, sizeof(*saPriv));
-	saPriv->CtxOwner = -1;
+	saPriv->ctxOwner = -1;
     }
     pVIADRI=(VIADRIPtr)pVia->devPrivate;
     pVIADRI->deviceID=pVia->Chipset;  
