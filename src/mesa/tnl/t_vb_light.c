@@ -50,6 +50,7 @@ struct material_cursor {
    const GLfloat *ptr;
    GLuint stride;
    GLfloat *current;
+   GLuint size;  /* 1, 2, 3 or 4 */
 };
 
 struct light_stage_data {
@@ -79,7 +80,7 @@ static void update_materials( GLcontext *ctx,
    GLuint i;
 
    for (i = 0 ; i < store->mat_count ; i++) {
-      COPY_4V(store->mat[i].current, store->mat[i].ptr);
+      COPY_CLEAN_4V(store->mat[i].current, store->mat[i].size, store->mat[i].ptr);
       STRIDE_F(store->mat[i].ptr, store->mat[i].stride);
    }
       
@@ -110,8 +111,9 @@ static GLuint prepare_materials( GLcontext *ctx,
       if (VB->AttribPtr[i]->stride) {
 	 GLuint j = store->mat_count++;
 	 GLuint attr = i - _TNL_ATTRIB_MAT_FRONT_AMBIENT;
-	 store->mat[j].ptr = VB->AttribPtr[i]->start;
+	 store->mat[j].ptr    = VB->AttribPtr[i]->start;
 	 store->mat[j].stride = VB->AttribPtr[i]->stride;
+         store->mat[j].size   = VB->AttribPtr[i]->size;
 	 store->mat[j].current = ctx->Light.Material.Attrib[attr];
 	 store->mat_bitmask |= (1<<attr);
       }
