@@ -477,7 +477,7 @@ static int MGAMemoryInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
     */
    pMga->textureSize = ctx->shared.fbSize;
 
-   if (pMga->textureSize <= 0)
+   if (pMga->textureSize < 0)
       return 0;
 
    l = mylog2( pMga->textureSize / MGA_NR_TEX_REGIONS );
