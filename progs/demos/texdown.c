@@ -82,6 +82,8 @@ FormatStr(GLenum format)
          return "GL_RGB";
       case GL_RGBA:
          return "GL_RGBA";
+      case GL_BGRA:
+         return "GL_BGRA";
       default:
          return "";
    }
