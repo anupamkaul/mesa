@@ -454,6 +454,8 @@ void viaWaitIdle( struct via_context *vmesa )
 
    while(!viaCheckIdle(vmesa))
       ;
+
+   via_release_pending_textures(vmesa);
 }
 
 
@@ -479,6 +481,8 @@ void viaWaitIdleLocked( struct via_context *vmesa )
 
    while(!viaCheckIdle(vmesa))
       ;
+
+   via_release_pending_textures(vmesa);
 }
 
 
@@ -604,7 +608,7 @@ void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
     */
    if (dPriv->numClipRects && vmesa->sarea->pfCurrentOffset != 0) {
       viaResetPageFlippingLocked(vmesa);
-      UNLOCK_HARDWARE(vmesa);xo
+      UNLOCK_HARDWARE(vmesa);
       return;
    }
 
