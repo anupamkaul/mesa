@@ -371,7 +371,7 @@ GLboolean viaSwapOutWork( struct via_context *vmesa )
 	    if (VIA_DEBUG & DEBUG_TEXTURE)
 	       fprintf(stderr, 
 		       "back copy tex sz %d, lastUsed %d lastSwap %d\n", 
-		       s->size, s->lastUsed, vmesa->lastSwap);
+		       s->size, s->lastUsed, vmesa->lastSwap[1]);
 
 	    done += s->size;
 	    viaMoveTexBuffers( vmesa, &s, 1, VIA_MEM_SYSTEM );
@@ -381,7 +381,7 @@ GLboolean viaSwapOutWork( struct via_context *vmesa )
 	    if (VIA_DEBUG & DEBUG_TEXTURE)
 	       fprintf(stderr, 
 		       "don't touch tex sz %d, lastUsed %d lastSwap %d\n", 
-		       s->size, s->lastUsed, vmesa->lastSwap);
+		       s->size, s->lastUsed, vmesa->lastSwap[1]);
 	 }
 
 	 if (done > target)
