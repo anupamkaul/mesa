@@ -800,57 +800,51 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 static int mgaInitScreenConfigs( struct DRIDriverContextRec *ctx,
                                  int *numConfigs, __GLXvisualConfig **configs)
 {
-   int i;
-
-   *numConfigs = 1;
+   *numConfigs = 2;
    *configs = (__GLXvisualConfig *) calloc(*numConfigs, 
                                            sizeof(__GLXvisualConfig));
 
    /* ARGB */
-   for (i = 0; i < *numConfigs; i++) {
-      (*configs)[i].vid = 100 + i;
-      (*configs)[i].class = TrueColor;
-      (*configs)[i].rgba = True;
-      (*configs)[i].redSize = 8;
-      (*configs)[i].greenSize = 8;
-      (*configs)[i].blueSize = 8;
-      (*configs)[i].alphaSize = 8;
-      (*configs)[i].redMask = 0xff0000;
-      (*configs)[i].greenMask = 0xff00;
-      (*configs)[i].blueMask = 0xff;
-      (*configs)[i].alphaMask = 0xff000000;
-      (*configs)[i].doubleBuffer = True;
-      (*configs)[i].stereo = False;
-      (*configs)[i].bufferSize = 32;
-      (*configs)[i].depthSize = 24;
-      (*configs)[i].stencilSize = 8;
-      (*configs)[i].auxBuffers = 0;
-      (*configs)[i].level = 0;
+      (*configs)[0].vid = 1;
+      (*configs)[0].class = TrueColor;
+      (*configs)[0].rgba = True;
+      (*configs)[0].redSize = 8;
+      (*configs)[0].greenSize = 8;
+      (*configs)[0].blueSize = 8;
+      (*configs)[0].alphaSize = 8;
+      (*configs)[0].redMask = 0xff0000;
+      (*configs)[0].greenMask = 0xff00;
+      (*configs)[0].blueMask = 0xff;
+      (*configs)[0].alphaMask = 0xff000000;
+      (*configs)[0].doubleBuffer = True;
+      (*configs)[0].stereo = False;
+      (*configs)[0].bufferSize = 32;
+      (*configs)[0].depthSize = 24;
+      (*configs)[0].stencilSize = 8;
+      (*configs)[0].auxBuffers = 0;
+      (*configs)[0].level = 0;
       /* leave remaining fields zero */
-   }
 
    /* RGB565 */
-   for (i = 0; i < *numConfigs; i++) {
-      (*configs)[i].vid = 100 + i;
-      (*configs)[i].class = TrueColor;
-      (*configs)[i].rgba = True;
-      (*configs)[i].redSize = 5;
-      (*configs)[i].greenSize = 6;
-      (*configs)[i].blueSize = 5;
-      (*configs)[i].alphaSize = 0;
-      (*configs)[i].redMask = 0xf800;
-      (*configs)[i].greenMask = 0x07e0;
-      (*configs)[i].blueMask = 0x001f;
-      (*configs)[i].alphaMask = 0x0000;
-      (*configs)[i].doubleBuffer = True;
-      (*configs)[i].stereo = False;
-      (*configs)[i].bufferSize = 16;
-      (*configs)[i].depthSize = 16;
-      (*configs)[i].stencilSize = 0;
-      (*configs)[i].auxBuffers = 0;
-      (*configs)[i].level = 0;
+      (*configs)[1].vid = 2;
+      (*configs)[1].class = TrueColor;
+      (*configs)[1].rgba = True;
+      (*configs)[1].redSize = 5;
+      (*configs)[1].greenSize = 6;
+      (*configs)[1].blueSize = 5;
+      (*configs)[1].alphaSize = 0;
+      (*configs)[1].redMask = 0xf800;
+      (*configs)[1].greenMask = 0x07e0;
+      (*configs)[1].blueMask = 0x001f;
+      (*configs)[1].alphaMask = 0x0000;
+      (*configs)[1].doubleBuffer = True;
+      (*configs)[1].stereo = False;
+      (*configs)[1].bufferSize = 16;
+      (*configs)[1].depthSize = 16;
+      (*configs)[1].stencilSize = 0;
+      (*configs)[1].auxBuffers = 0;
+      (*configs)[1].level = 0;
       /* leave remaining fields zero */
-   }
 
    return 1;
 }
