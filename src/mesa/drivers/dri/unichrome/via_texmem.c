@@ -90,6 +90,17 @@ void viaSwapOutTexObj(viaContextPtr vmesa, viaTextureObjectPtr t)
     if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);
 }
 
+
+static void do_memcpy(void *dst, const void *src, size_t sz)
+{
+   if (sz & 3) {
+      memcpy(dst, src, sz);
+   }
+   else {
+      memcpy(dst, src, sz);
+   }
+}
+
 /* Upload an image from mesa's internal copy.
  */
 static void viaUploadTexLevel(viaTextureObjectPtr t, int level)
@@ -117,13 +128,8 @@ static void viaUploadTexLevel(viaTextureObjectPtr t, int level)
 		}
 	    }
 	    else {
-		for (j = 0; j < image->Height * image->Width; j++) {
-        	    *dst = *src;
-		    dst++;
-        	    src++;
-    		}
+	       do_memcpy(dst, src, image->Height * image->Width * sizeof(GLuint));
 	    }
-	    /*memcpy(dst, src, image->Height * image->Width * sizeof(GLuint));*/
 	}
 	else {
 	    GLushort *dst = (GLushort *)(t->bufAddr + t->image[level].offset);
@@ -139,13 +145,8 @@ static void viaUploadTexLevel(viaTextureObjectPtr t, int level)
 		}
 	    }
 	    else {
-		for (j = 0; j < image->Height * image->Width; j++) {
-        	    *dst = *src;
-		    dst++;
-        	    src++;
-    		}
+	       do_memcpy(dst, src, image->Height * image->Width * sizeof(GLushort));
 	    }
-	    /*memcpy(dst, src, image->Height * image->Width * sizeof(GLushort));*/
 	}
     }
     break;
@@ -166,13 +167,8 @@ static void viaUploadTexLevel(viaTextureObjectPtr t, int level)
 		}
 	    }
 	    else {
-    		for (j = 0; j < image->Height * image->Width; j++) {
-            	        *dst = *src; 
-            		src++;
-			dst++;
-        	}
+	       do_memcpy(dst, src, image->Height * image->Width * sizeof(GLushort));
 	    }
-	    /*memcpy(dst, src, image->Height * image->Width * sizeof(GLushort));*/
 	    if (VIA_DEBUG) fprintf(stderr, "GL_RGBA MESA_FORMAT_ARGB4444\n");    
         }
 	else if(image->TexFormat->MesaFormat == MESA_FORMAT_ARGB8888) {
@@ -189,13 +185,8 @@ static void viaUploadTexLevel(viaTextureObjectPtr t, int level)
 		}
 	    }
 	    else {
-        	for (j = 0; j < image->Height * image->Width; j++) {
-            	    *dst = *src;
-            	    dst++;
-            	    src++;
-        	}
+	       do_memcpy(dst, src, image->Height * image->Width * sizeof(GLuint));
 	    }
-	    /*memcpy(dst, src, image->Height * image->Width * sizeof(GLuint));*/
 	}
 	else if(image->TexFormat->MesaFormat == MESA_FORMAT_ARGB1555) {
 	    GLushort *dst = (GLushort *)(t->bufAddr + t->image[level].offset);
@@ -210,13 +201,8 @@ static void viaUploadTexLevel(viaTextureObjectPtr t, int level)
 		}
 	    }
 	    else {
-    		for (j = 0; j < image->Height * image->Width; j++) {
-            	        *dst = *src; 
-            		src++;
-			dst++;
-        	}
+	       do_memcpy(dst, src, image->Height * image->Width * sizeof(GLushort));
 	    }
-	    /*memcpy(dst, src, image->Height * image->Width * sizeof(GLushort));*/
 	    if (VIA_DEBUG) fprintf(stderr, "GL_RGBA MESA_FORMAT_ARGB1555\n");    
         }
     }
