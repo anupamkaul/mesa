@@ -12,9 +12,9 @@ C_SOURCES = \
 	  $(TOP)/src/mesa/glapi/glapi.c \
 	  $(TOP)/src/mesa/glapi/glthread.c \
 	  $(TOP)/src/mesa/drivers/dri/common/glcontextmodes.c \
-	  $(DRM_SOURCE_PATH)/libdrm/xf86drm.c \
-	  $(DRM_SOURCE_PATH)/libdrm/xf86drmHash.c \
-	  $(DRM_SOURCE_PATH)/libdrm/xf86drmRandom.c \
+	  $(TOP)/src/mesa/drivers/dri/dri_client/xf86drm.c \
+	  $(TOP)/src/mesa/drivers/dri/dri_client/xf86drmHash.c \
+	  $(TOP)/src/mesa/drivers/dri/dri_client/xf86drmRandom.c \
 	  miniglx.c \
 	  miniglx_events.c
 
