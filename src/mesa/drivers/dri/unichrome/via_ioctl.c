@@ -445,15 +445,14 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
     viaContextPtr vmesa = (viaContextPtr)dPriv->driContextPriv->driverPrivate;
     viaBuffer buffer_tmp;
 
-    viaWaitIdleVBlank(dPriv, vmesa);
-
+    VIA_FLUSH_DMA(vmesa);
     LOCK_HARDWARE(vmesa);
 
     {
         RING_VARS;
 
 	if (!vmesa->nDoneFirstFlip) {
-    	    vmesa->nDoneFirstFlip = GL_FALSE; /* XXX: FIXME LATER!!! */
+    	    vmesa->nDoneFirstFlip = GL_TRUE; /* XXX: FIXME LATER!!! */
 	    BEGIN_RING(4);
     	    OUT_RING(HALCYON_HEADER2);
     	    OUT_RING(0x00fe0000);
@@ -474,6 +473,10 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
 
     viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS);    
     UNLOCK_HARDWARE(vmesa);
+
+    viaWaitIdleVBlank(dPriv, vmesa);
+
+
     vmesa->get_ust( &vmesa->swap_ust );
 
     /* KW: FIXME: When buffers are freed, could free frontbuffer by
