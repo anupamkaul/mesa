@@ -1,4 +1,4 @@
-/* $Id: s_lines.c,v 1.31 2002/08/07 00:45:07 brianp Exp $ */
+/* $Id: s_lines.c,v 1.31.2.1 2002/10/17 14:27:08 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -129,6 +129,7 @@ draw_wide_line( GLcontext *ctx, struct sw_span *span, GLboolean xMajor )
 
 /* Flat, color index line */
 static void flat_ci_line( GLcontext *ctx,
+			  GLint facing,
                           const SWvertex *vert0,
 			  const SWvertex *vert1 )
 {
@@ -161,6 +162,7 @@ static void flat_ci_line( GLcontext *ctx,
 
 /* Flat-shaded, RGBA line */
 static void flat_rgba_line( GLcontext *ctx,
+			    GLint facing,
                             const SWvertex *vert0,
 			    const SWvertex *vert1 )
 {
@@ -172,10 +174,10 @@ static void flat_rgba_line( GLcontext *ctx,
    ASSERT(ctx->Line.Width == 1.0F);
 
    INIT_SPAN(span, GL_LINE, 0, SPAN_RGBA, SPAN_XY);
-   span.red = ChanToFixed(vert1->color[0]);
-   span.green = ChanToFixed(vert1->color[1]);
-   span.blue = ChanToFixed(vert1->color[2]);
-   span.alpha = ChanToFixed(vert1->color[3]);
+   span.red = ChanToFixed(vert1->color[facing][0]);
+   span.green = ChanToFixed(vert1->color[facing][1]);
+   span.blue = ChanToFixed(vert1->color[facing][2]);
+   span.alpha = ChanToFixed(vert1->color[facing][3]);
    span.redStep = 0;
    span.greenStep = 0;
    span.blueStep = 0;
@@ -199,6 +201,7 @@ static void flat_rgba_line( GLcontext *ctx,
 
 /* Smooth shaded, color index line */
 static void smooth_ci_line( GLcontext *ctx,
+			    GLint facing,
                             const SWvertex *vert0,
 			    const SWvertex *vert1 )
 {
@@ -233,6 +236,7 @@ static void smooth_ci_line( GLcontext *ctx,
 
 /* Smooth-shaded, RGBA line */
 static void smooth_rgba_line( GLcontext *ctx,
+			      GLint facing,
                        	      const SWvertex *vert0,
 			      const SWvertex *vert1 )
 {
@@ -271,6 +275,7 @@ static void smooth_rgba_line( GLcontext *ctx,
 
 /* Smooth shaded, color index, any width, maybe stippled */
 static void general_smooth_ci_line( GLcontext *ctx,
+				    GLint facing,
                            	    const SWvertex *vert0,
 				    const SWvertex *vert1 )
 {
@@ -323,6 +328,7 @@ static void general_smooth_ci_line( GLcontext *ctx,
 
 /* Flat shaded, color index, any width, maybe stippled */
 static void general_flat_ci_line( GLcontext *ctx,
+				  GLint facing,
                                   const SWvertex *vert0,
 				  const SWvertex *vert1 )
 {
@@ -373,6 +379,7 @@ static void general_flat_ci_line( GLcontext *ctx,
 
 
 static void general_smooth_rgba_line( GLcontext *ctx,
+				      GLint facing,
                                       const SWvertex *vert0,
 				      const SWvertex *vert1 )
 {
@@ -428,6 +435,7 @@ static void general_smooth_rgba_line( GLcontext *ctx,
 
 
 static void general_flat_rgba_line( GLcontext *ctx,
+				    GLint facing,
                                     const SWvertex *vert0,
 				    const SWvertex *vert1 )
 {
@@ -441,10 +449,10 @@ static void general_flat_rgba_line( GLcontext *ctx,
 
    INIT_SPAN(span, GL_LINE, 0, SPAN_RGBA,
 	     SPAN_XY | SPAN_Z | SPAN_FOG);
-   span.red = ChanToFixed(vert1->color[0]);
-   span.green = ChanToFixed(vert1->color[1]);
-   span.blue = ChanToFixed(vert1->color[2]);
-   span.alpha = ChanToFixed(vert1->color[3]);
+   span.red = ChanToFixed(vert1->color[facing][0]);
+   span.green = ChanToFixed(vert1->color[facing][1]);
+   span.blue = ChanToFixed(vert1->color[facing][2]);
+   span.alpha = ChanToFixed(vert1->color[facing][3]);
    span.redStep = 0;
    span.greenStep = 0;
    span.blueStep = 0;
@@ -484,6 +492,7 @@ static void general_flat_rgba_line( GLcontext *ctx,
 
 /* Flat-shaded, textured, any width, maybe stippled */
 static void flat_textured_line( GLcontext *ctx,
+				GLint facing,
                                 const SWvertex *vert0,
 				const SWvertex *vert1 )
 {
@@ -494,17 +503,17 @@ static void flat_textured_line( GLcontext *ctx,
 
    INIT_SPAN(span, GL_LINE, 0, SPAN_RGBA | SPAN_SPEC,
 	     SPAN_XY | SPAN_Z | SPAN_FOG | SPAN_TEXTURE | SPAN_LAMBDA);
-   span.red = ChanToFixed(vert1->color[0]);
-   span.green = ChanToFixed(vert1->color[1]);
-   span.blue = ChanToFixed(vert1->color[2]);
-   span.alpha = ChanToFixed(vert1->color[3]);
+   span.red = ChanToFixed(vert1->color[facing][0]);
+   span.green = ChanToFixed(vert1->color[facing][1]);
+   span.blue = ChanToFixed(vert1->color[facing][2]);
+   span.alpha = ChanToFixed(vert1->color[facing][3]);
    span.redStep = 0;
    span.greenStep = 0;
    span.blueStep = 0;
    span.alphaStep = 0;
-   span.specRed = ChanToFixed(vert1->specular[0]);
-   span.specGreen = ChanToFixed(vert1->specular[1]);
-   span.specBlue = ChanToFixed(vert1->specular[2]);
+   span.specRed = ChanToFixed(vert1->specular[facing][0]);
+   span.specGreen = ChanToFixed(vert1->specular[facing][1]);
+   span.specBlue = ChanToFixed(vert1->specular[facing][2]);
    span.specRedStep = 0;
    span.specGreenStep = 0;
    span.specBlueStep = 0;
@@ -545,6 +554,7 @@ static void flat_textured_line( GLcontext *ctx,
 
 /* Smooth-shaded, textured, any width, maybe stippled */
 static void smooth_textured_line( GLcontext *ctx,
+				  GLint facing,
                                   const SWvertex *vert0,
 				  const SWvertex *vert1 )
 {
@@ -599,6 +609,7 @@ static void smooth_textured_line( GLcontext *ctx,
  * color interpolation.
  */
 static void smooth_multitextured_line( GLcontext *ctx,
+				       GLint facing,
 				       const SWvertex *vert0,
 				       const SWvertex *vert1 )
 {
@@ -662,6 +673,7 @@ static void smooth_multitextured_line( GLcontext *ctx,
  * color interpolation.
  */
 static void flat_multitextured_line( GLcontext *ctx,
+				     GLint facing,
                                      const SWvertex *vert0,
 				     const SWvertex *vert1 )
 {
@@ -673,17 +685,17 @@ static void flat_multitextured_line( GLcontext *ctx,
 
    INIT_SPAN(span, GL_LINE, 0, SPAN_RGBA | SPAN_SPEC,
 	     SPAN_XY | SPAN_Z | SPAN_FOG | SPAN_TEXTURE | SPAN_LAMBDA);
-   span.red = ChanToFixed(vert1->color[0]);
-   span.green = ChanToFixed(vert1->color[1]);
-   span.blue = ChanToFixed(vert1->color[2]);
-   span.alpha = ChanToFixed(vert1->color[3]);
+   span.red = ChanToFixed(vert1->color[facing][0]);
+   span.green = ChanToFixed(vert1->color[facing][1]);
+   span.blue = ChanToFixed(vert1->color[facing][2]);
+   span.alpha = ChanToFixed(vert1->color[facing][3]);
    span.redStep = 0;
    span.greenStep = 0;
    span.blueStep = 0;
    span.alphaStep = 0;
-   span.specRed = ChanToFixed(vert1->specular[0]);
-   span.specGreen = ChanToFixed(vert1->specular[1]);
-   span.specBlue = ChanToFixed(vert1->specular[2]);
+   span.specRed = ChanToFixed(vert1->specular[facing][0]);
+   span.specGreen = ChanToFixed(vert1->specular[facing][1]);
+   span.specBlue = ChanToFixed(vert1->specular[facing][2]);
    span.specRedStep = 0;
    span.specGreenStep = 0;
    span.specBlueStep = 0;
@@ -726,19 +738,20 @@ static void flat_multitextured_line( GLcontext *ctx,
 
 
 void _swrast_add_spec_terms_line( GLcontext *ctx,
+				  GLint facing,
 				  const SWvertex *v0,
 				  const SWvertex *v1 )
 {
    SWvertex *ncv0 = (SWvertex *)v0;
    SWvertex *ncv1 = (SWvertex *)v1;
    GLchan c[2][4];
-   COPY_CHAN4( c[0], ncv0->color );
-   COPY_CHAN4( c[1], ncv1->color );
-   ACC_3V( ncv0->color, ncv0->specular );
-   ACC_3V( ncv1->color, ncv1->specular );
+   COPY_CHAN4( c[0], ncv0->color[facing] );
+   COPY_CHAN4( c[1], ncv1->color[facing] );
+   ACC_3V( ncv0->color[facing], ncv0->specular[facing] );
+   ACC_3V( ncv1->color[facing], ncv1->specular[facing] );
    SWRAST_CONTEXT(ctx)->SpecLine( ctx, ncv0, ncv1 );
-   COPY_CHAN4( ncv0->color, c[0] );
-   COPY_CHAN4( ncv1->color, c[1] );
+   COPY_CHAN4( ncv0->color[facing], c[0] );
+   COPY_CHAN4( ncv1->color[facing], c[1] );
 }
 
 

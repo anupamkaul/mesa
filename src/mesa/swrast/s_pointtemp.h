@@ -1,4 +1,4 @@
-/* $Id: s_pointtemp.h,v 1.19 2002/10/04 17:37:47 brianp Exp $ */
+/* $Id: s_pointtemp.h,v 1.19.2.1 2002/10/17 14:27:08 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -59,7 +59,7 @@
 
 
 static void
-NAME ( GLcontext *ctx, const SWvertex *vert )
+NAME ( GLcontext *ctx, GLint facing, const SWvertex *vert )
 {
 #if FLAGS & (ATTENUATE | LARGE | SMOOTH | SPRITE)
    GLfloat size;
@@ -68,18 +68,18 @@ NAME ( GLcontext *ctx, const SWvertex *vert )
    GLfloat alphaAtten;
 #endif
 #if FLAGS & RGBA
-   const GLchan red   = vert->color[0];
-   const GLchan green = vert->color[1];
-   const GLchan blue  = vert->color[2];
-   const GLchan alpha = vert->color[3];
+   const GLchan red   = vert->color[facing][0];
+   const GLchan green = vert->color[facing][1];
+   const GLchan blue  = vert->color[facing][2];
+   const GLchan alpha = vert->color[facing][3];
 #endif
 #if FLAGS & SPECULAR
-   const GLchan specRed   = vert->specular[0];
-   const GLchan specGreen = vert->specular[1];
-   const GLchan specBlue  = vert->specular[2];
+   const GLchan specRed   = vert->specular[facing][0];
+   const GLchan specGreen = vert->specular[facing][1];
+   const GLchan specBlue  = vert->specular[facing][2];
 #endif
 #if FLAGS & INDEX
-   const GLuint colorIndex = vert->index;
+   const GLuint colorIndex = vert->index[facing];
 #endif
 #if FLAGS & TEXTURE
    GLfloat texcoord[MAX_TEXTURE_UNITS][4];

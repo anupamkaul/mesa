@@ -1,4 +1,4 @@
-/* $Id: s_points.c,v 1.19 2002/06/15 03:03:11 brianp Exp $ */
+/* $Id: s_points.c,v 1.19.2.1 2002/10/17 14:27:08 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -163,10 +163,10 @@ void _swrast_add_spec_terms_point( GLcontext *ctx,
 {
    SWvertex *ncv0 = (SWvertex *)v0;
    GLchan c[1][4];
-   COPY_CHAN4( c[0], ncv0->color );
-   ACC_3V( ncv0->color, ncv0->specular );
+   COPY_CHAN4( c[0], ncv0->color[facing] );
+   ACC_3V( ncv0->color[facing], ncv0->specular[facing] );
    SWRAST_CONTEXT(ctx)->SpecPoint( ctx, ncv0 );
-   COPY_CHAN4( ncv0->color, c[0] );
+   COPY_CHAN4( ncv0->color[facing], c[0] );
 }
 
 

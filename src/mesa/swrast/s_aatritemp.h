@@ -1,4 +1,4 @@
-/* $Id: s_aatritemp.h,v 1.30 2002/08/07 00:45:07 brianp Exp $ */
+/* $Id: s_aatritemp.h,v 1.30.2.1 2002/10/17 14:27:08 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -148,39 +148,39 @@
 #endif
 #ifdef DO_RGBA
    if (ctx->Light.ShadeModel == GL_SMOOTH) {
-      compute_plane(p0, p1, p2, v0->color[0], v1->color[0], v2->color[0], rPlane);
-      compute_plane(p0, p1, p2, v0->color[1], v1->color[1], v2->color[1], gPlane);
-      compute_plane(p0, p1, p2, v0->color[2], v1->color[2], v2->color[2], bPlane);
-      compute_plane(p0, p1, p2, v0->color[3], v1->color[3], v2->color[3], aPlane);
+      compute_plane(p0, p1, p2, v0->color[facing][0], v1->color[facing][0], v2->color[facing][0], rPlane);
+      compute_plane(p0, p1, p2, v0->color[facing][1], v1->color[facing][1], v2->color[facing][1], gPlane);
+      compute_plane(p0, p1, p2, v0->color[facing][2], v1->color[facing][2], v2->color[facing][2], bPlane);
+      compute_plane(p0, p1, p2, v0->color[facing][3], v1->color[facing][3], v2->color[facing][3], aPlane);
    }
    else {
-      constant_plane(v2->color[RCOMP], rPlane);
-      constant_plane(v2->color[GCOMP], gPlane);
-      constant_plane(v2->color[BCOMP], bPlane);
-      constant_plane(v2->color[ACOMP], aPlane);
+      constant_plane(v2->color[facing][RCOMP], rPlane);
+      constant_plane(v2->color[facing][GCOMP], gPlane);
+      constant_plane(v2->color[facing][BCOMP], bPlane);
+      constant_plane(v2->color[facing][ACOMP], aPlane);
    }
    span.arrayMask |= SPAN_RGBA;
 #endif
 #ifdef DO_INDEX
    if (ctx->Light.ShadeModel == GL_SMOOTH) {
-      compute_plane(p0, p1, p2, (GLfloat) v0->index,
-                    (GLfloat) v1->index, (GLfloat) v2->index, iPlane);
+      compute_plane(p0, p1, p2, (GLfloat) v0->index[facing],
+                    (GLfloat) v1->index[facing], (GLfloat) v2->index[facing], iPlane);
    }
    else {
-      constant_plane((GLfloat) v2->index, iPlane);
+      constant_plane((GLfloat) v2->index[facing], iPlane);
    }
    span.arrayMask |= SPAN_INDEX;
 #endif
 #ifdef DO_SPEC
    if (ctx->Light.ShadeModel == GL_SMOOTH) {
-      compute_plane(p0, p1, p2, v0->specular[0], v1->specular[0], v2->specular[0],srPlane);
-      compute_plane(p0, p1, p2, v0->specular[1], v1->specular[1], v2->specular[1],sgPlane);
-      compute_plane(p0, p1, p2, v0->specular[2], v1->specular[2], v2->specular[2],sbPlane);
+      compute_plane(p0, p1, p2, v0->specular[facing][0], v1->specular[facing][0], v2->specular[facing][0],srPlane);
+      compute_plane(p0, p1, p2, v0->specular[facing][1], v1->specular[facing][1], v2->specular[facing][1],sgPlane);
+      compute_plane(p0, p1, p2, v0->specular[facing][2], v1->specular[facing][2], v2->specular[facing][2],sbPlane);
    }
    else {
-      constant_plane(v2->specular[RCOMP], srPlane);
-      constant_plane(v2->specular[GCOMP], sgPlane);
-      constant_plane(v2->specular[BCOMP], sbPlane);
+      constant_plane(v2->specular[facing][RCOMP], srPlane);
+      constant_plane(v2->specular[facing][GCOMP], sgPlane);
+      constant_plane(v2->specular[facing][BCOMP], sbPlane);
    }
    span.arrayMask |= SPAN_SPEC;
 #endif

@@ -1,4 +1,4 @@
-/* $Id: s_aatriangle.c,v 1.24 2002/06/15 03:03:11 brianp Exp $ */
+/* $Id: s_aatriangle.c,v 1.24.2.1 2002/10/17 14:27:08 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -325,6 +325,7 @@ compute_coveragei(const GLfloat v0[3], const GLfloat v1[3],
 
 static void
 rgba_aa_tri(GLcontext *ctx,
+	    GLint facing,
 	    const SWvertex *v0,
 	    const SWvertex *v1,
 	    const SWvertex *v2)
@@ -338,6 +339,7 @@ rgba_aa_tri(GLcontext *ctx,
 
 static void
 index_aa_tri(GLcontext *ctx,
+	    GLint facing,
 	     const SWvertex *v0,
 	     const SWvertex *v1,
 	     const SWvertex *v2)
@@ -386,6 +388,7 @@ compute_lambda(const GLfloat sPlane[4], const GLfloat tPlane[4],
 
 static void
 tex_aa_tri(GLcontext *ctx,
+	   GLint facing,
 	   const SWvertex *v0,
 	   const SWvertex *v1,
 	   const SWvertex *v2)
@@ -400,6 +403,7 @@ tex_aa_tri(GLcontext *ctx,
 
 static void
 spec_tex_aa_tri(GLcontext *ctx,
+		GLint facing,
 		const SWvertex *v0,
 		const SWvertex *v1,
 		const SWvertex *v2)
@@ -415,6 +419,7 @@ spec_tex_aa_tri(GLcontext *ctx,
 
 static void
 multitex_aa_tri(GLcontext *ctx,
+		GLint facing,
 		const SWvertex *v0,
 		const SWvertex *v1,
 		const SWvertex *v2)
@@ -428,6 +433,7 @@ multitex_aa_tri(GLcontext *ctx,
 
 static void
 spec_multitex_aa_tri(GLcontext *ctx,
+		     GLint facing,
 		     const SWvertex *v0,
 		     const SWvertex *v1,
 		     const SWvertex *v2)

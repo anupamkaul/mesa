@@ -1,4 +1,4 @@
-/* $Id: s_aalinetemp.h,v 1.21 2002/08/07 00:45:07 brianp Exp $ */
+/* $Id: s_aalinetemp.h,v 1.21.2.1 2002/10/17 14:27:08 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -117,7 +117,7 @@ NAME(plot)(GLcontext *ctx, struct LineInfo *line, int ix, int iy)
  * Line setup
  */
 static void
-NAME(line)(GLcontext *ctx, const SWvertex *v0, const SWvertex *v1)
+NAME(line)(GLcontext *ctx, GLint facing, const SWvertex *v0, const SWvertex *v1)
 {
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
    GLfloat tStart, tEnd;   /* segment start, end along line length */
@@ -157,45 +157,45 @@ NAME(line)(GLcontext *ctx, const SWvertex *v0, const SWvertex *v1)
    line.span.arrayMask |= SPAN_RGBA;
    if (ctx->Light.ShadeModel == GL_SMOOTH) {
       compute_plane(line.x0, line.y0, line.x1, line.y1,
-                    v0->color[RCOMP], v1->color[RCOMP], line.rPlane);
+                    v0->color[facing][RCOMP], v1->color[facing][RCOMP], line.rPlane);
       compute_plane(line.x0, line.y0, line.x1, line.y1,
-                    v0->color[GCOMP], v1->color[GCOMP], line.gPlane);
+                    v0->color[facing][GCOMP], v1->color[facing][GCOMP], line.gPlane);
       compute_plane(line.x0, line.y0, line.x1, line.y1,
-                    v0->color[BCOMP], v1->color[BCOMP], line.bPlane);
+                    v0->color[facing][BCOMP], v1->color[facing][BCOMP], line.bPlane);
       compute_plane(line.x0, line.y0, line.x1, line.y1,
-                    v0->color[ACOMP], v1->color[ACOMP], line.aPlane);
+                    v0->color[facing][ACOMP], v1->color[facing][ACOMP], line.aPlane);
    }
    else {
-      constant_plane(v1->color[RCOMP], line.rPlane);
-      constant_plane(v1->color[GCOMP], line.gPlane);
-      constant_plane(v1->color[BCOMP], line.bPlane);
-      constant_plane(v1->color[ACOMP], line.aPlane);
+      constant_plane(v1->color[facing][RCOMP], line.rPlane);
+      constant_plane(v1->color[facing][GCOMP], line.gPlane);
+      constant_plane(v1->color[facing][BCOMP], line.bPlane);
+      constant_plane(v1->color[facing][ACOMP], line.aPlane);
    }
 #endif
 #ifdef DO_SPEC
    line.span.arrayMask |= SPAN_SPEC;
    if (ctx->Light.ShadeModel == GL_SMOOTH) {
       compute_plane(line.x0, line.y0, line.x1, line.y1,
-                    v0->specular[RCOMP], v1->specular[RCOMP], line.srPlane);
+                    v0->specular[facing][RCOMP], v1->specular[facing][RCOMP], line.srPlane);
       compute_plane(line.x0, line.y0, line.x1, line.y1,
-                    v0->specular[GCOMP], v1->specular[GCOMP], line.sgPlane);
+                    v0->specular[facing][GCOMP], v1->specular[facing][GCOMP], line.sgPlane);
       compute_plane(line.x0, line.y0, line.x1, line.y1,
-                    v0->specular[BCOMP], v1->specular[BCOMP], line.sbPlane);
+                    v0->specular[facing][BCOMP], v1->specular[facing][BCOMP], line.sbPlane);
    }
    else {
-      constant_plane(v1->specular[RCOMP], line.srPlane);
-      constant_plane(v1->specular[GCOMP], line.sgPlane);
-      constant_plane(v1->specular[BCOMP], line.sbPlane);
+      constant_plane(v1->specular[facing][RCOMP], line.srPlane);
+      constant_plane(v1->specular[facing][GCOMP], line.sgPlane);
+      constant_plane(v1->specular[facing][BCOMP], line.sbPlane);
    }
 #endif
 #ifdef DO_INDEX
    line.span.arrayMask |= SPAN_INDEX;
    if (ctx->Light.ShadeModel == GL_SMOOTH) {
       compute_plane(line.x0, line.y0, line.x1, line.y1,
-                    (GLfloat) v0->index, (GLfloat) v1->index, line.iPlane);
+                    (GLfloat) v0->index[facing], (GLfloat) v1->index[facing], line.iPlane);
    }
    else {
-      constant_plane((GLfloat) v1->index, line.iPlane);
+      constant_plane((GLfloat) v1->index[facing], line.iPlane);
    }
 #endif
 #ifdef DO_TEX

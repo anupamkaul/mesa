@@ -1,4 +1,4 @@
-/* $Id: s_linetemp.h,v 1.13 2002/03/19 15:22:50 brianp Exp $ */
+/* $Id: s_linetemp.h,v 1.13.2.1 2002/10/17 14:27:08 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -95,28 +95,28 @@
    GLfloat dfog = vert1->fog - fog0;
 #endif
 #ifdef INTERP_RGB
-   GLfixed r0 = ChanToFixed(vert0->color[0]);
-   GLfixed dr = ChanToFixed(vert1->color[0]) - r0;
-   GLfixed g0 = ChanToFixed(vert0->color[1]);
-   GLfixed dg = ChanToFixed(vert1->color[1]) - g0;
-   GLfixed b0 = ChanToFixed(vert0->color[2]);
-   GLfixed db = ChanToFixed(vert1->color[2]) - b0;
+   GLfixed r0 = ChanToFixed(vert0->color[facing][0]);
+   GLfixed dr = ChanToFixed(vert1->color[facing][0]) - r0;
+   GLfixed g0 = ChanToFixed(vert0->color[facing][1]);
+   GLfixed dg = ChanToFixed(vert1->color[facing][1]) - g0;
+   GLfixed b0 = ChanToFixed(vert0->color[facing][2]);
+   GLfixed db = ChanToFixed(vert1->color[facing][2]) - b0;
 #endif
 #ifdef INTERP_SPEC
-   GLfixed sr0 = ChanToFixed(vert0->specular[0]);
-   GLfixed dsr = ChanToFixed(vert1->specular[0]) - sr0;
-   GLfixed sg0 = ChanToFixed(vert0->specular[1]);
-   GLfixed dsg = ChanToFixed(vert1->specular[1]) - sg0;
-   GLfixed sb0 = ChanToFixed(vert0->specular[2]);
-   GLfixed dsb = ChanToFixed(vert1->specular[2]) - sb0;
+   GLfixed sr0 = ChanToFixed(vert0->specular[facing][0]);
+   GLfixed dsr = ChanToFixed(vert1->specular[facing][0]) - sr0;
+   GLfixed sg0 = ChanToFixed(vert0->specular[facing][1]);
+   GLfixed dsg = ChanToFixed(vert1->specular[facing][1]) - sg0;
+   GLfixed sb0 = ChanToFixed(vert0->specular[facing][2]);
+   GLfixed dsb = ChanToFixed(vert1->specular[facing][2]) - sb0;
 #endif
 #ifdef INTERP_ALPHA
-   GLfixed a0 = ChanToFixed(vert0->color[3]);
-   GLfixed da = ChanToFixed(vert1->color[3]) - a0;
+   GLfixed a0 = ChanToFixed(vert0->color[facing][3]);
+   GLfixed da = ChanToFixed(vert1->color[facing][3]) - a0;
 #endif
 #ifdef INTERP_INDEX
-   GLint i0 = vert0->index << 8;
-   GLint di = (GLint) (vert1->index << 8) - i0;
+   GLint i0 = vert0->index[facing] << 8;
+   GLint di = (GLint) (vert1->index[facing] << 8) - i0;
 #endif
 #ifdef INTERP_TEX
    const GLfloat invw0 = vert0->win[3];
@@ -179,11 +179,11 @@
    printf(" (%f, %f) -> (%f, %f)\n",
           vert0->win[0], vert0->win[1], vert1->win[0], vert1->win[1]);
    printf(" (%d, %d, %d) -> (%d, %d, %d)\n",
-          vert0->color[0], vert0->color[1], vert0->color[2], 
-          vert1->color[0], vert1->color[1], vert1->color[2]);
+          vert0->color[facing][0], vert0->color[facing][1], vert0->color[facing][2], 
+          vert1->color[facing][0], vert1->color[facing][1], vert1->color[facing][2]);
    printf(" (%d, %d, %d) -> (%d, %d, %d)\n",
-          vert0->specular[0], vert0->specular[1], vert0->specular[2], 
-          vert1->specular[0], vert1->specular[1], vert1->specular[2]);
+          vert0->specular[facing][0], vert0->specular[facing][1], vert0->specular[facing][2], 
+          vert1->specular[facing][0], vert1->specular[facing][1], vert1->specular[facing][2]);
    */
 
 /*

@@ -1,4 +1,4 @@
-/* $Id: s_triangle.c,v 1.62 2002/09/23 16:37:15 brianp Exp $ */
+/* $Id: s_triangle.c,v 1.62.2.1 2002/10/17 14:27:08 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -53,9 +53,10 @@
  * Just used for feedback mode.
  */
 GLboolean _mesa_cull_triangle( GLcontext *ctx,
-			    const SWvertex *v0,
-			    const SWvertex *v1,
-			    const SWvertex *v2 )
+			       GLuint facing,
+			       const SWvertex *v0,
+			       const SWvertex *v1,
+			       const SWvertex *v2 )
 {
    GLfloat ex = v1->win[0] - v0->win[0];
    GLfloat ey = v1->win[1] - v0->win[1];
@@ -75,6 +76,7 @@ GLboolean _mesa_cull_triangle( GLcontext *ctx,
  * Render a flat-shaded color index triangle.
  */
 static void flat_ci_triangle( GLcontext *ctx,
+			      GLuint facing,
 			      const SWvertex *v0,
 			      const SWvertex *v1,
 			      const SWvertex *v2 )
@@ -98,6 +100,7 @@ static void flat_ci_triangle( GLcontext *ctx,
  * Render a smooth-shaded color index triangle.
  */
 static void smooth_ci_triangle( GLcontext *ctx,
+				GLuint facing,
 				const SWvertex *v0,
 				const SWvertex *v1,
 				const SWvertex *v2 )
@@ -117,6 +120,7 @@ static void smooth_ci_triangle( GLcontext *ctx,
  * Render a flat-shaded RGBA triangle.
  */
 static void flat_rgba_triangle( GLcontext *ctx,
+				GLuint facing,
 				const SWvertex *v0,
 				const SWvertex *v1,
 				const SWvertex *v2 )
@@ -129,10 +133,10 @@ static void flat_rgba_triangle( GLcontext *ctx,
    ASSERT(ctx->Texture._EnabledUnits == 0);	\
    ASSERT(ctx->Light.ShadeModel==GL_FLAT);	\
    span.interpMask |= SPAN_RGBA;		\
-   span.red = ChanToFixed(v2->color[0]);	\
-   span.green = ChanToFixed(v2->color[1]);	\
-   span.blue = ChanToFixed(v2->color[2]);	\
-   span.alpha = ChanToFixed(v2->color[3]);	\
+   span.red = ChanToFixed(v2->color[facing][0]);	\
+   span.green = ChanToFixed(v2->color[facing][1]);	\
+   span.blue = ChanToFixed(v2->color[facing][2]);	\
+   span.alpha = ChanToFixed(v2->color[facing][3]);	\
    span.redStep = 0;				\
    span.greenStep = 0;				\
    span.blueStep = 0;				\
@@ -149,6 +153,7 @@ static void flat_rgba_triangle( GLcontext *ctx,
  * Render a smooth-shaded RGBA triangle.
  */
 static void smooth_rgba_triangle( GLcontext *ctx,
+				  GLuint facing,
 				  const SWvertex *v0,
 				  const SWvertex *v1,
 				  const SWvertex *v2 )
@@ -181,6 +186,7 @@ static void smooth_rgba_triangle( GLcontext *ctx,
  * No fog.
  */
 static void simple_textured_triangle( GLcontext *ctx,
+				      GLuint facing,
 				      const SWvertex *v0,
 				      const SWvertex *v1,
 				      const SWvertex *v2 )
@@ -235,6 +241,7 @@ static void simple_textured_triangle( GLcontext *ctx,
  * No fog.
  */
 static void simple_z_textured_triangle( GLcontext *ctx,
+					GLuint facing,
 					const SWvertex *v0,
 					const SWvertex *v1,
 					const SWvertex *v2 )
@@ -564,6 +571,7 @@ affine_span(GLcontext *ctx, struct sw_span *span,
  * Render an RGB/RGBA textured triangle without perspective correction.
  */
 static void affine_textured_triangle( GLcontext *ctx,
+				      GLuint facing,
 				      const SWvertex *v0,
 				      const SWvertex *v1,
 				      const SWvertex *v2 )
@@ -838,6 +846,7 @@ fast_persp_span(GLcontext *ctx, struct sw_span *span,
  *
  */
 static void persp_textured_triangle( GLcontext *ctx,
+				     GLuint facing,
 				     const SWvertex *v0,
 				     const SWvertex *v1,
 				     const SWvertex *v2 )
@@ -915,6 +924,7 @@ static void persp_textured_triangle( GLcontext *ctx,
  * Interpolate S,T,R with perspective correction, w/out mipmapping.
  */
 static void general_textured_triangle( GLcontext *ctx,
+				       GLuint facing,
 				       const SWvertex *v0,
 				       const SWvertex *v1,
 				       const SWvertex *v2 )
@@ -941,6 +951,7 @@ static void general_textured_triangle( GLcontext *ctx,
  */
 static void
 multitextured_triangle( GLcontext *ctx,
+			GLuint facing,
                         const SWvertex *v0,
                         const SWvertex *v1,
                         const SWvertex *v2 )
@@ -962,6 +973,7 @@ multitextured_triangle( GLcontext *ctx,
 
 
 static void occlusion_zless_triangle( GLcontext *ctx,
+				      GLuint facing,
 				      const SWvertex *v0,
 				      const SWvertex *v1,
 				      const SWvertex *v2 )
@@ -989,6 +1001,7 @@ static void occlusion_zless_triangle( GLcontext *ctx,
 }
 
 static void nodraw_triangle( GLcontext *ctx,
+			     GLuint facing,
 			     const SWvertex *v0,
 			     const SWvertex *v1,
 			     const SWvertex *v2 )
@@ -1004,6 +1017,7 @@ static void nodraw_triangle( GLcontext *ctx,
  * Inefficient, but seldom needed.
  */
 void _swrast_add_spec_terms_triangle( GLcontext *ctx,
+				      GLuint facing,
 				      const SWvertex *v0,
 				      const SWvertex *v1,
 				      const SWvertex *v2 )
@@ -1018,36 +1032,36 @@ void _swrast_add_spec_terms_triangle( GLcontext *ctx,
 #endif
    GLchan c[3][4];
    /* save original colors */
-   COPY_CHAN4( c[0], ncv0->color );
-   COPY_CHAN4( c[1], ncv1->color );
-   COPY_CHAN4( c[2], ncv2->color );
+   COPY_CHAN4( c[0], ncv0->color[facing] );
+   COPY_CHAN4( c[1], ncv1->color[facing] );
+   COPY_CHAN4( c[2], ncv2->color[facing] );
    /* sum v0 */
-   rSum = ncv0->color[0] + ncv0->specular[0];
-   gSum = ncv0->color[1] + ncv0->specular[1];
-   bSum = ncv0->color[2] + ncv0->specular[2];
-   ncv0->color[0] = MIN2(rSum, CHAN_MAX);
-   ncv0->color[1] = MIN2(gSum, CHAN_MAX);
-   ncv0->color[2] = MIN2(bSum, CHAN_MAX);
+   rSum = ncv0->color[facing][0] + ncv0->specular[facing][0];
+   gSum = ncv0->color[facing][1] + ncv0->specular[facing][1];
+   bSum = ncv0->color[facing][2] + ncv0->specular[facing][2];
+   ncv0->color[facing][0] = MIN2(rSum, CHAN_MAX);
+   ncv0->color[facing][1] = MIN2(gSum, CHAN_MAX);
+   ncv0->color[facing][2] = MIN2(bSum, CHAN_MAX);
    /* sum v1 */
-   rSum = ncv1->color[0] + ncv1->specular[0];
-   gSum = ncv1->color[1] + ncv1->specular[1];
-   bSum = ncv1->color[2] + ncv1->specular[2];
-   ncv1->color[0] = MIN2(rSum, CHAN_MAX);
-   ncv1->color[1] = MIN2(gSum, CHAN_MAX);
-   ncv1->color[2] = MIN2(bSum, CHAN_MAX);
+   rSum = ncv1->color[facing][0] + ncv1->specular[facing][0];
+   gSum = ncv1->color[facing][1] + ncv1->specular[facing][1];
+   bSum = ncv1->color[facing][2] + ncv1->specular[facing][2];
+   ncv1->color[facing][0] = MIN2(rSum, CHAN_MAX);
+   ncv1->color[facing][1] = MIN2(gSum, CHAN_MAX);
+   ncv1->color[facing][2] = MIN2(bSum, CHAN_MAX);
    /* sum v2 */
-   rSum = ncv2->color[0] + ncv2->specular[0];
-   gSum = ncv2->color[1] + ncv2->specular[1];
-   bSum = ncv2->color[2] + ncv2->specular[2];
-   ncv2->color[0] = MIN2(rSum, CHAN_MAX);
-   ncv2->color[1] = MIN2(gSum, CHAN_MAX);
-   ncv2->color[2] = MIN2(bSum, CHAN_MAX);
+   rSum = ncv2->color[facing][0] + ncv2->specular[facing][0];
+   gSum = ncv2->color[facing][1] + ncv2->specular[facing][1];
+   bSum = ncv2->color[facing][2] + ncv2->specular[facing][2];
+   ncv2->color[facing][0] = MIN2(rSum, CHAN_MAX);
+   ncv2->color[facing][1] = MIN2(gSum, CHAN_MAX);
+   ncv2->color[facing][2] = MIN2(bSum, CHAN_MAX);
    /* draw */
-   SWRAST_CONTEXT(ctx)->SpecTriangle( ctx, ncv0, ncv1, ncv2 );
+   SWRAST_CONTEXT(ctx)->SpecTriangle( ctx, facing, ncv0, ncv1, ncv2 );
    /* restore original colors */
-   COPY_CHAN4( ncv0->color, c[0] );
-   COPY_CHAN4( ncv1->color, c[1] );
-   COPY_CHAN4( ncv2->color, c[2] );
+   COPY_CHAN4( ncv0->color[facing], c[0] );
+   COPY_CHAN4( ncv1->color[facing], c[1] );
+   COPY_CHAN4( ncv2->color[facing], c[2] );
 }
 
 

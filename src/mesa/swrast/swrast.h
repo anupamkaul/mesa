@@ -1,4 +1,4 @@
-/* $Id: swrast.h,v 1.30 2002/10/11 17:41:06 brianp Exp $ */
+/* $Id: swrast.h,v 1.30.2.1 2002/10/17 14:27:09 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -65,10 +65,10 @@
 typedef struct {
    GLfloat win[4];
    GLfloat texcoord[MAX_TEXTURE_UNITS][4];
-   GLchan color[4];
-   GLchan specular[4];
+   GLchan color[4][2];		/* front, back colors */
+   GLchan specular[4][2];	/* front, back specular colors */
+   GLuint index[2];		/* front, back indices */
    GLfloat fog;
-   GLuint index;
    GLfloat pointSize;
 } SWvertex;
 
@@ -289,17 +289,20 @@ _swrast_ResetLineStipple( GLcontext *ctx );
  * For flatshaded primitives, the provoking vertex is the final one.
  */
 extern void
-_swrast_Point( GLcontext *ctx, const SWvertex *v );
+_swrast_Point( GLcontext *ctx, GLint facing, 
+	       const SWvertex *v );
 
 extern void
-_swrast_Line( GLcontext *ctx, const SWvertex *v0, const SWvertex *v1 );
+_swrast_Line( GLcontext *ctx, GLint facing,
+	      const SWvertex *v0, const SWvertex *v1 );
 
 extern void
-_swrast_Triangle( GLcontext *ctx, const SWvertex *v0,
-                  const SWvertex *v1, const SWvertex *v2 );
+_swrast_Triangle( GLcontext *ctx, GLint facing,
+		  const SWvertex *v0, const SWvertex *v1,
+		  const SWvertex *v2 );
 
 extern void
-_swrast_Quad( GLcontext *ctx,
+_swrast_Quad( GLcontext *ctx, GLint facing,
               const SWvertex *v0, const SWvertex *v1,
 	      const SWvertex *v2,  const SWvertex *v3);
 
