@@ -1,4 +1,12 @@
-/* $Id: tnl.h,v 1.10 2002/10/29 20:29:04 brianp Exp $ */
+/**
+ * \file tnl.h
+ * \author Keith Whitwell <keith@tungstengraphics.com>
+ * \file TnL public interface.
+ * 
+ * These are the public-access functions exported from tnl.  (A few
+ * more are currently hooked into dispatch directly by the module
+ * itself.)
+ */
 
 /*
  * Mesa 3-D graphics library
@@ -22,10 +30,9 @@
  * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
- * Authors:
- *    Keith Whitwell <keith@tungstengraphics.com>
  */
+
+/* $Id: tnl.h,v 1.10.6.1 2003/04/05 16:42:15 jrfonseca Exp $ */
 
 #ifndef _TNL_H
 #define _TNL_H
@@ -34,10 +41,6 @@
 
 
 
-/* These are the public-access functions exported from tnl.  (A few
- * more are currently hooked into dispatch directly by the module
- * itself.)
- */
 extern GLboolean
 _tnl_CreateContext( GLcontext *ctx );
 
@@ -47,22 +50,31 @@ _tnl_DestroyContext( GLcontext *ctx );
 extern void
 _tnl_InvalidateState( GLcontext *ctx, GLuint new_state );
 
-/* Functions to revive the tnl module after being unhooked from
+
+/**
+ * \name Functions to revive the tnl module after being unhooked from
  * dispatch and/or driver callbacks.
  */
+/*@{*/
 
-/* Restore just the ctx->Exec table:
+/**
+ * Restore just the ctx->Exec table
  */
 extern void
 _tnl_wakeup_exec( GLcontext *ctx );
 
-/* Restore both ctx->Exec and ctx->Save:
+/**
+ * Restore both ctx->Exec and ctx->Save: 
  */
 extern void
 _tnl_wakeup_save_exec( GLcontext *ctx );
+/*@}*/
 
-/* Driver configuration options:
+
+/**
+ * Driver configuration options
  */
+/*@{*/
 extern void
 _tnl_need_projected_coords( GLcontext *ctx, GLboolean flag );
 
@@ -74,5 +86,7 @@ _tnl_need_dlist_norm_lengths( GLcontext *ctx, GLboolean flag );
 
 extern void
 _tnl_isolate_materials( GLcontext *ctx, GLboolean flag );
+/*@}*/
+
 
 #endif

@@ -1,4 +1,8 @@
-/* $Id: t_imm_exec.c,v 1.44 2003/03/01 01:50:27 brianp Exp $ */
+/**
+ * \file tnl/t_imm_exec.c
+ * \brief Setup to execute immediate-mode vertex data.
+ * \author Keith Whitwell
+ */
 
 /*
  * Mesa 3-D graphics library
@@ -24,11 +28,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/**
- * \file tnl/t_imm_exec.c
- * \brief Setup to execute immediate-mode vertex data.
- * \author Keith Whitwell
- */
+/* $Id: t_imm_exec.c,v 1.44.2.1 2003/04/05 16:42:15 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "colormac.h"

@@ -1,5 +1,3 @@
-/* $Id: t_imm_api.h,v 1.5 2002/04/09 16:56:52 keithw Exp $ */
-
 /*
  * Mesa 3-D graphics library
  * Version:  4.1
@@ -24,6 +22,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+/* $Id: t_imm_api.h,v 1.5.8.1 2003/04/05 16:42:15 jrfonseca Exp $ */
+
 
 #ifndef _T_VTXFMT_H
 #define _T_VTXFMT_H
@@ -40,17 +40,19 @@ extern void _tnl_Begin( GLenum mode );
 extern void _tnl_End(void);
 
 
-/* TNL-private internal functions for building higher-level operations:
+/**
+ * \name TNL-private internal functions for building higher-level operations
  */
+/*@{*/
 extern GLboolean _tnl_hard_begin( GLcontext *ctx, GLenum p );
 extern void _tnl_end( GLcontext *ctx );
 extern void _tnl_vertex2f( GLcontext *ctx, GLfloat x, GLfloat y );
 extern void _tnl_eval_coord1f( GLcontext *CC, GLfloat u );
 extern void _tnl_eval_coord2f( GLcontext *CC, GLfloat u, GLfloat v );
 extern void _tnl_array_element( GLcontext *CC, GLint i );
+/*@}*/
 
-/* Initialize our part of the vtxfmt struct:
- */
+
 extern void _tnl_imm_vtxfmt_init( GLcontext *ctx );
 
 

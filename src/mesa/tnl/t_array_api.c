@@ -1,4 +1,8 @@
-/* $Id: t_array_api.c,v 1.31 2003/03/01 01:50:26 brianp Exp $ */
+/**
+ * \file t_array_api.c
+ * \brief Vertex array API functions (glDrawArrays, etc)
+ * \author Keith Whitwell
+ */
 
 /*
  * Mesa 3-D graphics library
@@ -24,11 +28,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/**
- * \file t_array_api.c
- * \brief Vertex array API functions (glDrawArrays, etc)
- * \author Keith Whitwell
- */
+/* $Id: t_array_api.c,v 1.31.2.1 2003/04/05 16:42:15 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "api_validate.h"

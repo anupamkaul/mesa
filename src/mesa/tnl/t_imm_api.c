@@ -1,4 +1,7 @@
-/* $Id: t_imm_api.c,v 1.40 2003/03/31 18:19:56 brianp Exp $ */
+/**
+ * \file t_imm_api.c
+ * \brief TNL immediate API.
+ */
 
 /*
  * Mesa 3-D graphics library
@@ -27,6 +30,7 @@
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
+/* $Id: t_imm_api.c,v 1.40.2.1 2003/04/05 16:42:15 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -47,7 +51,9 @@
 #include "t_imm_dlist.h"
 
 
-/* A cassette is full or flushed on a statechange.
+/**
+ * 
+ * A cassette is full or flushed on a statechange.
  */
 void _tnl_flush_immediate( GLcontext *ctx, struct immediate *IM )
 {
@@ -79,7 +85,8 @@ void _tnl_flush_immediate( GLcontext *ctx, struct immediate *IM )
 }
 
 
-/* Hook for ctx->Driver.FlushVertices:
+/**
+ * Hook for dd_function_table::FlushVertices
  */
 void _tnl_flush_vertices( GLcontext *ctx, GLuint flags )
 {
@@ -400,7 +407,8 @@ _tnl_End(void)
 }
 
 
-/* If the given vertex attribute array hasn't been allocated yet,
+/**
+ * If the given vertex attribute array hasn't been allocated yet,
  * allocate it now.
  */
 #define CHECK_ATTRIB_ARRAY(IM, ATTR)					\
@@ -414,6 +422,9 @@ _tnl_End(void)
    }
 
 
+/**
+ * Update the color attribute in the immediate structure.
+ */
 #define COLOR( r, g, b, a )					\
 {								\
    GET_IMMEDIATE;						\
@@ -489,7 +500,9 @@ _tnl_Color4ubv( const GLubyte *v)
 }
 
 
-
+/**
+ * Update the secondary color attribute in the immediate structure.
+ */
 #define SECONDARY_COLOR( r, g, b )			\
 {							\
    GET_IMMEDIATE;					\
@@ -597,6 +610,9 @@ _tnl_Indexiv( const GLint *c )
 }
 
 
+/**
+ * Update the normal attribute in the immediate structure.
+ */
 #define NORMAL( x, y, z )				\
 {							\
    GET_IMMEDIATE;					\
@@ -639,6 +655,10 @@ _tnl_Normal3fv( const GLfloat *v )
 }
 
 
+/**
+ * \name Texture coordinates
+ */
+/*@{*/
 
 #define TEXCOORD1(s)				\
 {						\
@@ -754,7 +774,13 @@ _tnl_TexCoord4fv( const GLfloat *v )
    TEXCOORD4(v[0], v[1], v[2], v[3]);
 }
 
+/*@}*/
 
+
+/**
+ * \name Vertex coordinates
+ */
+/*@{*/
 
 /* KW: Run into bad problems in vertex copying if we don't fully pad
  *     the incoming vertices.
@@ -887,16 +913,18 @@ _tnl_Vertex4fv( const GLfloat *v )
    VERTEX4F( IM, v[0], v[1], v[2], v[3] );
 }
 
+/*@}*/
 
 
 
-/*
+/**
  * GL_ARB_multitexture
  *
  * Note: the multitexture spec says that specifying an invalid target
  * has undefined results and does not have to generate an error.  Just
  * don't crash.  We no-op on invalid targets.
  */
+/*@{*/
 
 #define MAX_TARGET (GL_TEXTURE0_ARB + MAX_TEXTURE_COORD_UNITS)
 
@@ -1027,6 +1055,7 @@ _tnl_MultiTexCoord4fvARB(GLenum target, const GLfloat *v)
    MULTI_TEXCOORD4( target, v[0], v[1], v[2], v[3] );
 }
 
+/*@}*/
 
 
 /* KW: Because the eval values don't become 'current', fixup will flow
@@ -1229,10 +1258,12 @@ _tnl_VertexAttrib4fvNV( GLuint index, const GLfloat *v )
 }   
 
 
-/* Execute a glRectf() function.  _tnl_hard_begin() ensures the check
- * on outside_begin_end is executed even in compiled lists.  These
- * vertices can now participate in the same immediate as regular ones,
- * even in most display lists.  
+/**
+ * Execute a glRectf() function.  
+ *
+ * _tnl_hard_begin() ensures the check on outside_begin_end is executed even in
+ * compiled lists.  These vertices can now participate in the same immediate as
+ * regular ones, even in most display lists.  
  */
 static void
 _tnl_Rectf( GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2 )
@@ -1345,6 +1376,9 @@ _tnl_Materialfv( GLenum face, GLenum pname, const GLfloat *params )
    }
 }
 
+/**
+ * Initialize our part of the GLvertexformat structure.
+ */
 void _tnl_imm_vtxfmt_init( GLcontext *ctx )
 {
    GLvertexformat *vfmt = &(TNL_CONTEXT(ctx)->vtxfmt);

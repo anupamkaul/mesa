@@ -1,4 +1,8 @@
-/* $Id: t_context.c,v 1.31 2003/02/04 14:40:56 brianp Exp $ */
+/** 
+ * \file t_context.c
+ *
+ * \author Keith Whitwell <keith@tungstengraphics.com>
+ */
 
 /*
  * Mesa 3-D graphics library
@@ -23,10 +27,129 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * Authors:
- *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
+/* $Id: t_context.c,v 1.31.2.1 2003/04/05 16:42:15 jrfonseca Exp $ */
+ 
+/**
+ * \mainpage
+ * 
+ * \section TnlIntroduction Introduction
+ * 
+ * A generic, configurable software implementation of GL transformation &
+ * lighting.
+ * 
+ * This module provides an implementation of the routines required by the
+ * 'vtxfmt' mechanism of core mesa for tnl functionality in all
+ * combinations of compile and execute modes.
+ * 
+ * Most current drivers use the tnl module exclusively to provide this
+ * functionality, though there is an experimental alternate
+ * implementation provided by the tnl_dd/t_dd_imm_* files which can
+ * handle a small subset of GL states in execute mode only.
+ * 
+ *
+ * \section TnlState State
+ * 
+ * To create and destroy the module:
+ * 
+ * \code
+ * 	GLboolean _tnl_CreateContext( GLcontext *ctx );
+ * 	void _tnl_DestroyContext( GLcontext *ctx );
+ * \endcode
+ * 
+ * The module is not active by default, and must be installed by calling
+ * _tnl_Wakeup().  This function installs internal tnl functions into all
+ * the vtxfmt dispatch hooks, thus taking over the task of transformation
+ * and lighting entirely:
+ * 
+ * \code
+ * 	void _tnl_wakeup_exec( GLcontext *ctx );
+ * 	void _tnl_wakeup_save_exec( GLcontext *ctx );
+ * \endcode
+ *    
+ * This module tracks state changes internally and maintains derived
+ * values based on the current state.  For this to work, the driver
+ * ensure the following funciton is called whenever the state changes and
+ * the swsetup module is 'awake':
+ * 
+ * \code
+ * 	void _tnl_InvalidateState( GLcontext *ctx, GLuint new_state );
+ * \endcode
+ * 
+ * There is no explicit call to put the tnl module to sleep.  Simply
+ * install other function pointers into all the vtxfmt dispatch slots,
+ * and (optionally) cease calling _tnl_InvalidateState().
+ * 
+ * \section TnlCustomization Customization
+ * 
+ * The module provides customizability through several mechanisms.  The
+ * most important is by allowing drivers to specify the pipeline through
+ * which vertex data is passed, including its eventual transfer to
+ * rasterization hardware (or software).
+ * 
+ * The default pipeline is specified in t_pipeline.c, and is usually a
+ * starting point for driver pipelines.  Some drivers will remove a stage
+ * where hardware provides support for the implemented operation (for
+ * instance fog where per-pixel hardware fog is available, as in the dri
+ * tdfx driver), or add stages to shortcircuit latter operations (for
+ * example taking advantage of hardware support for strips and other
+ * higher-level primitives (for example the radeon driver).
+ * 
+ * In addition, the following functions provide further tweaks:
+ * 
+ * \code
+ * extern void
+ * _tnl_need_projected_coords( GLcontext *ctx, GLboolean flag );
+ * \endcode
+ * 
+ * 	- Direct the default vertex transformation stage to
+ *           produce/not produce projected clip coordinates.
+ * 	  
+ * \code
+ * extern void
+ * _tnl_need_dlist_loopback( GLcontext *ctx, GLboolean flag );
+ * \endcode
+ *       
+ *         - Direct the display list component of the tnl module to
+ *           replay display lists as 'glVertex' type calls, rather than
+ *           passing the display list data directly into the tnl pipeline
+ *           mechanism.  
+ * 
+ * 	  This allows display lists to be replayed by the tnl module
+ * 	  even when the module is not strictly active.
+ * 
+ * 
+ * \code
+ * extern void
+ * _tnl_need_dlist_norm_lengths( GLcontext *ctx, GLboolean flag );
+ * \endcode
+ * 
+ * 	- Direct the display list component to enable/disable caching
+ *           1/length values for display list normals.  Doing so is
+ *           ususally helpful when lighting is performed in software, but
+ *           wasteful otherwise.
+ * 
+ * 
+ * \section TnlDriverInterface Driver Interface
+ * 
+ * The module itself offers a minimal driver interface:
+ * 
+ * \code
+ * 	 void (*RunPipeline)( GLcontext *ctx );
+ * \endcode
+ * 
+ * Normally this is set to _tnl_RunPipeline(), however the driver can use
+ * this hook to wrap checks or other code around this call. 
+ * 
+ * In addition, the driver interface for the default render pipeline
+ * stage is housed in the tnl context struct (this could be cleaner).  
+ * 
+ * 
+ * \section TnlRenderDriverInterface Render Driver Interface
+ * 
+ * See t_context.h for the definition and explanation of this.
+ */
 
 #include "glheader.h"
 #include "imports.h"
