@@ -886,6 +886,7 @@ void viaRasterPrimitive(GLcontext *ctx,
 	 break;
       case GL_LINES:
 	 vmesa->regCmdA_End |= HC_HPMType_Line | HC_HVCycle_Full;
+         regCmdB |= HC_HLPrst_MASK;
 	 if (ctx->Light.ShadeModel == GL_FLAT)
             vmesa->regCmdA_End |= HC_HShading_FlatB; 
 	 break;
