@@ -379,11 +379,13 @@ static struct __DriverAPIRec r200API = {
  * Return:  pointer to a __DRIscreenPrivate.
  *
  */
-void *__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
-                        int numConfigs, __GLXvisualConfig *config)
+void *
+__driCreateScreen(struct DRIDriverRec *driver,
+                  struct DRIDriverContextRec *driverContext,
+                  __DRIscreen *psc)
 {
    __DRIscreenPrivate *psp;
-   psp = __driUtilCreateScreen(dpy, scrn, psc, numConfigs, config, &r200API);
+   psp = __driUtilCreateScreen(driver, driverContext, psc, &r200API);
    return (void *) psp;
 }
 

@@ -41,7 +41,7 @@
 
 
 
-static GLXContext context = 0;
+/*static GLXContext context = 0;*/
 static Window win;
 static XVisualInfo *visinfo = 0;
 static Display *dpy = 0;

@@ -52,6 +52,7 @@
 #include "sarea.h"		/* for XF86DRISAREAPtr */
 #include "GL/internal/glcore.h"	/* for __GLcontextModes */
 #include "miniglxP.h"		/* XID, etc */
+#include "sarea.h"
 
 
 typedef struct __DRIdisplayPrivateRec  __DRIdisplayPrivate;  /**< \brief Alias for __DRIdisplayPrivateRec */
@@ -179,7 +180,7 @@ struct __DRIdrawablePrivateRec {
     /**
      * \brief X's drawable ID associated with this private drawable.
      */
-    GLXDrawable draw;
+    //GLXDrawable draw;
 
     /**
      * \brief Reference count for number of context's currently bound to this
@@ -252,10 +253,16 @@ struct __DRIdrawablePrivateRec {
      * __driUtilUpdateDrawableInfo() which calls XF86DRIGetDrawableInfo().
      */
     /*@{*/
-    Display *display;
-    int screen;
+    //Display *display;
+    //int screen;
     /*@}*/
 
+    int cpp;
+    int frontOffset;
+    int frontPitch;
+    int backOffset;
+    int backPitch;
+    
     /**
      * \brief Called via glXSwapBuffers().
      */
@@ -284,7 +291,7 @@ struct __DRIcontextPrivateRec {
     /**
      * \brief This context's display pointer.
      */
-    Display *display;
+    //Display *display;
 
     /**
      * \brief Pointer to drawable currently bound to this context.
@@ -304,7 +311,7 @@ struct __DRIscreenPrivateRec {
     /**
      * \brief Display for this screen
      */
-    Display *display;
+    //Display *display;
 
     /**
      * \brief Current screen's number
@@ -441,7 +448,6 @@ struct __DRIscreenPrivateRec {
 };
 
 
-
 extern void
 __driUtilMessage(const char *f, ...);
 
@@ -451,27 +457,27 @@ __driUtilUpdateDrawableInfo(__DRIdrawablePrivate *pdp);
 
 
 extern __DRIscreenPrivate *
-__driUtilCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
-                      int numConfigs, __GLXvisualConfig *config,
-                      const struct __DriverAPIRec *driverAPI);
+__driUtilCreateScreen(struct DRIDriverRec *driver,
+                      struct DRIDriverContextRec *driverContext,
+                      __DRIscreen *psc, const struct __DriverAPIRec *driverAPI);
 
 __DRIscreenPrivate *
-__driUtilCreateScreenNoDRM(Display *dpy, int scrn, __DRIscreen *psc,
-			   int numConfigs, __GLXvisualConfig *config,
-			   const struct __DriverAPIRec *driverAPI);
+__driUtilCreateScreenNoDRM(struct DRIDriverRec *driver,
+                           struct DRIDriverContextRec *driverContext,
+                           __DRIscreen *psc, const struct __DriverAPIRec *driverAPI);
 
 /** This must be implemented in each driver */
 extern void *
-__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
-                  int numConfigs, __GLXvisualConfig *config);
+__driCreateScreen(struct DRIDriverRec *driver,
+                  struct DRIDriverContextRec *driverContext,
+                  __DRIscreen *psc);
 
 
 /** This is optionally implemented in each driver */
 extern void
 __driRegisterExtensions( void );
 
-
 extern void
-__driUtilInitScreen( Display *dpy, int scrn, __DRIscreen *psc );
+__driUtilInitScreen( __DRIscreen *psc );
 
 #endif /* _DRI_UTIL_H_ */

@@ -122,7 +122,7 @@ glutSolidCone(GLdouble base, GLdouble height,
 static void
 drawBox(GLfloat size, GLenum type)
 {
-  static GLfloat n[6][3] =
+/*  static GLfloat n[6][3] =
   {
     {-1.0, 0.0, 0.0},
     {0.0, 1.0, 0.0},
@@ -130,7 +130,7 @@ drawBox(GLfloat size, GLenum type)
     {0.0, -1.0, 0.0},
     {0.0, 0.0, 1.0},
     {0.0, 0.0, -1.0}
-  };
+  };*/
   static GLint faces[6][4] =
   {
     {0, 1, 2, 3},

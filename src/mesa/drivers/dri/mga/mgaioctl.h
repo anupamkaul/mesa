@@ -46,8 +46,8 @@ void mgaWaitForVBlank( mgaContextPtr mmesa );
 void mgaFireILoadLocked( mgaContextPtr mmesa,
 			 GLuint offset, GLuint length );
 
-void mgaWaitAgeLocked( mgaContextPtr mmesa, int age );
-void mgaWaitAge( mgaContextPtr mmesa, int age );
+void mgaWaitAgeLocked( mgaContextPtr mmesa, unsigned int age );
+void mgaWaitAge( mgaContextPtr mmesa, unsigned int age );
 
 void mgaFlushVertices( mgaContextPtr mmesa );
 void mgaFlushVerticesLocked( mgaContextPtr mmesa );

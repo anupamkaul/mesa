@@ -376,7 +376,8 @@ static void mgaDDFogfv(GLcontext *ctx, GLenum pname, const GLfloat *param)
 static void mgaUpdateAlphaMode(GLcontext *ctx)
 {
    mgaContextPtr mmesa = MGA_CONTEXT( ctx );
-   mgaScreenPrivate *mgaScreen = mmesa->mgaScreen;
+   __DRIdrawablePrivate *driDrawable = mmesa->driDrawable;
+//   mgaScreenPrivate *mgaScreen = mmesa->mgaScreen;
    int a = 0;
 
    /* determine source of alpha for blending and testing */
@@ -464,13 +465,13 @@ static void mgaUpdateAlphaMode(GLcontext *ctx)
       case GL_ONE_MINUS_SRC_ALPHA:
 	 a |= AC_src_om_src_alpha; break;
       case GL_DST_ALPHA:
-	 if (mgaScreen->cpp == 4)
+	 if (driDrawable->cpp == 4)
 	    a |= AC_src_dst_alpha;
 	 else
 	    a |= AC_src_one;
 	 break;
       case GL_ONE_MINUS_DST_ALPHA:
-	 if (mgaScreen->cpp == 4)
+	 if (driDrawable->cpp == 4)
 	    a |= AC_src_om_dst_alpha;
 	 else
 	    a |= AC_src_zero;
@@ -499,13 +500,13 @@ static void mgaUpdateAlphaMode(GLcontext *ctx)
       case GL_ONE_MINUS_SRC_COLOR:
 	 a |= AC_dst_om_src_color; break;
       case GL_DST_ALPHA:
-	 if (mgaScreen->cpp == 4)
+	 if (driDrawable->cpp == 4)
 	    a |= AC_dst_dst_alpha;
 	 else
 	    a |= AC_dst_one;
 	 break;
       case GL_ONE_MINUS_DST_ALPHA:
-	 if (mgaScreen->cpp == 4)
+	 if (driDrawable->cpp == 4)
 	    a |= AC_dst_om_dst_alpha;
 	 else
 	    a |= AC_dst_zero;
@@ -579,9 +580,9 @@ static void mgaDDClearColor(GLcontext *ctx,
 {
    mgaContextPtr mmesa = MGA_CONTEXT(ctx);
 
-   mmesa->ClearColor = mgaPackColor( mmesa->mgaScreen->cpp,
-				     color[0], color[1], 
-				     color[2], color[3]);
+   mmesa->ClearColor = mgaPackColor( mmesa->driDrawable->cpp,
+				     color[0] * 0xff, color[1] * 0xff,
+				     color[2] * 0xff, color[3] * 0xff);
 }
 
 
@@ -636,21 +637,21 @@ static void mgaDDColorMask(GLcontext *ctx,
 			   GLboolean b, GLboolean a )
 {
    mgaContextPtr mmesa = MGA_CONTEXT( ctx );
-   mgaScreenPrivate *mgaScreen = mmesa->mgaScreen;
+   __DRIdrawablePrivate *driDrawable = mmesa->driDrawable;
 
 
-   GLuint mask = mgaPackColor(mgaScreen->cpp,
+   GLuint mask = mgaPackColor(driDrawable->cpp,
 			      ctx->Color.ColorMask[RCOMP],
 			      ctx->Color.ColorMask[GCOMP],
 			      ctx->Color.ColorMask[BCOMP],
 			      ctx->Color.ColorMask[ACOMP]);
 
-   if (mgaScreen->cpp == 2)
+   if (driDrawable->cpp == 2)
       mask = mask | (mask << 16);
 
    if (mmesa->setup.plnwt != mask) {
       MGA_STATECHANGE( mmesa, MGA_UPLOAD_CONTEXT );
-      mmesa->setup.plnwt = mask;      
+      mmesa->setup.plnwt = mask;
    }
 }
 
@@ -663,7 +664,7 @@ static void mgaDDColorMask(GLcontext *ctx,
  * Note: the fully opaque pattern (0xffff) has been disabled in order
  * to work around a conformance issue.
  */
-static int mgaStipples[16] = {
+static unsigned int mgaStipples[16] = {
    0xffff1,  /* See above note */
    0xa5a5,
    0x5a5a,
@@ -999,54 +1000,16 @@ static void mgaDDInvalidateState( GLcontext *ctx, GLuint new_state )
 
 void mgaInitState( mgaContextPtr mmesa )
 {
-   mgaScreenPrivate *mgaScreen = mmesa->mgaScreen;
    GLcontext *ctx = mmesa->glCtx;
 
    if (ctx->Color._DrawDestMask == BACK_LEFT_BIT) {
       mmesa->draw_buffer = MGA_BACK;
       mmesa->read_buffer = MGA_BACK;
-      mmesa->drawOffset = mmesa->mgaScreen->backOffset;
-      mmesa->readOffset = mmesa->mgaScreen->backOffset;
-      mmesa->setup.dstorg = mgaScreen->backOffset;
    } else {
       mmesa->draw_buffer = MGA_FRONT;
       mmesa->read_buffer = MGA_FRONT;
-      mmesa->drawOffset = mmesa->mgaScreen->frontOffset;
-      mmesa->readOffset = mmesa->mgaScreen->frontOffset;
-      mmesa->setup.dstorg = mgaScreen->frontOffset;
    }
-
-   mmesa->setup.maccess = (MA_memreset_disable |
-			   MA_fogen_disable |
-			   MA_tlutload_disable |
-			   MA_nodither_disable |
-			   MA_dit555_disable);
-
-   switch (mmesa->mgaScreen->cpp) {
-   case 2:
-      mmesa->setup.maccess |= MA_pwidth_16;
-      break;
-   case 4:
-      mmesa->setup.maccess |= MA_pwidth_32;
-      break;
-   default:
-      fprintf( stderr, "Error: unknown cpp %d, exiting...\n",
-	       mmesa->mgaScreen->cpp );
-      exit( 1 );
-   }
-
-   switch (mmesa->glCtx->Visual.depthBits) {
-   case 16:
-      mmesa->setup.maccess |= MA_zwidth_16;
-      break;
-   case 24:
-      mmesa->setup.maccess |= MA_zwidth_24;
-      break;
-   case 32:
-      mmesa->setup.maccess |= MA_pwidth_32;
-      break;
-   }
-
+   
    mmesa->setup.dwgctl = (DC_opcod_trap |
 			  DC_atype_i |
 			  DC_linear_xy |

@@ -116,7 +116,14 @@
 /* Setup registers for 3D context
  */
 typedef struct {
-   unsigned int dstorg;
+   unsigned int fb_cpp;
+   unsigned int front_offset;
+   unsigned int front_pitch;
+   unsigned int back_offset;
+   unsigned int back_pitch;
+   unsigned int draw_offset;
+   unsigned int draw_pitch;
+
    unsigned int maccess;
    unsigned int plnwt;
    unsigned int dwgctl;
@@ -186,7 +193,7 @@ typedef struct {
     * The client clears the exported_drawable field before
     * clobbering the boxes data.
     */
-   GLXDrawable req_drawable;       /* the X drawable id */
+   unsigned int req_drawable;       /* the X drawable id */
    unsigned int req_draw_buffer;    /* MGA_FRONT or MGA_BACK */
 
    unsigned int exported_drawable;

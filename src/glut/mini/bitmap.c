@@ -12,8 +12,9 @@ glutBitmapCharacter(GLUTbitmapFont font, int c)
 {
   const BitmapCharRec *ch;
   BitmapFontPtr fontinfo;
-  GLfloat swapbytes, lsbfirst, rowlength;
-  GLfloat skiprows, skippixels, alignment;
+/*  GLfloat swapbytes, lsbfirst, rowlength;*/
+/*  GLfloat skiprows, skippixels;*/
+  GLfloat alignment;
 
 #if defined(_WIN32)
   fontinfo = (BitmapFontPtr) __glutFont(font);

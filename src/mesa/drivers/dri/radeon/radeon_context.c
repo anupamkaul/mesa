@@ -280,7 +280,8 @@ radeonCreateContext( const __GLcontextModes *glVisual,
    rmesa->dri.hwLock = &sPriv->pSAREA->lock;
    rmesa->dri.fd = sPriv->fd;
 
-   rmesa->glCtx->_RotateMode = radeonScreen->driScreen->display->rotateMode;
+   /* remove X dependency -- dok, 2003-04-27
+    * rmesa->glCtx->_RotateMode = radeonScreen->driScreen->display->rotateMode; */
 
    /* If we don't have 1.3, fallback to the 1.1 interfaces.
     */
@@ -716,6 +717,9 @@ radeonUnbindContext( __DRIcontextPrivate *driContextPriv )
       fprintf(stderr, "%s ctx %p\n", __FUNCTION__, rmesa->glCtx);
 
    radeonVtxfmtUnbindContext( rmesa->glCtx );
+   
+   UNLOCK_HARDWARE( rmesa );
+   
    return GL_TRUE;
 }
 
@@ -845,10 +849,13 @@ static struct __DriverAPIRec radeonAPI = {
  *
  * Calls __driUtilCreateScreen() with ::radeonAPI.
  */
-void *__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
-                        int numConfigs, __GLXvisualConfig *config)
+void *
+__driCreateScreen(struct DRIDriverRec *driver,
+                  struct DRIDriverContextRec *driverContext,
+                  __DRIscreen *psc)
 {
    __DRIscreenPrivate *psp;
-   psp = __driUtilCreateScreen(dpy, scrn, psc, numConfigs, config, &radeonAPI);
+   psp = __driUtilCreateScreen(driver, driverContext, psc, &radeonAPI);
    return (void *) psp;
 }
+

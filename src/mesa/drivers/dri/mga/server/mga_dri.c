@@ -383,27 +383,6 @@ static int MGADRIKernelInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 
    init.sgram = 0; /* FIXME !pMga->HasSDRAM; */
 
-
-   switch (ctx->bpp)
-     {
-     case 16:
-       init.maccess = MGA_MACCESS_PW16;
-       break;
-     case 32:
-       init.maccess = MGA_MACCESS_PW32;
-       break;
-     default:
-       fprintf( stderr, "[mga] invalid bpp (%d)\n", ctx->bpp );
-       return 0;
-     }
-
-
-   init.fb_cpp		= ctx->bpp / 8;
-   init.front_offset	= pMga->frontOffset;
-   init.front_pitch	= pMga->frontPitch / init.fb_cpp;
-   init.back_offset	= pMga->backOffset;
-   init.back_pitch	= pMga->backPitch / init.fb_cpp;
-
    init.depth_cpp	= ctx->bpp / 8;
    init.depth_offset	= pMga->depthOffset;
    init.depth_pitch	= pMga->depthPitch / init.depth_cpp;
@@ -483,16 +462,10 @@ static int MGADRIBuffersInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 static int MGAMemoryInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 {
    int        width_bytes = ctx->shared.virtualWidth * ctx->cpp;
-   int        bufferSize  = ((ctx->shared.virtualHeight * width_bytes
-			      + MGA_BUFFER_ALIGN)
-			     & ~MGA_BUFFER_ALIGN);
    int        depthSize   = ((((ctx->shared.virtualHeight+15) & ~15) * width_bytes
 			      + MGA_BUFFER_ALIGN)
 			     & ~MGA_BUFFER_ALIGN);
    int        l;
-
-   pMga->frontOffset = 0;
-   pMga->frontPitch = ctx->shared.virtualWidth * ctx->cpp;
 
    fprintf(stderr, 
 	   "Using %d MB AGP aperture\n", pMga->agpSize);
@@ -503,7 +476,7 @@ static int MGAMemoryInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 
    /* Front, back and depth buffers - everything else texture??
     */
-   pMga->textureSize = ctx->shared.fbSize - 2 * bufferSize - depthSize;
+   pMga->textureSize = ctx->shared.fbSize - depthSize;
 
    if (pMga->textureSize < 0) 
       return 0;
@@ -528,33 +501,27 @@ static int MGAMemoryInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    }
 
    /* Reserve space for textures */
-   pMga->textureOffset = ((ctx->shared.fbSize - pMga->textureSize +
+   pMga->textureOffset = ((ctx->FBSize - pMga->textureSize +
 			   MGA_BUFFER_ALIGN) &
 			  ~MGA_BUFFER_ALIGN);
 
    /* Reserve space for the shared depth
     * buffer.
     */
-   pMga->depthOffset = ((pMga->textureOffset - depthSize +
+   pMga->depthOffset = ((ctx->shared.fbOrigin +
 			 MGA_BUFFER_ALIGN) &
 			~MGA_BUFFER_ALIGN);
    pMga->depthPitch = ctx->shared.virtualWidth * ctx->cpp;
 
-   pMga->backOffset = ((pMga->depthOffset - bufferSize +
-			MGA_BUFFER_ALIGN) &
-                        ~MGA_BUFFER_ALIGN);
-   pMga->backPitch = ctx->shared.virtualWidth * ctx->cpp;
 
 
    fprintf(stderr, 
-	   "Will use back buffer at offset 0x%x\n",
-	   pMga->backOffset);
+	   "Will use depth buffer at offset %d.%d MB\n",
+	   pMga->depthOffset>>20, (pMga->depthOffset&0xfffff) * 1000 / 0x100000);
    fprintf(stderr, 
-	   "Will use depth buffer at offset 0x%x\n",
-	   pMga->depthOffset);
-   fprintf(stderr, 
-	   "Will use %d kb for textures at offset 0x%x\n",
-	   pMga->textureSize/1024, pMga->textureOffset);
+	   "Will use %d kb for textures at offset %d.%d MB\n",
+	   pMga->textureSize/1024, pMga->textureOffset>>20,
+           (pMga->textureOffset&0xfffff) * 1000 / 0x100000);
 
    return 1;
 } 
@@ -589,18 +556,9 @@ static void print_client_msg( MGADRIPtr pMGADRI )
 {
   fprintf( stderr, "chipset:                  %d\n", pMGADRI->chipset );
 
-  fprintf( stderr, "width:                    %d\n", pMGADRI->width );
-  fprintf( stderr, "height:                   %d\n", pMGADRI->height );
   fprintf( stderr, "mem:                      %d\n", pMGADRI->mem );
-  fprintf( stderr, "cpp:                      %d\n", pMGADRI->cpp );
 
   fprintf( stderr, "agpMode:                  %d\n", pMGADRI->agpMode );
-
-  fprintf( stderr, "frontOffset:              %d\n", pMGADRI->frontOffset );
-  fprintf( stderr, "frontPitch:               %d\n", pMGADRI->frontPitch );
-
-  fprintf( stderr, "backOffset:               %d\n", pMGADRI->backOffset );
-  fprintf( stderr, "backPitch:                %d\n", pMGADRI->backPitch );
 
   fprintf( stderr, "depthOffset:              %d\n", pMGADRI->depthOffset );
   fprintf( stderr, "depthPitch:               %d\n", pMGADRI->depthPitch );
@@ -635,6 +593,17 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 
   usleep(100);
   //assert(!ctx->IsClient);
+
+  switch (ctx->bpp)
+    {
+      case 16:
+      case 32:
+        break;
+      default:
+        fprintf(stderr, "[drm] Direct rendering only supported for RGB16 and RGB32 yet\n");
+        return 0;
+   }
+    
 
    {
       int  width_bytes = (ctx->shared.virtualWidth * ctx->cpp);
@@ -804,6 +773,7 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
       memset(pSAREAPriv, 0, sizeof(*pSAREAPriv));
    }
 
+#if 0
    /* Quick hack to clear the front & back buffers.  Could also use
     * the clear ioctl to do this, but would need to setup hw state
     * first.
@@ -815,6 +785,7 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    memset(ctx->FBAddress + pMga->backOffset,
 	  0,
 	  pMga->backPitch * ctx->shared.virtualHeight );
+#endif
 
    /* Can release the lock now */
 /*   DRM_UNLOCK(ctx->drmFD, ctx->pSAREA, ctx->serverContext);*/
@@ -838,17 +809,10 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    default:
       return 0;
    }
-   pMGADRI->width		= ctx->shared.virtualWidth;
-   pMGADRI->height		= ctx->shared.virtualHeight;
    pMGADRI->mem			= ctx->shared.fbSize;
-   pMGADRI->cpp			= ctx->bpp / 8;
 
    pMGADRI->agpMode		= pMga->agpMode;
 
-   pMGADRI->frontOffset		= pMga->frontOffset;
-   pMGADRI->frontPitch		= pMga->frontPitch;
-   pMGADRI->backOffset		= pMga->backOffset;
-   pMGADRI->backPitch		= pMga->backPitch;
    pMGADRI->depthOffset		= pMga->depthOffset;
    pMGADRI->depthPitch		= pMga->depthPitch;
    pMGADRI->textureOffset	= pMga->textureOffset;
@@ -1036,8 +1000,6 @@ static int mgaInitFBDev( struct DRIDriverContextRec *ctx )
    pMga->IOAddress = ctx->MMIOStart;
    pMga->IOBase    = ctx->MMIOAddress;
 
-   pMga->frontPitch = ctx->shared.virtualWidth * ctx->cpp;
-
    if (!MGAScreenInit( ctx, pMga ))
       return 0;
 
@@ -1056,8 +1018,56 @@ static int mgaInitFBDev( struct DRIDriverContextRec *ctx )
  */
 static void mgaHaltFBDev( struct DRIDriverContextRec *ctx )
 {
-    drmUnmap( ctx->pSAREA, ctx->shared.SAREASize );
-    drmClose(ctx->drmFD);
+     MGAPtr     pMga = ctx->driverPrivate;
+     drmMGAInit init;
+
+     if ( pMga->drmBuffers ) {
+        drmUnmapBufs( pMga->drmBuffers );
+        pMga->drmBuffers = NULL;
+     }
+
+     if (pMga->irq) {
+        drmCtlUninstHandler(ctx->drmFD);
+        pMga->irq = 0;
+     }
+
+     /* Cleanup DMA */
+     memset( &init, 0, sizeof(drmMGAInit) );
+     init.func = MGA_CLEANUP_DMA;
+     drmCommandWrite( ctx->drmFD, DRM_MGA_INIT, &init, sizeof(drmMGAInit) );
+
+     if ( pMga->status.map ) {
+        drmUnmap( pMga->status.map, pMga->status.size );
+        pMga->status.map = NULL;
+     }
+     if ( pMga->buffers.map ) {
+        drmUnmap( pMga->buffers.map, pMga->buffers.size );
+        pMga->buffers.map = NULL;
+     }
+     if ( pMga->primary.map ) {
+        drmUnmap( pMga->primary.map, pMga->primary.size );
+        pMga->primary.map = NULL;
+     }
+     if ( pMga->warp.map ) {
+        drmUnmap( pMga->warp.map, pMga->warp.size );
+        pMga->warp.map = NULL;
+     }
+
+     if ( pMga->agpTextures.map ) {
+        drmUnmap( pMga->agpTextures.map, pMga->agpTextures.size );
+        pMga->agpTextures.map = NULL;
+     }
+
+     if ( pMga->agp.handle ) {
+        drmAgpUnbind( ctx->drmFD, pMga->agp.handle );
+        drmAgpFree( ctx->drmFD, pMga->agp.handle );
+        pMga->agp.handle = 0;
+        drmAgpRelease( ctx->drmFD );
+     }
+    
+     drmUnlock( ctx->drmFD, ctx->serverContext );
+     drmUnmap( ctx->pSAREA, ctx->shared.SAREASize );
+     drmClose(ctx->drmFD);
 
     if (ctx->driverPrivate) {
        free(ctx->driverPrivate);
@@ -1080,6 +1090,13 @@ static int mgaEngineRestore( struct DRIDriverContextRec *ctx )
    return 1;
 }
 
+static int mgaEngineIdle( struct DRIDriverContextRec *ctx )
+{
+   MGAWaitForIdleDMA( ctx, ctx->driverPrivate );
+
+   return 1;
+}
+
 /**
  * \brief Exported driver interface for Mini GLX.
  *
@@ -1093,6 +1110,7 @@ struct DRIDriverRec __driDriver = {
    mgaHaltFBDev,
    mgaEngineShutdown,
    mgaEngineRestore,
+   mgaEngineIdle,
    0
 };
 

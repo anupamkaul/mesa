@@ -84,8 +84,8 @@ check_depth( const GLcontext *ctx, GLenum type,
    mgaContextPtr mmesa = MGA_CONTEXT(ctx);
 
    if ( IS_AGP_MEM( mmesa, pixels ) &&
-	!( ( type == GL_UNSIGNED_INT && mmesa->mgaScreen->cpp == 4 ) ||
-	   ( type == GL_UNSIGNED_SHORT && mmesa->mgaScreen->cpp == 2 ) ) )
+	!( ( type == GL_UNSIGNED_INT && mmesa->driDrawable->cpp == 4 ) ||
+	   ( type == GL_UNSIGNED_SHORT && mmesa->driDrawable->cpp == 2 ) ) )
       return GL_FALSE;
 
    return ( ctx->Pixel.DepthBias == 0.0 &&
@@ -102,7 +102,7 @@ check_color( const GLcontext *ctx, GLenum type, GLenum format,
 	     const void *pixels, GLint sz, GLint pitch )
 {
    mgaContextPtr mmesa = MGA_CONTEXT(ctx);
-   GLuint cpp = mmesa->mgaScreen->cpp;
+   GLuint cpp = mmesa->driDrawable->cpp;
 
    /* Can't do conversions on agp reads/draws.
     */
@@ -206,8 +206,8 @@ clip_pixelrect( const GLcontext *ctx,
    if (*height <= 0)
       return GL_FALSE;
 
-   *size = ((*y + *height - 1) * mmesa->mgaScreen->frontPitch +
-	    (*x + *width - 1) * mmesa->mgaScreen->cpp);
+   *size = ((*y + *height - 1) * mmesa->driDrawable->frontPitch +
+	    (*x + *width - 1) * mmesa->driDrawable->cpp);
 
    return GL_TRUE;
 }
@@ -278,8 +278,8 @@ mgaTryReadPixels( GLcontext *ctx,
       ok = check_color(ctx, type, format, pack, pixels, size, pitch);
       planemask = ~0;
       source = (mmesa->draw_buffer == MGA_FRONT ?
-		mmesa->mgaScreen->frontOffset :
-		mmesa->mgaScreen->backOffset);
+		mmesa->driDrawable->frontOffset :
+		mmesa->driDrawable->backOffset);
       break;
 
    default:
@@ -480,7 +480,7 @@ mgaTryDrawPixels( GLcontext *ctx,
    GLint size, skipPixels, skipRows;
    GLint pitch = unpack->RowLength ? unpack->RowLength : width;
    GLuint dest, planemask;
-   GLuint cpp = mmesa->mgaScreen->cpp;
+   GLuint cpp = mmesa->driDrawable->cpp;
 
    if (!clip_pixelrect(ctx, ctx->DrawBuffer,
 		       &x, &y, &width, &height,
@@ -517,8 +517,8 @@ mgaTryDrawPixels( GLcontext *ctx,
    case GL_RGB:
    case GL_BGRA:
       dest = (mmesa->draw_buffer == MGA_FRONT ?
-	      mmesa->mgaScreen->frontOffset :
-	      mmesa->mgaScreen->backOffset);
+	      mmesa->driDrawable->frontOffset :
+	      mmesa->driDrawable->backOffset);
 
       planemask = mgaPackColor(cpp,
 			       ctx->Color.ColorMask[RCOMP],

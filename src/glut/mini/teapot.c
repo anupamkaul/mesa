@@ -48,6 +48,7 @@ OpenGL(TM) is a trademark of Silicon Graphics, Inc.
 #include <GL/glu.h>
 #include "GL/glut.h"
 
+#if 0
 /* Rim, body, lid, and bottom data must be reflected in x and
    y; handle and spout data across the y axis only.  */
 
@@ -134,16 +135,17 @@ static float tex[2][2][2] =
   { {0, 1},
     {1, 1}}
 };
+#endif
 
 /* *INDENT-ON* */
 
 static void
 teapot(GLint grid, GLdouble scale, GLenum type)
 {
+#if 0
   float p[4][4][3], q[4][4][3], r[4][4][3], s[4][4][3];
   long i, j, k, l;
 
-#if 0
   glPushAttrib(GL_ENABLE_BIT | GL_EVAL_BIT);
   glEnable(GL_AUTO_NORMAL);
   glEnable(GL_NORMALIZE);

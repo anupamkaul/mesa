@@ -1,4 +1,4 @@
-/* $Id: t_vb_texgen.c,v 1.15 2002/10/29 20:29:04 brianp Exp $ */
+/* $Id: t_vb_texgen.c,v 1.15.8.1 2003/05/06 00:01:40 dok666 Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -322,9 +322,15 @@ static void texgen_sphere_map( GLcontext *ctx,
    GLfloat (*f)[3] = store->tmp_f;
    GLfloat *m = store->tmp_m;
 
-/*     _mesa_debug(NULL, "%s normstride %d eyestride %d\n",  */
-/*  	   __FUNCTION__, VB->NormalPtr->stride, */
-/*  	   VB->EyePtr->stride); */
+   //printf("0, %p, %p\n", VB->NormalPtr, VB->EyePtr);
+
+   if (!VB->EyePtr) {
+        return;
+   }
+     
+/*   _mesa_debug(NULL, "%s normstride %d eyestride %d\n",
+  	   __FUNCTION__, VB->NormalPtr->stride,
+  	   VB->EyePtr->stride);*/
 
    (build_m_tab[VB->EyePtr->size])( store->tmp_f,
 				    store->tmp_m,

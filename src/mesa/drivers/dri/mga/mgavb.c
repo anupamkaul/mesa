@@ -89,7 +89,7 @@ static struct {
 			       
 #define VERTEX mgaVertex
 #define VERTEX_COLOR mga_color_t
-#define LOCALVARS mgaContextPtr mmesa = MGA_CONTEXT(ctx);
+#define LOCALVARS mgaContextPtr mmesa = MGA_CONTEXT(ctx); (void) mmesa;
 #define GET_VIEWPORT_MAT() mmesa->hw_viewport
 #define GET_TEXSOURCE(n)  mmesa->tmu_source[n]
 #define GET_VERTEX_FORMAT() mmesa->vertex_format

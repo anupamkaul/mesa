@@ -44,18 +44,9 @@
 
 typedef struct {
    int chipset;
-   int width;
-   int height;
    int mem;
-   int cpp;
 
    int agpMode;
-
-   int frontOffset;
-   int frontPitch;
-
-   int backOffset;
-   int backPitch;
 
    int depthOffset;
    int depthPitch;

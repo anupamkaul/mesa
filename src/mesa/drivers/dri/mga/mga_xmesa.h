@@ -38,20 +38,10 @@
 typedef struct mga_screen_private_s {
 
    int chipset;
-   int width;
-   int height;
    int mem;
 
-   int cpp;			/* for front and back buffers */
    GLint agpMode;
    unsigned int irq;		/* IRQ number (0 means none) */
-
-   unsigned int mAccess;
-
-   unsigned int frontOffset;
-   unsigned int frontPitch;
-   unsigned int backOffset;
-   unsigned int backPitch;
 
    unsigned int depthOffset;
    unsigned int depthPitch;

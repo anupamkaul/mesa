@@ -1,4 +1,4 @@
-/* $Id: texstore.c,v 1.47.4.2 2003/03/09 10:52:21 jrfonseca Exp $ */
+/* $Id: texstore.c,v 1.47.4.2.4.1 2003/05/06 00:01:36 dok666 Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -1894,8 +1894,8 @@ _mesa_generate_mipmap(GLcontext *ctx, GLenum target,
 {
    const struct gl_texture_image *srcImage;
    const struct gl_texture_format *convertFormat;
-   const GLubyte *srcData;
-   GLubyte *dstData;
+   const GLubyte *srcData = NULL;
+   GLubyte *dstData = NULL;
    GLint level, maxLevels;
 
    ASSERT(texObj);

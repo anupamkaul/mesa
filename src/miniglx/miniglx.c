@@ -22,7 +22,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: miniglx.c,v 1.1.4.53 2003/04/26 21:17:47 keithw Exp $ */
+/* $Id: miniglx.c,v 1.1.4.53.4.1 2003/05/06 00:01:40 dok666 Exp $ */
 
 
 /**
@@ -111,12 +111,10 @@
 #include <linux/vt.h>
 
 #include "miniglxP.h"
+#include "dri_util.h"
 
 #include "glapi.h"
 
-
-extern void
-__driUtilInitScreen( Display *dpy, int scrn, __DRIscreen *psc );
 
 /**
  * \brief Current GLX context.
@@ -402,7 +400,7 @@ SetupFBDev( Display *dpy )
 
    dpy->driverContext.shared.virtualHeight = height;
    dpy->driverContext.shared.virtualWidth = width;
-   
+
    /* set the depth, resolution, etc */
    dpy->VarInfo = dpy->OrigVarInfo;
    dpy->VarInfo.bits_per_pixel = dpy->driverContext.bpp;
@@ -564,6 +562,10 @@ SetupFBDev( Display *dpy )
       }
    }
 
+   dpy->driverContext.shared.fbOrigin = dpy->FixedInfo.line_length * height * 2;
+   dpy->driverContext.shared.fbSize -= dpy->driverContext.shared.fbOrigin;
+
+
    /* May need to restore regs fbdev has clobbered:
     */
    if (!dpy->driver->postValidateMode( &dpy->driverContext )) {
@@ -649,24 +651,6 @@ CloseFBDev( Display *dpy )
 /** \name Misc functions needed for DRI drivers                       */
 /**********************************************************************/
 /*@{*/
-
-/**
- * \brief Find the DRI screen dependent methods associated with the display.
- *
- * \param dpy a display handle, as returned by XOpenDisplay().
- * \param scrn the screen number. Not referenced.
- * 
- * \returns a pointer to a __DRIscreenRec structure.
- * 
- * \internal
- * Returns the MiniGLXDisplayRec::driScreen attribute.
- */
-__DRIscreen *
-__glXFindDRIScreen(Display *dpy, int scrn)
-{
-   (void) scrn;
-   return &(dpy->driScreen);
-}
 
 /**
  * \brief Validate a drawable.
@@ -958,6 +942,13 @@ __miniglx_StartServer( const char *display_name )
       return NULL;
    }
 
+   /* do fbdev setup
+    */
+   if (!SetupFBDev(dpy)) {
+      fprintf(stderr, "SetupFBDev failed\n");
+      FREE(dpy);
+      return NULL;
+   }
 
    /* Ask the driver for a list of supported configs:
     */
@@ -974,16 +965,8 @@ __miniglx_StartServer( const char *display_name )
 
    /* Setup some callbacks in the screen private.
     */
-   __driUtilInitScreen( dpy, 0, &(dpy->driScreen) );
+   __driUtilInitScreen( &dpy->driScreen );
   
-   /* do fbdev setup
-    */
-   if (!SetupFBDev(dpy)) {
-      fprintf(stderr, "SetupFBDev failed\n");
-      FREE(dpy);
-      return NULL;
-   }
-
 
    /* Ready for clients:
     */
@@ -1013,7 +996,7 @@ XOpenDisplay( const char *display_name )
    if (!dpy)
       return NULL;
 
-   dpy->IsClient = True;
+   dpy->IsClient = dpy->driverContext.IsClient = True;
 
    /* read config file 
     */
@@ -1042,7 +1025,6 @@ XOpenDisplay( const char *display_name )
     */
    dpy->driver->initScreenConfigs( &dpy->driverContext,
                                    &dpy->numConfigs, &dpy->configs );
-   
 
    /* Perform the client-side initialization.  
     *
@@ -1051,10 +1033,9 @@ XOpenDisplay( const char *display_name )
     *
     * Need to shut down DRM and free DRI data in XDestroyWindow(), too.
     */
-   dpy->driScreen.private = (*dpy->createScreen)(dpy, 0, 
-						 &(dpy->driScreen),
-						 dpy->numConfigs,
-						 dpy->configs);
+   dpy->driScreen.private = (*dpy->createScreen)(dpy->driver,
+                                                 &dpy->driverContext,
+						 &dpy->driScreen);
    if (!dpy->driScreen.private) {
       fprintf(stderr, "%s: __driCreateScreen failed\n", __FUNCTION__);
       dlclose(dpy->dlHandle);
@@ -1065,7 +1046,7 @@ XOpenDisplay( const char *display_name )
 
    /* Setup some callbacks in the screen private.
     */
-   __driUtilInitScreen( dpy, 0, &(dpy->driScreen) );
+   __driUtilInitScreen( &dpy->driScreen );
   
 
    
@@ -1100,7 +1081,7 @@ XCloseDisplay( Display *dpy )
    /* As this is done in XOpenDisplay, need to undo it here:
     */
    if (dpy->driScreen.private) 
-      (*dpy->driScreen.destroyScreen)(dpy, 0, dpy->driScreen.private);
+      (*dpy->driScreen.destroyScreen)(&dpy->driScreen, dpy->driScreen.private);
 
    __miniglx_close_connections( dpy );
 
@@ -1164,6 +1145,7 @@ XCreateWindow( Display *display, Window parent, int x, int y,
                XSetWindowAttributes *attributes )
 {
    Window win;
+   __DRIdrawablePrivate *dPriv;
 
    /* ignored */
    (void) x;
@@ -1205,7 +1187,7 @@ XCreateWindow( Display *display, Window parent, int x, int y,
    win->visual = visual;  /* ptr assignment */
 
    win->bytesPerPixel = display->driverContext.cpp;
-   win->rowStride = display->VarInfo.xres_virtual * win->bytesPerPixel;
+   win->rowStride = display->driverContext.shared.virtualWidth * win->bytesPerPixel;
    win->size = win->rowStride * height; 
    win->frontStart = display->driverContext.FBAddress;
    win->frontBottom = (GLubyte *) win->frontStart + (height-1) * win->rowStride;
@@ -1229,13 +1211,25 @@ XCreateWindow( Display *display, Window parent, int x, int y,
    }
 
    win->driDrawable.private = display->driScreen.createDrawable(
-      display, 0, win, visual->visInfo->visualid, &(win->driDrawable));
+      &display->driScreen, win->w, win->h, display->clientID,
+      visual->visInfo->visualid, &(win->driDrawable));
 
    if (!win->driDrawable.private) {
       fprintf(stderr, "%s: dri.createDrawable failed\n", __FUNCTION__);
       FREE(win);
       return NULL;
    }
+
+   dPriv = win->driDrawable.private;
+
+   dPriv->cpp         = win->bytesPerPixel;
+   dPriv->frontOffset = 0;
+   dPriv->frontPitch  = win->rowStride;
+   dPriv->backOffset  = dPriv->frontOffset;
+   dPriv->backPitch   = win->rowStride;
+
+   if (visual->glxConfig->doubleBuffer)
+      dPriv->backOffset += win->rowStride * display->driverContext.shared.virtualHeight;
 
    display->NumWindows++;
    display->TheWindow = win;
@@ -1270,7 +1264,7 @@ XDestroyWindow( Display *display, Window w )
       /* Destroy the drawable.
        */
       if (w->driDrawable.private)
-	 (*w->driDrawable.destroyDrawable)(display, w->driDrawable.private);
+	 (*w->driDrawable.destroyDrawable)(&display->driScreen, w->driDrawable.private);
 
       FREE(w);
       /* unlink window from display */
@@ -1714,7 +1708,7 @@ glXCreateContext( Display *dpy, XVisualInfo *vis,
       sharePriv = shareList->driContext.private;
    else
       sharePriv = NULL;
-   ctx->driContext.private = (*dpy->driScreen.createContext)(dpy, vis,
+   ctx->driContext.private = (*dpy->driScreen.createContext)(&dpy->driScreen, ctx->vid,
                                           sharePriv, &(ctx->driContext));
    if (!ctx->driContext.private) {
       FREE(ctx);
@@ -1743,10 +1737,10 @@ glXDestroyContext( Display *dpy, GLXContext ctx )
    if (ctx) {
       if (glxctx == ctx) {
          /* destroying current context */
-         (*ctx->driContext.bindContext)(dpy, 0, 0, 0);
+         (*ctx->driContext.bindContext)(&dpy->driScreen, 0, 0);
 	 CurrentContext = 0;
       }
-      (*ctx->driContext.destroyContext)(dpy, 0, ctx->driContext.private);
+      (*ctx->driContext.destroyContext)(&dpy->driScreen, ctx->driContext.private);
       FREE(ctx);
    }
 }
@@ -1786,18 +1780,20 @@ glXMakeCurrent( Display *dpy, GLXDrawable drawable, GLXContext ctx)
       GLXDrawable oldDrawable = glXGetCurrentDrawable();
       /* unbind old */
       if (oldContext) {
-         (*oldContext->driContext.unbindContext)(dpy, 0, oldDrawable,
-                                                 oldContext, 0);
+         (*oldContext->driContext.unbindContext)(&dpy->driScreen,
+                                                 &oldDrawable->driDrawable,
+                                                 &oldContext->driContext, 0);
       }
       /* bind new */
       CurrentContext = ctx;
-      (*ctx->driContext.bindContext)(dpy, 0, drawable, ctx);
+      (*ctx->driContext.bindContext)(&dpy->driScreen,
+                                     &drawable->driDrawable, &ctx->driContext);
       ctx->drawBuffer = drawable;
       ctx->curBuffer = drawable;
    }
    else if (ctx && dpy) {
       /* unbind */
-      (*ctx->driContext.bindContext)(dpy, 0, 0, 0);
+      (*ctx->driContext.bindContext)(&dpy->driScreen, 0, 0);
    }
    else if (dpy) {
       CurrentContext = 0;	/* kw:  this seems to be intended??? */
@@ -1827,7 +1823,7 @@ glXSwapBuffers( Display *dpy, GLXDrawable drawable )
    if (!dpy || !drawable)
       return;
 
-   (*drawable->driDrawable.swapBuffers)(dpy, drawable->driDrawable.private);
+   (*drawable->driDrawable.swapBuffers)(&dpy->driScreen, drawable->driDrawable.private);
 }
 
 

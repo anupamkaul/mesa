@@ -71,11 +71,11 @@ typedef struct {
    int chipset;
    int sgram;
 
-   unsigned int maccess;
+//   unsigned int maccess;
 
-   unsigned int fb_cpp;
-   unsigned int front_offset, front_pitch;
-   unsigned int back_offset, back_pitch;
+//   unsigned int fb_cpp;
+//   unsigned int front_offset, front_pitch;
+//   unsigned int back_offset, back_pitch;
 
    unsigned int depth_cpp;
    unsigned int depth_offset, depth_pitch;

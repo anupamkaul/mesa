@@ -40,18 +40,18 @@ static void mgaXMesaSetFrontClipRects( mgaContextPtr mmesa )
 /*   fprintf( stderr, "%s\n", __FUNCTION__ );*/
 
    if (driDrawable->numClipRects == 0) {
-       static XF86DRIClipRectRec zeroareacliprect = {0,0,0,0};
-       mmesa->numClipRects = 1;
-       mmesa->pClipRects = &zeroareacliprect;
-   } else {
-       mmesa->numClipRects = driDrawable->numClipRects;
-       mmesa->pClipRects = driDrawable->pClipRects;
+      static XF86DRIClipRectRec zeroareacliprect = {0,0,0,0};
+      mmesa->numClipRects = 1;
+      mmesa->pClipRects = &zeroareacliprect;
+   }
+   else {
+      mmesa->numClipRects = driDrawable->numClipRects;
+      mmesa->pClipRects = driDrawable->pClipRects;
    }
    mmesa->drawX = driDrawable->x;
    mmesa->drawY = driDrawable->y;
 
-   mmesa->setup.dstorg = mmesa->drawOffset;
-   mmesa->dirty |= MGA_UPLOAD_CONTEXT | MGA_UPLOAD_CLIPRECTS;
+   mmesa->dirty |= MGA_UPLOAD_CLIPRECTS;
 }
 
 
@@ -61,27 +61,27 @@ static void mgaXMesaSetBackClipRects( mgaContextPtr mmesa )
 
 /*   fprintf( stderr, "%s\n", __FUNCTION__ );*/
 
-   if (driDrawable->numBackClipRects == 0)
-   {
+   if (driDrawable->numBackClipRects == 0) {
       if (driDrawable->numClipRects == 0) {
-	  static XF86DRIClipRectRec zeroareacliprect = {0,0,0,0};
-	  mmesa->numClipRects = 1;
-	  mmesa->pClipRects = &zeroareacliprect;
-      } else {
-	  mmesa->numClipRects = driDrawable->numClipRects;
-	  mmesa->pClipRects = driDrawable->pClipRects;
+         static XF86DRIClipRectRec zeroareacliprect = {0,0,0,0};
+         mmesa->numClipRects = 1;
+         mmesa->pClipRects = &zeroareacliprect;
+      }
+      else {
+         mmesa->numClipRects = driDrawable->numClipRects;
+         mmesa->pClipRects = driDrawable->pClipRects;
       }
       mmesa->drawX = driDrawable->x;
       mmesa->drawY = driDrawable->y;
-   } else {
+   }
+   else {
       mmesa->numClipRects = driDrawable->numBackClipRects;
       mmesa->pClipRects = driDrawable->pBackClipRects;
       mmesa->drawX = driDrawable->backX;
       mmesa->drawY = driDrawable->backY;
    }
 
-   mmesa->setup.dstorg = mmesa->drawOffset;
-   mmesa->dirty |= MGA_UPLOAD_CONTEXT | MGA_UPLOAD_CLIPRECTS;
+   mmesa->dirty |= MGA_UPLOAD_CLIPRECTS;
 }
 
 
@@ -102,13 +102,12 @@ static void mgaUpdateRectsFromSarea( mgaContextPtr mmesa )
 
       top = sarea->exported_nback;
       for (i = 0 ; i < top ; i++)
-	 driDrawable->pBackClipRects[i] =
-	    *(XF86DRIClipRectPtr)&(sarea->exported_boxes[i]);
+         driDrawable->pBackClipRects[i] =
+         *(XF86DRIClipRectPtr)&(sarea->exported_boxes[i]);
    }
 
 
-   if (sarea->exported_buffers & MGA_FRONT)
-   {
+   if (sarea->exported_buffers & MGA_FRONT) {
       int start = top;
 
       driDrawable->numClipRects = sarea->exported_nfront;
@@ -116,8 +115,8 @@ static void mgaUpdateRectsFromSarea( mgaContextPtr mmesa )
 
       top += sarea->exported_nfront;
       for ( ; i < top ; i++)
-	 driDrawable->pClipRects[i-start] =
-	    *(XF86DRIClipRectPtr)&(sarea->exported_boxes[i]);
+         driDrawable->pClipRects[i-start] =
+         *(XF86DRIClipRectPtr)&(sarea->exported_boxes[i]);
 
    }
 
@@ -132,7 +131,7 @@ static void mgaUpdateRectsFromSarea( mgaContextPtr mmesa )
    driDrawable->w = sarea->exported_w;
    driDrawable->h = sarea->exported_h;
    driDrawable->pStamp =
-      &(driScreen->pSAREA->drawableTable[driDrawable->index].stamp);
+   &(driScreen->pSAREA->drawableTable[driDrawable->index].stamp);
 
    mmesa->dirty_cliprects = (MGA_FRONT|MGA_BACK) & ~(sarea->exported_buffers);
 }
@@ -161,23 +160,23 @@ static void printSareaRects( mgaContextPtr mmesa )
    i = 0;
    if (sarea->exported_buffers & MGA_BACK)
       for ( ; i < sarea->exported_nback ; i++)
-	 fprintf(stderr, "back %d: %d,%d-%d,%d\n", i,
-		 sarea->exported_boxes[i].x1, sarea->exported_boxes[i].y1,
-		 sarea->exported_boxes[i].x2, sarea->exported_boxes[i].y2);
+         fprintf(stderr, "back %d: %d,%d-%d,%d\n", i,
+                 sarea->exported_boxes[i].x1, sarea->exported_boxes[i].y1,
+                 sarea->exported_boxes[i].x2, sarea->exported_boxes[i].y2);
 
    if (sarea->exported_buffers & MGA_FRONT) {
       int start = i;
       int top = i + sarea->exported_nfront;
       for ( ; i < top ; i++)
-	 fprintf(stderr, "front %d: %d,%d-%d,%d\n",
-		 i - start,
-		 sarea->exported_boxes[i].x1, sarea->exported_boxes[i].y1,
-		 sarea->exported_boxes[i].x2, sarea->exported_boxes[i].y2);
+         fprintf(stderr, "front %d: %d,%d-%d,%d\n",
+                 i - start,
+                 sarea->exported_boxes[i].x1, sarea->exported_boxes[i].y1,
+                 sarea->exported_boxes[i].x2, sarea->exported_boxes[i].y2);
    }
 
    fprintf(stderr, "drawableTable[%d].stamp: %d\n",
-	   sarea->exported_index,
-	   driScreen->pSAREA->drawableTable[sarea->exported_index].stamp);
+           sarea->exported_index,
+           driScreen->pSAREA->drawableTable[sarea->exported_index].stamp);
 }
 
 static void printMmesaRects( mgaContextPtr mmesa )
@@ -197,16 +196,83 @@ static void printMmesaRects( mgaContextPtr mmesa )
 
    for (i = 0 ; i < nr ; i++)
       fprintf(stderr, "box %d: %d,%d-%d,%d\n", i,
-	      mmesa->pClipRects[i].x1, mmesa->pClipRects[i].y1,
-	      mmesa->pClipRects[i].x2, mmesa->pClipRects[i].y2);
+              mmesa->pClipRects[i].x1, mmesa->pClipRects[i].y1,
+              mmesa->pClipRects[i].x2, mmesa->pClipRects[i].y2);
 
    fprintf(stderr, "mmesa->draw_buffer: %d\n", mmesa->draw_buffer);
    fprintf(stderr, "drawableTable[%d].stamp: %d\n",
-	   driDrawable->index,
-	   driScreen->pSAREA->drawableTable[driDrawable->index].stamp);
+           driDrawable->index,
+           driScreen->pSAREA->drawableTable[driDrawable->index].stamp);
 }
 #endif
 
+
+static void mgaUpdateDrawBuffer(mgaContextPtr mmesa)
+{
+   __DRIdrawablePrivate *driDrawable = mmesa->driDrawable;
+
+   mmesa->setup.fb_cpp       = driDrawable->cpp;
+
+   mmesa->setup.front_pitch  = driDrawable->frontPitch / driDrawable->cpp;
+   mmesa->setup.front_offset = driDrawable->frontOffset;
+
+   mmesa->setup.back_pitch   = driDrawable->backPitch / driDrawable->cpp;
+   mmesa->setup.back_offset  = driDrawable->backOffset;
+
+   switch (mmesa->draw_buffer) {
+      case MGA_FRONT:
+         mmesa->drawOffset  = driDrawable->frontOffset;
+         mmesa->readOffset  = driDrawable->frontOffset;
+
+         mmesa->setup.draw_pitch  = mmesa->setup.front_pitch;
+         mmesa->setup.draw_offset = mmesa->setup.front_offset;
+         break;
+      case MGA_BACK:
+         mmesa->drawOffset  = driDrawable->backOffset;
+         mmesa->readOffset  = driDrawable->backOffset;
+
+         mmesa->setup.draw_pitch  = mmesa->setup.back_pitch;
+         mmesa->setup.draw_offset = mmesa->setup.back_offset;
+         break;
+      default:
+         break;
+   }
+
+   mmesa->setup.maccess = (MA_memreset_disable |
+                           MA_fogen_disable |
+                           MA_tlutload_disable |
+                           MA_nodither_disable |
+                           MA_dit555_disable);
+
+   switch (driDrawable->cpp) {
+      case 2:
+         mmesa->setup.maccess |= MA_pwidth_16;
+         break;
+      case 4:
+         mmesa->setup.maccess |= MA_pwidth_32;
+         break;
+      default:
+         fprintf( stderr, "Error: unknown cpp %d, exiting...\n",
+                  driDrawable->cpp );
+   }
+
+   switch (mmesa->glCtx->Visual.depthBits) {
+      case 16:
+         mmesa->setup.maccess |= MA_zwidth_16;
+         break;
+      case 24:
+         mmesa->setup.maccess |= MA_zwidth_24;
+         break;
+      case 32:
+         mmesa->setup.maccess |= MA_pwidth_32;
+         break;
+   }
+
+   if (mmesa->glCtx->Fog.Enabled) 
+      mmesa->setup.maccess |= MA_fogen_enable;
+   
+   mmesa->dirty |= MGA_UPLOAD_CONTEXT;
+}
 
 
 void mgaUpdateRects( mgaContextPtr mmesa, GLuint buffers )
@@ -217,7 +283,9 @@ void mgaUpdateRects( mgaContextPtr mmesa, GLuint buffers )
 /*   fprintf(stderr, "%s\n", __FUNCTION__);*/
 
    DRI_VALIDATE_DRAWABLE_INFO(driScreen, driDrawable); 
-   mmesa->dirty_cliprects = 0;	
+   mmesa->dirty_cliprects = 0;   
+
+   mgaUpdateDrawBuffer( mmesa );
 
    if (mmesa->draw_buffer == MGA_FRONT)
       mgaXMesaSetFrontClipRects( mmesa );
@@ -228,7 +296,7 @@ void mgaUpdateRects( mgaContextPtr mmesa, GLuint buffers )
    printMmesaRects(mmesa); 
 #endif
 
-   sarea->req_drawable = driDrawable->draw;
+   sarea->req_drawable = (unsigned int)driDrawable;/* dok ->draw; */
    sarea->req_draw_buffer = mmesa->draw_buffer;
 
    mgaUpdateClipping( mmesa->glCtx );
@@ -240,16 +308,15 @@ void mgaUpdateRects( mgaContextPtr mmesa, GLuint buffers )
 
 void mgaDDSetReadBuffer(GLcontext *ctx, GLenum mode )
 {
-   mgaContextPtr mmesa = MGA_CONTEXT(ctx);
+   mgaContextPtr         mmesa       = MGA_CONTEXT(ctx);
+   __DRIdrawablePrivate *driDrawable = mmesa->driDrawable;
 
-   if (mode == GL_FRONT_LEFT) 
-   {
-      mmesa->readOffset = mmesa->mgaScreen->frontOffset;
+   if (mode == GL_FRONT_LEFT) {
+      mmesa->readOffset = driDrawable->frontOffset;
       mmesa->read_buffer = MGA_FRONT;
-   } 
-   else 
-   {
-      mmesa->readOffset = mmesa->mgaScreen->backOffset;
+   }
+   else {
+      mmesa->readOffset = driDrawable->backOffset;
       mmesa->read_buffer = MGA_BACK;
    }
 }
@@ -266,27 +333,24 @@ void mgaDDSetDrawBuffer(GLcontext *ctx, GLenum mode )
     * _DrawDestMask is easier to cope with than <mode>.
     */
    switch ( ctx->Color._DrawDestMask ) {
-     case FRONT_LEFT_BIT:
-       mmesa->drawOffset = mmesa->mgaScreen->frontOffset;
-       mmesa->readOffset = mmesa->mgaScreen->frontOffset;
-       mmesa->setup.dstorg = mmesa->mgaScreen->frontOffset;
-       mmesa->dirty |= MGA_UPLOAD_CONTEXT;
-       mmesa->draw_buffer = MGA_FRONT;
-       mgaXMesaSetFrontClipRects( mmesa );
-       FALLBACK( ctx, MGA_FALLBACK_DRAW_BUFFER, GL_FALSE );
-       break;
-     case BACK_LEFT_BIT:
-       mmesa->drawOffset = mmesa->mgaScreen->backOffset;
-       mmesa->readOffset = mmesa->mgaScreen->backOffset;
-       mmesa->setup.dstorg = mmesa->mgaScreen->backOffset;
-       mmesa->draw_buffer = MGA_BACK;
-       mmesa->dirty |= MGA_UPLOAD_CONTEXT;
-       mgaXMesaSetBackClipRects( mmesa );
-       FALLBACK( ctx, MGA_FALLBACK_DRAW_BUFFER, GL_FALSE );
-       break;
-     default:
-       FALLBACK( ctx, MGA_FALLBACK_DRAW_BUFFER, GL_TRUE );
-       break;
+      case FRONT_LEFT_BIT:
+         mmesa->draw_buffer = MGA_FRONT;
+         FALLBACK( ctx, MGA_FALLBACK_DRAW_BUFFER, GL_FALSE );
+         break;
+      case BACK_LEFT_BIT:
+         mmesa->draw_buffer = MGA_BACK;
+         FALLBACK( ctx, MGA_FALLBACK_DRAW_BUFFER, GL_FALSE );
+         break;
+      default:
+         FALLBACK( ctx, MGA_FALLBACK_DRAW_BUFFER, GL_TRUE );
+         break;
    }
+
+   mgaUpdateDrawBuffer( mmesa );
+
+   if (mmesa->draw_buffer == MGA_FRONT)
+      mgaXMesaSetFrontClipRects( mmesa );
+   else
+      mgaXMesaSetBackClipRects( mmesa );
 }
 

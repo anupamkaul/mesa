@@ -422,7 +422,7 @@ void mgaDDFinish( GLcontext *ctx  )
    }
 }
 
-void mgaWaitAgeLocked( mgaContextPtr mmesa, int age  )
+void mgaWaitAgeLocked( mgaContextPtr mmesa, unsigned int age  )
 {
    if (GET_DISPATCH_AGE(mmesa) < age) {
       UPDATE_LOCK( mmesa, DRM_LOCK_FLUSH );
@@ -430,7 +430,7 @@ void mgaWaitAgeLocked( mgaContextPtr mmesa, int age  )
 }
 
 
-void mgaWaitAge( mgaContextPtr mmesa, int age  )
+void mgaWaitAge( mgaContextPtr mmesa, unsigned int age  )
 {
    if (GET_DISPATCH_AGE(mmesa) < age) {
       LOCK_HARDWARE(mmesa);

@@ -77,13 +77,9 @@ __driUtilMessage(const char *f, ...)
  * MiniGLXDisplayRec::configs until finding one with a matching visual ID.
  */
 static __GLXvisualConfig *
-__driFindGlxConfig(Display *dpy, int scrn, VisualID vid)
+__driFindGlxConfig(__GLXvisualConfig *glxConfigs, int numConfigs, VisualID vid)
 {
-    __GLXvisualConfig *glxConfigs;
-    int numConfigs, i;
-
-    numConfigs = dpy->numConfigs;
-    glxConfigs = dpy->configs;
+    int i;
 
     for (i = 0; i < numConfigs; i++) {
         if (glxConfigs[i].vid == vid) {
@@ -174,30 +170,23 @@ __glXFormatGLModes(__GLcontextModes *modes, const __GLXvisualConfig *config)
  * While casting the opaque private pointers associated with the parameters into their
  * respective real types it also assures they are not null. 
  */
-static Bool driUnbindContext(Display *dpy, int scrn,
-                             GLXDrawable draw, GLXContext gc,
-                             int will_rebind)
+static Bool driUnbindContext(__DRIscreen   *pDRIScreen,
+                             __DRIdrawable *drawable,
+                             __DRIcontext  *context,
+                             int            will_rebind)
 {
-    __DRIscreen *pDRIScreen;
-    __DRIdrawable *pdraw;
     __DRIcontextPrivate *pcp;
     __DRIscreenPrivate *psp;
     __DRIdrawablePrivate *pdp;
 
-    if (gc == NULL || draw == None) 
-	return GL_FALSE;
-
-    if (!(pDRIScreen = __glXFindDRIScreen(dpy, scrn))) 
+    if (drawable == NULL || context == None) 
 	return GL_FALSE;
 
     if (!(psp = (__DRIscreenPrivate *)pDRIScreen->private)) 
 	return GL_FALSE;
 
-    if (!(pdraw = &draw->driDrawable))
-	return GL_FALSE;
-
-    pcp = (__DRIcontextPrivate *)gc->driContext.private;
-    pdp = (__DRIdrawablePrivate *)pdraw->private;
+    pcp = (__DRIcontextPrivate *) context->private;
+    pdp = (__DRIdrawablePrivate *) drawable->private;
 
     /* Let driver unbind drawable from context */
     (*psp->DriverAPI.UnbindContext)(pcp);
@@ -226,12 +215,10 @@ static Bool driUnbindContext(Display *dpy, int scrn,
  * While casting the opaque private pointers into their
  * respective real types it also assures they are not null. 
  */
-static Bool driBindContext(Display *dpy, int scrn,
-                            GLXDrawable draw,
-                            GLXContext gc)
+static Bool driBindContext(__DRIscreen   *pDRIScreen,
+                           __DRIdrawable *drawable,
+                           __DRIcontext  *context)
 {
-    __DRIscreen *pDRIScreen;
-    __DRIdrawable *pdraw;
     __DRIdrawablePrivate *pdp;
     __DRIscreenPrivate *psp;
     __DRIcontextPrivate *pcp;
@@ -240,21 +227,17 @@ static Bool driBindContext(Display *dpy, int scrn,
      * Assume error checking is done properly in glXMakeCurrent before
      * calling driBindContext.
      */
-    if (gc == NULL || draw == None) 
-	return GL_FALSE;
-
-    if (!(pDRIScreen = __glXFindDRIScreen(dpy, scrn))) 
+    if (drawable == NULL || context == None) 
 	return GL_FALSE;
 
     if (!(psp = (__DRIscreenPrivate *)pDRIScreen->private)) 
 	return GL_FALSE;
 
 
-    pdraw = &draw->driDrawable;
-    pdp = (__DRIdrawablePrivate *) pdraw->private;
+    pdp = (__DRIdrawablePrivate *) drawable->private;
 
     /* Bind the drawable to the context */
-    pcp = (__DRIcontextPrivate *)gc->driContext.private;
+    pcp = (__DRIcontextPrivate *)context->private;
     pcp->driDrawablePriv = pdp;
     pdp->driContextPriv = pcp;
     pdp->refcount++;
@@ -303,11 +286,10 @@ void __driUtilUpdateDrawableInfo(__DRIdrawablePrivate *pdp)
  * 
  * Is called directly from glXSwapBuffers().
  */
-static void driSwapBuffers( Display *dpy, void *drawablePrivate )
+static void driSwapBuffers( __DRIscreen *pDRIscreen, void *drawablePrivate )
 {
     __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *) drawablePrivate;
     dPriv->swapBuffers(dPriv);
-    (void) dpy;
 }
 
 
@@ -321,7 +303,7 @@ static void driSwapBuffers( Display *dpy, void *drawablePrivate )
  * This function calls __DriverAPIRec::DestroyBuffer on \p drawablePrivate,
  * frees the clip rects if any, and finally frees \p drawablePrivate itself.
  */
-static void driDestroyDrawable(Display *dpy, void *drawablePrivate)
+static void driDestroyDrawable(__DRIscreen *pDRIscreen, void *drawablePrivate)
 {
     __DRIdrawablePrivate *pdp = (__DRIdrawablePrivate *) drawablePrivate;
     __DRIscreenPrivate *psp = pdp->driScreenPriv;
@@ -352,11 +334,10 @@ static void driDestroyDrawable(Display *dpy, void *drawablePrivate)
  * visual config, converts it into a __GLcontextModesRec and passes it to
  * __DriverAPIRec::CreateBuffer to create a buffer.
  */
-static void *driCreateDrawable(Display *dpy, int scrn,
-                                     GLXDrawable draw,
-                                     VisualID vid, __DRIdrawable *pdraw)
+static void *driCreateDrawable(__DRIscreen *pDRIScreen,
+                               int width, int height, int index,
+                               VisualID vid, __DRIdrawable *pdraw)
 {
-    __DRIscreen *pDRIScreen;
     __DRIscreenPrivate *psp;
     __DRIdrawablePrivate *pdp;
     __GLXvisualConfig *config;
@@ -367,39 +348,36 @@ static void *driCreateDrawable(Display *dpy, int scrn,
 	return NULL;
     }
 
-    pdp->index = dpy->clientID;
-    pdp->draw = draw;
+    pdp->index = index;
+    //pdp->draw = draw;
     pdp->refcount = 0;
     pdp->lastStamp = -1;
     pdp->numBackClipRects = 0;
     pdp->pBackClipRects = NULL;
-    pdp->display = dpy;
-    pdp->screen = scrn;
+    //pdp->display = dpy;
+    //pdp->screen = scrn;
 
     /* Initialize with the invariant window dimensions and clip rects here.
      */
     pdp->x = 0;
     pdp->y = 0;
-    pdp->w = pdp->draw->w;
-    pdp->h = pdp->draw->h;
+    pdp->w = width;
+    pdp->h = height;
     pdp->numClipRects = 0;
     pdp->pClipRects = (XF86DRIClipRectPtr) malloc(sizeof(XF86DRIClipRectRec));
     (pdp->pClipRects)[0].x1 = 0;
     (pdp->pClipRects)[0].y1 = 0;
-    (pdp->pClipRects)[0].x2 = pdp->draw->w;
-    (pdp->pClipRects)[0].y2 = pdp->draw->h;
+    (pdp->pClipRects)[0].x2 = width;
+    (pdp->pClipRects)[0].y2 = height;
 
-    if (!(pDRIScreen = __glXFindDRIScreen(dpy, scrn))) {
-	free(pdp);
-	return NULL;
-    } else if (!(psp = (__DRIscreenPrivate *)pDRIScreen->private)) {
+    if (!(psp = (__DRIscreenPrivate *)pDRIScreen->private)) {
 	free(pdp);
 	return NULL;
     }
     pdp->driScreenPriv = psp;
     pdp->driContextPriv = 0;
 
-    config = __driFindGlxConfig(dpy, scrn, vid);
+    config = __driFindGlxConfig(psp->configs, psp->numConfigs, vid);
     if (!config)
         return NULL;
 
@@ -430,8 +408,9 @@ static void *driCreateDrawable(Display *dpy, int scrn,
  * \internal
  * This function returns the MiniGLXwindowRec::driDrawable attribute.
  */
-static __DRIdrawable *driGetDrawable(Display *dpy, GLXDrawable draw,
-					 void *screenPrivate)
+static __DRIdrawable *driGetDrawable(__DRIscreen *pDRIscreen,
+                                     GLXDrawable draw,
+				     void *screenPrivate)
 {
     return &draw->driDrawable;
 }
@@ -456,7 +435,7 @@ static __DRIdrawable *driGetDrawable(Display *dpy, GLXDrawable draw,
  * This function calls __DriverAPIRec::DestroyContext on \p contextPrivate, calls
  * drmDestroyContext(), and finally frees \p contextPrivate.
  */
-static void driDestroyContext(Display *dpy, int scrn, void *contextPrivate)
+static void driDestroyContext(__DRIscreen *pDRIscreen, void *contextPrivate)
 {
     __DRIcontextPrivate  *pcp   = (__DRIcontextPrivate *) contextPrivate;
     __DRIscreenPrivate   *psp = NULL;
@@ -489,11 +468,11 @@ static void driDestroyContext(Display *dpy, int scrn, void *contextPrivate)
  * gets the visual, converts it into a __GLcontextModesRec and passes it
  * to __DriverAPIRec::CreateContext to create the context.
  */
-static void *driCreateContext(Display *dpy, XVisualInfo *vis,
+static void *driCreateContext(__DRIscreen *pDRIScreen,
+                              VisualID vid,
                               void *sharedPrivate,
                               __DRIcontext *pctx)
 {
-   __DRIscreen *pDRIScreen;
    __DRIcontextPrivate *pcp;
    __DRIcontextPrivate *pshare = (__DRIcontextPrivate *) sharedPrivate;
    __DRIscreenPrivate *psp;
@@ -501,9 +480,6 @@ static void *driCreateContext(Display *dpy, XVisualInfo *vis,
    __GLcontextModes modes;
    void *shareCtx;
 
-   if (!(pDRIScreen = __glXFindDRIScreen(dpy, 0))) 
-      return NULL;
-    
    if (!(psp = (__DRIscreenPrivate *)pDRIScreen->private)) 
       return NULL;
 
@@ -512,7 +488,7 @@ static void *driCreateContext(Display *dpy, XVisualInfo *vis,
       return NULL;
    }
 
-   pcp->display = dpy;
+   //pcp->display = dpy;
    pcp->driScreenPriv = psp;
    pcp->driDrawablePriv = NULL;
 
@@ -528,7 +504,7 @@ static void *driCreateContext(Display *dpy, XVisualInfo *vis,
    /* Setup a __GLcontextModes struct corresponding to vis->visualid
     * and create the rendering context.
     */
-   config = __driFindGlxConfig(dpy, 0, vis->visualid);
+   config = __driFindGlxConfig(psp->configs, psp->numConfigs, vid);
    if (!config)
       return NULL;
 
@@ -568,7 +544,7 @@ static void *driCreateContext(Display *dpy, XVisualInfo *vis,
  * This function calls __DriverAPIRec::DestroyScreen on \p screenPrivate, calls
  * drmClose(), and finally frees \p screenPrivate.
  */
-static void driDestroyScreen(Display *dpy, int scrn, void *screenPrivate)
+static void driDestroyScreen(__DRIscreen *pDRIscreen, void *screenPrivate)
 {
     __DRIscreenPrivate *psp = (__DRIscreenPrivate *) screenPrivate;
     
@@ -601,8 +577,9 @@ static void driDestroyScreen(Display *dpy, int scrn, void *screenPrivate)
  * __DriverAPIRec::InitDriver.
  */
 __DRIscreenPrivate *
-__driUtilCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
-                      int numConfigs, __GLXvisualConfig *config,
+__driUtilCreateScreen(struct DRIDriverRec *driver,
+                      struct DRIDriverContextRec *driverContext,
+                      __DRIscreen *psc,
                       const struct __DriverAPIRec *driverAPI)
 {
    __DRIscreenPrivate *psp;
@@ -612,10 +589,14 @@ __driUtilCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
       return NULL;
    }
 
-   psp->display = dpy;
-   psp->myNum = scrn;
-
-   psp->fd = drmOpen(NULL,dpy->driverContext.pciBusID);
+   //psp->display = dpy;
+   psp->myNum = 0;//scrn;
+   
+   /* Ask the driver for a list of supported configs:
+    */
+   driver->initScreenConfigs( driverContext, &psp->numConfigs, &psp->configs );
+   
+   psp->fd = drmOpen(NULL,driverContext->pciBusID);
    if (psp->fd < 0) {
       fprintf(stderr, "libGL error: failed to open DRM: %s\n", 
 	      strerror(-psp->fd));
@@ -658,20 +639,20 @@ __driUtilCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
     * that has information about the screen size, depth, pitch,
     * ancilliary buffers, DRM mmap handles, etc.
     */
-   psp->fbOrigin = 0;  
-   psp->fbSize = dpy->driverContext.shared.fbSize; 
-   psp->fbStride = dpy->driverContext.shared.fbStride;
-   psp->devPrivSize = dpy->driverContext.driverClientMsgSize;
-   psp->pDevPriv = dpy->driverContext.driverClientMsg;
-   psp->fbWidth = dpy->driverContext.shared.virtualWidth;
-   psp->fbHeight = dpy->driverContext.shared.virtualHeight;
-   psp->fbBPP = dpy->driverContext.bpp;
+   psp->fbOrigin = driverContext->shared.fbOrigin;
+   psp->fbSize = driverContext->shared.fbSize;
+   //psp->fbStride = driverContext->shared.fbStride;
+   psp->devPrivSize = driverContext->driverClientMsgSize;
+   psp->pDevPriv = driverContext->driverClientMsg;
+   psp->fbWidth = driverContext->shared.virtualWidth;
+   psp->fbHeight = driverContext->shared.virtualHeight;
+   psp->fbBPP = driverContext->bpp;
 
-   if (dpy->IsClient) {
+   if (driverContext->IsClient) {
       /*
        * Map the framebuffer region.  
        */
-      if (drmMap(psp->fd, dpy->driverContext.shared.hFrameBuffer, psp->fbSize, 
+      if (drmMap(psp->fd, driverContext->shared.hFrameBuffer, psp->fbSize + psp->fbOrigin,
 		 (drmAddressPtr)&psp->pFB)) {
 	 fprintf(stderr, "libGL error: drmMap of framebuffer failed\n");
 	 (void)drmClose(psp->fd);
@@ -683,23 +664,23 @@ __driUtilCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
        * Map the SAREA region.  Further mmap regions may be setup in
        * each DRI driver's "createScreen" function.
        */
-      if (drmMap(psp->fd, dpy->driverContext.shared.hSAREA,
-                 dpy->driverContext.shared.SAREASize, 
+      if (drmMap(psp->fd, driverContext->shared.hSAREA,
+                 driverContext->shared.SAREASize, 
 		 (drmAddressPtr)&psp->pSAREA)) {
 	 fprintf(stderr, "libGL error: drmMap of sarea failed\n");
-	 (void)drmUnmap((drmAddress)psp->pFB, psp->fbSize);
+	 (void)drmUnmap((drmAddress)psp->pFB, psp->fbSize + psp->fbOrigin);
 	 (void)drmClose(psp->fd);
 	 free(psp);
 	 return NULL;
       }
 
 #if !_HAVE_FULL_GL
-      mprotect(psp->pSAREA, dpy->driverContext.shared.SAREASize, PROT_READ);
+      mprotect(psp->pSAREA, driverContext->shared.SAREASize, PROT_READ);
 #endif
 
    } else {
-      psp->pFB = dpy->driverContext.FBAddress;
-      psp->pSAREA = dpy->driverContext.pSAREA;
+      psp->pFB = driverContext->FBAddress;
+      psp->pSAREA = driverContext->pSAREA;
    }
 
 
@@ -731,8 +712,9 @@ __driUtilCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
  * Same as __driUtilCreateScreen() but without opening the DRM device.
  */
 __DRIscreenPrivate *
-__driUtilCreateScreenNoDRM(Display *dpy, int scrn, __DRIscreen *psc,
-			   int numConfigs, __GLXvisualConfig *config,
+__driUtilCreateScreenNoDRM(struct DRIDriverRec *driver,
+                           struct DRIDriverContextRec *driverContext,
+                           __DRIscreen *psc,
 			   const struct __DriverAPIRec *driverAPI)
 {
     __DRIscreenPrivate *psp;
@@ -741,26 +723,30 @@ __driUtilCreateScreenNoDRM(Display *dpy, int scrn, __DRIscreen *psc,
     if (!psp) 
 	return NULL;
 
+    /* Ask the driver for a list of supported configs:
+     */
+    driver->initScreenConfigs( driverContext, &psp->numConfigs, &psp->configs );
+    
     psp->ddxMajor = 4;
     psp->ddxMinor = 0;
     psp->ddxPatch = 1;
     psp->driMajor = 4;
     psp->driMinor = 1;
     psp->driPatch = 0;
-    psp->display = dpy;
-    psp->myNum = scrn;
+    //psp->display = dpy;
+    psp->myNum = 0;//scrn;
     psp->fd = 0;
-    psp->fbOrigin = 0; 
 
-    psp->fbSize = dpy->driverContext.shared.fbSize; 
-    psp->fbStride = dpy->driverContext.shared.fbStride;
-    psp->devPrivSize = dpy->driverContext.driverClientMsgSize;
-    psp->pDevPriv = dpy->driverContext.driverClientMsg;
-    psp->fbWidth = dpy->driverContext.shared.virtualWidth;
-    psp->fbHeight = dpy->driverContext.shared.virtualHeight;
-    psp->fbBPP = dpy->driverContext.bpp;
+    psp->fbOrigin = driverContext->shared.fbOrigin;
+    psp->fbSize = driverContext->shared.fbSize;
+    //psp->fbStride = driverContext->shared.fbStride;
+    psp->devPrivSize = driverContext->driverClientMsgSize;
+    psp->pDevPriv = driverContext->driverClientMsg;
+    psp->fbWidth = driverContext->shared.virtualWidth;
+    psp->fbHeight = driverContext->shared.virtualHeight;
+    psp->fbBPP = driverContext->bpp;
 
-    psp->pFB = dpy->driverContext.FBAddress;
+    psp->pFB = driverContext->FBAddress;
 
     /* install driver's callback functions */
     memcpy(&psp->DriverAPI, driverAPI, sizeof(struct __DriverAPIRec));
@@ -793,7 +779,7 @@ __driUtilCreateScreenNoDRM(Display *dpy, int scrn, __DRIscreen *psc,
  * resolution (a screen parameter as far as the driver is concerned).
  */
 void
-__driUtilInitScreen( Display *dpy, int scrn, __DRIscreen *psc )
+__driUtilInitScreen( __DRIscreen *psc )
 {
     psc->destroyScreen  = driDestroyScreen;
     psc->createContext  = driCreateContext;

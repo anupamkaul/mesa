@@ -108,7 +108,7 @@ mgaPrintGlobalLRU( mgaContextPtr mmesa, int heap )
 static void mgaResetGlobalLRU( mgaContextPtr mmesa, GLuint heap )
 {
    drmTextureRegion *list = mmesa->sarea->texList[heap];
-   int sz = 1 << mmesa->mgaScreen->logTextureGranularity[heap];
+   unsigned int sz = 1 << mmesa->mgaScreen->logTextureGranularity[heap];
    int i;
 
    mmesa->texAge[heap] = ++mmesa->sarea->texAge[heap];
@@ -137,7 +137,7 @@ static void mgaResetGlobalLRU( mgaContextPtr mmesa, GLuint heap )
 }
 
 
-static void mgaUpdateTexLRU( mgaContextPtr mmesa, mgaTextureObjectPtr t )
+void mgaUpdateTexLRU( mgaContextPtr mmesa, mgaTextureObjectPtr t )
 {
    int i;
    int heap = t->heap;
@@ -197,8 +197,8 @@ static void mgaUpdateTexLRU( mgaContextPtr mmesa, mgaTextureObjectPtr t )
  */
 static void mgaTexturesGone( mgaContextPtr mmesa,
 			     GLuint heap,
-			     GLuint offset,
-			     GLuint size,
+			     GLint  offset,
+			     GLint  size,
 			     GLuint in_use )
 {
    mgaTextureObjectPtr t, tmp;
@@ -244,7 +244,7 @@ static void mgaTexturesGone( mgaContextPtr mmesa,
 void mgaAgeTextures( mgaContextPtr mmesa, int heap )
 {
    MGASAREAPrivPtr sarea = mmesa->sarea;
-   int sz = 1 << (mmesa->mgaScreen->logTextureGranularity[heap]);
+   unsigned int sz = 1 << (mmesa->mgaScreen->logTextureGranularity[heap]);
    int idx, nr = 0;
 
    /* Have to go right round from the back to ensure stuff ends up
@@ -390,7 +390,7 @@ void mgaUploadSubImageLocked( mgaContextPtr mmesa,
    /* FIXME: the sync for direct copy reduces speed.. */
    if(t->heap == MGA_CARD_HEAP  ) {
       mgaGetILoadBufferLocked( mmesa );
-      mgaConvertTexture( (GLuint *)mmesa->iload_buffer->address,
+      mgaConvertTexture( (GLubyte *)mmesa->iload_buffer->address,
 			 texelBytes, image, x, y, width, height );
       if(length < 64) length = 64;
 
@@ -413,7 +413,7 @@ void mgaUploadSubImageLocked( mgaContextPtr mmesa,
        */
        
       UPDATE_LOCK(mmesa, DRM_LOCK_FLUSH | DRM_LOCK_QUIESCENT);
-      mgaConvertTexture( (GLuint *)
+      mgaConvertTexture( (GLubyte *)
 			 (mmesa->mgaScreen->texVirtual[t->heap] +
 			  offset +
 			  y * width * 4/texelsPerDword),

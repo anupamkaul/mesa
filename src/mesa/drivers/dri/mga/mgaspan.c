@@ -38,17 +38,16 @@
 
 #define LOCAL_VARS					\
    __DRIdrawablePrivate *dPriv = mmesa->driDrawable;	\
-   mgaScreenPrivate *mgaScreen = mmesa->mgaScreen;	\
    __DRIscreenPrivate *sPriv = mmesa->driScreen;	\
-   GLuint pitch = mgaScreen->frontPitch;		\
+   GLuint pitch = dPriv->frontPitch;		        \
    GLuint height = dPriv->h;				\
    char *read_buf = (char *)(sPriv->pFB +		\
 			mmesa->readOffset +		\
-			dPriv->x * mgaScreen->cpp +	\
+			dPriv->x * dPriv->cpp +	        \
 			dPriv->y * pitch);		\
    char *buf = (char *)(sPriv->pFB +			\
 			mmesa->drawOffset +		\
-			dPriv->x * mgaScreen->cpp +	\
+			dPriv->x * dPriv->cpp +	        \
 			dPriv->y * pitch);		\
    GLuint p;						\
    (void) read_buf; (void) buf; (void) p
@@ -59,11 +58,11 @@
    __DRIdrawablePrivate *dPriv = mmesa->driDrawable;			\
    mgaScreenPrivate *mgaScreen = mmesa->mgaScreen;			\
    __DRIscreenPrivate *sPriv = mmesa->driScreen;			\
-   GLuint pitch = mgaScreen->frontPitch;				\
+   GLuint pitch = mgaScreen->depthPitch;				\
    GLuint height = dPriv->h;						\
    char *buf = (char *)(sPriv->pFB +					\
 			mgaScreen->depthOffset +			\
-			dPriv->x * mgaScreen->cpp +			\
+			dPriv->x * mgaScreen->depthCpp +		\
 			dPriv->y * pitch)
 
 #define LOCAL_STENCIL_VARS LOCAL_DEPTH_VARS 
@@ -238,7 +237,7 @@ void mgaDDInitSpanFuncs( GLcontext *ctx )
    mgaContextPtr mmesa = MGA_CONTEXT(ctx);
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-   switch (mmesa->mgaScreen->cpp) {
+   switch (mmesa->driDrawable->cpp) {
    case 2:
       swdd->WriteRGBASpan = mgaWriteRGBASpan_565;
       swdd->WriteRGBSpan = mgaWriteRGBSpan_565;

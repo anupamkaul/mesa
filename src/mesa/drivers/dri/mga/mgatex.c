@@ -135,8 +135,8 @@ static void mgaSetTexFilter(mgaTextureObjectPtr t, GLenum minf, GLenum magf)
    }
 
 
-   t->setup.texfilter &= (TF_minfilter_MASK |
-			  TF_magfilter_MASK |
+   t->setup.texfilter &= (TF_minfilter_MASK &
+			  TF_magfilter_MASK &
 			  TF_fthres_MASK);
    t->setup.texfilter |= val;
 }
@@ -151,40 +151,28 @@ static void mgaSetTexBorderColor(mgaTextureObjectPtr t, GLubyte color[4])
 }
 
 
-static GLint mgaChooseTexFormat( mgaContextPtr mmesa,
-				 struct gl_texture_image *texImage,
-				 GLenum format, GLenum type )
+static const struct gl_texture_format *
+mgaChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
+                        GLenum format, GLenum type )
 {
+   mgaContextPtr mmesa = MGA_CONTEXT( ctx );
    const GLboolean do32bpt = mmesa->default32BitTextures;
-   const struct gl_texture_format *texFormat;
-   GLint ret;
 
-   if ( 0 )
-      fprintf( stderr, "internal=%s format=%s type=%s\n",
-	       texImage->IntFormat == 3 ? "GL_RGB (3)" :
-	       texImage->IntFormat == 4 ? "GL_RGBA (4)" :
-	       _mesa_lookup_enum_by_nr( texImage->IntFormat ),
-	       _mesa_lookup_enum_by_nr( format ),
-	       _mesa_lookup_enum_by_nr( type ) );
-
-#define SET_FORMAT( r, gl )						\
+#define SET_FORMAT( gl )						\
    do {									\
-      ret = (r);							\
-      texFormat = &(gl);						\
+      return &(gl);							\
    } while (0)
 
-#define SET_FORMAT_32BPT( r32, gl32, r16, gl16 )			\
+#define SET_FORMAT_32BPT( gl32, gl16 )					\
    do {									\
       if ( do32bpt ) {							\
-	 ret = (r32);							\
-	 texFormat = &(gl32);						\
+	 return &(gl32);						\
       } else {								\
-	 ret = (r16);							\
-	 texFormat = &(gl16);						\
+	 return &(gl16);						\
       }									\
    } while (0)
 
-   switch ( texImage->IntFormat ) {
+   switch (internalFormat) {
       /* GH: Bias towards GL_RGB, GL_RGBA texture formats.  This has
        * got to be better than sticking them way down the end of this
        * huge list.
@@ -194,29 +182,29 @@ static GLint mgaChooseTexFormat( mgaContextPtr mmesa,
    case GL_COMPRESSED_RGBA:
       if ( format == GL_BGRA ) {
 	 if ( type == GL_UNSIGNED_INT_8_8_8_8_REV ) {
-	    SET_FORMAT( TMC_tformat_tw32, _mesa_texformat_argb8888 );
+	    SET_FORMAT( _mesa_texformat_argb8888 );
 	    break;
 	 } else if ( type == GL_UNSIGNED_SHORT_4_4_4_4_REV ) {
-	    SET_FORMAT( TMC_tformat_tw12, _mesa_texformat_argb4444 );
+	    SET_FORMAT( _mesa_texformat_argb4444 );
 	    break;
 	 } else if ( type == GL_UNSIGNED_SHORT_1_5_5_5_REV ) {
-	    SET_FORMAT( TMC_tformat_tw15, _mesa_texformat_argb1555 );
+	    SET_FORMAT( _mesa_texformat_argb1555 );
 	    break;
 	 }
       }
-      SET_FORMAT_32BPT( TMC_tformat_tw32, _mesa_texformat_argb8888,
-			TMC_tformat_tw12, _mesa_texformat_argb4444 );
+      SET_FORMAT_32BPT( _mesa_texformat_argb8888,
+			_mesa_texformat_argb4444 );
       break;
 
    case 3:
    case GL_RGB:
    case GL_COMPRESSED_RGB:
       if ( format == GL_RGB && type == GL_UNSIGNED_SHORT_5_6_5 ) {
-	 SET_FORMAT( TMC_tformat_tw16, _mesa_texformat_rgb565 );
+	 SET_FORMAT( _mesa_texformat_rgb565 );
 	 break;
       }
-      SET_FORMAT_32BPT( TMC_tformat_tw32, _mesa_texformat_argb8888,
-			TMC_tformat_tw16, _mesa_texformat_rgb565 );
+      SET_FORMAT_32BPT( _mesa_texformat_argb8888,
+			_mesa_texformat_rgb565 );
       break;
 
       /* GH: Okay, keep checking as normal.  Still test for GL_RGB,
@@ -226,31 +214,31 @@ static GLint mgaChooseTexFormat( mgaContextPtr mmesa,
    case GL_RGB10_A2:
    case GL_RGBA12:
    case GL_RGBA16:
-      SET_FORMAT_32BPT( TMC_tformat_tw32, _mesa_texformat_argb8888,
-			TMC_tformat_tw12, _mesa_texformat_argb4444 );
+      SET_FORMAT_32BPT( _mesa_texformat_argb8888,
+			_mesa_texformat_argb4444 );
       break;
 
    case GL_RGBA4:
    case GL_RGBA2:
-      SET_FORMAT( TMC_tformat_tw12, _mesa_texformat_argb4444 );
+      SET_FORMAT( _mesa_texformat_argb4444 );
       break;
 
    case GL_RGB5_A1:
-      SET_FORMAT( TMC_tformat_tw15, _mesa_texformat_argb1555 );
+      SET_FORMAT( _mesa_texformat_argb1555 );
       break;
 
    case GL_RGB8:
    case GL_RGB10:
    case GL_RGB12:
    case GL_RGB16:
-      SET_FORMAT_32BPT( TMC_tformat_tw32, _mesa_texformat_argb8888,
-			TMC_tformat_tw16, _mesa_texformat_rgb565 );
+      SET_FORMAT_32BPT( _mesa_texformat_argb8888,
+			_mesa_texformat_rgb565 );
       break;
 
    case GL_RGB5:
    case GL_RGB4:
    case GL_R3_G3_B2:
-      SET_FORMAT( TMC_tformat_tw16, _mesa_texformat_rgb565 );
+      SET_FORMAT( _mesa_texformat_rgb565 );
       break;
 
    case GL_ALPHA:
@@ -260,7 +248,7 @@ static GLint mgaChooseTexFormat( mgaContextPtr mmesa,
    case GL_ALPHA16:
    case GL_COMPRESSED_ALPHA:
       /* FIXME: This will report incorrect component sizes... */
-      SET_FORMAT( TMC_tformat_tw12, _mesa_texformat_argb4444 );
+      SET_FORMAT( _mesa_texformat_argb4444 );
       break;
 
    case 1:
@@ -271,7 +259,7 @@ static GLint mgaChooseTexFormat( mgaContextPtr mmesa,
    case GL_LUMINANCE16:
    case GL_COMPRESSED_LUMINANCE:
       /* FIXME: This will report incorrect component sizes... */
-      SET_FORMAT( TMC_tformat_tw16, _mesa_texformat_rgb565 );
+      SET_FORMAT( _mesa_texformat_rgb565 );
       break;
 
    case 2:
@@ -284,7 +272,7 @@ static GLint mgaChooseTexFormat( mgaContextPtr mmesa,
    case GL_LUMINANCE16_ALPHA16:
    case GL_COMPRESSED_LUMINANCE_ALPHA:
       /* FIXME: This will report incorrect component sizes... */
-      SET_FORMAT( TMC_tformat_tw12, _mesa_texformat_argb4444 );
+      SET_FORMAT( _mesa_texformat_argb4444 );
       break;
 
    case GL_INTENSITY:
@@ -294,7 +282,7 @@ static GLint mgaChooseTexFormat( mgaContextPtr mmesa,
    case GL_INTENSITY16:
    case GL_COMPRESSED_INTENSITY:
       /* FIXME: This will report incorrect component sizes... */
-      SET_FORMAT( TMC_tformat_tw12, _mesa_texformat_argb4444 );
+      SET_FORMAT( _mesa_texformat_argb4444 );
       break;
 
    case GL_COLOR_INDEX:
@@ -304,18 +292,16 @@ static GLint mgaChooseTexFormat( mgaContextPtr mmesa,
    case GL_COLOR_INDEX8_EXT:
    case GL_COLOR_INDEX12_EXT:
    case GL_COLOR_INDEX16_EXT:
-      SET_FORMAT( TMC_tformat_tw8, _mesa_texformat_ci8 );
+      SET_FORMAT( _mesa_texformat_ci8 );
       break;
 
    default:
-      fprintf( stderr, "bad texture format in mgaChooseTexFormat() %d",
-	       texImage->IntFormat );
-      return -1;
+      break;
    }
 
-   texImage->TexFormat = texFormat;
-
-   return ret;
+   fprintf( stderr, "bad texture format in mgaChooseTexFormat() %d",
+            internalFormat );
+   return NULL;
 }
 
 
@@ -330,11 +316,12 @@ static void mgaCreateTexObj(mgaContextPtr mmesa,
 {
    const GLint baseLevel = tObj->BaseLevel;
    struct gl_texture_image *image = tObj->Image[baseLevel];
+   const struct gl_texture_format *texFormat = image->TexFormat;
    mgaTextureObjectPtr t;
    int i, ofs;
    int LastLevel;
    int s, s2;
-   int tformat;
+   int tformat = 0;
 
    if (!image) return;
 
@@ -344,11 +331,31 @@ static void mgaCreateTexObj(mgaContextPtr mmesa,
       return;
    }
 
-   /* FIXME: Use the real DD interface...
-    */
-   tformat = mgaChooseTexFormat( mmesa, image, image->Format,
-				 GL_UNSIGNED_BYTE );
-   t->texelBytes = image->TexFormat->TexelBytes;
+   switch (texFormat->RedBits + texFormat->GreenBits + texFormat->BlueBits) {
+      case 12:
+         tformat = TMC_tformat_tw12;
+         break;
+      case 15:
+         tformat = TMC_tformat_tw15;
+         break;
+      case 16:
+         tformat = TMC_tformat_tw16;
+         break;
+      case 24:
+         tformat = TMC_tformat_tw32;
+         break;
+      case 0:
+         if (texFormat->IndexBits == 8) {
+            tformat = TMC_tformat_tw8;
+            break;
+         }
+         /* fall through */
+      default:
+         fprintf(stderr, "mgaCreateTexObj: Invalid texFormat\n" );
+         break;
+   }
+
+   t->texelBytes = texFormat->TexelBytes;
 
    /* We are going to upload all levels that are present, even if
     * later levels wouldn't be used by the current filtering mode.  This
@@ -704,8 +711,8 @@ static void mgaUpdateTextureObject( GLcontext *ctx, int hw_unit )
    mmesa->CurrentTexObj[hw_unit] = t;
    t->bound |= hw_unit+1;
 
-/*     if (t->MemBlock) */
-/*        mgaUpdateTexLRU( mmesa, t ); */
+/*     if (t->MemBlock)*/
+/*        mgaUpdateTexLRU( mmesa, t );*/
 
    t->setup.texctl2 &= ~TMC_dualtex_enable;
    if ((ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT) &&
@@ -739,7 +746,8 @@ void mgaUpdateTextureState( GLcontext *ctx )
       mmesa->CurrentTexObj[1] = 0;
    }
 
-   if (ctx->Texture.Unit[1]._ReallyEnabled == TEXTURE_2D_BIT) {
+   if (ctx->Texture.Unit[0]._ReallyEnabled != TEXTURE_2D_BIT &&
+       ctx->Texture.Unit[1]._ReallyEnabled == TEXTURE_2D_BIT) {
       mmesa->tmu_source[0] = 1;
    } else {
       mmesa->tmu_source[0] = 0;
@@ -765,7 +773,8 @@ void mgaUpdateTextureState( GLcontext *ctx )
    mmesa->dirty |= MGA_UPLOAD_CONTEXT | MGA_UPLOAD_TEX0;
 
    mmesa->setup.dwgctl &= DC_opcod_MASK;
-   mmesa->setup.dwgctl |= (ctx->Texture.Unit[0]._ReallyEnabled
+   mmesa->setup.dwgctl |= ((ctx->Texture.Unit[0]._ReallyEnabled ||
+                            ctx->Texture.Unit[1]._ReallyEnabled)
 			   ? DC_opcod_texture_trap
 			   : DC_opcod_trap);
 }
@@ -794,7 +803,7 @@ static void mgaDDTexEnv( GLcontext *ctx, GLenum target,
       GLuint col;
 
       COPY_4V(c, fc);
-      col = mgaPackColor( mmesa->mgaScreen->cpp, c[0], c[1], c[2], c[3] );
+      col = mgaPackColor( mmesa->driDrawable->cpp, c[0], c[1], c[2], c[3] );
       mmesa->envcolor = (c[3]<<24) | (c[0]<<16) | (c[1]<<8) | (c[2]);
 
       if (mmesa->setup.fcol != col) {
@@ -878,7 +887,7 @@ mgaDDTexParameter( GLcontext *ctx, GLenum target,
    /* if we don't have a hardware texture, it will be automatically
       created with current state before it is used, so we don't have
       to do anything now */
-   if ( !t || !t->bound || target != GL_TEXTURE_2D ) {
+   if ( !t || /*!t->bound ||*/ target != GL_TEXTURE_2D ) {
       return;
    }
 
@@ -912,15 +921,18 @@ static void
 mgaDDBindTexture( GLcontext *ctx, GLenum target,
 		  struct gl_texture_object *tObj )
 {
-   mgaContextPtr mmesa = MGA_CONTEXT( ctx );
+/*   mgaContextPtr mmesa = MGA_CONTEXT( ctx );
    int unit = ctx->Texture.CurrentUnit;
+   mgaTextureObjectPtr t;
+
+   t = (mgaTextureObjectPtr) tObj->DriverData;
 
    FLUSH_BATCH(mmesa);
 
    if (mmesa->CurrentTexObj[unit]) {
       mmesa->CurrentTexObj[unit]->bound &= ~(unit+1);
       mmesa->CurrentTexObj[unit] = 0;
-   }
+   }*/
 
    /* force the texture state to be updated
     */
@@ -962,7 +974,7 @@ mgaDDInitTextureFuncs( GLcontext *ctx )
 {
    ctx->Driver.TexEnv = mgaDDTexEnv;
 
-   ctx->Driver.ChooseTextureFormat = _mesa_choose_tex_format;
+   ctx->Driver.ChooseTextureFormat = mgaChooseTextureFormat;
    ctx->Driver.TexImage1D = _mesa_store_teximage1d;
    ctx->Driver.TexImage2D = mgaTexImage2D;
    ctx->Driver.TexImage3D = _mesa_store_teximage3d;

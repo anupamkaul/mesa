@@ -57,9 +57,6 @@ typedef struct __DRIcontextRec  __DRIcontext;  /**< \copydoc __DRIcontextRec */
 typedef struct __DRIdrawableRec __DRIdrawable; /**< \copydoc __DRIdrawableRec */
 
 
-typedef void *(*CreateScreenFunc)(Display *dpy, int scrn, __DRIscreen *psc,
-                                  int numConfigs, __GLXvisualConfig *config);
-
 
 
 /**
@@ -72,26 +69,29 @@ struct __DRIscreenRec {
     /**
      * \brief Method to destroy the private DRI screen data.
      */
-    void (*destroyScreen)(Display *dpy, int scrn, void *screenPrivate);
+    void (*destroyScreen)(__DRIscreen *pDRIscreen, void *screenPrivate);
 
     /**
      * \brief Method to create the private DRI context data and initialize the
      * context dependent methods.
      */
-    void *(*createContext)(Display *dpy, XVisualInfo *vis, void *sharedPrivate,
+    void *(*createContext)(__DRIscreen *pDRIscreen,
+                           VisualID vid, void *sharedPrivate,
 			   __DRIcontext *pctx);
 
     /**
      * \brief Method to create the private DRI drawable data and initialize the
      * drawable dependent methods.
      */
-    void *(*createDrawable)(Display *dpy, int scrn, GLXDrawable draw,
+    void *(*createDrawable)(__DRIscreen *pDRIscreen, int width,
+                            int height, int index,
 			    VisualID vid, __DRIdrawable *pdraw);
 
     /**
      * \brief Method to return a pointer to the DRI drawable data.
      */
-    __DRIdrawable *(*getDrawable)(Display *dpy, GLXDrawable draw,
+    __DRIdrawable *(*getDrawable)(__DRIscreen *pDRIscreen,
+                                  GLXDrawable draw,
 				  void *drawablePrivate);
 
     /*
@@ -118,7 +118,7 @@ struct __DRIcontextRec {
     /**
      * \brief Method to destroy the private DRI context data.
      */
-    void (*destroyContext)(Display *dpy, int scrn, void *contextPrivate);
+    void (*destroyContext)(__DRIscreen *pDRIscreen, void *contextPrivate);
 
     /**
      * \brief Method to bind a DRI drawable to a DRI graphics context.
@@ -126,14 +126,14 @@ struct __DRIcontextRec {
      * \todo XXX in the future, also pass a 'read' GLXDrawable for
      * glXMakeCurrentReadSGI() and GLX 1.3's glXMakeContextCurrent().
      */
-    Bool (*bindContext)(Display *dpy, int scrn, GLXDrawable draw,
-			GLXContext gc);
+    Bool (*bindContext)(__DRIscreen *pDRIscreen, __DRIdrawable *drawable,
+                        __DRIcontext *context);
 
     /**
      * \brief Method to unbind a DRI drawable to a DRI graphics context.
      */
-    Bool (*unbindContext)(Display *dpy, int scrn, GLXDrawable draw,
-			  GLXContext gc, int will_rebind);
+    Bool (*unbindContext)(__DRIscreen *pDRIscreen,  __DRIdrawable *drawable,
+                          __DRIcontext *context, int will_rebind);
 
     /**
      * \brief Opaque pointer to private per context direct rendering data.
@@ -156,12 +156,14 @@ struct __DRIdrawableRec {
     /**
      * \brief Method to destroy the private DRI drawable data.
      */
-    void (*destroyDrawable)(Display *dpy, void *drawablePrivate);
+    void (*destroyDrawable)(__DRIscreen *pDRIScreen,
+                            void *drawablePrivate);
 
     /**
      * \brief Method to swap the front and back buffers.
      */
-    void (*swapBuffers)(Display *dpy, void *drawablePrivate);
+    void (*swapBuffers)(__DRIscreen *pDRIScreen,
+                        void *drawablePrivate);
 
     /**
      * \brief Opaque pointer to private per drawable direct rendering data.
@@ -206,10 +208,11 @@ struct DRIDriverContextRec {
       unsigned long hFrameBuffer;
       int fbOrigin;
       int fbSize;
-      int fbStride;
       int virtualWidth;
       int virtualHeight;
    } shared;
+
+   int IsClient;
    
    /*@}*/
    /**
@@ -280,13 +283,16 @@ struct DRIDriverRec {
    int (*restoreHardware)(  struct DRIDriverContextRec *dpy );
 
    /**
+    * \brief Wait for the engine, DMA etc. being idle.
+    */
+   int (*waitForIdleHardware)(  struct DRIDriverContextRec *dpy );
+
+   /**
     * \brief Notify hardware driver of gain/loose focus.  May be zero
     * as this is of limited utility for most drivers.  
     */
    void (*notifyFocus)( int have_focus );
 };
-
-
 
 /**
  * \brief Supported pixel formats.
@@ -372,6 +378,10 @@ struct MiniGLXConnection {
    int writebuf_count;
 };
 
+typedef void *(*CreateScreenFunc)(struct DRIDriverRec *driver,
+                                  struct DRIDriverContextRec *driverContext,
+                                  __DRIscreen *psc);
+
 
 /**
  * \brief X Display type
@@ -444,18 +454,6 @@ struct MiniGLXDisplayRec {
    /*@}*/
 };
 
-/**
- * \brief Clip rectangle definition.
- */
-typedef struct _XF86DRIClipRect {
-    unsigned short	x1; /**< \brief Upper: inclusive */
-    unsigned short	y1; /**< \brief Left: inclusive */
-    unsigned short	x2; /**< \brief Lower: exclusive */
-    unsigned short	y2; /**< \brief Right: exclusive */
-} XF86DRIClipRectRec, *XF86DRIClipRectPtr;
-
-
-extern __DRIscreen *__glXFindDRIScreen(Display *dpy, int scrn);
 
 extern Bool __glXWindowExists(Display *dpy, GLXDrawable draw);
 

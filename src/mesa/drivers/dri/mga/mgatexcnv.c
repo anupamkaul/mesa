@@ -43,13 +43,14 @@
  * for an 8x8 texture.  This happens when we have to crutch the pitch
  * limits of the mga by uploading a block of texels as a single line.
  */
-void mgaConvertTexture( GLuint *destPtr, int texelBytes,
+void mgaConvertTexture( GLubyte *dst, int texelBytes,
 			struct gl_texture_image *image,
 			int x, int y, int width, int height )
 {
-   register int		i, j;
-   GLubyte		*src;
-   int stride;
+   int      i;
+   GLubyte *src;
+   int      src_pitch;
+   int      dst_pitch;
 
    if (0)
       fprintf(stderr, "texture image %p\n", image->Data);
@@ -57,200 +58,14 @@ void mgaConvertTexture( GLuint *destPtr, int texelBytes,
    if (image->Data == 0)
       return;
 
-   /* FIXME: g400 luminance_alpha internal format */
-   switch (texelBytes) {
-   case 1:
-      switch (image->Format) {
-      case GL_COLOR_INDEX:
-      case GL_INTENSITY:
-      case GL_LUMINANCE:
-      case GL_ALPHA:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x );
-	 stride = (image->Width - width);
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width >> 2  ; j ; j-- ) {
-
-	       *destPtr++ = src[0] | ( src[1] << 8 ) | ( src[2] << 16 ) | ( src[3] << 24 );
-	       src += 4;
-	    }
-	    src += stride;
-	 }
-	 break;
-      default:
-	 goto format_error;
-      }
-      break;
-   case 2:
-      switch (image->Format) {
-      case GL_RGB:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x ) * 3;
-	 stride = (image->Width - width) * 3;
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width >> 1  ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR565(src[0],src[1],src[2]) |
-		  ( MGAPACKCOLOR565(src[3],src[4],src[5]) << 16 );
-	       src += 6;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_RGBA:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x ) * 4;
-	 stride = (image->Width - width) * 4;
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width >> 1  ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR4444(src[0],src[1],src[2],src[3]) |
-		  ( MGAPACKCOLOR4444(src[4],src[5],src[6],src[7]) << 16 );
-	       src += 8;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_LUMINANCE:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x );
-	 stride = (image->Width - width);
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width >> 1  ; j ; j-- ) {
-	       /* FIXME: should probably use 555 texture to get true grey */
-	       *destPtr++ = MGAPACKCOLOR565(src[0],src[0],src[0]) |
-		  ( MGAPACKCOLOR565(src[1],src[1],src[1]) << 16 );
-	       src += 2;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_INTENSITY:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x );
-	 stride = (image->Width - width);
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width >> 1  ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR4444(src[0],src[0],src[0],src[0]) |
-		  ( MGAPACKCOLOR4444(src[1],src[1],src[1],src[1]) << 16 );
-	       src += 2;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_ALPHA:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x );
-	 stride = (image->Width - width);
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width >> 1  ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR4444(255,255,255,src[0]) |
-		  ( MGAPACKCOLOR4444(255,255,255,src[1]) << 16 );
-	       src += 2;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_LUMINANCE_ALPHA:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x ) * 2;
-	 stride = (image->Width - width) * 2;
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width >> 1  ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR4444(src[0],src[0],src[0],src[1]) |
-		  ( MGAPACKCOLOR4444(src[2],src[2],src[2],src[3]) << 16 );
-	       src += 4;
-	    }
-	    src += stride;
-	 }
-	 break;
-      default:
-	 goto format_error;
-      }
-      break;
-   case 4:
-      switch (image->Format) {
-      case GL_RGB:
-	 src = (GLubyte *)image->Data + (  y * image->Width + x ) * 3;
-	 stride = (image->Width - width) * 3;
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR8888(src[0],src[1],src[2], 255);
-	       src += 3;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_RGBA:
-	 src = (GLubyte *)image->Data + (  y * image->Width + x ) * 4;
-	 stride = (image->Width - width) * 4;
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width  ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR8888(src[0],src[1],src[2],src[3]);
-	       src += 4;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_LUMINANCE:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x );
-	 stride = (image->Width - width);
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR8888(src[0],src[0],src[0], 255);
-	       src += 1;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_INTENSITY:
-	 src = (GLubyte *)image->Data + (  y * image->Width + x );
-	 stride = (image->Width - width);
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR8888(src[0],src[0],src[0],src[0]);
-	       src += 1;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_ALPHA:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x );
-	 stride = (image->Width - width);
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR8888(255,255,255,src[0]);
-	       src += 1;
-	    }
-	    src += stride;
-	 }
-	 break;
-      case GL_LUMINANCE_ALPHA:
-	 src = (GLubyte *)image->Data + ( y * image->Width + x ) * 2;
-	 stride = (image->Width - width) * 2;
-	 for ( i = height ; i ; i-- ) {
-	    for ( j = width ; j ; j-- ) {
-
-	       *destPtr++ = MGAPACKCOLOR8888(src[0],src[0],
-					     src[0],src[1]);
-	       src += 2;
-	    }
-	    src += stride;
-	 }
-	 break;
-      default:
-	 goto format_error;
-      }
-      break;
-   default:
-      goto format_error;
+   src = (GLubyte *)image->Data + (y * image->RowStride + x) * texelBytes;
+   
+   src_pitch = image->RowStride * texelBytes;
+   dst_pitch = width * texelBytes;
+   
+   for (i = height; i; i--) {
+      memcpy( dst, src, dst_pitch );
+      dst += dst_pitch;
+      src += src_pitch;
    }
-
-   return;
-
- format_error:
-
-   fprintf(stderr, "Unsupported texelBytes %i, image->Format %i\n",
-	   (int)texelBytes, (int)image->Format );
 }

@@ -40,7 +40,7 @@ typedef struct mga_texture_object_s *mgaTextureObjectPtr;
  */
 void mgaUpdateTextureState( GLcontext *ctx );
 
-void mgaConvertTexture( GLuint *dest, int texelBytes,
+void mgaConvertTexture( GLubyte *dest, int texelBytes,
 			struct gl_texture_image *image,
 			int x, int y, int width, int height );
 
@@ -58,5 +58,6 @@ void mgaAgeTextures( mgaContextPtr mmesa, int heap );
 
 void mgaDDInitTextureFuncs( GLcontext *ctx );
 
+void mgaUpdateTexLRU( mgaContextPtr mmesa, mgaTextureObjectPtr t );
 
 #endif

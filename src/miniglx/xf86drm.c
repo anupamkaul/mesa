@@ -954,7 +954,7 @@ int drmUnlock(int fd, drmContext context)
     if (drm_unlock_callback) {
        drm_unlock_callback();
     }
-
+    
     return ret;
 }
 

@@ -108,7 +108,7 @@ typedef struct mga_texture_object_s
    GLuint		offsets[MGA_TEX_MAXLEVELS];
    int             lastLevel;
    GLuint         dirty_images;
-   GLuint		totalSize;
+   GLint		totalSize;
    int		texelBytes;
    GLuint 	age;
    int             bound;
@@ -215,7 +215,7 @@ struct mga_context_t {
    int readOffset;
    int drawX, drawY;		/* origin of drawable in draw buffer */
    int lastX, lastY;		/* detect DSTORG bug */
-   GLuint numClipRects;		/* cliprects for the draw buffer */
+   GLint numClipRects;		/* cliprects for the draw buffer */
    XF86DRIClipRectPtr pClipRects;
    XF86DRIClipRectRec draw_rect;
    XF86DRIClipRectRec scissor_rect;

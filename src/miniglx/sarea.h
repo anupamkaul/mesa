@@ -51,6 +51,16 @@
 #define SAREA_DRAWABLE_CLAIMED_ENTRY	0x80000000
 
 /**
+ * \brief Clip rectangle definition.
+ */
+typedef struct _XF86DRIClipRect {
+    unsigned short	x1; /**< \brief Upper: inclusive */
+    unsigned short	y1; /**< \brief Left: inclusive */
+    unsigned short	x2; /**< \brief Lower: exclusive */
+    unsigned short	y2; /**< \brief Right: exclusive */
+} XF86DRIClipRectRec, *XF86DRIClipRectPtr;
+
+/**
  * \brief SAREA per drawable information.
  *
  * \sa _XF86DRISAREA.

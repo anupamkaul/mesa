@@ -59,11 +59,6 @@ typedef struct {
 
   int               irq;              /**< \brief IRQ number */
 
-
-  int               frontOffset;      /**< \brief Front color buffer offset */
-  int               frontPitch;       /**< \brief Front color buffer pitch */
-  int               backOffset;       /**< \brief Back color buffer offset */
-  int               backPitch;        /**< \brief Back color buffer pitch */
   int               depthOffset;      /**< \brief Depth buffer offset */
   int               depthPitch;       /**< \brief Depth buffer pitch */
   int               textureOffset;    /**< \brief Texture area offset */
@@ -93,7 +88,7 @@ typedef struct {
   drmBufMapPtr      drmBuffers;
 
   unsigned long     IOAddress;
-  unsigned char    *IOBase;
+  volatile void    *IOBase;
   int		    HasSDRAM;
 
   __u32             reg_ien;

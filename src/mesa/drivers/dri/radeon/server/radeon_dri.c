@@ -1243,6 +1243,7 @@ struct DRIDriverRec __driDriver = {
    radeonHaltFBDev,
    RADEONEngineShutdown,
    RADEONEngineRestore,  
+   0,
 #if _HAVE_FULL_GL
    0,
 #else

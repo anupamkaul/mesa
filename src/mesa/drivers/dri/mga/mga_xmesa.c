@@ -125,17 +125,10 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 
 
    mgaScreen->chipset = serverInfo->chipset;
-   mgaScreen->width = serverInfo->width;
-   mgaScreen->height = serverInfo->height;
    mgaScreen->mem = serverInfo->mem;
-   mgaScreen->cpp = serverInfo->cpp;
 
    mgaScreen->agpMode = serverInfo->agpMode;
 
-   mgaScreen->frontPitch = serverInfo->frontPitch;
-   mgaScreen->frontOffset = serverInfo->frontOffset;
-   mgaScreen->backOffset = serverInfo->backOffset;
-   mgaScreen->backPitch  =  serverInfo->backPitch;
    mgaScreen->depthOffset = serverInfo->depthOffset;
    mgaScreen->depthPitch  =  serverInfo->depthPitch;
 
@@ -201,7 +194,7 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 					  serverInfo->agpTextureOffset);
 #endif
 
-   mgaScreen->mAccess = serverInfo->mAccess;
+   //mgaScreen->mAccess = serverInfo->mAccess;
 
    /* For calculating setupdma addresses.
     */
@@ -224,11 +217,20 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 static void
 mgaDestroyScreen(__DRIscreenPrivate *sPriv)
 {
-   mgaScreenPrivate *mgaScreen = (mgaScreenPrivate *) sPriv->private;
+   mgaScreenPrivate *mgaScreen  = (mgaScreenPrivate *) sPriv->private;
+   MGADRIPtr         serverInfo = (MGADRIPtr)sPriv->pDevPriv;
 
    if (MGA_DEBUG&DEBUG_VERBOSE_DRI)
       fprintf(stderr, "mgaDestroyScreen\n");
 
+   if ( mgaScreen->texVirtual[MGA_AGP_HEAP] ) {
+      drmUnmap( mgaScreen->texVirtual[MGA_AGP_HEAP],
+		serverInfo->agpTextureSize );
+   }
+   if (mgaScreen->bufs)
+      drmUnmapBufs( mgaScreen->bufs ); 
+   drmUnmap( mgaScreen->mmio.map, mgaScreen->mmio.size );
+   
    /*drmUnmap(mgaScreen->agp_tex.map, mgaScreen->agp_tex.size);*/
    free(mgaScreen);
    sPriv->private = NULL;
@@ -313,7 +315,7 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
     */
    ctx = mmesa->glCtx;
    { 
-      int nr = 2;
+      unsigned int nr = 2;
 
       if (mgaScreen->chipset == MGA_CARD_TYPE_G200)
 	 nr = 1;
@@ -375,15 +377,16 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
    /* Initialize the software rasterizer and helper modules.
     */
    _swrast_CreateContext( ctx );
+   
    _ac_CreateContext( ctx );
    _tnl_CreateContext( ctx );
-   
-   _swsetup_CreateContext( ctx );
 
    /* Install the customized pipeline:
     */
    _tnl_destroy_pipeline( ctx );
    _tnl_install_pipeline( ctx, mga_pipeline );
+   
+   _swsetup_CreateContext( ctx );
 
    /* Configure swrast to match hardware characteristics:
     */
@@ -399,7 +402,6 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
 
    mgaDDInitStateFuncs( ctx );
    mgaDDInitTextureFuncs( ctx );
-   mgaDDInitSpanFuncs( ctx );
    mgaDDInitDriverFuncs( ctx );
    mgaDDInitIoctlFuncs( ctx );
    mgaDDInitPixelFuncs( ctx );
@@ -478,6 +480,8 @@ mgaUnbindContext(__DRIcontextPrivate *driContextPriv)
    if (mmesa)
       mmesa->dirty = ~0;
 
+   UNLOCK_HARDWARE( mmesa );
+
    return GL_TRUE;
 }
 
@@ -505,7 +509,7 @@ mgaMakeCurrent(__DRIcontextPrivate *driContextPriv,
                __DRIdrawablePrivate *driDrawPriv,
                __DRIdrawablePrivate *driReadPriv)
 {
-   fprintf(stderr, "%s\n", __FUNCTION__);
+/*   fprintf(stderr, "%s\n", __FUNCTION__);*/
 
    if (driContextPriv) {
       mgaContextPtr mmesa = (mgaContextPtr) driContextPriv->driverPrivate;
@@ -524,6 +528,7 @@ mgaMakeCurrent(__DRIcontextPrivate *driContextPriv,
 	 _mesa_set_viewport(mmesa->glCtx, 0, 0,
                             driDrawPriv->w, driDrawPriv->h);
 
+      mgaDDInitSpanFuncs( mmesa->glCtx );
    }
    else {
       _mesa_make_current(NULL, NULL);
@@ -539,15 +544,15 @@ void mgaGetLock( mgaContextPtr mmesa, GLuint flags )
    int me = mmesa->hHWContext;
    int i;
 
-   fprintf(stderr, "%s\n", __FUNCTION__);
+/*   fprintf(stderr, "%s\n", __FUNCTION__);*/
 
    drmGetLock(mmesa->driFd, mmesa->hHWContext, flags);
    
-   fprintf(stderr, 
+/*   fprintf(stderr, 
 	   "mmesa->lastStamp %d dpriv->lastStamp %d *(dpriv->pStamp) %d\n",
 	   mmesa->lastStamp, 
 	   dPriv->lastStamp,
-	   *(dPriv->pStamp));
+	   *(dPriv->pStamp));*/
    
    /* The window might have moved, so we might need to get new clip
     * rects.
@@ -564,22 +569,25 @@ void mgaGetLock( mgaContextPtr mmesa, GLuint flags )
       mmesa->lastStamp = dPriv->lastStamp;
       mmesa->SetupNewInputs |= VERT_BIT_CLIP;
       mmesa->dirty_cliprects = (MGA_FRONT|MGA_BACK);
+
       mgaUpdateRects( mmesa, (MGA_FRONT|MGA_BACK) );
    }
 
    mmesa->dirty |= MGA_UPLOAD_CONTEXT | MGA_UPLOAD_CLIPRECTS;
 
+   memcpy( &sarea->ContextState, &mmesa->setup, sizeof(mmesa->setup));
    mmesa->sarea->dirty |= MGA_UPLOAD_CONTEXT;
 
    if (sarea->ctxOwner != me) {
+      sarea->ctxOwner=me;
+      
       mmesa->dirty |= (MGA_UPLOAD_CONTEXT | MGA_UPLOAD_TEX0 |
 		       MGA_UPLOAD_TEX1 | MGA_UPLOAD_PIPE);
-      sarea->ctxOwner=me;
+      
+      for (i = 0 ; i < mmesa->lastTexHeap ; i++)
+         if (sarea->texAge[i] != mmesa->texAge[i])
+            mgaAgeTextures( mmesa, i );
    }
-
-   for (i = 0 ; i < mmesa->lastTexHeap ; i++)
-      if (sarea->texAge[i] != mmesa->texAge[i])
-	 mgaAgeTextures( mmesa, i );
 
    sarea->last_quiescent = -1;	/* just kill it for now */
 }
@@ -607,10 +615,12 @@ static const struct __DriverAPIRec mgaAPI = {
  * The __driCreateScreen name is the symbol that libGL.so fetches.
  * Return:  pointer to a __DRIscreenPrivate.
  */
-void *__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
-                        int numConfigs, __GLXvisualConfig *config)
+void *__driCreateScreen(struct DRIDriverRec *driver,
+                        struct DRIDriverContextRec *driverContext,
+                        __DRIscreen *psc)
 {
    __DRIscreenPrivate *psp;
-   psp = __driUtilCreateScreen(dpy, scrn, psc, numConfigs, config, &mgaAPI);
+   psp = __driUtilCreateScreen(driver, driverContext, psc, &mgaAPI);
    return (void *) psp;
 }
+

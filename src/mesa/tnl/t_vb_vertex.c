@@ -1,4 +1,4 @@
-/* $Id: t_vb_vertex.c,v 1.17 2002/10/31 17:14:37 brianp Exp $ */
+/* $Id: t_vb_vertex.c,v 1.17.8.1 2003/05/06 00:01:41 dok666 Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -141,7 +141,7 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
 
    if (stage->changed_inputs) {
 
-      if (ctx->_NeedEyeCoords) {
+      if (1||ctx->_NeedEyeCoords) {
 	 /* Separate modelview transformation:
 	  * Use combined ModelProject to avoid some depth artifacts
 	  */
