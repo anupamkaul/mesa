@@ -1,4 +1,4 @@
-/* $Id: light.c,v 1.54.4.2 2003/03/21 11:35:18 keithw Exp $ */
+/* $Id: light.c,v 1.54.4.2.4.1 2003/05/26 13:49:58 dok666 Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -1324,7 +1324,7 @@ void _mesa_update_tnl_spaces( GLcontext *ctx, GLuint new_state )
 			  ctx->Point._Attenuated ||
 			  (ctx->Light.Enabled &&
 			   !TEST_MAT_FLAGS( ctx->ModelviewMatrixStack.Top, 
-					    MAT_FLAGS_LENGTH_PRESERVING)));
+					    MAT_FLAGS_LENGTH_PRESERVING))) | NEED_EYE_LIGHT;
       
    /* Check if the truth-value interpretations of the bitfields have
     * changed:
