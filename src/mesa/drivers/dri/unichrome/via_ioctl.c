@@ -393,6 +393,7 @@ static GLboolean viaCheckIdle( struct via_context *vmesa )
    if ((vmesa->regEngineStatus[0] & 0xFFFEFFFF) == 0x00020000) {
       return GL_TRUE;
    }
+   fprintf(stderr, "*");
    return GL_FALSE;
 }
 
@@ -403,10 +404,10 @@ GLboolean viaCheckBreadcrumb( struct via_context *vmesa, GLuint value )
    vmesa->lastBreadcrumbRead = *buf;
 
    if (VIA_DEBUG & DEBUG_IOCTL) 
-      fprintf(stderr, "%s %d <= %d: %d\n", __FUNCTION__, value, vmesa->lastBreadcrumbRead,
-	      value <= vmesa->lastBreadcrumbRead);
+      fprintf(stderr, "%s %d < %d: %d\n", __FUNCTION__, value, vmesa->lastBreadcrumbRead,
+	      value < vmesa->lastBreadcrumbRead);
 
-   return value <= vmesa->lastBreadcrumbRead;
+   return value < vmesa->lastBreadcrumbRead;
 }
 
 static void viaWaitBreadcrumb( struct via_context *vmesa, GLuint value )
@@ -441,8 +442,10 @@ void viaWaitIdle( struct via_context *vmesa )
 
    /* Need to wait?
     */
-   if (vmesa->lastDma > vmesa->lastBreadcrumbRead) 
+   if (vmesa->lastDma >= vmesa->lastBreadcrumbRead) 
       viaWaitBreadcrumb( vmesa, vmesa->lastDma );
+
+   viaCheckIdle(vmesa);
 }
 
 
@@ -467,7 +470,7 @@ static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv,
 
    assert(value < vmesa->lastBreadcrumbWrite);
    
-   if (value <= vmesa->lastBreadcrumbRead)
+   if (value < vmesa->lastBreadcrumbRead)
       return;
    
    while (!viaCheckBreadcrumb(vmesa, value)) {	 

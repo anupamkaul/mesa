@@ -190,7 +190,7 @@ via_release_pending_textures( struct via_context *vmesa )
    struct via_tex_buffer *s, *tmp;
    
    foreach_s( s, tmp, &vmesa->freed_tex_buffers ) {
-      if (s->lastUsed <= vmesa->lastBreadcrumbRead) {
+      if (s->lastUsed < vmesa->lastBreadcrumbRead) {
 	 if (VIA_DEBUG & DEBUG_TEXTURE)
 	    fprintf(stderr, "%s: release tex sz %d lastUsed %x\n",__FUNCTION__, s->size, s->lastUsed); 
 	 remove_from_list(s);
