@@ -505,10 +505,16 @@ struct dd_function_table {
     */
    void (*DeleteTexture)( GLcontext *ctx, struct gl_texture_object *tObj );
 
+
    /**
     * Called to allocate a new texture image object.
     */
    struct gl_texture_image * (*NewTextureImage)( GLcontext *ctx );
+
+   /** 
+    * Called to free tImage->Data.
+    */
+   void (*FreeTexImageData)( GLcontext *ctx, struct gl_texture_image *tImage );
 
    /**
     * Called by glAreTextureResident().

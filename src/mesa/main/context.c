@@ -1507,6 +1507,7 @@ _mesa_initialize_context( GLcontext *ctx,
 {
    ASSERT(driverContext);
    assert(driverFunctions->NewTextureObject);
+   assert(driverFunctions->FreeTexImageData);
 
    /* If the driver wants core Mesa to use special imports, it'll have to
     * override these defaults.
