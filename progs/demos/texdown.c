@@ -47,7 +47,6 @@ static GLdouble DownloadRate = 0.0;  /* texels/sec */
 static GLuint Mode = 0;
 
 
-#define NUM_FORMATS 4
 struct FormatRec {
    GLenum Format;
    GLenum Type;
@@ -56,8 +55,9 @@ struct FormatRec {
 };
 
 
-static const struct FormatRec FormatTable[NUM_FORMATS] = {
+static const struct FormatRec FormatTable[] = {
   /* Format   Type                         IntFormat   TexelSize */
+   { GL_BGRA, GL_UNSIGNED_BYTE,            GL_RGBA,        4    },
    { GL_RGB,  GL_UNSIGNED_BYTE,            GL_RGB,         3    },
    { GL_RGBA, GL_UNSIGNED_BYTE,            GL_RGBA,        4    },
    { GL_RGBA, GL_UNSIGNED_BYTE,            GL_RGB,         4    },
@@ -65,6 +65,7 @@ static const struct FormatRec FormatTable[NUM_FORMATS] = {
 };
 static GLint Format;
 
+#define NUM_FORMATS (sizeof(FormatTable)/sizeof(FormatTable[0]))
 
 static int
 BytesPerTexel(GLint format)
