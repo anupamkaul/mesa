@@ -684,8 +684,6 @@ static void viaTexImage(GLcontext *ctx,
       nheaps = 2;
       break;
    case VIA_MEM_MIXED:
-/*       for ( */
-/*       break; */
    case VIA_MEM_SYSTEM:
    default:
       heaps[0] = VIA_MEM_SYSTEM;
