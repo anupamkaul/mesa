@@ -1529,8 +1529,9 @@ static void _save_current_init( GLcontext *ctx )
    }
 
    for (i = _TNL_ATTRIB_MAT_FRONT_AMBIENT; i < _TNL_ATTRIB_INDEX; i++) {
-      tnl->save.currentsz[i] = &ctx->ListState.ActiveMaterialSize[i];
-      tnl->save.current[i] = ctx->ListState.CurrentMaterial[i];
+      GLint m = i - _TNL_ATTRIB_MAT_FRONT_AMBIENT;
+      tnl->save.currentsz[i] = &ctx->ListState.ActiveMaterialSize[m];
+      tnl->save.current[i] = ctx->ListState.CurrentMaterial[m];
    }
 
    tnl->save.currentsz[_TNL_ATTRIB_INDEX] = &ctx->ListState.ActiveIndex;
