@@ -35,18 +35,6 @@
 #define VIA_TEX_MAXLEVELS	10
 
 
-/* For shared texture space managment, these texture objects may also
- * be used as proxies for regions of texture memory containing other
- * client's textures.  Such proxy textures (not to be confused with GL
- * proxy textures) are subject to the same LRU aging we use for our
- * own private textures, and thus we have a mechanism where we can
- * fairly decide between kicking out our own textures and those of
- * other clients.
- *
- * Non-local texture objects have a valid MemBlock to describe the
- * region managed by the other client, and can be identified by
- * 't->globj == 0' 
- */
 struct via_texture_object_t {
     struct via_texture_object_t *next, *prev;
 
@@ -100,13 +88,7 @@ void viaDestroyTexObj(viaContextPtr vmesa, viaTextureObjectPtr t);
 void viaSwapOutTexObj(viaContextPtr vmesa, viaTextureObjectPtr t);
 void viaUploadTexImages(viaContextPtr vmesa, viaTextureObjectPtr t);
 
-void viaResetGlobalLRU(viaContextPtr vmesa);
-void viaTexturesGone(viaContextPtr vmesa,
-                     GLuint start, GLuint end,
-                     GLuint in_use);
-
 void viaPrintLocalLRU(viaContextPtr vmesa);
-void viaPrintGlobalLRU(viaContextPtr vmesa);
 void viaUpdateTexLRU(viaContextPtr vmesa, viaTextureObjectPtr t);
 
 #endif

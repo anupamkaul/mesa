@@ -305,72 +305,10 @@ void viaPrintLocalLRU(viaContextPtr vmesa)
     }
 }
 
-void viaPrintGlobalLRU(viaContextPtr vmesa)
-{
-    int i, j;
-    drm_via_tex_region_t *list = vmesa->sarea->texList;
-
-    for (i = 0, j = VIA_NR_TEX_REGIONS; i < VIA_NR_TEX_REGIONS; i++) {
-        if (VIA_DEBUG) fprintf(stderr, "list[%d] age %d next %d prev %d\n",
-                j, list[j].age, list[j].next, list[j].prev);
-        j = list[j].next;
-        if (j == VIA_NR_TEX_REGIONS) break;
-    }
-    if (j != VIA_NR_TEX_REGIONS)
-       if (VIA_DEBUG) fprintf(stderr, "Loop detected in global LRU\n");
-}
-
-void viaResetGlobalLRU(viaContextPtr vmesa)
-{
-    drm_via_tex_region_t *list = vmesa->sarea->texList;
-    int sz = 1 << vmesa->viaScreen->logTextureGranularity;
-    int i;
-
-    /* (Re)initialize the global circular LRU list.  The last element
-     * in the array (VIA_NR_TEX_REGIONS) is the sentinal.  Keeping it
-     * at the end of the array allows it to be addressed rationally
-     * when looking up objects at a particular location in texture
-     * memory.
-     */
-    for (i = 0; (i + 1) * sz <= vmesa->viaScreen->textureSize; i++) {
-        list[i].prev = i - 1;
-        list[i].next = i + 1;
-        list[i].age = 0;
-    }
-
-    i--;
-    list[0].prev = VIA_NR_TEX_REGIONS;
-    list[i].prev = i - 1;
-    list[i].next = VIA_NR_TEX_REGIONS;
-    list[VIA_NR_TEX_REGIONS].prev = i;
-    list[VIA_NR_TEX_REGIONS].next = 0;
-    vmesa->sarea->texAge = 0;
-}
-
 void viaUpdateTexLRU(viaContextPtr vmesa, viaTextureObjectPtr t)
 {
     vmesa->texAge = ++vmesa->sarea->texAge;
     move_to_head(&(vmesa->TexObjList), t);
-}
-
-/* Called for every shared texture region which has increased in age
- * since we last held the lock.
- *
- * Figures out which of our textures have been ejected by other clients,
- * and pushes a placeholder texture onto the LRU list to represent
- * the other client's textures.
- */
-void viaTexturesGone(viaContextPtr vmesa,
-                     GLuint offset,
-                     GLuint size,
-                     GLuint inUse)
-{
-    viaTextureObjectPtr t, tmp;
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);    
-    foreach_s (t, tmp, &vmesa->TexObjList) {
-        viaSwapOutTexObj(vmesa, t);
-    }
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);
 }
 
 /* This is called with the lock held.  May have to eject our own and/or
