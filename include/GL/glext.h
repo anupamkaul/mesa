@@ -1419,17 +1419,17 @@ extern "C" {
 #define GL_TEXTURE_COLOR_WRITEMASK_SGIS   0x81EF
 #endif
 
-#ifndef GL_EXT_texture_env_combine2
-#define GL_ADD_MODULATE_EXT               0x6000
-#define GL_ADD_SIGNED_MODULATE_EXT        0x6001
-#define GL_MODULATE_ADD_EXT               0x6002
-#define GL_MODULATE_ADD_SIGNED_EXT        0x6003
-#define GL_MODULATE3_EXT                  0x6004
-#define GL_ADD3_EXT                       0x6005
-#define GL_DOT3_EXT                       0x6006
-#define GL_DOT3_SIGNED_EXT                0x6007
-#define GL_DOT3_MODULATE_EXT              0x6008
-#define GL_DOT3_SIGNED_MODULATE_EXT       0x6009
+#ifndef GL_MESA_texture_env_combine2
+#define GL_ADD_MODULATE_MESA              0x6000
+#define GL_ADD_SIGNED_MODULATE_MESA       0x6001
+#define GL_MODULATE_ADD_MESA              0x6002
+#define GL_MODULATE_ADD_SIGNED_MESA       0x6003
+#define GL_MODULATE3_MESA                 0x6004
+#define GL_ADD3_MESA                      0x6005
+#define GL_DOT3_MESA                      0x6006
+#define GL_DOT3_SIGNED_MESA               0x6007
+#define GL_DOT3_MODULATE_MESA             0x6008
+#define GL_DOT3_SIGNED_MODULATE_MESA      0x6009
 #endif
 
 /*************************************************************/

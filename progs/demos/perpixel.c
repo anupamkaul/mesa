@@ -354,7 +354,7 @@ render_perpixel (Mesh *m, int width, int height)
    glEnable (GL_TEXTURE_2D);
    glBindTexture (GL_TEXTURE_2D, m->normal_specular_texture);
    glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_EXT);
-   glTexEnvi (GL_TEXTURE_ENV, GL_COMBINE_RGB_EXT, GL_DOT3_EXT);
+   glTexEnvi (GL_TEXTURE_ENV, GL_COMBINE_RGB_EXT, GL_DOT3_MESA);
    glTexEnvi (GL_TEXTURE_ENV, GL_SOURCE1_RGB_EXT, GL_PREVIOUS_EXT);
    glTexEnvi (GL_TEXTURE_ENV, GL_SOURCE0_RGB_EXT, GL_TEXTURE);
    glTexEnvi (GL_TEXTURE_ENV, GL_OPERAND0_RGB_EXT, GL_SRC_COLOR);
@@ -414,7 +414,7 @@ render_perpixel (Mesh *m, int width, int height)
    glBindTexture (GL_TEXTURE_2D, m->normal_specular_texture);
    glEnable (GL_TEXTURE_2D);
    glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_EXT);
-   glTexEnvi (GL_TEXTURE_ENV, GL_COMBINE_RGB_EXT, GL_DOT3_MODULATE_EXT);
+   glTexEnvi (GL_TEXTURE_ENV, GL_COMBINE_RGB_EXT, GL_DOT3_MODULATE_MESA);
    glTexEnvi (GL_TEXTURE_ENV, GL_SOURCE0_RGB_EXT, GL_PRIMARY_COLOR_EXT);
    glTexEnvi (GL_TEXTURE_ENV, GL_SOURCE1_RGB_EXT, GL_TEXTURE);
    glTexEnvi (GL_TEXTURE_ENV, GL_SOURCE2_RGB_EXT, GL_CONSTANT_EXT);
@@ -432,7 +432,7 @@ render_perpixel (Mesh *m, int width, int height)
    glBindTexture (GL_TEXTURE_2D, m->color_texture);
    glEnable (GL_TEXTURE_2D);
    glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_EXT);
-   glTexEnvi (GL_TEXTURE_ENV, GL_COMBINE_RGB_EXT, GL_ADD_MODULATE_EXT);
+   glTexEnvi (GL_TEXTURE_ENV, GL_COMBINE_RGB_EXT, GL_ADD_MODULATE_MESA);
    glTexEnvi (GL_TEXTURE_ENV, GL_SOURCE0_RGB_EXT, GL_PREVIOUS_EXT);
    glTexEnvi (GL_TEXTURE_ENV, GL_SOURCE1_RGB_EXT, GL_CONSTANT_EXT);
    glTexEnvfv (GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, ambient_light);
@@ -769,8 +769,8 @@ static void initGL (void)
       printf("Sorry, GL_EXT_texture_env_combine not supported.\n");
       exit(1);
    }
-   if (!strstr(exten, "GL_EXT_texture_env_combine2")) {
-      printf("Sorry, GL_EXT_texture_env_combine2 not supported.\n");
+   if (!strstr(exten, "GL_MESA_texture_env_combine2")) {
+      printf("Sorry, GL_MESA_texture_env_combine2 not supported.\n");
       exit(1);
    }
 
@@ -818,14 +818,14 @@ int main (int argc, char *argv[])
    glutInitDisplayMode (GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
    glutCreateWindow (argv[0]);
 
-   initGL ();
-
    if (argc > 1 && strcmp(argv[1], "-info")==0) {
       printf("GL_RENDERER   = %s\n", (char *) glGetString(GL_RENDERER));
       printf("GL_VERSION    = %s\n", (char *) glGetString(GL_VERSION));
       printf("GL_VENDOR     = %s\n", (char *) glGetString(GL_VENDOR));
       printf("GL_EXTENSIONS = %s\n", (char *) glGetString(GL_EXTENSIONS));
    }
+
+   initGL ();
 
    printf (usage, argv[0]);
 

@@ -1,4 +1,4 @@
-/* $Id: texstate.c,v 1.15.2.1 2000/07/16 06:52:15 hwaechtler Exp $ */
+/* $Id: texstate.c,v 1.15.2.2 2000/07/16 07:39:43 hwaechtler Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -123,16 +123,16 @@ _mesa_TexEnvfv( GLenum target, GLenum pname, const GLfloat *param )
                      texUnit->CombineModeRGB = mode;
                      ctx->NewState |= NEW_TEXTURE_ENV;
                      break;
-                  case GL_ADD_MODULATE_EXT:
-                  case GL_ADD_SIGNED_MODULATE_EXT:
-                  case GL_MODULATE_ADD_EXT:
-                  case GL_MODULATE_ADD_SIGNED_EXT:
-                  case GL_ADD3_EXT:
-                  case GL_MODULATE3_EXT:
-                  case GL_DOT3_EXT:
-                  case GL_DOT3_SIGNED_EXT:
-                  case GL_DOT3_MODULATE_EXT:
-                  case GL_DOT3_SIGNED_MODULATE_EXT:
+                  case GL_ADD_MODULATE_MESA:
+                  case GL_ADD_SIGNED_MODULATE_MESA:
+                  case GL_MODULATE_ADD_MESA:
+                  case GL_MODULATE_ADD_SIGNED_MESA:
+                  case GL_ADD3_MESA:
+                  case GL_MODULATE3_MESA:
+                  case GL_DOT3_MESA:
+                  case GL_DOT3_SIGNED_MESA:
+                  case GL_DOT3_MODULATE_MESA:
+                  case GL_DOT3_SIGNED_MODULATE_MESA:
                      if (ctx->Extensions.HaveTextureEnvCombine2) {
                         if (texUnit->CombineModeRGB == mode)
                            return;  /* no change */
@@ -166,6 +166,22 @@ _mesa_TexEnvfv( GLenum target, GLenum pname, const GLfloat *param )
                         return;  /* no change */
                      texUnit->CombineModeA = mode;
                      ctx->NewState |= NEW_TEXTURE_ENV;
+                     break;
+                  case GL_ADD_MODULATE_MESA:
+                  case GL_ADD_SIGNED_MODULATE_MESA:
+                  case GL_MODULATE_ADD_MESA:
+                  case GL_MODULATE_ADD_SIGNED_MESA:
+                  case GL_ADD3_MESA:
+                  case GL_MODULATE3_MESA:
+                     if (ctx->Extensions.HaveTextureEnvCombine2) {
+                        if (texUnit->CombineModeA == mode)
+                           return;  /* no change */
+                        texUnit->CombineModeA = mode;
+                        ctx->NewState |= NEW_TEXTURE_ENV;
+                     } else {
+                        gl_error( ctx, GL_INVALID_ENUM, "glTexEnv(param)" );
+                        return;
+                     }
                      break;
                   default:
                      gl_error( ctx, GL_INVALID_ENUM, "glTexEnv(param)" );

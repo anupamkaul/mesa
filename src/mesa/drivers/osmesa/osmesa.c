@@ -1,4 +1,4 @@
-/* $Id: osmesa.c,v 1.19.2.1 2000/07/16 06:52:15 hwaechtler Exp $ */
+/* $Id: osmesa.c,v 1.19.2.2 2000/07/16 07:39:43 hwaechtler Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -227,7 +227,7 @@ OSMesaCreateContext( GLenum format, OSMesaContext sharelist )
       gl_extensions_enable(&(osmesa->gl_ctx),"GL_HP_occlusion_test");
       gl_extensions_enable(&(osmesa->gl_ctx), "GL_ARB_texture_cube_map");
       gl_extensions_enable(&(osmesa->gl_ctx), "GL_EXT_texture_env_combine");
-      gl_extensions_enable(&(osmesa->gl_ctx), "GL_EXT_texture_env_combine2");
+      gl_extensions_enable(&(osmesa->gl_ctx), "GL_MESA_texture_env_combine2");
 
       osmesa->gl_buffer = gl_create_framebuffer( osmesa->gl_visual,
                                            osmesa->gl_visual->DepthBits > 0,

@@ -1,4 +1,4 @@
-/* $Id: extensions.c,v 1.32.2.1 2000/07/16 06:52:15 hwaechtler Exp $ */
+/* $Id: extensions.c,v 1.32.2.2 2000/07/16 07:39:43 hwaechtler Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -76,7 +76,6 @@ static struct { int enabled; const char *name; } default_extensions[] = {
    { DEFAULT_OFF,    "GL_EXT_texture_env" },
    { DEFAULT_ON,     "GL_EXT_texture_env_add" },
    { DEFAULT_OFF,    "GL_EXT_texture_env_combine" },
-   { DEFAULT_OFF,    "GL_EXT_texture_env_combine2" },
    { ALWAYS_ENABLED, "GL_EXT_texture_object" },
    { DEFAULT_ON,     "GL_EXT_texture_lod_bias" },
    { ALWAYS_ENABLED, "GL_EXT_vertex_array" },
@@ -85,6 +84,7 @@ static struct { int enabled; const char *name; } default_extensions[] = {
    { DEFAULT_ON,     "GL_INGR_blend_func_separate" },
    { ALWAYS_ENABLED, "GL_MESA_window_pos" },
    { ALWAYS_ENABLED, "GL_MESA_resize_buffers" },
+   { DEFAULT_OFF,    "GL_MESA_texture_env_combine2" },
    { DEFAULT_OFF,    "GL_NV_blend_square" },
    { ALWAYS_ENABLED, "GL_NV_texgen_reflection" },
    { DEFAULT_ON,     "GL_PGI_misc_hints" },
@@ -106,7 +106,7 @@ update_extension_flags( GLcontext *ctx )
    /* Update flags */
    ctx->Extensions.HaveTextureEnvAdd = gl_extension_is_enabled(ctx, "GL_EXT_texture_env_add");
    ctx->Extensions.HaveTextureEnvCombine = gl_extension_is_enabled(ctx, "GL_EXT_texture_env_combine");
-   ctx->Extensions.HaveTextureEnvCombine2 = gl_extension_is_enabled(ctx, "GL_EXT_texture_env_combine2");
+   ctx->Extensions.HaveTextureEnvCombine2 = gl_extension_is_enabled(ctx, "GL_MESA_texture_env_combine2");
    ctx->Extensions.HaveTextureLodBias = gl_extension_is_enabled(ctx, "GL_EXT_texture_lod_bias");
    ctx->Extensions.HaveHpOcclusionTest = gl_extension_is_enabled(ctx, "GL_HP_occlusion_test");
    ctx->Extensions.HaveTextureCubeMap = gl_extension_is_enabled(ctx, "GL_ARB_texture_cube_map");
