@@ -1218,7 +1218,7 @@ static int viaInitFBDev(DRIDriverContext *ctx)
     pVia->FBFreeStart = ctx->shared.virtualWidth * ctx->cpp *
         ctx->shared.virtualHeight;
 
-#if 0
+#if 1
     /* Alloc a second framebuffer for the second head */
     pVia->FBFreeStart += ctx->shared.virtualWidth * ctx->cpp *
 	ctx->shared.virtualHeight;

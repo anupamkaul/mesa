@@ -155,15 +155,17 @@ calculate_buffer_parameters( viaContextPtr vmesa )
       if (!via_alloc_draw_buffer(vmesa, &vmesa->front))
 	 return GL_FALSE;
 
-   }
-   else { 
+   } else {
       w = vmesa->viaScreen->width;
       h = vmesa->viaScreen->height;
 
       vmesa->front.bpp = vmesa->viaScreen->bitsPerPixel;
       vmesa->front.pitch = buffer_align( w ) << shift;
       vmesa->front.size = vmesa->front.pitch * h;
-      vmesa->front.offset = 0;
+      if (getenv("ALTERNATE_SCREEN")) 
+        vmesa->front.offset = vmesa->front.size;
+      else
+      	vmesa->front.offset = 0;
       vmesa->front.map = (char *) vmesa->driScreen->pFB;
    }
 
