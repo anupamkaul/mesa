@@ -32,7 +32,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: attrib.h,v 1.6.6.3 2003/03/23 23:22:47 jrfonseca Exp $ */
 
 
 #ifndef ATTRIB_H

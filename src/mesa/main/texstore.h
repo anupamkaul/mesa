@@ -29,7 +29,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texstore.h,v 1.11.6.1 2003/03/22 16:49:59 jrfonseca Exp $ */
 
 
 #ifndef TEXSTORE_H

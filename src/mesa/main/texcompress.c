@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texcompress.c,v 1.3.4.1 2003/03/16 00:27:13 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "imports.h"

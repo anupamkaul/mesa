@@ -1,4 +1,3 @@
-/* $Id: eval.c,v 1.24.4.3 2003/03/21 11:35:15 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library

@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: feedback.c,v 1.27.4.6 2003/05/18 21:17:03 jrfonseca Exp $ */
 
 
 #include "glheader.h"

@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: light.h,v 1.15.4.4 2003/03/21 11:35:19 keithw Exp $ */
 
 
 #ifndef LIGHT_H

@@ -40,7 +40,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glheader.h,v 1.29.4.4 2003/05/18 21:17:04 jrfonseca Exp $ */
 
 
 #ifndef GLHEADER_H

@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texstate.h,v 1.9.6.3 2003/05/18 21:17:09 jrfonseca Exp $ */
 
 
 #ifndef TEXSTATE_H

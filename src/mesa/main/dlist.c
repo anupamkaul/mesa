@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: dlist.c,v 1.100.4.4 2003/05/18 21:17:02 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "imports.h"

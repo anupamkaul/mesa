@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: config.h,v 1.42.4.5 2003/03/23 03:51:34 jrfonseca Exp $ */
 
 
 #ifndef CONFIG_H

@@ -32,7 +32,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: colortab.h,v 1.9.8.5 2003/03/23 23:22:47 jrfonseca Exp $ */
 
 
 #ifndef COLORTAB_H

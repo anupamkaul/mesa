@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: image.c,v 1.69.4.6 2003/05/18 21:17:04 jrfonseca Exp $ */
 
 
 #include "glheader.h"

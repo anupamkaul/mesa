@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: teximage.h,v 1.22.4.1 2003/03/22 16:49:59 jrfonseca Exp $ */
 
 
 #ifndef TEXIMAGE_H

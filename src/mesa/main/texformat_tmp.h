@@ -39,7 +39,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texformat_tmp.h,v 1.10.4.1 2003/03/16 00:27:13 jrfonseca Exp $ */
 
 
 #if DIM == 1

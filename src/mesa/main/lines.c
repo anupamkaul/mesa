@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: lines.c,v 1.30.4.3 2003/03/23 23:22:48 jrfonseca Exp $ */
 
 
 #include "glheader.h"

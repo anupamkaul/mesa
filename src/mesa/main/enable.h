@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: enable.h,v 1.4.8.1 2003/03/20 19:38:40 jrfonseca Exp $ */
 
 
 #ifndef ENABLE_H

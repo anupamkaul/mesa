@@ -29,7 +29,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: state.c,v 1.97.4.11 2003/05/18 21:17:06 jrfonseca Exp $ */
 
 
 #include "glheader.h"

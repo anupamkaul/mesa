@@ -1,4 +1,3 @@
-/* $Id: histogram.c,v 1.11.4.1 2003/03/20 09:20:47 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library

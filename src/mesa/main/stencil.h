@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: stencil.h,v 1.10.6.2 2003/03/20 19:38:47 jrfonseca Exp $ */
 
 
 #ifndef STENCIL_H

@@ -1,4 +1,3 @@
-/* $Id: pixel.c,v 1.37.4.4 2003/03/21 11:35:19 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library

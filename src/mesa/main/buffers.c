@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: buffers.c,v 1.42.4.5 2003/05/18 21:17:00 jrfonseca Exp $ */
 
 
 #include "glheader.h"

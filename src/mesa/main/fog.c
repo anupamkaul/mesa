@@ -1,4 +1,3 @@
-/* $Id: fog.c,v 1.36.4.1 2003/03/20 09:20:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library

@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: depth.h,v 1.11.8.4 2003/03/23 23:22:47 jrfonseca Exp $ */
 
 
 #ifndef DEPTH_H

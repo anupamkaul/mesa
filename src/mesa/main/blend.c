@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: blend.c,v 1.38.4.6 2003/05/18 21:17:00 jrfonseca Exp $ */
 
 
 #include "glheader.h"

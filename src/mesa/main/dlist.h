@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: dlist.h,v 1.17.6.4 2003/05/18 21:17:02 jrfonseca Exp $ */
 
 
 #ifndef DLIST_H

@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: polygon.c,v 1.25.4.6 2003/05/18 21:17:06 jrfonseca Exp $ */
 
 
 #include "glheader.h"

@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: enable.c,v 1.71.4.3 2003/03/20 19:38:39 jrfonseca Exp $ */
 
 
 #include "glheader.h"

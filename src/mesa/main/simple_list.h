@@ -33,7 +33,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: simple_list.h,v 1.2.8.3 2003/05/18 21:17:06 jrfonseca Exp $ */
 
 
 #ifndef _SIMPLE_LIST_H

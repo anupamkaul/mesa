@@ -32,7 +32,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: eval.h,v 1.6.8.4 2003/03/23 23:22:47 jrfonseca Exp $ */
 
 
 #ifndef EVAL_H

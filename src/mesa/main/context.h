@@ -43,7 +43,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: context.h,v 1.35.4.4 2003/05/18 21:17:01 jrfonseca Exp $ */
 
 #ifndef CONTEXT_H
 #define CONTEXT_H

@@ -28,7 +28,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: context.c,v 1.188.2.1.2.19 2003/05/18 21:17:01 jrfonseca Exp $ */
 
 /**
  * \mainpage Mesa Core Module

@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: rastpos.h,v 1.6.6.2 2003/03/23 03:51:34 jrfonseca Exp $ */
 
 
 #ifndef RASTPOS_H

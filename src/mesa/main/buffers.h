@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: buffers.h,v 1.5.8.2 2003/03/20 09:20:01 keithw Exp $ */
 
 
 #ifndef BUFFERS_H

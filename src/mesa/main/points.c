@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: points.c,v 1.34.4.4 2003/03/23 23:22:48 jrfonseca Exp $ */
 
 
 #include "glheader.h"

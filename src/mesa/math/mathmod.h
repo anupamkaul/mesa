@@ -1,4 +1,3 @@
-/* $Id: mathmod.h,v 1.3.8.2 2003/05/18 21:17:19 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library

@@ -30,7 +30,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: imports.h,v 1.8.4.1 2003/03/20 12:56:58 jrfonseca Exp $ */
 
 
 #ifndef IMPORTS_H

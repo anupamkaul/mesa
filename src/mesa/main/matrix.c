@@ -32,7 +32,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: matrix.c,v 1.45.4.10 2003/05/18 21:17:05 jrfonseca Exp $ */
 
 
 #include "glheader.h"

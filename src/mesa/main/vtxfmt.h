@@ -29,7 +29,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: vtxfmt.h,v 1.5.4.1 2003/03/23 03:51:34 jrfonseca Exp $ */
 
 
 #ifndef _VTXFMT_H_

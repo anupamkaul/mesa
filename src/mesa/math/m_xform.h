@@ -1,4 +1,3 @@
-/* $Id: m_xform.h,v 1.11.6.1 2003/03/22 14:36:50 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library

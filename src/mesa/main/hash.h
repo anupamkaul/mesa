@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: hash.h,v 1.6.6.2 2003/03/20 12:56:57 jrfonseca Exp $ */
 
 
 #ifndef HASH_H

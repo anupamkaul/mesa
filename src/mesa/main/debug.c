@@ -1,4 +1,3 @@
-/* $Id: debug.c,v 1.14.4.2 2003/03/21 11:35:14 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library

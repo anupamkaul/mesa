@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texobj.c,v 1.62.4.8 2003/05/18 21:17:08 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "colortab.h"

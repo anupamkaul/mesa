@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: feedback.h,v 1.7.8.2 2003/03/20 12:56:57 jrfonseca Exp $ */
 
 
 #ifndef FEEDBACK_H

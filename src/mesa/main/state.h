@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: state.h,v 1.8.6.2 2003/03/22 16:49:58 jrfonseca Exp $ */
 
 
 #ifndef STATE_H

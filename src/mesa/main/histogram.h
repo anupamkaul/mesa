@@ -32,7 +32,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: histogram.h,v 1.4.4.4 2003/03/23 23:22:48 jrfonseca Exp $ */
 
 
 #ifndef HISTOGRAM_H

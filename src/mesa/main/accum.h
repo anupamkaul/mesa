@@ -32,7 +32,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: accum.h,v 1.6.8.3 2003/03/23 23:22:47 jrfonseca Exp $ */
 
 
 #ifndef ACCUM_H

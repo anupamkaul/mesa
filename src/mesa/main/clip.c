@@ -1,4 +1,3 @@
-/* $Id: clip.c,v 1.26.4.1 2003/03/20 09:20:02 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library

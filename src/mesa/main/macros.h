@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: macros.h,v 1.30.4.3 2003/05/18 21:17:05 jrfonseca Exp $ */
 
 
 #ifndef MACROS_H

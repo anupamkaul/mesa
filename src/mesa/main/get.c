@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: get.c,v 1.99.2.1.2.3 2003/03/22 16:49:58 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "colormac.h"

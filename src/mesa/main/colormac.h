@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: colormac.h,v 1.11.6.3 2003/05/18 21:17:01 jrfonseca Exp $ */
 
 
 #ifndef COLORMAC_H

@@ -1,4 +1,3 @@
-/* $Id: accum.c,v 1.39.4.1 2003/03/20 09:19:50 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library

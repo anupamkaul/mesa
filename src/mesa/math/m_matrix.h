@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: m_matrix.h,v 1.4.8.4 2003/05/18 21:17:19 jrfonseca Exp $ */
 
 
 #ifndef _M_MATRIX_H

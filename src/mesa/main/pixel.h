@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: pixel.h,v 1.10.8.2 2003/03/22 16:49:58 jrfonseca Exp $ */
 
 
 #ifndef PIXEL_H

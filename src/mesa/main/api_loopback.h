@@ -22,7 +22,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: api_loopback.h,v 1.2.8.1 2003/03/23 14:58:08 jrfonseca Exp $ */
 
 
 #ifndef API_LOOPBACK_H

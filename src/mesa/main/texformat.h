@@ -29,7 +29,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texformat.h,v 1.13.4.2 2003/05/18 21:17:08 jrfonseca Exp $ */
 
 #ifndef TEXFORMAT_H
 #define TEXFORMAT_H

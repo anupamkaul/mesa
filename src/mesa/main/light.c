@@ -1,4 +1,3 @@
-/* $Id: light.c,v 1.54.4.3 2003/05/18 21:17:05 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library

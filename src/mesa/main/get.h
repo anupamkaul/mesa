@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: get.h,v 1.5.8.1 2003/03/22 16:49:58 jrfonseca Exp $ */
 
 
 #ifndef GET_H

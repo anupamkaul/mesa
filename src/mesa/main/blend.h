@@ -27,7 +27,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: blend.h,v 1.9.8.3 2003/03/22 16:49:58 jrfonseca Exp $ */
 
 
 #ifndef BLEND_H
