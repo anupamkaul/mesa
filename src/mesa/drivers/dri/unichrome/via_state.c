@@ -66,7 +66,18 @@ static GLuint ROP[16] = {
     HC_HROP_WHITE     /* GL_SET             1                       	*/
 };
 
-
+/*
+ * Compute the 'S5.5' lod bias factor from the floating point OpenGL bias.
+ */
+static GLuint viaComputeLodBias(GLfloat bias)
+{
+   int b = (int) (bias * 32.0);
+   if (b > 511)
+      b = 511;
+   else if (b < -512)
+      b = -512;
+   return (GLuint) b;
+}
 
 void viaEmitState(viaContextPtr vmesa)
 {
@@ -306,7 +317,7 @@ void viaEmitState(viaContextPtr vmesa)
 	    ADVANCE_RING();
 	 }
 
-	 BEGIN_RING(12);
+	 BEGIN_RING(15);
 	 OUT_RING( (HC_SubA_HTXnTB << 24) | vmesa->regHTXnTB_0 );
 	 OUT_RING( (HC_SubA_HTXnMPMD << 24) | vmesa->regHTXnMPMD_0 );
 	 OUT_RING( (HC_SubA_HTXnTBLCsat << 24) | vmesa->regHTXnTBLCsat_0 );
@@ -319,6 +330,9 @@ void viaEmitState(viaContextPtr vmesa)
 	 OUT_RING( (HC_SubA_HTXnTBLRCa << 24) | vmesa->regHTXnTBLRCa_0 );
 	 OUT_RING( (HC_SubA_HTXnTBLRCc << 24) | vmesa->regHTXnTBLRCc_0 );
 	 OUT_RING( (HC_SubA_HTXnTBLRCbias << 24) | vmesa->regHTXnTBLRCbias_0 );
+	 OUT_RING( (HC_SubA_HTXnTBC << 24) | vmesa->regHTXnTBC_0 );
+	 OUT_RING( (HC_SubA_HTXnTRAH << 24) | vmesa->regHTXnTRAH_0 );
+	 OUT_RING( (HC_SubA_HTXnCLODu << 24) | vmesa->regHTXnCLOD_0 );
 	 ADVANCE_RING();
 
 	 if (t->regTexFM == HC_HTXnFM_Index8) {
@@ -427,7 +441,7 @@ void viaEmitState(viaContextPtr vmesa)
 	    ADVANCE_RING();
 	 }
 
-	 BEGIN_RING(12);
+	 BEGIN_RING(15);
 	 OUT_RING( (HC_SubA_HTXnTB << 24) | vmesa->regHTXnTB_1 );
 	 OUT_RING( (HC_SubA_HTXnMPMD << 24) | vmesa->regHTXnMPMD_1 );
 	 OUT_RING( (HC_SubA_HTXnTBLCsat << 24) | vmesa->regHTXnTBLCsat_1 );
@@ -440,6 +454,9 @@ void viaEmitState(viaContextPtr vmesa)
 	 OUT_RING( (HC_SubA_HTXnTBLRCa << 24) | vmesa->regHTXnTBLRCa_1 );
 	 OUT_RING( (HC_SubA_HTXnTBLRCc << 24) | vmesa->regHTXnTBLRCc_1 );
 	 OUT_RING( (HC_SubA_HTXnTBLRCbias << 24) | vmesa->regHTXnTBLRCbias_1 );
+	 OUT_RING( (HC_SubA_HTXnTBC << 24) | vmesa->regHTXnTBC_1 );
+	 OUT_RING( (HC_SubA_HTXnTRAH << 24) | vmesa->regHTXnTRAH_1 );
+	 OUT_RING( (HC_SubA_HTXnCLODu << 24) | vmesa->regHTXnCLOD_1 );
 	 ADVANCE_RING();
 
 	 if (t->regTexFM == HC_HTXnFM_Index8) {
@@ -686,7 +703,6 @@ static void viaClearColor(GLcontext *ctx, const GLfloat color[4])
     vmesa->ClearColor = viaPackColor(vmesa->viaScreen->bitsPerPixel,
                                      pcolor[0], pcolor[1],
                                      pcolor[2], pcolor[3]);
-	
 }
 
 #define WRITEMASK_ALPHA_SHIFT 31
@@ -748,27 +764,6 @@ static void viaDepthRange(GLcontext *ctx,
 {
     viaCalcViewport(ctx);
 }
-
-#if 0
-static void
-flip_bytes( GLubyte *p, GLuint n )
-{
-   register GLuint i, a, b;
-
-   for (i=0;i<n;i++) {
-      b = (GLuint) p[i];        /* words are often faster than bytes */
-      a = ((b & 0x01) << 7) |
-	  ((b & 0x02) << 5) |
-	  ((b & 0x04) << 3) |
-	  ((b & 0x08) << 1) |
-	  ((b & 0x10) >> 1) |
-	  ((b & 0x20) >> 3) |
-	  ((b & 0x40) >> 5) |
-	  ((b & 0x80) >> 7);
-      p[i] = (GLubyte) a;
-   }
-}
-#endif
 
 void viaInitState(GLcontext *ctx)
 {
@@ -930,6 +925,22 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
 	    vmesa->regHTXnMPMD_0 |= get_wrap_mode( texObj->WrapS,
 						   texObj->WrapT );
 
+	    vmesa->regHTXnTB_0 &= ~(HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
+            if (texObj->Image[0][texObj->BaseLevel]->Border > 0) {
+	       vmesa->regHTXnTB_0 |= (HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
+	       vmesa->regHTXnTBC_0 = PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
+						    FLOAT_TO_UBYTE(texObj->BorderColor[1]),
+						    FLOAT_TO_UBYTE(texObj->BorderColor[2]));
+	       vmesa->regHTXnTRAH_0 = FLOAT_TO_UBYTE(texObj->BorderColor[3]);
+            }
+
+	    if (texUnit0->LodBias != 0.0f) {
+	       GLuint b = viaComputeLodBias(texUnit0->LodBias);
+	       vmesa->regHTXnTB_0 &= ~HC_HTXnFLDs_MASK;
+	       vmesa->regHTXnTB_0 |= HC_HTXnFLDs_ConstLOD;
+	       vmesa->regHTXnCLOD_0 = b | ((~b&0x1f)<<10); /* FIXME */
+	    }
+
 	    if (VIA_DEBUG) fprintf(stderr, "texUnit0->EnvMode %x\n",texUnit0->EnvMode);    
 
 	    if (!viaTexCombineState( vmesa, texUnit0->_CurrentCombine, 0 ))
@@ -944,6 +955,23 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
 	    vmesa->regHTXnMPMD_1 &= ~(HC_HTXnMPMD_SMASK | HC_HTXnMPMD_TMASK);
 	    vmesa->regHTXnMPMD_1 |= get_wrap_mode( texObj->WrapS,
 						   texObj->WrapT );
+
+	    vmesa->regHTXnTB_1 &= ~(HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
+            if (texObj->Image[0][texObj->BaseLevel]->Border > 0) {
+	       vmesa->regHTXnTB_1 |= (HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
+	       vmesa->regHTXnTBC_1 = PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
+						    FLOAT_TO_UBYTE(texObj->BorderColor[1]),
+						    FLOAT_TO_UBYTE(texObj->BorderColor[2]));
+	       vmesa->regHTXnTRAH_1 = FLOAT_TO_UBYTE(texObj->BorderColor[3]);
+            }
+
+
+	    if (texUnit1->LodBias != 0.0f) {
+	       GLuint b = viaComputeLodBias(texUnit1->LodBias);
+	       vmesa->regHTXnTB_1 &= ~HC_HTXnFLDs_MASK;
+	       vmesa->regHTXnTB_1 |= HC_HTXnFLDs_ConstLOD;
+	       vmesa->regHTXnCLOD_1 = b | ((~b&0x1f)<<10); /* FIXME */
+	    }
 
 	    if (!viaTexCombineState( vmesa, texUnit1->_CurrentCombine, 1 ))
 	       return GL_FALSE;

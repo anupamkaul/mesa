@@ -201,6 +201,7 @@ struct via_context_t {
     GLuint regHLP;
     GLuint regHLPRF;
 
+    GLuint regHTXnCLOD_0;
     GLuint regHTXnTB_0;
     GLuint regHTXnMPMD_0;
     GLuint regHTXnTBLCsat_0;
@@ -214,7 +215,10 @@ struct via_context_t {
     GLuint regHTXnTBLRCa_0;
     GLuint regHTXnTBLRCc_0;
     GLuint regHTXnTBLRCbias_0;
+    GLuint regHTXnTBC_0;
+    GLuint regHTXnTRAH_0;
 
+    GLuint regHTXnCLOD_1;
     GLuint regHTXnTB_1;
     GLuint regHTXnMPMD_1;
     GLuint regHTXnTBLCsat_1;
@@ -227,6 +231,8 @@ struct via_context_t {
     GLuint regHTXnTBLRCa_1;
     GLuint regHTXnTBLRCc_1;
     GLuint regHTXnTBLRCbias_1;
+    GLuint regHTXnTBC_1;
+    GLuint regHTXnTRAH_1;
 
     int vertexSize;
     int hwVertexSize;

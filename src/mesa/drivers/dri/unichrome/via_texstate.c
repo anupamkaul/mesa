@@ -391,10 +391,6 @@ static GLboolean viaUpdateTexUnit(GLcontext *ctx, GLuint unit)
             }
         }
 
-        if (tObj->Image[0][tObj->BaseLevel]->Border > 0) {
-            return GL_FALSE;
-        }
-
         /* Update state if this is a different texture object to last
          * time.
          */
