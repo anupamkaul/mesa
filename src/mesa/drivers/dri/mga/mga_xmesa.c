@@ -273,6 +273,7 @@ static const char * const card_extensions[] =
    "GL_EXT_secondary_color",
    "GL_EXT_stencil_wrap",
    "GL_SGIS_generate_mipmap",
+   "GL_SGIS_texture_lod",
    NULL
 };
 
@@ -302,6 +303,7 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
                   void *sharedContextPrivate )
 {
    int i;
+   unsigned   maxlevels;
    GLcontext *ctx, *shareCtx;
    mgaContextPtr mmesa;
    __DRIscreenPrivate *sPriv = driContextPriv->driScreenPriv;
@@ -363,31 +365,24 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
    ctx = mmesa->glCtx;
    if ( mgaScreen->chipset == MGA_CARD_TYPE_G200 ) {
       ctx->Const.MaxTextureUnits = 1;
-      driCalculateMaxTextureLevels( mmesa->texture_heaps,
-				    mmesa->nr_heaps,
-				    & ctx->Const,
-				    4,
-				    11, /* max 2D texture size is 2048x2048 */
-				    0,  /* 3D textures unsupported. */
-				    0,  /* cube textures unsupported. */
-				    0,  /* texture rectangles unsupported. */
-				    G200_TEX_MAXLEVELS,
-				    GL_FALSE );
+      maxlevels = G200_TEX_MAXLEVELS;
+
    }
    else {
       ctx->Const.MaxTextureUnits = 2;
-      driCalculateMaxTextureLevels( mmesa->texture_heaps,
-				    mmesa->nr_heaps,
-				    & ctx->Const,
-				    4,
-				    11, /* max 2D texture size is 2048x2048 */
-				    0,  /* 3D textures unsupported. */
-				    0,  /* cube textures unsupported. */
-				    0,  /* texture rectangles unsupported. */
-				    G400_TEX_MAXLEVELS,
-				    GL_FALSE );
+      maxlevels = G400_TEX_MAXLEVELS;
    }
 
+   driCalculateMaxTextureLevels( mmesa->texture_heaps,
+				 mmesa->nr_heaps,
+				 & ctx->Const,
+				 4,
+				 11, /* max 2D texture size is 1024x1024 */
+				 0,  /* 3D textures unsupported. */
+				 0,  /* cube textures unsupported. */
+				 0,  /* texture rectangles unsupported. */
+				 maxlevels,
+				 GL_FALSE );
 
    ctx->Const.MinLineWidth = 1.0;
    ctx->Const.MinLineWidthAA = 1.0;

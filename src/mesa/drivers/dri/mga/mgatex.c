@@ -264,8 +264,9 @@ mgaAllocTexObj( struct gl_texture_object *tObj )
       t->setup.texctl = TMC_takey_1 | TMC_tamask_0;
       t->setup.texctl2 = TMC_ckstransdis_enable;
       t->setup.texfilter = (TF_minfilter_nrst 
-			    | TF_magfilter_nrst 
-			    | TF_filteralpha_enable);
+			    | TF_magfilter_nrst
+			    | TF_filteralpha_enable
+			    | TF_uvoffset_OGL);
 
       make_empty_list( & t->base );
 
@@ -420,6 +421,18 @@ mgaDDTexParameter( GLcontext *ctx, GLenum target,
    case GL_TEXTURE_BORDER_COLOR:
       FLUSH_BATCH(mmesa);
       mgaSetTexBorderColor(t, tObj->_BorderChan);
+      break;
+
+   case GL_TEXTURE_BASE_LEVEL:
+   case GL_TEXTURE_MAX_LEVEL:
+   case GL_TEXTURE_MIN_LOD:
+   case GL_TEXTURE_MAX_LOD:
+      /* This isn't the most efficient solution but there doesn't appear to
+       * be a nice alternative.  Since there's no LOD clamping,
+       * we just have to rely on loading the right subset of mipmap levels
+       * to simulate a clamped LOD.
+       */
+      driSwapOutTextureObject( (driTextureObject *) t );
       break;
 
    default:

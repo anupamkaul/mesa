@@ -1137,6 +1137,13 @@
 #    define TF_magfilter_nrst 		0x0 		/* val 0, shift 4 */
 #    define TF_magfilter_bilin 		0x20 		/* val 2, shift 4 */
 #    define TF_magfilter_cnst 		0x30 		/* val 3, shift 4 */
+#    define TF_uvoffset_SHIFT		17
+#    define TF_uvoffset_OGL		(0U << TF_uvoffset_SHIFT)
+#    define TF_uvoffset_D3D		(1U << TF_uvoffset_SHIFT)
+#    define TF_uvoffset_MASK		(~(1U << TF_uvoffset_SHIFT))
+#    define TF_reserved_MASK		(~0x1ff00)	/* bits 8-16 */
+#    define TF_mapnbhigh_SHIFT 		18
+#    define TF_mapnbhigh_MASK 		(~(1U << TF_mapnbhigh_SHIFT))
 #    define TF_avgstride_MASK 		0xfff7ffff 	/* bit 19 */
 #    define TF_avgstride_disable 	0x0 		
 #    define TF_avgstride_enable 	0x80000 	

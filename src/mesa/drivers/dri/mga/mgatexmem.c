@@ -95,7 +95,7 @@ static void mgaUploadSubImage( mgaContextPtr mmesa,
    unsigned     offset;
    unsigned     texelBytes;
    unsigned     length;
-   const int    level = hwlevel + t->firstLevel;
+   const int level = hwlevel + t->firstLevel;
 
 
    if ( (hwlevel < 0) 
@@ -121,7 +121,7 @@ static void mgaUploadSubImage( mgaContextPtr mmesa,
 
 
    /* find the proper destination offset for this level */
-   if (MGA_IS_G200(mmesa) ) {
+   if ( MGA_IS_G200(mmesa) ) {
       offset = (t->base.memBlock->ofs + t->offsets[hwlevel]);
    }
    else {
@@ -144,7 +144,7 @@ static void mgaUploadSubImage( mgaContextPtr mmesa,
 
    texelBytes = texImage->TexFormat->TexelBytes;
    length = texImage->Width * texImage->Height * texelBytes;
-   if (t->base.heap->heapId == MGA_CARD_HEAP ) {
+   if ( t->base.heap->heapId == MGA_CARD_HEAP ) {
       unsigned  tex_offset = 0;
       unsigned  to_copy;
 
