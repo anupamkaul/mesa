@@ -145,20 +145,22 @@ static int MGADRIAgpInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
       mode |= MGA_AGP_1X_MODE;
    }
 
-#if 0
    fprintf( stderr,
-            "[agp] Mode 0x%08lx [AGP 0x%04x/0x%04x; Card 0x%04x/0x%04x]\n",
-            mode, vendor, device,
-            ctx->pciVendor,
-            ctx->pciChipType );
-#endif
-
+            "[agp] Mode 0x%08lx [AGP 0x%04x/0x%04x]\n",
+            mode, vendor, device );
+   
    if ( drmAgpEnable( ctx->drmFD, mode ) < 0 ) {
      fprintf( stderr, "[agp] AGP not enabled\n" );
       drmAgpRelease( ctx->drmFD );
       return 0;
    }
 
+   mode = drmAgpGetMode( ctx->drmFD );
+   
+   fprintf( stderr,
+            "[agp] Mode 0x%08lx [AGP 0x%04x/0x%04x]\n",
+            mode, vendor, device );
+   
    if ( pMga->Chipset == PCI_CHIP_MGAG200 ) {
       switch ( pMga->agpMode ) {
       case 2:
@@ -591,7 +593,6 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
   int       err;
   MGADRIPtr pMGADRI;
 
-  usleep(100);
   //assert(!ctx->IsClient);
 
   switch (ctx->bpp)
