@@ -500,30 +500,22 @@ static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv,
 
    VIA_FLUSH_DMA(vmesa); 
 
-   if (vmesa->thrashing)
-      viaSwapOutWork(vmesa);
-
    if (!value)
       return;
 
-   assert(value < vmesa->lastBreadcrumbWrite);
-   
-   if (value < vmesa->lastBreadcrumbRead)
-      return;
-   
-   while (!viaCheckBreadcrumb(vmesa, value)) {	 
-      if (viaSwapOutWork(vmesa)) {
-	 continue;
+   do {
+      if (value < vmesa->lastBreadcrumbRead ||
+	  vmesa->thrashing)
+	 viaSwapOutWork(vmesa);
+
+      driWaitForVBlank( dPriv, & vmesa->vbl_seq, 
+			vmesa->vblank_flags, & missed_target );
+      if ( missed_target ) {
+	 vmesa->swap_missed_count++;
+	 vmesa->get_ust( &vmesa->swap_missed_ust );
       }
-      else if (vmesa->vblank_flags == VBLANK_FLAG_SYNC) {
-	 driWaitForVBlank( dPriv, & vmesa->vbl_seq, 
-			   vmesa->vblank_flags, & missed_target );
-	 if ( missed_target ) {
-	    vmesa->swap_missed_count++;
-	    vmesa->get_ust( &vmesa->swap_missed_ust );
-	 }
-      } 
-   }
+   } 
+   while (!viaCheckBreadcrumb(vmesa, value));	 
 
    vmesa->thrashing = 0;	/* reset flag on swap */
    vmesa->swap_count++;   
@@ -599,7 +591,12 @@ void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
 	      vmesa->lastBreadcrumbRead);
 
    VIA_FLUSH_DMA(vmesa);
-   viaWaitIdleVBlank(dPriv, vmesa, vmesa->lastSwap[1]);
+
+   if (vmesa->vblank_flags == VBLANK_FLAG_SYNC &&
+       vmesa->lastBreadcrumbWrite > 1)
+      viaWaitIdleVBlank(dPriv, vmesa, vmesa->lastBreadcrumbWrite-1);
+   else
+      viaWaitIdleVBlank(dPriv, vmesa, vmesa->lastSwap[1]);
 
    LOCK_HARDWARE(vmesa);
 
@@ -629,7 +626,11 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
     struct via_buffer buffer_tmp;
 
     VIA_FLUSH_DMA(vmesa);
-    viaWaitIdleVBlank(dPriv, vmesa, vmesa->lastSwap[0]);
+   if (vmesa->vblank_flags == VBLANK_FLAG_SYNC &&
+       vmesa->lastBreadcrumbWrite > 1)
+      viaWaitIdleVBlank(dPriv, vmesa, vmesa->lastBreadcrumbWrite - 1);
+   else
+      viaWaitIdleVBlank(dPriv, vmesa, vmesa->lastSwap[0]);
 
     LOCK_HARDWARE(vmesa);
     viaDoPageFlipLocked(vmesa, vmesa->back.offset);
