@@ -228,6 +228,7 @@ struct mga_context_t {
    GLuint        dirty;
 
    mga_context_regs_t setup;
+   mga_extended_context_regs_t esetup;
 
    GLuint        ClearColor;
    GLuint        ClearDepth;

@@ -75,6 +75,17 @@ typedef struct drm_mga_private {
 	int usec_timeout;
 
 	u32 clear_cmd;
+	u32 maccess;  
+
+	unsigned int fb_cpp;
+	unsigned int front_offset;
+	unsigned int front_pitch; 
+	unsigned int back_offset; 
+	unsigned int back_pitch;  
+
+	unsigned int depth_cpp;
+	unsigned int depth_offset;
+	unsigned int depth_pitch; 
 
 	unsigned int texture_offset;
 	unsigned int texture_size;

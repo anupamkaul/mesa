@@ -74,7 +74,7 @@ RADEONHEADERS =	radeon.h radeon_drv.h radeon_drm.h $(DRMHEADERS) \
 
 INC =		/usr/include
 
-CFLAGS =	-O2 $(WARNINGS)
+CFLAGS =	-O2 $(WARNINGS) -D_HAVE_FULL_GL
 WARNINGS =	-Wall -Wwrite-strings -Wpointer-arith -Wcast-align \
 		-Wstrict-prototypes -Wnested-externs \
 		-Wpointer-arith

@@ -474,7 +474,19 @@ static int mga_do_init_dma( drm_device_t *dev, drm_mga_init_t *init )
 		dev_priv->clear_cmd = MGA_DWGCTL_CLEAR | MGA_ATYPE_RSTR;
 	}
 
-	/* FIXME: Need to support AGP textures...
+	dev_priv->maccess	= init->maccess;
+
+	dev_priv->fb_cpp	= init->fb_cpp;
+	dev_priv->front_offset	= init->front_offset;
+	dev_priv->front_pitch 	= init->front_pitch; 
+	dev_priv->back_offset 	= init->back_offset; 
+	dev_priv->back_pitch  	= init->back_pitch;  
+
+	dev_priv->depth_cpp	= init->depth_cpp;
+	dev_priv->depth_offset  = init->depth_offset;
+	dev_priv->depth_pitch   = init->depth_pitch; 
+	
+        /* FIXME: Need to support AGP textures...
 	 */
 	dev_priv->texture_offset = init->texture_offset[0];
 	dev_priv->texture_size = init->texture_size[0];
@@ -627,6 +639,14 @@ static int mga_do_init_dma( drm_device_t *dev, drm_mga_init_t *init )
 int mga_do_cleanup_dma( drm_device_t *dev )
 {
 	DRM_DEBUG( "\n" );
+
+#if _HAVE_DMA_IRQ
+	/* Make sure interrupts are disabled here because the uninstall ioctl
+	 * may not have been called from userspace and after dev_private
+	 * is freed, it's too late.
+	 */
+	if ( dev->irq ) DRM(irq_uninstall)(dev);
+#endif
 
 	if ( dev->dev_private ) {
 		drm_mga_private_t *dev_priv = dev->dev_private;

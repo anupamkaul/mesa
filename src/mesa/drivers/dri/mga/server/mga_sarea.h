@@ -112,22 +112,13 @@
 
 #endif /* __MGA_SAREA_DEFINES__ */
 
+#define MGA_DSTORG_EXTENDED_CONTEXT 0xf0f1f2f3  /* magic value */
 
 /* Setup registers for 3D context
  */
 typedef struct {
-   unsigned int fb_cpp;
-   unsigned int front_offset;
-   unsigned int front_pitch;
-   unsigned int back_offset;
-   unsigned int back_pitch;
-   unsigned int draw_offset;
-   unsigned int draw_pitch;
-
-   unsigned int depth_cpp;
-   unsigned int depth_offset;
-   unsigned int depth_pitch;
-   
+   unsigned int dstorg;    /* set to MGA_DSTORG_EXTENDED_CONTEXT to use
+                              extended context information */
    unsigned int maccess;
    unsigned int plnwt;
    unsigned int dwgctl;
@@ -140,6 +131,20 @@ typedef struct {
    unsigned int stencil;
    unsigned int stencilctl;
 } mga_context_regs_t;
+
+typedef struct {
+   unsigned int fb_cpp;
+   unsigned int front_offset;
+   unsigned int front_pitch; 
+   unsigned int back_offset; 
+   unsigned int back_pitch;  
+   unsigned int draw_offset; 
+   unsigned int draw_pitch;  
+
+   unsigned int depth_cpp;
+   unsigned int depth_offset;
+   unsigned int depth_pitch; 
+} mga_extended_context_regs_t;
 
 /* Setup registers for 2D, X server
  */
@@ -228,6 +233,10 @@ typedef struct {
    /* Last context that uploaded statel
     */
    int ctxOwner;
+
+   /* Extended context
+    */
+   mga_extended_context_regs_t extended_context;
 } MGASAREAPrivRec, *MGASAREAPrivPtr;
 
 #endif

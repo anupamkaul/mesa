@@ -646,6 +646,7 @@ void mgaGetLock( mgaContextPtr mmesa, GLuint flags )
    mmesa->dirty |= MGA_UPLOAD_CONTEXT | MGA_UPLOAD_CLIPRECTS;
 
    memcpy( &sarea->ContextState, &mmesa->setup, sizeof(mmesa->setup));
+   memcpy( &sarea->extended_context, &mmesa->esetup, sizeof(mmesa->esetup));
    mmesa->sarea->dirty |= MGA_UPLOAD_CONTEXT;
 
    if (sarea->ctxOwner != me) {

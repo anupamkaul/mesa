@@ -812,37 +812,37 @@ static void mgaUpdateBuffers(mgaContextPtr mmesa)
 {
    __DRIdrawablePrivate *driDrawable = mmesa->driDrawable;
 
-   mmesa->setup.fb_cpp       = driDrawable->cpp;
+   mmesa->esetup.fb_cpp       = driDrawable->cpp;
 
-   mmesa->setup.front_pitch  = driDrawable->frontPitch / driDrawable->cpp;
-   mmesa->setup.front_offset = driDrawable->frontOffset;
+   mmesa->esetup.front_pitch  = driDrawable->frontPitch / driDrawable->cpp;
+   mmesa->esetup.front_offset = driDrawable->frontOffset;
 
-   mmesa->setup.back_pitch   = driDrawable->backPitch / driDrawable->cpp;
-   mmesa->setup.back_offset  = driDrawable->backOffset;
+   mmesa->esetup.back_pitch   = driDrawable->backPitch / driDrawable->cpp;
+   mmesa->esetup.back_offset  = driDrawable->backOffset;
 
    switch (mmesa->draw_buffer) {
       case MGA_FRONT:
          mmesa->drawOffset  = driDrawable->frontOffset;
          mmesa->readOffset  = driDrawable->frontOffset;
 
-         mmesa->setup.draw_pitch  = mmesa->setup.front_pitch;
-         mmesa->setup.draw_offset = mmesa->setup.front_offset;
+         mmesa->esetup.draw_pitch  = mmesa->esetup.front_pitch;
+         mmesa->esetup.draw_offset = mmesa->esetup.front_offset;
          break;
       case MGA_BACK:
          mmesa->drawOffset  = driDrawable->backOffset;
          mmesa->readOffset  = driDrawable->backOffset;
 
-         mmesa->setup.draw_pitch  = mmesa->setup.back_pitch;
-         mmesa->setup.draw_offset = mmesa->setup.back_offset;
+         mmesa->esetup.draw_pitch  = mmesa->esetup.back_pitch;
+         mmesa->esetup.draw_offset = mmesa->esetup.back_offset;
          break;
       default:
          break;
    }
 
-   mmesa->setup.depth_cpp    = driDrawable->depthCpp;
+   mmesa->esetup.depth_cpp    = driDrawable->depthCpp;
 
-   mmesa->setup.depth_pitch  = driDrawable->depthPitch / driDrawable->depthCpp;
-   mmesa->setup.depth_offset = driDrawable->depthOffset;
+   mmesa->esetup.depth_pitch  = driDrawable->depthPitch / driDrawable->depthCpp;
+   mmesa->esetup.depth_offset = driDrawable->depthOffset;
    
    mmesa->setup.maccess = (MA_memreset_disable |
                            MA_fogen_disable |
@@ -1229,6 +1229,8 @@ void mgaInitState( mgaContextPtr mmesa )
    mmesa->hw.cull_dualtex = _CULL_POSITIVE;*/
    mmesa->hw.specen = 0;
 
+   mmesa->setup.dstorg = MGA_DSTORG_EXTENDED_CONTEXT;
+   
    mmesa->setup.dwgctl = (DC_opcod_trap |
 			  DC_linear_xy |
 			  DC_solid_disable |

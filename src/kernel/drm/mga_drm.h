@@ -119,118 +119,127 @@
 
 #endif /* __MGA_SAREA_DEFINES__ */
 
+#define MGA_DSTORG_EXTENDED_CONTEXT 0xf0f1f2f3  /* magic value */
 
 /* Setup registers for 3D context
  */
 typedef struct {
-	unsigned int fb_cpp;
-	unsigned int front_offset;
-	unsigned int front_pitch; 
-	unsigned int back_offset; 
-	unsigned int back_pitch;  
-	unsigned int draw_offset; 
-	unsigned int draw_pitch;  
-
-	unsigned int depth_cpp;
-	unsigned int depth_offset;
-	unsigned int depth_pitch; 
-	
-        unsigned int maccess;
-	unsigned int plnwt;
-	unsigned int dwgctl;
-	unsigned int alphactrl;
-	unsigned int fogcolor;
-	unsigned int wflag;
-	unsigned int tdualstage0;
-	unsigned int tdualstage1;
-	unsigned int fcol;
-	unsigned int stencil;
-	unsigned int stencilctl;
+   unsigned int dstorg;    /* set to MGA_DSTORG_EXTENDED_CONTEXT to use
+                              extended context information */
+   unsigned int maccess;
+   unsigned int plnwt;
+   unsigned int dwgctl;
+   unsigned int alphactrl;
+   unsigned int fogcolor;
+   unsigned int wflag;
+   unsigned int tdualstage0;
+   unsigned int tdualstage1;
+   unsigned int fcol;
+   unsigned int stencil;
+   unsigned int stencilctl;
 } drm_mga_context_regs_t;
+
+typedef struct {
+   unsigned int fb_cpp;
+   unsigned int front_offset;
+   unsigned int front_pitch; 
+   unsigned int back_offset; 
+   unsigned int back_pitch;  
+   unsigned int draw_offset; 
+   unsigned int draw_pitch;  
+
+   unsigned int depth_cpp;
+   unsigned int depth_offset;
+   unsigned int depth_pitch; 
+} drm_mga_extended_context_regs_t;
 
 /* Setup registers for 2D, X server
  */
 typedef struct {
-	unsigned int pitch;
+   unsigned int pitch;
 } drm_mga_server_regs_t;
 
 /* Setup registers for each texture unit
  */
 typedef struct {
-	unsigned int texctl;
-	unsigned int texctl2;
-	unsigned int texfilter;
-	unsigned int texbordercol;
-	unsigned int texorg;
-	unsigned int texwidth;
-	unsigned int texheight;
-	unsigned int texorg1;
-	unsigned int texorg2;
-	unsigned int texorg3;
-	unsigned int texorg4;
+   unsigned int texctl;
+   unsigned int texctl2;
+   unsigned int texfilter;
+   unsigned int texbordercol;
+   unsigned int texorg;
+   unsigned int texwidth;
+   unsigned int texheight;
+   unsigned int texorg1;
+   unsigned int texorg2;
+   unsigned int texorg3;
+   unsigned int texorg4;
 } drm_mga_texture_regs_t;
 
 /* General aging mechanism
  */
 typedef struct {
-	unsigned int head;		/* Position of head pointer          */
-	unsigned int wrap;		/* Primary DMA wrap count            */
+   unsigned int head;      /* Position of head pointer          */
+   unsigned int wrap;      /* Primary DMA wrap count            */
 } drm_mga_age_t;
 
 typedef struct _drm_mga_sarea {
-	/* The channel for communication of state information to the kernel
-	 * on firing a vertex dma buffer.
-	 */
-   	drm_mga_context_regs_t context_state;
-   	drm_mga_server_regs_t server_state;
-   	drm_mga_texture_regs_t tex_state[2];
-   	unsigned int warp_pipe;
-   	unsigned int dirty;
-   	unsigned int vertsize;
+   /* The channel for communication of state information to the kernel
+    * on firing a vertex dma buffer.
+    */
+   drm_mga_context_regs_t context_state;
+   drm_mga_server_regs_t server_state;
+   drm_mga_texture_regs_t tex_state[2];
+   unsigned int warp_pipe;
+   unsigned int dirty;
+   unsigned int vertsize;
 
-	/* The current cliprects, or a subset thereof.
-	 */
-   	drm_clip_rect_t boxes[MGA_NR_SAREA_CLIPRECTS];
-   	unsigned int nbox;
+   /* The current cliprects, or a subset thereof.
+    */
+   drm_clip_rect_t boxes[MGA_NR_SAREA_CLIPRECTS];
+   unsigned int nbox;
 
-	/* Information about the most recently used 3d drawable.  The
-	 * client fills in the req_* fields, the server fills in the
-	 * exported_ fields and puts the cliprects into boxes, above.
-	 *
-	 * The client clears the exported_drawable field before
-	 * clobbering the boxes data.
-	 */
-        unsigned int req_drawable;	 /* the X drawable id */
-	unsigned int req_draw_buffer;	 /* MGA_FRONT or MGA_BACK */
+   /* Information about the most recently used 3d drawable.  The
+    * client fills in the req_* fields, the server fills in the
+    * exported_ fields and puts the cliprects into boxes, above.
+    *
+    * The client clears the exported_drawable field before
+    * clobbering the boxes data.
+    */
+   unsigned int req_drawable;   /* the X drawable id */
+   unsigned int req_draw_buffer;  /* MGA_FRONT or MGA_BACK */
 
-        unsigned int exported_drawable;
-	unsigned int exported_index;
-        unsigned int exported_stamp;
-        unsigned int exported_buffers;
-        unsigned int exported_nfront;
-        unsigned int exported_nback;
-	int exported_back_x, exported_front_x, exported_w;
-	int exported_back_y, exported_front_y, exported_h;
-   	drm_clip_rect_t exported_boxes[MGA_NR_SAREA_CLIPRECTS];
+   unsigned int exported_drawable;
+   unsigned int exported_index;
+   unsigned int exported_stamp;
+   unsigned int exported_buffers;
+   unsigned int exported_nfront;
+   unsigned int exported_nback;
+   int exported_back_x, exported_front_x, exported_w;
+   int exported_back_y, exported_front_y, exported_h;
+   drm_clip_rect_t exported_boxes[MGA_NR_SAREA_CLIPRECTS];
 
-	/* Counters for aging textures and for client-side throttling.
-	 */
-	unsigned int status[4];
-	unsigned int last_wrap;
+   /* Counters for aging textures and for client-side throttling.
+    */
+   unsigned int status[4];
+   unsigned int last_wrap;
 
-	drm_mga_age_t last_frame;
-        unsigned int last_enqueue;	/* last time a buffer was enqueued */
-	unsigned int last_dispatch;	/* age of the most recently dispatched buffer */
-	unsigned int last_quiescent;     /*  */
+   drm_mga_age_t last_frame;
+   unsigned int last_enqueue;  /* last time a buffer was enqueued */
+   unsigned int last_dispatch;   /* age of the most recently dispatched buffer */
+   unsigned int last_quiescent;     /*  */
 
-	/* LRU lists for texture memory in agp space and on the card.
-	 */
-	drm_tex_region_t texList[MGA_NR_TEX_HEAPS][MGA_NR_TEX_REGIONS+1];
-	unsigned int texAge[MGA_NR_TEX_HEAPS];
+   /* LRU lists for texture memory in agp space and on the card.
+    */
+   drm_tex_region_t texList[MGA_NR_TEX_HEAPS][MGA_NR_TEX_REGIONS+1];
+   unsigned int texAge[MGA_NR_TEX_HEAPS];
 
-	/* Mechanism to validate card state.
-	 */
-   	int ctxOwner;
+   /* Mechanism to validate card state.
+    */
+   int ctxOwner;
+
+   /* Extended context
+    */
+   drm_mga_extended_context_regs_t extended_context;
 } drm_mga_sarea_t;
 
 
@@ -253,76 +262,85 @@ typedef struct _drm_mga_sarea {
 #define DRM_IOCTL_MGA_GETPARAM		DRM_IOWR(0x49, drm_mga_getparam_t)
 
 typedef struct _drm_mga_warp_index {
-   	int installed;
-   	unsigned long phys_addr;
-   	int size;
+   int installed;
+   unsigned long phys_addr;
+   int size;
 } drm_mga_warp_index_t;
 
 typedef struct drm_mga_init {
-   	enum {
-	   	MGA_INIT_DMA    = 0x01,
-	       	MGA_CLEANUP_DMA = 0x02
-	} func;
+   enum {
+      MGA_INIT_DMA    = 0x01,
+      MGA_CLEANUP_DMA = 0x02
+   } func;
 
-   	unsigned long sarea_priv_offset;
+   unsigned long sarea_priv_offset;
 
-	int chipset;
-   	int sgram;
+   int chipset;
+   int sgram;
 
-   	unsigned int texture_offset[MGA_NR_TEX_HEAPS];
-   	unsigned int texture_size[MGA_NR_TEX_HEAPS];
+   unsigned int maccess;
+   
+   unsigned int fb_cpp;
+   unsigned int front_offset, front_pitch;
+   unsigned int back_offset, back_pitch;  
+   
+   unsigned int depth_cpp;
+   unsigned int depth_offset, depth_pitch;
+   
+   unsigned int texture_offset[MGA_NR_TEX_HEAPS];
+   unsigned int texture_size[MGA_NR_TEX_HEAPS];
 
-	unsigned long fb_offset;
-	unsigned long mmio_offset;
-	unsigned long status_offset;
-	unsigned long warp_offset;
-	unsigned long primary_offset;
-	unsigned long buffers_offset;
+   unsigned long fb_offset;
+   unsigned long mmio_offset;
+   unsigned long status_offset;
+   unsigned long warp_offset;
+   unsigned long primary_offset;
+   unsigned long buffers_offset;
 } drm_mga_init_t;
 
 typedef struct drm_mga_fullscreen {
-	enum {
-		MGA_INIT_FULLSCREEN    = 0x01,
-		MGA_CLEANUP_FULLSCREEN = 0x02
-	} func;
+   enum {
+      MGA_INIT_FULLSCREEN    = 0x01,
+      MGA_CLEANUP_FULLSCREEN = 0x02
+   } func;
 } drm_mga_fullscreen_t;
 
 typedef struct drm_mga_clear {
-	unsigned int flags;
-	unsigned int clear_color;
-	unsigned int clear_depth;
-	unsigned int color_mask;
-	unsigned int depth_mask;
+   unsigned int flags;
+   unsigned int clear_color;
+   unsigned int clear_depth;
+   unsigned int color_mask;
+   unsigned int depth_mask;
 } drm_mga_clear_t;
 
 typedef struct drm_mga_vertex {
-   	int idx;			/* buffer to queue */
-	int used;			/* bytes in use */
-	int discard;			/* client finished with buffer?  */
+   int idx;       /* buffer to queue */
+   int used;         /* bytes in use */
+   int discard;         /* client finished with buffer?  */
 } drm_mga_vertex_t;
 
 typedef struct drm_mga_indices {
-   	int idx;			/* buffer to queue */
-	unsigned int start;
-	unsigned int end;
-	int discard;			/* client finished with buffer?  */
+   int idx;       /* buffer to queue */
+   unsigned int start;
+   unsigned int end;
+   int discard;         /* client finished with buffer?  */
 } drm_mga_indices_t;
 
 typedef struct drm_mga_iload {
-	int idx;
-	unsigned int dstorg;
-	unsigned int length;
+   int idx;
+   unsigned int dstorg;
+   unsigned int length;
 } drm_mga_iload_t;
 
 typedef struct _drm_mga_blit {
-	unsigned int planemask;
-	unsigned int srcorg;
-	unsigned int dstorg;
-	int src_pitch, dst_pitch;
-	int delta_sx, delta_sy;
-	int delta_dx, delta_dy;
-	int height, ydir;		/* flip image vertically */
-	int source_pitch, dest_pitch;
+   unsigned int planemask;
+   unsigned int srcorg;
+   unsigned int dstorg;
+   int src_pitch, dst_pitch;
+   int delta_sx, delta_sy;
+   int delta_dx, delta_dy;
+   int height, ydir;    /* flip image vertically */
+   int source_pitch, dest_pitch;
 } drm_mga_blit_t;
 
 /* 3.1: An ioctl to get parameters that aren't available to the 3d
@@ -331,8 +349,8 @@ typedef struct _drm_mga_blit {
 #define MGA_PARAM_IRQ_NR            1
 
 typedef struct drm_mga_getparam {
-	int param;
-	int *value;
+   int param;
+   int *value;
 } drm_mga_getparam_t;
 
 #endif

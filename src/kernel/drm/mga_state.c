@@ -38,6 +38,14 @@
 #include "mga_drm.h"
 #include "mga_drv.h"
 
+#define MGA_CONTEXT(v)    ((ctx->dstorg == MGA_DSTORG_EXTENDED_CONTEXT) ?   \
+                           ectx->v : dev_priv->v)
+
+#define MGA_DRAW_OFFSET() ((ctx->dstorg == MGA_DSTORG_EXTENDED_CONTEXT) ?   \
+                           ectx->draw_offset : ctx->dstorg)
+
+#define MGA_DRAW_PITCH()  ((ctx->dstorg == MGA_DSTORG_EXTENDED_CONTEXT) ?   \
+                           ectx->draw_pitch : dev_priv->front_pitch)
 
 /* ================================================================
  * DMA hardware state programming functions
@@ -48,7 +56,8 @@ static void mga_emit_clip_rect( drm_mga_private_t *dev_priv,
 {
 	drm_mga_sarea_t *sarea_priv = dev_priv->sarea_priv;
 	drm_mga_context_regs_t *ctx = &sarea_priv->context_state;
-	unsigned int pitch = ctx->draw_pitch;
+	drm_mga_extended_context_regs_t *ectx = &sarea_priv->extended_context;
+	unsigned int pitch = MGA_DRAW_PITCH();
 	DMA_LOCALS;
 
 	BEGIN_DMA( 2 );
@@ -73,11 +82,12 @@ static __inline__ void mga_g200_emit_context( drm_mga_private_t *dev_priv )
 {
 	drm_mga_sarea_t *sarea_priv = dev_priv->sarea_priv;
 	drm_mga_context_regs_t *ctx = &sarea_priv->context_state;
+	drm_mga_extended_context_regs_t *ectx = &sarea_priv->extended_context;
 	DMA_LOCALS;
 
 	BEGIN_DMA( 3 );
 
-	DMA_BLOCK( MGA_DSTORG,		ctx->draw_offset,
+	DMA_BLOCK( MGA_DSTORG,		MGA_DRAW_OFFSET(),
 		   MGA_MACCESS,		ctx->maccess,
 		   MGA_PLNWT,		ctx->plnwt,
 		   MGA_DWGCTL,		ctx->dwgctl );
@@ -85,10 +95,10 @@ static __inline__ void mga_g200_emit_context( drm_mga_private_t *dev_priv )
 	DMA_BLOCK( MGA_ALPHACTRL,	ctx->alphactrl,
 		   MGA_FOGCOL,		ctx->fogcolor,
 		   MGA_WFLAG,		ctx->wflag,
-		   MGA_ZORG,		ctx->depth_offset );
+		   MGA_ZORG,		MGA_CONTEXT(depth_offset) );
 
 	DMA_BLOCK( MGA_FCOL,		ctx->fcol,
-		   MGA_PITCH,		ctx->draw_pitch,
+		   MGA_PITCH,		MGA_DRAW_PITCH(),
 		   MGA_DMAPAD,		0x00000000,
 		   MGA_DMAPAD,		0x00000000 );
 
@@ -99,11 +109,12 @@ static __inline__ void mga_g400_emit_context( drm_mga_private_t *dev_priv )
 {
 	drm_mga_sarea_t *sarea_priv = dev_priv->sarea_priv;
 	drm_mga_context_regs_t *ctx = &sarea_priv->context_state;
+	drm_mga_extended_context_regs_t *ectx = &sarea_priv->extended_context;
 	DMA_LOCALS;
 
 	BEGIN_DMA( 4 );
 
-	DMA_BLOCK( MGA_DSTORG,		ctx->draw_offset,
+	DMA_BLOCK( MGA_DSTORG,		MGA_DRAW_OFFSET(),
 		   MGA_MACCESS,		ctx->maccess,
 		   MGA_PLNWT,		ctx->plnwt,
 		   MGA_DWGCTL,		ctx->dwgctl );
@@ -111,7 +122,7 @@ static __inline__ void mga_g400_emit_context( drm_mga_private_t *dev_priv )
 	DMA_BLOCK( MGA_ALPHACTRL,	ctx->alphactrl,
 		   MGA_FOGCOL,		ctx->fogcolor,
 		   MGA_WFLAG,		ctx->wflag,
-		   MGA_ZORG,		ctx->depth_offset );
+		   MGA_ZORG,		MGA_CONTEXT(depth_offset) );
 
 	DMA_BLOCK( MGA_WFLAG1,		ctx->wflag,
 		   MGA_TDUALSTAGE0,	ctx->tdualstage0,
@@ -120,7 +131,7 @@ static __inline__ void mga_g400_emit_context( drm_mga_private_t *dev_priv )
 
 	DMA_BLOCK( MGA_STENCIL,		ctx->stencil,
 		   MGA_STENCILCTL,	ctx->stencilctl,
-		   MGA_PITCH,		ctx->draw_pitch,
+		   MGA_PITCH,		MGA_DRAW_PITCH(),
 		   MGA_DMAPAD,		0x00000000 );
 
 	ADVANCE_DMA();
@@ -518,6 +529,7 @@ static void mga_dma_dispatch_clear( drm_device_t *dev,
 	drm_mga_private_t *dev_priv = dev->dev_private;
 	drm_mga_sarea_t *sarea_priv = dev_priv->sarea_priv;
 	drm_mga_context_regs_t *ctx = &sarea_priv->context_state;
+	drm_mga_extended_context_regs_t *ectx = &sarea_priv->extended_context;
 	drm_clip_rect_t *pbox = sarea_priv->boxes;
 	int nbox = sarea_priv->nbox;
 	int i;
@@ -548,9 +560,9 @@ static void mga_dma_dispatch_clear( drm_device_t *dev,
 				   MGA_YDSTLEN, (box->y1 << 16) | height,
 				   MGA_FXBNDRY, (box->x2 << 16) | box->x1 );
 
-			DMA_BLOCK( MGA_PITCH,	ctx->front_pitch,
+			DMA_BLOCK( MGA_PITCH,	MGA_CONTEXT(front_pitch),
 				   MGA_FCOL,	clear->clear_color,
-				   MGA_DSTORG,	ctx->front_offset,
+				   MGA_DSTORG,	MGA_CONTEXT(front_offset),
 				   MGA_DWGCTL + MGA_EXEC,
 						dev_priv->clear_cmd );
 
@@ -566,9 +578,9 @@ static void mga_dma_dispatch_clear( drm_device_t *dev,
 				   MGA_YDSTLEN, (box->y1 << 16) | height,
 				   MGA_FXBNDRY, (box->x2 << 16) | box->x1 );
 
-			DMA_BLOCK( MGA_PITCH,	ctx->back_pitch,
+			DMA_BLOCK( MGA_PITCH,	MGA_CONTEXT(back_pitch),
 				   MGA_FCOL,	clear->clear_color,
-				   MGA_DSTORG,	ctx->back_offset,
+				   MGA_DSTORG,	MGA_CONTEXT(back_offset),
 				   MGA_DWGCTL + MGA_EXEC,
 						dev_priv->clear_cmd );
 
@@ -583,9 +595,9 @@ static void mga_dma_dispatch_clear( drm_device_t *dev,
 				   MGA_YDSTLEN, (box->y1 << 16) | height,
 				   MGA_FXBNDRY, (box->x2 << 16) | box->x1 );
 
-			DMA_BLOCK( MGA_PITCH,	ctx->depth_pitch,
+			DMA_BLOCK( MGA_PITCH,	MGA_CONTEXT(depth_pitch),
 				   MGA_FCOL,	clear->clear_depth,
-				   MGA_DSTORG,	ctx->depth_offset,
+				   MGA_DSTORG,	MGA_CONTEXT(depth_offset),
 				   MGA_DWGCTL + MGA_EXEC,
 						dev_priv->clear_cmd );
 
@@ -612,6 +624,7 @@ static void mga_dma_dispatch_swap( drm_device_t *dev )
 	drm_mga_private_t *dev_priv = dev->dev_private;
 	drm_mga_sarea_t *sarea_priv = dev_priv->sarea_priv;
 	drm_mga_context_regs_t *ctx = &sarea_priv->context_state;
+	drm_mga_extended_context_regs_t *ectx = &sarea_priv->extended_context;
 	drm_clip_rect_t *pbox = sarea_priv->boxes;
 	int nbox = sarea_priv->nbox;
 	int i;
@@ -628,10 +641,10 @@ static void mga_dma_dispatch_swap( drm_device_t *dev )
 		   MGA_DWGSYNC,	0x00007100,
 		   MGA_DWGSYNC,	0x00007000 );
 
-	DMA_BLOCK( MGA_DSTORG,	ctx->front_offset,
+	DMA_BLOCK( MGA_DSTORG,	MGA_CONTEXT(front_offset),
 		   MGA_MACCESS,	ctx->maccess,
-		   MGA_SRCORG,	ctx->back_offset,
-		   MGA_AR5,	ctx->front_pitch );
+		   MGA_SRCORG,	MGA_CONTEXT(back_offset),
+		   MGA_AR5,	MGA_CONTEXT(front_pitch) );
 
 	DMA_BLOCK( MGA_DMAPAD,	0x00000000,
 		   MGA_DMAPAD,	0x00000000,
@@ -641,7 +654,7 @@ static void mga_dma_dispatch_swap( drm_device_t *dev )
 	for ( i = 0 ; i < nbox ; i++ ) {
 		drm_clip_rect_t *box = &pbox[i];
 		u32 height = box->y2 - box->y1;
-		u32 start = box->y1 * ctx->front_pitch;
+		u32 start = box->y1 * MGA_CONTEXT(front_pitch);
 
 		DRM_DEBUG( "   from=%d,%d to=%d,%d\n",
 			   box->x1, box->y1, box->x2, box->y2 );
@@ -655,7 +668,7 @@ static void mga_dma_dispatch_swap( drm_device_t *dev )
 
 	DMA_BLOCK( MGA_DMAPAD,	0x00000000,
 		   MGA_PLNWT,	ctx->plnwt,
-		   MGA_SRCORG,	ctx->front_offset,
+		   MGA_SRCORG,	MGA_CONTEXT(front_offset),
 		   MGA_DWGCTL,	ctx->dwgctl );
 
 	ADVANCE_DMA();
@@ -766,7 +779,9 @@ static void mga_dma_dispatch_iload( drm_device_t *dev, drm_buf_t *buf,
 {
 	drm_mga_private_t *dev_priv = dev->dev_private;
 	drm_mga_buf_priv_t *buf_priv = buf->dev_private;
-	drm_mga_context_regs_t *ctx = &dev_priv->sarea_priv->context_state;
+	drm_mga_sarea_t *sarea_priv = dev_priv->sarea_priv;
+	drm_mga_context_regs_t *ctx = &sarea_priv->context_state;
+	drm_mga_extended_context_regs_t *ectx = &sarea_priv->extended_context;
 	u32 srcorg = buf->bus_address | MGA_SRCACC_AGP | MGA_SRCMAP_SYSMEM;
 	u32 y2;
 	DMA_LOCALS;
@@ -797,8 +812,8 @@ static void mga_dma_dispatch_iload( drm_device_t *dev, drm_buf_t *buf,
 		   MGA_YDSTLEN + MGA_EXEC, y2 );
 
 	DMA_BLOCK( MGA_PLNWT,	ctx->plnwt,
-		   MGA_SRCORG,	ctx->front_offset,
-		   MGA_PITCH,	ctx->front_pitch,
+		   MGA_SRCORG,	MGA_CONTEXT(front_offset),
+		   MGA_PITCH,	MGA_CONTEXT(front_pitch),
 		   MGA_DWGSYNC,	0x00007000 );
 
 	ADVANCE_DMA();
@@ -820,6 +835,7 @@ static void mga_dma_dispatch_blit( drm_device_t *dev,
 	drm_mga_private_t *dev_priv = dev->dev_private;
 	drm_mga_sarea_t *sarea_priv = dev_priv->sarea_priv;
 	drm_mga_context_regs_t *ctx = &sarea_priv->context_state;
+	drm_mga_extended_context_regs_t *ectx = &sarea_priv->extended_context;
 	drm_clip_rect_t *pbox = sarea_priv->boxes;
 	int nbox = sarea_priv->nbox;
 	u32 scandir = 0, i;
@@ -870,7 +886,7 @@ static void mga_dma_dispatch_blit( drm_device_t *dev,
 	/* Force reset of DWGCTL */
 	DMA_BLOCK( MGA_DMAPAD,	0x00000000,
 		   MGA_PLNWT,	ctx->plnwt,
-		   MGA_PITCH,	ctx->front_pitch,
+		   MGA_PITCH,	MGA_CONTEXT(front_pitch),
 		   MGA_DWGCTL,	ctx->dwgctl );
 
 	ADVANCE_DMA();
