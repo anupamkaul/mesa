@@ -2,6 +2,17 @@
  * \file sarea.h 
  * \brief SAREA definitions.
  * 
+ * The SAREA is a memory region is shared by the DRM device, the X server and
+ * the clients.
+ *
+ * This file defines its layout in user space.
+ * 
+ * \author Kevin E. Martin <kevin@precisioninsight.com>
+ * \author Jens Owen <jens@tungstengraphics.com>
+ * \author Rickard E. (Rik) Faith <faith@valinux.com>
+ */
+
+/*
  * Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
  * Copyright 2000 VA Linux Systems, Inc.
  * All Rights Reserved.
@@ -25,10 +36,6 @@
  * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- * 
- * \author Kevin E. Martin <kevin@precisioninsight.com>
- * \author Jens Owen <jens@tungstengraphics.com>
- * \author Rickard E. (Rik) Faith <faith@valinux.com>
  */
 
 #ifndef _SAREA_H_

@@ -2,6 +2,11 @@
  * \file drm.h 
  * \brief Header for the Direct Rendering Manager
  * 
+ * This file defines the DRM device ioctls and the strucutre of respective user
+ * arguments.
+ *
+ * \sa xf86drm.h and xf86drm.c for an user-friendlier interface.
+ * 
  * \author Rickard E. (Rik) Faith <faith@valinux.com>
  *
  * \par Acknowledgements:

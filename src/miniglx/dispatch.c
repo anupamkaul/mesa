@@ -4,6 +4,13 @@
  * \brief C-based dispatch of the OpenGL entry points (glAccum(), glBegin(),
  * etc).
  * 
+ * \author Brian Paul <brian@precisioninsight.com>
+ * 
+ * \note This code IS NOT USED if we're compiling on an x86 system and using
+ * the glapi_x86.S assembly code.
+ */
+
+/* 
  * Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
@@ -26,12 +33,6 @@
  * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- * 
- * \author Brian Paul <brian@precisioninsight.com>
- * 
- * \note This code IS NOT USED if we're compiling on an x86 system and using
- * the glapi_x86.S assembly code.
- *
  */
 
 #include <GL/gl.h>

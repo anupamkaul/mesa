@@ -17,7 +17,9 @@
  * 
  * \author Kevin E. Martin <kevin@precisioninsight.com>
  * \author Brian Paul <brian@precisioninsight.com>
- *
+ */
+
+/*
  * Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 

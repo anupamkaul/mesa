@@ -2,8 +2,16 @@
  * \file xf86drm.c 
  * \brief User-level interface to DRM device
  *
- * Created: Tue Jan  5 08:16:21 1999 by faith@precisioninsight.com
- *
+ * This file is an user-friendly interface to the DRM ioctls defined in drm.h.
+ * 
+ * This covers only the device-independent ioctls -- it is up to the driver to
+ * wrap the device-dependent ioctls.
+ * 
+ * \author Rickard E. (Rik) Faith <faith@valinux.com>
+ * \author Kevin E. Martin <martin@valinux.com>
+ */
+
+/*
  * Copyright 1999 Precision Insight, Inc., Cedar Park, Texas.
  * Copyright 2000 VA Linux Systems, Inc., Sunnyvale, California.
  * All Rights Reserved.
@@ -26,9 +34,6 @@
  * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS IN THE SOFTWARE.
- *
- * \author Rickard E. (Rik) Faith <faith@valinux.com>
- * \author Kevin E. Martin <martin@valinux.com>
  */
 
 # include <stdio.h>
