@@ -474,10 +474,6 @@ static int mga_do_init_dma( drm_device_t *dev, drm_mga_init_t *init )
 		dev_priv->clear_cmd = MGA_DWGCTL_CLEAR | MGA_ATYPE_RSTR;
 	}
 
-	dev_priv->depth_cpp	= init->depth_cpp;
-	dev_priv->depth_offset	= init->depth_offset;
-	dev_priv->depth_pitch	= init->depth_pitch;
-
 	/* FIXME: Need to support AGP textures...
 	 */
 	dev_priv->texture_offset = init->texture_offset[0];

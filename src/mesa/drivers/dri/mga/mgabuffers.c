@@ -207,7 +207,7 @@ static void printMmesaRects( mgaContextPtr mmesa )
 #endif
 
 
-static void mgaUpdateDrawBuffer(mgaContextPtr mmesa)
+static void mgaUpdateBuffers(mgaContextPtr mmesa)
 {
    __DRIdrawablePrivate *driDrawable = mmesa->driDrawable;
 
@@ -238,6 +238,11 @@ static void mgaUpdateDrawBuffer(mgaContextPtr mmesa)
          break;
    }
 
+   mmesa->setup.depth_cpp    = driDrawable->depthCpp;
+
+   mmesa->setup.depth_pitch  = driDrawable->w;//depthPitch / driDrawable->depthCpp;
+   mmesa->setup.depth_offset = driDrawable->depthOffset;
+   
    mmesa->setup.maccess = (MA_memreset_disable |
                            MA_fogen_disable |
                            MA_tlutload_disable |
@@ -285,7 +290,7 @@ void mgaUpdateRects( mgaContextPtr mmesa, GLuint buffers )
    DRI_VALIDATE_DRAWABLE_INFO(driScreen, driDrawable); 
    mmesa->dirty_cliprects = 0;   
 
-   mgaUpdateDrawBuffer( mmesa );
+   mgaUpdateBuffers( mmesa );
 
    if (mmesa->draw_buffer == MGA_FRONT)
       mgaXMesaSetFrontClipRects( mmesa );
@@ -346,7 +351,7 @@ void mgaDDSetDrawBuffer(GLcontext *ctx, GLenum mode )
          break;
    }
 
-   mgaUpdateDrawBuffer( mmesa );
+   mgaUpdateBuffers( mmesa );
 
    if (mmesa->draw_buffer == MGA_FRONT)
       mgaXMesaSetFrontClipRects( mmesa );

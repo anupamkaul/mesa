@@ -131,7 +131,11 @@ typedef struct {
 	unsigned int draw_offset; 
 	unsigned int draw_pitch;  
 
-	unsigned int maccess;
+	unsigned int depth_cpp;
+	unsigned int depth_offset;
+	unsigned int depth_pitch; 
+	
+        unsigned int maccess;
 	unsigned int plnwt;
 	unsigned int dwgctl;
 	unsigned int alphactrl;
@@ -264,9 +268,6 @@ typedef struct drm_mga_init {
 
 	int chipset;
    	int sgram;
-
-   	unsigned int depth_cpp;
-   	unsigned int depth_offset, depth_pitch;
 
    	unsigned int texture_offset[MGA_NR_TEX_HEAPS];
    	unsigned int texture_size[MGA_NR_TEX_HEAPS];

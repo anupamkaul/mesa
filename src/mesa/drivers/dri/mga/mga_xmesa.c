@@ -131,9 +131,6 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 
    mgaScreen->agpMode = serverInfo->agpMode;
 
-   mgaScreen->depthOffset = serverInfo->depthOffset;
-   mgaScreen->depthPitch  =  serverInfo->depthPitch;
-
    mgaScreen->mmio.handle = serverInfo->registers.handle;
    mgaScreen->mmio.size = serverInfo->registers.size;
    if ( drmMap( sPriv->fd,

@@ -63,22 +63,22 @@ static void MGAWaitForIdleDMA( struct DRIDriverContextRec *ctx, MGAPtr pMga )
          /* first ask for quiescent and flush */
          lock.flags = DRM_MGA_LOCK_QUIESCENT | DRM_MGA_LOCK_FLUSH;
          do {
-	    ret = drmCommandWrite( ctx->drmFD, DRM_MGA_FLUSH,
+            ret = drmCommandWrite( ctx->drmFD, DRM_MGA_FLUSH,
                                    &lock, sizeof( drmMGALock ) );
          } while ( ret == -EBUSY && i++ < DRM_MGA_IDLE_RETRY );
 
          /* if it's still busy just try quiescent */
-         if ( ret == -EBUSY ) { 
+         if ( ret == -EBUSY ) {
             lock.flags = DRM_MGA_LOCK_QUIESCENT;
             do {
-	       ret = drmCommandWrite( ctx->drmFD, DRM_MGA_FLUSH,
+               ret = drmCommandWrite( ctx->drmFD, DRM_MGA_FLUSH,
                                       &lock, sizeof( drmMGALock ) );
             } while ( ret == -EBUSY && i++ < DRM_MGA_IDLE_RETRY );
          }
       } while ( ( ret == -EBUSY ) && ( i++ < MGA_TIMEOUT ) );
 
       if ( ret == 0 )
-	 return;
+         return;
 
       fprintf( stderr,
                "[dri] Idle timed out, resetting engine...\n" );
@@ -100,8 +100,8 @@ static int MGADRIAgpInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
    unsigned int vendor, device;
    int ret, count, i;
 
-   if(pMga->agpSize < 12)pMga->agpSize = 12;
-   if(pMga->agpSize > 64)pMga->agpSize = 64; /* cap */
+   if (pMga->agpSize < 12)pMga->agpSize = 12;
+   if (pMga->agpSize > 64)pMga->agpSize = 64; /* cap */
 
    /* FIXME: Make these configurable...
     */
@@ -111,22 +111,22 @@ static int MGADRIAgpInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
    pMga->warp.size = MGA_WARP_UCODE_SIZE;
 
    pMga->primary.offset = (pMga->warp.offset +
-				    pMga->warp.size);
+                           pMga->warp.size);
    pMga->primary.size = 1024 * 1024;
 
    pMga->buffers.offset = (pMga->primary.offset +
-				    pMga->primary.size);
+                           pMga->primary.size);
    pMga->buffers.size = MGA_NUM_BUFFERS * MGA_BUFFER_SIZE;
 
 
    pMga->agpTextures.offset = (pMga->buffers.offset +
-                                    pMga->buffers.size);
+                               pMga->buffers.size);
 
    pMga->agpTextures.size = pMga->agp.size -
-                                     pMga->agpTextures.offset;
+                            pMga->agpTextures.offset;
 
    if ( drmAgpAcquire( ctx->drmFD ) < 0 ) {
-     fprintf( stderr, "[agp] AGP not available\n" );
+      fprintf( stderr, "[agp] AGP not available\n" );
       return 0;
    }
 
@@ -136,27 +136,27 @@ static int MGADRIAgpInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
 
    mode &= ~MGA_AGP_MODE_MASK;
    switch ( pMga->agpMode ) {
-   case 4:
-      mode |= MGA_AGP_4X_MODE;
-   case 2:
-      mode |= MGA_AGP_2X_MODE;
-   case 1:
-   default:
-      mode |= MGA_AGP_1X_MODE;
+      case 4:
+         mode |= MGA_AGP_4X_MODE;
+      case 2:
+         mode |= MGA_AGP_2X_MODE;
+      case 1:
+      default:
+         mode |= MGA_AGP_1X_MODE;
    }
 
    fprintf( stderr,
             "[agp] Mode 0x%08lx [AGP 0x%04x/0x%04x]\n",
             mode, vendor, device );
-   
+
    if ( drmAgpEnable( ctx->drmFD, mode ) < 0 ) {
-     fprintf( stderr, "[agp] AGP not enabled\n" );
+      fprintf( stderr, "[agp] AGP not enabled\n" );
       drmAgpRelease( ctx->drmFD );
       return 0;
    }
 
    mode = drmAgpGetMode( ctx->drmFD );
-   
+
    fprintf( stderr,
             "[agp] Mode 0x%08lx [AGP 0x%04x/0x%04x]\n",
             mode, vendor, device );
@@ -169,35 +169,35 @@ static int MGADRIAgpInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
       pMga->agpMode = 1;
    else
       pMga->agpMode = 0;
-   
+
    if ( pMga->Chipset == PCI_CHIP_MGAG200 ) {
       switch ( pMga->agpMode ) {
-      case 2:
-	 fprintf( stderr,
-		     "[drm] Enabling AGP 2x PLL encoding\n" );
-	 OUTREG( MGAREG_AGP_PLL, MGA_AGP2XPLL_ENABLE );
-	 break;
+         case 2:
+            fprintf( stderr,
+                     "[drm] Enabling AGP 2x PLL encoding\n" );
+            OUTREG( MGAREG_AGP_PLL, MGA_AGP2XPLL_ENABLE );
+            break;
 
-      case 1:
-      default:
-	 fprintf( stderr,
-		     "[drm] Disabling AGP 2x PLL encoding\n" );
-	 OUTREG( MGAREG_AGP_PLL, MGA_AGP2XPLL_DISABLE );
-	 pMga->agpMode = 1;
-	 break;
+         case 1:
+         default:
+            fprintf( stderr,
+                     "[drm] Disabling AGP 2x PLL encoding\n" );
+            OUTREG( MGAREG_AGP_PLL, MGA_AGP2XPLL_DISABLE );
+            pMga->agpMode = 1;
+            break;
       }
    }
 
    ret = drmAgpAlloc( ctx->drmFD, pMga->agp.size,
-		      0, NULL, &pMga->agp.handle );
+                      0, NULL, &pMga->agp.handle );
    if ( ret < 0 ) {
       fprintf( stderr, "[agp] Out of memory (%d)\n", ret );
       drmAgpRelease( ctx->drmFD );
       return 0;
    }
    fprintf( stderr,
-	       "[agp] %d kB allocated with handle 0x%08x\n",
-	       pMga->agp.size/1024, (unsigned int)pMga->agp.handle );
+            "[agp] %d kB allocated with handle 0x%08x\n",
+            pMga->agp.size/1024, (unsigned int)pMga->agp.handle );
 
    if ( drmAgpBind( ctx->drmFD, pMga->agp.handle, 0 ) < 0 ) {
       fprintf( stderr, "[agp] Could not bind memory\n" );
@@ -209,99 +209,99 @@ static int MGADRIAgpInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
    /* WARP microcode space
     */
    if ( drmAddMap( ctx->drmFD,
-		   pMga->warp.offset,
-		   pMga->warp.size,
-		   DRM_AGP, DRM_READ_ONLY,
-		   &pMga->warp.handle ) < 0 ) {
+                   pMga->warp.offset,
+                   pMga->warp.size,
+                   DRM_AGP, DRM_READ_ONLY,
+                   &pMga->warp.handle ) < 0 ) {
       fprintf( stderr,
-		  "[agp] Could not add WARP microcode mapping\n" );
+               "[agp] Could not add WARP microcode mapping\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[agp] WARP microcode handle = 0x%08lx\n",
-	       pMga->warp.handle );
+            "[agp] WARP microcode handle = 0x%08lx\n",
+            pMga->warp.handle );
 
    if ( drmMap( ctx->drmFD,
-		pMga->warp.handle,
-		pMga->warp.size,
-		&pMga->warp.map ) < 0 ) {
+                pMga->warp.handle,
+                pMga->warp.size,
+                &pMga->warp.map ) < 0 ) {
       fprintf( stderr,
-		  "[agp] Could not map WARP microcode\n" );
+               "[agp] Could not map WARP microcode\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[agp] WARP microcode mapped at 0x%08lx\n",
-	       (unsigned long)pMga->warp.map );
+            "[agp] WARP microcode mapped at 0x%08lx\n",
+            (unsigned long)pMga->warp.map );
 
    /* Primary DMA space
     */
    if ( drmAddMap( ctx->drmFD,
-		   pMga->primary.offset,
-		   pMga->primary.size,
-		   DRM_AGP, DRM_READ_ONLY,
-		   &pMga->primary.handle ) < 0 ) {
+                   pMga->primary.offset,
+                   pMga->primary.size,
+                   DRM_AGP, DRM_READ_ONLY,
+                   &pMga->primary.handle ) < 0 ) {
       fprintf( stderr,
-		  "[agp] Could not add primary DMA mapping\n" );
+               "[agp] Could not add primary DMA mapping\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[agp] Primary DMA handle = 0x%08lx\n",
-	       pMga->primary.handle );
+            "[agp] Primary DMA handle = 0x%08lx\n",
+            pMga->primary.handle );
 
    if ( drmMap( ctx->drmFD,
-		pMga->primary.handle,
-		pMga->primary.size,
-		&pMga->primary.map ) < 0 ) {
+                pMga->primary.handle,
+                pMga->primary.size,
+                &pMga->primary.map ) < 0 ) {
       fprintf( stderr,
-		  "[agp] Could not map primary DMA\n" );
+               "[agp] Could not map primary DMA\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[agp] Primary DMA mapped at 0x%08lx\n",
-	       (unsigned long)pMga->primary.map );
+            "[agp] Primary DMA mapped at 0x%08lx\n",
+            (unsigned long)pMga->primary.map );
 
    /* DMA buffers
     */
    if ( drmAddMap( ctx->drmFD,
-		   pMga->buffers.offset,
-		   pMga->buffers.size,
-		   DRM_AGP, 0,
-		   &pMga->buffers.handle ) < 0 ) {
+                   pMga->buffers.offset,
+                   pMga->buffers.size,
+                   DRM_AGP, 0,
+                   &pMga->buffers.handle ) < 0 ) {
       fprintf( stderr,
-		  "[agp] Could not add DMA buffers mapping\n" );
+               "[agp] Could not add DMA buffers mapping\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[agp] DMA buffers handle = 0x%08lx\n",
-	       pMga->buffers.handle );
+            "[agp] DMA buffers handle = 0x%08lx\n",
+            pMga->buffers.handle );
 
    if ( drmMap( ctx->drmFD,
-		pMga->buffers.handle,
-		pMga->buffers.size,
-		&pMga->buffers.map ) < 0 ) {
+                pMga->buffers.handle,
+                pMga->buffers.size,
+                &pMga->buffers.map ) < 0 ) {
       fprintf( stderr,
-		  "[agp] Could not map DMA buffers\n" );
+               "[agp] Could not map DMA buffers\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[agp] DMA buffers mapped at 0x%08lx\n",
-	       (unsigned long)pMga->buffers.map );
+            "[agp] DMA buffers mapped at 0x%08lx\n",
+            (unsigned long)pMga->buffers.map );
 
    count = drmAddBufs( ctx->drmFD,
-		       MGA_NUM_BUFFERS, MGA_BUFFER_SIZE,
-		       DRM_AGP_BUFFER, pMga->buffers.offset );
+                       MGA_NUM_BUFFERS, MGA_BUFFER_SIZE,
+                       DRM_AGP_BUFFER, pMga->buffers.offset );
    if ( count <= 0 ) {
       fprintf( stderr,
-		  "[drm] failure adding %d %d byte DMA buffers\n",
-		  MGA_NUM_BUFFERS, MGA_BUFFER_SIZE );
+               "[drm] failure adding %d %d byte DMA buffers\n",
+               MGA_NUM_BUFFERS, MGA_BUFFER_SIZE );
       return 0;
    }
    fprintf( stderr,
-	       "[drm] Added %d %d byte DMA buffers\n",
-	       count, MGA_BUFFER_SIZE );
+            "[drm] Added %d %d byte DMA buffers\n",
+            count, MGA_BUFFER_SIZE );
 
    i = mylog2(pMga->agpTextures.size / MGA_NR_TEX_REGIONS);
-   if(i < MGA_LOG_MIN_TEX_REGION_SIZE)
+   if (i < MGA_LOG_MIN_TEX_REGION_SIZE)
       i = MGA_LOG_MIN_TEX_REGION_SIZE;
    pMga->agpTextures.size = (pMga->agpTextures.size >> i) << i;
 
@@ -311,15 +311,15 @@ static int MGADRIAgpInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
                    DRM_AGP, 0,
                    &pMga->agpTextures.handle ) < 0 ) {
       fprintf( stderr,
-                  "[agp] Could not add agpTexture mapping\n" );
+               "[agp] Could not add agpTexture mapping\n" );
       return 0;
    }
 /* should i map it ? */
    fprintf( stderr,
-               "[agp] agpTexture handle = 0x%08lx\n",
-               pMga->agpTextures.handle );
+            "[agp] agpTexture handle = 0x%08lx\n",
+            pMga->agpTextures.handle );
    fprintf( stderr,
-               "[agp] agpTexture size: %d kb\n", pMga->agpTextures.size/1024 );
+            "[agp] agpTexture size: %d kb\n", pMga->agpTextures.size/1024 );
 
    return 1;
 }
@@ -329,42 +329,42 @@ static int MGADRIMapInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    pMga->registers.size = MGAIOMAPSIZE;
 
    if ( drmAddMap( ctx->drmFD,
-		   (drmHandle)pMga->IOAddress,
-		   pMga->registers.size,
-		   DRM_REGISTERS, DRM_READ_ONLY,
-		   &pMga->registers.handle ) < 0 ) {
+                   (drmHandle)pMga->IOAddress,
+                   pMga->registers.size,
+                   DRM_REGISTERS, DRM_READ_ONLY,
+                   &pMga->registers.handle ) < 0 ) {
       fprintf( stderr,
-		  "[drm] Could not add MMIO registers mapping\n" );
+               "[drm] Could not add MMIO registers mapping\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[drm] Registers handle = 0x%08lx\n",
-	       pMga->registers.handle );
+            "[drm] Registers handle = 0x%08lx\n",
+            pMga->registers.handle );
 
    pMga->status.size = SAREA_MAX;
 
    if ( drmAddMap( ctx->drmFD, 0, pMga->status.size,
-		   DRM_SHM, DRM_READ_ONLY | DRM_LOCKED | DRM_KERNEL,
-		   &pMga->status.handle ) < 0 ) {
+                   DRM_SHM, DRM_READ_ONLY | DRM_LOCKED | DRM_KERNEL,
+                   &pMga->status.handle ) < 0 ) {
       fprintf( stderr,
-		  "[drm] Could not add status page mapping\n" );
+               "[drm] Could not add status page mapping\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[drm] Status handle = 0x%08lx\n",
-	       pMga->status.handle );
+            "[drm] Status handle = 0x%08lx\n",
+            pMga->status.handle );
 
    if ( drmMap( ctx->drmFD,
-		pMga->status.handle,
-		pMga->status.size,
-		&pMga->status.map ) < 0 ) {
+                pMga->status.handle,
+                pMga->status.size,
+                &pMga->status.map ) < 0 ) {
       fprintf( stderr,
-		  "[agp] Could not map status page\n" );
+               "[agp] Could not map status page\n" );
       return 0;
    }
    fprintf( stderr,
-	       "[agp] Status page mapped at 0x%08lx\n",
-	       (unsigned long)pMga->status.map );
+            "[agp] Status page mapped at 0x%08lx\n",
+            (unsigned long)pMga->status.map );
 
    return 1;
 }
@@ -380,23 +380,19 @@ static int MGADRIKernelInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    init.sarea_priv_offset = sizeof(XF86DRISAREARec);
 
    switch ( pMga->Chipset ) {
-   case PCI_CHIP_MGAG550:
-   case PCI_CHIP_MGAG400:
-      init.chipset = MGA_CARD_TYPE_G400;
-      break;
-   case PCI_CHIP_MGAG200:
-   case PCI_CHIP_MGAG200_PCI:
-      init.chipset = MGA_CARD_TYPE_G200;
-      break;
-   default:
-      return 0;
+      case PCI_CHIP_MGAG550:
+      case PCI_CHIP_MGAG400:
+         init.chipset = MGA_CARD_TYPE_G400;
+         break;
+      case PCI_CHIP_MGAG200:
+      case PCI_CHIP_MGAG200_PCI:
+         init.chipset = MGA_CARD_TYPE_G200;
+         break;
+      default:
+         return 0;
    }
 
    init.sgram = 0; /* FIXME !pMga->HasSDRAM; */
-
-   init.depth_cpp	= ctx->bpp / 8;
-   init.depth_offset	= pMga->depthOffset;
-   init.depth_pitch	= pMga->depthPitch / init.depth_cpp;
 
    init.texture_offset[0] = pMga->textureOffset;
    init.texture_size[0] = pMga->textureSize;
@@ -415,7 +411,7 @@ static int MGADRIKernelInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    ret = drmCommandWrite( ctx->drmFD, DRM_MGA_INIT, &init, sizeof(drmMGAInit));
    if ( ret < 0 ) {
       fprintf( stderr,
-		  "[drm] Failed to initialize DMA! (%d)\n", ret );
+               "[drm] Failed to initialize DMA! (%d)\n", ret );
       return 0;
    }
 
@@ -424,8 +420,7 @@ static int MGADRIKernelInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 
 static void MGADRIIrqInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
 {
-  if (!pMga->irq)
-    {
+   if (!pMga->irq) {
       pMga->irq = drmGetInterruptFromBusID(ctx->drmFD,
                                            ctx->pciBus,
                                            ctx->pciDevice,
@@ -433,36 +428,33 @@ static void MGADRIIrqInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
 
       fprintf(stderr, "[drm] got IRQ %d\n", pMga->irq);
 
-    if((drmCtlInstHandler(ctx->drmFD, pMga->irq)) != 0)
-      {
-        fprintf(stderr,
-                "[drm] failure adding irq handler, "
-                "there is a device already using that irq\n"
-                "[drm] falling back to irq-free operation\n");
-        pMga->irq = 0;
+      if ((drmCtlInstHandler(ctx->drmFD, pMga->irq)) != 0) {
+         fprintf(stderr,
+                 "[drm] failure adding irq handler, "
+                 "there is a device already using that irq\n"
+                 "[drm] falling back to irq-free operation\n");
+         pMga->irq = 0;
       }
-    else
-      {
-        pMga->reg_ien = INREG( MGAREG_IEN );
+      else {
+         pMga->reg_ien = INREG( MGAREG_IEN );
       }
-    }
+   }
 
-  if (pMga->irq)
-    fprintf(stderr,
-            "[drm] dma control initialized, using IRQ %d\n",
-            pMga->irq);
+   if (pMga->irq)
+      fprintf(stderr,
+              "[drm] dma control initialized, using IRQ %d\n",
+              pMga->irq);
 }
 
 static int MGADRIBuffersInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 {
    pMga->drmBuffers = drmMapBufs( ctx->drmFD );
-   if ( !pMga->drmBuffers )
-     {
-       fprintf( stderr,
-                "[drm] Failed to map DMA buffers list\n" );
-       return 0;
-     }
-   
+   if ( !pMga->drmBuffers ) {
+      fprintf( stderr,
+               "[drm] Failed to map DMA buffers list\n" );
+      return 0;
+   }
+
    fprintf( stderr,
             "[drm] Mapped %d DMA buffers\n",
             pMga->drmBuffers->count );
@@ -472,24 +464,20 @@ static int MGADRIBuffersInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 
 static int MGAMemoryInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 {
-   int        width_bytes = ctx->shared.virtualWidth * ctx->cpp;
-   int        depthSize   = ((((ctx->shared.virtualHeight+15) & ~15) * width_bytes
-			      + MGA_BUFFER_ALIGN)
-			     & ~MGA_BUFFER_ALIGN);
-   int        l;
+   int l;
 
    fprintf(stderr, 
-	   "Using %d MB AGP aperture\n", pMga->agpSize);
+           "Using %d MB AGP aperture\n", pMga->agpSize);
    fprintf(stderr, 
-	   "Using %d MB for vertex/indirect buffers\n", pMga->buffers.size>>20);
+           "Using %d MB for vertex/indirect buffers\n", pMga->buffers.size>>20);
    fprintf(stderr, 
-	   "Using %d MB for AGP textures\n", pMga->agpTextures.size>>20);
+           "Using %d MB for AGP textures\n", pMga->agpTextures.size>>20);
 
    /* Front, back and depth buffers - everything else texture??
     */
-   pMga->textureSize = ctx->shared.fbSize - depthSize;
+   pMga->textureSize = ctx->shared.fbSize;
 
-   if (pMga->textureSize < 0) 
+   if (pMga->textureSize <= 0)
       return 0;
 
    l = mylog2( pMga->textureSize / MGA_NR_TEX_REGIONS );
@@ -513,25 +501,12 @@ static int MGAMemoryInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 
    /* Reserve space for textures */
    pMga->textureOffset = ((ctx->FBSize - pMga->textureSize +
-			   MGA_BUFFER_ALIGN) &
-			  ~MGA_BUFFER_ALIGN);
-
-   /* Reserve space for the shared depth
-    * buffer.
-    */
-   pMga->depthOffset = ((ctx->shared.fbOrigin +
-			 MGA_BUFFER_ALIGN) &
-			~MGA_BUFFER_ALIGN);
-   pMga->depthPitch = ctx->shared.virtualWidth * ctx->cpp;
-
-
+                           MGA_BUFFER_ALIGN) &
+                          ~MGA_BUFFER_ALIGN);
 
    fprintf(stderr, 
-	   "Will use depth buffer at offset %d.%d MB\n",
-	   pMga->depthOffset>>20, (pMga->depthOffset&0xfffff) * 1000 / 0x100000);
-   fprintf(stderr, 
-	   "Will use %d kb for textures at offset %d.%d MB\n",
-	   pMga->textureSize/1024, pMga->textureOffset>>20,
+           "Will use %d kb for textures at offset %d.%d MB\n",
+           pMga->textureSize/1024, pMga->textureOffset>>20,
            (pMga->textureOffset&0xfffff) * 1000 / 0x100000);
 
    return 1;
@@ -539,120 +514,79 @@ static int MGAMemoryInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 
 static int MGACheckDRMVersion( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 {
-  drmVersionPtr version;
+   drmVersionPtr version;
 
-  /* Check the MGA DRM version */
-  version = drmGetVersion(ctx->drmFD);
-  if ( version ) {
-    if ( version->version_major != 3 ||
-         version->version_minor < 0 ) {
-            /* incompatible drm version */
-      fprintf( stderr,
-               "[dri] MGADRIScreenInit failed because of a version mismatch.\n"
-               "[dri] mga.o kernel module version is %d.%d.%d but version 3.0.x is needed.\n"
-               "[dri] Disabling DRI.\n",
-               version->version_major,
-               version->version_minor,
-               version->version_patchlevel );
+   /* Check the MGA DRM version */
+   version = drmGetVersion(ctx->drmFD);
+   if ( version ) {
+      if ( version->version_major != 3 ||
+           version->version_minor < 0 ) {
+         /* incompatible drm version */
+         fprintf( stderr,
+                  "[dri] MGADRIScreenInit failed because of a version mismatch.\n"
+                  "[dri] mga.o kernel module version is %d.%d.%d but version 3.0.x is needed.\n"
+                  "[dri] Disabling DRI.\n",
+                  version->version_major,
+                  version->version_minor,
+                  version->version_patchlevel );
+         drmFreeVersion( version );
+         return 0;
+      }
       drmFreeVersion( version );
-      return 0;
-    }
-    drmFreeVersion( version );
-  }
+   }
 
-  return 1;
+   return 1;
 }
 
 static void print_client_msg( MGADRIPtr pMGADRI )
 {
-  fprintf( stderr, "chipset:                  %d\n", pMGADRI->chipset );
+   fprintf( stderr, "chipset:                  %d\n", pMGADRI->chipset );
 
-  fprintf( stderr, "mem:                      %d\n", pMGADRI->mem );
+   fprintf( stderr, "mem:                      %d\n", pMGADRI->mem );
 
-  fprintf( stderr, "agpMode:                  %d\n", pMGADRI->agpMode );
+   fprintf( stderr, "agpMode:                  %d\n", pMGADRI->agpMode );
 
-  fprintf( stderr, "depthOffset:              %d\n", pMGADRI->depthOffset );
-  fprintf( stderr, "depthPitch:               %d\n", pMGADRI->depthPitch );
+   fprintf( stderr, "textureOffset:            %d\n", pMGADRI->textureOffset );
+   fprintf( stderr, "textureSize:              %d\n", pMGADRI->textureSize );
 
-  fprintf( stderr, "textureOffset:            %d\n", pMGADRI->textureOffset );
-  fprintf( stderr, "textureSize:              %d\n", pMGADRI->textureSize );
+   fprintf( stderr, "logTextureGranularity:    %d\n", pMGADRI->logTextureGranularity );
+   fprintf( stderr, "logAgpTextureGranularity: %d\n", pMGADRI->logAgpTextureGranularity );
 
-  fprintf( stderr, "logTextureGranularity:    %d\n", pMGADRI->logTextureGranularity );
-  fprintf( stderr, "logAgpTextureGranularity: %d\n", pMGADRI->logAgpTextureGranularity );
-
-  fprintf( stderr, "agpTextureHandle:         %u\n", (unsigned int)pMGADRI->agpTextureOffset );
-  fprintf( stderr, "agpTextureSize:           %u\n", (unsigned int)pMGADRI->agpTextureSize );
+   fprintf( stderr, "agpTextureHandle:         %u\n", (unsigned int)pMGADRI->agpTextureOffset );
+   fprintf( stderr, "agpTextureSize:           %u\n", (unsigned int)pMGADRI->agpTextureSize );
 
 #if 0
-   pMGADRI->registers.handle	= pMga->registers.handle;
-   pMGADRI->registers.size	= pMga->registers.size;
-   pMGADRI->status.handle	= pMga->status.handle;
-   pMGADRI->status.size		= pMga->status.size;
-   pMGADRI->primary.handle	= pMga->primary.handle;
-   pMGADRI->primary.size	= pMga->primary.size;
-   pMGADRI->buffers.handle	= pMga->buffers.handle;
-   pMGADRI->buffers.size	= pMga->buffers.size;
+   pMGADRI->registers.handle  = pMga->registers.handle;
+   pMGADRI->registers.size = pMga->registers.size;
+   pMGADRI->status.handle  = pMga->status.handle;
+   pMGADRI->status.size    = pMga->status.size;
+   pMGADRI->primary.handle = pMga->primary.handle;
+   pMGADRI->primary.size   = pMga->primary.size;
+   pMGADRI->buffers.handle = pMga->buffers.handle;
+   pMGADRI->buffers.size   = pMga->buffers.size;
    pMGADRI->sarea_priv_offset = sizeof(XF86DRISAREARec);
 #endif
 }
 
 static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 {
-  int       i;
-  int       err;
-  MGADRIPtr pMGADRI;
+   int       i;
+   int       err;
+   MGADRIPtr pMGADRI;
 
-  //assert(!ctx->IsClient);
+   //assert(!ctx->IsClient);
 
-  switch (ctx->bpp)
-    {
-      case 16:
-      case 32:
-        break;
-      default:
-        fprintf(stderr, "[drm] Direct rendering only supported for RGB16 and RGB32 yet\n");
-        return 0;
-   }
-    
-
-   {
-      int  width_bytes = (ctx->shared.virtualWidth * ctx->cpp);
-      int  maxy        = ctx->shared.fbSize / width_bytes;
-
-
-      if (maxy <= ctx->shared.virtualHeight * 3) {
-	 fprintf(stderr, 
-		 "Static buffer allocation failed -- "
-		 "need at least %d kB video memory (have %d kB)\n",
-		 (ctx->shared.virtualWidth * ctx->shared.virtualHeight *
-		  ctx->cpp * 3 + 1023) / 1024,
-		 ctx->shared.fbSize / 1024);
-	 return 0;
-      } 
-   }
-
-   switch(pMga->Chipset) {
-   case PCI_CHIP_MGAG550:
-   case PCI_CHIP_MGAG400:
-   case PCI_CHIP_MGAG200:
+   switch (pMga->Chipset) {
+      case PCI_CHIP_MGAG550:
+      case PCI_CHIP_MGAG400:
+      case PCI_CHIP_MGAG200:
 #if 0
-   case PCI_CHIP_MGAG200_PCI:
+      case PCI_CHIP_MGAG200_PCI:
 #endif
-      break;
-   default:
-      fprintf(stderr, "[drm] Direct rendering only supported with G200/G400/G550 AGP\n");
-      return 0;
-   }
-
-   fprintf( stderr,
-	       "[drm] bpp: %d depth: %d\n",
-            ctx->bpp, ctx->bpp /* FIXME: depth */ );
-
-   if ( (ctx->bpp / 8) != 2 &&
-	(ctx->bpp / 8) != 4 ) {
-      fprintf( stderr,
-		  "[dri] Direct rendering only supported in 16 and 32 bpp modes\n" );
-      return 0;
+         break;
+      default:
+         fprintf(stderr, "[drm] Direct rendering only supported with G200/G400/G550 AGP\n");
+         return 0;
    }
 
    ctx->shared.SAREASize = SAREA_MAX;
@@ -667,64 +601,61 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
 
    if ((err = drmSetBusid(ctx->drmFD, ctx->pciBusID)) < 0) {
       fprintf(stderr, "[drm] drmSetBusid failed (%d, %s), %s\n",
-	      ctx->drmFD, ctx->pciBusID, strerror(-err));
+              ctx->drmFD, ctx->pciBusID, strerror(-err));
       return 0;
    }
 
-     
+
    if (drmAddMap( ctx->drmFD,
-		  0,
-		  ctx->shared.SAREASize,
-		  DRM_SHM,
-		  DRM_CONTAINS_LOCK,
-		  &ctx->shared.hSAREA) < 0)
-   {
+                  0,
+                  ctx->shared.SAREASize,
+                  DRM_SHM,
+                  DRM_CONTAINS_LOCK,
+                  &ctx->shared.hSAREA) < 0) {
       fprintf(stderr, "[drm] drmAddMap failed\n");
       return 0;
    }
    fprintf(stderr, "[drm] added %d byte SAREA at 0x%08lx\n",
-	   ctx->shared.SAREASize, ctx->shared.hSAREA);
+           ctx->shared.SAREASize, ctx->shared.hSAREA);
 
    if (drmMap( ctx->drmFD,
-	       ctx->shared.hSAREA,
-	       ctx->shared.SAREASize,
-	       (drmAddressPtr)(&ctx->pSAREA)) < 0)
-   {
+               ctx->shared.hSAREA,
+               ctx->shared.SAREASize,
+               (drmAddressPtr)(&ctx->pSAREA)) < 0) {
       fprintf(stderr, "[drm] drmMap failed\n");
       return 0;
    }
    memset(ctx->pSAREA, 0, ctx->shared.SAREASize);
    fprintf(stderr, "[drm] mapped SAREA 0x%08lx to %p, size %d\n",
-	   ctx->shared.hSAREA, ctx->pSAREA, ctx->shared.SAREASize);
-   
+           ctx->shared.hSAREA, ctx->pSAREA, ctx->shared.SAREASize);
+
    /* Need to AddMap the framebuffer and mmio regions here:
     */
    if (drmAddMap( ctx->drmFD,
-		  (drmHandle)ctx->FBStart,
-		  ctx->FBSize,
-		  DRM_FRAME_BUFFER,
-		  0,
-		  &ctx->shared.hFrameBuffer) < 0)
-   {
+                  (drmHandle)ctx->FBStart,
+                  ctx->FBSize,
+                  DRM_FRAME_BUFFER,
+                  0,
+                  &ctx->shared.hFrameBuffer) < 0) {
       fprintf(stderr, "[drm] drmAddMap framebuffer failed\n");
       return 0;
    }
    fprintf(stderr, "[drm] framebuffer handle = 0x%08lx\n",
-	   ctx->shared.hFrameBuffer);
+           ctx->shared.hFrameBuffer);
 
 
 #if 0 /* will be done in MGADRIMapInit */
    if (drmAddMap(ctx->drmFD, 
-		 ctx->FixedInfo.mmio_start,
-		 ctx->FixedInfo.mmio_len,
-		 DRM_REGISTERS, 
-		 DRM_READ_ONLY, 
-		 &pMga->registers.handle) < 0) {
-      fprintf(stderr, "[drm] drmAddMap mmio failed\n");	
+                 ctx->FixedInfo.mmio_start,
+                 ctx->FixedInfo.mmio_len,
+                 DRM_REGISTERS, 
+                 DRM_READ_ONLY, 
+                 &pMga->registers.handle) < 0) {
+      fprintf(stderr, "[drm] drmAddMap mmio failed\n");  
       return 0;
    }
    fprintf(stderr,
-	   "[drm] register handle = 0x%08lx\n", pMga->registers.handle);
+           "[drm] register handle = 0x%08lx\n", pMga->registers.handle);
 #endif
 
 
@@ -779,7 +710,7 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    {
       MGASAREAPrivPtr pSAREAPriv;
       pSAREAPriv = (MGASAREAPrivPtr)(((char*)ctx->pSAREA) + 
-					sizeof(XF86DRISAREARec));
+                                     sizeof(XF86DRISAREARec));
       memset(pSAREAPriv, 0, sizeof(*pSAREAPriv));
    }
 
@@ -789,12 +720,12 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
     * first.
     */
    memset(ctx->FBAddress + pMga->frontOffset,
-	  0,
-	  pMga->frontPitch * ctx->shared.virtualHeight );
+          0,
+          pMga->frontPitch * ctx->shared.virtualHeight );
 
    memset(ctx->FBAddress + pMga->backOffset,
-	  0,
-	  pMga->backPitch * ctx->shared.virtualHeight );
+          0,
+          pMga->backPitch * ctx->shared.virtualHeight );
 #endif
 
    /* Can release the lock now */
@@ -807,26 +738,24 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    pMGADRI                    = (MGADRIPtr)ctx->driverClientMsg;
 
 
-   switch(pMga->Chipset) {
-   case PCI_CHIP_MGAG550:
-   case PCI_CHIP_MGAG400:
-      pMGADRI->chipset = MGA_CARD_TYPE_G400;
-      break;
-   case PCI_CHIP_MGAG200:
-   case PCI_CHIP_MGAG200_PCI:
-      pMGADRI->chipset = MGA_CARD_TYPE_G200;
-      break;
-   default:
-      return 0;
+   switch (pMga->Chipset) {
+      case PCI_CHIP_MGAG550:
+      case PCI_CHIP_MGAG400:
+         pMGADRI->chipset = MGA_CARD_TYPE_G400;
+         break;
+      case PCI_CHIP_MGAG200:
+      case PCI_CHIP_MGAG200_PCI:
+         pMGADRI->chipset = MGA_CARD_TYPE_G200;
+         break;
+      default:
+         return 0;
    }
-   pMGADRI->mem			= ctx->shared.fbSize;
+   pMGADRI->mem         = ctx->shared.fbSize;
 
-   pMGADRI->agpMode		= pMga->agpMode;
+   pMGADRI->agpMode     = pMga->agpMode;
 
-   pMGADRI->depthOffset		= pMga->depthOffset;
-   pMGADRI->depthPitch		= pMga->depthPitch;
-   pMGADRI->textureOffset	= pMga->textureOffset;
-   pMGADRI->textureSize		= pMga->textureSize;
+   pMGADRI->textureOffset  = pMga->textureOffset;
+   pMGADRI->textureSize    = pMga->textureSize;
    pMGADRI->logTextureGranularity = pMga->logTextureGranularity;
 
    i = mylog2( pMga->agpTextures.size / MGA_NR_TEX_REGIONS );
@@ -837,14 +766,14 @@ static int MGAScreenInit( struct DRIDriverContextRec *ctx, MGAPtr pMga )
    pMGADRI->agpTextureOffset = (unsigned int)pMga->agpTextures.handle;
    pMGADRI->agpTextureSize = (unsigned int)pMga->agpTextures.size;
 
-   pMGADRI->registers.handle	= pMga->registers.handle;
-   pMGADRI->registers.size	= pMga->registers.size;
-   pMGADRI->status.handle	= pMga->status.handle;
-   pMGADRI->status.size		= pMga->status.size;
-   pMGADRI->primary.handle	= pMga->primary.handle;
-   pMGADRI->primary.size	= pMga->primary.size;
-   pMGADRI->buffers.handle	= pMga->buffers.handle;
-   pMGADRI->buffers.size	= pMga->buffers.size;
+   pMGADRI->registers.handle  = pMga->registers.handle;
+   pMGADRI->registers.size = pMga->registers.size;
+   pMGADRI->status.handle  = pMga->status.handle;
+   pMGADRI->status.size    = pMga->status.size;
+   pMGADRI->primary.handle = pMga->primary.handle;
+   pMGADRI->primary.size   = pMga->primary.size;
+   pMGADRI->buffers.handle = pMga->buffers.handle;
+   pMGADRI->buffers.size   = pMga->buffers.size;
    pMGADRI->sarea_priv_offset = sizeof(XF86DRISAREARec);
 
    print_client_msg( pMGADRI );
@@ -875,64 +804,54 @@ static int mgaInitScreenConfigs( struct DRIDriverContextRec *ctx,
 
    *numConfigs = 1;
    *configs = (__GLXvisualConfig *) calloc(*numConfigs, 
-					   sizeof(__GLXvisualConfig));
+                                           sizeof(__GLXvisualConfig));
 
-   switch (ctx->bpp) {
-   case 32:
-      for (i = 0; i < *numConfigs; i++) {
-	 (*configs)[i].vid = 100 + i;
-	 (*configs)[i].class = TrueColor;
-	 (*configs)[i].rgba = True;
-	 (*configs)[i].redSize = 8;
-	 (*configs)[i].greenSize = 8;
-	 (*configs)[i].blueSize = 8;
-	 (*configs)[i].alphaSize = 8;
-	 (*configs)[i].redMask = 0xff0000;
-	 (*configs)[i].greenMask = 0xff00;
-	 (*configs)[i].blueMask = 0xff;
-	 (*configs)[i].alphaMask = 0xff000000;
-	 (*configs)[i].doubleBuffer = True;
-	 (*configs)[i].stereo = False;
-	 (*configs)[i].bufferSize = 32;
-	 (*configs)[i].depthSize = 24;
-	 (*configs)[i].stencilSize = 8;
-	 (*configs)[i].auxBuffers = 0;
-	 (*configs)[i].level = 0;
-	 /* leave remaining fields zero */
-      }
-      break;
+   /* ARGB */
+   for (i = 0; i < *numConfigs; i++) {
+      (*configs)[i].vid = 100 + i;
+      (*configs)[i].class = TrueColor;
+      (*configs)[i].rgba = True;
+      (*configs)[i].redSize = 8;
+      (*configs)[i].greenSize = 8;
+      (*configs)[i].blueSize = 8;
+      (*configs)[i].alphaSize = 8;
+      (*configs)[i].redMask = 0xff0000;
+      (*configs)[i].greenMask = 0xff00;
+      (*configs)[i].blueMask = 0xff;
+      (*configs)[i].alphaMask = 0xff000000;
+      (*configs)[i].doubleBuffer = True;
+      (*configs)[i].stereo = False;
+      (*configs)[i].bufferSize = 32;
+      (*configs)[i].depthSize = 24;
+      (*configs)[i].stencilSize = 8;
+      (*configs)[i].auxBuffers = 0;
+      (*configs)[i].level = 0;
+      /* leave remaining fields zero */
+   }
 
-   case 16:
-      for (i = 0; i < *numConfigs; i++) {
-	 (*configs)[i].vid = 100 + i;
-	 (*configs)[i].class = TrueColor;
-	 (*configs)[i].rgba = True;
-	 (*configs)[i].redSize = 5;
-	 (*configs)[i].greenSize = 6;
-	 (*configs)[i].blueSize = 5;
-	 (*configs)[i].alphaSize = 0;
-	 (*configs)[i].redMask = 0xf800;
-	 (*configs)[i].greenMask = 0x07e0;
-	 (*configs)[i].blueMask = 0x001f;
-	 (*configs)[i].alphaMask = 0x0000;
-	 (*configs)[i].doubleBuffer = True;
-	 (*configs)[i].stereo = False;
-	 (*configs)[i].bufferSize = 16;
-	 (*configs)[i].depthSize = 16;
-	 (*configs)[i].stencilSize = 0;
-	 (*configs)[i].auxBuffers = 0;
-	 (*configs)[i].level = 0;
-	 /* leave remaining fields zero */
-      }
-      break;
+   /* RGB565 */
+   for (i = 0; i < *numConfigs; i++) {
+      (*configs)[i].vid = 100 + i;
+      (*configs)[i].class = TrueColor;
+      (*configs)[i].rgba = True;
+      (*configs)[i].redSize = 5;
+      (*configs)[i].greenSize = 6;
+      (*configs)[i].blueSize = 5;
+      (*configs)[i].alphaSize = 0;
+      (*configs)[i].redMask = 0xf800;
+      (*configs)[i].greenMask = 0x07e0;
+      (*configs)[i].blueMask = 0x001f;
+      (*configs)[i].alphaMask = 0x0000;
+      (*configs)[i].doubleBuffer = True;
+      (*configs)[i].stereo = False;
+      (*configs)[i].bufferSize = 16;
+      (*configs)[i].depthSize = 16;
+      (*configs)[i].stencilSize = 0;
+      (*configs)[i].auxBuffers = 0;
+      (*configs)[i].level = 0;
+      /* leave remaining fields zero */
+   }
 
-   default:
-      fprintf(stderr, "Unknown bpp in %s: %d\n", __FUNCTION__, 
-	      ctx->bpp);
-      exit(1);
-      break;
-
-   }   
    return 1;
 }
 
@@ -987,24 +906,11 @@ static int mgaInitFBDev( struct DRIDriverContextRec *ctx )
 {
    MGAPtr pMga = calloc(1, sizeof(*pMga));
 
-   {
-      int  dummy = ctx->shared.virtualWidth;
-
-      switch (ctx->bpp / 8) {
-      case 1: dummy = (ctx->shared.virtualWidth + 127) & ~127; break;
-      case 2: dummy = (ctx->shared.virtualWidth +  31) &  ~31; break;
-      case 3:
-      case 4: dummy = (ctx->shared.virtualWidth +  15) &  ~15; break;
-      }
-
-      ctx->shared.virtualWidth = dummy;
-   }
-
    ctx->driverPrivate = (void *)pMga;
-   
+
    pMga->agpMode       = MGA_DEFAULT_AGP_MODE;
    pMga->agpSize       = MGA_DEFAULT_AGP_SIZE;
-  
+
    pMga->Chipset = ctx->chipset;
 
    pMga->IOAddress = ctx->MMIOStart;
@@ -1028,61 +934,61 @@ static int mgaInitFBDev( struct DRIDriverContextRec *ctx )
  */
 static void mgaHaltFBDev( struct DRIDriverContextRec *ctx )
 {
-     MGAPtr     pMga = ctx->driverPrivate;
-     drmMGAInit init;
+   MGAPtr     pMga = ctx->driverPrivate;
+   drmMGAInit init;
 
-     if ( pMga->drmBuffers ) {
-        drmUnmapBufs( pMga->drmBuffers );
-        pMga->drmBuffers = NULL;
-     }
+   if ( pMga->drmBuffers ) {
+      drmUnmapBufs( pMga->drmBuffers );
+      pMga->drmBuffers = NULL;
+   }
 
-     if (pMga->irq) {
-        drmCtlUninstHandler(ctx->drmFD);
-        pMga->irq = 0;
-     }
+   if (pMga->irq) {
+      drmCtlUninstHandler(ctx->drmFD);
+      pMga->irq = 0;
+   }
 
-     /* Cleanup DMA */
-     memset( &init, 0, sizeof(drmMGAInit) );
-     init.func = MGA_CLEANUP_DMA;
-     drmCommandWrite( ctx->drmFD, DRM_MGA_INIT, &init, sizeof(drmMGAInit) );
+   /* Cleanup DMA */
+   memset( &init, 0, sizeof(drmMGAInit) );
+   init.func = MGA_CLEANUP_DMA;
+   drmCommandWrite( ctx->drmFD, DRM_MGA_INIT, &init, sizeof(drmMGAInit) );
 
-     if ( pMga->status.map ) {
-        drmUnmap( pMga->status.map, pMga->status.size );
-        pMga->status.map = NULL;
-     }
-     if ( pMga->buffers.map ) {
-        drmUnmap( pMga->buffers.map, pMga->buffers.size );
-        pMga->buffers.map = NULL;
-     }
-     if ( pMga->primary.map ) {
-        drmUnmap( pMga->primary.map, pMga->primary.size );
-        pMga->primary.map = NULL;
-     }
-     if ( pMga->warp.map ) {
-        drmUnmap( pMga->warp.map, pMga->warp.size );
-        pMga->warp.map = NULL;
-     }
+   if ( pMga->status.map ) {
+      drmUnmap( pMga->status.map, pMga->status.size );
+      pMga->status.map = NULL;
+   }
+   if ( pMga->buffers.map ) {
+      drmUnmap( pMga->buffers.map, pMga->buffers.size );
+      pMga->buffers.map = NULL;
+   }
+   if ( pMga->primary.map ) {
+      drmUnmap( pMga->primary.map, pMga->primary.size );
+      pMga->primary.map = NULL;
+   }
+   if ( pMga->warp.map ) {
+      drmUnmap( pMga->warp.map, pMga->warp.size );
+      pMga->warp.map = NULL;
+   }
 
-     if ( pMga->agpTextures.map ) {
-        drmUnmap( pMga->agpTextures.map, pMga->agpTextures.size );
-        pMga->agpTextures.map = NULL;
-     }
+   if ( pMga->agpTextures.map ) {
+      drmUnmap( pMga->agpTextures.map, pMga->agpTextures.size );
+      pMga->agpTextures.map = NULL;
+   }
 
-     if ( pMga->agp.handle ) {
-        drmAgpUnbind( ctx->drmFD, pMga->agp.handle );
-        drmAgpFree( ctx->drmFD, pMga->agp.handle );
-        pMga->agp.handle = 0;
-        drmAgpRelease( ctx->drmFD );
-     }
-    
-     drmUnlock( ctx->drmFD, ctx->serverContext );
-     drmUnmap( ctx->pSAREA, ctx->shared.SAREASize );
-     drmClose(ctx->drmFD);
+   if ( pMga->agp.handle ) {
+      drmAgpUnbind( ctx->drmFD, pMga->agp.handle );
+      drmAgpFree( ctx->drmFD, pMga->agp.handle );
+      pMga->agp.handle = 0;
+      drmAgpRelease( ctx->drmFD );
+   }
 
-    if (ctx->driverPrivate) {
-       free(ctx->driverPrivate);
-       ctx->driverPrivate = NULL;
-    }
+   drmUnlock( ctx->drmFD, ctx->serverContext );
+   drmUnmap( ctx->pSAREA, ctx->shared.SAREASize );
+   drmClose(ctx->drmFD);
+
+   if (ctx->driverPrivate) {
+      free(ctx->driverPrivate);
+      ctx->driverPrivate = NULL;
+   }
 }
 
 

@@ -76,10 +76,6 @@ typedef struct drm_mga_private {
 
 	u32 clear_cmd;
 
-	unsigned int depth_cpp;
-	unsigned int depth_offset;
-	unsigned int depth_pitch;
-
 	unsigned int texture_offset;
 	unsigned int texture_size;
 

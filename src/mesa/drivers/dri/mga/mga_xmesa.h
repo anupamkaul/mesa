@@ -43,10 +43,6 @@ typedef struct mga_screen_private_s {
    GLint agpMode;
    unsigned int irq;		/* IRQ number (0 means none) */
 
-   unsigned int depthOffset;
-   unsigned int depthPitch;
-   int depthCpp;
-
    unsigned int dmaOffset;
 
    unsigned int textureOffset[DRM_MGA_NR_TEX_HEAPS];

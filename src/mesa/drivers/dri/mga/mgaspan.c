@@ -56,13 +56,12 @@
 
 #define LOCAL_DEPTH_VARS						\
    __DRIdrawablePrivate *dPriv = mmesa->driDrawable;			\
-   mgaScreenPrivate *mgaScreen = mmesa->mgaScreen;			\
    __DRIscreenPrivate *sPriv = mmesa->driScreen;			\
-   GLuint pitch = mgaScreen->depthPitch;				\
+   GLuint pitch = dPriv->depthPitch;					\
    GLuint height = dPriv->h;						\
    char *buf = (char *)(sPriv->pFB +					\
-			mgaScreen->depthOffset +			\
-			dPriv->x * mgaScreen->depthCpp +		\
+			dPriv->depthOffset +				\
+			dPriv->x * dPriv->depthCpp +			\
 			dPriv->y * pitch)
 
 #define LOCAL_STENCIL_VARS LOCAL_DEPTH_VARS 

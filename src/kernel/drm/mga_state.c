@@ -85,7 +85,7 @@ static __inline__ void mga_g200_emit_context( drm_mga_private_t *dev_priv )
 	DMA_BLOCK( MGA_ALPHACTRL,	ctx->alphactrl,
 		   MGA_FOGCOL,		ctx->fogcolor,
 		   MGA_WFLAG,		ctx->wflag,
-		   MGA_ZORG,		dev_priv->depth_offset );
+		   MGA_ZORG,		ctx->depth_offset );
 
 	DMA_BLOCK( MGA_FCOL,		ctx->fcol,
 		   MGA_PITCH,		ctx->draw_pitch,
@@ -111,7 +111,7 @@ static __inline__ void mga_g400_emit_context( drm_mga_private_t *dev_priv )
 	DMA_BLOCK( MGA_ALPHACTRL,	ctx->alphactrl,
 		   MGA_FOGCOL,		ctx->fogcolor,
 		   MGA_WFLAG,		ctx->wflag,
-		   MGA_ZORG,		dev_priv->depth_offset );
+		   MGA_ZORG,		ctx->depth_offset );
 
 	DMA_BLOCK( MGA_WFLAG1,		ctx->wflag,
 		   MGA_TDUALSTAGE0,	ctx->tdualstage0,
@@ -583,9 +583,9 @@ static void mga_dma_dispatch_clear( drm_device_t *dev,
 				   MGA_YDSTLEN, (box->y1 << 16) | height,
 				   MGA_FXBNDRY, (box->x2 << 16) | box->x1 );
 
-			DMA_BLOCK( MGA_PITCH,	dev_priv->depth_pitch,
+			DMA_BLOCK( MGA_PITCH,	ctx->depth_pitch,
 				   MGA_FCOL,	clear->clear_depth,
-				   MGA_DSTORG,	dev_priv->depth_offset,
+				   MGA_DSTORG,	ctx->depth_offset,
 				   MGA_DWGCTL + MGA_EXEC,
 						dev_priv->clear_cmd );
 

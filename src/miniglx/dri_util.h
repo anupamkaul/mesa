@@ -164,23 +164,11 @@ struct __DriverAPIRec {
  */
 struct __DRIdrawablePrivateRec {
     /**
-     * \brief Kernel drawable handle
-     *
-     * \note Not currently used.
-     */
-    drmDrawable hHWDrawable;
-
-    /**
      * \brief Driver's private drawable information.  
      *
      * This structure is opaque.
      */
     void *driverPrivate;
-
-    /**
-     * \brief X's drawable ID associated with this private drawable.
-     */
-    //GLXDrawable draw;
 
     /**
      * \brief Reference count for number of context's currently bound to this
@@ -247,21 +235,15 @@ struct __DRIdrawablePrivateRec {
      */
     __DRIscreenPrivate *driScreenPriv;
 
-    /**
-     * \name 
-     * Basically just need these for when the locking code needs to call
-     * __driUtilUpdateDrawableInfo() which calls XF86DRIGetDrawableInfo().
-     */
-    /*@{*/
-    //Display *display;
-    //int screen;
-    /*@}*/
-
     int cpp;
     int frontOffset;
     int frontPitch;
     int backOffset;
     int backPitch;
+    
+    int depthCpp;
+    int depthOffset;
+    int depthPitch;
     
     /**
      * \brief Called via glXSwapBuffers().
@@ -276,22 +258,12 @@ struct __DRIcontextPrivateRec {
     /**
      * \brief Kernel context handle used to access the device lock.
      */
-    XID contextID;
-
-    /**
-     * \brief Kernel context handle used to access the device lock.
-     */
     drmContext hHWContext;
 
     /**
      * \brief Device driver's private context data.  This structure is opaque.
      */
     void *driverPrivate;
-
-    /**
-     * \brief This context's display pointer.
-     */
-    //Display *display;
 
     /**
      * \brief Pointer to drawable currently bound to this context.
@@ -308,11 +280,6 @@ struct __DRIcontextPrivateRec {
  * \brief Per-screen private driver information.
  */
 struct __DRIscreenPrivateRec {
-    /**
-     * \brief Display for this screen
-     */
-    //Display *display;
-
     /**
      * \brief Current screen's number
      */
@@ -354,14 +321,6 @@ struct __DRIscreenPrivateRec {
     /*@}*/
 
     /**
-     * \brief ID used when the client sets the drawable lock.
-     *
-     * The X server uses this value to detect if the client has died while
-     * holding the drawable lock.
-     */
-    int drawLockID;
-
-    /**
      * \brief File descriptor returned when the kernel device driver is opened.
      * 
      * Used to:
@@ -389,9 +348,6 @@ struct __DRIscreenPrivateRec {
     int fbSize;
     int fbOrigin;
     int fbStride;
-    int fbWidth;
-    int fbHeight;
-    int fbBPP;
     /*@}*/
 
     /**
@@ -405,36 +361,11 @@ struct __DRIscreenPrivateRec {
     /*@}*/
 
     /**
-     * \brief Dummy context to which drawables are bound when not bound to any
-     * other context. 
-     *
-     * A dummy hHWContext is created for this context, and is used by the GL
-     * core when a hardware lock is required but the drawable is not currently
-     * bound (e.g., potentially during a SwapBuffers request).  The dummy
-     * context is created when the first "real" context is created on this
-     * screen.
-     */
-    __DRIcontextPrivate dummyContextPriv;
-
-    /**
-     * \brief Hash table to hold the drawable information for this screen.
-     */
-    void *drawHash;
-
-    /**
      * \brief Device-dependent private information (not stored in the SAREA).
      * 
      * This pointer is never touched by the DRI layer.
      */
     void *private;
-
-    /**
-     * \brief Full screen mode.
-     *
-     * If we're in full screen mode (via DRIOpenFullScreen()), this points to
-     * the drawable that was bound.  Otherwise, this is NULL.
-     */
-    __DRIdrawablePrivate *fullscreen;
 
     /**
      * \name Visuals 

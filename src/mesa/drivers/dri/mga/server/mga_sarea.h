@@ -124,6 +124,10 @@ typedef struct {
    unsigned int draw_offset;
    unsigned int draw_pitch;
 
+   unsigned int depth_cpp;
+   unsigned int depth_offset;
+   unsigned int depth_pitch;
+   
    unsigned int maccess;
    unsigned int plnwt;
    unsigned int dwgctl;

@@ -183,8 +183,6 @@ struct DRIDriverContextRec {
    int pciDevice;
    int pciFunc;
    int chipset;
-   int bpp; 
-   int cpp;  
    
    unsigned long FBStart;   /**< \brief physical address of the framebuffer */
    unsigned long MMIOStart; /**< \brief physical address of the MMIO region */
@@ -208,8 +206,6 @@ struct DRIDriverContextRec {
       unsigned long hFrameBuffer;
       int fbOrigin;
       int fbSize;
-      int virtualWidth;
-      int virtualHeight;
    } shared;
 
    int IsClient;
@@ -401,6 +397,11 @@ struct MiniGLXDisplayRec {
    int NumWindows;       /**< \brief number of open windows */
    Window TheWindow;     /**< \brief open window - only allow one window for now */
    int rotateMode;
+
+   int bpp;
+   int cpp;
+   int width;
+   int height;
 
 
    volatile int vtSignalFlag, haveVT;

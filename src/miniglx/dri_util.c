@@ -644,9 +644,6 @@ __driUtilCreateScreen(struct DRIDriverRec *driver,
    //psp->fbStride = driverContext->shared.fbStride;
    psp->devPrivSize = driverContext->driverClientMsgSize;
    psp->pDevPriv = driverContext->driverClientMsg;
-   psp->fbWidth = driverContext->shared.virtualWidth;
-   psp->fbHeight = driverContext->shared.virtualHeight;
-   psp->fbBPP = driverContext->bpp;
 
    if (driverContext->IsClient) {
       /*
@@ -742,9 +739,6 @@ __driUtilCreateScreenNoDRM(struct DRIDriverRec *driver,
     //psp->fbStride = driverContext->shared.fbStride;
     psp->devPrivSize = driverContext->driverClientMsgSize;
     psp->pDevPriv = driverContext->driverClientMsg;
-    psp->fbWidth = driverContext->shared.virtualWidth;
-    psp->fbHeight = driverContext->shared.virtualHeight;
-    psp->fbBPP = driverContext->bpp;
 
     psp->pFB = driverContext->FBAddress;
 

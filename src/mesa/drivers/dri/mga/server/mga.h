@@ -59,8 +59,6 @@ typedef struct {
 
   int               irq;              /**< \brief IRQ number */
 
-  int               depthOffset;      /**< \brief Depth buffer offset */
-  int               depthPitch;       /**< \brief Depth buffer pitch */
   int               textureOffset;    /**< \brief Texture area offset */
   int               textureSize;      /**< \brief Texture area size */
   int               logTextureGranularity;

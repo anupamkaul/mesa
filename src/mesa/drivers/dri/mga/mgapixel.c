@@ -270,7 +270,7 @@ mgaTryReadPixels( GLcontext *ctx,
 	 return GL_FALSE;
 
       planemask = ~0;
-      source = mmesa->mgaScreen->depthOffset;
+      source = mmesa->driDrawable->depthOffset;
       break;
 
    case GL_RGB:
@@ -502,7 +502,7 @@ mgaTryDrawPixels( GLcontext *ctx,
 #endif
 
    case GL_DEPTH_COMPONENT:
-      dest = mmesa->mgaScreen->depthOffset;
+      dest = mmesa->driDrawable->depthOffset;
 
       if (ctx->Visual.depthBits == 24)
 	 planemask = ~0xff;

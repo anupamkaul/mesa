@@ -48,9 +48,6 @@ typedef struct {
 
    int agpMode;
 
-   int depthOffset;
-   int depthPitch;
-
    int textureOffset;
    int textureSize;
    int logTextureGranularity;

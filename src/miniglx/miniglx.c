@@ -22,7 +22,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: miniglx.c,v 1.1.4.53.4.1 2003/05/06 00:01:40 dok666 Exp $ */
+/* $Id: miniglx.c,v 1.1.4.53.4.2 2003/05/11 13:35:14 dok666 Exp $ */
 
 
 /**
@@ -379,8 +379,8 @@ SetupFBDev( Display *dpy )
 
    assert(dpy);
 
-   width = dpy->driverContext.shared.virtualWidth;
-   height = dpy->driverContext.shared.virtualHeight;
+   width = dpy->width;
+   height = dpy->height;
    
    /* Bump size up to next supported mode.
     */
@@ -398,14 +398,14 @@ SetupFBDev( Display *dpy )
    } 
 
 
-   dpy->driverContext.shared.virtualHeight = height;
-   dpy->driverContext.shared.virtualWidth = width;
+   dpy->height = height;
+   dpy->width = width;
 
    /* set the depth, resolution, etc */
    dpy->VarInfo = dpy->OrigVarInfo;
-   dpy->VarInfo.bits_per_pixel = dpy->driverContext.bpp;
-   dpy->VarInfo.xres_virtual = dpy->driverContext.shared.virtualWidth;
-   dpy->VarInfo.yres_virtual = dpy->driverContext.shared.virtualHeight;
+   dpy->VarInfo.bits_per_pixel = dpy->bpp;
+   dpy->VarInfo.xres_virtual = dpy->width;
+   dpy->VarInfo.yres_virtual = dpy->height;
    dpy->VarInfo.xres = width;
    dpy->VarInfo.yres = height;
    dpy->VarInfo.xoffset = 0;
@@ -766,10 +766,10 @@ static int __read_config_file( Display *dpy )
    dpy->driverContext.pciFunc = 0;
    dpy->driverContext.chipset = 0;   
    dpy->driverContext.pciBusID = 0;
-   dpy->driverContext.shared.virtualWidth = 1280;
-   dpy->driverContext.shared.virtualHeight = 1024;
-   dpy->driverContext.bpp = 32;
-   dpy->driverContext.cpp = 4;
+   dpy->width = 1280;
+   dpy->height = 1024;
+   dpy->bpp = 32;
+   dpy->cpp = 4;
    dpy->rotateMode = 0;
 
    fname = getenv("MINIGLX_CONF");
@@ -824,17 +824,17 @@ static int __read_config_file( Display *dpy )
 	    fprintf(stderr, "malformed chipset: %s\n", opt);
       }
       else if (strcmp(opt, "virtualWidth") == 0) {
-	 if (sscanf(val, "%d", &dpy->driverContext.shared.virtualWidth) != 1)
+	 if (sscanf(val, "%d", &dpy->width) != 1)
 	    fprintf(stderr, "malformed virtualWidth: %s\n", opt);
       }
       else if (strcmp(opt, "virtualHeight") == 0) {
-	 if (sscanf(val, "%d", &dpy->driverContext.shared.virtualHeight) != 1)
+	 if (sscanf(val, "%d", &dpy->height) != 1)
 	    fprintf(stderr, "malformed virutalHeight: %s\n", opt);
       }
       else if (strcmp(opt, "bpp") == 0) {
-	 if (sscanf(val, "%d", &dpy->driverContext.bpp) != 1)
+	 if (sscanf(val, "%d", &dpy->bpp) != 1)
 	    fprintf(stderr, "malformed bpp: %s\n", opt);
-	 dpy->driverContext.cpp = dpy->driverContext.bpp / 8;
+	 dpy->cpp = dpy->bpp / 8;
       }
    }
 
@@ -1186,9 +1186,9 @@ XCreateWindow( Display *display, Window parent, int x, int y,
    win->h = height;
    win->visual = visual;  /* ptr assignment */
 
-   win->bytesPerPixel = display->driverContext.cpp;
-   win->rowStride = display->driverContext.shared.virtualWidth * win->bytesPerPixel;
-   win->size = win->rowStride * height; 
+   win->bytesPerPixel = display->cpp;
+   win->rowStride = display->width * win->bytesPerPixel;
+   win->size = win->rowStride * height;
    win->frontStart = display->driverContext.FBAddress;
    win->frontBottom = (GLubyte *) win->frontStart + (height-1) * win->rowStride;
 
@@ -1229,7 +1229,7 @@ XCreateWindow( Display *display, Window parent, int x, int y,
    dPriv->backPitch   = win->rowStride;
 
    if (visual->glxConfig->doubleBuffer)
-      dPriv->backOffset += win->rowStride * display->driverContext.shared.virtualHeight;
+      dPriv->backOffset += win->rowStride * display->height;
 
    display->NumWindows++;
    display->TheWindow = win;
@@ -1394,7 +1394,7 @@ XGetVisualInfo( Display *dpy, long vinfo_mask, XVisualInfo *vinfo_template, int 
       visResults[i].visInfo = results + i;
       visResults[i].dpy = dpy;
 
-      if (dpy->driverContext.bpp == 32)
+      if (dpy->bpp == 32)
 	 visResults[i].pixelFormat = PF_B8G8R8A8; /* XXX: FIX ME */
       else
 	 visResults[i].pixelFormat = PF_B5G6R5; /* XXX: FIX ME */
@@ -1406,7 +1406,7 @@ XGetVisualInfo( Display *dpy, long vinfo_mask, XVisualInfo *vinfo_template, int 
                          dpy->configs[i].greenSize +
                          dpy->configs[i].blueSize +
                          dpy->configs[i].alphaSize;
-      results[i].bits_per_rgb = dpy->driverContext.bpp;
+      results[i].bits_per_rgb = dpy->bpp;
    }
    *nitens_return = n;
    return results;
@@ -1587,9 +1587,9 @@ glXChooseVisual( Display *dpy, int screen, int *attribList )
    if (rgbFlag) {
       /* XXX maybe support depth 16 someday */
       visInfo->class = TrueColor;
-      visInfo->depth = dpy->driverContext.bpp;
-      visInfo->bits_per_rgb = dpy->driverContext.bpp;
-      if (dpy->driverContext.bpp == 32)
+      visInfo->depth = dpy->bpp;
+      visInfo->bits_per_rgb = dpy->bpp;
+      if (dpy->bpp == 32)
 	 vis->pixelFormat = PF_B8G8R8A8;
       else
 	 vis->pixelFormat = PF_B5G6R5;
