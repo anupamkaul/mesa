@@ -82,8 +82,10 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 
    /* Check that the DRM driver version is compatible */
    if (sPriv->drmMajor != 3 ||
-       sPriv->drmMinor < 0) {
-      __driUtilMessage("MGA DRI driver expected DRM driver version 3.0.x but got version %d.%d.%d", sPriv->drmMajor, sPriv->drmMinor, sPriv->drmPatch);
+       sPriv->drmMinor < 2) {
+      fprintf(stderr, "%s: expected DRM driver version 3.2.x but got "
+                      "version %d.%d.%d\n", __FUNCTION__,
+                      sPriv->drmMajor, sPriv->drmMinor, sPriv->drmPatch);
       return GL_FALSE;
    }
 
