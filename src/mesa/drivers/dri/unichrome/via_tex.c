@@ -263,8 +263,6 @@ static GLboolean viaMoveTexBuffers( struct via_context *vmesa,
 	 newTexBuf[i]->image->texMem = newTexBuf[i];
 	 newTexBuf[i]->image->image.Data = newTexBuf[i]->bufAddr;
 	 via_free_texture(vmesa, buffers[i]);
-	 insert_at_head( newTexBuf[i], 
-			 &vmesa->tex_image_list[newMemType] );
       }
    }
 
@@ -363,6 +361,8 @@ GLboolean viaSwapOutWork( struct via_context *vmesa )
       target = 64*1024;
    
    for (heap = VIA_MEM_VIDEO; heap <= VIA_MEM_AGP; heap++) {
+      GLuint nr = 0, sz = 0;
+
       foreach_s( s, tmp, &vmesa->tex_image_list[heap] ) {
 	 if (s->lastUsed < vmesa->lastSwap[1]) {
 	    struct via_texture_object *viaObj = 
@@ -378,16 +378,19 @@ GLboolean viaSwapOutWork( struct via_context *vmesa )
 	    viaObj->memType = VIA_MEM_MIXED;
 	 }
 	 else {
-	    if (VIA_DEBUG & DEBUG_TEXTURE)
-	       fprintf(stderr, 
-		       "don't touch tex sz %d, lastUsed %d lastSwap %d\n", 
-		       s->size, s->lastUsed, vmesa->lastSwap[1]);
+	    nr ++;
+	    sz += s->size;
 	 }
 
 	 if (done > target)
 	    return GL_TRUE;
       }
+
+      if (VIA_DEBUG & DEBUG_TEXTURE)
+	 fprintf(stderr, "Heap %d: nr %d tot sz %d\n", heap, nr, sz);
    }
+
+   
    return done != 0;
 }
 
@@ -521,8 +524,8 @@ static GLboolean viaSetTexImages(GLcontext *ctx,
 
       /* Image has to remain resident until the coming fence is retired.
        */
-      move_to_head( viaImage->texMem, 
-		    &vmesa->tex_image_list[viaImage->texMem->memType] );
+      move_to_head( &vmesa->tex_image_list[viaImage->texMem->memType],
+		    viaImage->texMem );
       viaImage->texMem->lastUsed = vmesa->lastBreadcrumbWrite;
 
 

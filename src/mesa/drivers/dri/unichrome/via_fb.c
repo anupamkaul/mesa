@@ -206,7 +206,6 @@ via_release_pending_textures( struct via_context *vmesa )
 	 if (VIA_DEBUG & DEBUG_TEXTURE)
 	    fprintf(stderr, "%s: release tex sz %d lastUsed %x\n",
 		    __FUNCTION__, s->size, s->lastUsed); 
-	 remove_from_list(s);
 	 via_do_free_texture(vmesa, s);
       }
    }
@@ -226,7 +225,6 @@ via_free_texture(struct via_context *vmesa, struct via_tex_buffer *t)
       FREE(t);
    }
    else if (t->index && viaCheckBreadcrumb(vmesa, t->lastUsed)) {
-      remove_from_list(t);
       via_do_free_texture( vmesa, t );
    }
    else {

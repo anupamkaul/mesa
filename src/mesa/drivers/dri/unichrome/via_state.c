@@ -195,14 +195,9 @@ void viaEmitState(struct via_context *vmesa)
 	 OUT_RING( (HC_ParaType_Tex << 16) | (HC_SubType_TexGeneral << 24) );
 
 	 if (texUnit0->Enabled && texUnit1->Enabled) {
-	    if (VIA_DEBUG & DEBUG_TEXTURE) 
-	       fprintf(stderr, "multi texture\n");
-	    nDummyValue = (HC_SubA_HTXSMD << 24) | (1 << 3);
-                
+	    nDummyValue = (HC_SubA_HTXSMD << 24) | (1 << 3);                
 	 }
 	 else {
-	    if (VIA_DEBUG & DEBUG_TEXTURE) 
-	       fprintf(stderr, "single texture\n");
 	    nDummyValue = (HC_SubA_HTXSMD << 24) | 0;
 	 }
 
@@ -227,7 +222,7 @@ void viaEmitState(struct via_context *vmesa)
 	 struct gl_texture_object *texObj = texUnit0->_Current;
 	 struct via_texture_object *t = (struct via_texture_object *)texObj;
 	 GLuint numLevels = t->lastLevel - t->firstLevel + 1;
-	 if (VIA_DEBUG & DEBUG_TEXTURE) {
+	 if (VIA_DEBUG & DEBUG_STATE) {
 	    fprintf(stderr, "texture0 enabled\n");
 	 }		
 	 if (numLevels == 8) {
@@ -354,7 +349,7 @@ void viaEmitState(struct via_context *vmesa)
 	 struct via_texture_object *t = (struct via_texture_object *)texObj;
 	 GLuint numLevels = t->lastLevel - t->firstLevel + 1;
 	 int texunit = (texUnit0->Enabled ? 1 : 0);
-	 if (VIA_DEBUG & DEBUG_TEXTURE) {
+	 if (VIA_DEBUG & DEBUG_STATE) {
 	    fprintf(stderr, "texture1 enabled\n");
 	 }		
 	 if (numLevels == 8) {
