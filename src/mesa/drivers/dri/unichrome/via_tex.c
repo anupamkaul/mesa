@@ -62,7 +62,8 @@ viaChooseTexFormat( GLcontext *ctx, GLint internalFormat,
    case GL_RGBA:
    case GL_COMPRESSED_RGBA:
       if ( format == GL_BGRA ) {
-	 if ( type == GL_UNSIGNED_INT_8_8_8_8_REV ) {
+	 if ( type == GL_UNSIGNED_INT_8_8_8_8_REV ||
+	      type == GL_UNSIGNED_BYTE ) {
 	    return &_mesa_texformat_argb8888;
 	 }
          else if ( type == GL_UNSIGNED_SHORT_4_4_4_4_REV ) {
@@ -72,6 +73,11 @@ viaChooseTexFormat( GLcontext *ctx, GLint internalFormat,
 	    return &_mesa_texformat_argb1555;
 	 }
       }
+      else if ( type == GL_UNSIGNED_BYTE ||
+		type == GL_UNSIGNED_INT_8_8_8_8_REV ||
+		type == GL_UNSIGNED_INT_8_8_8_8 ) {
+	 return &_mesa_texformat_argb8888;
+      }
       return do32bpt ? &_mesa_texformat_argb8888 : &_mesa_texformat_argb4444;
 
    case 3:
@@ -80,13 +86,16 @@ viaChooseTexFormat( GLcontext *ctx, GLint internalFormat,
       if ( format == GL_RGB && type == GL_UNSIGNED_SHORT_5_6_5 ) {
 	 return &_mesa_texformat_rgb565;
       }
+      else if ( type == GL_UNSIGNED_BYTE ) {
+	 return &_mesa_texformat_argb8888;
+      }
       return do32bpt ? &_mesa_texformat_argb8888 : &_mesa_texformat_rgb565;
 
    case GL_RGBA8:
    case GL_RGB10_A2:
    case GL_RGBA12:
    case GL_RGBA16:
-      return do32bpt ? &_mesa_texformat_argb8888 : &_mesa_texformat_argb4444;
+      return &_mesa_texformat_argb8888;
 
    case GL_RGBA4:
    case GL_RGBA2:
@@ -99,7 +108,7 @@ viaChooseTexFormat( GLcontext *ctx, GLint internalFormat,
    case GL_RGB10:
    case GL_RGB12:
    case GL_RGB16:
-      return do32bpt ? &_mesa_texformat_argb8888 : &_mesa_texformat_rgb565;
+      return &_mesa_texformat_argb8888;
 
    case GL_RGB5:
    case GL_RGB4:
@@ -332,16 +341,12 @@ static GLboolean viaSwapInTexObject( struct via_context *vmesa,
 static GLboolean viaIsTexMemLow( struct via_context *vmesa,
 				 GLuint heap )
 {
-#if 1
    struct via_tex_buffer *buf =  via_alloc_texture(vmesa, 512 * 1024, heap );
    if (!buf)
       return GL_TRUE;
    
    via_free_texture(vmesa, buf);
    return GL_FALSE;
-#else
-   return GL_TRUE;
-#endif
 }
 
 
