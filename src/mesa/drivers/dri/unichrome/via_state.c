@@ -841,7 +841,7 @@ get_wrap_mode( GLenum sWrap, GLenum tWrap )
 }
 
 
-static void viaChooseTextureState(GLcontext *ctx) 
+static GLboolean viaChooseTextureState(GLcontext *ctx) 
 {
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
     struct gl_texture_unit *texUnit0 = &ctx->Texture.Unit[0];
@@ -928,7 +928,8 @@ static void viaChooseTextureState(GLcontext *ctx)
 
 	    if (VIA_DEBUG) fprintf(stderr, "texUnit0->EnvMode %x\n",texUnit0->EnvMode);    
 
-	    viaTexCombineState( vmesa, texUnit0->_CurrentCombine, 0 );
+	    if (!viaTexCombineState( vmesa, texUnit0->_CurrentCombine, 0 ))
+	       return GL_FALSE;
         }
 
         if (texUnit1->_ReallyEnabled) {
@@ -986,7 +987,8 @@ static void viaChooseTextureState(GLcontext *ctx)
 	    vmesa->regHTXnMPMD_1 |= get_wrap_mode( texObj->WrapS,
 						   texObj->WrapT );
 
-	    viaTexCombineState( vmesa, texUnit1->_CurrentCombine, 1 );
+	    if (!viaTexCombineState( vmesa, texUnit1->_CurrentCombine, 1 ))
+	       return GL_FALSE;
         }
 	
 	if (VIA_DEBUG) {
@@ -1007,6 +1009,7 @@ static void viaChooseTextureState(GLcontext *ctx)
     }
     if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
     
+    return GL_TRUE;
 }
 
 static void viaChooseColorState(GLcontext *ctx) 
@@ -1533,8 +1536,10 @@ void viaValidateState( GLcontext *ctx )
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
     
     if (vmesa->newState & _NEW_TEXTURE) {
-        viaChooseTextureState(ctx);
-	viaUpdateTextureState(ctx); /* May modify vmesa->Fallback */
+       GLboolean ok = (viaChooseTextureState(ctx) &&
+		       viaUpdateTextureState(ctx));
+
+       FALLBACK(vmesa, VIA_FALLBACK_TEXTURE, !ok);
     }
 
     if (vmesa->newState & _NEW_COLOR)

@@ -408,13 +408,9 @@ static GLboolean viaUpdateTexUnit(GLcontext *ctx, GLuint unit)
     }
 }
 
-void viaUpdateTextureState(GLcontext *ctx)
+GLboolean viaUpdateTextureState(GLcontext *ctx)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
-
-    GLuint ok = (viaUpdateTexUnit(ctx, 0) &&
-		 viaUpdateTexUnit(ctx, 1));
-
-    FALLBACK(vmesa, VIA_FALLBACK_TEXTURE, !ok);
+    return (viaUpdateTexUnit(ctx, 0) &&
+	    viaUpdateTexUnit(ctx, 1));
 }
 
