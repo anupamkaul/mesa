@@ -89,13 +89,13 @@ mgaDestroyTexObj( mgaContextPtr mmesa, mgaTextureObjectPtr t )
  *      been hardware accelerated.
  */
 static void mgaUploadSubImage( mgaContextPtr mmesa,
-			       mgaTextureObjectPtr t, GLint hwlevel )
+			       mgaTextureObjectPtr t, GLint level )
 {
    struct gl_texture_image * texImage;
    unsigned     offset;
    unsigned     texelBytes;
    unsigned     length;
-   const int level = hwlevel + t->firstLevel;
+   const int hwlevel = level - t->firstLevel;
 
 
    if ( (hwlevel < 0) 
@@ -265,7 +265,7 @@ int mgaUploadTexImages( mgaContextPtr mmesa, mgaTextureObjectPtr t )
 	 fprintf(stderr, "[%s:%d] dirty_images[0] = 0x%04x\n",
 		 __FILE__, __LINE__, t->base.dirty_images[0] );
 
-      for (i = 0 ; i <= t->lastLevel ; i++) {
+      for (i = t->firstLevel ; i <= t->lastLevel ; i++) {
 	 if ( (t->base.dirty_images[0] & (1U << i)) != 0 ) {
 	    mgaUploadSubImage( mmesa, t, i );
 	 }

@@ -131,7 +131,7 @@ mgaSetTexImages( mgaContextPtr mmesa,
 
    totalSize = 0;
    for ( i = 0 ; i < numLevels ; i++ ) {
-      const struct gl_texture_image * const texImage = tObj->Image[i];
+      const struct gl_texture_image * const texImage = tObj->Image[i+firstLevel];
 
       if ( (texImage == NULL)
 	   || ((i != 0)
@@ -140,7 +140,7 @@ mgaSetTexImages( mgaContextPtr mmesa,
       }
 
       t->offsets[i] = totalSize;
-      t->base.dirty_images[0] |= (1<<i);
+      t->base.dirty_images[0] |= (1<<(i+firstLevel));
 
       totalSize += ((MAX2( texImage->Width, 8 ) *
                      MAX2( texImage->Height, 8 ) *
@@ -168,7 +168,7 @@ mgaSetTexImages( mgaContextPtr mmesa,
     */
 
    t->setup.texctl |= TMC_tpitchlin_enable;
-   t->setup.texctl |= (baseImage->Width & (2048 - 1)) << TMC_tpitchext_SHIFT;
+   t->setup.texctl |= (width & (2048 - 1)) << TMC_tpitchext_SHIFT;
 
 
    /* G400 specifies the number of mip levels in a strange way.  Since there
