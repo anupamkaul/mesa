@@ -39,6 +39,8 @@ via_alloc_draw_buffer(struct via_context *vmesa, struct via_buffer *buf)
    mem.context = vmesa->hHWContext;
    mem.size = buf->size;
    mem.type = VIA_MEM_VIDEO;
+   mem.offset = 0;
+   mem.index = 0;
 
    if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_ALLOCMEM, &mem)) 
       return GL_FALSE;
@@ -60,6 +62,9 @@ via_free_draw_buffer(struct via_context *vmesa, struct via_buffer *buf)
    mem.context = vmesa->hHWContext;
    mem.index = buf->index;
    mem.type = VIA_MEM_VIDEO;
+   mem.offset = buf->offset;
+   mem.size = buf->size;
+
    ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &mem);
    buf->map = NULL;
 }
@@ -75,7 +80,9 @@ via_alloc_dma_buffer(struct via_context *vmesa)
    /*
     * Check whether AGP DMA has been initialized.
     */
+   memset(&init, 0, sizeof(init));
    init.func = VIA_DMA_INITIALIZED;
+
    vmesa->useAgp = 
      ( 0 == drmCommandWrite(vmesa->driFd, DRM_VIA_DMA_INIT, 
 			     &init, sizeof(init)));
@@ -121,6 +128,8 @@ via_alloc_texture(struct via_context *vmesa,
       fb.context = vmesa->hHWContext;
       fb.size = t->size;
       fb.type = t->memType;
+      fb.offset = 0;
+      fb.index = 0;
 
       if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_ALLOCMEM, &fb) != 0 || 
 	  fb.index == 0) 
@@ -172,7 +181,9 @@ via_do_free_texture(struct via_context *vmesa, struct via_tex_buffer *t)
 
    fb.context = vmesa->hHWContext;
    fb.index = t->index;
+   fb.offset = t->offset;
    fb.type = t->memType;
+   fb.size = t->size;
 
    if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
       fprintf(stderr, "via_free_texture fail\n");
