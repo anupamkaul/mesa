@@ -486,7 +486,6 @@ static GLboolean viaSetTexImages(GLcontext *ctx,
    
    if (viaObj->memType == VIA_MEM_MIXED ||
        viaObj->memType == VIA_MEM_SYSTEM) {
-      fprintf(stderr, "swapin\n");
       if (!viaSwapInTexObject(vmesa, viaObj)) {
  	 if (VIA_DEBUG & DEBUG_TEXTURE) 
 	    if (!vmesa->thrashing)

@@ -393,7 +393,6 @@ static GLboolean viaCheckIdle( struct via_context *vmesa )
    if ((vmesa->regEngineStatus[0] & 0xFFFEFFFF) == 0x00020000) {
       return GL_TRUE;
    }
-   fprintf(stderr, "*");
    return GL_FALSE;
 }
 
