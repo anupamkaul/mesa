@@ -170,7 +170,6 @@ typedef enum {
 	OPCODE_BITMAP,
 	OPCODE_BLEND_COLOR,
 	OPCODE_BLEND_EQUATION,
-	OPCODE_BLEND_EQUATION_SEPARATE,
 	OPCODE_BLEND_FUNC_SEPARATE,
         OPCODE_CALL_LIST,
         OPCODE_CALL_LIST_OFFSET,
@@ -629,7 +628,6 @@ void _mesa_init_lists( void )
       InstSize[OPCODE_BITMAP] = 8;
       InstSize[OPCODE_BLEND_COLOR] = 5;
       InstSize[OPCODE_BLEND_EQUATION] = 2;
-      InstSize[OPCODE_BLEND_EQUATION_SEPARATE] = 3;
       InstSize[OPCODE_BLEND_FUNC_SEPARATE] = 5;
       InstSize[OPCODE_CALL_LIST] = 2;
       InstSize[OPCODE_CALL_LIST_OFFSET] = 3;
@@ -954,23 +952,6 @@ static void GLAPIENTRY save_BlendEquation( GLenum mode )
    }
    if (ctx->ExecuteFlag) {
       (*ctx->Exec->BlendEquation)( mode );
-   }
-}
-
-
-static void GLAPIENTRY save_BlendEquationSeparateEXT( GLenum modeRGB,
-						      GLenum modeA )
-{
-   GET_CURRENT_CONTEXT(ctx);
-   Node *n;
-   ASSERT_OUTSIDE_SAVE_BEGIN_END_AND_FLUSH(ctx);
-   n = ALLOC_INSTRUCTION( ctx, OPCODE_BLEND_EQUATION_SEPARATE, 2 );
-   if (n) {
-      n[1].e = modeRGB;
-      n[2].e = modeA;
-   }
-   if (ctx->ExecuteFlag) {
-      (*ctx->Exec->BlendEquationSeparateEXT)( modeRGB, modeA );
    }
 }
 
@@ -4128,7 +4109,7 @@ save_PixelTexGenParameterfvSGIS(GLenum target, const GLfloat *value)
 /*
  * GL_NV_vertex_program
  */
-#if FEATURE_NV_vertex_program
+#if FEATURE_NV_vertex_program || FEATURE_ARB_vertex_program || FEATURE_ARB_fragment_program
 static void GLAPIENTRY
 save_BindProgramNV(GLenum target, GLuint id)
 {
@@ -4144,7 +4125,9 @@ save_BindProgramNV(GLenum target, GLuint id)
       (*ctx->Exec->BindProgramNV)( target, id );
    }
 }
+#endif /* FEATURE_NV_vertex_program || FEATURE_ARB_vertex_program || FEATURE_ARB_fragment_program */
 
+#if FEATURE_NV_vertex_program
 static void GLAPIENTRY
 save_ExecuteProgramNV(GLenum target, GLuint id, const GLfloat *params)
 {
@@ -5285,9 +5268,6 @@ execute_list( GLcontext *ctx, GLuint list )
 	 case OPCODE_BLEND_EQUATION:
 	    (*ctx->Exec->BlendEquation)( n[1].e );
 	    break;
-	 case OPCODE_BLEND_EQUATION_SEPARATE:
-	    (*ctx->Exec->BlendEquationSeparateEXT)( n[1].e, n[2].e );
-	    break;
 	 case OPCODE_BLEND_FUNC_SEPARATE:
 	    (*ctx->Exec->BlendFuncSeparateEXT)(n[1].e, n[2].e, n[3].e, n[4].e);
 	    break;
@@ -5874,10 +5854,12 @@ execute_list( GLcontext *ctx, GLuint list )
 	 case OPCODE_WINDOW_POS_ARB: /* GL_ARB_window_pos */
             (*ctx->Exec->WindowPos3fMESA)( n[1].f, n[2].f, n[3].f );
 	    break;
-#if FEATURE_NV_vertex_program
+#if FEATURE_NV_vertex_program || FEATURE_ARB_vertex_program || FEATURE_ARB_fragment_program
          case OPCODE_BIND_PROGRAM_NV: /* GL_NV_vertex_program */
             (*ctx->Exec->BindProgramNV)( n[1].e, n[2].ui );
             break;
+#endif
+#if FEATURE_NV_vertex_program
          case OPCODE_EXECUTE_PROGRAM_NV:
             {
                GLfloat v[4];
@@ -7448,7 +7430,7 @@ _mesa_init_dlist_table( struct _glapi_table *table, GLuint tableSize )
    table->EnableVertexAttribArrayARB = _mesa_EnableVertexAttribArrayARB;
    table->DisableVertexAttribArrayARB = _mesa_DisableVertexAttribArrayARB;
    table->ProgramStringARB = save_ProgramStringARB;
-   table->BindProgramNV = _mesa_BindProgram;
+   table->BindProgramNV = save_BindProgramNV;
    table->DeleteProgramsNV = _mesa_DeletePrograms;
    table->GenProgramsNV = _mesa_GenPrograms;
    table->IsProgramNV = _mesa_IsProgram;
@@ -7487,9 +7469,6 @@ _mesa_init_dlist_table( struct _glapi_table *table, GLuint tableSize )
    table->MapBufferARB = _mesa_MapBufferARB;
    table->UnmapBufferARB = _mesa_UnmapBufferARB;
 #endif
-
-   /* 299. GL_EXT_blend_equation_separate */
-   table->BlendEquationSeparateEXT = save_BlendEquationSeparateEXT;
 }
 
 
