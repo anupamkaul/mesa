@@ -1,4 +1,4 @@
-/* $Id: t_vb_fog.c,v 1.17.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_vb_fog.c,v 1.17.2.3 2002/10/31 15:32:41 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -242,7 +242,7 @@ static void free_fog_data( struct gl_pipeline_stage *stage )
 
 struct gl_pipeline_stage *_tnl_fog_stage( GLcontext *ctx )
 {
-   stage = CALLOC_STRUCT( gl_pipeline_stage );
+   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
 
    stage->name = "fog";
    stage->recheck = _NEW_FOG;

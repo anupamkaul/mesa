@@ -33,42 +33,50 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "mtypes.h"
 #include "colormac.h"
 #include "simple_list.h"
-#include "vtxfmt.h"
 
-#include "tnl_vtx_api.h"
+#include "t_context.h"
+#include "t_vtx_api.h"
 
-/* Fallback versions of all the entrypoints for situations where
- * codegen isn't available.  This is slowed significantly by all the
- * gumph necessary to get to the tnl pointer.
+
+/* Versions of all the entrypoints for situations where codegen isn't
+ * available.  This is slowed significantly by all the gumph necessary
+ * to get to the tnl pointer.
+ *
+ * Note: Only one size for each attribute may be active at once.
+ * Eg. if Color3f is installed/active, then Color4f may not be, even
+ * if the vertex actually contains 4 color coordinates.  This is
+ * because the 3f version won't otherwise set color[3] to 1.0 -- this
+ * is the job of the chooser function when switching between Color4f
+ * and Color3f.
  */
-#define ATTRF( ATTR, N, A, B, C, D )				\
-{								\
-   GET_CURRENT_CONTEXT( ctx );					\
-   TNLcontext *tnl = TNL_CONTEXT(ctx);				\
-								\
-   if ((ATTR) == 0) {						\
-      int i;							\
-								\
-      if (N>0) tnl->vbptr[0].f = A;				\
-      if (N>1) tnl->vbptr[1].f = B;				\
-      if (N>2) tnl->vbptr[2].f = C;				\
-      if (N>3) tnl->vbptr[3].f = D;				\
-								\
-      for (i = N; i < tnl->vertex_size; i++)			\
-	 *tnl->vbptr[i].i = tnl->vertex[i].i;			\
-								\
-      tnl->vbptr += tnl->vertex_size;				\
-								\
-      if (--tnl->counter == 0)					\
-	 tnl->notify();						\
-   }								\
+#define ATTRF( ATTR, N, A, B, C, D )		\
+{						\
+   GET_CURRENT_CONTEXT( ctx );			\
+   TNLcontext *tnl = TNL_CONTEXT(ctx);		\
+						\
+   if ((ATTR) == 0) {				\
+      int i;					\
+						\
+      if (N>0) tnl->vbptr[0].f = A;		\
+      if (N>1) tnl->vbptr[1].f = B;		\
+      if (N>2) tnl->vbptr[2].f = C;		\
+      if (N>3) tnl->vbptr[3].f = D;		\
+						\
+      for (i = N; i < tnl->vertex_size; i++)	\
+	 *tnl->vbptr[i].i = tnl->vertex[i].i;	\
+						\
+      tnl->vbptr += tnl->vertex_size;		\
+						\
+      if (--tnl->counter == 0)			\
+	 tnl->notify();				\
+   }						\
    else {					\
-      GLfloat *dest = tnl->attrptr[ATTR];			\
-      if (N>0) dest[0] = A;					\
-      if (N>1) dest[1] = B;					\
-      if (N>2) dest[2] = C;					\
-      if (N>3) dest[3] = D;					\
-   }								\
+      GLfloat *dest = tnl->attrptr[ATTR];	\
+      if (N>0) dest[0] = A;			\
+      if (N>1) dest[1] = B;			\
+      if (N>2) dest[2] = C;			\
+      if (N>3) dest[3] = D;			\
+   }						\
 }
 
 #define ATTR4F( ATTR, A, B, C, D )  ATTRF( ATTR, 4, A, B, C, D )
@@ -119,7 +127,9 @@ static void attrib_##ATTRIB##_4_1( const GLfloat *v )		\
    ATTR4F( ATTRIB, v[0], v[1], v[2], v[3] );			\
 }
 
-/* Generate a lot of functions:
+/* Generate a lot of functions.  These are the actual worker
+ * functions, which are equivalent to those generated via codegen
+ * elsewhere.
  */
 ATTRS( 0 )
 ATTRS( 1 )
@@ -139,34 +149,82 @@ ATTRS( 14 )
 ATTRS( 15 )
 
 
+/* The functions defined below (CHOOSERS) are the initial state for
+ * dispatch entries for all entrypoints except those requiring
+ * double-dispatch (multitexcoord, material, vertexattrib).
+ *
+ * These may provoke a vertex-upgrade where the existing vertex buffer
+ * is flushed and a new element is added to the active vertex layout.
+ * This can happen between begin/end pairs.
+ */
+static float id[4] = { 0, 0, 0, 1 };
+
+static void _tnl_fixup_vertex( GLcontext *ctx, GLuint attr, GLuint sz )
+{
+   if (tnl->vertex_present[ATTR] < SZ) {
+      tnl_upgrade_vertex( tnl, ATTR, SZ );
+   }
+   else {
+      int i;
+
+      /* Just clean the bits that won't be touched otherwise:
+       */
+      for (i = SZ ; i < tnl->vertex_present[ATTR] ; i++)
+	 tnl->attrptr[ATTR][i] = id[i];
+
+      if (ctx->Driver.NeedFlush & FLUSH_UPDATE_CURRENT) {
+	 _tnl_reset_attr_dispatch_tab( ctx );
+	 _mesa_install_exec_vtxfmt( ctx, &tnl->chooser );
+      }
+   }
+}
+
+
 static void *lookup_or_generate( GLuint attr, GLuint sz, GLuint v,
 				 void *fallback_attr_func )
 { 
    GET_CURRENT_CONTEXT( ctx ); 
    TNLcontext *tnl = TNL_CONTEXT(ctx); 
+   struct dynfn *dfn;
    void *ptr = 0;
+   int isvertex = (attr == 0);
 
+   /* This will remove any installed handlers for attr with different
+    * sz, will flush, copy and expand the copied vertices if sz won't
+    * fit in the current vertex, or will clean the current vertex if
+    * it already has this attribute in a larger size.
+    */
    if (tnl->vertex_active[attr] != sz)
       tnl_fixup_vertex( ctx, attr, sz );
 
-   if (ptr == 0)
-      ptr = tnl->generated[attr][sz-1][v];
-   
-   if (ptr == 0 && attr == 0)
-      ptr = tnl->codegen.vertex[sz-1][v]( ctx );
+   if (isvertex) 
+      key = tnl->vertex_size;
+   else
+      key = (GLuint)tnl->attrptr[attr];
 
-   if (ptr == 0 && attr != 0)
-      ptr = tnl->codegen.attr[sz-1][v]( ctx, attr );
+   for (dfn = tnl->generated[sz][v][isvertex] ; dfn ; dfn = dfn->next) {
+      if (dfn->key == key) {
+	 ptr = dfn->code;
+	 break;
+      }
+   }
+
+   if (ptr == 0) {
+      dfn = tnl->codegen[sz][v][isvertex]( ctx, key );
+      if (dfn) {
+	 ptr = dfn->code;
+	 dfn->next = tnl->generated[sz][v][isvertex];
+	 tnl->generated[sz][v][isvertex] = dfn;
+      }
+   }
 
    if (ptr == 0)
       ptr = fallback_attr_func;
 
    ctx->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;
 
-   tnl->tabf[v][sz-1][attr] = ptr;
-
    if (dispatch_entry[attr][sz-1][v]) 
-      ((void **)ctx->Exec)[dispatch_entry[attr][sz-1][v]] = ptr;
+      ((void **)tnl->Exec)[dispatch_entry[attr][sz-1][v]] = ptr;
 
    return ptr;
 }
@@ -177,13 +235,13 @@ static void *lookup_or_generate( GLuint attr, GLuint sz, GLuint v,
  * table and in the second-level dispatch table for MultiTexCoord,
  * AttribNV, etc.
  */
-#define CHOOSE( FNTYPE, ATTR, SZ, V, ARGS1, ARGS2 )	\
-static void choose_##ATTR##_##SZ##_##V ARGS1		\
-{							\
-   void *ptr = choose(ctx, ATTR, SZ, V, 		\
-		      attrib_##ATTR##_##SZ##_##V );	\
-   							\
-   (FN_TYPE) ptr ARGS2;					\
+#define CHOOSE( FNTYPE, ATTR, SZ, V, ARGS1, ARGS2 )		\
+static void choose_##ATTR##_##SZ##_##V ARGS1			\
+{								\
+   void *ptr = lookup_or_generate(ctx, ATTR, SZ, V,		\
+		                  attrib_##ATTR##_##SZ##_##V );	\
+								\
+   (FN_TYPE) ptr ARGS2;						\
 }
 
 #define CHOOSERS( ATTR )						\
@@ -192,9 +250,10 @@ CHOOSE( ATTR, 2, 1, pfv, (const GLfloat *v), (v))			\
 CHOOSE( ATTR, 3, 1, pfv, (const GLfloat *v), (v))			\
 CHOOSE( ATTR, 4, 1, pfv, (const GLfloat *v), (v))			\
 CHOOSE( ATTR, 1, 0, p1f, (GLfloat a), (a))				\
-CHOOSE( ATTR, 2, 0, p2f, (GLfloat a, GLfloat b), (a,b))		\
-CHOOSE( ATTR, 3, 0, p3f, (GLfloat a, GLfloat c), (a,b,c))		\
-CHOOSE( ATTR, 4, 0, p4f, (GLfloat a, GLfloat c,GLfloat d), (a,b,c,d))
+CHOOSE( ATTR, 2, 0, p2f, (GLfloat a, GLfloat b), (a,b))	        	\
+CHOOSE( ATTR, 3, 0, p3f, (GLfloat a, GLfloat b, GLfloat c), (a,b,c))	\
+CHOOSE( ATTR, 4, 0, p4f, (GLfloat a, GLfloat b, GLfloat c, GLfloat d),  \
+       (a,b,c,d))
 
 
 CHOOSERS( 0 )
@@ -213,10 +272,6 @@ CHOOSERS( 12 )
 CHOOSERS( 13 )
 CHOOSERS( 14 )
 CHOOSERS( 15 )
-
-
-
-
 
 
 /* Second level dispatch table for MultiTexCoord, Material and 
@@ -333,7 +388,7 @@ static void tnl_MultiTexCoord3f( GLenum target, GLfloat s, GLfloat t,
 
 static void tnl_MultiTexCoord3fv( GLenum target, const GLfloat *v )
 {
-   GLuint attr = (target & 0x7);
+   GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
    DISPATCH_ATTR3FV( attr, v );
 }
 
@@ -486,7 +541,7 @@ static void _tnl_Materialfv( GLenum face, GLenum pname,
       MAT( VERT_ATTRIB_MAT_FRONT_SHININESS, 1, face, params );
       break;
    case GL_COLOR_INDEXES:
-      MAT( VERT_ATTRIB_MAT_FRONT_INDEXES, 3, face, params ); /* ??? */
+      MAT( VERT_ATTRIB_MAT_FRONT_INDEXES, 3, face, params );
       break;
    case GL_AMBIENT_AND_DIFFUSE:
       MAT( VERT_ATTRIB_MAT_FRONT_AMBIENT, 4, face, params );
@@ -501,37 +556,6 @@ static void _tnl_Materialfv( GLenum face, GLenum pname,
 
 
 
-
-
-/* These functions are the initial state for dispatch entries for all
- * entrypoints except those requiring double-dispatch (multitexcoord,
- * material, vertexattrib).
- *
- * These may provoke a vertex-upgrade where the existing vertex buffer
- * is flushed and a new element is added to the active vertex layout.
- * This can happen between begin/end pairs.
- */
-static float id[4] = { 0, 0, 0, 1 };
-
-static void _tnl_fixup_vertex( GLcontext *ctx, GLuint attr, GLuint sz )
-{
-   if (tnl->vertex_present[ATTR] < SZ) {
-      tnl_upgrade_vertex( tnl, ATTR, SZ );
-   }
-   else {
-      int i;
-
-      /* Just clean the bits that won't be touched otherwise:
-       */
-      for (i = SZ ; i < tnl->vertex_present[ATTR] ; i++)
-	 tnl->attrptr[ATTR][i] = id[i];
-
-      if (ctx->Driver.NeedFlush & FLUSH_UPDATE_CURRENT) {
-	 _tnl_reset_attr_dispatch_tab( ctx );
-	 _mesa_install_exec_vtxfmt( ctx, &tnl->chooser );
-      }
-   }
-}
 
 
 
@@ -595,52 +619,65 @@ static void _tnl_EvalPoint2( GLint i, GLint j )
 
 
 
-
-void _tnl_InitVtxfmtChoosers( GLvertexformat *vfmt )
+void _tnl_InitDispatch( struct _glapi_table *tab )
 {
+   GLint i;
+   
+   /* Most operations boil down to error/transition behaviour.
+    * However if we transition eagerly, all that's needed is a single
+    * 'error' operation.  This will do for now, but requires that the
+    * old 'flush' stuff lives on in the state functions, and is
+    * wasteful if swapping is expensive (threads?).
+    */
+   for (i = 0 ; i < sizeof(tab)/sizeof(void*) ; i++) 
+      ((int *)tab)[i] = op_error;
+   
 
+   tab->Color3f = choose_Color3f;
+   tab->Color3fv = choose_Color3fv;
+   tab->Color4f = choose_Color4f;
+   tab->Color4fv = choose_Color4fv;
+   tab->SecondaryColor3fEXT = choose_SecondaryColor3fEXT;
+   tab->SecondaryColor3fvEXT = choose_SecondaryColor3fvEXT;
+   tab->MultiTexCoord1fARB = dd_MultiTexCoord1f;
+   tab->MultiTexCoord1fvARB = dd_MultiTexCoord1fv;
+   tab->MultiTexCoord2fARB = dd_MultiTexCoord2f;
+   tab->MultiTexCoord2fvARB = dd_MultiTexCoord2fv;
+   tab->MultiTexCoord3fARB = dd_MultiTexCoord3f;
+   tab->MultiTexCoord3fvARB = dd_MultiTexCoord3fv;
+   tab->MultiTexCoord4fARB = dd_MultiTexCoord4f;
+   tab->MultiTexCoord4fvARB = dd_MultiTexCoord4fv;
+   tab->Normal3f = choose_Normal3f;
+   tab->Normal3fv = choose_Normal3fv;
+   tab->TexCoord1f = choose_TexCoord1f;
+   tab->TexCoord1fv = choose_TexCoord1fv;
+   tab->TexCoord2f = choose_TexCoord2f;
+   tab->TexCoord2fv = choose_TexCoord2fv;
+   tab->TexCoord3f = choose_TexCoord3f;
+   tab->TexCoord3fv = choose_TexCoord3fv;
+   tab->TexCoord4f = choose_TexCoord4f;
+   tab->TexCoord4fv = choose_TexCoord4fv;
+   tab->Vertex2f = choose_Vertex2f;
+   tab->Vertex2fv = choose_Vertex2fv;
+   tab->Vertex3f = choose_Vertex3f;
+   tab->Vertex3fv = choose_Vertex3fv;
+   tab->Vertex4f = choose_Vertex4f;
+   tab->Vertex4fv = choose_Vertex4fv;
+   tab->FogCoordfvEXT = choose_FogCoordfvEXT;
+   tab->FogCoordfEXT = choose_FogCoordfEXT;
+   tab->EdgeFlag = choose_EdgeFlag;
+   tab->EdgeFlagv = choose_EdgeFlagv;
+   tab->Indexi = choose_Indexi;
+   tab->Indexiv = choose_Indexiv;
+   tab->EvalCoord1f = choose_EvalCoord1f;
+   tab->EvalCoord1fv = choose_EvalCoord1fv;
+   tab->EvalCoord2f = choose_EvalCoord2f;
+   tab->EvalCoord2fv = choose_EvalCoord2fv;
+   tab->Materialfv = dd_Materialfv;
 
-   vfmt->Color3f = choose_Color3f;
-   vfmt->Color3fv = choose_Color3fv;
-   vfmt->Color4f = choose_Color4f;
-   vfmt->Color4fv = choose_Color4fv;
-   vfmt->SecondaryColor3fEXT = choose_SecondaryColor3fEXT;
-   vfmt->SecondaryColor3fvEXT = choose_SecondaryColor3fvEXT;
-   vfmt->MultiTexCoord1fARB = dd_MultiTexCoord1f;
-   vfmt->MultiTexCoord1fvARB = dd_MultiTexCoord1fv;
-   vfmt->MultiTexCoord2fARB = dd_MultiTexCoord2f;
-   vfmt->MultiTexCoord2fvARB = dd_MultiTexCoord2fv;
-   vfmt->MultiTexCoord3fARB = dd_MultiTexCoord3f;
-   vfmt->MultiTexCoord3fvARB = dd_MultiTexCoord3fv;
-   vfmt->MultiTexCoord4fARB = dd_MultiTexCoord4f;
-   vfmt->MultiTexCoord4fvARB = dd_MultiTexCoord4fv;
-   vfmt->Normal3f = choose_Normal3f;
-   vfmt->Normal3fv = choose_Normal3fv;
-   vfmt->TexCoord1f = choose_TexCoord1f;
-   vfmt->TexCoord1fv = choose_TexCoord1fv;
-   vfmt->TexCoord2f = choose_TexCoord2f;
-   vfmt->TexCoord2fv = choose_TexCoord2fv;
-   vfmt->TexCoord3f = choose_TexCoord3f;
-   vfmt->TexCoord3fv = choose_TexCoord3fv;
-   vfmt->TexCoord4f = choose_TexCoord4f;
-   vfmt->TexCoord4fv = choose_TexCoord4fv;
-   vfmt->Vertex2f = choose_Vertex2f;
-   vfmt->Vertex2fv = choose_Vertex2fv;
-   vfmt->Vertex3f = choose_Vertex3f;
-   vfmt->Vertex3fv = choose_Vertex3fv;
-   vfmt->Vertex4f = choose_Vertex4f;
-   vfmt->Vertex4fv = choose_Vertex4fv;
-   vfmt->FogCoordfvEXT = choose_FogCoordfvEXT;
-   vfmt->FogCoordfEXT = choose_FogCoordfEXT;
-   vfmt->EdgeFlag = choose_EdgeFlag;
-   vfmt->EdgeFlagv = choose_EdgeFlagv;
-   vfmt->Indexi = choose_Indexi;
-   vfmt->Indexiv = choose_Indexiv;
-   vfmt->EvalCoord1f = choose_EvalCoord1f;
-   vfmt->EvalCoord1fv = choose_EvalCoord1fv;
-   vfmt->EvalCoord2f = choose_EvalCoord2f;
-   vfmt->EvalCoord2fv = choose_EvalCoord2fv;
-   vfmt->Materialfv = dd_Materialfv;
+   tab->ArrayElement = _ae_loopback_array_elt;	        /* generic helper */
+   tab->Begin = _tnl_Begin;
+   tab->End = _tnl_End;
 }
 
 
@@ -652,22 +689,31 @@ static struct dynfn *codegen_noop( struct _vb *vb, int key )
 
 void _tnl_InitCodegen( struct dfn_generators *gen )
 {
-   gen->attr[0][1] = codegen_noop;
-   gen->attr[0][0] = codegen_noop;
-   gen->attr[1][1] = codegen_noop;
-   gen->attr[1][0] = codegen_noop;
-   gen->attr[2][1] = codegen_noop;
-   gen->attr[2][0] = codegen_noop;
-   gen->attr[3][1] = codegen_noop;
-   gen->attr[3][0] = codegen_noop;
+   int sz, v, z;
 
-   gen->vertex[1][1] = codegen_noop;
-   gen->vertex[1][0] = codegen_noop;
-   gen->vertex[2][1] = codegen_noop;
-   gen->vertex[2][0] = codegen_noop;
-   gen->vertex[3][1] = codegen_noop;
-   gen->vertex[3][0] = codegen_noop;
-   
+   /* attr[n][v] 
+    * vertex[n][v]
+    *
+    * Generated functions parameterized by:
+    *    nr     1..4
+    *    v      y/n
+    *    vertex y/n
+    *
+    * Vertex functions also parameterized by:
+    *    vertex_size
+    *  
+    * Attr functions also parameterized by:
+    *    pointer   (destination to receive data)
+    */
+   for (sz = 1 ; sz < 5 ; sz++) {
+      for (v = 0 ; v < 2 ; v++) {
+	 for (z = 0 ; z < 2 ; z++) {
+	    tnl->codegen[sz][v][z] = codegen_noop;
+	    tnl->generated[sz][v][z] = 0;
+	 }
+      }
+   }
+
 
    if (!getenv("MESA_NO_CODEGEN")) {
 #if defined(USE_X86_ASM)
@@ -683,5 +729,25 @@ void _tnl_InitCodegen( struct dfn_generators *gen )
 
 #if defined(USE_SPARC_ASM)
 #endif
+   }
+}
+
+
+void _tnl_DestroyCodegen( GLcontext *ctx )
+{
+   int sz, v, z;
+   struct dynfn *dfn, next;
+
+   for (sz = 1 ; sz < 5 ; sz++) {
+      for (v = 0 ; v < 2 ; v++) {
+	 for (z = 0 ; z < 2 ; z++) {
+	    dfn = tnl->generated[sz][v][z];
+	    while (dfn) {
+	       next = dfn->next;
+	       FREE(dfn);
+	       dfn = next;
+	    }
+	 }
+      }
    }
 }

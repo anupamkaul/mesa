@@ -94,7 +94,7 @@ static GLboolean discreet_gl_prim[GL_POLYGON+1] = {
    0,				/* 9 poly */
 };
 
-/* Optimize the primitive list:  ONLY FOR EXECUTE ATM
+/* Optimize the primitive list:  
  */
 static void optimize_prims( TNLcontext *tnl )
 {
@@ -260,7 +260,8 @@ static void wrap_buffer( void )
       _mesa_debug(NULL, "%s %d\n", __FUNCTION__, 
 	      tnl->initial_counter - tnl->counter);
 
-   /* Don't deal with parity.  *** WONT WORK FOR COMPILE
+#if 0
+   /* Don't deal with parity.  
     */
    if ((((tnl->initial_counter - tnl->counter) -  
 	 tnl->primlist[tnl->nrprims].start) & 1)) {
@@ -268,6 +269,7 @@ static void wrap_buffer( void )
       tnl->initial_counter++;
       return;
    }
+#endif
 
    /* Copy vertices out of dma:
     */
@@ -425,6 +427,17 @@ static void _tnl_ValidateVtxfmt( GLcontext *ctx )
 }
 
 
+static void _tnl_transition_Begin( GLenum mode )
+{
+   if (ctx->NewState) 
+      _mesa_update_state( ctx );
+
+   if (tnl->recheck) 
+      _tnl_ValidateVtxfmt( ctx );
+
+   ctx->CurrentDispatch = tnl->Exec;
+   ctx->CurrentDispatch->Begin( mode );
+}
 
 
 
@@ -448,12 +461,6 @@ static void _tnl_Begin( GLenum mode )
       return;
    }
    
-   if (ctx->NewState) 
-      _mesa_update_state( ctx );
-
-   if (tnl->recheck) 
-      _tnl_ValidateVtxfmt( ctx );
-
    if (tnl->dma.flush && tnl->counter < 12) {
       if (MESA_VERBOSE & DEBUG_VFMT)
 	 _mesa_debug(NULL, "%s: flush almost-empty buffers\n", __FUNCTION__);
@@ -536,97 +543,22 @@ static void _tnl_FlushVertices( GLcontext *ctx, GLuint flags )
  */
 
 
-static void _tnl_InitVtxfmt( GLcontext *ctx )
+static void _tnl_InitVtx( GLcontext *ctx )
 {
-   GLvertexformat *vfmt = &(tnl->vtxfmt);
 
-   MEMSET( vfmt, 0, sizeof(GLvertexformat) );
-
-   /* Hook in chooser functions for codegen, etc:
-    */
-   _tnl_InitVtxfmtChoosers( vfmt );
-
-   /* Handled fully in supported states, but no codegen:
-    */
-   vfmt->ArrayElement = _ae_loopback_array_elt;	        /* generic helper */
-   vfmt->Rectf = _mesa_noop_Rectf;			/* generic helper */
-   vfmt->Begin = _tnl_Begin;
-   vfmt->End = _tnl_End;
    
    tnl->context = ctx;
    tnl->tnl = TNL_CONTEXT(ctx);
    tnl->prim = &ctx->Driver.CurrentExecPrimitive;
    tnl->primflags = 0;
 
-   make_empty_list( &tnl->dfn_cache.Vertex2f );
-   make_empty_list( &tnl->dfn_cache.Vertex2fv );
-   make_empty_list( &tnl->dfn_cache.Vertex3f );
-   make_empty_list( &tnl->dfn_cache.Vertex3fv );
-   make_empty_list( &tnl->dfn_cache.Color4ub );
-   make_empty_list( &tnl->dfn_cache.Color4ubv );
-   make_empty_list( &tnl->dfn_cache.Color3ub );
-   make_empty_list( &tnl->dfn_cache.Color3ubv );
-   make_empty_list( &tnl->dfn_cache.Color4f );
-   make_empty_list( &tnl->dfn_cache.Color4fv );
-   make_empty_list( &tnl->dfn_cache.Color3f );
-   make_empty_list( &tnl->dfn_cache.Color3fv );
-   make_empty_list( &tnl->dfn_cache.SecondaryColor3fEXT );
-   make_empty_list( &tnl->dfn_cache.SecondaryColor3fvEXT );
-   make_empty_list( &tnl->dfn_cache.SecondaryColor3ubEXT );
-   make_empty_list( &tnl->dfn_cache.SecondaryColor3ubvEXT );
-   make_empty_list( &tnl->dfn_cache.Normal3f );
-   make_empty_list( &tnl->dfn_cache.Normal3fv );
-   make_empty_list( &tnl->dfn_cache.TexCoord2f );
-   make_empty_list( &tnl->dfn_cache.TexCoord2fv );
-   make_empty_list( &tnl->dfn_cache.TexCoord1f );
-   make_empty_list( &tnl->dfn_cache.TexCoord1fv );
-   make_empty_list( &tnl->dfn_cache.MultiTexCoord2fARB );
-   make_empty_list( &tnl->dfn_cache.MultiTexCoord2fvARB );
-   make_empty_list( &tnl->dfn_cache.MultiTexCoord1fARB );
-   make_empty_list( &tnl->dfn_cache.MultiTexCoord1fvARB );
-
-   _tnl_InitCodegen( &tnl->codegen );
-}
-
-static void free_funcs( struct dynfn *l )
-{
-   struct dynfn *f, *tmp;
-   foreach_s (f, tmp, l) {
-      remove_from_list( f );
-      ALIGN_FREE( f->code );
-      FREE( f );
-   }
+   _tnl_InitCodegen( ctx );
 }
 
 
-static void _tnl_DestroyVtxfmt( GLcontext *ctx )
+
+static void _tnl_DestroyVtx( GLcontext *ctx )
 {
-   count_funcs();
-   free_funcs( &tnl->dfn_cache.Vertex2f );
-   free_funcs( &tnl->dfn_cache.Vertex2fv );
-   free_funcs( &tnl->dfn_cache.Vertex3f );
-   free_funcs( &tnl->dfn_cache.Vertex3fv );
-   free_funcs( &tnl->dfn_cache.Color4ub );
-   free_funcs( &tnl->dfn_cache.Color4ubv );
-   free_funcs( &tnl->dfn_cache.Color3ub );
-   free_funcs( &tnl->dfn_cache.Color3ubv );
-   free_funcs( &tnl->dfn_cache.Color4f );
-   free_funcs( &tnl->dfn_cache.Color4fv );
-   free_funcs( &tnl->dfn_cache.Color3f );
-   free_funcs( &tnl->dfn_cache.Color3fv );
-   free_funcs( &tnl->dfn_cache.SecondaryColor3ubEXT );
-   free_funcs( &tnl->dfn_cache.SecondaryColor3ubvEXT );
-   free_funcs( &tnl->dfn_cache.SecondaryColor3fEXT );
-   free_funcs( &tnl->dfn_cache.SecondaryColor3fvEXT );
-   free_funcs( &tnl->dfn_cache.Normal3f );
-   free_funcs( &tnl->dfn_cache.Normal3fv );
-   free_funcs( &tnl->dfn_cache.TexCoord2f );
-   free_funcs( &tnl->dfn_cache.TexCoord2fv );
-   free_funcs( &tnl->dfn_cache.TexCoord1f );
-   free_funcs( &tnl->dfn_cache.TexCoord1fv );
-   free_funcs( &tnl->dfn_cache.MultiTexCoord2fARB );
-   free_funcs( &tnl->dfn_cache.MultiTexCoord2fvARB );
-   free_funcs( &tnl->dfn_cache.MultiTexCoord1fARB );
-   free_funcs( &tnl->dfn_cache.MultiTexCoord1fvARB );
+   _tnl_DestroyCodegen( ctx );
 }
 
