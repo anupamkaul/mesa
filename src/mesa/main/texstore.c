@@ -2066,14 +2066,14 @@ _mesa_texstore_rgba_float16(STORE_PARAMS)
  * Check if an unpack PBO is active prior to fetching a texture image.
  * If so, do bounds checking and map the buffer into main memory.
  * Any errors detected will be recorded.
- * The caller _must_ call unmap_teximage_pbo() too!
+ * The caller _must_ call _mesa_unmap_teximage_pbo() too!
  */
-static const GLvoid *
-validate_pbo_teximage(GLcontext *ctx, GLuint dimensions,
-                      GLsizei width, GLsizei height, GLsizei depth,
-                      GLenum format, GLenum type, const GLvoid *pixels,
-                      const struct gl_pixelstore_attrib *unpack,
-                      const char *funcName)
+const GLvoid *
+_mesa_validate_pbo_teximage(GLcontext *ctx, GLuint dimensions,
+			    GLsizei width, GLsizei height, GLsizei depth,
+			    GLenum format, GLenum type, const GLvoid *pixels,
+			    const struct gl_pixelstore_attrib *unpack,
+			    const char *funcName)
 {
    GLubyte *buf;
 
@@ -2103,10 +2103,10 @@ validate_pbo_teximage(GLcontext *ctx, GLuint dimensions,
  * image.
  * If so, do bounds checking and map the buffer into main memory.
  * Any errors detected will be recorded.
- * The caller _must_ call unmap_teximage_pbo() too!
+ * The caller _must_ call _mesa_unmap_teximage_pbo() too!
  */
-static const GLvoid *
-validate_pbo_compressed_teximage(GLcontext *ctx,
+const GLvoid *
+_mesa_validate_pbo_compressed_teximage(GLcontext *ctx,
                                  GLsizei imageSize, const GLvoid *pixels,
                                  const struct gl_pixelstore_attrib *packing,
                                  const char *funcName)
@@ -2139,8 +2139,8 @@ validate_pbo_compressed_teximage(GLcontext *ctx,
  * This function must be called after either of the validate_pbo_*_teximage()
  * functions.  It unmaps the PBO buffer if it was mapped earlier.
  */
-static void
-unmap_teximage_pbo(GLcontext *ctx, const struct gl_pixelstore_attrib *unpack)
+void
+_mesa_unmap_teximage_pbo(GLcontext *ctx, const struct gl_pixelstore_attrib *unpack)
 {
    if (unpack->BufferObj->Name) {
       ctx->Driver.UnmapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
@@ -2190,7 +2190,7 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = validate_pbo_teximage(ctx, 1, width, 1, 1, format, type, pixels,
+   pixels = _mesa_validate_pbo_teximage(ctx, 1, width, 1, 1, format, type, pixels,
                                   packing, "glTexImage1D");
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
@@ -2221,7 +2221,7 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
                             texObj);
    }
 
-   unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_teximage_pbo(ctx, packing);
 }
 
 
@@ -2278,7 +2278,7 @@ _mesa_store_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = validate_pbo_teximage(ctx, 2, width, height, 1, format, type,
+   pixels = _mesa_validate_pbo_teximage(ctx, 2, width, height, 1, format, type,
                                   pixels, packing, "glTexImage2D");
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
@@ -2315,7 +2315,7 @@ _mesa_store_teximage2d(GLcontext *ctx, GLenum target, GLint level,
                             texObj);
    }
 
-   unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_teximage_pbo(ctx, packing);
 }
 
 
@@ -2358,7 +2358,7 @@ _mesa_store_teximage3d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = validate_pbo_teximage(ctx, 3, width, height, depth, format, type,
+   pixels = _mesa_validate_pbo_teximage(ctx, 3, width, height, depth, format, type,
                                   pixels, packing, "glTexImage3D");
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
@@ -2397,7 +2397,7 @@ _mesa_store_teximage3d(GLcontext *ctx, GLenum target, GLint level,
                             texObj);
    }
 
-   unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_teximage_pbo(ctx, packing);
 }
 
 
@@ -2415,7 +2415,7 @@ _mesa_store_texsubimage1d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_object *texObj,
                           struct gl_texture_image *texImage)
 {
-   pixels = validate_pbo_teximage(ctx, 1, width, 1, 1, format, type, pixels,
+   pixels = _mesa_validate_pbo_teximage(ctx, 1, width, 1, 1, format, type, pixels,
                                   packing, "glTexSubImage1D");
    if (!pixels)
       return;
@@ -2443,7 +2443,7 @@ _mesa_store_texsubimage1d(GLcontext *ctx, GLenum target, GLint level,
                             texObj);
    }
 
-   unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_teximage_pbo(ctx, packing);
 }
 
 
@@ -2461,7 +2461,7 @@ _mesa_store_texsubimage2d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_object *texObj,
                           struct gl_texture_image *texImage)
 {
-   pixels = validate_pbo_teximage(ctx, 2, width, height, 1, format, type,
+   pixels = _mesa_validate_pbo_teximage(ctx, 2, width, height, 1, format, type,
                                   pixels, packing, "glTexSubImage2D");
    if (!pixels)
       return;
@@ -2496,7 +2496,7 @@ _mesa_store_texsubimage2d(GLcontext *ctx, GLenum target, GLint level,
                             texObj);
    }
 
-   unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_teximage_pbo(ctx, packing);
 }
 
 
@@ -2513,7 +2513,7 @@ _mesa_store_texsubimage3d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_object *texObj,
                           struct gl_texture_image *texImage)
 {
-   pixels = validate_pbo_teximage(ctx, 3, width, height, depth, format, type,
+   pixels = _mesa_validate_pbo_teximage(ctx, 3, width, height, depth, format, type,
                                   pixels, packing, "glTexSubImage3D");
    if (!pixels)
       return;
@@ -2550,7 +2550,7 @@ _mesa_store_texsubimage3d(GLcontext *ctx, GLenum target, GLint level,
                             texObj);
    }
 
-   unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_teximage_pbo(ctx, packing);
 }
 
 
@@ -2615,7 +2615,7 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   data = validate_pbo_compressed_teximage(ctx, imageSize, data, &ctx->Unpack,
+   data = _mesa_validate_pbo_compressed_teximage(ctx, imageSize, data, &ctx->Unpack,
                                            "glCompressedTexImage2D");
    if (!data)
       return;
@@ -2631,7 +2631,7 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
                             texObj);
    }
 
-   unmap_teximage_pbo(ctx, &ctx->Unpack);
+   _mesa_unmap_teximage_pbo(ctx, &ctx->Unpack);
 }
 
 
@@ -2709,7 +2709,7 @@ _mesa_store_compressed_texsubimage2d(GLcontext *ctx, GLenum target,
    ASSERT((xoffset & 3) == 0);
    ASSERT((yoffset & 3) == 0);
 
-   data = validate_pbo_compressed_teximage(ctx, imageSize, data, &ctx->Unpack,
+   data = _mesa_validate_pbo_compressed_teximage(ctx, imageSize, data, &ctx->Unpack,
                                            "glCompressedTexSubImage2D");
    if (!data)
       return;
@@ -2740,7 +2740,7 @@ _mesa_store_compressed_texsubimage2d(GLcontext *ctx, GLenum target,
                             texObj);
    }
 
-   unmap_teximage_pbo(ctx, &ctx->Unpack);
+   _mesa_unmap_teximage_pbo(ctx, &ctx->Unpack);
 }
 
 
