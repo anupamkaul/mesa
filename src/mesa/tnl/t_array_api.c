@@ -1,4 +1,4 @@
-/* $Id: t_array_api.c,v 1.27 2002/06/29 19:48:17 brianp Exp $ */
+/* $Id: t_array_api.c,v 1.27.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -360,7 +360,7 @@ _tnl_DrawElements(GLenum mode, GLsizei count, GLenum type,
 
 
 /**
- * Initialize context's vertex array fields.  Called during T 'n L context
+ * Initialize context's vertex array fields.  Called during tnl context
  * creation.
  */
 void _tnl_array_init( GLcontext *ctx )

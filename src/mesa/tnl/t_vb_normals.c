@@ -1,4 +1,4 @@
-/* $Id: t_vb_normals.c,v 1.15 2002/08/08 16:54:43 brianp Exp $ */
+/* $Id: t_vb_normals.c,v 1.15.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -73,12 +73,12 @@ static GLboolean run_normal_stage( GLcontext *ctx,
 
       store->NormalTransform( ctx->ModelviewMatrixStack.Top,
 			      ctx->_ModelViewInvScale,
-			      VB->NormalPtr,  /* input normals */
+			      VB->AttrPtr[VERT_ATTRIB_NORMAL],  /* input */
 			      lengths,
 			      &store->normal ); /* resulting normals */
    }
 
-   VB->NormalPtr = &store->normal;
+   VB->AttrPtr[VERT_ATTRIB_NORMAL] = &store->normal;
    VB->NormalLengthPtr = 0;	/* no longer valid */
    return GL_TRUE;
 }

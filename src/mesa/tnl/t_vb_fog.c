@@ -1,4 +1,4 @@
-/* $Id: t_vb_fog.c,v 1.17 2002/01/22 14:35:17 brianp Exp $ */
+/* $Id: t_vb_fog.c,v 1.17.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -142,7 +142,7 @@ static GLboolean run_fog_stage( GLcontext *ctx,
       /* fog computed from Z depth */
       /* source = VB->ObjPtr or VB->EyePtr coords */
       /* dest = VB->FogCoordPtr = fog stage private storage */
-      VB->FogCoordPtr = &store->fogcoord;
+      VB->AttrPtr[VERT_ATTRIB_FOG] = &store->fogcoord;
 
       if (!ctx->_NeedEyeCoords) {
 	 const GLfloat *m = ctx->ModelviewMatrixStack.Top->m;
@@ -180,13 +180,13 @@ static GLboolean run_fog_stage( GLcontext *ctx,
    }
    else {
       /* use glFogCoord() coordinates */
-      /* source = VB->FogCoordPtr */
-      input = VB->FogCoordPtr;
+      /* source = VB->AttrPtr[VERT_ATTRIB_FOG] */
+      input = VB->AttrPtr[VERT_ATTRIB_FOG];
       /* dest = fog stage private storage */
-      VB->FogCoordPtr = &store->fogcoord;
+      VB->AttrPtr[VERT_ATTRIB_FOG] = &store->fogcoord;
    }
 
-   make_win_fog_coords( ctx, VB->FogCoordPtr, input );
+   make_win_fog_coords( ctx, VB->AttrPtr[VERT_ATTRIB_FOG], input );
    return GL_TRUE;
 }
 

@@ -1,4 +1,4 @@
-/* $Id: t_array_import.c,v 1.25 2002/06/29 19:48:17 brianp Exp $ */
+/* $Id: t_array_import.c,v 1.25.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -256,81 +256,6 @@ static void _tnl_import_attrib( GLcontext *ctx,
 
 
 
-/**
- * Callback for VB stages that need to improve the quality of arrays
- * bound to the VB.  This is only necessary for client arrays which
- * have not been transformed at any point in the pipeline.
- * \param required - bitmask of VERT_*_BIT flags
- * \param flags - bitmask of VEC_* flags (ex: VEC_NOT_WRITABLE)
- */
-static void _tnl_upgrade_client_data( GLcontext *ctx,
-				      GLuint required,
-				      GLuint flags )
-{
-   GLuint i;
-   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLboolean writeable = (flags & VEC_NOT_WRITEABLE) != 0;
-   GLboolean stride = (flags & VEC_BAD_STRIDE) != 0;
-   struct vertex_arrays *inputs = &TNL_CONTEXT(ctx)->array_inputs;
-   GLuint ca_flags = 0;
-   (void) inputs;
-
-   if (writeable || stride) ca_flags |= CA_CLIENT_DATA;
-
-   if ((required & VERT_BIT_CLIP) && VB->ClipPtr == VB->ObjPtr)
-      required |= VERT_BIT_POS;
-
-/*     _tnl_print_vert_flags("_tnl_upgrade_client_data", required); */
-
-   if ((required & VERT_BIT_POS) && (VB->ObjPtr->flags & flags)) {
-      ASSERT(VB->ObjPtr == &inputs->Obj);
-      _tnl_import_vertex( ctx, writeable, stride );
-      VB->importable_data &= ~(VERT_BIT_POS|VERT_BIT_CLIP);
-   }
-
-   if ((required & VERT_BIT_NORMAL) && (VB->NormalPtr->flags & flags)) {
-      ASSERT(VB->NormalPtr == &inputs->Normal);
-      _tnl_import_normal( ctx, writeable, stride );
-      VB->importable_data &= ~VERT_BIT_NORMAL;
-   }
-
-   if ((required & VERT_BIT_COLOR0) && (VB->ColorPtr[0]->Flags & ca_flags)) {
-      ASSERT(VB->ColorPtr[0] == &inputs->Color);
-      _tnl_import_color( ctx, GL_FLOAT, writeable, stride );
-      VB->importable_data &= ~VERT_BIT_COLOR0;
-   }
-
-   if ((required & VERT_BIT_COLOR1) && 
-       (VB->SecondaryColorPtr[0]->Flags & ca_flags)) {
-      ASSERT(VB->SecondaryColorPtr[0] == &inputs->SecondaryColor);
-      _tnl_import_secondarycolor( ctx, GL_FLOAT, writeable, stride );
-      VB->importable_data &= ~VERT_BIT_COLOR1;
-   }
-
-   if ((required & VERT_BIT_FOG)
-       && (VB->FogCoordPtr->flags & flags)) {
-      ASSERT(VB->FogCoordPtr == &inputs->FogCoord);
-      _tnl_import_fogcoord( ctx, writeable, stride );
-      VB->importable_data &= ~VERT_BIT_FOG;
-   }
-
-   if ((required & VERT_BIT_INDEX) && (VB->IndexPtr[0]->flags & flags)) {
-      ASSERT(VB->IndexPtr[0] == &inputs->Index);
-      _tnl_import_index( ctx, writeable, stride );
-      VB->importable_data &= ~VERT_BIT_INDEX;
-   }
-
-   if (required & VERT_BITS_TEX_ANY)
-      for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++)
-	 if ((required & VERT_BIT_TEX(i)) && (VB->TexCoordPtr[i]->flags & flags)) {
-	    ASSERT(VB->TexCoordPtr[i] == &inputs->TexCoord[i]);
-	    _tnl_import_texcoord( ctx, i, writeable, stride );
-	    VB->importable_data &= ~VERT_BIT_TEX(i);
-	 }
-
-   /* XXX not sure what to do here for vertex program arrays */
-}
-
 
 
 void _tnl_vb_bind_arrays( GLcontext *ctx, GLint start, GLsizei count )
@@ -344,7 +269,6 @@ void _tnl_vb_bind_arrays( GLcontext *ctx, GLint start, GLsizei count )
 /*  	      start, count, ctx->Array.LockFirst, ctx->Array.LockCount);  */
 /*        _tnl_print_vert_flags("    inputs", inputs);  */
 /*        _tnl_print_vert_flags("    _Enabled", ctx->Array._Enabled); */
-/*        _tnl_print_vert_flags("    importable", inputs & VERT_BITS_FIXUP); */
 
    VB->Count = count - start;
    VB->FirstClipped = VB->Count;
@@ -354,8 +278,6 @@ void _tnl_vb_bind_arrays( GLcontext *ctx, GLint start, GLsizei count )
    VB->Flag = NULL;
    VB->Primitive = tnl->tmp_primitive;
    VB->PrimitiveLength = tnl->tmp_primitive_length;
-   VB->import_data = _tnl_upgrade_client_data;
-   VB->importable_data = inputs & VERT_BITS_FIXUP;
 
    if (ctx->Array.LockCount) {
       ASSERT(start == (GLint) ctx->Array.LockFirst);

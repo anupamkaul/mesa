@@ -1,4 +1,4 @@
-/* $Id: t_vb_cliptmp.h,v 1.15 2002/03/29 17:27:59 brianp Exp $ */
+/* $Id: t_vb_cliptmp.h,v 1.15.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -118,7 +118,7 @@ do {									\
 
 /* Clip a line against the viewport and user clip planes.
  */
-static INLINE void
+static void
 TAG(clip_line)( GLcontext *ctx, GLuint i, GLuint j, GLubyte mask )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
@@ -159,7 +159,7 @@ TAG(clip_line)( GLcontext *ctx, GLuint i, GLuint j, GLubyte mask )
 
 /* Clip a triangle against the viewport and user clip planes.
  */
-static INLINE void
+static void
 TAG(clip_tri)( GLcontext *ctx, GLuint v0, GLuint v1, GLuint v2, GLubyte mask )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
@@ -211,7 +211,7 @@ TAG(clip_tri)( GLcontext *ctx, GLuint v0, GLuint v1, GLuint v2, GLubyte mask )
 
 /* Clip a quad against the viewport and user clip planes.
  */
-static INLINE void
+static void
 TAG(clip_quad)( GLcontext *ctx, GLuint v0, GLuint v1, GLuint v2, GLuint v3,
                 GLubyte mask )
 {

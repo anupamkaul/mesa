@@ -1,4 +1,4 @@
-/* $Id: t_vb_program.c,v 1.14 2002/08/08 16:55:56 brianp Exp $ */
+/* $Id: t_vb_program.c,v 1.14.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -245,14 +245,7 @@ static GLboolean run_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
    VB->ClipPtr = &store->attribs[VERT_RESULT_HPOS];
    VB->ClipPtr->size = 4;
    VB->ClipPtr->count = VB->Count;
-   VB->ColorPtr[0] = &store->color0[0];
-   VB->ColorPtr[1] = &store->color0[1];
-   VB->SecondaryColorPtr[0] = &store->color1[0];
-   VB->SecondaryColorPtr[1] = &store->color1[1];
-   VB->FogCoordPtr = &store->attribs[VERT_RESULT_FOGC];
    VB->PointSizePtr = &store->attribs[VERT_RESULT_PSIZ];
-   for (i = 0; i < ctx->Const.MaxTextureUnits; i++)
-      VB->TexCoordPtr[i] = &store->attribs[VERT_RESULT_TEX0 + i];
 
    /* Cliptest and perspective divide.  Clip functions must clear
     * the clipmask.
@@ -288,11 +281,6 @@ static GLboolean run_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
 
    VB->ClipOrMask = store->ormask;
    VB->ClipMask = store->clipmask;
-
-   /* XXXX what's this?
-   if (VB->ClipPtr == VB->ObjPtr && (VB->importable_data & VERT_BIT_POS))
-      VB->importable_data |= VERT_BIT_CLIP;
-   */
 
    return GL_TRUE;
 }

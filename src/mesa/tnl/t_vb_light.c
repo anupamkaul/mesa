@@ -1,4 +1,4 @@
-/* $Id: t_vb_light.c,v 1.18 2002/02/13 00:53:20 keithw Exp $ */
+/* $Id: t_vb_light.c,v 1.18.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -40,7 +40,6 @@
 #include "t_context.h"
 #include "t_pipeline.h"
 
-#define LIGHT_FLAGS         0x1	/* must be first */
 #define LIGHT_TWOSIDE       0x2
 #define LIGHT_COLORMATERIAL 0x4
 #define MAX_LIGHT_FUNC      0x8
@@ -62,39 +61,6 @@ struct light_stage_data {
 #define LIGHT_STAGE_DATA(stage) ((struct light_stage_data *)(stage->privatePtr))
 
 
-static void import_color_material( GLcontext *ctx,
-				   struct gl_pipeline_stage *stage )
-{
-   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   struct gl_client_array *to = &LIGHT_STAGE_DATA(stage)->FloatColor;
-   struct gl_client_array *from = VB->ColorPtr[0];
-   GLuint count = VB->Count;
-
-   if (!to->Ptr) {
-      to->Ptr = ALIGN_MALLOC( VB->Size * 4 * sizeof(GLfloat), 32 );
-      to->Type = GL_FLOAT;
-   }
-
-   /* No need to transform the same value 3000 times.
-    */
-   if (!from->StrideB) {
-      to->StrideB = 0;
-      count = 1;
-   }
-   else
-      to->StrideB = 4 * sizeof(GLfloat);
-   
-   _math_trans_4f( (GLfloat (*)[4]) to->Ptr,
-		   from->Ptr,
-		   from->StrideB,
-		   from->Type,
-		   from->Size,
-		   0,
-		   count);
-
-   VB->ColorPtr[0] = to;
-}
-
 
 /* Tables for all the shading functions.
  */
@@ -112,28 +78,12 @@ static light_func _tnl_light_ci_tab[MAX_LIGHT_FUNC];
 #define IDX              (LIGHT_TWOSIDE)
 #include "t_vb_lighttmp.h"
 
-#define TAG(x)           x##_fl
-#define IDX              (LIGHT_FLAGS)
-#include "t_vb_lighttmp.h"
-
-#define TAG(x)           x##_tw_fl
-#define IDX              (LIGHT_FLAGS|LIGHT_TWOSIDE)
-#include "t_vb_lighttmp.h"
-
 #define TAG(x)           x##_cm
-#define IDX              (LIGHT_COLORMATERIAL)
+#define IDX              (LIGHT_MATERIAL)
 #include "t_vb_lighttmp.h"
 
 #define TAG(x)           x##_tw_cm
-#define IDX              (LIGHT_TWOSIDE|LIGHT_COLORMATERIAL)
-#include "t_vb_lighttmp.h"
-
-#define TAG(x)           x##_fl_cm
-#define IDX              (LIGHT_FLAGS|LIGHT_COLORMATERIAL)
-#include "t_vb_lighttmp.h"
-
-#define TAG(x)           x##_tw_fl_cm
-#define IDX              (LIGHT_FLAGS|LIGHT_TWOSIDE|LIGHT_COLORMATERIAL)
+#define IDX              (LIGHT_TWOSIDE|LIGHT_MATERIAL)
 #include "t_vb_lighttmp.h"
 
 
@@ -144,12 +94,8 @@ static void init_lighting( void )
    if (!done) {
       init_light_tab();
       init_light_tab_tw();
-      init_light_tab_fl();
-      init_light_tab_tw_fl();
       init_light_tab_cm();
       init_light_tab_tw_cm();
-      init_light_tab_fl_cm();
-      init_light_tab_tw_fl_cm();
       done = 1;
    }
 }
@@ -163,30 +109,17 @@ static GLboolean run_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
    GLvector4f *input = ctx->_NeedEyeCoords ? VB->EyePtr : VB->ObjPtr;
    GLuint ind;
 
-/*     _tnl_print_vert_flags( __FUNCTION__, stage->changed_inputs ); */
-
    /* Make sure we can talk about elements 0..2 in the vector we are
     * lighting.
     */
-   if (stage->changed_inputs & (VERT_BIT_EYE|VERT_BIT_POS)) {
-      if (input->size <= 2) {
-	 if (input->flags & VEC_NOT_WRITEABLE) {
-	    ASSERT(VB->importable_data & VERT_BIT_POS);
-
-	    VB->import_data( ctx, VERT_BIT_POS, VEC_NOT_WRITEABLE );
-	    input = ctx->_NeedEyeCoords ? VB->EyePtr : VB->ObjPtr;
-
-	    ASSERT((input->flags & VEC_NOT_WRITEABLE) == 0);
-	 }
-
+   if (input->size <= 2) {
+      if (stage->changed_inputs & (VERT_BIT_EYE|VERT_BIT_POS)) {
+	 copy_data( input, stage->pos_tmp );
 	 _mesa_vector4f_clean_elem(input, VB->Count, 2);
       }
-   }
 
-   if (VB->Flag)
-      ind = LIGHT_FLAGS;
-   else
-      ind = 0;
+      input = stage->postmp;
+   }
 
    /* The individual functions know about replaying side-effects
     * vs. full re-execution. 

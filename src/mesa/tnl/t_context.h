@@ -1,4 +1,4 @@
-/* $Id: t_context.h,v 1.43 2002/10/09 19:45:53 brianp Exp $ */
+/* $Id: t_context.h,v 1.43.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -44,183 +44,83 @@
 #define MAX_PIPELINE_STAGES     30
 
 
-/* Numbers for sizing immediate structs.
- */
-#define IMM_MAX_COPIED_VERTS  3
-#define IMM_MAXDATA          (216 + IMM_MAX_COPIED_VERTS)
-#define IMM_SIZE             (IMM_MAXDATA + MAX_CLIPPED_VERTICES)
-
-
-/* Values for IM->BeginState
- */
-#define VERT_BEGIN_0    0x1	   /* glBegin (if initially inside beg/end) */
-#define VERT_BEGIN_1    0x2	   /* glBegin (if initially outside beg/end) */
-#define VERT_ERROR_0    0x4	   /* invalid_operation in initial state 0 */
-#define VERT_ERROR_1    0x8        /* invalid_operation in initial state 1 */
-
-
-/* Flags to be added to the primitive enum in VB->Primitive.
- */
-#define PRIM_MODE_MASK  0xff   /* Extract the actual primitive */
-#define PRIM_BEGIN      0x100  /* The prim starts here (not wrapped) */
-#define PRIM_END        0x200  /* The prim ends in this VB (does not wrap) */
-#define PRIM_PARITY     0x400  /* The prim wrapped on an odd number of verts */
-#define PRIM_LAST       0x800  /* No more prims in the VB */
-
-
 /**
- * Flags that describe the inputs and outputs of pipeline stages, and
- * the contents of a vertex-cassette.  We reuse the VERT_BIT_* flags
- * defined in mtypes.h and add a bunch of new ones.
+ * Flags that describe the inputs and outputs of pipeline stages.  We
+ * reuse the VERT_BIT_* flags defined in mtypes.h and add a bunch of
+ * new ones.
  */
+#define VERT_ATTRIB_INDEX    VERT_ATTRIB_SIX
+#define VERT_ATTRIB_EDGEFLAG VERT_ATTRIB_SEVEN
+/* */
+#define VERT_ATTRIB_MAT_FRONT_AMBIENT           16
+#define VERT_ATTRIB_MAT_FRONT_DIFFUSE           17
+#define VERT_ATTRIB_MAT_FRONT_SPECULAR          18 
+#define VERT_ATTRIB_MAT_FRONT_EMISSION          19
+#define VERT_ATTRIB_MAT_FRONT_SHININESS         20
+#define VERT_ATTRIB_MAT_FRONT_INDEXES           21
+#define VERT_ATTRIB_MAT_BACK_AMBIENT            22
+#define VERT_ATTRIB_MAT_BACK_DIFFUSE            23
+#define VERT_ATTRIB_MAT_BACK_SPECULAR           24
+#define VERT_ATTRIB_MAT_BACK_EMISSION           25
+#define VERT_ATTRIB_MAT_BACK_SHININESS          26
+#define VERT_ATTRIB_MAT_BACK_INDEXES            27
+#define VERT_ATTRIB_BACK_COLOR0                 28
+#define VERT_ATTRIB_BACK_COLOR1                 29
+#define VERT_ATTRIB_BACK_INDEX                  30
+
 /* bits 0..5 defined in mtypes.h */
 #define VERT_BIT_INDEX       VERT_BIT_SIX    /* a free vertex attrib bit */
 #define VERT_BIT_EDGEFLAG    VERT_BIT_SEVEN  /* a free vertex attrib bit */
 /* bits 8..15 defined in mtypes.h */
-#define VERT_BIT_EVAL_C1     (1 << 16)  /* imm only */
-#define VERT_BIT_EVAL_C2     (1 << 17)  /* imm only */
-#define VERT_BIT_EVAL_P1     (1 << 18)  /* imm only */
-#define VERT_BIT_EVAL_P2     (1 << 19)  /* imm only */
-#define VERT_BIT_OBJ_3       (1 << 20)  /* imm only */
-#define VERT_BIT_OBJ_4       (1 << 21)  /* imm only */
-#define VERT_BIT_MATERIAL    (1 << 22)  /* imm only, but tested in vb code */
-#define VERT_BIT_ELT         (1 << 23)  /* imm only */
-#define VERT_BIT_BEGIN       (1 << 24)  /* imm only, but tested in vb code */
-#define VERT_BIT_END         (1 << 25)  /* imm only, but tested in vb code */
-#define VERT_BIT_END_VB      (1 << 26)  /* imm only, but tested in vb code */
-#define VERT_BIT_POINT_SIZE  (1 << 27)  /* vb only, could reuse a bit */
-#define VERT_BIT_EYE         VERT_BIT_BEGIN /* vb only, reuse imm bit */
-#define VERT_BIT_CLIP        VERT_BIT_END   /* vb only, reuse imm bit*/
+#define VERT_BIT_MAT_FRONT_AMBIENT           (1 << 16)
+#define VERT_BIT_MAT_FRONT_DIFFUSE           (1 << 17)
+#define VERT_BIT_MAT_FRONT_SPECULAR          (1 << 18) 
+#define VERT_BIT_MAT_FRONT_EMISSION          (1 << 19)
+#define VERT_BIT_MAT_FRONT_SHININESS         (1 << 20)
+#define VERT_BIT_MAT_FRONT_INDEXES           (1 << 21)
+#define VERT_BIT_MAT_BACK_AMBIENT            (1 << 22)
+#define VERT_BIT_MAT_BACK_DIFFUSE            (1 << 23)
+#define VERT_BIT_MAT_BACK_SPECULAR           (1 << 24)
+#define VERT_BIT_MAT_BACK_EMISSION           (1 << 25)
+#define VERT_BIT_MAT_BACK_SHININESS          (1 << 26)
+#define VERT_BIT_MAT_BACK_INDEXES            (1 << 27)
+#define VERT_BIT_BACK_COLOR                  (1 << 28)
+#define VERT_BIT_BACK_SPECULAR               (1 << 29)
 
 
-/* Flags for IM->TexCoordSize.  Enough flags for 16 units.
+#define VERT_BITS_MATERIAL (VERT_BIT_MAT_FRONT_AMBIENT           |	\
+			    VERT_BIT_MAT_FRONT_DIFFUSE           |	\
+			    VERT_BIT_MAT_FRONT_SPECULAR          |	\
+			    VERT_BIT_MAT_FRONT_EMISSION          |	\
+			    VERT_BIT_MAT_FRONT_SHININESS_INDEXES |	\
+			    VERT_BIT_MAT_BACK_AMBIENT            |	\
+			    VERT_BIT_MAT_BACK_DIFFUSE            |	\
+			    VERT_BIT_MAT_BACK_SPECULAR           |	\
+			    VERT_BIT_MAT_BACK_EMISSION           |	\
+			    VERT_BIT_MAT_BACK_SHININESS_INDEXES)
+
+
+/* Numbers for sizing immediate structs.
  */
-#define TEX_0_SIZE_3          (unsigned)0x1
-#define TEX_0_SIZE_4          (unsigned)0x10001
-#define TEX_SIZE_3(unit)      (TEX_0_SIZE_3 << (unit))
-#define TEX_SIZE_4(unit)      (TEX_0_SIZE_4 << (unit))
+#define IMM_MAX_COPIED_VERTS  3
 
 
-/* Shorthands.
+/* Storage for vertices generated by.
  */
-#define VERT_BITS_OBJ_23   (VERT_BIT_POS | VERT_BIT_OBJ_3)
-#define VERT_BITS_OBJ_234  (VERT_BIT_POS | VERT_BIT_OBJ_3 | VERT_BIT_OBJ_4)
-
-#define VERT_BITS_TEX_ANY  (VERT_BIT_TEX0 |	\
-                            VERT_BIT_TEX1 |	\
-                            VERT_BIT_TEX2 |	\
-                            VERT_BIT_TEX3 |	\
-                            VERT_BIT_TEX4 |	\
-                            VERT_BIT_TEX5 |	\
-                            VERT_BIT_TEX6 |	\
-                            VERT_BIT_TEX7)
-
-#define VERT_BITS_EVAL_ANY (VERT_BIT_EVAL_C1 | VERT_BIT_EVAL_P1 | \
-                            VERT_BIT_EVAL_C2 | VERT_BIT_EVAL_P2)
-
-#define VERT_BITS_FIXUP    (VERT_BITS_TEX_ANY |		\
-                            VERT_BIT_COLOR0 |		\
-                            VERT_BIT_COLOR1 |		\
-                            VERT_BIT_FOG |		\
-			    VERT_BIT_INDEX |		\
-                            VERT_BIT_EDGEFLAG |		\
-                            VERT_BIT_NORMAL)
-
-#define VERT_BITS_CURRENT_DATA  (VERT_BITS_FIXUP |	\
-			         VERT_BIT_MATERIAL)
-
-#define VERT_BITS_DATA     (VERT_BITS_TEX_ANY |		\
-			    VERT_BIT_COLOR0 |		\
-			    VERT_BIT_COLOR1 |		\
-			    VERT_BIT_FOG |		\
-                            VERT_BIT_INDEX |		\
-                            VERT_BIT_EDGEFLAG |		\
-                            VERT_BIT_NORMAL |		\
-	                    VERT_BIT_POS |		\
-                            VERT_BIT_MATERIAL |		\
-                            VERT_BIT_ELT |		\
-	                    VERT_BITS_EVAL_ANY)
-
-
-/**
- * KW: Represents everything that can take place between a begin and
- * end, and can represent multiple begin/end pairs.  Can be used to
- * losslessly encode this information in display lists.
- */
-struct immediate
+struct vertex_block
 {
-   GLuint id, ref_count;
-
-   /* This must be saved when immediates are shared in display lists.
-    */
-   GLuint CopyStart, Start, Count;
-   GLuint LastData;		/* count or count+1 */
-   GLuint AndFlag, OrFlag;
-   GLuint TexSize;		/* keep track of texcoord sizes */
-   GLuint BeginState, SavedBeginState;
-   GLuint LastPrimitive;
-
-   GLuint ArrayEltFlags;	/* precalc'ed for glArrayElt */
-   GLuint ArrayEltIncr;
-   GLuint ArrayEltFlush;
-
-#define FLUSH_ELT_EAGER 0x1
-#define FLUSH_ELT_LAZY 0x2
-   GLuint FlushElt;
-
-   GLuint MaxTextureUnits;	/* precalc'ed for glMultiTexCoordARB */
-
-   /* Temporary values created when vertices are copied into the
-    * first 3 slots of the struct:
-    */
-   GLuint CopyOrFlag;
-   GLuint CopyAndFlag;
-   GLuint CopyTexSize;
-   GLuint Evaluated;
+   GLuint refcount;
+   GLuint vertex_format[4];
+   GLubyte *verts;
+}
 
 
-   /* allocate storage for these on demand:
-    */
-   struct gl_material (*Material)[2];
-   GLuint *MaterialMask;
-   GLuint LastMaterial;
-   GLuint MaterialOrMask;
-   GLuint MaterialAndMask;
-
-   GLuint  Primitive[IMM_SIZE];	      /* BEGIN/END */
-   GLuint  PrimitiveLength[IMM_SIZE]; /* BEGIN/END */
-   GLuint  Flag[IMM_SIZE];	      /* VERT_BIT_* flags */
-
-   /* All vertex attributes (position, normal, color, secondary color,
-    * texcoords, fog coord) are stored in the Attrib[] arrays instead
-    * of individual arrays as we did prior to Mesa 4.1.
-    *
-    * XXX may need to use 32-byte aligned allocation for this!!!
-    */
-   GLfloat Attrib[VERT_ATTRIB_MAX][IMM_SIZE][4];  /* GL_NV_vertex_program */
-
-   GLfloat *NormalLengthPtr; /* length of normal vectors (display list only) */
-
-   GLuint  Elt[IMM_SIZE];
-   GLubyte EdgeFlag[IMM_SIZE];
-   GLuint  Index[IMM_SIZE];
+struct r200_prim {
+   GLuint start;
+   GLuint end;
+   GLuint prim;
 };
 
-
-struct vertex_arrays
-{
-   /* XXX move a bunch of these fields into the Attribs[] array??? */
-   GLvector4f  Obj;
-   GLvector4f  Normal;
-   struct gl_client_array Color;
-   struct gl_client_array SecondaryColor;
-   GLvector1ui Index;
-   GLvector1ub EdgeFlag;
-   GLvector4f  TexCoord[MAX_TEXTURE_UNITS];
-   GLvector1ui Elt;
-   GLvector4f  FogCoord;
-   GLvector4f  Attribs[VERT_ATTRIB_MAX];
-};
 
 
 /**
@@ -240,41 +140,21 @@ typedef struct vertex_buffer
 
    /* Pointers to current data.
     */
-   GLuint      *Elts;		                /* VERT_BIT_ELT */
-   GLvector4f  *ObjPtr;		                /* VERT_BIT_POS */
-   GLvector4f  *EyePtr;		                /* VERT_BIT_EYE */
-   GLvector4f  *ClipPtr;	                /* VERT_BIT_CLIP */
-   GLvector4f  *NdcPtr;                         /* VERT_BIT_CLIP (2) */
-   GLubyte     ClipOrMask;	                /* VERT_BIT_CLIP (3) */
-   GLubyte     *ClipMask;		        /* VERT_BIT_CLIP (4) */
-   GLvector4f  *NormalPtr;	                /* VERT_BIT_NORMAL */
-   GLfloat     *NormalLengthPtr;	        /* VERT_BIT_NORMAL */
-   GLboolean   *EdgeFlag;	                /* VERT_BIT_EDGEFLAG */
-   GLvector4f  *TexCoordPtr[MAX_TEXTURE_UNITS];	/* VERT_TEX_0..n */
-   GLvector1ui *IndexPtr[2];	                /* VERT_BIT_INDEX */
-   struct gl_client_array *ColorPtr[2];	        /* VERT_BIT_COLOR0 */
-   struct gl_client_array *SecondaryColorPtr[2];/* VERT_BIT_COLOR1 */
-   GLvector4f  *PointSizePtr;	                /* VERT_BIT_POINT_SIZE */
-   GLvector4f  *FogCoordPtr;	                /* VERT_BIT_FOG */
-   struct gl_material (*Material)[2];         /* VERT_BIT_MATERIAL, optional */
-   GLuint      *MaterialMask;	              /* VERT_BIT_MATERIAL, optional */
-   GLuint      *Flag;		              /* VERT_BIT_* flags, optional */
-   GLuint      *Primitive;	              /* GL_(mode)|PRIM_* flags */
-   GLuint      *PrimitiveLength;	      /* integers */
+   GLuint      *Elts;		                
+   GLvector4f  *EyePtr;		                
+   GLvector4f  *ClipPtr;	                
+   GLvector4f  *NdcPtr;                         
+   GLubyte     ClipOrMask;	                
+   GLubyte     *ClipMask;		        
+   GLfloat     *NormalLengthPtr;	        
+   GLvector4f  *PointSizePtr;	/* why not just a float *? */
 
-   /* Inputs to the vertex program stage */
-   GLvector4f *AttribPtr[VERT_ATTRIB_MAX];      /* GL_NV_vertex_program */
+   struct tnl_prim  *Primitive;	              /* primitive descriptors */
+   GLuint           nrPrimitives;	      /* nr */
 
-   GLuint importable_data;
-   void *import_source;
-   void (*import_data)( GLcontext *ctx, GLuint flags, GLuint vecflags );
-   /* Callback to the provider of the untransformed input for the
-    * render stage (or other stages) to call if they need to write into
-    * write-protected arrays, or fixup the stride on input arrays.
-    *
-    * This is currently only necessary for client arrays that make it
-    * as far down the pipeline as the render stage.
+   /* All other vertex data
     */
+   GLvector4f *AttribPtr[TNL_ATTRIB_MAX]; 
 
    GLuint LastClipped;
    /* Private data from _tnl_render_stage that has no business being
@@ -516,7 +396,7 @@ typedef struct {
     * Will add save versions to precompute vertex copying where
     * possible.
     */
-   struct immediate *ExecCopySource;
+   struct vertex_block *ExecCopySource;
    GLuint ExecCopyCount;
    GLuint ExecCopyElts[IMM_MAX_COPIED_VERTS];
    GLuint ExecCopyTexSize;
@@ -526,9 +406,6 @@ typedef struct {
    GLuint DlistPrimitiveLength;
    GLuint DlistLastPrimitive;
 
-   /* Cache a single free immediate (refcount == 0)
-    */
-   struct immediate *freed_immediate;   
 
    /* Probably need a better configuration mechanism:
     */
@@ -541,10 +418,10 @@ typedef struct {
     */
    struct tnl_eval_store eval;
 
-   /* Functions to be plugged into dispatch when tnl is active.
+   /* We have our own dispatch table for EXECUTE modes.  In COMPILE
+    * and COMPILE_AND_EXECUTE, we plug directly into ctx->Save.
     */
-   GLvertexformat vtxfmt;
-   GLvertexformat save_vtxfmt;
+   struct _glapi_table *Exec;	/* Execute funcs */
 
 } TNLcontext;
 

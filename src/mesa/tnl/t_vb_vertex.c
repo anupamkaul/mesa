@@ -1,4 +1,4 @@
-/* $Id: t_vb_vertex.c,v 1.14 2002/04/09 16:56:52 keithw Exp $ */
+/* $Id: t_vb_vertex.c,v 1.14.2.1 2002/10/15 16:56:53 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -144,42 +144,36 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
 	  * Use combined ModelProject to avoid some depth artifacts
 	  */
 	 if (ctx->ModelviewMatrixStack.Top->type == MATRIX_IDENTITY)
-	    VB->EyePtr = VB->ObjPtr;
+	    VB->EyePtr = VB->AttrPtr[VERT_ATTRIB_POS];
 	 else
 	    VB->EyePtr = TransformRaw( &store->eye,
                                        ctx->ModelviewMatrixStack.Top,
-				       VB->ObjPtr);
+				       VB->AttrPtr[VERT_ATTRIB_POS]);
 
-	 if (ctx->ProjectionMatrixStack.Top->type == MATRIX_IDENTITY)
+	 /* Need to make sure ClipPtr is clean to element 4, hence the
+	  * second & third conditions:
+	  */
+	 if (ctx->ProjectionMatrixStack.Top->type == MATRIX_IDENTITY &&
+	     (ctx->ModelviewMatrixStack.Top->type != MATRIX_IDENTITY ||
+	      VB->EyePtr->Size == 4))
 	    VB->ClipPtr = VB->EyePtr;
 	 else
 	    VB->ClipPtr = TransformRaw( &store->clip,
                                         &ctx->_ModelProjectMatrix,
-					VB->ObjPtr );
+					VB->AttrPtr[VERT_ATTRIB_POS] );
       }
       else {
 	 /* Combined modelviewproject transform:
 	  */
-	 if (ctx->_ModelProjectMatrix.type == MATRIX_IDENTITY)
-	    VB->ClipPtr = VB->ObjPtr;
+	 if (ctx->_ModelProjectMatrix.type == MATRIX_IDENTITY &&
+	     VB->AttrPtr[VERT_ATTRIB_POS]->Size == 4)
+	    VB->ClipPtr = VB->AttrPtr[VERT_ATTRIB_POS];
 	 else
 	    VB->ClipPtr = TransformRaw( &store->clip,
                                         &ctx->_ModelProjectMatrix,
-					VB->ObjPtr );
+					VB->AttrPtr[VERT_ATTRIB_POS] );
       }
 
-      /* Drivers expect this to be clean to element 4...
-       */
-      if (VB->ClipPtr->size < 4) {
-	 if (VB->ClipPtr->flags & VEC_NOT_WRITEABLE) {
-	    ASSERT(VB->ClipPtr == VB->ObjPtr);
-	    VB->import_data( ctx, VERT_BIT_POS, VEC_NOT_WRITEABLE );
-	    VB->ClipPtr = VB->ObjPtr;
-	 }
-	 if (VB->ClipPtr->size == 2)
-	    _mesa_vector4f_clean_elem( VB->ClipPtr, VB->Count, 2 );
-	 _mesa_vector4f_clean_elem( VB->ClipPtr, VB->Count, 3 );
-      }
 
       /* Cliptest and perspective divide.  Clip functions must clear
        * the clipmask.
@@ -226,9 +220,6 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
       VB->ClipOrMask = store->ormask;
       VB->ClipMask = store->clipmask;
 
-      if (VB->ClipPtr == VB->ObjPtr && (VB->importable_data & VERT_BIT_POS))
-	 VB->importable_data |= VERT_BIT_CLIP;
-
       store->save_eyeptr = VB->EyePtr;
       store->save_clipptr = VB->ClipPtr;
       store->save_ndcptr = VB->NdcPtr;
@@ -241,8 +232,6 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
       VB->NdcPtr = store->save_ndcptr;
       VB->ClipMask = store->clipmask;
       VB->ClipOrMask = store->ormask;
-      if (VB->ClipPtr == VB->ObjPtr && (VB->importable_data & VERT_BIT_POS))
-	 VB->importable_data |= VERT_BIT_CLIP;
       if (store->andmask)
 	 return GL_FALSE;
    }

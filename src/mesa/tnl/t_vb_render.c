@@ -1,4 +1,4 @@
-/* $Id: t_vb_render.c,v 1.31 2002/06/29 19:48:17 brianp Exp $ */
+/* $Id: t_vb_render.c,v 1.31.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -87,8 +87,8 @@
 /**********************************************************************/
 
 #define NEED_EDGEFLAG_SETUP (ctx->_TriangleCaps & DD_TRI_UNFILLED)
-#define EDGEFLAG_GET(idx) VB->EdgeFlag[idx]
-#define EDGEFLAG_SET(idx, val) VB->EdgeFlag[idx] = val
+#define EDGEFLAG_GET(idx) VEC_ELT( VB->AttrPtr[VERT_ATTRIB_EDGEFLAG], GLboolean, idx )
+#define EDGEFLAG_SET(idx, val) VEC_ELT( VB->AttrPtr[VERT_ATTRIB_EDGEFLAG], GLfloat, idx ) = (GLfloat)val
 
 
 /* Vertices, with the possibility of clipping.
@@ -199,8 +199,8 @@ static void clip_elt_triangles( GLcontext *ctx,
 /**********************************************************************/
 
 #define NEED_EDGEFLAG_SETUP (ctx->_TriangleCaps & DD_TRI_UNFILLED)
-#define EDGEFLAG_GET(idx) VB->EdgeFlag[idx]
-#define EDGEFLAG_SET(idx, val) VB->EdgeFlag[idx] = val
+#define EDGEFLAG_GET(idx) VEC_ELT( VB->AttrPtr[VERT_ATTRIB_EDGEFLAG], GLboolean, idx )
+#define EDGEFLAG_SET(idx, val) VEC_ELT( VB->AttrPtr[VERT_ATTRIB_EDGEFLAG], GLfloat, idx ) = (GLfloat)val
 
 
 /* Vertices, no clipping.
@@ -318,21 +318,23 @@ static GLboolean run_render( GLcontext *ctx,
 
    do
    {
-      GLuint i, length, flags = 0;
-      for (i = VB->FirstPrimitive ; !(flags & PRIM_LAST) ; i += length)
+      GLuint i;
+      for (i = 0 ; i < VB->NrPrimitives ; i ++)
       {
-	 flags = VB->Primitive[i];
-	 length= VB->PrimitiveLength[i];
-	 ASSERT(length || (flags & PRIM_LAST));
+	 GLuint flags = VB->Primitive[i].prim;
+	 GLuint start = VB->Primitive[i].start;
+	 GLuint finish = VB->Primitive[i].finish;
+
+	 ASSERT(start != finish || (flags & PRIM_LAST));
 	 ASSERT((flags & PRIM_MODE_MASK) <= GL_POLYGON+1);
 
 	 if (MESA_VERBOSE & VERBOSE_PRIMS)
 	    _mesa_debug(NULL, "MESA prim %s %d..%d\n", 
 		    _mesa_lookup_enum_by_nr(flags & PRIM_MODE_MASK), 
-		    i, i+length);
+		    start, finish);
 
-	 if (length)
-	    tab[flags & PRIM_MODE_MASK]( ctx, i, i + length, flags );
+	 if (start != finish)
+	    tab[flags & PRIM_MODE_MASK]( ctx, start, finish, flags );
       }
    } while (tnl->Driver.Render.Multipass &&
 	    tnl->Driver.Render.Multipass( ctx, ++pass ));

@@ -300,51 +300,51 @@ static void op_error( void )
  * Assembly can optimize the generation of arrays by using &s instead
  * of building 'v'.
  */
-static void tnl_MultiTexCoord1fARB( GLenum target, GLfloat s  )
+static void tnl_MultiTexCoord1f( GLenum target, GLfloat s  )
 {
    GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
    DISPATCH_ATTR1FV( attr, &s );
 }
 
-static void tnl_MultiTexCoord1fvARB( GLenum target, const GLfloat *v )
+static void tnl_MultiTexCoord1fv( GLenum target, const GLfloat *v )
 {
    GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
    DISPATCH_ATTR1FV( attr, v );
 }
 
-static void tnl_MultiTexCoord2fARB( GLenum target, GLfloat s, GLfloat t )
+static void tnl_MultiTexCoord2f( GLenum target, GLfloat s, GLfloat t )
 {
    GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
    DISPATCH_ATTR2F( attr, s, t );
 }
 
-static void tnl_MultiTexCoord2fvARB( GLenum target, const GLfloat *v )
+static void tnl_MultiTexCoord2fv( GLenum target, const GLfloat *v )
 {
    GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
    DISPATCH_ATTR2FV( attr, v );
 }
 
-static void tnl_MultiTexCoord3fARB( GLenum target, GLfloat s, GLfloat t,
+static void tnl_MultiTexCoord3f( GLenum target, GLfloat s, GLfloat t,
 				    GLfloat r)
 {
    GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
    DISPATCH_ATTR3F( attr, s, t, r );
 }
 
-static void tnl_MultiTexCoord3fvARB( GLenum target, const GLfloat *v )
+static void tnl_MultiTexCoord3fv( GLenum target, const GLfloat *v )
 {
    GLuint attr = (target & 0x7);
    DISPATCH_ATTR3FV( attr, v );
 }
 
-static void tnl_MultiTexCoord4fARB( GLenum target, GLfloat s, GLfloat t,
+static void tnl_MultiTexCoord4f( GLenum target, GLfloat s, GLfloat t,
 				    GLfloat r, GLfloat q )
 {
    GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
    DISPATCH_ATTR4F( attr, s, t, r, q );
 }
 
-static void tnl_MultiTexCoord4fvARB( GLenum target, const GLfloat *v )
+static void tnl_MultiTexCoord4fv( GLenum target, const GLfloat *v )
 {
    GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
    DISPATCH_ATTR4FV( attr, v );
@@ -606,14 +606,14 @@ void _tnl_InitVtxfmtChoosers( GLvertexformat *vfmt )
    vfmt->Color4fv = choose_Color4fv;
    vfmt->SecondaryColor3fEXT = choose_SecondaryColor3fEXT;
    vfmt->SecondaryColor3fvEXT = choose_SecondaryColor3fvEXT;
-   vfmt->MultiTexCoord1fARB = dd_MultiTexCoord1fARB;
-   vfmt->MultiTexCoord1fvARB = dd_MultiTexCoord1fvARB;
-   vfmt->MultiTexCoord2fARB = dd_MultiTexCoord2fARB;
-   vfmt->MultiTexCoord2fvARB = dd_MultiTexCoord2fvARB;
-   vfmt->MultiTexCoord3fARB = dd_MultiTexCoord3fARB;
-   vfmt->MultiTexCoord3fvARB = dd_MultiTexCoord3fvARB;
-   vfmt->MultiTexCoord4fARB = dd_MultiTexCoord4fARB;
-   vfmt->MultiTexCoord4fvARB = dd_MultiTexCoord4fvARB;
+   vfmt->MultiTexCoord1fARB = dd_MultiTexCoord1f;
+   vfmt->MultiTexCoord1fvARB = dd_MultiTexCoord1fv;
+   vfmt->MultiTexCoord2fARB = dd_MultiTexCoord2f;
+   vfmt->MultiTexCoord2fvARB = dd_MultiTexCoord2fv;
+   vfmt->MultiTexCoord3fARB = dd_MultiTexCoord3f;
+   vfmt->MultiTexCoord3fvARB = dd_MultiTexCoord3fv;
+   vfmt->MultiTexCoord4fARB = dd_MultiTexCoord4f;
+   vfmt->MultiTexCoord4fvARB = dd_MultiTexCoord4fv;
    vfmt->Normal3f = choose_Normal3f;
    vfmt->Normal3fv = choose_Normal3fv;
    vfmt->TexCoord1f = choose_TexCoord1f;

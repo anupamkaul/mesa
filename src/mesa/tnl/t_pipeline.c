@@ -1,4 +1,4 @@
-/* $Id: t_pipeline.c,v 1.22 2002/01/22 14:35:17 brianp Exp $ */
+/* $Id: t_pipeline.c,v 1.22.2.1 2002/10/15 16:56:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -155,7 +155,6 @@ void _tnl_run_pipeline( GLcontext *ctx )
 	 running = s->run( ctx, s );
 
 	 s->changed_inputs = 0;
-	 VB->importable_data &= ~s->outputs;
       }
    }
 

@@ -1,4 +1,4 @@
-/* $Id: t_vb_texgen.c,v 1.13 2002/06/29 19:48:17 brianp Exp $ */
+/* $Id: t_vb_texgen.c,v 1.13.2.1 2002/10/15 16:56:53 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -249,12 +249,12 @@ static void texgen_reflection_map_nv( GLcontext *ctx,
 				      GLuint unit )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLvector4f *in = VB->TexCoordPtr[unit];
+   GLvector4f *in = VB->AttrPtr[VERT_ATTRIB_TEX0 + unit];
    GLvector4f *out = &store->texcoord[unit];
 
    build_f_tab[VB->EyePtr->size]( out->start,
 				  out->stride,
-				  VB->NormalPtr,
+				  VB->AttrPtr[VERT_ATTRIB_NORMAL],
 				  VB->EyePtr );
 
    if (in) {
@@ -279,9 +279,9 @@ static void texgen_normal_map_nv( GLcontext *ctx,
 				  GLuint unit )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLvector4f *in = VB->TexCoordPtr[unit];
+   GLvector4f *in = VB->AttrPtr[VERT_ATTRIB_TEX0+unit];
    GLvector4f *out = &store->texcoord[unit];
-   GLvector4f *normal = VB->NormalPtr;
+   GLvector4f *normal = VB->AttrPtr[VERT_ATTRIB_NORMAL];
    GLfloat (*texcoord)[4] = (GLfloat (*)[4])out->start;
    GLuint count = VB->Count;
    GLuint i;
@@ -314,7 +314,7 @@ static void texgen_sphere_map( GLcontext *ctx,
 			       GLuint unit )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLvector4f *in = VB->TexCoordPtr[unit];
+   GLvector4f *in = VB->AttrPtr[VERT_ATTRIB_TEX0+unit];
    GLvector4f *out = &store->texcoord[unit];
    GLfloat (*texcoord)[4] = (GLfloat (*)[4]) out->start;
    GLuint count = VB->Count;
@@ -322,13 +322,9 @@ static void texgen_sphere_map( GLcontext *ctx,
    GLfloat (*f)[3] = store->tmp_f;
    GLfloat *m = store->tmp_m;
 
-/*     _mesa_debug(NULL, "%s normstride %d eyestride %d\n",  */
-/*  	   __FUNCTION__, VB->NormalPtr->stride, */
-/*  	   VB->EyePtr->stride); */
-
    (build_m_tab[VB->EyePtr->size])( store->tmp_f,
 				    store->tmp_m,
-				    VB->NormalPtr,
+				    VB->AttrPtr[VERT_ATTRIB_NORMAL],
 				    VB->EyePtr );
 
    for (i=0;i<count;i++) {
@@ -357,12 +353,12 @@ static void texgen( GLcontext *ctx,
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
-   GLvector4f *in = VB->TexCoordPtr[unit];
+   GLvector4f *in = VB->AttrPtr[VERT_ATTRIB_TEX0+unit];
    GLvector4f *out = &store->texcoord[unit];
    struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
    const GLvector4f *obj = VB->ObjPtr;
    const GLvector4f *eye = VB->EyePtr;
-   const GLvector4f *normal = VB->NormalPtr;
+   const GLvector4f *normal = VB->AttrPtr[VERT_ATTRIB_NORMAL];
    GLfloat (*texcoord)[4] = (GLfloat (*)[4])out->data;
    GLfloat *indata;
    GLuint count = VB->Count;
@@ -532,7 +528,7 @@ static GLboolean run_texgen_stage( GLcontext *ctx,
 	 if (stage->changed_inputs & (VERT_BIT_EYE | VERT_BIT_NORMAL | VERT_BIT_TEX(i)))
 	    store->TexgenFunc[i]( ctx, store, i );
 
-	 VB->TexCoordPtr[i] = &store->texcoord[i];
+	 VB->AttrPtr[VERT_ATTRIB_TEX0+i] = &store->texcoord[i];
       }
 
    return GL_TRUE;

@@ -1,4 +1,4 @@
-/* $Id: t_vb_texmat.c,v 1.8 2002/01/22 14:35:17 brianp Exp $ */
+/* $Id: t_vb_texmat.c,v 1.8.2.1 2002/10/15 16:56:53 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -88,9 +88,9 @@ static GLboolean run_texmat_stage( GLcontext *ctx,
 	 if (stage->changed_inputs & VERT_BIT_TEX(i))
 	    (void) TransformRaw( &store->texcoord[i],
                                  ctx->TextureMatrixStack[i].Top,
-				 VB->TexCoordPtr[i]);
+				 VB->AttrPtr[VERT_ATTRIB_TEX0+i]);
 
-	 VB->TexCoordPtr[i] = &store->texcoord[i];
+	 VB->AttrPtr[VERT_ATTRIB_TEX0+i] = &store->texcoord[i];
       }
    return GL_TRUE;
 }
