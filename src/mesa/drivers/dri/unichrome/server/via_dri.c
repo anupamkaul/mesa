@@ -317,7 +317,7 @@ static int VIADRIScreenInit(DRIDriverContext * ctx)
 #if 0
     ctx->shared.SAREASize = ((sizeof(drm_sarea_t) + 0xfff) & 0x1000);
 #else
-    if (sizeof(drm_sarea_t)+sizeof(VIASAREAPriv) > SAREA_MAX) {
+    if (sizeof(drm_sarea_t)+sizeof(drm_via_sarea_t) > SAREA_MAX) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 			"Data does not fit in SAREA\n");
 	return GL_FALSE;
@@ -503,9 +503,9 @@ VIADRIFinishScreenInit(DRIDriverContext * ctx)
 
     /* set SAREA value */
     {
-	VIASAREAPriv *saPriv;
+	drm_via_sarea_t *saPriv;
 
-	saPriv=(VIASAREAPriv*)(((char*)ctx->pSAREA) +
+	saPriv=(drm_via_sarea_t*)(((char*)ctx->pSAREA) +
                                sizeof(drm_sarea_t));
 	assert(saPriv);
 	memset(saPriv, 0, sizeof(*saPriv));
