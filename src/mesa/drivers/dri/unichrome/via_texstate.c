@@ -192,6 +192,9 @@ static void viaSetTexImages(viaContextPtr vmesa,
     case MESA_FORMAT_ARGB1555:
         texFormat = HC_HTXnFM_ARGB1555;   
         break;
+    case MESA_FORMAT_RGB888:
+        texFormat = HC_HTXnFM_ARGB0888;
+	break;
     case MESA_FORMAT_L8:
         texFormat = HC_HTXnFM_L8;       
         break;
