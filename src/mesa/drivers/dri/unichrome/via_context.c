@@ -599,9 +599,16 @@ viaDestroyContext(__DRIcontextPrivate *driContextPriv)
         _tnl_DestroyContext(vmesa->glCtx);
         _ac_DestroyContext(vmesa->glCtx);
         _swrast_DestroyContext(vmesa->glCtx);
-	FreeBuffer(vmesa);
         /* free the Mesa context */
 	_mesa_destroy_context(vmesa->glCtx);
+	/* release our data */
+	FreeBuffer(vmesa);
+
+	assert (is_empty_list(&vmesa->tex_image_list[VIA_MEM_AGP]));
+	assert (is_empty_list(&vmesa->tex_image_list[VIA_MEM_VIDEO]));
+	assert (is_empty_list(&vmesa->tex_image_list[VIA_MEM_SYSTEM]));
+	assert (is_empty_list(&vmesa->freed_tex_buffers));
+
         FREE(vmesa);
     }
 }
