@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: polygon.c,v 1.25.4.5 2003/03/23 23:22:48 jrfonseca Exp $ */
+/* $Id: polygon.c,v 1.25.4.6 2003/05/18 21:17:06 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -274,7 +274,7 @@ void _mesa_update_polygon( GLcontext *ctx )
 /*@{*/
 
 /**
- * \brief Initalize the context polygon state.
+ * \brief Initialize the context polygon state.
  *
  * \param ctx GL context.
  *

@@ -1,4 +1,4 @@
-/* $Id: t_context.h,v 1.43.6.1 2002/12/30 15:20:38 keithw Exp $ */
+/* $Id: t_context.h,v 1.43.6.2 2003/05/18 21:17:21 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -26,7 +26,7 @@
 
 /**
  * \file t_context.h
- * \brief TnL module datatypes and definitions.
+ * \brief TnL module data types and definitions.
  * \author Keith Whitwell
  */
 

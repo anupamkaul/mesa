@@ -6,7 +6,7 @@
  * It includes gl.h and all system headers which are needed.
  * Other Mesa source files should \e not directly include any system
  * headers.  This allows Mesa to be integrated into XFree86 and
- * allows system-dependent hacks/work-arounds to be collected in one place.
+ * allows system-dependent hacks/workarounds to be collected in one place.
  *
  * If you touch this file, everything gets recompiled!
  *
@@ -40,7 +40,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glheader.h,v 1.29.4.3 2003/05/18 14:11:25 jrfonseca Exp $ */
+/* $Id: glheader.h,v 1.29.4.4 2003/05/18 21:17:04 jrfonseca Exp $ */
 
 
 #ifndef GLHEADER_H
@@ -126,7 +126,7 @@
 #  define GLWINAPIV
 #endif /* WIN32 / CYGWIN bracket */
 
-/* compatability guard so we don't need to change client code */
+/* compatibility guard so we don't need to change client code */
 
 #if defined(_WIN32) && !defined(_WINDEF_) && !defined(_GNU_H_WINDOWS32_BASE) && !defined(OPENSTEP) && !defined(__CYGWIN__)
 #if 0

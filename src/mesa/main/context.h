@@ -2,7 +2,7 @@
  * \file context.h
  * \brief Mesa context/visual/framebuffer management functions.
  *
- * There are three Mesa datatypes which are meant to be used by device
+ * There are three Mesa data types which are meant to be used by device
  * drivers:
  * - GLcontext: this contains the Mesa rendering state
  * - GLvisual:  this describes the color buffer (RGB vs. ci), whether or not
@@ -11,12 +11,12 @@
  *   accum buffer and alpha buffers.
  *
  * These types should be encapsulated by corresponding device driver
- * datatypes.  See xmesa.h and xmesaP.h for an example.
+ * data types.  See xmesa.h and xmesaP.h for an example.
  *
  * In OOP terms, GLcontext, GLvisual, and GLframebuffer are base classes
  * which the device driver must derive from.
  *
- * The following functions create and destroy these datatypes.
+ * The following functions create and destroy these data types.
  */
 
 /*
@@ -43,7 +43,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: context.h,v 1.35.4.3 2003/03/23 23:22:47 jrfonseca Exp $ */
+/* $Id: context.h,v 1.35.4.4 2003/05/18 21:17:01 jrfonseca Exp $ */
 
 #ifndef CONTEXT_H
 #define CONTEXT_H

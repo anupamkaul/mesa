@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: m_matrix.h,v 1.4.8.3 2003/03/22 16:49:59 jrfonseca Exp $ */
+/* $Id: m_matrix.h,v 1.4.8.4 2003/05/18 21:17:19 jrfonseca Exp $ */
 
 
 #ifndef _M_MATRIX_H
@@ -55,7 +55,7 @@
 enum GLmatrixtype {
 	MATRIX_GENERAL = 0,	/**< \brief general 4x4 matrix */
 	MATRIX_IDENTITY = 1,	/**< \brief identity matrix */
-	MATRIX_3D_NO_ROT = 2,	/**< \brief ortho projection and others... */
+	MATRIX_3D_NO_ROT = 2,	/**< \brief orthogonal projection and others... */
 	MATRIX_PERSPECTIVE = 3,	/**< \brief perspective projection matrix */
 	MATRIX_2D = 4,		/**< \brief 2-D transformation */
 	MATRIX_2D_NO_ROT = 5,	/**< \brief 2-D scale & translate only */
@@ -69,8 +69,8 @@ enum GLmatrixtype {
 /*@{*/
 
 #define MAT_FLAG_IDENTITY       0	/**< \brief is an identity matrix flag.
-					 *   (Not actualy used - the identity
-					 *   matrix is identified by the abcense
+					 *   (Not actually used - the identity
+					 *   matrix is identified by the absense
 					 /   of all other flags.) */
 #define MAT_FLAG_GENERAL        0x1	/**< \brief is a general matrix flag */
 #define MAT_FLAG_ROTATION       0x2	/**< \brief is a rotation matrix flag */

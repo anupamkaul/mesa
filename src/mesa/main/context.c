@@ -28,7 +28,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: context.c,v 1.188.2.1.2.18 2003/05/18 14:11:24 jrfonseca Exp $ */
+/* $Id: context.c,v 1.188.2.1.2.19 2003/05/18 21:17:01 jrfonseca Exp $ */
 
 /**
  * \mainpage Mesa Core Module
@@ -724,14 +724,14 @@ _mesa_free_framebuffer_data( GLframebuffer *buffer )
 /**********************************************************************/
 /** \name Context allocation, initialization, destroying
  *
- * The purpose of the most initalization functions here is to provide the
+ * The purpose of the most initialization functions here is to provide the
  * default state values according to the OpenGL specification.
  */
 /**********************************************************************/
 /*@{*/
 
 /**
- * \brief One-time initalization mutex lock.
+ * \brief One-time initialization mutex lock.
  *
  * \sa Used by one_time_init().
  */
@@ -801,7 +801,7 @@ one_time_init( GLcontext *ctx )
  *
  * Initializes the display list, texture objects and vertex programs hash
  * tables, allocates the texture objects. If it runs out of memory, frees
- * everything already allocated before returing NULL.
+ * everything already allocated before returning NULL.
  */
 static struct gl_shared_state *
 alloc_shared_state( void )
@@ -1024,8 +1024,8 @@ init_attrib_groups( GLcontext *ctx )
  * 
  * \sa _mesa_create_context() for the parameter description.
  *
- * Performs the imports and exports callback tables initialzation, and
- * miscellaenuos one-time initializations. If no shared context is supplied one
+ * Performs the imports and exports callback tables initialization, and
+ * miscellaneous one-time initializations. If no shared context is supplied one
  * is allocated, and increase its reference count.  Setups the GL API dispatch
  * tables.  Initialize the TNL module. Sets the maximum Z buffer depth.
  * Finally queries the \c MESA_DEBUG and \c MESA_VERBOSE environment variables
@@ -1355,7 +1355,7 @@ _mesa_make_current( GLcontext *newCtx, GLframebuffer *buffer )
  * \param readBuffer read framebuffer.
  * 
  * Check that the context's and framebuffer's visuals are compatible, returning
- * imediatly otherwise. Sets the glapi current context via
+ * immediately otherwise. Sets the glapi current context via
  * _glapi_set_context(). If \p newCtx is not NULL, associates \p drawBuffer and
  * \p readBuffer with it and calls dd_function_table::ResizeBuffers if the buffers size has changed. 
  * Calls dd_function_table::MakeCurrent callback if defined.

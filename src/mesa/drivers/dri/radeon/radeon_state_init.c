@@ -134,7 +134,7 @@ static int cmdscl( int offset, int stride, int count )
 /**
  * \brief Utility macro for state checking functions definition.
  *
- * It is used for a shorthand definiton of the state checking functions. Four
+ * It is used for a shorthand definition of the state checking functions. Four
  * functions are defined:
  * - one which always returns GL_TRUE for state which is always active;
  * - two which determine whether the respective texture unit is enabled;
@@ -202,7 +202,7 @@ TCL_CHECK( tcl_eyespace_or_fog, ctx->_NeedEyeCoords || ctx->Fog.Enabled )
  * \brief Utility macro to initialize a state atom.
  *
  * Used internally by radeonInitState() to allocate the state atom command
- * buffer and initiaze the state checking function.
+ * buffer and initialize the state checking function.
  * 
  * \param ATOM atom name, as defined in radeon_hw_state.
  * \param CHK state checking function, as defined by #CHECK or #TCL_CHECK.
@@ -217,7 +217,7 @@ TCL_CHECK( tcl_eyespace_or_fog, ctx->_NeedEyeCoords || ctx->Fog.Enabled )
  *
  * \param rmesa Radeon context.
  *
- * Initalizes all state atoms giving apropriate inital state values. Allocates
+ * Initializes all state atoms giving appropriate initial state values. Allocates
  * the state atoms' command buffers, using internally the #ALLOC_STATE macro
  * for this effect.  Fills in the packet headers with the register ID
  * associated with the atom, via cmdpkt().

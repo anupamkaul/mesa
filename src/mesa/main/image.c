@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: image.c,v 1.69.4.5 2003/03/23 23:22:48 jrfonseca Exp $ */
+/* $Id: image.c,v 1.69.4.6 2003/05/18 21:17:04 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -47,7 +47,7 @@
  * 
  * _mesa_unpack_image() returns image data in this format.  When we execute
  * image commands (glDrawPixels(), glTexImage(), etc) from within display lists
- * we have to be sure to set the current unpacking params to these values!
+ * we have to be sure to set the current unpacking parameters to these values!
  */
 const struct gl_pixelstore_attrib _mesa_native_packing = {
    1,            /* Alignment */
@@ -134,11 +134,11 @@ _mesa_swap4( GLuint *p, GLuint n )
 
 
 /**
- * \brief Get the size of a GL datatype.
+ * \brief Get the size of a GL data type.
  *
  * \param type GL data type.
  *
- * \return the size, in bytes, of the given datatype, 0 if a GL_BITMAP, or -1
+ * \return the size, in bytes, of the given data type, 0 if a GL_BITMAP, or -1
  * if an invalid type enum.
  */
 GLint _mesa_sizeof_type( GLenum type )
@@ -168,7 +168,7 @@ GLint _mesa_sizeof_type( GLenum type )
 
 /**
  * \brief Same as _mesa_sizeof_type() but also accepting the packed pixel
- * format datatypes.
+ * format data types.
  */
 GLint _mesa_sizeof_packed_type( GLenum type )
 {
@@ -1825,7 +1825,7 @@ _mesa_pack_float_rgba_span( GLcontext *ctx,
  *         n - number of pixels in the span
  *         rgba - the pixels
  *         format - dest packing format
- *         type - dest packing datatype
+ *         type - dest packing data type
  *         destination - destination packing address
  *         packing - pixel packing parameters
  *         transferOps - bitmask of IMAGE_*_BIT operations to apply
@@ -2080,7 +2080,7 @@ extract_uint_indexes(GLuint n, GLuint indexes[],
  * Args:  n - number of pixels
  *        rgba - output colors
  *        srcFormat - format of incoming data
- *        srcType - datatype of incoming data
+ *        srcType - data type of incoming data
  *        src - source data pointer
  *        swapBytes - perform byteswapping of incoming data?
  */
@@ -2581,7 +2581,7 @@ extract_float_rgba(GLuint n, GLfloat rgba[][4],
  *         dstFormat - format of destination color array
  *         dest - the destination color array
  *         srcFormat - source image format
- *         srcType - source image  datatype
+ *         srcType - source image  data type
  *         source - source image pointer
  *         srcPacking - pixel unpacking parameters
  *         transferOps - bitmask of IMAGE_*_BIT values of operations to apply
@@ -3263,7 +3263,7 @@ _mesa_unpack_float_color_span( GLcontext *ctx,
  *
  * Args:  ctx - the context
  *        n - number of pixels
- *        dstType - destination datatype
+ *        dstType - destination data type
  *        dest - destination array
  *        srcType - source pixel type
  *        source - source data pointer
@@ -3469,7 +3469,7 @@ _mesa_pack_index_span( const GLcontext *ctx, GLuint n,
  *
  * Args:  ctx - the context
  *        n - number of pixels
- *        dstType - destination datatype
+ *        dstType - destination data type
  *        dest - destination array
  *        srcType - source pixel type
  *        source - source data pointer

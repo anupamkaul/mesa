@@ -1,4 +1,4 @@
-/* $Id: mipmap.c,v 1.1.2.1 2003/03/21 13:02:12 keithw Exp $ */
+/* $Id: mipmap.c,v 1.1.2.2 2003/05/18 21:17:19 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -553,7 +553,7 @@ round2(GLint n)
 
 
 /*
- * Given an pixel format and datatype, return the number of bytes to
+ * Given an pixel format and data type, return the number of bytes to
  * store one pixel.
  */
 static GLint

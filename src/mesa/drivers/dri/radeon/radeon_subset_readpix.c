@@ -140,7 +140,7 @@ static void ReadRGBASpan( const GLcontext *ctx,
  * \param x x start position of the reading rectangle.
  * \param y y start position of the reading rectangle.
  * \param width width of the reading rectangle.
- * \param height height of the reading recatangle.
+ * \param height height of the reading rectangle.
  * \param format pixel format. Must be GL_RGBA.
  * \param type pixel type. Must be GL_UNSIGNED_BYTE.
  * \param pixels pixel data.

@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: feedback.c,v 1.27.4.5 2003/03/23 23:22:47 jrfonseca Exp $ */
+/* $Id: feedback.c,v 1.27.4.6 2003/05/18 21:17:03 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -212,7 +212,7 @@ _mesa_SelectBuffer( GLsizei size, GLuint *buffer )
 
 
 /**
- * \brief Update the hit flag and the maximum and minimun depth values.
+ * \brief Update the hit flag and the maximum and minimum depth values.
  *
  * \param ctx GL context.
  * \param z depth.

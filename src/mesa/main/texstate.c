@@ -1,4 +1,4 @@
-/* $Id: texstate.c,v 1.87.4.3 2003/03/21 11:35:22 keithw Exp $ */
+/* $Id: texstate.c,v 1.87.4.4 2003/05/18 21:17:08 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -2830,7 +2830,7 @@ alloc_proxy_textures( GLcontext *ctx )
 
 
 /**
- * \brief Initalize a texture unit.
+ * \brief Initialize a texture unit.
  *
  * \param ctx GL context.
  * \param unit texture unit number to be initialized.

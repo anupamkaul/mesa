@@ -1,4 +1,4 @@
-/* $Id: gluP.h,v 1.1.2.1 2003/03/21 13:02:10 keithw Exp $ */
+/* $Id: gluP.h,v 1.1.2.2 2003/05/18 21:17:19 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -85,7 +85,7 @@
 #  define GLWINAPIV
 #endif /* WIN32 / CYGWIN bracket */
 
-/* compatability guard so we don't need to change client code */
+/* compatibility guard so we don't need to change client code */
 
 #if defined(_WIN32) && !defined(_WINDEF_) && !defined(_GNU_H_WINDOWS32_BASE) && !defined(OPENSTEP)
 #	define CALLBACK GLCALLBACK

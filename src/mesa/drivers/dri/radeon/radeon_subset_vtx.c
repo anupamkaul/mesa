@@ -60,7 +60,7 @@ union vertex_dword {
 
 
 /**
- * \brief Maxium number of dwords per vertex.
+ * \brief Maximum number of dwords per vertex.
  *
  * Defined as 10 to hold: \code xyzw rgba st \endcode
  */
@@ -154,7 +154,7 @@ static struct prims_t {
  * \param rmesa Radeon context.
  *
  * Truncates any redundant vertices off the end of the buffer, emit the
- * remainging vertices and advances the current DMA region.
+ * remaining vertices and advances the current DMA region.
  */
 static void finish_prim( radeonContextPtr rmesa )
 {
@@ -185,7 +185,7 @@ static void finish_prim( radeonContextPtr rmesa )
  * \brief Copy a vertex from the current DMA region
  *
  * \param rmesa Radeon context.
- * \param n vertice index relative to the current DMA region.
+ * \param n vertex index relative to the current DMA region.
  * \param dst destination pointer.
  *
  * Used internally by copy_dma_verts().
@@ -270,7 +270,7 @@ static GLuint copy_dma_verts( radeonContextPtr rmesa,
 static void notify_wrap_buffer( void );
 
 /**
- * \brief Resets the vertex buffer notifycation mechanism.
+ * \brief Resets the vertex buffer notification mechanism.
  *
  * Fills in vb_t::stack with the values from the current DMA region in
  * radeon_dma::current and sets the notification callback to
@@ -293,7 +293,7 @@ static void reset_notify( void )
  * \brief Full buffer notification callback.
  *
  * Makes a copy of the necessary vertices of the current buffer via
- * copy_dma_verts(), gets and resets new buffer via radeon and reemits the
+ * copy_dma_verts(), gets and resets new buffer via radeon and re-emits the
  * saved vertices.
  */
 static void notify_wrap_buffer( void )
@@ -486,7 +486,7 @@ void radeonVtxfmtInvalidate( GLcontext *ctx )
  * \param ctx GL context.
  *
  * Signals a new primitive and determines the appropriate vertex format and
- * size. Points vb_t::floatcolorptr and vb_t::texcoordptr to the curent vertex
+ * size. Points vb_t::floatcolorptr and vb_t::texcoordptr to the current vertex
  * and sets them to the current color and texture attributes.
  *
  * Clears the vb_t::recheck flag on exit.
@@ -928,7 +928,7 @@ static void radeon_noop_End(void)
  *
  * Installs the noop callbacks into the glapi table.  These functions
  * will not attempt to emit any DMA vertices, but will keep internal
- * GL state uptodate.  Borrows heavily from the select code.
+ * GL state updated.  Borrows heavily from the select code.
  */
 static void radeon_noop_Install( GLcontext *ctx )
 {

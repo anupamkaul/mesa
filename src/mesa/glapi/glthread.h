@@ -42,7 +42,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glthread.h,v 1.11.6.4 2003/03/23 23:22:48 jrfonseca Exp $ */
+/* $Id: glthread.h,v 1.11.6.5 2003/05/18 21:17:04 jrfonseca Exp $ */
 
 
 #ifndef GLTHREAD_H
@@ -238,7 +238,7 @@ create_sem(0, #name"_benaphore") }
 typedef GLuint _glthread_TSD;
 
 /** 
- * \brief Thread datatype
+ * \brief Thread data type
  *
  * Dummy type 
  */

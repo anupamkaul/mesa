@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: stencil.c,v 1.29.4.4 2003/03/23 23:22:48 jrfonseca Exp $ */
+/* $Id: stencil.c,v 1.29.4.5 2003/05/18 21:17:07 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -127,7 +127,7 @@ _mesa_StencilFunc( GLenum func, GLint ref, GLuint mask )
 /**
  * \brief Set the stencil writing mask.
  *
- * \param mask bit-mask to enable/disbale writing of individual bits in the
+ * \param mask bit-mask to enable/disable writing of individual bits in the
  * stencil planes.
  *
  * \sa glStencilMask().

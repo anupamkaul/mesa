@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: colormac.h,v 1.11.6.2 2003/03/23 23:22:47 jrfonseca Exp $ */
+/* $Id: colormac.h,v 1.11.6.3 2003/05/18 21:17:01 jrfonseca Exp $ */
 
 
 #ifndef COLORMAC_H
@@ -76,7 +76,7 @@
  * \brief Copy a GLchan[4] array */
 
 /** \def CHAN_PRODUCT
- * \brief Scaled product (usually aproximated) between two GLchan arguments */
+ * \brief Scaled product (usually approximated) between two GLchan arguments */
 
 #if CHAN_BITS == 8
 

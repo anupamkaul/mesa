@@ -116,7 +116,7 @@ do {						\
 } while (0)
 
 /**
- * Can accomodate several state changes and primitive changes without
+ * Can accommodate several state changes and primitive changes without
  * actually firing the buffer.
  *
  * \param rmesa Radeon context.
@@ -170,7 +170,7 @@ do {							\
  * \param where Not used.
  *
  * If there isn't enough space available flush the command buffer, otherwise
- * just advance the buffer head the requested ammount.
+ * just advance the buffer head the requested amount.
  */
 static __inline char *radeonAllocCmdBuf( radeonContextPtr rmesa,
 					 int bytes, const char *where )

@@ -32,7 +32,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: m_matrix.c,v 1.14.4.4 2003/03/23 23:22:49 jrfonseca Exp $ */
+/* $Id: m_matrix.c,v 1.14.4.5 2003/05/18 21:17:19 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -105,7 +105,7 @@ static void matmul4( GLfloat *product, const GLfloat *a, const GLfloat *b )
 
 /**
  * \brief Multiply two matrices known to occupy only the top three rows, such
- * as typical model matrices, and ortho matrices.
+ * as typical model matrices, and orthogonal matrices.
  *
  * \param a matrix.
  * \param b matrix.
@@ -134,7 +134,7 @@ static void matmul34( GLfloat *product, const GLfloat *a, const GLfloat *b )
 /**
  * \brief Multiply a matrix by an array of floats with known properties.
  *
- * \param mat pointer to a GLmatrix structure containing the left mutiplication
+ * \param mat pointer to a GLmatrix structure containing the left multiplication
  * matrix, and that will receive the product result.
  * \param m right multiplication matrix array.
  * \param flags flags of the matrix \p m.
@@ -220,7 +220,7 @@ static void print_matrix_floats( const GLfloat m[16] )
 /**
  * \brief Dumps the contents of a GLmatrix structure.
  * 
- * \param m pointer to the GLmatrix strucure.
+ * \param m pointer to the GLmatrix structure.
  */
 void
 _math_matrix_print( const GLmatrix *m )
@@ -280,7 +280,7 @@ _math_matrix_print( const GLmatrix *m )
  * Code contributed by Jacques Leroy jle@star.be
  *
  * Calculates the inverse matrix by performing the gaussian matrix reduction
- * with partial pivoting folloed by back/substitution with the loops manually
+ * with partial pivoting followed by back/substitution with the loops manually
  * unrolled.
  */
 static GLboolean invert_matrix_general( GLmatrix *mat )
@@ -407,7 +407,7 @@ static GLboolean invert_matrix_general( GLmatrix *mat )
  * \author Adapted from graphics gems II.
  *
  * Calculates the inverse of the upper left by first calculating its
- * determinant and multiplying it to the simetric adjust matrix of each
+ * determinant and multiplying it to the symmetric adjust matrix of each
  * element. Finally deals with the translation part by transforming the
  * original translation vector using by the calculated submatrix inverse.
  */
@@ -984,7 +984,7 @@ _math_matrix_ortho( GLmatrix *mat,
  * \param z z axis scale factor.
  *
  * Multiplies in-place the elements of \p mat by the scale factors. Checks if
- * the scales faactors are roughly the same, marking the MAT_FLAG_UNIFORM_SCALE
+ * the scales factors are roughly the same, marking the MAT_FLAG_UNIFORM_SCALE
  * flag, or MAT_FLAG_GENERAL_SCALE. Marks the MAT_DIRTY_TYPE and
  * MAT_DIRTY_INVERSE dirty flags.
  */
@@ -1033,12 +1033,12 @@ _math_matrix_translate( GLmatrix *mat, GLfloat x, GLfloat y, GLfloat z )
 }
 
 /**
- * \brief Set a matrix to the indentity matrix.
+ * \brief Set a matrix to the identity matrix.
  *
  * \param mat matrix.
  *
  * Copies ::Identity into \p GLmatrix::m, and into GLmatrix::inv if not NULL.
- * Sets the matrix type to indentity, and clear the dirty flags.
+ * Sets the matrix type to identity, and clear the dirty flags.
  */
 void
 _math_matrix_set_identity( GLmatrix *mat )
@@ -1217,7 +1217,7 @@ static void analyse_from_scratch( GLmatrix *mat )
 }
 
 /**
- * \brief Analyse a matrix given that its flags are accurate.
+ * \brief Analyze a matrix given that its flags are accurate.
  * 
  * This is the more common operation, hopefully.
  */
@@ -1267,7 +1267,7 @@ static void analyse_from_flags( GLmatrix *mat )
  * If the matrix type is dirty then calls either analyse_from_scratch() or
  * analyse_from_flags() to determine its type, according to whether the flags
  * are dirty or not, respectively. If the matrix has an inverse and it's dirty
- * then calls matrix_invert(). Finally clears the firty flags.
+ * then calls matrix_invert(). Finally clears the dirty flags.
  */
 void
 _math_matrix_analyse( GLmatrix *mat )

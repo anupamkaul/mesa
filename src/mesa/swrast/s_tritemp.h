@@ -1,10 +1,10 @@
-/* $Id: s_tritemp.h,v 1.41 2002/11/13 16:51:02 brianp Exp $ */
+/* $Id: s_tritemp.h,v 1.40.4.1 2003/05/18 21:17:21 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
- * Version:  5.1
+ * Version:  3.5
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -49,7 +49,7 @@
  * When one can directly address pixels in the color buffer the following
  * macros can be defined and used to compute pixel addresses during
  * rasterization (see pRow):
- *    PIXEL_TYPE          - the datatype of a pixel (GLubyte, GLushort, GLuint)
+ *    PIXEL_TYPE          - the data type of a pixel (GLubyte, GLushort, GLuint)
  *    BYTES_PER_ROW       - number of bytes per row in the color buffer
  *    PIXEL_ADDRESS(X,Y)  - returns the address of pixel at (X,Y) where
  *                          Y==0 at bottom of screen and increases upward.
@@ -88,13 +88,10 @@
 #define INTERP_FLOAT_SPEC
 #endif
 
-#endif /* CHAN_TYPE == GL_FLOAT */
+#endif
 
 
-
-static void NAME(GLcontext *ctx, const SWvertex *v0,
-                                 const SWvertex *v1,
-                                 const SWvertex *v2 )
+/*void triangle( GLcontext *ctx, SWvertex *v0, SWvertex *v1, SWvertex *v2 )*/
 {
    typedef struct {
         const SWvertex *v0, *v1;   /* Y(v0) < Y(v1) */
@@ -1407,4 +1404,3 @@ static void NAME(GLcontext *ctx, const SWvertex *v0,
 #undef FixedToDepth
 
 #undef DO_OCCLUSION_TEST
-#undef NAME

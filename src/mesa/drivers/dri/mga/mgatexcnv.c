@@ -38,7 +38,7 @@
 
 /*
  * mgaConvertTexture
- * Converts a mesa format texture to the apropriate hardware format
+ * Converts a mesa format texture to the appropriate hardware format
  * Note that sometimes width may be larger than the texture, like 64x1
  * for an 8x8 texture.  This happens when we have to crutch the pitch
  * limits of the mga by uploading a block of texels as a single line.

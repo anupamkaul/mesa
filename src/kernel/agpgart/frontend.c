@@ -53,7 +53,7 @@ static struct agp_front_data agp_fe;
  * \param key allocation tag.
  * \return pointer to the agp_memory on success or NULL on failure.
  *
- * Walks trhough the agp_controller::pool list until finding a matching key.
+ * Walks through the agp_controller::pool list until finding a matching key.
  */
 static agp_memory *agp_find_mem_by_key(int key)
 {
@@ -124,7 +124,7 @@ static void agp_remove_from_pool(agp_memory * temp)
  * \param page_prot memory protection flags .
  * \return pointer to the segment private data on success or NULL on failure.
  *
- * Walks through every segment in \p client until find one with a macthing
+ * Walks through every segment in \p client until find one with a matching
  * offset, size and memory protection flags.
  */
 static agp_segment_priv *agp_find_seg_in_client(const agp_client * client,
@@ -658,7 +658,7 @@ static void agp_controller_release_current(agp_controller * controller,
  * Find a client in a controller with a given process id.
  *
  * \param controller controller to search the client on.
- * \param id clinet process id.
+ * \param id client process id.
  * \return pointer to the client structure on success or NULL otherwise.
  * 
  * Search the given process id in agp_contoller::clients.
@@ -963,7 +963,7 @@ static int agp_release(struct inode *inode, struct file *file)
  * and sets the client allow flag. If the user or the suid is zero then sets the
  * <i>controller allow</i> flag too.
  *
- * If there is a client with the current proccess id then set the \e client and
+ * If there is a client with the current process id then set the \e client and
  * \e valid flags.
  * 
  * The AGP lock is held during the function call.
@@ -1069,7 +1069,7 @@ static int agpioc_info_wrap(agp_file_private * priv, unsigned long arg)
  * acquired the device, and acquires it. 
  *
  * If there is a controller with a given process id the make it current,
- * otherwsie create a new controller, insert it, and make it current. Sets the
+ * otherwise create a new controller, insert it, and make it current. Sets the
  * controller and valid flags.
  */
 static int agpioc_acquire_wrap(agp_file_private * priv, unsigned long arg)

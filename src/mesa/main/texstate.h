@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texstate.h,v 1.9.6.2 2003/03/22 16:49:59 jrfonseca Exp $ */
+/* $Id: texstate.h,v 1.9.6.3 2003/05/18 21:17:09 jrfonseca Exp $ */
 
 
 #ifndef TEXSTATE_H
@@ -173,7 +173,7 @@ _mesa_GetPixelTexGenParameterivSGIS(GLenum target, GLint *value);
 
 
 /**
- * \name Initialization, state maintainance
+ * \name Initialization, state maintenance
  */
 /*@{*/
 

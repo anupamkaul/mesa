@@ -1,4 +1,4 @@
-/* $Id: mathmod.h,v 1.3.8.1 2003/01/10 21:57:42 brianp Exp $ */
+/* $Id: mathmod.h,v 1.3.8.2 2003/05/18 21:17:19 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -29,7 +29,7 @@
  * \mainpage Mesa Math Module
  *
  * This module contains math-related utility functions for transforming
- * vertices, translating arrays of numbers from one datatype to another,
+ * vertices, translating arrays of numbers from one data type to another,
  * evaluating curved surfaces, etc.
  */
 

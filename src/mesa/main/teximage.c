@@ -2,7 +2,7 @@
  * \file teximage.c
  * \brief Texture images manipulation functions.
  *
- * \note Mesa's native texture datatype is GLchan.  Native formats are
+ * \note Mesa's native texture data type is GLchan.  Native formats are
  * GL_ALPHA, GL_LUMINANCE, GL_LUMANCE_ALPHA, GL_INTENSITY, GL_RGB, GL_RGBA, and
  * GL_COLOR_INDEX.
  *
@@ -33,7 +33,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: teximage.c,v 1.124.4.3 2003/03/22 16:49:58 jrfonseca Exp $ */
+/* $Id: teximage.c,v 1.124.4.4 2003/05/18 21:17:08 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "context.h"

@@ -119,7 +119,7 @@ static void radeon_emit_state_list( radeonContextPtr rmesa,
  *
  * Calls radeon_emit_state_list() with the radeon_hw_state::dirty list. 
  *
- * If radeon_context::lost_context is set then all state is emited by moving
+ * If radeon_context::lost_context is set then all state is emitted by moving
  * everything in radeon_hw_state::dirty prior to the radeon_emit_state_list()
  * call. 
  *
@@ -511,7 +511,7 @@ void radeonRefillCurrentDmaRegion( radeonContextPtr rmesa )
  * \brief Release DMA region.
  *
  * \param rmesa Radeon context.
- * \param region ragion to be released.
+ * \param region region to be released.
  * \param caller caller's name for debugging purposes.
  *
  * Decreases the region reference count, and if it reaches zero sends the
@@ -710,7 +710,7 @@ static void radeonWaitIrq( radeonContextPtr rmesa )
  * Waits until the number of processed frames reaches RADEONSAREAPriv::last_frame in the
  * SAREA.
  *
- * The idea is to only emit IRQ's if the graphics card is the bottleneck -- ie
+ * The idea is to only emit IRQ's if the graphics card is the bottleneck -- i.e.,
  * only do it if we find that the previous frame hasn't completed. When the
  * card is the bottlneck one'd like to do something like:
  *
@@ -851,7 +851,7 @@ void radeonCopyBuffer( const __DRIdrawablePrivate *dPriv )
 /**
  * \brief Do page flipping.
  *
- * \param dPriv DRI drawable speficic data.
+ * \param dPriv DRI drawable specific data.
  *
  * Fires the existing vertices and waits for frame completion and vertical
  * retrace. Sends the DRM_RADEON_FLIP command and updates the value of
@@ -944,7 +944,7 @@ void radeonPageFlip( const __DRIdrawablePrivate *dPriv )
  * \param ctx GL context.
  * \param mask buffer clear mask.
  * \param all whether to clear them all or just a rectangle.
- * \param cx clearing rectangle abcissa.
+ * \param cx clearing rectangle abscissa.
  * \param cy clearing rectangle ordinate.
  * \param cw clearing rectangle width.
  * \param ch clearing rectangle height.

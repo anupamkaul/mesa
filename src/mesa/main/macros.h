@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: macros.h,v 1.30.4.2 2003/05/18 14:11:26 jrfonseca Exp $ */
+/* $Id: macros.h,v 1.30.4.3 2003/05/18 21:17:05 jrfonseca Exp $ */
 
 
 #ifndef MACROS_H
@@ -87,7 +87,7 @@
 			  (a)[2] == (b)[2] &&	\
 			  (a)[3] == (b)[3])
 
-/** \brief Test for equality (unsined bytes) */
+/** \brief Test for equality (unsigned bytes) */
 #if defined(__i386__)
 #define TEST_EQ_4UBV(DST, SRC) *((GLuint*)(DST)) == *((GLuint*)(SRC))
 #else
@@ -151,7 +151,7 @@ do {						\
    }  						\
 } while(0)
 
-/** \brief Copy \p SZ elements into a homegenous (4-element) vector, giving
+/** \brief Copy \p SZ elements into a homegeneous (4-element) vector, giving
  * default values to the remaining */
 #define COPY_CLEAN_4V(DST, SZ, SRC) 		\
 do {						\

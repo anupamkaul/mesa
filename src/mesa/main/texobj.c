@@ -1,6 +1,6 @@
 /**
  * \file texobj.c
- * \brief Texture object managment.
+ * \brief Texture object management.
  */
 
 /*
@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texobj.c,v 1.62.4.7 2003/03/23 23:22:48 jrfonseca Exp $ */
+/* $Id: texobj.c,v 1.62.4.8 2003/05/18 21:17:08 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "colortab.h"
@@ -58,7 +58,7 @@
  *
  * \return pointer to new texture object.
  *
- * Allocate and initalize a gl_texture_object structure, and insert in the
+ * Allocate and initialize a gl_texture_object structure, and insert in the
  * shared state texture list while holding its mutex.
  * If <tt>name > 0</tt> then also insert the new texture object into the hash
  * table.
@@ -139,7 +139,7 @@ _mesa_alloc_texture_object( struct gl_shared_state *shared,
  *
  * Unlink the texture object from the shared state texture linked list while
  * holding its lock. If the texture is a name number it's also removed from the
- * hash table. Finally rees the texture images and the object itself.
+ * hash table. Finally frees the texture images and the object itself.
  */
 void _mesa_free_texture_object( struct gl_shared_state *shared,
                                 struct gl_texture_object *t )
@@ -554,7 +554,7 @@ _glthread_DECLARE_STATIC_MUTEX(GenTexturesLock);
  *
  * \sa glGenTextures().
  *
- * While holdind the GenTexturesLock lock, calls _mesa_HashFindFreeKeyBlock()
+ * While holding the GenTexturesLock lock, calls _mesa_HashFindFreeKeyBlock()
  * to find a block of free texture IDs which are stored in \p texName.
  * Corresponding empty texture objects are also generated.
  */ 
@@ -690,7 +690,7 @@ _mesa_DeleteTextures( GLsizei n, const GLuint *texName)
  * 
  * \sa glBindTexture().
  *
- * Determines the old texture object bound and returns immediatly if rebinding
+ * Determines the old texture object bound and returns immediately if rebinding
  * the same texture.  Get the current texture which is either a default texture
  * if name is null, a named texture from the hash, or a new texture if the
  * given texture name is new. Increments its reference count, binds it, and
@@ -851,7 +851,7 @@ _mesa_BindTexture( GLenum target, GLuint texName )
  * 
  * \sa glPrioritizeTextures().
  * 
- * Looksup each texture in the hash, clamps the corresponding priority between
+ * Looks up each texture in the hash, clamps the corresponding priority between
  * 0.0 and 1.0, and calls dd_function_table::PrioritizeTexture.
  */
 void
@@ -896,7 +896,7 @@ _mesa_PrioritizeTextures( GLsizei n, const GLuint *texName,
  * 
  * \sa glAreTexturesResident().
  *
- * Looksup each texture in the hash and calls
+ * Looks up each texture in the hash and calls
  * dd_function_table::IsTextureResident.
  */
 GLboolean

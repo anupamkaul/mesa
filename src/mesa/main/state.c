@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: state.c,v 1.97.4.10 2003/03/22 16:49:58 jrfonseca Exp $ */
+/* $Id: state.c,v 1.97.4.11 2003/05/18 21:17:06 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -83,7 +83,7 @@
 /**
  * \brief Generic no-op dispatch function.
  *
- * Used in replacementof the functions which are not part of Mesa subset.
+ * Used in replacement of the functions which are not part of Mesa subset.
  *
  * Displays a message.
  */
@@ -121,7 +121,7 @@ _mesa_init_no_op_table(struct _glapi_table *table, GLuint tableSize)
  * are provided via the GLvertexformat interface.
  *
  * \param exec dispatch table.
- * \param tableSize disptach table size.
+ * \param tableSize dispatch table size.
  */
 void
 _mesa_init_exec_table(struct _glapi_table *exec, GLuint tableSize)
@@ -616,7 +616,7 @@ _mesa_init_exec_table(struct _glapi_table *exec, GLuint tableSize)
  * miscellaneous flags are updated to reflect the current state of the state
  * machine.
  *
- * Calls dd_function_table::UpdateState to perform any internal stte management
+ * Calls dd_function_table::UpdateState to perform any internal state management
  * necessary.
  * 
  * \sa _mesa_update_modelview_project(), _mesa_update_texture(),

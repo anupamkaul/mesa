@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: dd.h,v 1.74.6.7 2003/05/18 14:11:25 jrfonseca Exp $ */
+/* $Id: dd.h,v 1.74.6.8 2003/05/18 21:17:01 jrfonseca Exp $ */
 
 
 #ifndef DD_INCLUDED
@@ -66,7 +66,7 @@ struct dd_function_table {
    /**
     * \brief Notify the driver after Mesa has made some internal state changes.  
     *
-    * This is in addition to any statechange callbacks Mesa may already have
+    * This is in addition to any state change callbacks Mesa may already have
     * made.
     */
    void (*UpdateState)( GLcontext *ctx, GLuint new_state );
@@ -715,7 +715,7 @@ struct dd_function_table {
     * \brief Validate the current T&L module. 
     *
     * This is called directly after UpdateState() when a state change that has
-    * occured matches the dd_function_table::NeedValidate bitmask above.  This
+    * occurred matches the dd_function_table::NeedValidate bitmask above.  This
     * ensures all computed values are up to date, thus allowing the driver to
     * decide if the current T&L module needs to be swapped out.
     *
@@ -750,7 +750,7 @@ struct dd_function_table {
    /**
     * Set by the driver-supplied T&L engine whenever vertices are buffered
     * between glBegin()/glEnd() objects or __GLcontextRec::Current is not
-    * uptodate.
+    * updated.
     *
     * The dd_function_table::FlushVertices call below may be used to resolve
     * these conditions.
@@ -825,7 +825,7 @@ struct dd_function_table {
  *
  * Drivers present a reduced set of the functions possible in
  * glBegin()/glEnd() objects.  Core mesa provides translation stubs for the
- * remaining functions to map down to these entrypoints.
+ * remaining functions to map down to these entry points.
  *
  * These are the initial values to be installed into dispatch by
  * mesa.  If the T&L driver wants to modify the dispatch table
@@ -834,7 +834,7 @@ struct dd_function_table {
  * functions, but this way there is an obvious list of what is
  * expected of the driver.
  *
- * If the driver wants to hook in entrypoints other than those
+ * If the driver wants to hook in entry points other than those
  * listed, it must restore them to their original values in
  * the disable() callback, below.
  */

@@ -11,7 +11,7 @@
  * A fairly complete client/server non-blocking communication
  * mechanism.  Probably overkill given that none of our messages
  * currently exceed 1 byte in length and take place over the
- * relatively benign channel provided by a unix domain socket.
+ * relatively benign channel provided by a Unix domain socket.
  */
 
 /*
@@ -38,7 +38,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: miniglx_events.c,v 1.1.2.12 2003/05/18 12:36:26 jrfonseca Exp $ */
+/* $Id: miniglx_events.c,v 1.1.2.13 2003/05/18 21:17:20 jrfonseca Exp $ */
 
 
 #include <assert.h>
@@ -83,7 +83,7 @@ enum msgs {
  *
  * \param dpy the display handle.
  *
- * \return Pointer to the queued event struct or NULL on failure.
+ * \return Pointer to the queued event structure or NULL on failure.
  * 
  * \internal 
  * If there is space on the XEvent queue, return a pointer
@@ -178,8 +178,8 @@ static void shut_fd( Display *dpy, int i )
  * \param sz the size of the message
  *
  * \internal 
- * Copy the message to the writebuffer for the nominated connection.
- * This will be actually sent to that file discriptor from
+ * Copy the message to the write buffer for the nominated connection.
+ * This will be actually sent to that file descriptor from
  * __miniglx_Select().
  */
 static int send_msg( Display *dpy, int i,
@@ -217,7 +217,7 @@ static int send_char_msg( Display *dpy, int i, char msg )
  *
  * \param dpy the display handle.
  * \param connection the index in dpy->fd of the socket connection.
- * \param msg storage for the recieved message.
+ * \param msg storage for the received message.
  * \param msg_size the number of bytes to read.
  *
  * \internal 
@@ -316,7 +316,7 @@ static int welcome_message( Display *dpy, int i )
  *
  * \return True on success or False on failure.
  * 
- * Acepts the connection, sets it in non-blocking operation, and finds a free
+ * Accepts the connection, sets it in non-blocking operation, and finds a free
  * slot in Display::fd for it.
  */
 static int handle_new_client( Display *dpy )
@@ -372,8 +372,8 @@ static int handle_new_client( Display *dpy )
 }
 
 /**
- * This routine "puffs out" the very basic communciations between
- * client & server to full-sized X Events that can be handled by the
+ * This routine "puffs out" the very basic communications between
+ * client and server to full-sized X Events that can be handled by the
  * application.
  *
  * \param dpy the display handle.
@@ -518,7 +518,7 @@ handle_fifo_read( Display *dpy, int i )
  * The VT switches is detected by comparing Display::haveVT and
  * Display::hwActive. When loosing the VT the hardware lock is acquired, the
  * hardware is shutdown via a call to DRIDriverRec::shutdownHardware(), and the
- * VT released. When aquiring the VT back the hardware state is restored via a
+ * VT released. When acquiring the VT back the hardware state is restored via a
  * call to DRIDriverRec::restoreHardware() and the hardware lock released.
  */
 static void __driHandleVtSignals( Display *dpy )
@@ -575,11 +575,11 @@ static void __driHandleVtSignals( Display *dpy )
  * clients.
  *
  * \sa
- * See select_tut in the linux manual pages for more discussion.
+ * See select_tut in the Linux manual pages for more discussion.
  *
  * \internal
  * Creates and initializes the file descriptor sets by inspecting Display::fd
- * if these aren't passed in the function call. Calls select() and fullfill the
+ * if these aren't passed in the function call. Calls select() and fulfill the
  * demands by trying to fill MiniGLXConnection::readbuf and draining
  * MiniGLXConnection::writebuf. 
  * The server fd[0] is handled specially for new connections, by calling
@@ -708,7 +708,7 @@ __miniglx_Select( Display *dpy, int n, fd_set *rfds, fd_set *wfds, fd_set *xfds,
  * \brief Handle socket events.
  *
  * \param dpy the display handle.
- * \param nonblock whether to return immediatly or wait for an event.
+ * \param nonblock whether to return immediately or wait for an event.
  *
  * \return True on success, False on failure. Aborts on critical error.
  *
@@ -736,7 +736,7 @@ static int handle_fd_events( Display *dpy, int nonblock )
  *
  * \return True on success or False on failure.
  *
- * Allocates and initializes the Display::fd array and create a unix socket on
+ * Allocates and initializes the Display::fd array and create a Unix socket on
  * the first entry. For a server binds the socket to a filename and listen for
  * connections. For a client connects to the server and waits for a welcome
  * message. Sets the socket in nonblocking mode.
@@ -762,7 +762,7 @@ int __miniglx_open_connections( Display *dpy )
       
    } 
 
-   /* Create a unix socket -- Note this is *not* a network connection!
+   /* Create a Unix socket -- Note this is *not* a network connection!
     */
    dpy->fd[0].fd = socket(PF_UNIX, SOCK_STREAM, 0);
    if (dpy->fd[0].fd < 0) {
@@ -821,7 +821,7 @@ int __miniglx_open_connections( Display *dpy )
 
 
 /**
- * Frees the connections initialzed by __miniglx_open_connections().
+ * Frees the connections initialized by __miniglx_open_connections().
  *
  * \param dpy the display handle.
  */
@@ -927,7 +927,7 @@ XUnmapWindow( Display *dpy, Window w )
  * \brief Block and wait for next X event.
  *
  * \param dpy the display handle as returned by XOpenDisplay().
- * \param event_return a pointer to an XEvent struct for the returned data.
+ * \param event_return a pointer to an XEvent structure for the returned data.
  *
  * Wait until there is a new XEvent pending.
  */
@@ -946,7 +946,7 @@ int XNextEvent(Display *dpy, XEvent *event_return)
  *
  * \param dpy the display handle as returned by XOpenDisplay().
  * \param event_mask ignored.
- * \param event_return a pointer to an XEvent struct for the returned data.
+ * \param event_return a pointer to an XEvent structure for the returned data.
  *
  * Check if there is a new XEvent pending.  Note that event_mask is
  * ignored and any pending event will be returned.

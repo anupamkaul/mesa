@@ -1,4 +1,4 @@
-/* $Id: glapi.c,v 1.67.4.3 2003/01/19 18:47:53 jrfonseca Exp $ */
+/* $Id: glapi.c,v 1.67.4.4 2003/05/18 21:17:04 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -44,7 +44,7 @@
  *   2000/02/23  - original version for Mesa 3.3 and XFree86 4.0
  *   2001/01/16  - added dispatch override feature for Mesa 3.5
  *   2002/06/28  - added _glapi_set_warning_func(), Mesa 4.1.
- *   2002/10/01  - _glapi_get_proc_address() will now generate new entrypoints
+ *   2002/10/01  - _glapi_get_proc_address() will now generate new entry points
  *                 itself (using offset ~0).  _glapi_add_entrypoint() can be
  *                 called afterward and it'll fill in the correct dispatch
  *                 offset.  This allows DRI libGL to avoid probing for DRI
@@ -659,7 +659,7 @@ extern void __glapi_sparc_icache_flush(unsigned int *);
 #endif
 
 /**
- * Generate a dispatch function (entrypoint) which jumps through
+ * Generate a dispatch function (entry point) which jumps through
  * the given slot number (offset) in the current dispatch table.
  *
  * \param functionOffset dispatch table offset.
@@ -809,7 +809,7 @@ fill_in_entrypoint_offset(void *entrypoint, GLuint offset)
 
 
 /**
- * \brief Add a new extension function entrypoint.
+ * \brief Add a new extension function entry point.
  * 
  * \param funcName name of the extension function. It must begin with "gl".
  * \param offset dispatch table offset.

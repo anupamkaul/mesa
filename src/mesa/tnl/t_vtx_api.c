@@ -331,7 +331,7 @@ static void _tnl_EvalCoord2fv( const GLfloat *v )
  * dispatch slot for each value of 'index' or 'unit' in VertexAttribNV
  * and MultiTexCoordARB.  Also need a mechnism for keeping this data
  * consistent with what's coming in via the Vertex/Normal/etc api
- * above (where aliasing exists with the traditional entrypoints).
+ * above (where aliasing exists with the traditional entry points).
  * Note that MultiTexCoordARB aliases with TexCoord when unit==0.
  *
  * Need presence tracking for material components, too, but not size

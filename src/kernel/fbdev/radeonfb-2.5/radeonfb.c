@@ -1030,7 +1030,7 @@ static int radeon_get_dfpinfo_BIOS(struct radeonfb_info *rinfo)
  * Get DFP information.
  *
  * \param rinfo framebuffer device private data.
- * \return non-zero on success, or zero on failure. (Actually is always succesful.)
+ * \return non-zero on success, or zero on failure. (Actually is always successful.)
  *
  * Attempts to get the DFP information, first from the BIOS via
  * radeon_get_dfpinfo_BIOS(), second from the EDID block via
@@ -1577,8 +1577,8 @@ static int radeonfb_blank (int blank, struct fb_info *info)
  * \param info framebuffer device data.
  * \return zero on success, or non-zero on failure.
  *
- * Updates the respective palette entry in radeonfb_info::pallete and if not
- * asleep updates the pallete entry on the hardware. For bit depths greater or
+ * Updates the respective palette entry in radeonfb_info::palette and if not
+ * asleep updates the palette entry on the hardware. For bit depths greater or
  * equal to 15 updates makes the first 16 colors available to the framebuffer device.
  */
 static int radeonfb_setcolreg (unsigned regno, unsigned red, unsigned green,

@@ -32,7 +32,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: matrix.c,v 1.45.4.9 2003/05/18 14:11:26 jrfonseca Exp $ */
+/* $Id: matrix.c,v 1.45.4.10 2003/05/18 21:17:05 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -253,7 +253,7 @@ _mesa_PopMatrix( void )
 
 
 /**
- * \brief Replace the current matrix with the indentity matrix.
+ * \brief Replace the current matrix with the identity matrix.
  *
  * \sa glLoadIdentity().
  *
@@ -496,8 +496,7 @@ _mesa_MultTransposeMatrixdARB( const GLdouble *m )
 /**
  * \brief Set the viewport.
  * 
- * \param x ordinate of the lower left corner of the viewport rectangle.
- * \param y abcissa of the lower left corner of the viewport rectangle.
+ * \param x, y coordinates of the lower-left corner of the viewport rectangle.
  * \param width width of the viewport rectangle.
  * \param height height of the viewport rectangle.
  *
@@ -515,12 +514,11 @@ _mesa_Viewport( GLint x, GLint y, GLsizei width, GLsizei height )
 }
 
 /**
- * \brief Define a new viewport and reallocate auxillary buffers if the size of
+ * \brief Define a new viewport and reallocate auxiliary buffers if the size of
  * the window (color buffer) has changed.
  *
  * \param ctx GL context.
- * \param x ordinate of the lower left corner of the viewport rectangle.
- * \param y abcissa of the lower left corner of the viewport rectangle.
+ * \param x, y coordinates of the lower left corner of the viewport rectangle.
  * \param width width of the viewport rectangle.
  * \param height height of the viewport rectangle.
  *

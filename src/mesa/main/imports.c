@@ -45,7 +45,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: imports.c,v 1.25.4.2 2003/03/20 12:56:57 jrfonseca Exp $ */
+/* $Id: imports.c,v 1.25.4.3 2003/05/18 21:17:05 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -115,7 +115,7 @@ _mesa_free(void *ptr)
  * \param bytes number of bytes to allocate.
  * \param alignment alignment (must be greater than zero).
  * 
- * Allocates extra memory to accomodate rounding up the address for
+ * Allocates extra memory to accommodate rounding up the address for
  * alignment and to record the real malloc address.
  *
  * \sa _mesa_align_free().

@@ -177,7 +177,7 @@ static void radeonBlendEquation( GLcontext *ctx, GLenum mode )
  * 
  * Calculates the appropriate new value of the RADEON_RB3D_BLENDCNTL register and informs of the state change.
  *
- * If the final state not supported by the hardward it fallbacks to software
+ * If the final state not supported by the hardware it fallbacks to software
  * rendering.
  */
 static void radeonBlendFunc( GLcontext *ctx, GLenum sfactor, GLenum dfactor )
@@ -352,7 +352,7 @@ static void radeonDepthFunc( GLcontext *ctx, GLenum func )
  * \brief Enable or disable depth buffering.
  *
  * \param ctx GL context
- * \param flag whether depth buferring is enabled or not.
+ * \param flag whether depth buffering is enabled or not.
  *
  * \sa glDepthBuffer().
  *
@@ -374,7 +374,7 @@ static void radeonDepthMask( GLcontext *ctx, GLboolean flag )
 /**
  * \brief Specify the clear value for the depth buffer.
  *
- * \param d depth value to be used when clering the depth buffer.
+ * \param d depth value to be used when clearing the depth buffer.
  *
  * \sa glClearDepth().
  * 
@@ -409,7 +409,7 @@ static void radeonClearDepth( GLcontext *ctx, GLclampd d )
 /**
  * \brief Intersection of two cliprects.
  *
- * \param out resulting clirect.
+ * \param out resulting cliprect.
  * \param a fist cliprect.
  * \param b second cliprect.
  * 
@@ -1099,7 +1099,7 @@ static void radeonDepthRange( GLcontext *ctx, GLclampd nearval,
  * \brief Specify the clear value of the color buffers.
  *
  * \param ctx GL context.
- * \param color red, green, blue and alpha values used when clering the color buffers.
+ * \param color red, green, blue and alpha values used when clearing the color buffers.
  *
  * \sa glClearColor().
  *
@@ -1294,7 +1294,7 @@ static void radeonReadBuffer( GLcontext *ctx, GLenum mode )
  *
  * \sa glEnable() and glDisable().
  * 
- * Changes the apropriate registers and state variables, informing of the state
+ * Changes the appropriate registers and state variables, informing of the state
  * change if necessary.
  */
 static void radeonEnable( GLcontext *ctx, GLenum cap, GLboolean state )

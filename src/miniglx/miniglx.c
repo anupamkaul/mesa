@@ -31,7 +31,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: miniglx.c,v 1.1.4.54 2003/05/18 12:36:26 jrfonseca Exp $ */
+/* $Id: miniglx.c,v 1.1.4.55 2003/05/18 21:17:19 jrfonseca Exp $ */
 
 /**
  * \mainpage Mini GLX
@@ -1646,7 +1646,7 @@ glXChooseVisual( Display *dpy, int screen, int *attribList )
  * Returns the appropriate attribute of ::__GLXvisualConfig pointed by
  * MiniGLXVisualRec::glxConfig of XVisualInfo::visual.
  *
- * \sa datatypes.
+ * \sa data types.
  */
 int
 glXGetConfig( Display *dpy, XVisualInfo *vis, int attrib, int *value )

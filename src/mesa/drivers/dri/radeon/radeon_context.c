@@ -701,7 +701,7 @@ radeonMakeCurrent( __DRIcontextPrivate *driContextPriv,
 /**
  * \brief Unbind context from its buffer.
  *
- * \param driContextPriv DRI specifc context data.
+ * \param driContextPriv DRI specific context data.
  *
  * \returns always GL_TRUE.
  *
@@ -797,7 +797,7 @@ __driRegisterExtensions( void )
  *
  * \param sPriv DRI specific screen data.
  * 
- * \return GL_TRUE on success or GL_FALSE on faillure.
+ * \return GL_TRUE on success or GL_FALSE on failure.
  * 
  * Calls radeonCreateScreen() and if it fails calls radeonDestroyScreen()
  * before returning.

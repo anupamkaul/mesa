@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: dlist.h,v 1.17.6.3 2003/03/23 03:51:34 jrfonseca Exp $ */
+/* $Id: dlist.h,v 1.17.6.4 2003/05/18 21:17:02 jrfonseca Exp $ */
 
 
 #ifndef DLIST_H
@@ -42,7 +42,7 @@
  * glBegin()/glEnd() pair, with return value.
  * 
  * \param ctx GL context.
- * \param retval value to return value in case the assertation fails.
+ * \param retval value to return value in case the assertion fails.
  */
 #define ASSERT_OUTSIDE_SAVE_BEGIN_END_WITH_RETVAL(ctx, retval)		\
 do {									\
@@ -85,7 +85,7 @@ do {									\
  * glBegin()/glEnd() pair and flush the vertices, with return value.
  * 
  * \param ctx GL context.
- * \param retval value to return value in case the assertation fails.
+ * \param retval value to return value in case the assertion fails.
  */
 #define ASSERT_OUTSIDE_SAVE_BEGIN_END_AND_FLUSH_WITH_RETVAL(ctx, retval)\
 do {									\

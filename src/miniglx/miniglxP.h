@@ -1,6 +1,6 @@
 /**
  * \file miniglxP.h
- * \brief Define replacements for some X datatypes and define the DRI-related
+ * \brief Define replacements for some X data types and define the DRI-related
  * data structures.
  *
  * \note Cut down version of glxclient.h.
@@ -268,12 +268,12 @@ struct DRIDriverRec {
 
 
    /**
-    * \brief Idle and shutdown hardware in preparation for a vt switch.
+    * \brief Idle and shutdown hardware in preparation for a VT switch.
     */
    int (*shutdownHardware)(  struct DRIDriverContextRec *dpy );
 
    /**
-    * \brief Restore hardware state after regaining the vt.
+    * \brief Restore hardware state after regaining the VT.
     */
    int (*restoreHardware)(  struct DRIDriverContextRec *dpy );
 
@@ -372,8 +372,8 @@ struct MiniGLXConnection {
    int fd;				/**< \brief file descriptor */
    char readbuf[MINIGLX_BUF_SIZE];	/**< \brief read buffer */
    char writebuf[MINIGLX_BUF_SIZE];	/**< \brief write buffer */
-   int readbuf_count;			/**< \brief counf of bytes waiting to be read */
-   int writebuf_count;			/**< \brief counf of bytes waiting to be written */
+   int readbuf_count;			/**< \brief count of bytes waiting to be read */
+   int writebuf_count;			/**< \brief count of bytes waiting to be written */
 };
 
 

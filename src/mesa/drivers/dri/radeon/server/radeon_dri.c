@@ -4,7 +4,7 @@
  * done in the X server.
  *
  * Here they are converted to run in the client (or perhaps a standalone
- * process), and to work with the frambe buffer device rather than the X
+ * process), and to work with the frame buffer device rather than the X
  * server infrastructure.
  */
 
@@ -165,7 +165,7 @@ static void RADEONEngineReset( struct DRIDriverContextRec *ctx )
  * Resets the graphics card and sets initial values for several registers of
  * the card's drawing engine.
  *
- * Turns on the radeon command processor engine (ie: the ringbuffer).
+ * Turns on the radeon command processor engine (i.e., the ringbuffer).
  */
 static int RADEONEngineRestore( struct DRIDriverContextRec *ctx )
 {
@@ -305,7 +305,7 @@ static int RADEONMinBits(int val)
  * \param ctx display handle.
  * \param info driver private data.
  *
- * \return one on sucess, or zero on failure.
+ * \return one on success, or zero on failure.
  * 
  * Acquires and enables the AGP device. Reserves memory in the AGP space for
  * the ring buffer, vertex buffers and textures. Initialize the Radeon
@@ -439,7 +439,7 @@ static int RADEONDRIAgpInit( struct DRIDriverContextRec *ctx, RADEONInfoPtr info
  * \param ctx display handle.
  * \param info driver private data.
  *
- * \return non-zero on sucess, or zero on failure.
+ * \return non-zero on success, or zero on failure.
  *
  * This function is a wrapper around the DRM_RADEON_CP_INIT command, passing
  * all the parameters in a drmRadeonInit structure.
@@ -526,7 +526,7 @@ static void RADEONDRIAgpHeapInit(struct DRIDriverContextRec *ctx,
  * \param ctx display handle.
  * \param info driver private data.
  *
- * \return one on sucess, or zero on failure.
+ * \return one on success, or zero on failure.
  *
  * Calls drmAddBufs() with the previously allocated vertex buffers.
  */
@@ -557,7 +557,7 @@ static int RADEONDRIBufInit( struct DRIDriverContextRec *ctx, RADEONInfoPtr info
  * \param ctx display handle.
  * \param info driver private data.
  *
- * Attemps to install an IRQ handler via drmCtlInstHandler(), falling back to
+ * Attempts to install an IRQ handler via drmCtlInstHandler(), falling back to
  * IRQ-free operation on failure.
  */
 static void RADEONDRIIrqInit(struct DRIDriverContextRec *ctx,
@@ -723,12 +723,12 @@ static int RADEONMemoryInit( struct DRIDriverContextRec *ctx, RADEONInfoPtr info
  * \param ctx display handle.
  * \param info driver private data.
  *
- * \return non-zero on sucess, or zero on failure.
+ * \return non-zero on success, or zero on failure.
  *
  * Performs static frame buffer allocation. Opens the DRM device and add maps
  * to the SAREA, framebuffer and MMIO regions. Fills in \p info with more
  * information. Creates a \e server context to grab the lock for the
- * initialization ioctls and calls the other initliaztion functions in this
+ * initialization ioctls and calls the other initilization functions in this
  * file. Starts the CP engine via the DRM_RADEON_CP_START command.
  *
  * Setups a RADEONDRIRec structure to be passed to radeon_dri.so for its
@@ -951,11 +951,11 @@ static int RADEONScreenInit( struct DRIDriverContextRec *ctx, RADEONInfoPtr info
  * 
  * \param info driver private data.
  *
- * \return non-zero on sucess, or zero on failure.
+ * \return non-zero on success, or zero on failure.
  *
  * Called by radeonInitFBDev() to set RADEONInfoRec::ChipFamily
  * according to the value of RADEONInfoRec::Chipset.  Fails if the
- * chipset is unrecognized or not appropriate for this driver (ie. not
+ * chipset is unrecognized or not appropriate for this driver (i.e., not
  * an r100 style radeon)
  */
 static int get_chipfamily_from_chipset( RADEONInfoPtr info )
@@ -1026,7 +1026,7 @@ static int get_chipfamily_from_chipset( RADEONInfoPtr info )
  * \param numConfigs will receive the number of supported visuals.
  * \param configs will point to the list of supported visuals.
  *
- * \return one on sucess, or zero on failure.
+ * \return one on success, or zero on failure.
  * 
  * \note Requires the ::__GLXvisualConfig data type.
  *
@@ -1159,7 +1159,7 @@ static int radeonPostValidateMode( struct DRIDriverContextRec *ctx )
  * Fills in \p info with some default values and some information from \p ctx
  * and then calls RADEONScreenInit() for the screen initialization.
  * 
- * Before exiting clears the framebuffer memomry accessing it directly.
+ * Before exiting clears the framebuffer memory accessing it directly.
  */
 static int radeonInitFBDev( struct DRIDriverContextRec *ctx )
 {

@@ -242,7 +242,7 @@ struct radeon_state_atom {
    GLuint is_tcl;                        /**< \brief whether is associated with TCL */
    int *cmd;			         /**< \brief one or more command packets */
    int *lastcmd;			 /**< \brief one or more command packets */
-   GLboolean (*check)( GLcontext * );    /**< \brief callback to determin whether this state is active */
+   GLboolean (*check)( GLcontext * );    /**< \brief callback to determine whether this state is active */
 };
    
 
@@ -250,7 +250,7 @@ struct radeon_state_atom {
  * \name Indices for the command packets fields
  * 
  * \note Trying to keep these relatively short as the variables are becoming
- * extravagently long.  Drop the RADEON_ off the front of everything - I think
+ * extravagantly long.  Drop the RADEON_ off the front of everything - I think
  * we know we're in the radeon driver by now, and keep the prefix to 3 letters
  * unless absolutely impossible.  
  */
@@ -470,7 +470,7 @@ struct radeon_hw_state {
     * Stored as cmdbuf commands:  
     * - Need to doublebuffer for
     *   - reviving state after loss of context
-    *   - eliding no-op statechange loops? (except line stipple count)
+    *   - eliding no-op state change loops? (except line stipple count)
     */
    /*@{*/
    struct radeon_state_atom ctx;
@@ -585,7 +585,7 @@ struct radeon_tcl_info {
    GLuint vertex_format;
    GLint last_offset;
    GLuint hw_primitive;
-   GLuint tcl_flag;			/**< \brief Whether TCL is inabled */
+   GLuint tcl_flag;			/**< \brief Whether TCL is enabled */
 
    struct radeon_dma_region *aos_components[8];
    GLuint nr_aos_components;
@@ -739,7 +739,7 @@ struct radeon_context {
 /** 
  * \brief Pack color.
  *
- * \param cpp desired characters (bytes) per pixel. Shouble be either 2 or 4.
+ * \param cpp desired characters (bytes) per pixel. Should be either 2 or 4.
  * \param r red color component.
  * \param g green color component.
  * \param b blue color component.

@@ -34,7 +34,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: hash.c,v 1.14.4.3 2003/05/18 14:11:26 jrfonseca Exp $ */
+/* $Id: hash.c,v 1.14.4.4 2003/05/18 21:17:04 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "imports.h"
@@ -196,7 +196,8 @@ void _mesa_HashInsert(struct _mesa_HashTable *table, GLuint key, void *data)
  * \param table the hash table.
  * \param key key of entry to remove.
  *
- * While holding the hash table's lock, searchs the entry with the matching key and unlinks it.
+ * While holding the hash table's lock, searches the entry with the matching
+ * key and unlinks it.
  */
 void _mesa_HashRemove(struct _mesa_HashTable *table, GLuint key)
 {

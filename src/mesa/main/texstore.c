@@ -1,4 +1,4 @@
-/* $Id: texstore.c,v 1.47.4.2 2003/03/09 10:52:21 jrfonseca Exp $ */
+/* $Id: texstore.c,v 1.47.4.3 2003/05/18 21:17:09 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -445,7 +445,7 @@ transfer_teximage(GLcontext *ctx, GLuint dimensions,
  *   dstX/Y/Zoffset - as specified by glTexSubImage
  *   dstRowStride - stride between dest rows in bytes
  *   dstImageStride - stride between dest images in bytes
- *   srcFormat, srcType - incoming image format and datatype
+ *   srcFormat, srcType - incoming image format and data type
  *   srcAddr - source image address
  *   srcPacking - packing params of source image
  *

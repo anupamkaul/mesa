@@ -1,7 +1,7 @@
 /**
  * \file miniglx/dispatch.c
  *
- * \brief C-based dispatch of the OpenGL entrypoints (glAccum(), glBegin(),
+ * \brief C-based dispatch of the OpenGL entry points (glAccum(), glBegin(),
  * etc).
  * 
  * Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.

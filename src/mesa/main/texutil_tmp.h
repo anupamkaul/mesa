@@ -12,12 +12,12 @@
  *
  * Macros which need to be defined before including this file:
  *  - \c TAG(x) - the function name wrapper
- *  - \c DST_TYPE - the destination texel datatype (GLuint, GLushort, etc)
- *  - \c DST_TEXELS_PER_DWORD - number of dest texels that'll fit in 4 bytes
- *  - \c CONVERT_TEXEL - code to convert from source to dest texel
+ *  - \c DST_TYPE - the destination texel data type (GLuint, GLushort, etc)
+ *  - \c DST_TEXELS_PER_DWORD - number of destination texels that'll fit in 4 bytes
+ *  - \c CONVERT_TEXEL - code to convert from source to destination texel
  *  - \c CONVER_TEXEL_DWORD - if multiple texels fit in 4 bytes, this macros
  *  will convert/store multiple texels at once
- *  - \c CONVERT_DIRECT - if defined, just memcpy texels from src to dest
+ *  - \c CONVERT_DIRECT - if defined, just memcpy texels from source to destination
  *  - \c SRC_TEXEL_BYTES - bytes per source texel
  *  - \c PRESERVE_DST_TYPE - if defined, don't undefined these macros at end
  *  
@@ -48,7 +48,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texutil_tmp.h,v 1.12.4.2 2003/03/23 14:58:08 jrfonseca Exp $ */
+/* $Id: texutil_tmp.h,v 1.12.4.3 2003/05/18 21:17:09 jrfonseca Exp $ */
 
 
 #define DST_TEXEL_BYTES		(4 / DST_TEXELS_PER_DWORD)

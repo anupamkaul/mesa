@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: radeon_subset_select.c,v 1.1.2.8 2003/05/18 14:11:28 jrfonseca Exp $ */
+/* $Id: radeon_subset_select.c,v 1.1.2.9 2003/05/18 21:17:13 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -48,7 +48,7 @@
 typedef struct {
    struct { GLfloat x, y, z, w; } pos;      /**< \brief position */
    struct { GLfloat x, y, z, w; } eyePos;   /**< \brief position, eye coordinates */
-   struct { GLfloat x, y, z, w; } clipPos;  /**< \brief clipped coordiantes */
+   struct { GLfloat x, y, z, w; } clipPos;  /**< \brief clipped coordinates */
    struct { GLfloat x, y, z, w; } winPos;   /**< \brief position, windows coordinates */
    struct { GLfloat s, t; } texCoord;       /**< \brief texture coordinates */
    struct { GLfloat r, g, b, a; } color;    /**< \brief color */
@@ -194,10 +194,10 @@ clip_point(const vertex *v)
 /**
  * \brief Apply clipping to a line segment.
  *
- * \param v0in input start vertice
- * \param v1in input end vertice
- * \param v0new output start vertice
- * \param v1new output end vertice
+ * \param v0in input start vertex
+ * \param v1in input end vertesx
+ * \param v0new output start vertex
+ * \param v1new output end vertex
  *
  * \return GL_TRUE if the line segment is visible, or GL_FALSE if it is totally
  * clipped.
@@ -565,7 +565,7 @@ select_triangle(const vertex *v0,
  * Stores the vertex and current attributes in ::vb, transforms it into eye space and then clip space.
  * 
  * If a sufficient number of vertices is stored calls one of select_point(),
- * select_line() or select_triangle(), according to the current primtive.
+ * select_line() or select_triangle(), according to the current primitive.
  */
 static void
 radeon_select_Vertex4f(GLfloat x, GLfloat y, GLfloat z, GLfloat w)
@@ -968,7 +968,7 @@ void radeon_select_Install( GLcontext *ctx )
  *
  * If mode is GL_RENDER, calls either radeonVtxfmtInit() or
  * radeon_noop_Install depending on whether the application has focus
- * (ie a fullscreen-cliprect) or not.  If mode is GL_SELECT, calls
+ * (i.e., a fullscreen-cliprect) or not.  If mode is GL_SELECT, calls
  * radeon_select_Install().
  */
 static void radeonRenderMode( GLcontext *ctx, GLenum mode )

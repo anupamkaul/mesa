@@ -1,4 +1,4 @@
-/* $Id: glxapi.c,v 1.30 2002/08/22 21:10:01 brianp Exp $ */
+/* $Id: glxapi.c,v 1.30.6.1 2003/05/18 21:17:11 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -154,7 +154,7 @@ static GLXContext CurrentContext = 0;
 
 
 /*
- * GLX API entrypoints
+ * GLX API entry points
  */
 
 /*** GLX_VERSION_1_0 ***/

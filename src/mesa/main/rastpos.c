@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: rastpos.c,v 1.39.4.9 2003/05/18 14:11:27 jrfonseca Exp $ */
+/* $Id: rastpos.c,v 1.39.4.10 2003/05/18 21:17:06 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -859,8 +859,8 @@ void glWindowPos4fMESA( GLfloat x, GLfloat y, GLfloat z, GLfloat w )
  *
  * \param ctx GL context.
  *
- * Initalize the current raster position information in
- * __GLcontextRec::Current, and adds the extension entrypoints to the
+ * Initialize the current raster position information in
+ * __GLcontextRec::Current, and adds the extension entry points to the
  * dispatcher.
  */
 void _mesa_init_rastpos( GLcontext * ctx )

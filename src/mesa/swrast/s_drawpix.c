@@ -1,4 +1,4 @@
-/* $Id: s_drawpix.c,v 1.39 2002/10/30 20:18:38 brianp Exp $ */
+/* $Id: s_drawpix.c,v 1.39.4.1 2003/05/18 21:17:20 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -540,7 +540,7 @@ draw_index_pixels( GLcontext *ctx, GLint x, GLint y,
 
 
 /*
- * Do glDrawPixels of stencil image.  The image datatype may either
+ * Do glDrawPixels of stencil image.  The image data type may either
  * be GLubyte or GLbitmap.
  */
 static void

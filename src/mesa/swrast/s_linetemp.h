@@ -1,4 +1,4 @@
-/* $Id: s_linetemp.h,v 1.14 2002/11/09 21:26:41 brianp Exp $ */
+/* $Id: s_linetemp.h,v 1.14.4.1 2003/05/18 21:17:20 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -44,7 +44,7 @@
  * When one can directly address pixels in the color buffer the following
  * macros can be defined and used to directly compute pixel addresses during
  * rasterization (see pixelPtr):
- *    PIXEL_TYPE          - the datatype of a pixel (GLubyte, GLushort, GLuint)
+ *    PIXEL_TYPE          - the data type of a pixel (GLubyte, GLushort, GLuint)
  *    BYTES_PER_ROW       - number of bytes per row in the color buffer
  *    PIXEL_ADDRESS(X,Y)  - returns the address of pixel at (X,Y) where
  *                          Y==0 at bottom of screen and increases upward.

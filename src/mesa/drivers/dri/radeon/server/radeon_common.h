@@ -2,7 +2,7 @@
  * \file server/radeon_common.h 
  * \brief Common header definitions for Radeon 2D/3D/DRM driver suite.
  *
- * \note Some of these structures are meant for backward compatability and
+ * \note Some of these structures are meant for backward compatibility and
  * aren't used by the subset driver.
  *
  * \author Gareth Hughes <gareth@valinux.com>

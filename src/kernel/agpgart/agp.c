@@ -251,7 +251,7 @@ void agp_free_memory(agp_memory * curr)
  * \param page_count number of pages to allocate.
  * \param type type of memory to be allocated.  Every agp bridge device will
  * allow you to allocate AGP_NORMAL_MEMORY which maps to physical ram.  Any
- * other type is device dependant.
+ * other type is device dependent.
  * \return pointer to a agp_memory structure on success, or NULL on failure.
  *
  * If \p type is not zero then the call is dispatched to the
@@ -481,7 +481,7 @@ int agp_unbind_memory(agp_memory * curr)
 /**
  * \sa agp_bridge_data::agp_enable.
  *
- * Goes trhough all devices that claim to be AGP devices collecting their data
+ * Goes through all devices that claim to be AGP devices collecting their data
  * and disabling impossible settings. Decides the 4X/2X/1X setting and enables
  * the AGP bridge device.
  */
@@ -494,7 +494,7 @@ void agp_generic_agp_enable(u32 mode)
 	pci_read_config_dword(agp_bridge.dev, agp_bridge.capndx + 4, &command);
 
 	/*
-	 * PASS1: go throu all devices that claim to be
+	 * PASS1: go through all devices that claim to be
 	 *        AGP devices and collect their data.
 	 */
 
@@ -564,7 +564,7 @@ void agp_generic_agp_enable(u32 mode)
 			       command);
 
 	/*
-	 * PASS3: Go throu all AGP devices and update the
+	 * PASS3: Go through all AGP devices and update the
 	 *        command registers.
 	 */
 
@@ -580,7 +580,7 @@ void agp_generic_agp_enable(u32 mode)
  *
  * Determines the GATT size, according to agp_bridge_data::current_size (can't
  * handle 2 level GATT's) and allocates the table. For the variable apertures,
- * tries successive aperture sizes until succeding in allocating the table.
+ * tries successive aperture sizes until succeeding in allocating the table.
  *
  * Marks each page in the table as reserved, and points the entries in the
  * table to the scratch page.

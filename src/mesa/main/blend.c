@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: blend.c,v 1.38.4.5 2003/03/23 23:22:47 jrfonseca Exp $ */
+/* $Id: blend.c,v 1.38.4.6 2003/05/18 21:17:00 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -385,7 +385,7 @@ _mesa_BlendColor( GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha )
 /**
  * \brief Specify the alpha test function.
  *
- * \param func alpha comparision function.
+ * \param func alpha comparison function.
  * \param ref reference value.
  *
  * Verifies the parameters and updates gl_colorbuffer_attrib. 

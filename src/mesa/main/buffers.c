@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: buffers.c,v 1.42.4.4 2003/03/23 23:22:47 jrfonseca Exp $ */
+/* $Id: buffers.c,v 1.42.4.5 2003/05/18 21:17:00 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -501,8 +501,7 @@ _mesa_SampleCoverageARB(GLclampf value, GLboolean invert)
 /**
  * \brief Define the scissor box.
  *
- * \param x abcissa of the scissor box lower-left corner.
- * \param y ordinate of the scissor box lower-left corner.
+ * \param x, y coordinates of the scissor box lower-left corner.
  * \param width width of the scissor box.
  * \param height height of the scissor box.
  *

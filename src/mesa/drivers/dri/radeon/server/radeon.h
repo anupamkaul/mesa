@@ -1,6 +1,6 @@
 /**
  * \file server/radeon.h
- * \brief Radeon 2D driver data strucures.
+ * \brief Radeon 2D driver data structures.
  */
 
 /*

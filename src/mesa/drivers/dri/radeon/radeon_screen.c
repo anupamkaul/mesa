@@ -68,7 +68,7 @@
  * 
  * \return pointer to the device specific screen private data.
  *
- * Checks the version compatability of the DRI extension, the DDX driver and
+ * Checks the version compatibility of the DRI extension, the DDX driver and
  * the DRM driver.
  * 
  * Disables the TCL for DRM versions less than 1.3.x, or if the RADEON_COMPAT

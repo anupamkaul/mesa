@@ -1,6 +1,6 @@
 /**
  * \file simple_list.h
- * \brief Simple macros for typesafe, intrusive lists.
+ * \brief Simple macros for type-safe, intrusive lists.
  *
  *  Intended to work with a list sentinal which is created as an empty
  *  list.  Insert & delete are O(1).
@@ -33,7 +33,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: simple_list.h,v 1.2.8.2 2003/05/18 14:11:27 jrfonseca Exp $ */
+/* $Id: simple_list.h,v 1.2.8.3 2003/05/18 21:17:06 jrfonseca Exp $ */
 
 
 #ifndef _SIMPLE_LIST_H
@@ -169,7 +169,7 @@ do {						\
 #define is_empty_list(list)    ((list)->next == (list))
 
 /**
- * \brief Walk trhough the elements of a list.
+ * \brief Walk through the elements of a list.
  *
  * \param ptr pointer to the current element.
  * \param list list.
@@ -181,7 +181,7 @@ do {						\
         for( ptr=(list)->next ;  ptr!=list ;  ptr=(ptr)->next )
 
 /**
- * \brief Walk trhough the elements of a list.
+ * \brief Walk through the elements of a list.
  *
  * Same as #foreach but lets you unlink the current value during a list
  * traversal.  Useful for freeing a list, element by element.

@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texformat.h,v 1.13.4.1 2003/03/16 00:27:13 jrfonseca Exp $ */
+/* $Id: texformat.h,v 1.13.4.2 2003/05/18 21:17:08 jrfonseca Exp $ */
 
 #ifndef TEXFORMAT_H
 #define TEXFORMAT_H
@@ -54,7 +54,7 @@ enum _format {
     *
     * \note In the default case, some of these formats will be duplicates of
     * the generic formats listed below.  However, these formats guarantee their
-    * internal component sizes, while GLchan may vary betwen GLubyte, GLushort
+    * internal component sizes, while GLchan may vary between GLubyte, GLushort
     * and GLfloat.
     */
    /*@{*/
@@ -102,7 +102,7 @@ enum _format {
     * converted to one of these formats.  Components are arrays of GLchan
     * values, so there will be no big/little endian issues.
     *
-    * \note Because these are based on the GLchan datatype, one cannot assume 8
+    * \note Because these are based on the GLchan data type, one cannot assume 8
     * bits per channel with these formats.  If you require GLubyte channels,
     * use one of the hardware formats above.
     */

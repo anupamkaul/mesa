@@ -1,4 +1,4 @@
-/* $Id: light.c,v 1.54.4.2 2003/03/21 11:35:18 keithw Exp $ */
+/* $Id: light.c,v 1.54.4.3 2003/05/18 21:17:05 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -1419,7 +1419,7 @@ init_lightmodel( struct gl_lightmodel *lm )
 }
 
 /**
- * \brief Initalize the material data structure.
+ * \brief Initialize the material data structure.
  * 
  * \param m pointer to the gl_material structure to be initialized.
  */

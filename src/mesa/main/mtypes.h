@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: mtypes.h,v 1.97.4.10 2003/05/18 14:11:26 jrfonseca Exp $ */
+/* $Id: mtypes.h,v 1.97.4.11 2003/05/18 21:17:05 jrfonseca Exp $ */
 
 
 #ifndef TYPES_H
@@ -259,7 +259,7 @@ struct gl_light {
    GLfloat EyePosition[4];	/**< \brief position in eye coordinates */
    GLfloat EyeDirection[4];	/**< \brief spotlight dir in eye coordinates */
    GLfloat SpotExponent;
-   GLfloat SpotCutoff;		/**< \brief in degress */
+   GLfloat SpotCutoff;		/**< \brief in degrees */
    GLfloat _CosCutoff;		/**< \brief = MAX(0, cos(SpotCutoff)) */
    GLfloat ConstantAttenuation;
    GLfloat LinearAttenuation;
@@ -374,7 +374,7 @@ struct gl_colorbuffer_attrib {
    GLenum BlendSrcA;			/**< \brief GL_INGR_blend_func_separate */
    GLenum BlendDstA;			/**< \brief GL_INGR_blend_func_separate */
    GLenum BlendEquation;		/**< \brief Blending equation */
-   GLfloat BlendColor[4];		/**< \brief Bleding color */
+   GLfloat BlendColor[4];		/**< \brief Blending color */
    /*@}*/
 
    /** 
@@ -407,7 +407,7 @@ struct gl_current_attrib {
    /**
     * \name Values are always valid.  
     * 
-    * \note BTW, note how similar this set of attributes is to the SWvertex datatype
+    * \note BTW, note how similar this set of attributes is to the SWvertex data type
     * in the software rasterizer...
     */
    /*@{*/
@@ -960,9 +960,9 @@ struct gl_texture_image {
    GLuint HeightLog2;		/**< \brief = log2(Height2) */
    GLuint DepthLog2;		/**< \brief = log2(Depth2) */
    GLuint MaxLog2;		/**< \brief = MAX(WidthLog2, HeightLog2) */
-   GLfloat WidthScale;		/**< \brief used for mipmap lod computation */
-   GLfloat HeightScale;		/**< \brief used for mipmap lod computation */
-   GLfloat DepthScale;		/**< \brief used for mipmap lod computation */
+   GLfloat WidthScale;		/**< \brief used for mipmap LOD computation */
+   GLfloat HeightScale;		/**< \brief used for mipmap LOD computation */
+   GLfloat DepthScale;		/**< \brief used for mipmap LOD computation */
    GLvoid *Data;		/**< \brief Image data, accessed via FetchTexel() */
    GLboolean IsClientData;	/**< \brief Data owned by client? */
 
@@ -1194,7 +1194,7 @@ struct gl_pixelstore_attrib {
 };
 
 
-#define CA_CLIENT_DATA     0x1	/**< \brief Data not alloced by mesa */
+#define CA_CLIENT_DATA     0x1	/**< \brief Data not allocated by mesa */
 
 
 /**
@@ -1284,7 +1284,7 @@ struct gl_2d_map {
 
 
 /**
- * \brief All evalutator control points
+ * \brief All evaluator control points
  */
 struct gl_evaluators {
    /** 
@@ -1322,7 +1322,7 @@ struct gl_evaluators {
 
 
 /**
- * \name Vertex program tokens and datatypes
+ * \name Vertex program tokens and data types
  */
 /*@{*/
 
@@ -1539,7 +1539,7 @@ struct gl_frame_buffer {
 
 
 /**
- * \brief Constants which may be overriden by device driver during context creation
+ * \brief Constants which may be overridden by device driver during context creation
  * but are never changed after that.
  */
 struct gl_constants {
@@ -1689,7 +1689,7 @@ struct matrix_stack
                                     IMAGE_MAP_COLOR_BIT |      \
                                     IMAGE_COLOR_TABLE_BIT)
 
-/** \brief Ttransfer ops after convolution */
+/** \brief Transfer ops after convolution */
 #define IMAGE_POST_CONVOLUTION_BITS (IMAGE_POST_CONVOLUTION_SCALE_BIAS |      \
                                      IMAGE_POST_CONVOLUTION_COLOR_TABLE_BIT | \
                                      IMAGE_COLOR_MATRIX_BIT |                 \
@@ -1837,7 +1837,7 @@ struct matrix_stack
 
 
 /*
- * Forward declaration of display list datatypes:
+ * Forward declaration of display list data types:
  */
 union node;
 typedef union node Node;
@@ -1894,8 +1894,8 @@ struct __GLcontextRec {
 
    /** \name API function pointer tables */
    /*@{*/
-   struct _glapi_table *Save;	/**< \brief Display list save funcs */
-   struct _glapi_table *Exec;	/**< \brief Execute funcs */
+   struct _glapi_table *Save;	/**< \brief Display list save functions */
+   struct _glapi_table *Exec;	/**< \brief Execute functions */
    struct _glapi_table *CurrentDispatch;  /**< == Save or Exec !! */
    /*@}*/
 
@@ -2028,7 +2028,7 @@ struct __GLcontextRec {
    GLboolean _RotateMode;
 
    struct gl_shine_tab *_ShineTable[2]; /**< \brief Active shine tables */
-   struct gl_shine_tab *_ShineTabList;  /**< \brief Mru list of inactive shine tables */
+   struct gl_shine_tab *_ShineTabList;  /**< \brief MRU list of inactive shine tables */
    /**@}*/
 
    struct gl_list_extensions listext; /**< \brief driver dlist extensions */
@@ -2143,7 +2143,7 @@ enum _debug {
  * and calls dd_function_table::FlushVertices if so. Marks
  * __GLcontextRec::NewState with \p newstate.
  * 
- * \todo Eventually let the driver specify what statechanges require a flush:
+ * \todo Eventually let the driver specify what state changes require a flush:
  */
 #define FLUSH_VERTICES(ctx, newstate)				\
 do {								\
@@ -2178,7 +2178,7 @@ do {								\
  * glBegin()/glEnd() pair, with return value.
  * 
  * \param ctx GL context.
- * \param retval value to return value in case the assertation fails.
+ * \param retval value to return value in case the assertion fails.
  */
 #define ASSERT_OUTSIDE_BEGIN_END_WITH_RETVAL(ctx, retval)		\
 do {									\
@@ -2219,7 +2219,7 @@ do {									\
  * glBegin()/glEnd() pair and flush the vertices, with return value.
  * 
  * \param ctx GL context.
- * \param retval value to return value in case the assertation fails.
+ * \param retval value to return value in case the assertion fails.
  */
 #define ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH_WITH_RETVAL(ctx, retval)	\
 do {									\

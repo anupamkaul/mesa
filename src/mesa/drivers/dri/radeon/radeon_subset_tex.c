@@ -134,10 +134,10 @@ void radeonAgeTextures( radeonContextPtr rmesa, int heap )
  * \param rmesa Radeon context.
  * \param t Radeon texture object.
  * \param level level of the image to take the sub-image.
- * \param x sub-image abcissa.
+ * \param x sub-image abscissa.
  * \param y sub-image ordinate.
  * \param width sub-image width.
- * \param height sub-imate height.
+ * \param height sub-image height.
  *
  * Fills in a drmRadeonTexture and drmRadeonTexImage structures and uploads the
  * texture via the DRM_RADEON_TEXTURE ioctl, aborting in case of failure.
@@ -702,7 +702,7 @@ void radeonUpdateTextureState( GLcontext *ctx )
  * \param format pixel format. Not used.
  * \param type pixel data type. Not used.
  *
- * \return pointer to choosen texture format.
+ * \return pointer to chosen texture format.
  *
  * Returns a pointer to one of the Mesa texture formats which is supported by
  * Radeon and matches the internal format.

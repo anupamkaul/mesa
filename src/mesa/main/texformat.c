@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: texformat.c,v 1.18.4.2 2003/03/22 16:49:58 jrfonseca Exp $ */
+/* $Id: texformat.c,v 1.18.4.3 2003/05/18 21:17:08 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "colormac.h"
@@ -651,7 +651,7 @@ _mesa_is_hardware_tex_format( const struct gl_texture_format *format )
 
 
 /**
- * \brief Choose an apropriate texture format.
+ * \brief Choose an appropriate texture format.
  *
  * \param ctx GL context.
  * \param internalFormat internal texture format.
