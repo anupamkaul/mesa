@@ -1,4 +1,4 @@
-/* $Id: ss_triangle.c,v 1.18 2002/10/04 17:37:47 brianp Exp $ */
+/* $Id: ss_triangle.c,v 1.18.2.1 2002/10/17 14:27:51 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -47,12 +47,11 @@ static triangle_func tri_tab[SS_MAX_TRIFUNC];
 static quad_func     quad_tab[SS_MAX_TRIFUNC];
 
 
-static void _swsetup_render_line_tri( GLcontext *ctx,
+static void _swsetup_render_line_tri( GLcontext *ctx, GLuint facing,
 				      GLuint e0, GLuint e1, GLuint e2 )
 {
    SScontext *swsetup = SWSETUP_CONTEXT(ctx);
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLubyte *ef = VB->EdgeFlag;
    SWvertex *verts = swsetup->verts;
    SWvertex *v0 = &verts[e0];
    SWvertex *v1 = &verts[e1];
@@ -62,47 +61,46 @@ static void _swsetup_render_line_tri( GLcontext *ctx,
    GLuint i[2];
 
    if (ctx->_TriangleCaps & DD_FLATSHADE) {
-      COPY_CHAN4(c[0], v0->color);
-      COPY_CHAN4(c[1], v1->color);
-      COPY_CHAN4(s[0], v0->specular);
-      COPY_CHAN4(s[1], v1->specular);
-      i[0] = v0->index;
-      i[1] = v1->index;
+      COPY_CHAN4(c[0], v0->color[facing]);
+      COPY_CHAN4(c[1], v1->color[facing]);
+      COPY_CHAN4(s[0], v0->specular[facing]);
+      COPY_CHAN4(s[1], v1->specular[facing]);
+      i[0] = v0->index[facing];
+      i[1] = v1->index[facing];
 
-      COPY_CHAN4(v0->color, v2->color);
-      COPY_CHAN4(v1->color, v2->color);
-      COPY_CHAN4(v0->specular, v2->specular);
-      COPY_CHAN4(v1->specular, v2->specular);
-      v0->index = v2->index;
-      v1->index = v2->index;
+      COPY_CHAN4(v0->color[facing], v2->color[facing]);
+      COPY_CHAN4(v1->color[facing], v2->color[facing]);
+      COPY_CHAN4(v0->specular[facing], v2->specular[facing]);
+      COPY_CHAN4(v1->specular[facing], v2->specular[facing]);
+      v0->index[facing] = v2->index[facing];
+      v1->index[facing] = v2->index[facing];
    }
 
    if (swsetup->render_prim == GL_POLYGON) {
-      if (ef[e2]) _swrast_Line( ctx, v2, v0 );
-      if (ef[e0]) _swrast_Line( ctx, v0, v1 );
-      if (ef[e1]) _swrast_Line( ctx, v1, v2 );
+      if (v2->edgeflag) _swrast_Line( ctx, facing, v2, v0 );
+      if (v0->edgeflag) _swrast_Line( ctx, facing, v0, v1 );
+      if (v1->edgeflag) _swrast_Line( ctx, facing, v1, v2 );
    } else {
-      if (ef[e0]) _swrast_Line( ctx, v0, v1 );
-      if (ef[e1]) _swrast_Line( ctx, v1, v2 );
-      if (ef[e2]) _swrast_Line( ctx, v2, v0 );
+      if (v0->edgeflag) _swrast_Line( ctx, facing, v0, v1 );
+      if (v1->edgeflag) _swrast_Line( ctx, facing, v1, v2 );
+      if (v2->edgeflag) _swrast_Line( ctx, facing, v2, v0 );
    }
 
    if (ctx->_TriangleCaps & DD_FLATSHADE) {
-      COPY_CHAN4(v0->color, c[0]);
-      COPY_CHAN4(v1->color, c[1]);
-      COPY_CHAN4(v0->specular, s[0]);
-      COPY_CHAN4(v1->specular, s[1]);
-      v0->index = i[0];
-      v1->index = i[1];
+      COPY_CHAN4(v0->color[facing], c[0]);
+      COPY_CHAN4(v1->color[facing], c[1]);
+      COPY_CHAN4(v0->specular[facing], s[0]);
+      COPY_CHAN4(v1->specular[facing], s[1]);
+      v0->index[facing] = i[0];
+      v1->index[facing] = i[1];
    }
 }
 
-static void _swsetup_render_point_tri( GLcontext *ctx,
+static void _swsetup_render_point_tri( GLcontext *ctx, GLuint facing,
 				       GLuint e0, GLuint e1, GLuint e2 )
 {
    SScontext *swsetup = SWSETUP_CONTEXT(ctx);
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLubyte *ef = VB->EdgeFlag;
    SWvertex *verts = swsetup->verts;
    SWvertex *v0 = &verts[e0];
    SWvertex *v1 = &verts[e1];
@@ -112,34 +110,33 @@ static void _swsetup_render_point_tri( GLcontext *ctx,
    GLuint i[2];
 
    if (ctx->_TriangleCaps & DD_FLATSHADE) {
-      COPY_CHAN4(c[0], v0->color);
-      COPY_CHAN4(c[1], v1->color);
-      COPY_CHAN4(s[0], v0->specular);
-      COPY_CHAN4(s[1], v1->specular);
-      i[0] = v0->index;
-      i[1] = v1->index;
+      COPY_CHAN4(c[0], v0->color[facing]);
+      COPY_CHAN4(c[1], v1->color[facing]);
+      COPY_CHAN4(s[0], v0->specular[facing]);
+      COPY_CHAN4(s[1], v1->specular[facing]);
+      i[0] = v0->index[facing];
+      i[1] = v1->index[facing];
 
-      COPY_CHAN4(v0->color, v2->color);
-      COPY_CHAN4(v1->color, v2->color);
-      COPY_CHAN4(v0->specular, v2->specular);
-      COPY_CHAN4(v1->specular, v2->specular);
-      v0->index = v2->index;
-      v1->index = v2->index;
+      COPY_CHAN4(v0->color[facing], v2->color[facing]);
+      COPY_CHAN4(v1->color[facing], v2->color[facing]);
+      COPY_CHAN4(v0->specular[facing], v2->specular[facing]);
+      COPY_CHAN4(v1->specular[facing], v2->specular[facing]);
+      v0->index[facing] = v2->index[facing];
+      v1->index[facing] = v2->index[facing];
    }
 
-   if (ef[e0]) _swrast_Point( ctx, v0 );
-   if (ef[e1]) _swrast_Point( ctx, v1 );
-   if (ef[e2]) _swrast_Point( ctx, v2 );
+   if (v0->edgeflag) _swrast_Point( ctx, facing, v0 );
+   if (v1->edgeflag) _swrast_Point( ctx, facing, v1 );
+   if (v2->edgeflag) _swrast_Point( ctx, facing, v2 );
 
    if (ctx->_TriangleCaps & DD_FLATSHADE) {
-      COPY_CHAN4(v0->color, c[0]);
-      COPY_CHAN4(v1->color, c[1]);
-      COPY_CHAN4(v0->specular, s[0]);
-      COPY_CHAN4(v1->specular, s[1]);
-      v0->index = i[0];
-      v1->index = i[1];
+      COPY_CHAN4(v0->color[facing], c[0]);
+      COPY_CHAN4(v1->color[facing], c[1]);
+      COPY_CHAN4(v0->specular[facing], s[0]);
+      COPY_CHAN4(v1->specular[facing], s[1]);
+      v0->index[facing] = i[0];
+      v1->index[facing] = i[1];
    }
-   _swrast_flush(ctx);
 }
 
 #define SS_COLOR(a,b) COPY_CHAN4(a,b)

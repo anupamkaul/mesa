@@ -1,4 +1,4 @@
-/* $Id: ss_vbtmp.h,v 1.21 2002/04/19 00:42:20 brianp Exp $ */
+/* $Id: ss_vbtmp.h,v 1.21.2.1 2002/10/17 14:27:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -56,18 +56,18 @@ static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end,
    GLuint maxtex = 0;
 
    if (IND & TEX0) {
-      tc[0] = (GLfloat *)VB->TexCoordPtr[0]->data;
-      tsz[0] = VB->TexCoordPtr[0]->size;
-      tstride[0] = VB->TexCoordPtr[0]->stride;
+      tc[0] = (GLfloat *)VB->AttrPtr[VERT_ATTRIB_TEX0]->data;
+      tsz[0] = VB->AttrPtr[VERT_ATTRIB_TEX0]->size;
+      tstride[0] = VB->AttrPtr[VERT_ATTRIB_TEX0]->stride;
    }
 
-   if (IND & MULTITEX) {
+   if (IND & EXTRAS && ctx->Texture._EnabledUnits) {
       for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++) {
 	 if (VB->TexCoordPtr[i]) {
 	    maxtex = i+1;
-	    tc[i] = (GLfloat *)VB->TexCoordPtr[i]->data;
-	    tsz[i] = VB->TexCoordPtr[i]->size;
-	    tstride[i] = VB->TexCoordPtr[i]->stride;
+	    tc[i] = (GLfloat *)VB->AttrPtr[VERT_ATTRIB_TEX0+i]->data;
+	    tsz[i] = VB->AttrPtr[VERT_ATTRIB_TEX0+i]->size;
+	    tstride[i] = VB->AttrPtr[VERT_ATTRIB_TEX0+i]->stride;
 	 }
 	 else tc[i] = 0;
       }
@@ -77,31 +77,39 @@ static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end,
    proj_stride = VB->NdcPtr->stride;
 
    if (IND & FOG) {
-      fog = (GLfloat *) VB->FogCoordPtr->data;
-      fog_stride = VB->FogCoordPtr->stride;
+      fog = (GLfloat *) VB->AttrPtr[VERT_ATTRIB_FOG]->data;
+      fog_stride = VB->AttrPtr[VERT_ATTRIB_FOG]->stride;
    }
    if (IND & COLOR) {
-      if (VB->ColorPtr[0]->Type != CHAN_TYPE)
-	 import_float_colors( ctx );
-
-      color = (GLchan *) VB->ColorPtr[0]->Ptr;
-      color_stride = VB->ColorPtr[0]->StrideB;
+      color = (GLfloat *) VB->AttrPtr[VERT_ATTRIB_COLOR0]->data;
+      color_stride = VB->AttrPtr[VERT_ATTRIB_COLOR0]->stride;
+      if (IND & EXTRAS) {
+	 if (VB->AttrPtr[VERT_ATTRIB_BACK_COLOR0]) {
+	 }
+      }
    }
    if (IND & SPEC) {
-      if (VB->SecondaryColorPtr[0]->Type != CHAN_TYPE)
-	 import_float_spec_colors( ctx );
-
-      spec = (GLchan *) VB->SecondaryColorPtr[0]->Ptr;
-      spec_stride = VB->SecondaryColorPtr[0]->StrideB;
+      spec = (GLfloat *) VB->AttrPtr[VERT_ATTRIB_COLOR1]->data;
+      spec_stride = VB->AttrPtr[VERT_ATTRIB_COLOR1]->stride;
+      if (IND & EXTRAS) {
+	 if (VB->AttrPtr[VERT_ATTRIB_BACK_COLOR1]) {
+	 }
+      }
    }
    if (IND & INDEX) {
-      index = VB->IndexPtr[0]->data;
-      index_stride = VB->IndexPtr[0]->stride;
+      index = (GLfloat *) VB->AttrPtr[VERT_ATTRIB_INDEX]->data;
+      index_stride = VB->AttrPtr[VERT_ATTRIB_INDEX]->stride;
+      if (IND & EXTRAS) {
+	 if (VB->AttrPtr[VERT_ATTRIB_BACK_INDEX]) {
+	 }
+      }
    }
+
    if (IND & POINT) {
       pointSize = (GLfloat *) VB->PointSizePtr->data;
       pointSize_stride = VB->PointSizePtr->stride;
    }
+   
 
    v = &(SWSETUP_CONTEXT(ctx)->verts[start]);
 
@@ -119,7 +127,7 @@ static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end,
 	 STRIDE_F(tc[0], tstride[0]);
       }
 
-      if (IND & MULTITEX) {
+      if (IND & EXTRAS) {
 	 GLuint u;
 	 for (u = 0 ; u < maxtex ; u++)
 	    if (tc[u]) {
@@ -129,13 +137,21 @@ static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end,
       }
 
       if (IND & COLOR) {
-	 COPY_CHAN4(v->color, color);
-	 STRIDE_CHAN(color, color_stride);
+	 UNCLAMPED_FLOAT_TO_RGBA_CHAN(v->color[0], color[0]);
+	 STRIDE_F(color[0], color_stride[0]);
+	 if ((IND & EXTRAS) && color[1]) {
+	    UNCLAMPED_FLOAT_TO_RGBA_CHAN(v->color[1], color[1]);
+	    STRIDE_F(color[1], color_stride[1]);
+	 }
       }
 
       if (IND & SPEC) {
-	 COPY_CHAN4(v->specular, spec);
-	 STRIDE_CHAN(spec, spec_stride);
+	 UNCLAMPED_FLOAT_TO_RGB_CHAN(v->specular[0], spec[0]);
+	 STRIDE_F(spec[0], spec_stride[0]);
+	 if ((IND & EXTRAS) && spec[1]) {
+	    UNCLAMPED_FLOAT_TO_RGB_CHAN(v->specular[1], spec[1]);
+	    STRIDE_F(spec[1], spec_stride[1]);
+	 }
       }
 
       if (IND & FOG) {
@@ -144,13 +160,22 @@ static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end,
       }
 
       if (IND & INDEX) {
-	 v->index = index[0];
-	 STRIDE_UI(index, index_stride);
+ 	 v->index[0] = (GLuint)index[0];
+	 STRIDE_F(index[0], index_stride[0]);
+	 if ((IND & EXTRAS) && index[1]) {
+	    v->index[1] = (GLuint)index[1];
+	    STRIDE_F(index[1], index_stride[1]);
+	 }
       }
 
       if (IND & POINT) {
 	 v->pointSize = pointSize[0];
 	 STRIDE_F(pointSize, pointSize_stride);
+      }
+
+      if (IND & EXTRAS) {
+	 v->specular[0][3] = (GLubyte)edgeFlag;
+	 STRIDE_F(edgeFlag, edgeFlag_stride);
       }
    }
 }
@@ -185,11 +210,11 @@ static void TAG(interp)( GLcontext *ctx,
       INTERP_4F( t, dst->texcoord[0], out->texcoord[0], in->texcoord[0] );
    }
 
-   if (IND & MULTITEX) {
+   if ((IND & EXTRAS) && ctx->Texture._EnabledUnits) {
       GLuint u;
       GLuint maxtex = ctx->Const.MaxTextureUnits;
       for (u = 0 ; u < maxtex ; u++)
-	 if (VB->TexCoordPtr[u]) {
+	 if (VB->AttrPtr[VERT_ATTRIB_TEX0+u]) {
 	    INTERP_4F( t, dst->texcoord[u], out->texcoord[u], in->texcoord[u] );
 	 }
    }
@@ -199,12 +224,23 @@ static void TAG(interp)( GLcontext *ctx,
       INTERP_CHAN( t, dst->color[1], out->color[1], in->color[1] );
       INTERP_CHAN( t, dst->color[2], out->color[2], in->color[2] );
       INTERP_CHAN( t, dst->color[3], out->color[3], in->color[3] );
+      if (IND & EXTRAS) {
+	 INTERP_CHAN( t, dst->color[0], out->color[0], in->color[0] );
+	 INTERP_CHAN( t, dst->color[1], out->color[1], in->color[1] );
+	 INTERP_CHAN( t, dst->color[2], out->color[2], in->color[2] );
+	 INTERP_CHAN( t, dst->color[3], out->color[3], in->color[3] );
+      }
    }
 
    if (IND & SPEC) {
       INTERP_CHAN( t, dst->specular[0], out->specular[0], in->specular[0] );
       INTERP_CHAN( t, dst->specular[1], out->specular[1], in->specular[1] );
       INTERP_CHAN( t, dst->specular[2], out->specular[2], in->specular[2] );
+      if (IND & EXTRAS) {
+	 INTERP_CHAN( t, dst->specular[0], out->specular[0], in->specular[0] );
+	 INTERP_CHAN( t, dst->specular[1], out->specular[1], in->specular[1] );
+	 INTERP_CHAN( t, dst->specular[2], out->specular[2], in->specular[2] );
+      }
    }
 
    if (IND & FOG) {
@@ -213,11 +249,19 @@ static void TAG(interp)( GLcontext *ctx,
 
    if (IND & INDEX) {
       INTERP_UI( t, dst->index, out->index, in->index );
+      if (IND & EXTRAS) {
+	 INTERP_UI( t, dst->back_index, out->back_index, in->back_index );
+      }
    }
 
    /* XXX Point size interpolation??? */
    if (IND & POINT) {
       INTERP_F( t, dst->pointSize, out->pointSize, in->pointSize );
+   }
+
+   /* Edgeflag -- stored in spec[0][3] */
+   if (IND & EXTRAS) {
+      dst->specular[0][3] = out->specular[0][3] || force_boundary;
    }
 }
 
@@ -229,15 +273,21 @@ static void TAG(copy_pv)( GLcontext *ctx, GLuint edst, GLuint esrc )
    SWvertex *src = &swsetup->verts[esrc];
 
    if (IND & COLOR) {
-      COPY_CHAN4( dst->color, src->color );
+      COPY_CHAN4( dst->color[0], src->color[0] );
+      if (IND & EXTRAS) 
+	 COPY_CHAN4( dst->color[1], src->color[1] );
    }
 
    if (IND & SPEC) {
-      COPY_3V( dst->specular, src->specular );
+      COPY_3V( dst->specular[0], src->specular[0] );
+      if (IND & EXTRAS) 
+	 COPY_3V( dst->specular[1], src->specular[1] );
    }
 
    if (IND & INDEX) {
-      dst->index = src->index;
+      dst->index[0] = src->index[0];
+      if (IND & EXTRAS) 
+	 dst->index[1] = src->index[1];
    }
 }
 

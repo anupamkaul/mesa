@@ -1,4 +1,4 @@
-/* $Id: ss_tritmp.h,v 1.17 2002/10/04 17:37:47 brianp Exp $ */
+/* $Id: ss_tritmp.h,v 1.17.2.1 2002/10/17 14:27:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -36,7 +36,7 @@ static void TAG(triangle)(GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
    GLfloat z[3];
    GLfloat offset;
    GLenum mode = GL_FILL;
-   GLuint facing;
+   GLuint facing = 0;
 
    v[0] = &verts[e0];
    v[1] = &verts[e1];
@@ -54,33 +54,9 @@ static void TAG(triangle)(GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
       if (IND & (SS_TWOSIDE_BIT | SS_UNFILLED_BIT))
       {
 	 facing = (cc < 0.0) ^ ctx->Polygon._FrontBit;
-         if (ctx->Stencil.TestTwoSide)
-            ctx->_Facing = facing; /* for 2-sided stencil test */
 
 	 if (IND & SS_UNFILLED_BIT)
 	    mode = facing ? ctx->Polygon.BackMode : ctx->Polygon.FrontMode;
-
-	 if (facing == 1) {
-	    if (IND & SS_TWOSIDE_BIT) {
-	       if (IND & SS_RGBA_BIT) {
-		  GLchan (*vbcolor)[4] = (GLchan (*)[4])VB->ColorPtr[1]->Ptr;
-		  SS_COLOR(v[0]->color, vbcolor[e0]);
-		  SS_COLOR(v[1]->color, vbcolor[e1]);
-		  SS_COLOR(v[2]->color, vbcolor[e2]);
-		  if (VB->SecondaryColorPtr[1]) {
-		     GLchan (*vbspec)[4] = (GLchan (*)[4])VB->SecondaryColorPtr[1]->Ptr;
-		     SS_SPEC(v[0]->specular, vbspec[e0]);
-		     SS_SPEC(v[1]->specular, vbspec[e1]);
-		     SS_SPEC(v[2]->specular, vbspec[e2]);
-		  }
-	       } else {
-		  GLuint *vbindex = VB->IndexPtr[1]->data;
-		  SS_IND(v[0]->index, vbindex[e0]);
-		  SS_IND(v[1]->index, vbindex[e1]);
-		  SS_IND(v[2]->index, vbindex[e2]);
-	       }
-	    }
-	 }
       }
 
       if (IND & SS_OFFSET_BIT)
@@ -112,49 +88,27 @@ static void TAG(triangle)(GLcontext *ctx, GLuint e0, GLuint e1, GLuint e2 )
 	 v[1]->win[2] += offset;
 	 v[2]->win[2] += offset;
       }
-      _swsetup_render_point_tri( ctx, e0, e1, e2 );
+      _swsetup_render_point_tri( ctx, facing, e0, e1, e2 );
    } else if (mode == GL_LINE) {
       if ((IND & SS_OFFSET_BIT) && ctx->Polygon.OffsetLine) {
 	 v[0]->win[2] += offset;
 	 v[1]->win[2] += offset;
 	 v[2]->win[2] += offset;
       }
-      _swsetup_render_line_tri( ctx, e0, e1, e2 );
+      _swsetup_render_line_tri( ctx, facing, e0, e1, e2 );
    } else {
       if ((IND & SS_OFFSET_BIT) && ctx->Polygon.OffsetFill) {
 	 v[0]->win[2] += offset;
 	 v[1]->win[2] += offset;
 	 v[2]->win[2] += offset;
       }
-      _swrast_Triangle( ctx, v[0], v[1], v[2] );
+      _swrast_Triangle( ctx, facing, v[0], v[1], v[2] );
    }
 
    if (IND & SS_OFFSET_BIT) {
       v[0]->win[2] = z[0];
       v[1]->win[2] = z[1];
       v[2]->win[2] = z[2];
-   }
-
-   if (IND & SS_TWOSIDE_BIT) {
-      if (facing == 1) {
-	 if (IND & SS_RGBA_BIT) {
-	    GLchan (*vbcolor)[4] = (GLchan (*)[4])VB->ColorPtr[0]->Ptr;
-	    SS_COLOR(v[0]->color, vbcolor[e0]);
-	    SS_COLOR(v[1]->color, vbcolor[e1]);
-	    SS_COLOR(v[2]->color, vbcolor[e2]);
-	    if (VB->SecondaryColorPtr[0]) {
-	       GLchan (*vbspec)[4] = (GLchan (*)[4])VB->SecondaryColorPtr[0]->Ptr;
-	       SS_SPEC(v[0]->specular, vbspec[e0]);
-	       SS_SPEC(v[1]->specular, vbspec[e1]);
-	       SS_SPEC(v[2]->specular, vbspec[e2]);
-	    }
-	 } else {
-	    GLuint *vbindex = VB->IndexPtr[0]->data;
-	    SS_IND(v[0]->index, vbindex[e0]);
-	    SS_IND(v[1]->index, vbindex[e1]);
-	    SS_IND(v[2]->index, vbindex[e2]);
-	 }
-      }
    }
 }
 
@@ -166,15 +120,15 @@ static void TAG(quadfunc)( GLcontext *ctx, GLuint v0,
 		       GLuint v1, GLuint v2, GLuint v3 )
 {
    if (IND & SS_UNFILLED_BIT) {
-      struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-      GLubyte ef1 = VB->EdgeFlag[v1];
-      GLubyte ef3 = VB->EdgeFlag[v3];
-      VB->EdgeFlag[v1] = 0;
+      SWvertex *verts = SWSETUP_CONTEXT(ctx)->verts;
+      GLubyte ef1 = EDGEFLAG(&verts[v1]);
+      GLubyte ef3 = EDGEFLAG(&verts[v3]);
+      EDGEFLAG(&verts[v1]) = 0;
       TAG(triangle)( ctx, v0, v1, v3 );
-      VB->EdgeFlag[v1] = ef1;
-      VB->EdgeFlag[v3] = 0;
+      EDGEFLAG(&verts[v1]) = ef1;
+      EDGEFLAG(&verts[v3]) = 0;
       TAG(triangle)( ctx, v1, v2, v3 );
-      VB->EdgeFlag[v3] = ef3;
+      EDGEFLAG(&verts[v1]) = ef3;
    } else {
       TAG(triangle)( ctx, v0, v1, v3 );
       TAG(triangle)( ctx, v1, v2, v3 );

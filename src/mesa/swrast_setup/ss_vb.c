@@ -1,4 +1,4 @@
-/* $Id: ss_vb.c,v 1.20 2002/06/29 19:48:17 brianp Exp $ */
+/* $Id: ss_vb.c,v 1.20.2.1 2002/10/17 14:27:52 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -96,7 +96,7 @@ static void import_float_spec_colors( GLcontext *ctx )
 #define COLOR         0x1
 #define INDEX         0x2
 #define TEX0          0x4
-#define MULTITEX      0x8
+#define EXTRAS      0x8
 #define SPEC          0x10
 #define FOG           0x20
 #define POINT         0x40
@@ -143,20 +143,20 @@ static copy_pv_func copy_pv_tab[MAX_SETUPFUNC];
 #define TAG(x) x##_color_tex0_spec_fog
 #include "ss_vbtmp.h"
 
-#define IND (COLOR|MULTITEX)
-#define TAG(x) x##_color_multitex
+#define IND (COLOR|EXTRAS)
+#define TAG(x) x##_color_extras
 #include "ss_vbtmp.h"
 
-#define IND (COLOR|MULTITEX|SPEC)
-#define TAG(x) x##_color_multitex_spec
+#define IND (COLOR|EXTRAS|SPEC)
+#define TAG(x) x##_color_extras_spec
 #include "ss_vbtmp.h"
 
-#define IND (COLOR|MULTITEX|FOG)
-#define TAG(x) x##_color_multitex_fog
+#define IND (COLOR|EXTRAS|FOG)
+#define TAG(x) x##_color_extras_fog
 #include "ss_vbtmp.h"
 
-#define IND (COLOR|MULTITEX|SPEC|FOG)
-#define TAG(x) x##_color_multitex_spec_fog
+#define IND (COLOR|EXTRAS|SPEC|FOG)
+#define TAG(x) x##_color_extras_spec_fog
 #include "ss_vbtmp.h"
 
 #define IND (COLOR|POINT)
@@ -191,20 +191,20 @@ static copy_pv_func copy_pv_tab[MAX_SETUPFUNC];
 #define TAG(x) x##_color_tex0_spec_fog_point
 #include "ss_vbtmp.h"
 
-#define IND (COLOR|MULTITEX|POINT)
-#define TAG(x) x##_color_multitex_point
+#define IND (COLOR|EXTRAS|POINT)
+#define TAG(x) x##_color_extras_point
 #include "ss_vbtmp.h"
 
-#define IND (COLOR|MULTITEX|SPEC|POINT)
-#define TAG(x) x##_color_multitex_spec_point
+#define IND (COLOR|EXTRAS|SPEC|POINT)
+#define TAG(x) x##_color_extras_spec_point
 #include "ss_vbtmp.h"
 
-#define IND (COLOR|MULTITEX|FOG|POINT)
-#define TAG(x) x##_color_multitex_fog_point
+#define IND (COLOR|EXTRAS|FOG|POINT)
+#define TAG(x) x##_color_extras_fog_point
 #include "ss_vbtmp.h"
 
-#define IND (COLOR|MULTITEX|SPEC|FOG|POINT)
-#define TAG(x) x##_color_multitex_spec_fog_point
+#define IND (COLOR|EXTRAS|SPEC|FOG|POINT)
+#define TAG(x) x##_color_extras_spec_fog_point
 #include "ss_vbtmp.h"
 
 #define IND (INDEX)
@@ -222,70 +222,6 @@ static copy_pv_func copy_pv_tab[MAX_SETUPFUNC];
 #define IND (INDEX|FOG|POINT)
 #define TAG(x) x##_index_fog_point
 #include "ss_vbtmp.h"
-
-
-/***********************************************************************
- *      Additional setup and interp for back color and edgeflag. 
- ***********************************************************************/
-
-#define GET_COLOR(ptr, idx) (((GLchan (*)[4])((ptr)->Ptr))[idx])
-
-static void interp_extras( GLcontext *ctx,
-			   GLfloat t,
-			   GLuint dst, GLuint out, GLuint in,
-			   GLboolean force_boundary )
-{
-   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-
-   if (VB->ColorPtr[1]) {
-      INTERP_4CHAN( t,
-		 GET_COLOR(VB->ColorPtr[1], dst),
-		 GET_COLOR(VB->ColorPtr[1], out),
-		 GET_COLOR(VB->ColorPtr[1], in) );
-
-      if (VB->SecondaryColorPtr[1]) {
-	 INTERP_3CHAN( t,
-		    GET_COLOR(VB->SecondaryColorPtr[1], dst),
-		    GET_COLOR(VB->SecondaryColorPtr[1], out),
-		    GET_COLOR(VB->SecondaryColorPtr[1], in) );
-      }
-   }
-   else if (VB->IndexPtr[1]) {
-      VB->IndexPtr[1]->data[dst] = (GLuint) (GLint)
-	 LINTERP( t,
-		  (GLfloat) VB->IndexPtr[1]->data[out],
-		  (GLfloat) VB->IndexPtr[1]->data[in] );
-   }
-
-   if (VB->EdgeFlag) {
-      VB->EdgeFlag[dst] = VB->EdgeFlag[out] || force_boundary;
-   }
-
-   interp_tab[SWSETUP_CONTEXT(ctx)->SetupIndex](ctx, t, dst, out, in,
-						force_boundary);
-}
-
-static void copy_pv_extras( GLcontext *ctx, GLuint dst, GLuint src )
-{
-   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-
-   if (VB->ColorPtr[1]) {
-	 COPY_CHAN4( GET_COLOR(VB->ColorPtr[1], dst), 
-		     GET_COLOR(VB->ColorPtr[1], src) );
-	 
-	 if (VB->SecondaryColorPtr[1]) {
-	    COPY_3V( GET_COLOR(VB->SecondaryColorPtr[1], dst), 
-		     GET_COLOR(VB->SecondaryColorPtr[1], src) );
-	 }
-   }
-   else if (VB->IndexPtr[1]) {
-      VB->IndexPtr[1]->data[dst] = VB->IndexPtr[1]->data[src];
-   }
-
-   copy_pv_tab[SWSETUP_CONTEXT(ctx)->SetupIndex](ctx, dst, src);
-}
-
-
 
 
 /***********************************************************************
@@ -337,10 +273,10 @@ static void init_standard( void )
    init_color_tex0_spec();
    init_color_tex0_fog();
    init_color_tex0_spec_fog();
-   init_color_multitex();
-   init_color_multitex_spec();
-   init_color_multitex_fog();
-   init_color_multitex_spec_fog();
+   init_color_extras();
+   init_color_extras_spec();
+   init_color_extras_fog();
+   init_color_extras_spec_fog();
    init_color_point();
    init_color_spec_point();
    init_color_fog_point();
@@ -349,10 +285,10 @@ static void init_standard( void )
    init_color_tex0_spec_point();
    init_color_tex0_fog_point();
    init_color_tex0_spec_fog_point();
-   init_color_multitex_point();
-   init_color_multitex_spec_point();
-   init_color_multitex_fog_point();
-   init_color_multitex_spec_fog_point();
+   init_color_extras_point();
+   init_color_extras_spec_point();
+   init_color_extras_fog_point();
+   init_color_extras_spec_fog_point();
    init_index();
    init_index_fog();
    init_index_point();
@@ -371,7 +307,7 @@ printSetupFlags(const GLcontext *ctx, char *msg, GLuint flags )
                (flags & COLOR) ? "color, " : "",
                (flags & INDEX) ? "index, " : "",
                (flags & TEX0) ? "tex0, " : "",
-               (flags & MULTITEX) ? "multitex, " : "",
+               (flags & EXTRAS) ? "(multitex,back-colors,edgeflag) " : "",
                (flags & SPEC) ? "spec, " : "",
                (flags & FOG) ? "fog, " : "",
                (flags & POINT) ? "point, " : "");
@@ -390,7 +326,7 @@ _swsetup_choose_rastersetup_func(GLcontext *ctx)
          funcindex = COLOR;
 
          if (ctx->Texture._EnabledUnits > 1)
-            funcindex |= MULTITEX; /* a unit above unit[0] is enabled */
+            funcindex |= EXTRAS; /* a unit above unit[0] is enabled */
          else if (ctx->Texture._EnabledUnits == 1)
             funcindex |= TEX0;  /* only unit 0 is enabled */
 
@@ -407,12 +343,22 @@ _swsetup_choose_rastersetup_func(GLcontext *ctx)
 
       if (ctx->Fog.Enabled)
 	 funcindex |= FOG;
+
+      if (ctx->_TriangleCaps & (DD_TRI_UNFILLED|DD_TRI_LIGHT_TWOSIDE)) {
+	 funcindex &= ~TEX0;	/* conflict */
+	 funcindex |= EXTRAS;	/* do back colors & edgeflag */
+      }
    }
    else if (ctx->RenderMode == GL_FEEDBACK) {
       if (ctx->Visual.rgbMode)
 	 funcindex = (COLOR | TEX0); /* is feedback color subject to fogging? */
       else
 	 funcindex = INDEX;
+
+      if (ctx->_TriangleCaps & (DD_TRI_UNFILLED|DD_TRI_LIGHT_TWOSIDE)) {
+	 funcindex &= ~TEX0;	/* conflict */
+	 funcindex |= EXTRAS;	/* do back colors & edgeflag */
+      }
    }
    else
       funcindex = 0;
@@ -420,14 +366,8 @@ _swsetup_choose_rastersetup_func(GLcontext *ctx)
    swsetup->SetupIndex = funcindex;
    tnl->Driver.Render.BuildVertices = setup_tab[funcindex];
 
-   if (ctx->_TriangleCaps & (DD_TRI_LIGHT_TWOSIDE|DD_TRI_UNFILLED)) {
-      tnl->Driver.Render.Interp = interp_extras;
-      tnl->Driver.Render.CopyPV = copy_pv_extras;
-   }
-   else {
-      tnl->Driver.Render.Interp = interp_tab[funcindex];
-      tnl->Driver.Render.CopyPV = copy_pv_tab[funcindex];
-   }
+   tnl->Driver.Render.Interp = interp_tab[funcindex];
+   tnl->Driver.Render.CopyPV = copy_pv_tab[funcindex];
 
    ASSERT(tnl->Driver.Render.BuildVertices);
    ASSERT(tnl->Driver.Render.BuildVertices != emit_invalid);
