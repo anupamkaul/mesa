@@ -1225,6 +1225,11 @@ static void radeonHaltFBDev( struct DRIDriverContextRec *ctx )
        free(ctx->driverPrivate);
        ctx->driverPrivate = 0;
     }
+
+    if (ctx->driverClientMsg) {
+       free(ctx->driverClientMsg);
+       ctx->driverClientMsg = NULL;
+    }
 }
 
 

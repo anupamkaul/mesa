@@ -675,6 +675,7 @@ __driUtilCreateScreen(struct DRIDriverRec *driver,
       mprotect(psp->pSAREA, driverContext->shared.SAREASize, PROT_READ);
 #endif
 
+      driverContext->pSAREA = psp->pSAREA;
    } else {
       psp->pFB = driverContext->FBAddress;
       psp->pSAREA = driverContext->pSAREA;

@@ -240,7 +240,7 @@ static void mgaUpdateBuffers(mgaContextPtr mmesa)
 
    mmesa->setup.depth_cpp    = driDrawable->depthCpp;
 
-   mmesa->setup.depth_pitch  = driDrawable->w;//depthPitch / driDrawable->depthCpp;
+   mmesa->setup.depth_pitch  = driDrawable->depthPitch / driDrawable->depthCpp;
    mmesa->setup.depth_offset = driDrawable->depthOffset;
    
    mmesa->setup.maccess = (MA_memreset_disable |

@@ -989,6 +989,11 @@ static void mgaHaltFBDev( struct DRIDriverContextRec *ctx )
       free(ctx->driverPrivate);
       ctx->driverPrivate = NULL;
    }
+
+   if (ctx->driverClientMsg) {
+      free(ctx->driverClientMsg);
+      ctx->driverClientMsg = NULL;
+   }
 }
 
 
