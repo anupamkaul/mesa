@@ -1,4 +1,4 @@
-# $Id: Make-config,v 1.25 2000/06/08 15:19:12 brianp Exp $
+# $Id: Make-config,v 1.25.2.1 2000/07/16 06:52:13 hwaechtler Exp $
 
 MESA_MAJOR=3
 MESA_MINOR=3
@@ -559,7 +559,7 @@ linux-3dnow:
 	"GLU_LIB = libGLU.so" \
 	"GLUT_LIB = libglut.so" \
 	"GLW_LIB = libGLw.so" \
-	"CC = gcc -malign-loops=2 -malign-jumps=2 -malign-functions=2" \
+	"CC = cc -malign-loops=2 -malign-jumps=2 -malign-functions=2" \
 	"CFLAGS = -Wall -O3 -ansi -pedantic -fPIC -ffast-math -funroll-loops -fomit-frame-pointer -D_SVID_SOURCE -D_BSD_SOURCE -DUSE_XSHM -DUSE_X86_ASM -DUSE_MMX_ASM -DUSE_3DNOW_ASM -DPTHREADS -I/usr/X11R6/include" \
 	"MAKELIB = ../bin/mklib.linux" \
 	"GL_LIB_DEPS = -L/usr/X11R6/lib -lX11 -lXext -lm -lm -lpthread" \
@@ -1292,9 +1292,9 @@ linux-elf-debug:
 	"GLUT_LIB = libglut.so" \
 	"GLW_LIB = libGLw.so" \
 	"CC = gcc" \
-	"CFLAGS = -g -ansi -pedantic -Wall -Wmissing-prototypes -fPIC -ffast-math -D_SVID_SOURCE -D_BSD_SOURCE -I/usr/X11R6/include -DUSE_XSHM -DPTHREADS -DDEBUG -DMESA_DEBUG -DSVGA -I/usr/include/glide -DFX" \
+	"CFLAGS = -O0 -g -ansi -pedantic -Wall -Wmissing-prototypes -fPIC -ffast-math -D_SVID_SOURCE -D_BSD_SOURCE -I/usr/X11R6/include -DUSE_XSHM -DPTHREADS -DDEBUG -DMESA_DEBUG " \
 	"MAKELIB = ../bin/mklib.linux" \
-	"GL_LIB_DEPS = -L/usr/X11R6/lib -lX11 -lXext -lm -lpthread -lvga -L/usr/local/glide/lib -lglide2x" \
+	"GL_LIB_DEPS = -L/usr/X11R6/lib -lX11 -lXext -lm -lpthread " \
 	"GLU_LIB_DEPS = -L../lib -lGL -lm" \
 	"GLUT_LIB_DEPS = -L../lib -lGLU -lGL -L/usr/X11R6/lib -lX11 -lXmu -lXt -lXi -lm" \
 	"APP_LIB_DEPS = -lglut -lGLU -lGL"
@@ -1318,14 +1318,13 @@ linux-prof:
 	"GLUT_LIB = libglut.a" \
 	"GLW_LIB = libGLw.a" \
 	"CC = gcc" \
-	"CFLAGS = -O2 -pg -ansi -pedantic -Wall -DUSE_XSHM -D_SVID_SOURCE -D_BSD_SOURCE -DUSE_X86_ASM -DUSE_MMX_ASM -DUSE_3DNOW_ASM -I/usr/include/glide -I/usr/local/glide/include" \
+	"CFLAGS = -O2 -pg -ansi -pedantic -Wall -DUSE_XSHM -D_SVID_SOURCE -D_BSD_SOURCE -DUSE_X86_ASM -DUSE_MMX_ASM -DUSE_3DNOW_ASM " \
 	"MAKELIB = ../bin/mklib.ar-ruv" \
-	"APP_LIB_DEPS = -L/usr/local/glide/lib -lglide2x -L/usr/X11/lib -lX11 -lXext -lXmu -lXt -lXi -lSM -lICE -lm" \
+	"APP_LIB_DEPS = -L/usr/X11/lib -lX11 -lXext -lXmu -lXt -lXi -lSM -lICE -lm" \
 	"ASM_SOURCES = X86/x86a.S X86/common_x86asm.S X86/glapi_x86.S \
 	X86/mmx_blend.S \
 	X86/3dnow_xform_raw1.S X86/3dnow_xform_raw2.S \
 	X86/3dnow_xform_raw3.S X86/3dnow_xform_raw4.S \
 	X86/3dnow_xform_masked1.S X86/3dnow_xform_masked2.S \
 	X86/3dnow_xform_masked3.S X86/3dnow_xform_masked4.S \
-	X86/3dnow_norm_raw.S X86/vertex.S X86/vertex_3dnow.S \
-	FX/X86/fx_3dnow_fastpath.S"
+	X86/3dnow_norm_raw.S X86/vertex.S X86/vertex_3dnow.S"

@@ -1,4 +1,4 @@
-# $Id: Makefile.X11,v 1.14 2000/06/27 16:54:18 brianp Exp $
+# $Id: Makefile.X11,v 1.14.2.1 2000/07/16 06:52:14 hwaechtler Exp $
 
 # Mesa 3-D graphics library
 # Version:  3.3
@@ -36,6 +36,7 @@ PROGS = bounce \
 	occlude \
 	osdemo \
 	paltex \
+	perpixel \
 	pixeltex \
 	pointblast \
 	ray \
