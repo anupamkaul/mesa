@@ -160,6 +160,15 @@ static int MGADRIAgpInit(struct DRIDriverContextRec *ctx, MGAPtr pMga)
    fprintf( stderr,
             "[agp] Mode 0x%08lx [AGP 0x%04x/0x%04x]\n",
             mode, vendor, device );
+
+   if (mode & MGA_AGP_4X_MODE)
+      pMga->agpMode = 4;
+   else if (mode & MGA_AGP_2X_MODE)
+      pMga->agpMode = 2;
+   else if (mode & MGA_AGP_1X_MODE)
+      pMga->agpMode = 1;
+   else
+      pMga->agpMode = 0;
    
    if ( pMga->Chipset == PCI_CHIP_MGAG200 ) {
       switch ( pMga->agpMode ) {
