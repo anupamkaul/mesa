@@ -42,78 +42,94 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "colormac.h"
 #include "light.h"
 #include "state.h"
-#include "vtxfmt.h"
 
 #include "tnl/tnl.h"
 #include "tnl/t_context.h"
 #include "tnl/t_array_api.h"
 
-static void _tnl_FlushVertices( GLcontext *, GLuint );
 
-
-void tnl_copy_to_current( GLcontext *ctx ) 
+void tnl_copy_to_current( GLcontext *ctx, struct tnl_vtx_block *v ) 
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
-   GLuint flag = tnl->vertex_format;
-   GLint i;
+   GLint i, update = 0;
 
    assert(ctx->Driver.NeedFlush & FLUSH_UPDATE_CURRENT);
 
    for (i = 0 ; i < 16 ; i++)
-      if (flag & (1<<i))
-	 COPY_4FV( ctx->Current.Attrib[i], tnl->attribptr[i] );
+      if (tnl->vtx.attrib_sz[i]) 
+	 COPY_SZ( ctx->Current.Attrib[i], 
+		  &(tnl->vtx.attrptr[i][0].f),
+		  tnl->vtx.attrib_sz[i] );
 
-   if (flag & VERT_BIT_INDEX)
-      ctx->Current.Index = tnl->indexptr[0];
+   if (tnl->vtx.attrib_sz[VERT_ATTRIB_INDEX])
+      ctx->Current.Index = tnl->vtx.attrptr[VERT_ATTRIB_INDEX][0].ui;
 
-   if (flag & VERT_BIT_EDGEFLAG)
-      ctx->Current.EdgeFlag = tnl->edgeflagptr[0];
+   if (tnl->vtx.attrib_sz[VERT_ATTRIB_EDGEFLAG])
+      ctx->Current.EdgeFlag = tnl->vtx.attrptr[VERT_ATTRIB_EDGEFLAG][0].ui;
 
-   if (flag & VERT_BIT_MATERIAL) {
-      _mesa_update_material( ctx,
-			  IM->Material[IM->LastMaterial],
-			  IM->MaterialOrMask );
+   for (i = 0 ; i < MAT_ATTRIB_MAX ; i++ ) {
+      if (tnl->vtx.attrib_sz[i + VERT_ATTRIB_MAT_FRONT_EMISSION]) {
+	 COPY_SZ( ctx->Light.Material.Attrib[i],
+		  &(tnl->vtx.attrptr[i+VERT_ATTRIB_MAT_FRONT_EMISSION][0].f),
+		  tnl->vtx.attrib_sz[i]);
+	 update |= 1 << i;
+      }
 
-      tnl->Driver.NotifyMaterialChange( ctx );
+      if (update)
+	 _mesa_update_material( ctx, update );
    }
-
 
    ctx->Driver.NeedFlush &= ~FLUSH_UPDATE_CURRENT;
 }
 
-static GLboolean discreet_gl_prim[GL_POLYGON+1] = {
-   1,				/* 0 points */
-   1,				/* 1 lines */
-   0,				/* 2 line_strip */
-   0,				/* 3 line_loop */
-   1,				/* 4 tris */
-   0,				/* 5 tri_fan */
-   0,				/* 6 tri_strip */
-   1,				/* 7 quads */
-   0,				/* 8 quadstrip */
-   0,				/* 9 poly */
+static GLboolean discrete_gl_prim[GL_POLYGON+1] = {
+   1,	/* 0 points */
+   1,	/* 1 lines */
+   0,	/* 2 line_strip */
+   0,	/* 3 line_loop */
+   1,	/* 4 tris */
+   0,	/* 5 tri_fan */
+   0,	/* 6 tri_strip */
+   1,	/* 7 quads */
+   0,	/* 8 quadstrip */
+   0,	/* 9 poly */
 };
 
-/* Optimize the primitive list:  
+static GLint prim_modulo[GL_POLYGON+1] = {
+   1,	/* 0 points */
+   2,	/* 1 lines */
+   0,	/* 2 line_strip */
+   0,	/* 3 line_loop */
+   3,	/* 4 tris */
+   0,	/* 5 tri_fan */
+   0,	/* 6 tri_strip */
+   4,	/* 7 quads */
+   0,	/* 8 quadstrip */
+   0,	/* 9 poly */
+};
+
+/* Optimize primitive list where possible.
  */
 static void optimize_prims( TNLcontext *tnl )
 {
-   int i, j;
+   struct tnl_prim *prim = tnl->primlist;
 
    if (tnl->nrprims <= 1)
       return;
 
    for (j = 0, i = 1 ; i < tnl->nrprims; i++) {
-      int pj = tnl->primlist[j].prim & 0xf;
-      int pi = tnl->primlist[i].prim & 0xf;
+      int pj = prim[j].prim & 0xf;
+      int pi = prim[i].prim & 0xf;
       
-      if (pj == pi && discreet_gl_prim[pj] &&
-	  tnl->primlist[i].start == tnl->primlist[j].end) {
-	 tnl->primlist[j].end = tnl->primlist[i].end;
+      if (pj == pi && 
+	  discrete_gl_prim[pj] &&
+	  prim[i].start == prim[j].end &&
+	  (prim[i].end - prim[i].start) % prim_modulo[pi] == 0) {
+	 prim[j].end = prim[i].end;
       }
       else {
 	 j++;
-	 if (j != i) tnl->primlist[j] = tnl->primlist[i];
+	 if (j != i) prim[j] = prim[i];
       }
    }
 
@@ -121,48 +137,54 @@ static void optimize_prims( TNLcontext *tnl )
 }
 
 
-/* Bind vertex buffer pointers, run pipeline:
+
+/* Build a primitive list from the begin/end buffer.
  */
-static void flush_prims( TNLcontext *tnl )
+static void build_prims( TNLcontext *tnl )
 {
-   int i,j;
+   int i, j;
+   struct tnl_be *be = tnl->vtx.be;
+   struct tnl_prim *prim = tnl->primlist;
+   GLenum state = ctx->Driver.CurrentExecPrimitive;
 
-   tnl->dma.current.ptr = tnl->dma.current.start += 
-      (tnl->initial_counter - tnl->counter) * tnl->vertex_size * 4; 
-
-   tnl->tcl.vertex_format = tnl->vertex_format;
-   tnl->tcl.aos_components[0] = &tmp;
-   tnl->tcl.nr_aos_components = 1;
-   tnl->dma.flush = 0;
-
-   tnl->Driver.RunPipeline( ... );
-   
    tnl->nrprims = 0;
-}
+
+   /* Initialize first prim if inside begin/end
+    */
+   if (state != PRIM_OUTSIDE_BEGIN_END) {
+      prim[j].start = be[i].idx;
+      prim[j].mode = state;
+   }
 
 
-static void start_prim( TNLcontext *tnl, GLuint mode )
-{
-   if (MESA_VERBOSE & DEBUG_VFMT)
-      _mesa_debug(NULL, "%s %d\n", __FUNCTION__, 
-	      tnl->initial_counter - tnl->counter);
-
-   tnl->primlist[tnl->nrprims].start = tnl->initial_counter - tnl->counter;
-   tnl->primlist[tnl->nrprims].prim = mode;
-}
-
-static void note_last_prim( TNLcontext *tnl, GLuint flags )
-{
-   if (MESA_VERBOSE & DEBUG_VFMT)
-      _mesa_debug(NULL, "%s %d\n", __FUNCTION__, 
-	      tnl->initial_counter - tnl->counter);
-
-   if (tnl->prim[0] != GL_POLYGON+1) {
-      tnl->primlist[tnl->nrprims].prim |= flags;
-      tnl->primlist[tnl->nrprims].end = tnl->initial_counter - tnl->counter;
-
-      if (++tnl->nrprims == TNL_MAX_PRIMS)
-	 flush_prims( tnl );
+   /* Convert begin/ends into prims
+    */
+   for (i = 0 ; i < tnl->vtx.be_count ; i++) {
+      switch (be[i].type) {
+      case TNL_BEGIN:
+	 if (state != PRIM_OUTSIDE_BEGIN_END ||
+	     be[i].mode > GL_POLYGON) {
+	    error = 1;
+	 }
+	 else { 
+	    prim[j].start = be[i].idx;
+	    prim[j].mode = be[i].mode | PRIM_BEGIN;
+	    state = be[i].mode;
+	 }
+	 break;
+      case TNL_END:
+	 if (state == PRIM_OUTSIDE_BEGIN_END) {
+	    error = 1;
+	 }
+	 else {
+	    prim[j].mode |= PRIM_END;
+	    prim[j].end = be[i].idx;
+	 }
+      }
+   }
+	
+   if (state != PRIM_OUTSIDE_BEGIN_END) {
+      prim[j].end = tnl->vtx.initial_counter - tnl->vtx.counter;
    }
 }
 
@@ -230,6 +252,8 @@ static GLuint copy_wrapped_verts( TNLcontext *tnl, GLfloat (*tmp)[15] )
 	 return 2;
       }
    case GL_TRIANGLE_STRIP:
+      /* FIXME:  parity.
+       */
       ovf = MIN2( nr-1, 2 );
       for (i = 0 ; i < ovf ; i++)
 	 copy_vertex( tnl, nr-ovf+i, tmp[i] );
@@ -244,59 +268,19 @@ static GLuint copy_wrapped_verts( TNLcontext *tnl, GLfloat (*tmp)[15] )
       assert(0);
       return 0;
    }
+
+}
+
+static void save_wrapped_verts( TNLcontext *tnl )
+{
+   tnl->wrap.nr_verts = copy_wrapped_verts( tnl );
 }
 
 
 
-/* Extend for vertex-format changes on wrap:
- */
-static void wrap_buffer( void )
+
+static void emit_wrapped_verts( TNLcontext *tnl )
 {
-   TNLcontext *tnl = tnl->tnl;
-   GLfloat tmp[3][15];
-   GLuint i, nrverts;
-
-   if (MESA_VERBOSE & (DEBUG_VFMT|DEBUG_PRIMS))
-      _mesa_debug(NULL, "%s %d\n", __FUNCTION__, 
-	      tnl->initial_counter - tnl->counter);
-
-#if 0
-   /* Don't deal with parity.  
-    */
-   if ((((tnl->initial_counter - tnl->counter) -  
-	 tnl->primlist[tnl->nrprims].start) & 1)) {
-      tnl->counter++;
-      tnl->initial_counter++;
-      return;
-   }
-#endif
-
-   /* Copy vertices out of dma:
-    */
-   nrverts = copy_dma_verts( tnl, tmp );
-
-   if (MESA_VERBOSE & DEBUG_VFMT)
-      _mesa_debug(NULL, "%d vertices to copy\n", nrverts);
-   
-
-   /* Finish the prim at this point:
-    */
-   note_last_prim( tnl, 0 );
-   flush_prims( tnl );
-
-   /* Reset counter, dmaptr
-    */
-   tnl->dmaptr = (int *)(tnl->dma.current.ptr + tnl->dma.current.address);
-   tnl->counter = (tnl->dma.current.end - tnl->dma.current.ptr) / 
-      (tnl->vertex_size * 4);
-   tnl->counter--;
-   tnl->initial_counter = tnl->counter;
-   tnl->notify = wrap_buffer;
-
-   tnl->dma.flush = flush_prims;
-   start_prim( tnl, tnl->prim[0] );
-
-
    /* Reemit saved vertices 
     * *** POSSIBLY IN NEW FORMAT
     *       --> Can't always extend at end of vertex
@@ -318,247 +302,31 @@ static void wrap_buffer( void )
 
 
 
-/* Always follow data, don't try to predict what's necessary.  
+
+
+/* Bind vertex buffer pointers, run pipeline:
  */
-static GLboolean check_vtx_fmt( GLcontext *ctx )
+void _tnl_execute_buffer( TNLcontext *tnl, struct tnl_vtx_block *v )
 {
-   TNLcontext *tnl = TNL_CONTEXT(ctx);
-
-   if (ctx->Driver.NeedFlush & FLUSH_UPDATE_CURRENT) 
-      ctx->Driver.FlushVertices( ctx, FLUSH_UPDATE_CURRENT );
-   
-
-   TNL_NEWPRIM(tnl);
-   tnl->vertex_format = VERT_BIT_POS;
-   tnl->prim = &ctx->Driver.CurrentExecPrimitive;
-
-
-   /* Currently allow the full 4 components per attrib.  Can use the
-    * mechanism from radeon driver color handling to reduce this (and
-    * also to store ubyte colors where these are incoming).  This
-    * won't work for compile mode.
-    *
-    * Only adding components when they are first received eliminates
-    * the need for displaylist fixup, as there are no 'empty' slots
-    * at the start of buffers.  
+   /* Bring back wrapped vertices:
     */
-   for (i = 0 ; i < 16 ; i++) {
-      if (ind & (1<<i)) {
-	 tnl->attribptr[i] = &tnl->vertex[tnl->vertex_size].f;
-	 tnl->vertex_size += 4;
-	 tnl->attribptr[i][0] = ctx->Current.Attrib[i][0];
-	 tnl->attribptr[i][1] = ctx->Current.Attrib[i][1];
-	 tnl->attribptr[i][2] = ctx->Current.Attrib[i][2];
-	 tnl->attribptr[i][3] = ctx->Current.Attrib[i][3];
-      }
-      else
-	 tnl->attribptr[i] = ctx->Current.Attrib[i];
-   }
+   revive_wrapped_verts( tnl, v );
 
-   /* Edgeflag, Index:
+   /* Build primitive list from begin/end events in buffer
     */
-   for (i = 16 ; i < 18 ; i++)
-      ;
+   build_prims( tnl, v );
 
-   /* Materials:
+   /* Bind the arrays and run the pipeline
     */
-   for (i = 18 ; i < 28 ; i++)
-      ;
+   bind_vertex_buffer( tnl, v );
+   tnl->Driver.RunPipeline( ctx, &tnl->vb );
 
-   /* Eval:
+   /* Copy wrapped vertices for next time::
     */
-   for (i = 28 ; i < 29 ; i++)
-      ;
-	   
-
-   if (tnl->installed_vertex_format != tnl->vertex_format) {
-      if (MESA_VERBOSE & DEBUG_VFMT)
-	 _mesa_debug(NULL, "reinstall on vertex_format change\n");
-      _mesa_install_exec_vtxfmt( ctx, &tnl->vtxfmt );
-      tnl->installed_vertex_format = tnl->vertex_format;
-   }
-
-   return GL_TRUE;
-}
-
-
-void _tnl_InvalidateVtxfmt( GLcontext *ctx )
-{
-   tnl->recheck = GL_TRUE;
-   tnl->fell_back = GL_FALSE;
+   save_wrapped_verts( tnl, v );
 }
 
 
 
 
-static void _tnl_ValidateVtxfmt( GLcontext *ctx )
-{
-   if (MESA_VERBOSE & DEBUG_VFMT)
-      _mesa_debug(NULL, "%s\n", __FUNCTION__);
-
-   if (ctx->Driver.NeedFlush)
-      ctx->Driver.FlushVertices( ctx, ctx->Driver.NeedFlush );
-
-   tnl->recheck = GL_FALSE;
-
-   if (check_vtx_fmt( ctx )) {
-      if (!tnl->installed) {
-	 if (MESA_VERBOSE & DEBUG_VFMT)
-	    _mesa_debug(NULL, "reinstall (new install)\n");
-
-	 _mesa_install_exec_vtxfmt( ctx, &tnl->vtxfmt );
-	 ctx->Driver.FlushVertices = _tnl_FlushVertices;
-	 tnl->installed = GL_TRUE;
-      }
-      else
-	 _mesa_debug(NULL, "%s: already installed", __FUNCTION__);
-   } 
-   else {
-      if (MESA_VERBOSE & DEBUG_VFMT)
-	 _mesa_debug(NULL, "%s: failed\n", __FUNCTION__);
-
-      if (tnl->installed) {
-	 if (tnl->tnl->dma.flush)
-	    tnl->tnl->dma.flush( tnl->tnl );
-	 _tnl_wakeup_exec( ctx );
-	 tnl->installed = GL_FALSE;
-      }
-   }      
-}
-
-
-static void _tnl_transition_Begin( GLenum mode )
-{
-   if (ctx->NewState) 
-      _mesa_update_state( ctx );
-
-   if (tnl->recheck) 
-      _tnl_ValidateVtxfmt( ctx );
-
-   ctx->CurrentDispatch = tnl->Exec;
-   ctx->CurrentDispatch->Begin( mode );
-}
-
-
-
-/* Begin/End
- */
-static void _tnl_Begin( GLenum mode )
-{
-   GLcontext *ctx = tnl->context;
-   TNLcontext *tnl = tnl->tnl;
-   
-   if (MESA_VERBOSE & DEBUG_VFMT)
-      _mesa_debug(NULL, "%s\n", __FUNCTION__);
-
-   if (mode > GL_POLYGON) {
-      _mesa_error( ctx, GL_INVALID_ENUM, "glBegin" );
-      return;
-   }
-
-   if (tnl->prim[0] != GL_POLYGON+1) {
-      _mesa_error( ctx, GL_INVALID_OPERATION, "glBegin" );
-      return;
-   }
-   
-   if (tnl->dma.flush && tnl->counter < 12) {
-      if (MESA_VERBOSE & DEBUG_VFMT)
-	 _mesa_debug(NULL, "%s: flush almost-empty buffers\n", __FUNCTION__);
-      flush_prims( tnl );
-   }
-
-   if (!tnl->dma.flush) {
-      if (tnl->dma.current.ptr + 12*tnl->vertex_size*4 > 
-	  tnl->dma.current.end) {
-	 TNL_NEWPRIM( tnl );
-	 _tnl_RefillCurrentDmaRegion( tnl );
-      }
-
-      tnl->dmaptr = (int *)(tnl->dma.current.address + tnl->dma.current.ptr);
-      tnl->counter = (tnl->dma.current.end - tnl->dma.current.ptr) / 
-	 (tnl->vertex_size * 4);
-      tnl->counter--;
-      tnl->initial_counter = tnl->counter;
-      tnl->notify = wrap_buffer;
-      tnl->dma.flush = flush_prims;
-      tnl->context->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
-   }
-   
-   
-   tnl->prim[0] = mode;
-   start_prim( tnl, mode | PRIM_BEGIN );
-}
-
-
-
-
-
-static void _tnl_End( void )
-{
-   TNLcontext *tnl = tnl->tnl;
-   GLcontext *ctx = tnl->context;
-
-   if (MESA_VERBOSE & DEBUG_VFMT)
-      _mesa_debug(NULL, "%s\n", __FUNCTION__);
-
-   if (tnl->prim[0] == GL_POLYGON+1) {
-      _mesa_error( ctx, GL_INVALID_OPERATION, "glEnd" );
-      return;
-   }
-	  
-   note_last_prim( tnl, PRIM_END );
-   tnl->prim[0] = GL_POLYGON+1;
-}
-
-
-static void _tnl_FlushVertices( GLcontext *ctx, GLuint flags )
-{
-   if (MESA_VERBOSE & DEBUG_VFMT)
-      _mesa_debug(NULL, "%s\n", __FUNCTION__);
-
-   assert(tnl->installed);
-
-   if (flags & FLUSH_UPDATE_CURRENT) {
-      _tnl_copy_to_current( ctx );
-      if (MESA_VERBOSE & DEBUG_VFMT)
-	 _mesa_debug(NULL, "reinstall on update_current\n");
-      _mesa_install_exec_vtxfmt( ctx, &tnl->vtxfmt );
-      ctx->Driver.NeedFlush &= ~FLUSH_UPDATE_CURRENT;
-   }
-
-   if (flags & FLUSH_STORED_VERTICES) {
-      TNLcontext *tnl = TNL_CONTEXT( ctx );
-      assert (tnl->dma.flush == 0 ||
-	      tnl->dma.flush == flush_prims);
-      if (tnl->dma.flush == flush_prims)
-	 flush_prims( TNL_CONTEXT( ctx ) );
-      ctx->Driver.NeedFlush &= ~FLUSH_STORED_VERTICES;
-   }
-}
-
-
-
-/* At this point, don't expect very many versions of each function to
- * be generated, so not concerned about freeing them?
- */
-
-
-static void _tnl_InitVtx( GLcontext *ctx )
-{
-
-   
-   tnl->context = ctx;
-   tnl->tnl = TNL_CONTEXT(ctx);
-   tnl->prim = &ctx->Driver.CurrentExecPrimitive;
-   tnl->primflags = 0;
-
-   _tnl_InitCodegen( ctx );
-}
-
-
-
-static void _tnl_DestroyVtx( GLcontext *ctx )
-{
-   _tnl_DestroyCodegen( ctx );
-}
 

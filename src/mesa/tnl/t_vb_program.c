@@ -1,4 +1,4 @@
-/* $Id: t_vb_program.c,v 1.14.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_vb_program.c,v 1.14.2.3 2002/11/19 12:01:29 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -160,20 +160,20 @@ static GLboolean run_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
 
 #if 0
       printf("Input  %d: %f, %f, %f, %f\n", i,
-             VB->AttribPtr[0]->data[i][0],
-             VB->AttribPtr[0]->data[i][1],
-             VB->AttribPtr[0]->data[i][2],
-             VB->AttribPtr[0]->data[i][3]);
+             VB->Attrib[0]->data[i][0],
+             VB->Attrib[0]->data[i][1],
+             VB->Attrib[0]->data[i][2],
+             VB->Attrib[0]->data[i][3]);
       printf("   color: %f, %f, %f, %f\n",
-             VB->AttribPtr[3]->data[i][0],
-             VB->AttribPtr[3]->data[i][1],
-             VB->AttribPtr[3]->data[i][2],
-             VB->AttribPtr[3]->data[i][3]);
+             VB->Attrib[3]->data[i][0],
+             VB->Attrib[3]->data[i][1],
+             VB->Attrib[3]->data[i][2],
+             VB->Attrib[3]->data[i][3]);
       printf("  normal: %f, %f, %f, %f\n",
-             VB->AttribPtr[2]->data[i][0],
-             VB->AttribPtr[2]->data[i][1],
-             VB->AttribPtr[2]->data[i][2],
-             VB->AttribPtr[2]->data[i][3]);
+             VB->Attrib[2]->data[i][0],
+             VB->Attrib[2]->data[i][1],
+             VB->Attrib[2]->data[i][2],
+             VB->Attrib[2]->data[i][3]);
 #endif
 
       /* load the input attribute registers */
@@ -182,7 +182,7 @@ static GLboolean run_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
          for (attr = 0; attr < VERT_ATTRIB_MAX; attr++) {
             if (VB->Flag[i] & (1 << attr)) {
                COPY_4V(machine->Registers[VP_INPUT_REG_START + attr],
-                       VB->AttribPtr[attr]->data[i]);
+                       VB->Attrib[attr]->data[i]);
             }
          }
       }
@@ -190,11 +190,11 @@ static GLboolean run_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
          /* the vertex array case */
          for (attr = 0; attr < VERT_ATTRIB_MAX; attr++) {
             if (program->InputsRead & (1 << attr)) {
-               const GLubyte *ptr = (const GLubyte*) VB->AttribPtr[attr]->data;
-               const GLuint stride = VB->AttribPtr[attr]->stride;
+               const GLubyte *ptr = (const GLubyte*) VB->Attrib[attr]->data;
+               const GLuint stride = VB->Attrib[attr]->stride;
                const GLfloat *data = (GLfloat *) (ptr + stride * i);
                COPY_4V(machine->Registers[VP_INPUT_REG_START + attr], data);
-               /*ASSERT(VB->AttribPtr[attr]->size == 4);*/
+               /*ASSERT(VB->Attrib[attr]->size == 4);*/
                ASSERT(stride == 4 * sizeof(GLfloat) || stride == 0);
             }
          }

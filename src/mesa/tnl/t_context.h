@@ -1,4 +1,4 @@
-/* $Id: t_context.h,v 1.43.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_context.h,v 1.43.2.3 2002/11/19 12:01:29 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -36,9 +36,6 @@
 #include "glheader.h"
 #include "mtypes.h"
 
-#include "math/m_matrix.h"
-#include "math/m_vector.h"
-#include "math/m_xform.h"
 
 
 #define MAX_PIPELINE_STAGES     30
@@ -49,30 +46,35 @@
  * defining the VERT_BIT equivalents as we have to use 2 32bit bitsets
  * to talk about these now.
  */ 
-#define VERT_ATTRIB_INDEX                       16 /* not naturally a float */
-#define VERT_ATTRIB_EDGEFLAG                    17 /* not naturally a float */
-#define VERT_ATTRIB_POINTSIZE                   18 
-#define VERT_ATTRIB_MAT_FRONT_AMBIENT           19 
-#define VERT_ATTRIB_MAT_FRONT_DIFFUSE           20 
-#define VERT_ATTRIB_MAT_FRONT_SPECULAR          21 
-#define VERT_ATTRIB_MAT_FRONT_EMISSION          22
-#define VERT_ATTRIB_MAT_FRONT_SHININESS         23
-#define VERT_ATTRIB_MAT_FRONT_INDEXES           24
-#define VERT_ATTRIB_MAT_BACK_AMBIENT            25
-#define VERT_ATTRIB_MAT_BACK_DIFFUSE            26
-#define VERT_ATTRIB_MAT_BACK_SPECULAR           27
-#define VERT_ATTRIB_MAT_BACK_EMISSION           28
-#define VERT_ATTRIB_MAT_BACK_SHININESS          29
-#define VERT_ATTRIB_MAT_BACK_INDEXES            30
+#define VERT_ATTRIB_MAT_FRONT_AMBIENT           (MAT_ATTRIB_FRONT_AMBIENT+16)
+#define VERT_ATTRIB_MAT_FRONT_DIFFUSE           (MAT_ATTRIB_FRONT_DIFFUSE+16)
+#define VERT_ATTRIB_MAT_FRONT_SPECULAR          (MAT_ATTRIB_FRONT_SPECULAR+16)
+#define VERT_ATTRIB_MAT_FRONT_EMISSION          (MAT_ATTRIB_FRONT_EMISSION+16)
+#define VERT_ATTRIB_MAT_FRONT_SHININESS         (MAT_ATTRIB_FRONT_SHININESS+16)
+#define VERT_ATTRIB_MAT_FRONT_INDEXES           (MAT_ATTRIB_FRONT_INDEXES+16)
+#define VERT_ATTRIB_MAT_BACK_AMBIENT            (MAT_ATTRIB_BACK_AMBIENT+16)
+#define VERT_ATTRIB_MAT_BACK_DIFFUSE            (MAT_ATTRIB_BACK_DIFFUSE+16)
+#define VERT_ATTRIB_MAT_BACK_SPECULAR           (MAT_ATTRIB_BACK_SPECULAR+16)
+#define VERT_ATTRIB_MAT_BACK_EMISSION           (MAT_ATTRIB_BACK_EMISSION+16)
+#define VERT_ATTRIB_MAT_BACK_SHININESS          (MAT_ATTRIB_BACK_SHININESS+16)
+#define VERT_ATTRIB_MAT_BACK_INDEXES            (MAT_ATTRIB_BACK_INDEXES+16)
+#define VERT_ATTRIB_INDEX                       28 /* not naturally a float */
+#define VERT_ATTRIB_EDGEFLAG                    29 /* not naturally a float */
+#define VERT_ATTRIB_POINTSIZE                   30 
 #define VERT_ATTRIB_BACK_COLOR0                 31 
 #define VERT_ATTRIB_BACK_COLOR1                 32 
-#define VERT_ATTRIB_BACK_INDEX                  33 
+#define VERT_ATTRIB_BACK_INDEX                  33 /* not naturally a float */
+#define TNL_ATTRIB_MAX                          34
 
 #define TEST_BIT( bset, bit ) (bset[bit/32] & (1<<(bit&31)))
 #define SET_BIT( bset, bit )  (bset[bit/32] |= (1<<(bit&31)))
 #define CLEAR_BIT( bset, bit )  (bset[bit/32] &= ~(1<<(bit&31)))
 
 
+#define TNL_EVAL_COORD1       0x1
+#define TNL_EVAL_COORD2       0x2
+#define TNL_EVAL_POINT1       0x4
+#define TNL_EVAL_POINT2       0x8
 
 
 /* Numbers for sizing immediate structs.
@@ -85,12 +87,17 @@
 struct vertex_block
 {
    GLuint refcount;
-   GLuint vertex_format[4];
+   GLuint vertex_format[2];
    GLuint vertex_size;
    GLuint block_size;
    GLubyte verts[1];
-}
+};
 
+
+#define PRIM_MODE_MASK  0xff    /* Extract the actual primitive */
+#define PRIM_BEGIN      0x100	/* The prim starts here (not wrapped) */
+#define PRIM_END        0x200	/* The prim ends in this VB (does not wrap) */
+#define PRIM_PARITY     0x400	/* The prim wrapped on an odd number of verts */
 
 struct tnl_prim 
 {
@@ -100,11 +107,10 @@ struct tnl_prim
 };
 
 
-
 /**
  * Contains the current state of a running pipeline.
  */
-typedef struct vertex_buffer
+struct vertex_buffer
 {
    /* Constant over life of the vertex_buffer.
     */
@@ -114,22 +120,21 @@ typedef struct vertex_buffer
     */
    GLuint     Count;		              /* for everything except Elts */
    GLuint     FirstClipped;	              /* temp verts for clipping */
-   GLuint     FirstPrimitive;	              /* usually zero */
 
    /* Pointers to current data.
     */
-   GLuint      *Elts;		                
-   GLvector4f  *EyePtr;		                
-   GLvector4f  *ClipPtr;	                
-   GLvector4f  *NdcPtr;                         
-   GLubyte     *ClipMask;		        
-   GLfloat     *NormalLengthPtr;	        
-   GLvector4f  *PointSizePtr;	/* why not just a float *? */
+   GLuint                  *Elts;		                
+   struct gl_client_array  *EyePtr;		                
+   struct gl_client_array  *ClipPtr;	                
+   struct gl_client_array  *NdcPtr;                         
+   GLubyte                 *ClipMask;		        
+   GLfloat                 *NormalLengthPtr;	        
+   struct gl_client_array  *PointSizePtr;	/* why not just a float *? */
 
    struct tnl_prim  *Primitive;	              /* primitive descriptors */
-   GLuint           nrPrimitives;	      /* nr */
+   GLuint           NrPrimitives;	      /* nr */
 
-   GLvector4f *AttribPtr[TNL_ATTRIB_MAX]; 
+   struct gl_client_array *Attrib[TNL_ATTRIB_MAX]; 
    /* All other vertex data.  Edgeflag & Index are included in here as
     * float arrays.  This may have to change later.
     */
@@ -143,13 +148,13 @@ typedef struct vertex_buffer
     * in this struct.
     */
 
-} TNLvertexbuffer;
+};
 
 
 
 /* Describes an individual operation on the pipeline.
  */
-struct gl_pipeline_stage {
+struct tnl_pipeline_stage {
    const char *name;
    GLuint check_state;		/* All state referenced in check() --
 				 * When is the pipeline_stage struct
@@ -181,12 +186,12 @@ struct gl_pipeline_stage {
 
    /* Free private data.  May not be null.
     */
-   void (*destroy)( struct gl_pipeline_stage * );
+   void (*destroy)( struct tnl_pipeline_stage * );
 
    /* Called from _tnl_validate_pipeline().  Must update all fields in
     * the pipeline_stage struct for the current state.
     */
-   void (*check)( GLcontext *ctx, struct gl_pipeline_stage * );
+   void (*check)( GLcontext *ctx, struct tnl_pipeline_stage * );
 
    /* Called from _tnl_run_pipeline().  The stage.changed_inputs value
     * encodes all inputs to thee struct which have changed.  If
@@ -196,17 +201,17 @@ struct gl_pipeline_stage {
     * Return value: GL_TRUE - keep going
     *               GL_FALSE - finished pipeline
     */
-   GLboolean (*run)( GLcontext *ctx, struct gl_pipeline_stage * );
+   GLboolean (*run)( GLcontext *ctx, struct tnl_pipeline_stage * );
 };
 
 
-struct gl_pipeline {
+struct tnl_pipeline {
    GLuint build_state_trigger;	  /* state changes which require build */
    GLuint build_state_changes;    /* state changes since last build */
    GLuint run_state_changes;	  /* state changes since last run */
    GLuint run_input_changes[2];	  /* VERT_* changes since last run */
    GLuint inputs[2];		  /* VERT_* inputs to pipeline */
-   struct gl_pipeline_stage stages[MAX_PIPELINE_STAGES+1];
+   struct tnl_pipeline_stage stages[MAX_PIPELINE_STAGES+1];
    GLuint nr_stages;
 };
 
@@ -333,6 +338,64 @@ struct tnl_device_driver {
        */
    } Render;
 };
+
+union uif { GLuint ui; GLfloat f; };
+
+/* Want to keep a cache of these around.  Each is parameterized by
+ * only a single value which has only a small range.  Only expect a
+ * few, so just rescan the list each time?
+ */
+struct dynfn {
+   struct dynfn *next, *prev;
+   int key;
+   char *code;
+};
+
+#define TNL_BEGIN 0x0
+#define TNL_END   0x1
+#define TNL_BE_MAX 3		/* XXX */
+
+struct tnl_vtx {
+   int initial_counter;		
+   int counter;			        /* nr of vertices  */
+   int vertex_size;
+   union uif *vbstart;		        /* built vertices */
+   union uif *vbptr;		        /* built vertices */
+   union uif *attrptr[TNL_ATTRIB_MAX]; /* pointers into vertex below */
+   union uif vertex[TNL_ATTRIB_MAX*4]; /* current vertex */
+
+   GLubyte attrib_sz[TNL_ATTRIB_MAX];
+   
+   struct dynfn *generated[4][2][2]; /* chains of generated functions
+					* could use a hash also.
+					*/
+
+   struct dynfn *(*codegen[4][2][2])( GLcontext *ctx, int key );
+
+
+   /* Second level dispatch table for MultiTexCoord, Material and 
+    * VertexAttribNV.
+    *
+    * Need this because we want to track things like vertex attribute
+    * sizes, presence/otherwise of attribs in recorded vertices, etc, by
+    * manipulating the state of dispatch tables.  Need therefore a
+    * dispatch slot for each value of 'index' or 'unit' in VertexAttribNV
+    * and MultiTexCoordARB.  Also need a mechnism for keeping this data
+    * consistent with what's coming in via the Vertex/Normal/etc api
+    * above (where aliasing exists with the traditional entrypoints).
+    * Note that MultiTexCoordARB aliases with TexCoord when unit==0.
+    *
+    * Need presence tracking for material components, too, but not size
+    * tracking or help with aliasing.  Could move material to seperate
+    * dispatch without the "*4" below, or even do the checks every time.
+    */
+   void (*tabfv[4][TNL_ATTRIB_MAX])( const GLfloat * );
+
+   /* Build a list of begins and ends.
+    */
+   struct { GLint type; GLint idx; GLenum mode; } be[TNL_BE_MAX];
+   GLint be_count;
+};
    
 
 typedef struct {
@@ -340,6 +403,10 @@ typedef struct {
    /* Driver interface.
     */
    struct tnl_device_driver Driver;
+   
+   /* Support for vertex assembly from begin/end objects:
+    */
+   struct tnl_vtx vtx;
 
    /* Track whether the module is active.
     */
@@ -348,33 +415,15 @@ typedef struct {
    /* Display list extensions
     */
    GLuint opcode_vertex_block;
-   GLuint opcode_begin;
-   GLuint opcode_end;
 
    /* Pipeline
     */
-   struct gl_pipeline pipeline;
+   struct tnl_pipeline pipeline;
    struct vertex_buffer vb;
-
-   /* GLvectors for binding to vb:
-    */
-   struct vertex_arrays imm_inputs;
-   struct vertex_arrays array_inputs;
- 
-   /* Note which vertices need copying over succesive immediates.
-    * Will add save versions to precompute vertex copying where
-    * possible.
-    */
-   struct vertex_block *ExecCopySource;
-   GLuint ExecCopyCount;
-   GLuint ExecCopyElts[IMM_MAX_COPIED_VERTS];
-   GLuint ExecParity;
 
    /* Probably need a better configuration mechanism:
     */
    GLboolean NeedNdcCoords;
-   GLboolean LoopbackDListCassettes;
-   GLboolean CalcDListNormalLengths;
    GLboolean IsolateMaterials;
 
    /* Derived state and storage for _tnl_eval_vb:

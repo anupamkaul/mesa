@@ -1,4 +1,4 @@
-# $Id: Makefile.X11,v 1.69 2002/09/27 02:45:37 brianp Exp $
+# $Id: Makefile.X11,v 1.69.2.1 2002/11/19 12:01:26 keithw Exp $
 
 # Mesa 3-D graphics library
 # Version:  4.1
@@ -21,6 +21,22 @@ LIBDIR = ../lib
 
 
 CORE_SOURCES = \
+	tnl/t_array_api.c \
+	tnl/t_array_import.c \
+	tnl/t_context.c \
+	tnl/t_eval_api.c \
+	tnl/t_vtx_api.c \
+	tnl/t_vtx_exec.c \
+	tnl/t_pipeline.c \
+	tnl/t_vb_fog.c \
+	tnl/t_vb_light.c \
+	tnl/t_vb_normals.c \
+	tnl/t_vb_points.c \
+	tnl/t_vb_program.c \
+	tnl/t_vb_render.c \
+	tnl/t_vb_texgen.c \
+	tnl/t_vb_texmat.c \
+	tnl/t_vb_vertex.c \
 	api_arrayelt.c \
 	api_loopback.c \
 	api_noop.c \
@@ -74,7 +90,6 @@ CORE_SOURCES = \
 	vpexec.c \
 	vpparse.c \
 	vpstate.c \
-	vtxfmt.c \
 	X86/x86.c \
 	X86/common_x86.c \
 	X86/3dnow.c \
@@ -119,29 +134,7 @@ CORE_SOURCES = \
 	swrast/s_zoom.c \
 	swrast_setup/ss_context.c \
 	swrast_setup/ss_triangle.c \
-	swrast_setup/ss_vb.c \
-	tnl/t_array_api.c \
-	tnl/t_array_import.c \
-	tnl/t_context.c \
-	tnl/t_eval_api.c \
-	tnl/t_imm_alloc.c \
-	tnl/t_imm_api.c \
-	tnl/t_imm_debug.c \
-	tnl/t_imm_dlist.c \
-	tnl/t_imm_elt.c \
-	tnl/t_imm_eval.c \
-	tnl/t_imm_exec.c \
-	tnl/t_imm_fixup.c \
-	tnl/t_pipeline.c \
-	tnl/t_vb_fog.c \
-	tnl/t_vb_light.c \
-	tnl/t_vb_normals.c \
-	tnl/t_vb_points.c \
-	tnl/t_vb_program.c \
-	tnl/t_vb_render.c \
-	tnl/t_vb_texgen.c \
-	tnl/t_vb_texmat.c \
-	tnl/t_vb_vertex.c
+	swrast_setup/ss_vb.c 
 
 
 DRIVER_SOURCES = \
@@ -225,14 +218,14 @@ clean:
 targets: $(LIBDIR)/$(GL_LIB) $(LIBDIR)/$(OSMESA_LIB)
 
 # Make the GL library
-$(LIBDIR)/$(GL_LIB): $(OBJECTS)
+$(LIBDIR)/$(GL_LIB):: $(OBJECTS)
 	$(MAKELIB) $(GL_LIB) $(GL_MAJOR) $(GL_MINOR) $(GL_TINY) $(OBJECTS)
 	rm -f $(LIBDIR)/$(GL_LIB)*
 	mv $(GL_LIB)* $(LIBDIR)
 
 
 # Make the OSMesa library
-$(LIBDIR)/$(OSMESA_LIB): $(OSMESA_OBJECTS)
+$(LIBDIR)/$(OSMESA_LIB):: $(OSMESA_OBJECTS)
 	if [ ${OSMESA_LIB} ] ; then $(MAKELIB) $(OSMESA_LIB) $(MESA_MAJOR) $(MESA_MINOR) $(GL_TINY) $(OSMESA_OBJECTS) ; fi
 	if [ ${OSMESA_LIB} ] ; then rm -f $(LIBDIR)/$(OSMESA_LIB)* ; fi
 	if [ ${OSMESA_LIB} ] ; then mv $(OSMESA_LIB)* $(LIBDIR) ; fi

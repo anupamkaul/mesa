@@ -1,4 +1,4 @@
-/* $Id: mtypes.h,v 1.96 2002/10/11 17:41:04 brianp Exp $ */
+/* $Id: mtypes.h,v 1.96.2.1 2002/11/19 12:01:28 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -194,28 +194,56 @@ struct gl_color_table {
 /*
  * Bit flags used for updating material values.
  */
-#define FRONT_AMBIENT_BIT     0x1
-#define BACK_AMBIENT_BIT      0x2
-#define FRONT_DIFFUSE_BIT     0x4
-#define BACK_DIFFUSE_BIT      0x8
-#define FRONT_SPECULAR_BIT   0x10
-#define BACK_SPECULAR_BIT    0x20
-#define FRONT_EMISSION_BIT   0x40
-#define BACK_EMISSION_BIT    0x80
-#define FRONT_SHININESS_BIT 0x100
-#define BACK_SHININESS_BIT  0x200
-#define FRONT_INDEXES_BIT   0x400
-#define BACK_INDEXES_BIT    0x800
+#define MAT_ATTRIB_FRONT_AMBIENT           0 
+#define MAT_ATTRIB_FRONT_DIFFUSE           1 
+#define MAT_ATTRIB_FRONT_SPECULAR          2 
+#define MAT_ATTRIB_FRONT_EMISSION          3
+#define MAT_ATTRIB_FRONT_SHININESS         4
+#define MAT_ATTRIB_FRONT_INDEXES           5
+#define MAT_ATTRIB_BACK_AMBIENT            6
+#define MAT_ATTRIB_BACK_DIFFUSE            7
+#define MAT_ATTRIB_BACK_SPECULAR           8
+#define MAT_ATTRIB_BACK_EMISSION           9
+#define MAT_ATTRIB_BACK_SHININESS          10
+#define MAT_ATTRIB_BACK_INDEXES            11
+#define MAT_ATTRIB_MAX                     12
 
-#define FRONT_MATERIAL_BITS	(FRONT_EMISSION_BIT | FRONT_AMBIENT_BIT | \
-				 FRONT_DIFFUSE_BIT | FRONT_SPECULAR_BIT | \
-				 FRONT_SHININESS_BIT | FRONT_INDEXES_BIT)
 
-#define BACK_MATERIAL_BITS	(BACK_EMISSION_BIT | BACK_AMBIENT_BIT | \
-				 BACK_DIFFUSE_BIT | BACK_SPECULAR_BIT | \
-				 BACK_SHININESS_BIT | BACK_INDEXES_BIT)
+#define MAT_BIT_FRONT_AMBIENT         (1<<MAT_ATTRIB_FRONT_AMBIENT)
+#define MAT_BIT_FRONT_DIFFUSE         (1<<MAT_ATTRIB_FRONT_DIFFUSE)
+#define MAT_BIT_FRONT_SPECULAR        (1<<MAT_ATTRIB_FRONT_SPECULAR)
+#define MAT_BIT_FRONT_EMISSION        (1<<MAT_ATTRIB_FRONT_EMISSION)
+#define MAT_BIT_FRONT_SHININESS       (1<<MAT_ATTRIB_FRONT_SHININESS)
+#define MAT_BIT_FRONT_INDEXES         (1<<MAT_ATTRIB_FRONT_INDEXES)
+#define MAT_BIT_BACK_AMBIENT          (1<<MAT_ATTRIB_BACK_AMBIENT)
+#define MAT_BIT_BACK_DIFFUSE          (1<<MAT_ATTRIB_BACK_DIFFUSE)
+#define MAT_BIT_BACK_SPECULAR         (1<<MAT_ATTRIB_BACK_SPECULAR)
+#define MAT_BIT_BACK_EMISSION         (1<<MAT_ATTRIB_BACK_EMISSION)
+#define MAT_BIT_BACK_SHININESS        (1<<MAT_ATTRIB_BACK_SHININESS)
+#define MAT_BIT_BACK_INDEXES          (1<<MAT_ATTRIB_BACK_INDEXES)
+
+
+#define FRONT_MATERIAL_BITS	(MAT_BIT_FRONT_EMISSION | 	\
+				 MAT_BIT_FRONT_AMBIENT |	\
+				 MAT_BIT_FRONT_DIFFUSE | 	\
+				 MAT_BIT_FRONT_SPECULAR |	\
+				 MAT_BIT_FRONT_SHININESS | 	\
+				 MAT_BIT_FRONT_INDEXES)
+
+#define BACK_MATERIAL_BITS	(MAT_BIT_BACK_EMISSION |	\
+				 MAT_BIT_BACK_AMBIENT |		\
+				 MAT_BIT_BACK_DIFFUSE |		\
+				 MAT_BIT_BACK_SPECULAR |	\
+				 MAT_BIT_BACK_SHININESS |	\
+				 MAT_BIT_BACK_INDEXES)
 
 #define ALL_MATERIAL_BITS	(FRONT_MATERIAL_BITS | BACK_MATERIAL_BITS)
+
+struct gl_material
+{
+   GLfloat Attrib[MAT_ATTRIB_MAX][4];
+};
+
 
 
 
@@ -274,19 +302,6 @@ struct gl_lightmodel {
    GLboolean TwoSide;		/* Two (or one) sided lighting? */
    GLenum ColorControl;		/* either GL_SINGLE_COLOR */
 				/* or GL_SEPARATE_SPECULAR_COLOR */
-};
-
-
-struct gl_material
-{
-   GLfloat Ambient[4];
-   GLfloat Diffuse[4];
-   GLfloat Specular[4];
-   GLfloat Emission[4];
-   GLfloat Shininess;
-   GLfloat AmbientIndex;	/* for color index lighting */
-   GLfloat DiffuseIndex;	/* for color index lighting */
-   GLfloat SpecularIndex;	/* for color index lighting */
 };
 
 
@@ -351,7 +366,7 @@ struct gl_current_attrib {
    GLfloat Attrib[VERT_ATTRIB_MAX][4];		/* Current vertex attributes */
 						/* indexed by VERT_ATTRIB_* */
    GLuint Index;				/* Current color index */
-   GLboolean EdgeFlag;				/* Current edge flag */
+   GLuint EdgeFlag;				/* Current edge flag (as uint) */
 
    /* These values are always valid.  BTW, note how similar this set of
     * attributes is to the SWvertex datatype in the software rasterizer...
@@ -540,7 +555,7 @@ struct gl_light_attrib {
 
    /* Must flush FLUSH_VERTICES before referencing:
     */
-   struct gl_material Material[2];	/* Material 0=front, 1=back */
+   struct gl_material Material;   	/* Material */
 
    GLboolean Enabled;			/* Lighting enabled flag */
    GLenum ShadeModel;			/* GL_FLAT or GL_SMOOTH */
@@ -1637,7 +1652,7 @@ struct __GLcontextRec {
    /* API function pointer tables */
    struct _glapi_table *Save;	/**< Display list save funcs */
    struct _glapi_table *Exec;	/**< Execute funcs */
-   struct _glapi_table *CurrentDispatch;  /**< == Save or Exec !! */
+   struct _glapi_table *CurrentDispatch;  /**< == Save, Exec or driver table. */
 
    GLboolean ExecPrefersFloat;	/**< What preference for color conversion? */
    GLboolean SavePrefersFloat;

@@ -1,4 +1,4 @@
-/* $Id: t_eval_api.c,v 1.11 2002/06/23 02:36:27 brianp Exp $ */
+/* $Id: t_eval_api.c,v 1.11.2.1 2002/11/19 12:01:29 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -39,9 +39,6 @@
 #include "math/m_eval.h"
 
 #include "t_eval_api.h"
-#include "t_imm_api.h"
-#include "t_imm_alloc.h"
-#include "t_imm_exec.h"
 
 
 /* KW: If are compiling, we don't know whether eval will produce a
@@ -103,37 +100,22 @@ _tnl_exec_EvalMesh1( GLenum mode, GLint i1, GLint i2 )
     */
    {
       GLboolean compiling = ctx->CompileFlag;
-      TNLcontext *tnl = TNL_CONTEXT(ctx);
-      struct immediate *im = TNL_CURRENT_IM(ctx);
-      GLboolean (*NotifyBegin)(GLcontext *ctx, GLenum p);
-
-      NotifyBegin = tnl->Driver.NotifyBegin;
-      tnl->Driver.NotifyBegin = 0;
 
       if (compiling) {
-	 struct immediate *tmp = _tnl_alloc_immediate( ctx );
-	 FLUSH_VERTICES( ctx, 0 );
-	 SET_IMMEDIATE( ctx, tmp );
-	 TNL_CURRENT_IM(ctx)->ref_count++;	 
-	 ctx->CompileFlag = GL_FALSE;
+	 assert(0);
       }
 
-      _tnl_Begin( prim );
+      glBegin( prim );
       for (i=i1;i<=i2;i++,u+=du) {
-	 _tnl_eval_coord1f( ctx, u );
+	 glEvalCoord1f( u );
       }
-      _tnl_end(ctx);
+      glEnd();
 
       /* Need this for replay *and* compile:
        */
       FLUSH_VERTICES( ctx, 0 );
-      tnl->Driver.NotifyBegin = NotifyBegin;
 
       if (compiling) {
-	 TNL_CURRENT_IM(ctx)->ref_count--;
-	 ASSERT( TNL_CURRENT_IM(ctx)->ref_count == 0 );
-	 _tnl_free_immediate( ctx, TNL_CURRENT_IM(ctx) );
-	 SET_IMMEDIATE( ctx, im );
 	 ctx->CompileFlag = GL_TRUE;
       }
    }
@@ -169,55 +151,46 @@ _tnl_exec_EvalMesh2( GLenum mode, GLint i1, GLint i2, GLint j1, GLint j2 )
     */
    {
       GLboolean compiling = ctx->CompileFlag;
-      struct immediate *im = TNL_CURRENT_IM(ctx);
-      TNLcontext *tnl = TNL_CONTEXT(ctx);
-      GLboolean (*NotifyBegin)(GLcontext *ctx, GLenum p);
-
-      NotifyBegin = tnl->Driver.NotifyBegin;
-      tnl->Driver.NotifyBegin = 0;
 
       if (compiling) {
-	 struct immediate *tmp = _tnl_alloc_immediate( ctx );
-	 FLUSH_VERTICES( ctx, 0 );
-	 SET_IMMEDIATE( ctx, tmp );
-	 TNL_CURRENT_IM(ctx)->ref_count++;	 
+	 assert(0);
 	 ctx->CompileFlag = GL_FALSE;
       }
 
       switch (mode) {
       case GL_POINT:
-	 _tnl_Begin( GL_POINTS );
+	 glBegin( GL_POINTS );
 	 for (v=v1,j=j1;j<=j2;j++,v+=dv) {
 	    for (u=u1,i=i1;i<=i2;i++,u+=du) {
-	       _tnl_eval_coord2f( ctx, u, v );
+	       glEvalCoord2f( u, v );
 	    }
 	 }
-	 _tnl_end(ctx);
+	 glEnd();
 	 break;
       case GL_LINE:
 	 for (v=v1,j=j1;j<=j2;j++,v+=dv) {
-	    _tnl_Begin( GL_LINE_STRIP );
+	    glBegin( GL_LINE_STRIP );
 	    for (u=u1,i=i1;i<=i2;i++,u+=du) {
-	       _tnl_eval_coord2f( ctx, u, v );
+	       glEvalCoord2f( u, v );
 	    }
-	    _tnl_end(ctx);
+	    glEnd();
 	 }
 	 for (u=u1,i=i1;i<=i2;i++,u+=du) {
-	    _tnl_Begin( GL_LINE_STRIP );
+	    glBegin( GL_LINE_STRIP );
 	    for (v=v1,j=j1;j<=j2;j++,v+=dv) {
-	       _tnl_eval_coord2f( ctx, u, v );
+	       glEvalCoord2f( u, v );
 	    }
-	    _tnl_end(ctx);
+	    glEnd();
 	 }
 	 break;
       case GL_FILL:
 	 for (v=v1,j=j1;j<j2;j++,v+=dv) {
-	    _tnl_Begin( GL_TRIANGLE_STRIP );
+	    glBegin( GL_TRIANGLE_STRIP );
 	    for (u=u1,i=i1;i<=i2;i++,u+=du) {
-	       _tnl_eval_coord2f( ctx, u, v );
-	       _tnl_eval_coord2f( ctx, u, v+dv );
+	       glEvalCoord2f( u, v );
+	       glEvalCoord2f( u, v+dv );
 	    }
-	    _tnl_end(ctx);
+	    glEnd();
 	 }
 	 break;
       default:
@@ -228,12 +201,8 @@ _tnl_exec_EvalMesh2( GLenum mode, GLint i1, GLint i2, GLint j1, GLint j2 )
       /* Need this for replay *and* compile:
        */
       FLUSH_VERTICES( ctx, 0 );
-      tnl->Driver.NotifyBegin = NotifyBegin;
 	 
       if (compiling) {
-	 TNL_CURRENT_IM(ctx)->ref_count--;
-	 _tnl_free_immediate( ctx, TNL_CURRENT_IM( ctx ) );
-	 SET_IMMEDIATE( ctx, im );
 	 ctx->CompileFlag = GL_TRUE;
       }
    }
@@ -242,7 +211,8 @@ _tnl_exec_EvalMesh2( GLenum mode, GLint i1, GLint i2, GLint j1, GLint j2 )
 
 void _tnl_eval_init( GLcontext *ctx )
 {
-   GLvertexformat *vfmt = &(TNL_CONTEXT(ctx)->vtxfmt);
-   vfmt->EvalMesh1 = _tnl_exec_EvalMesh1;
-   vfmt->EvalMesh2 = _tnl_exec_EvalMesh2;
+   struct _glapi_table *exec = TNL_CONTEXT(ctx)->Exec;
+
+   exec->EvalMesh1 = _tnl_exec_EvalMesh1;
+   exec->EvalMesh2 = _tnl_exec_EvalMesh2;
 }

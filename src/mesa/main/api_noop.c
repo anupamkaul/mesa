@@ -1,4 +1,4 @@
-/* $Id: api_noop.c,v 1.10 2002/04/09 16:56:50 keithw Exp $ */
+/* $Id: api_noop.c,v 1.10.2.1 2002/11/19 12:01:26 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -100,56 +100,22 @@ void _mesa_noop_Normal3fv( const GLfloat *v )
 void _mesa_noop_Materialfv( GLenum face, GLenum pname, const GLfloat *params )
 {
    GET_CURRENT_CONTEXT(ctx);
-   struct gl_material mat[2];
+   int i;
+   struct gl_material *mat = &ctx->Light.Material;
    GLuint bitmask = _mesa_material_bitmask( ctx, face, pname, ~0,
                                             "_mesa_noop_Materialfv" );
+
+   if (ctx->Light.ColorMaterialEnabled)
+      bitmask &= ~ctx->Light.ColorMaterialBitmask;
+
    if (bitmask == 0)
       return;
 
-   if (bitmask & FRONT_AMBIENT_BIT) {
-      COPY_4FV( mat[0].Ambient, params );
-   }
-   if (bitmask & BACK_AMBIENT_BIT) {
-      COPY_4FV( mat[1].Ambient, params );
-   }
-   if (bitmask & FRONT_DIFFUSE_BIT) {
-      COPY_4FV( mat[0].Diffuse, params );
-   }
-   if (bitmask & BACK_DIFFUSE_BIT) {
-      COPY_4FV( mat[1].Diffuse, params );
-   }
-   if (bitmask & FRONT_SPECULAR_BIT) {
-      COPY_4FV( mat[0].Specular, params );
-   }
-   if (bitmask & BACK_SPECULAR_BIT) {
-      COPY_4FV( mat[1].Specular, params );
-   }
-   if (bitmask & FRONT_EMISSION_BIT) {
-      COPY_4FV( mat[0].Emission, params );
-   }
-   if (bitmask & BACK_EMISSION_BIT) {
-      COPY_4FV( mat[1].Emission, params );
-   }
-   if (bitmask & FRONT_SHININESS_BIT) {
-      GLfloat shininess = CLAMP( params[0], 0.0F, 128.0F );
-      mat[0].Shininess = shininess;
-   }
-   if (bitmask & BACK_SHININESS_BIT) {
-      GLfloat shininess = CLAMP( params[0], 0.0F, 128.0F );
-      mat[1].Shininess = shininess;
-   }
-   if (bitmask & FRONT_INDEXES_BIT) {
-      mat[0].AmbientIndex = params[0];
-      mat[0].DiffuseIndex = params[1];
-      mat[0].SpecularIndex = params[2];
-   }
-   if (bitmask & BACK_INDEXES_BIT) {
-      mat[1].AmbientIndex = params[0];
-      mat[1].DiffuseIndex = params[1];
-      mat[1].SpecularIndex = params[2];
-   }
+   for (i = 0 ; i < MAT_ATTRIB_MAX ; i++) 
+      if (bitmask & (1<<i))
+	 COPY_4FV( mat->Attrib[i], color );
 
-   _mesa_update_material( ctx, mat, bitmask );
+   _mesa_update_material( ctx, bitmask );
 }
 
 void _mesa_noop_Color4ub( GLubyte a, GLubyte b, GLubyte c, GLubyte d )

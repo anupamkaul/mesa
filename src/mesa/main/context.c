@@ -1,4 +1,4 @@
-/* $Id: context.c,v 1.183 2002/10/11 17:41:03 brianp Exp $ */
+/* $Id: context.c,v 1.183.2.1 2002/11/19 12:01:27 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -53,7 +53,6 @@
 #include "mtypes.h"
 #include "varray.h"
 #include "vpstate.h"
-#include "vtxfmt.h"
 #include "math/m_translate.h"
 #include "math/m_matrix.h"
 #include "math/m_xform.h"
@@ -1145,8 +1144,7 @@ init_attrib_groups( GLcontext *ctx )
    make_empty_list( &ctx->Light.EnabledList );
 
    init_lightmodel( &ctx->Light.Model );
-   init_material( &ctx->Light.Material[0] );
-   init_material( &ctx->Light.Material[1] );
+   init_material( &ctx->Light.Material );
    ctx->Light.ShadeModel = GL_SMOOTH;
    ctx->Light.Enabled = GL_FALSE;
    ctx->Light.ColorMaterialFace = GL_FRONT_AND_BACK;
@@ -1853,11 +1851,6 @@ _mesa_initialize_context( GLcontext *ctx,
 
    ctx->ExecPrefersFloat = GL_FALSE;
    ctx->SavePrefersFloat = GL_FALSE;
-
-   /* Neutral tnl module stuff */
-   _mesa_init_exec_vtxfmt( ctx );
-   ctx->TnlModule.Current = NULL;
-   ctx->TnlModule.SwapCount = 0;
 
    /* Z buffer stuff */
    if (ctx->Visual.depthBits == 0) {

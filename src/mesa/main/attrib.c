@@ -1,4 +1,4 @@
-/* $Id: attrib.c,v 1.73 2002/10/11 21:42:08 brianp Exp $ */
+/* $Id: attrib.c,v 1.73.2.1 2002/11/19 12:01:27 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -943,7 +943,7 @@ _mesa_PopAttrib(void)
                                  (GLfloat) light->Model.ColorControl);
                /* materials */
                MEMCPY(ctx->Light.Material, light->Material,
-                      2 * sizeof(struct gl_material));
+                      sizeof(struct gl_material));
                /* shade model */
                _mesa_ShadeModel(light->ShadeModel);
                /* color material */

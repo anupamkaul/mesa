@@ -1,4 +1,4 @@
-/* $Id: ss_triangle.c,v 1.18.2.1 2002/10/17 14:27:51 keithw Exp $ */
+/* $Id: ss_triangle.c,v 1.18.2.2 2002/11/19 12:01:28 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -232,22 +232,10 @@ void _swsetup_trifuncs_init( GLcontext *ctx )
 }
 
 
-static void swsetup_points( GLcontext *ctx, GLuint first, GLuint last )
+static void swsetup_point( GLcontext *ctx, GLuint v0 )
 {
-   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    SWvertex *verts = SWSETUP_CONTEXT(ctx)->verts;
-   GLuint i;
-
-   if (VB->Elts) {
-      for (i = first; i < last; i++)
-	 if (VB->ClipMask[VB->Elts[i]] == 0)
-	    _swrast_Point( ctx, &verts[VB->Elts[i]] );
-   }
-   else {
-      for (i = first; i < last; i++)
-	 if (VB->ClipMask[i] == 0)
-	    _swrast_Point( ctx, &verts[i] );
-   }
+   _swrast_Point( ctx, &verts[i] );
 }
 
 static void swsetup_line( GLcontext *ctx, GLuint v0, GLuint v1 )
@@ -284,7 +272,7 @@ void _swsetup_choose_trifuncs( GLcontext *ctx )
    tnl->Driver.Render.Triangle = tri_tab[ind];
    tnl->Driver.Render.Quad = quad_tab[ind];
    tnl->Driver.Render.Line = swsetup_line;
-   tnl->Driver.Render.Points = swsetup_points;
+   tnl->Driver.Render.Point = swsetup_point;
 
    ctx->_Facing = 0;
 }
