@@ -6,10 +6,15 @@
  */
 
 
+#include <cstring>
+
 extern "C" {
 	
 #include "context.h"
+#include "mtypes.h"
 #include "texstore.h"
+#include "texobj.h"
+#include "teximage.h"
 #include "swrast/swrast.h"
 	
 }
@@ -29,27 +34,31 @@ extern "C" {
 namespace Mesa {
 
 //! Mesa texture image
-typedef struct gl_texture_image Image;
+class Image : public gl_texture_image {
+	public:
+		//! Constructor
+		Image(void) {
+			std::memset((gl_texture_image *)this, 0, sizeof(gl_texture_image));
+		}
+		
+		//! Destructor
+		virtual ~Image() {}
+} ;
 
 class Context;
 
 //! Mesa texture
-class Texture {
+class Texture : public gl_texture_object {
 	public:
-		struct gl_texture_object *glTexObj;
-	
-	public:
-		Texture(void) {
-			glTexObj = NULL;
+		//! Constructor
+		Texture(GLuint name, GLenum target) {
+			memset((gl_texture_object *)this, 0, sizeof(gl_texture_object));
+			_mesa_initialize_texture_object((gl_texture_object *)this, name, target);
 		}
 		
-		void init(struct gl_texture_object *t) {
-			glTexObj = t;
-			glTexObj->DriverData = (void *)this;
-		}
-		
+		//! Destructor
 		virtual ~Texture() {
-			glTexObj->DriverData = NULL;
+			_mesa_free_texture_object_data((gl_texture_object *)this);
 		}
 
 		//! Determine if texture is loaded in texture memory
@@ -72,7 +81,7 @@ class Texture {
 			GLenum format, GLenum type,
 			const GLvoid *pixels,
 			const struct gl_pixelstore_attrib *packing,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! Two-dimensional texture image
@@ -85,7 +94,7 @@ class Texture {
 			GLenum format, GLenum type,
 			const GLvoid *pixels,
 			const struct gl_pixelstore_attrib *packing,
-			Image *image
+			Mesa::Image *image
 		);
 		
 		//! Three-dimensional texture image
@@ -98,7 +107,7 @@ class Texture {
 			GLenum format, GLenum type,
 			const GLvoid *pixels,
 			const struct gl_pixelstore_attrib *packing,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! One-dimensional texture subimage
@@ -110,7 +119,7 @@ class Texture {
 			GLenum format, GLenum type,
 			const GLvoid *pixels,
 			const struct gl_pixelstore_attrib *packing,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! Two-dimensional texture subimage
@@ -122,7 +131,7 @@ class Texture {
 			GLenum format, GLenum type,
 			const GLvoid *pixels,
 			const struct gl_pixelstore_attrib *packing,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! Three-dimensional texture subimage
@@ -134,7 +143,7 @@ class Texture {
 			GLenum format, GLenum type,
 			const GLvoid *pixels,
 			const struct gl_pixelstore_attrib *packing,
-			Image *image
+			Mesa::Image *image
 		);
 		
 		//@}
@@ -149,7 +158,7 @@ class Texture {
 			GLint border,
 			GLenum format, GLsizei imageSize,
 			const GLvoid *data,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! Two-dimensional texture compressed image
@@ -160,7 +169,7 @@ class Texture {
 			GLint border,
 			GLenum format, GLsizei imageSize,
 			const GLvoid *data,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! Three-dimensional texture compressed image
@@ -171,7 +180,7 @@ class Texture {
 			GLint border,
 			GLenum format, GLsizei imageSize,
 			const GLvoid *data,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! One-dimensional texture compressed subimage
@@ -182,7 +191,7 @@ class Texture {
 			GLsizei width,
 			GLenum format, GLsizei imageSize,
 			const GLvoid *data,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! Two-dimensional texture compressed subimage
@@ -193,7 +202,7 @@ class Texture {
 			GLsizei width, GLsizei height,
 			GLenum format, GLsizei imageSize,
 			const GLvoid *data,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//! Three-dimensional texture compressed subimage
@@ -204,17 +213,14 @@ class Texture {
 			GLsizei width, GLsizei height, GLsizei depth,
 			GLenum format, GLsizei imageSize,
 			const GLvoid *data,
-			Image *image
+			Mesa::Image *image
 		);
 
 		//@}
 } ;
 
 //! Visual
-class Visual {
-	public:
-		GLvisual glVisual;
-
+class Visual /*: public GLvisual*/ {
 	public:
 		//! Initialize
 		bool init(
@@ -235,7 +241,7 @@ class Visual {
 			GLint numSamples
 		) {
 			return _mesa_initialize_visual(
-				&glVisual,
+				(GLvisual *)this,
 				rgbFlag,
 				dbFlag,
 				stereoFlag,
@@ -269,7 +275,7 @@ class Framebuffer : public GLframebuffer {
 		) {
 			_mesa_initialize_framebuffer(
 				(GLframebuffer *)this,
-				&visual->glVisual,
+				(GLvisual *)visual,
 				swDepth,
 				swStencil,
 				swAccum,
@@ -279,9 +285,7 @@ class Framebuffer : public GLframebuffer {
 		}
 		
 		virtual ~Framebuffer() {
-			_mesa_free_framebuffer_data(
-				(GLframebuffer *)this
-			);
+			_mesa_free_framebuffer_data((GLframebuffer *)this);
 		}
 
 		virtual void getSize(GLuint *width, GLuint *height) const = 0;
@@ -298,23 +302,17 @@ class SoftwareRasterizer : public Rasterizer {
 
 //! Abstract TNL
 class TNL {
-	public:
-		
-	
 } ;
 
 //! Abstract Mesa context
-class Context {
-	public:
-		GLcontext glCtx;
-
+class Context: public GLcontext {
 	public:
 		//! Initialize
-		bool init(const Visual *visual, Context *sharedCtx = NULL, bool direct = true); 
+		bool init(const Mesa::Visual *visual, Context *sharedCtx = NULL, bool direct = true); 
 
 		//! Destructor
 		virtual ~Context() {
-			_mesa_free_context_data(&glCtx);
+			_mesa_free_context_data((GLcontext *)this);
 		}
 
 		virtual void Error(GLenum error) {}
@@ -329,7 +327,7 @@ class Context {
 		//! Make context current
 		void makeCurrent(Framebuffer *drawBuffer, Framebuffer *readBuffer) {
 			_mesa_make_current2(
-				&glCtx, 
+				(GLcontext *)this, 
 				(GLframebuffer *)drawBuffer,
 				(GLframebuffer *)readBuffer
 			);
@@ -337,23 +335,26 @@ class Context {
 
 		//! Swap buffers
 		void swapBuffers(void) {
-			_mesa_notifySwapBuffers( &glCtx );
+			_mesa_notifySwapBuffers((GLcontext *)this);
 		}
-
 	
 		//! \name Texture object functions @{
-		virtual Texture *AllocTexture(GLenum target) {
-			return new Texture;
+		virtual Mesa::Texture *NewTexture(GLuint name, GLenum target) {
+			return new Mesa::Texture(name, target);
 		}
 
-		virtual void BindTexture(GLenum target, Texture *texture) {}
+		virtual void BindTexture(GLenum target, Mesa::Texture *texture) {}
 		
 		virtual void ActiveTexture(GLuint texUnitNumber) {}
 		
-		virtual void UpdateTexturePalette(Texture *texture) {}
+		virtual void UpdateTexturePalette(Mesa::Texture *texture) {}
 		//@}
 
 		//! \name Texture image functions @{
+		virtual Mesa::Image *NewImage() {
+			return new Mesa::Image;
+		}
+
 		virtual const struct gl_texture_format *ChooseTextureFormat(GLint internalFormat, GLenum srcFormat, GLenum srcType);
 
 		virtual void CopyTexImage1D(
@@ -366,7 +367,7 @@ class Context {
 			GLint border
 		) {
 			_swrast_copy_teximage1d(
-				&glCtx,
+				(GLcontext *)this,
 				target, level,
 				internalFormat,
 				x, y,
@@ -383,7 +384,7 @@ class Context {
 			GLint border
 		) {
 			_swrast_copy_teximage2d(
-				&glCtx,
+				(GLcontext *)this,
 				target, level,
 				internalFormat,
 				x, y,
@@ -399,7 +400,7 @@ class Context {
 			GLsizei width
 		) {
 			_swrast_copy_texsubimage1d(
-				&glCtx,
+				(GLcontext *)this,
 				target, level,
 				xoffset,
 				x, y,
@@ -414,7 +415,7 @@ class Context {
 			GLsizei width, GLsizei height
 		) {
 			_swrast_copy_texsubimage2d(
-				&glCtx,
+				(GLcontext *)this,
 				target, level,
 				xoffset, yoffset,
 				x, y,
@@ -429,7 +430,7 @@ class Context {
 			GLsizei width, GLsizei height
 		) {
 			_swrast_copy_texsubimage3d(
-				&glCtx,
+				(GLcontext *)this,
 				target, level,
 				xoffset, yoffset, zoffset,
 				x, y,
@@ -445,7 +446,7 @@ class Context {
 			GLint border
 		) {
 			return _mesa_test_proxy_teximage(
-				&glCtx,
+				(GLcontext *)this,
 				target, level,
 				internalFormat,
 				format, type,
@@ -577,3 +578,5 @@ class Driver {
 } ;
 
 }
+
+/* :vim: set sw=2 ts=2 noet : */
