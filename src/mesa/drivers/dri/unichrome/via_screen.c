@@ -88,7 +88,6 @@ viaInitDriver(__DRIscreenPrivate *sPriv)
 {
     viaScreenPrivate *viaScreen;
     VIADRIPtr gDRIPriv = (VIADRIPtr)sPriv->pDevPriv;
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
 
 
     /* Allocate the private area */
@@ -190,9 +189,6 @@ viaInitDriver(__DRIscreenPrivate *sPriv)
       }
    }
 
-
-
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);
     return GL_TRUE;
 }
 
@@ -201,11 +197,11 @@ viaDestroyScreen(__DRIscreenPrivate *sPriv)
 {
     viaScreenPrivate *viaScreen = (viaScreenPrivate *)sPriv->private;
     VIADRIPtr gDRIPriv = (VIADRIPtr)sPriv->pDevPriv;
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
+
     drmUnmap(viaScreen->reg, gDRIPriv->regs.size);
     if (gDRIPriv->agp.size)
         drmUnmap(viaScreen->agpLinearStart, gDRIPriv->agp.size);
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);	
+
     FREE(viaScreen);
     sPriv->private = NULL;
 }
@@ -231,7 +227,6 @@ viaCreateBuffer(__DRIscreenPrivate *driScrnPriv,
                                      mesaVis->accumRedBits > 0,
                                      GL_FALSE 	/* s/w alpha planes */);
 
-        if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);				     
         return (driDrawPriv->driverPrivate != NULL);
 #endif
 	return GL_FALSE;

@@ -172,7 +172,6 @@ typedef struct _drm_via_sarea {
 	unsigned int nbox;
 	drm_clip_rect_t boxes[VIA_NR_SAREA_CLIPRECTS];
 	drm_via_tex_region_t texList[VIA_NR_TEX_REGIONS + 1];
-	int texAge;		/* last time texture was uploaded */
 	int ctxOwner;		/* last context to upload state */
 	int vertexPrim;
 

@@ -126,8 +126,6 @@ struct via_context_t {
     GLubyte    *dma;
     viaRegion tex;
     
-    GLuint isAGP;
-
     /* Textures
     */
     viaTextureObjectPtr CurrentTexObj[2];
@@ -211,7 +209,6 @@ struct via_context_t {
     GLuint regHTXnTBLRCb_0;
     GLuint regHTXnTBLRAa_0;
     GLuint regHTXnTBLRFog_0;
-    /*=* John Sheng [2003.7.18] texture combine *=*/
     GLuint regHTXnTBLRCa_0;
     GLuint regHTXnTBLRCc_0;
     GLuint regHTXnTBLRCbias_0;
@@ -248,8 +245,6 @@ struct via_context_t {
 
     /* DRI stuff
      */
-    GLuint needClip;
-    GLframebuffer *glBuffer;
     GLboolean doPageFlip;
 
     viaBuffer *drawBuffer;
@@ -263,11 +258,6 @@ struct via_context_t {
     int drawXoff;
     GLuint numClipRects;         /* cliprects for that buffer */
     drm_clip_rect_t *pClipRects;
-
-    int lastSwap;
-    int texAge;
-    int ctxAge;
-    int dirtyAge;
 
     GLboolean scissor;
     drm_clip_rect_t drawRect;
@@ -293,7 +283,6 @@ struct via_context_t {
    GLuint nDoneFirstFlip;
    GLuint agpFullCount;
 
-   GLboolean strictConformance;
    GLboolean clearTexCache;
 
    /* Configuration cache

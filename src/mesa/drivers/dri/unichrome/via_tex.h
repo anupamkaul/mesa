@@ -37,8 +37,6 @@
 
 struct via_texture_object_t {
     struct via_texture_object_t *next, *prev;
-
-    GLuint age;
     struct gl_texture_object *globj;
 
     int texelBytes;
@@ -52,10 +50,6 @@ struct via_texture_object_t {
     unsigned char* bufAddr;
     
     GLuint inAGP;
-    GLuint needClearCache;    
-    GLuint actualLevel;
-
-    GLuint maxLevel;
     GLuint dirtyImages;
 
     struct {
@@ -65,8 +59,6 @@ struct via_texture_object_t {
         int internalFormat;
     } image[VIA_TEX_MAXLEVELS];
 
-    GLuint dirty;
-    
     GLuint regTexFM;
     GLuint regTexWidthLog2[2];
     GLuint regTexHeightLog2[2];

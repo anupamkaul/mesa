@@ -209,7 +209,6 @@ calculate_buffer_parameters( viaContextPtr vmesa )
       (void) memset( & vmesa->depth, 0, sizeof( vmesa->depth ) );
    }
 
-   /*=* John Sheng [2003.5.31] flip *=*/
    if( vmesa->viaScreen->width == vmesa->driDrawable->w && 
        vmesa->viaScreen->height == vmesa->driDrawable->h ) {
       vmesa->doPageFlip = vmesa->allowPageFlip;
@@ -336,7 +335,6 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     if (!vmesa) {
         return GL_FALSE;
     }
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);    
 
     /* Parse configuration files.
      */
@@ -466,7 +464,6 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     vmesa->viaScreen = viaScreen;
     vmesa->driScreen = sPriv;
     vmesa->sarea = saPriv;
-    vmesa->glBuffer = NULL;
 
     vmesa->texHeap = mmInit(0, viaScreen->textureSize);
     vmesa->renderIndex = ~0;
@@ -527,9 +524,6 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     if (getenv("VIA_NO_RAST"))
        FALLBACK(vmesa, VIA_FALLBACK_USER_DISABLE, 1);
 
-    if (getenv("VIA_CONFORM"))
-       vmesa->strictConformance = 1;
-
     /* I don't understand why this isn't working:
      */
     vmesa->vblank_flags =
@@ -560,9 +554,6 @@ viaCreateContext(const __GLcontextModes *mesaVis,
 	fprintf(stderr, "regEngineStatus = %x\n", *vmesa->regEngineStatus);
     }
 
-
-    
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
     return GL_TRUE;
 }
 
@@ -572,7 +563,6 @@ viaDestroyContext(__DRIcontextPrivate *driContextPriv)
     GET_CURRENT_CONTEXT(ctx);
     viaContextPtr vmesa = (viaContextPtr)driContextPriv->driverPrivate;
     viaContextPtr current = ctx ? VIA_CONTEXT(ctx) : NULL;
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);    
     assert(vmesa); /* should never be null */
 
     /* check if we're deleting the currently bound context */
@@ -582,7 +572,6 @@ viaDestroyContext(__DRIcontextPrivate *driContextPriv)
     }
 
     if (vmesa) {
-	/*=* John Sheng [2003.5.31]  agp tex *=*/
         WAIT_IDLE(vmesa);
 	if (vmesa->doPageFlip) {
 	   LOCK_HARDWARE(vmesa);
@@ -593,8 +582,6 @@ viaDestroyContext(__DRIcontextPrivate *driContextPriv)
 	   UNLOCK_HARDWARE(vmesa);
 	}
 	
-	if(VIA_DEBUG) fprintf(stderr, "agpFullCount = %d\n", vmesa->agpFullCount);    
-	
 	_swsetup_DestroyContext(vmesa->glCtx);
         _tnl_DestroyContext(vmesa->glCtx);
         _ac_DestroyContext(vmesa->glCtx);
@@ -604,8 +591,6 @@ viaDestroyContext(__DRIcontextPrivate *driContextPriv)
 	_mesa_destroy_context(vmesa->glCtx);
         FREE(vmesa);
     }
-    
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
 }
 
 
@@ -666,8 +651,6 @@ void viaXMesaWindowMoved(viaContextPtr vmesa)
 GLboolean
 viaUnbindContext(__DRIcontextPrivate *driContextPriv)
 {
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);    
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
     return GL_TRUE;
 }
 
@@ -676,8 +659,6 @@ viaMakeCurrent(__DRIcontextPrivate *driContextPriv,
                __DRIdrawablePrivate *driDrawPriv,
                __DRIdrawablePrivate *driReadPriv)
 {
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
-  
     if (VIA_DEBUG) {
 	fprintf(stderr, "driContextPriv = %08x\n", (GLuint)driContextPriv);
 	fprintf(stderr, "driDrawPriv = %08x\n", (GLuint)driDrawPriv);    
@@ -714,7 +695,6 @@ viaMakeCurrent(__DRIcontextPrivate *driContextPriv,
         _mesa_make_current(0,0);
     }
         
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
     return GL_TRUE;
 }
 
@@ -749,7 +729,7 @@ void
 viaSwapBuffers(__DRIdrawablePrivate *drawablePrivate)
 {
     __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *)drawablePrivate;
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);	
+
     if (dPriv && dPriv->driContextPriv && dPriv->driContextPriv->driverPrivate) {
         viaContextPtr vmesa;
         GLcontext *ctx;
@@ -771,5 +751,4 @@ viaSwapBuffers(__DRIdrawablePrivate *drawablePrivate)
     else {
         _mesa_problem(NULL, "viaSwapBuffers: drawable has no context!\n");
     }
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);	
 }

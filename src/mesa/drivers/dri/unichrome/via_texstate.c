@@ -170,7 +170,7 @@ static void viaSetTexImages(viaContextPtr vmesa,
     GLuint basH = 0;
     GLuint widthExp = 0;
     GLuint heightExp = 0;    
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__); 
+
     switch (baseImage->TexFormat->MesaFormat) {
     case MESA_FORMAT_ARGB8888:
        /* KW: I'm not sure what the thinking behind this test was, but
@@ -207,7 +207,6 @@ static void viaSetTexImages(viaContextPtr vmesa,
     case MESA_FORMAT_AL88:
         texFormat = HC_HTXnFM_AL88;     
         break;
-    /*=* John Sheng [2003.7.18] texenv *=*/
     case MESA_FORMAT_A8:
         texFormat = HC_HTXnFM_A8;     
         break;
@@ -271,8 +270,6 @@ static void viaSetTexImages(viaContextPtr vmesa,
     }
     t->totalSize = (*texSize)[log2Height][log2Width];
     t->texMem.size = t->totalSize;
-    t->maxLevel = i - 1;
-/*     t->dirty = VIA_UPLOAD_TEX0 | VIA_UPLOAD_TEX1; */
 
     if (VIA_DEBUG) {
 	fprintf(stderr, "log2Width = %d\n", log2Width);  
@@ -280,7 +277,6 @@ static void viaSetTexImages(viaContextPtr vmesa,
 	fprintf(stderr, "log2Pitch = %d\n", log2Pitch);    
 	fprintf(stderr, "bytePerTexel = %d\n", baseImage->TexFormat->TexelBytes);
 	fprintf(stderr, "total size = %d\n", t->totalSize);
-	fprintf(stderr, "actual level = %d\n", t->actualLevel);
         fprintf(stderr, "numlevel = %d\n", numLevels);    
     }	
 
@@ -313,11 +309,11 @@ static void viaSetTexImages(viaContextPtr vmesa,
 	    else
 		mipmapSize = (*texSize)[h][w];
 	    
-	    /*=* John Sheng [2003.5.31]  agp tex *=*/
             if (t->inAGP)
                 texBase = (GLuint)vmesa->agpBase + t->texMem.offset + t->image[i].offset;
             else
 		texBase = t->texMem.offset + t->image[i].offset;
+
 	    if (VIA_DEBUG) {
 		fprintf(stderr, "texmem offset = %x\n", t->texMem.offset);    
 		fprintf(stderr, "mipmap%d addr = %x\n", i, t->image[i].offset);    
@@ -365,7 +361,6 @@ static void viaSetTexImages(viaContextPtr vmesa,
             t->regTexHeightLog2[l] = ((l + HC_SubA_HTXnL0_5HE) << 24 | heightExp);
         }    
     }
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
 }
 
 

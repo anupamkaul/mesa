@@ -39,11 +39,10 @@
 #include "via_state.h"
 #include "via_ioctl.h"
 #include "via_fb.h"
-/*=* John Sheng [2003.5.31]  agp tex *=*/
+
 
 void viaDestroyTexObj(viaContextPtr vmesa, viaTextureObjectPtr t)
 {
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
     if (!t) 
 	return;
 
@@ -52,9 +51,6 @@ void viaDestroyTexObj(viaContextPtr vmesa, viaTextureObjectPtr t)
      */
     if (t->bufAddr) {
 	via_free_texture(vmesa, t);
-
-        if (vmesa && t->age > vmesa->dirtyAge)
-            vmesa->dirtyAge = t->age;
     }
 
     if (t->globj)
@@ -72,22 +68,16 @@ void viaDestroyTexObj(viaContextPtr vmesa, viaTextureObjectPtr t)
 
     remove_from_list(t);
     free(t);
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);
 }
 
 void viaSwapOutTexObj(viaContextPtr vmesa, viaTextureObjectPtr t)
 {
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
     if (t->bufAddr) {
 	via_free_texture(vmesa, t);
-
-        if (t->age > vmesa->dirtyAge)
-            vmesa->dirtyAge = t->age;
     }
 
     t->dirtyImages = ~0;
     move_to_tail(&(vmesa->SwappedOut), t);
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);
 }
 
 
@@ -108,7 +98,6 @@ static void viaUploadTexLevel(viaTextureObjectPtr t, int level)
     const struct gl_texture_image *image = t->image[level].image;
     int i, j;
     if (VIA_DEBUG) {
-	fprintf(stderr, "%s - in\n", __FUNCTION__);    
 	fprintf(stderr, "width = %d, height = %d \n", image->Width, image->Height);    
     }	
     switch (t->image[level].internalFormat) {
@@ -279,7 +268,6 @@ static void viaUploadTexLevel(viaTextureObjectPtr t, int level)
         if (VIA_DEBUG) fprintf(stderr, "Not supported texture format %s\n",
                 _mesa_lookup_enum_by_nr(image->Format));
     }
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);
 }
 
 void viaPrintLocalLRU(viaContextPtr vmesa)
@@ -307,7 +295,6 @@ void viaPrintLocalLRU(viaContextPtr vmesa)
 
 void viaUpdateTexLRU(viaContextPtr vmesa, viaTextureObjectPtr t)
 {
-    vmesa->texAge = ++vmesa->sarea->texAge;
     move_to_head(&(vmesa->TexObjList), t);
 }
 
@@ -317,15 +304,12 @@ void viaUpdateTexLRU(viaContextPtr vmesa, viaTextureObjectPtr t)
 void viaUploadTexImages(viaContextPtr vmesa, viaTextureObjectPtr t)
 {
     int i, j;
-    int numLevels;
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
+
     LOCK_HARDWARE(vmesa);
 
      j = 0;
     if (!t->bufAddr) {
         while (1) {
-
-    	    /*=* John Sheng [2003.5.31]  agp tex *=*/
 	    if (via_alloc_texture_agp(vmesa, t))
 		break;
 	    if (via_alloc_texture(vmesa, t))
@@ -349,8 +333,6 @@ void viaUploadTexImages(viaContextPtr vmesa, viaTextureObjectPtr t)
 
             viaSwapOutTexObj(vmesa, vmesa->TexObjList.prev);
         }
-	/*=* John Sheng [2003.5.31]  agp tex *=*/
-        /*t->bufAddr = (char *)((GLuint)vmesa->driScreen->pFB + t->texMem.offset);*/
 
         if (t == vmesa->CurrentTexObj[0])
             VIA_FLUSH_DMA(vmesa);
@@ -363,15 +345,12 @@ void viaUploadTexImages(viaContextPtr vmesa, viaTextureObjectPtr t)
 	j++;
     }
 
-    numLevels = t->lastLevel - t->firstLevel + 1;
-
-    for (i = 0; i < numLevels; i++)
+    for (i = t->firstLevel; i <= t->lastLevel; i++)
         if (t->dirtyImages & (1 << i))
-            viaUploadTexLevel(t, i);
+            viaUploadTexLevel(t, i - t->firstLevel);
 
     t->dirtyImages = 0;
     vmesa->clearTexCache = 1;
 
     UNLOCK_HARDWARE(vmesa);
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
 }

@@ -86,8 +86,6 @@ void viaEmitState(viaContextPtr vmesa)
    GLuint j = 0;
    RING_VARS;
 
-   if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
-
    viaCheckDma(vmesa, 0x110);
     
    BEGIN_RING(5);
@@ -232,7 +230,6 @@ void viaEmitState(viaContextPtr vmesa)
 	 GLuint numLevels = t->lastLevel - t->firstLevel + 1;
 	 if (VIA_DEBUG) {
 	    fprintf(stderr, "texture0 enabled\n");
-	    fprintf(stderr, "texture level %d\n", t->actualLevel);
 	 }		
 	 if (numLevels == 8) {
 	    BEGIN_RING(27);
@@ -335,6 +332,8 @@ void viaEmitState(viaContextPtr vmesa)
 	 OUT_RING( (HC_SubA_HTXnCLODu << 24) | vmesa->regHTXnCLOD_0 );
 	 ADVANCE_RING();
 
+	 /* KW:  This test never succeeds:
+	  */
 	 if (t->regTexFM == HC_HTXnFM_Index8) {
 	    struct gl_color_table *table = &texObj->Palette;
 	    GLfloat *tableF = (GLfloat *)table->Table;
@@ -358,7 +357,6 @@ void viaEmitState(viaContextPtr vmesa)
 	 int texunit = (texUnit0->Enabled ? 1 : 0);
 	 if (VIA_DEBUG) {
 	    fprintf(stderr, "texture1 enabled\n");
-	    fprintf(stderr, "texture level %d\n", t->actualLevel);
 	 }		
 	 if (numLevels == 8) {
 	    BEGIN_RING(27);
@@ -459,6 +457,8 @@ void viaEmitState(viaContextPtr vmesa)
 	 OUT_RING( (HC_SubA_HTXnCLODu << 24) | vmesa->regHTXnCLOD_1 );
 	 ADVANCE_RING();
 
+	 /* KW:  This test never succeeds:
+	  */
 	 if (t->regTexFM == HC_HTXnFM_Index8) {
 	    struct gl_color_table *table = &texObj->Palette;
 	    GLfloat *tableF = (GLfloat *)table->Table;
@@ -521,8 +521,6 @@ void viaEmitState(viaContextPtr vmesa)
       ADVANCE_RING();
    }
    
-   if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);
-
    vmesa->newEmitState = 0;
 }
 
@@ -889,12 +887,9 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
     struct gl_texture_unit *texUnit0 = &ctx->Texture.Unit[0];
     struct gl_texture_unit *texUnit1 = &ctx->Texture.Unit[1];
-    /*=* John Sheng [2003.7.18] texture combine *=*/
 
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);    
     if (texUnit0->_ReallyEnabled || texUnit1->_ReallyEnabled) {
 	if (VIA_DEBUG) {
-	    fprintf(stderr, "Texture._ReallyEnabled - in\n");    
 	    fprintf(stderr, "texUnit0->_ReallyEnabled = %x\n",texUnit0->_ReallyEnabled);
 	}
 
@@ -993,7 +988,6 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
     else {
         vmesa->regEnable &= (~(HC_HenTXMP_MASK | HC_HenTXCH_MASK | HC_HenTXPP_MASK));
     }
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
     
     return GL_TRUE;
 }
@@ -1007,7 +1001,6 @@ static void viaChooseColorState(GLcontext *ctx)
     /* The HW's blending equation is:
      * (Ca * FCa + Cbias + Cb * FCb) << Cshift
      */
-     if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);    
 
     if (ctx->Color.BlendEnabled) {
         vmesa->regEnable |= HC_HenABL_MASK;
@@ -1290,8 +1283,6 @@ static void viaChooseColorState(GLcontext *ctx)
         vmesa->regEnable |= HC_HenAW_MASK;
     else
         vmesa->regEnable &= ~HC_HenAW_MASK;
-
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
 }
 
 static void viaChooseFogState(GLcontext *ctx) 
@@ -1379,7 +1370,6 @@ static void viaChoosePolygonState(GLcontext *ctx)
 static void viaChooseStencilState(GLcontext *ctx) 
 {
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);    
     
     if (ctx->Stencil.Enabled) {
         GLuint temp;
@@ -1459,7 +1449,6 @@ static void viaChooseStencilState(GLcontext *ctx)
     else {
         vmesa->regEnable &= ~HC_HenST_MASK;
     }
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
 }
 
 
@@ -1468,7 +1457,6 @@ static void viaChooseTriangle(GLcontext *ctx)
 {       
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
     if (VIA_DEBUG) {
-       fprintf(stderr, "%s - in\n", __FUNCTION__);        
        fprintf(stderr, "GL_CULL_FACE = %x\n", GL_CULL_FACE);    
        fprintf(stderr, "ctx->Polygon.CullFlag = %x\n", ctx->Polygon.CullFlag);       
        fprintf(stderr, "GL_FRONT = %x\n", GL_FRONT);    
@@ -1494,7 +1482,6 @@ static void viaChooseTriangle(GLcontext *ctx)
             return;
         }
     }
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
 }
 
 void viaValidateState( GLcontext *ctx )

@@ -68,7 +68,6 @@ via_alloc_dma_buffer(viaContextPtr vmesa)
 {
    drm_via_dma_init_t init;
 
-   if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
    vmesa->dma = (GLubyte *) malloc(VIA_DMA_BUFSIZ);
     
    /*
@@ -83,8 +82,6 @@ via_alloc_dma_buffer(viaContextPtr vmesa)
          fprintf(stderr, "unichrome_dri.so: Using AGP.\n");
       else
          fprintf(stderr, "unichrome_dri.so: Using PCI.\n");
-   
-      fprintf(stderr, "%s - out\n", __FUNCTION__);
    }
       
    return ((vmesa->dma) ? GL_TRUE : GL_FALSE);
@@ -102,7 +99,7 @@ GLboolean
 via_alloc_texture(viaContextPtr vmesa, viaTextureObjectPtr t)
 {
     drm_via_mem_t fb;
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
+
     fb.context = vmesa->hHWContext;
     fb.size = t->texMem.size;
     fb.type = VIDEO;
@@ -120,15 +117,14 @@ via_alloc_texture(viaContextPtr vmesa, viaTextureObjectPtr t)
     if (VIA_DEBUG) fprintf(stderr, "texture index = %d\n", (GLuint)fb.index);
     
     t->bufAddr = (unsigned char *)(fb.offset + (GLuint)vmesa->driScreen->pFB);
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
     return GL_TRUE;
 }
-/*=* John Sheng [2003.5.31]  agp tex *=*/
+
 GLboolean
 via_alloc_texture_agp(viaContextPtr vmesa, viaTextureObjectPtr t)
 {
     drm_via_mem_t fb;
-    if (VIA_DEBUG) fprintf(stderr, "%s - in\n", __FUNCTION__);
+
     fb.context = vmesa->hHWContext;
     fb.size = t->texMem.size;
     fb.type = AGP;
@@ -146,9 +142,8 @@ via_alloc_texture_agp(viaContextPtr vmesa, viaTextureObjectPtr t)
     if (VIA_DEBUG) fprintf(stderr, "texture agp index = %d\n", (GLuint)fb.index);
     
     t->bufAddr = (unsigned char *)((GLuint)vmesa->viaScreen->agpLinearStart + fb.offset); 	
-    /*=* John Sheng [2003.5.31]  agp tex *=*/
+
     t->inAGP = GL_TRUE;
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
     return GL_TRUE;
 }
 
@@ -170,7 +165,6 @@ via_free_texture(viaContextPtr vmesa, viaTextureObjectPtr t)
     fb.context = vmesa->hHWContext;
     fb.index = t->texMem.index;
     
-    /*=* John Sheng [2003.5.31]  agp tex *=*/
     if(t->inAGP)
 	fb.type = AGP;
     else

@@ -54,7 +54,6 @@ viaTextureObjectPtr viaAllocTextureObject(struct gl_texture_object *texObj)
      */
     t->bufAddr = NULL;
     t->dirtyImages = ~0;
-    t->actualLevel = 0;
     t->globj = texObj;
     make_empty_list(t);
 
@@ -71,14 +70,12 @@ static void viaTexImage1D(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_image *texImage)
 {
     viaTextureObjectPtr t = (viaTextureObjectPtr)texObj->DriverData;
-    if (VIA_DEBUG) fprintf(stderr, "viaTexImage1D - in\n");
+
     if (t) {
-        if (level == 0) {
+        if (level == 0) {	/* KW: this test is bogus??? */
     	    viaSwapOutTexObj(VIA_CONTEXT(ctx), t);
-	    t->actualLevel = 0;
 	}
-	else
-	    t->actualLevel++;
+	t->dirtyImages |= (1<<level);
     }
     else {
        	t = viaAllocTextureObject(texObj);
@@ -91,7 +88,6 @@ static void viaTexImage1D(GLcontext *ctx, GLenum target, GLint level,
     _mesa_store_teximage1d(ctx, target, level, internalFormat,
                            width, border, format, type,
                            pixels, packing, texObj, texImage);
-    if (VIA_DEBUG) fprintf(stderr, "viaTexImage1D - out\n");
 }
 
 
@@ -110,7 +106,7 @@ static void viaTexSubImage1D(GLcontext *ctx,
     viaTextureObjectPtr t = (viaTextureObjectPtr)texObj->DriverData;
     
     if (t) {
-        viaSwapOutTexObj(VIA_CONTEXT(ctx), t);
+	t->dirtyImages |= (1<<level);
     }
     _mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
 			      format, type, pixels, packing, texObj,
@@ -128,14 +124,12 @@ static void viaTexImage2D(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_image *texImage)
 {
     viaTextureObjectPtr t = (viaTextureObjectPtr)texObj->DriverData;
-    if (VIA_DEBUG) fprintf(stderr, "viaTexImage2D - in\n");
+
     if (t) {
-        if (level == 0) {
+        if (level == 0) {	/* KW: This test is bogus??? */
     	    viaSwapOutTexObj(VIA_CONTEXT(ctx), t);
-	    t->actualLevel = 0;
 	}
-	else
-	    t->actualLevel++;
+	t->dirtyImages |= (1<<level);
     }
     else {
        	t = viaAllocTextureObject(texObj);
@@ -148,7 +142,6 @@ static void viaTexImage2D(GLcontext *ctx, GLenum target, GLint level,
     _mesa_store_teximage2d(ctx, target, level, internalFormat,
                            width, height, border, format, type,
                            pixels, packing, texObj, texImage);
-    if (VIA_DEBUG) fprintf(stderr, "viaTexImage2D - out\n");
 }
 
 static void viaTexSubImage2D(GLcontext *ctx,
@@ -167,7 +160,7 @@ static void viaTexSubImage2D(GLcontext *ctx,
     viaTextureObjectPtr t = (viaTextureObjectPtr)texObj->DriverData;
     
     if (t) {
-        viaSwapOutTexObj(VIA_CONTEXT(ctx), t);
+	t->dirtyImages |= (1<<level);
     }
     _mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
                               height, format, type, pixels, packing, texObj,
@@ -181,27 +174,27 @@ static void viaTexSubImage2D(GLcontext *ctx,
 static void viaBindTexture(GLcontext *ctx, GLenum target,
                            struct gl_texture_object *texObj)
 {
-    if (VIA_DEBUG) fprintf(stderr, "viaBindTexture - in\n");
-    if (target == GL_TEXTURE_2D) {
+    if (target == GL_TEXTURE_2D || 
+	target == GL_TEXTURE_1D) 
+    {
         viaTextureObjectPtr t = (viaTextureObjectPtr)texObj->DriverData;
 
         if (!t) {
 
             t = viaAllocTextureObject(texObj);
       	    if (!t) {
- 	            _mesa_error(ctx, GL_OUT_OF_MEMORY, "viaBindTexture");
-                return;
+	        _mesa_error(ctx, GL_OUT_OF_MEMORY, "viaBindTexture");
+	        return;
             }
             texObj->DriverData = t;
         }
     }
-    if (VIA_DEBUG) fprintf(stderr, "viaBindTexture - out\n");
 }
 
 static void viaDeleteTexture(GLcontext *ctx, struct gl_texture_object *texObj)
 {
     viaTextureObjectPtr t = (viaTextureObjectPtr)texObj->DriverData;
-    if (VIA_DEBUG) fprintf(stderr, "viaDeleteTexture - in\n");    
+
     if (t) {
         viaContextPtr vmesa = VIA_CONTEXT(ctx);
         if (vmesa) {
@@ -212,7 +205,6 @@ static void viaDeleteTexture(GLcontext *ctx, struct gl_texture_object *texObj)
 	}
         texObj->DriverData = 0;
     }
-    if (VIA_DEBUG) fprintf(stderr, "viaDeleteTexture - out\n");    
 
    /* Free mipmap images and the texture object itself */
    _mesa_delete_texture_object(ctx, texObj);
@@ -381,7 +373,6 @@ viaChooseTexFormat( GLcontext *ctx, GLint internalFormat,
 
 void viaInitTextureFuncs(struct dd_function_table * functions)
 {
-    if (VIA_DEBUG) fprintf(stderr, "viaInitTextureFuncs - in\n");
     functions->ChooseTextureFormat = viaChooseTexFormat;
     functions->TexImage1D = viaTexImage1D;
     functions->TexImage2D = viaTexImage2D;
@@ -393,8 +384,6 @@ void viaInitTextureFuncs(struct dd_function_table * functions)
     functions->DeleteTexture = viaDeleteTexture;
     functions->UpdateTexturePalette = 0;
     functions->IsTextureResident = viaIsTextureResident;
-
-    if (VIA_DEBUG) fprintf(stderr, "viaInitTextureFuncs - out\n");
 }
 
 void viaInitTextures(GLcontext *ctx)
