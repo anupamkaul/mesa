@@ -83,6 +83,16 @@ static drmBufMapPtr via_create_empty_buffers(void)
     return retval;
 }
 
+static void via_free_empty_buffers( drmBufMapPtr bufs )
+{
+   if (bufs && bufs->list)
+      FREE(bufs->list);
+
+   if (bufs)
+      FREE(bufs);
+}
+
+
 static GLboolean
 viaInitDriver(__DRIscreenPrivate *sPriv)
 {
@@ -195,6 +205,8 @@ viaDestroyScreen(__DRIscreenPrivate *sPriv)
     drmUnmap(viaScreen->reg, gDRIPriv->regs.size);
     if (gDRIPriv->agp.size)
         drmUnmap(viaScreen->agpLinearStart, gDRIPriv->agp.size);
+
+    via_free_empty_buffers(viaScreen->bufs);
 
     FREE(viaScreen);
     sPriv->private = NULL;
