@@ -62,6 +62,9 @@ static const struct FormatRec FormatTable[] = {
    { GL_RGBA, GL_UNSIGNED_BYTE,            GL_RGBA,        4    },
    { GL_RGBA, GL_UNSIGNED_BYTE,            GL_RGB,         4    },
    { GL_RGB,  GL_UNSIGNED_SHORT_5_6_5,     GL_RGB,         2    },
+   { GL_LUMINANCE, GL_UNSIGNED_BYTE,       GL_LUMINANCE,   1    },
+   { GL_LUMINANCE_ALPHA, GL_UNSIGNED_BYTE, GL_LUMINANCE_ALPHA,   2    },
+   { GL_ALPHA, GL_UNSIGNED_BYTE,           GL_ALPHA,       1    },
 };
 static GLint Format;
 
@@ -84,6 +87,12 @@ FormatStr(GLenum format)
          return "GL_RGBA";
       case GL_BGRA:
          return "GL_BGRA";
+      case GL_LUMINANCE:
+         return "GL_LUMINANCE";
+      case GL_LUMINANCE_ALPHA:
+         return "GL_LUMINANCE_ALPHA";
+      case GL_ALPHA:
+         return "GL_ALPHA";
       default:
          return "";
    }
@@ -315,6 +324,11 @@ Key(unsigned char key, int x, int y)
       case 'f':
          /* change format */
          Format = (Format + 1) % NUM_FORMATS;
+         Mode = 0;
+         break;
+      case 'F':
+         /* change format */
+         Format = (Format - 1) % NUM_FORMATS;
          Mode = 0;
          break;
       case 'p':
