@@ -1377,5 +1377,11 @@
 
 /**************** (END) AUTOMATICLY GENERATED REGISTER FILE ******************/
 
+/* Copied from mga_drv.h kernel file.
+ */
+
+#define MGA_ILOAD_ALIGN		64
+#define MGA_ILOAD_MASK		(MGA_ILOAD_ALIGN - 1)
+
 #endif 	/* _MGAREGS_H_ */
 

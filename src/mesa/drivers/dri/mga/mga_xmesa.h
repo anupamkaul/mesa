@@ -42,6 +42,9 @@ typedef struct mga_screen_private_s {
 
    GLint agpMode;
    unsigned int irq;		/* IRQ number (0 means none) */
+   GLboolean  linecomp_sane;    /* GL_TRUE if line comp. programmed correctly
+				 * by the DDX driver.
+				 */
 
    unsigned int dmaOffset;
 

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mga_xmesa.c,v 1.19 2003/03/26 20:43:49 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mga_xmesa.c,v 1.18 2002/12/16 16:18:52 dawes Exp $ */
 /*
  * Copyright 2000-2001 VA Linux Systems, Inc.
  * All Rights Reserved.
@@ -26,15 +26,12 @@
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include <stdio.h>
-
 #include "mga_common.h"
 #include "mga_xmesa.h"
 #include "context.h"
 #include "matrix.h"
-#include "mmath.h"
 #include "simple_list.h"
-//#include "mem.h"
+#include "imports.h"
 
 #include "swrast/swrast.h"
 #include "swrast_setup/swrast_setup.h"
@@ -50,26 +47,21 @@
 #include "mgaioctl.h"
 #include "mgatris.h"
 #include "mgavb.h"
-#include "mgabuffers.h"
 #include "mgapixel.h"
-
 #include "mga_xmesa.h"
-
 #include "mga_dri.h"
 
 
+#include "utils.h"
+#include "vblank.h"
+
 #ifndef MGA_DEBUG
-int MGA_DEBUG = (0
-/*		 | DEBUG_ALWAYS_SYNC */
-/*		 | DEBUG_VERBOSE_MSG */
-/*		 | DEBUG_VERBOSE_LRU */
-/*		 | DEBUG_VERBOSE_DRI */
-/*		 | DEBUG_VERBOSE_IOCTL */
-/*		 | DEBUG_VERBOSE_2D */
-/*		 | DEBUG_VERBOSE_FALLBACK */
-   );
+int MGA_DEBUG = 0;
 #endif
 
+#if 0     /* dok */
+static int get_MSC( __DRIscreenPrivate * priv, int64_t * count );
+#endif
 
 static GLboolean
 mgaInitDriver(__DRIscreenPrivate *sPriv)
@@ -77,18 +69,8 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
    mgaScreenPrivate *mgaScreen;
    MGADRIPtr         serverInfo = (MGADRIPtr)sPriv->pDevPriv;
 
-   if (MGA_DEBUG&DEBUG_VERBOSE_DRI)
-      fprintf(stderr, "mgaInitDriver\n");
-
-   /* Check that the DRM driver version is compatible */
-   if (sPriv->drmMajor != 3 ||
-       sPriv->drmMinor < 2) {
-      fprintf(stderr, "%s: expected DRM driver version 3.2.x but got "
-                      "version %d.%d.%d\n", __FUNCTION__,
-                      sPriv->drmMajor, sPriv->drmMinor, sPriv->drmPatch);
+   if ( ! driCheckDriDdxDrmVersions( sPriv, "MGA", 4, 0, 1, 0, 3, 0 ) )
       return GL_FALSE;
-   }
-
 
    /* Allocate the private area */
    mgaScreen = (mgaScreenPrivate *)MALLOC(sizeof(mgaScreenPrivate));
@@ -105,21 +87,36 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
       drmMGAGetParam gp;
 
       gp.param = MGA_PARAM_IRQ_NR;
-      gp.value = (int *) &mgaScreen->irq;
+      gp.value = &mgaScreen->irq;
 
       ret = drmCommandWriteRead( sPriv->fd, DRM_MGA_GETPARAM,
 				    &gp, sizeof(gp));
       if (ret) {
 	    fprintf(stderr, "drmMgaGetParam (MGA_PARAM_IRQ_NR): %d\n", ret);
-	    XFree(mgaScreen);
+	    free(mgaScreen);
 	    sPriv->private = NULL;
 	    return GL_FALSE;
       }
    }
    
+   mgaScreen->linecomp_sane = (sPriv->ddxMajor > 1) || (sPriv->ddxMinor > 1)
+       || ((sPriv->ddxMinor == 1) && (sPriv->ddxPatch > 0));
+/*dok   if ( ! mgaScreen->linecomp_sane ) {
+      PFNGLXDISABLEEXTENSIONPROC glx_disable_extension;
+
+      glx_disable_extension = (PFNGLXDISABLEEXTENSIONPROC)
+	  glXGetProcAddress( "__glXDisableExtension" );
+
+      if ( glx_disable_extension != NULL ) {
+	 (*glx_disable_extension)( "GLX_SGI_swap_control" );
+	 (*glx_disable_extension)( "GLX_SGI_video_sync" );
+	 (*glx_disable_extension)( "GLX_MESA_swap_control" );
+      }
+   }*/
+
    if (serverInfo->chipset != MGA_CARD_TYPE_G200 &&
        serverInfo->chipset != MGA_CARD_TYPE_G400) {
-      XFree(mgaScreen);
+      free(mgaScreen);
       sPriv->private = NULL;
       __driUtilMessage("Unrecognized chipset");
       return GL_FALSE;
@@ -156,7 +153,7 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 	      mgaScreen->agp.size,
 	      (drmAddress *)&mgaScreen->agp.map) != 0)
    {
-      Xfree(mgaScreen);
+      free(mgaScreen);
       sPriv->private = NULL;
       __driUtilMessage("Couldn't map agp region");
       return GL_FALSE;
@@ -193,8 +190,6 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 					  serverInfo->agpTextureOffset);
 #endif
 
-   //mgaScreen->mAccess = serverInfo->mAccess;
-
    /* For calculating setupdma addresses.
     */
    mgaScreen->dmaOffset = serverInfo->buffers.handle;
@@ -202,7 +197,7 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
    mgaScreen->bufs = drmMapBufs(sPriv->fd);
    if (!mgaScreen->bufs) {
       /*drmUnmap(mgaScreen->agp_tex.map, mgaScreen->agp_tex.size);*/
-      XFree(mgaScreen);
+      free(mgaScreen);
       sPriv->private = NULL;
       __driUtilMessage("Couldn't map dma buffers");
       return GL_FALSE;
@@ -216,20 +211,11 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 static void
 mgaDestroyScreen(__DRIscreenPrivate *sPriv)
 {
-   mgaScreenPrivate *mgaScreen  = (mgaScreenPrivate *) sPriv->private;
-   MGADRIPtr         serverInfo = (MGADRIPtr)sPriv->pDevPriv;
+   mgaScreenPrivate *mgaScreen = (mgaScreenPrivate *) sPriv->private;
 
    if (MGA_DEBUG&DEBUG_VERBOSE_DRI)
       fprintf(stderr, "mgaDestroyScreen\n");
 
-   if ( mgaScreen->texVirtual[MGA_AGP_HEAP] ) {
-      drmUnmap( mgaScreen->texVirtual[MGA_AGP_HEAP],
-		serverInfo->agpTextureSize );
-   }
-   if (mgaScreen->bufs)
-      drmUnmapBufs( mgaScreen->bufs ); 
-   drmUnmap( mgaScreen->mmio.map, mgaScreen->mmio.size );
-   
    /*drmUnmap(mgaScreen->agp_tex.map, mgaScreen->agp_tex.size);*/
    free(mgaScreen);
    sPriv->private = NULL;
@@ -254,6 +240,53 @@ static const struct gl_pipeline_stage *mga_pipeline[] = {
    0,
 };
 
+
+static const char * const g400_extensions[] =
+{
+   "GL_ARB_multitexture",
+   "GL_ARB_texture_env_add",
+   "GL_EXT_texture_env_add",
+#if defined (MESA_packed_depth_stencil)
+   "GL_MESA_packed_depth_stencil",
+#endif
+   NULL
+};
+
+static const char * const card_extensions[] =
+{
+   "GL_ARB_multisample",
+   "GL_ARB_texture_compression",
+   "GL_EXT_fog_coord",
+   /* paletted_textures currently doesn't work, but we could fix them later */
+#if 0
+   "GL_EXT_shared_texture_palette",
+   "GL_EXT_paletted_texture",
+#endif
+   "GL_EXT_secondary_color",
+   "GL_EXT_stencil_wrap",
+   "GL_SGIS_generate_mipmap",
+   NULL
+};
+
+static const struct dri_debug_control debug_control[] =
+{
+    { "fall",  DEBUG_VERBOSE_FALLBACK },
+    { "tex",   DEBUG_VERBOSE_TEXTURE },
+    { "ioctl", DEBUG_VERBOSE_IOCTL },
+    { "verb",  DEBUG_VERBOSE_MSG },
+    { "dri",   DEBUG_VERBOSE_DRI },
+    { NULL,    0 }
+};
+
+
+#if 0     /* dok */
+static int
+get_ust_nop( int64_t * ust )
+{
+   *ust = 1;
+   return 0;
+}
+#endif
 
 static GLboolean
 mgaCreateContext( const __GLcontextModes *mesaVis,
@@ -282,7 +315,7 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
       shareCtx = ((mgaContextPtr) sharedContextPrivate)->glCtx;
    else 
       shareCtx = NULL;
-   mmesa->glCtx = _mesa_create_context(mesaVis, shareCtx, mmesa, GL_TRUE);
+   mmesa->glCtx = _mesa_create_context(mesaVis, shareCtx, (void *) mmesa, GL_TRUE);
    if (!mmesa->glCtx) {
       FREE(mmesa);
       return GL_FALSE;
@@ -299,13 +332,20 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
    mmesa->sarea = (void *)saPriv;
    mmesa->glBuffer = NULL;
 
-   make_empty_list(&mmesa->SwappedOut);
+   (void) memset( mmesa->texture_heaps, 0, sizeof( mmesa->texture_heaps ) );
+   make_empty_list( & mmesa->swapped );
 
-   mmesa->lastTexHeap = mgaScreen->texVirtual[MGA_AGP_HEAP] ? 2 : 1;
-
-   for (i = 0 ; i < mmesa->lastTexHeap ; i++) {
-      mmesa->texHeap[i] = mmInit( 0, mgaScreen->textureSize[i]);
-      make_empty_list(&mmesa->TexObjList[i]);
+   mmesa->nr_heaps = mgaScreen->texVirtual[MGA_AGP_HEAP] ? 2 : 1;
+   for ( i = 0 ; i < mmesa->nr_heaps ; i++ ) {
+      mmesa->texture_heaps[i] = driCreateTextureHeap( i, mmesa,
+	    mgaScreen->textureSize[i],
+	    6,
+	    MGA_NR_TEX_REGIONS,
+	    mmesa->sarea->texList[i],
+	    & mmesa->sarea->texAge[i],
+	    & mmesa->swapped,
+	    sizeof( mgaTextureObject_t ),
+	    (destroy_texture_object_t *) mgaDestroyTexObj );
    }
 
    /* Set the maximum texture size small enough that we can guarentee
@@ -313,22 +353,33 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
     * on the card at once.
     */
    ctx = mmesa->glCtx;
-   { 
-      unsigned int nr = 2;
-
-      if (mgaScreen->chipset == MGA_CARD_TYPE_G200)
-	 nr = 1;
-
-      if (mgaScreen->textureSize[0] < nr*1024*1024) {
-	 ctx->Const.MaxTextureLevels = 9;
-      } else if (mgaScreen->textureSize[0] < nr*4*1024*1024) {
-	 ctx->Const.MaxTextureLevels = 10;
-      } else {
-	 ctx->Const.MaxTextureLevels = 11;
-      }
-
-      ctx->Const.MaxTextureUnits = nr;
+   if ( mgaScreen->chipset == MGA_CARD_TYPE_G200 ) {
+      ctx->Const.MaxTextureUnits = 1;
+      driCalculateMaxTextureLevels( mmesa->texture_heaps,
+				    mmesa->nr_heaps,
+				    & ctx->Const,
+				    4,
+				    10, /* max 2D texture size is 1024x1024 */
+				    0,  /* 3D textures unsupported. */
+				    0,  /* cube textures unsupported. */
+				    0,  /* texture rectangles unsupported. */
+				    G200_TEX_MAXLEVELS,
+				    GL_FALSE );
    }
+   else {
+      ctx->Const.MaxTextureUnits = 2;
+      driCalculateMaxTextureLevels( mmesa->texture_heaps,
+				    mmesa->nr_heaps,
+				    & ctx->Const,
+				    4,
+				    11, /* max 2D texture size is 2048x2048 */
+				    0,  /* 3D textures unsupported. */
+				    0,  /* cube textures unsupported. */
+				    0,  /* texture rectangles unsupported. */
+				    G400_TEX_MAXLEVELS,
+				    GL_FALSE );
+   }
+
 
    ctx->Const.MinLineWidth = 1.0;
    ctx->Const.MinLineWidthAA = 1.0;
@@ -362,7 +413,6 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
 
    mmesa->haveHwStipple = GL_FALSE;
    mmesa->RenderIndex = -1;		/* impossible value */
-   mmesa->new_state = ~0;
    mmesa->dirty = ~0;
    mmesa->vertex_format = 0;   
    mmesa->CurrentTexObj[0] = 0;
@@ -376,16 +426,15 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
    /* Initialize the software rasterizer and helper modules.
     */
    _swrast_CreateContext( ctx );
-   
    _ac_CreateContext( ctx );
    _tnl_CreateContext( ctx );
+   
+   _swsetup_CreateContext( ctx );
 
    /* Install the customized pipeline:
     */
    _tnl_destroy_pipeline( ctx );
    _tnl_install_pipeline( ctx, mga_pipeline );
-   
-   _swsetup_CreateContext( ctx );
 
    /* Configure swrast to match hardware characteristics:
     */
@@ -397,7 +446,11 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
    ctx->DriverCtx = (void *) mmesa;
    mmesa->glCtx = ctx;
 
-   mgaDDExtensionsInit( ctx );
+   driInitExtensions( ctx, card_extensions, GL_FALSE );
+
+   if (MGA_IS_G400(MGA_CONTEXT(ctx))) {
+      driInitExtensions( ctx, g400_extensions, GL_FALSE );
+   }
 
    mgaDDInitStateFuncs( ctx );
    mgaDDInitTextureFuncs( ctx );
@@ -411,6 +464,22 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
 
    driContextPriv->driverPrivate = (void *) mmesa;
 
+#if DO_DEBUG
+   MGA_DEBUG = driParseDebugString( getenv( "MGA_DEBUG" ),
+				    debug_control );
+#endif
+
+#if 0     /* dok */
+   mmesa->vblank_flags = ((mmesa->mgaScreen->irq == 0) 
+			  && mmesa->mgaScreen->linecomp_sane)
+       ? VBLANK_FLAG_NO_IRQ : driGetDefaultVBlankFlags();
+
+   mmesa->get_ust = (PFNGLXGETUSTPROC) glXGetProcAddress( "__glXGetUST" );
+   if ( mmesa->get_ust == NULL ) {
+      mmesa->get_ust = get_ust_nop;
+   }
+#endif
+
    return GL_TRUE;
 }
 
@@ -420,10 +489,15 @@ mgaDestroyContext(__DRIcontextPrivate *driContextPriv)
    mgaContextPtr mmesa = (mgaContextPtr) driContextPriv->driverPrivate;
 
    if (MGA_DEBUG&DEBUG_VERBOSE_DRI)
-      fprintf(stderr, "mgaDestroyContext\n");
+      fprintf( stderr, "[%s:%d] mgaDestroyContext start\n",
+	       __FILE__, __LINE__ );
 
    assert(mmesa); /* should never be null */
    if (mmesa) {
+      GLboolean   release_texture_heaps;
+
+
+      release_texture_heaps = (mmesa->glCtx->Shared->RefCount == 1);
       _swsetup_DestroyContext( mmesa->glCtx );
       _tnl_DestroyContext( mmesa->glCtx );
       _ac_DestroyContext( mmesa->glCtx );
@@ -434,9 +508,27 @@ mgaDestroyContext(__DRIcontextPrivate *driContextPriv)
       /* free the Mesa context */
       mmesa->glCtx->DriverCtx = NULL;
       _mesa_destroy_context(mmesa->glCtx);
-      /* free the mga context */
+       
+      if ( release_texture_heaps ) {
+         /* This share group is about to go away, free our private
+          * texture object data.
+          */
+         int i;
+
+	 assert( is_empty_list( & mmesa->swapped ) );
+
+         for ( i = 0 ; i < mmesa->nr_heaps ; i++ ) {
+	    driDestroyTextureHeap( mmesa->texture_heaps[ i ] );
+	    mmesa->texture_heaps[ i ] = NULL;
+         }
+      }
+
       FREE(mmesa);
    }
+
+   if (MGA_DEBUG&DEBUG_VERBOSE_DRI)
+      fprintf( stderr, "[%s:%d] mgaDestroyContext done\n",
+	       __FILE__, __LINE__ );
 }
 
 
@@ -480,7 +572,7 @@ mgaUnbindContext(__DRIcontextPrivate *driContextPriv)
       mmesa->dirty = ~0;
 
    UNLOCK_HARDWARE( mmesa );
-
+   
    return GL_TRUE;
 }
 
@@ -508,8 +600,6 @@ mgaMakeCurrent(__DRIcontextPrivate *driContextPriv,
                __DRIdrawablePrivate *driDrawPriv,
                __DRIdrawablePrivate *driReadPriv)
 {
-/*   fprintf(stderr, "%s\n", __FUNCTION__);*/
-
    if (driContextPriv) {
       mgaContextPtr mmesa = (mgaContextPtr) driContextPriv->driverPrivate;
 
@@ -536,6 +626,7 @@ mgaMakeCurrent(__DRIcontextPrivate *driContextPriv,
    return GL_TRUE;
 }
 
+
 void mgaGetLock( mgaContextPtr mmesa, GLuint flags )
 {
    __DRIdrawablePrivate *dPriv = mmesa->driDrawable;
@@ -543,32 +634,12 @@ void mgaGetLock( mgaContextPtr mmesa, GLuint flags )
    int me = mmesa->hHWContext;
    int i;
 
-/*   fprintf(stderr, "%s\n", __FUNCTION__);*/
-
    drmGetLock(mmesa->driFd, mmesa->hHWContext, flags);
-   
-/*   fprintf(stderr, 
-	   "mmesa->lastStamp %d dpriv->lastStamp %d *(dpriv->pStamp) %d\n",
-	   mmesa->lastStamp, 
-	   dPriv->lastStamp,
-	   *(dPriv->pStamp));*/
-   
-   /* The window might have moved, so we might need to get new clip
-    * rects.
-    *
-    * NOTE: This releases and regrabs the hw lock to allow the X server
-    * to respond to the DRI protocol request for new drawable info.
-    * Since the hardware state depends on having the latest drawable
-    * clip rects, all state checking must be done _after_ this call.
-    */
-   DRI_VALIDATE_DRAWABLE_INFO( sPriv, dPriv );
 
-   if ( mmesa->lastStamp == 0 ||
-	mmesa->lastStamp != dPriv->lastStamp ) {
-      mmesa->lastStamp = dPriv->lastStamp;
+   if (*(dPriv->pStamp) != mmesa->lastStamp) {
+      mmesa->lastStamp = *(dPriv->pStamp);
       mmesa->SetupNewInputs |= VERT_BIT_CLIP;
       mmesa->dirty_cliprects = (MGA_FRONT|MGA_BACK);
-
       mgaUpdateRects( mmesa, (MGA_FRONT|MGA_BACK) );
    }
 
@@ -578,14 +649,13 @@ void mgaGetLock( mgaContextPtr mmesa, GLuint flags )
    mmesa->sarea->dirty |= MGA_UPLOAD_CONTEXT;
 
    if (sarea->ctxOwner != me) {
-      sarea->ctxOwner=me;
-      
       mmesa->dirty |= (MGA_UPLOAD_CONTEXT | MGA_UPLOAD_TEX0 |
 		       MGA_UPLOAD_TEX1 | MGA_UPLOAD_PIPE);
-      
-      for (i = 0 ; i < mmesa->lastTexHeap ; i++)
-         if (sarea->texAge[i] != mmesa->texAge[i])
-            mgaAgeTextures( mmesa, i );
+      sarea->ctxOwner=me;
+   }
+
+   for ( i = 0 ; i < mmesa->nr_heaps ; i++ ) {
+      DRI_AGE_TEXTURES( mmesa->texture_heaps[ i ] );
    }
 
    sarea->last_quiescent = -1;	/* just kill it for now */
@@ -604,7 +674,12 @@ static const struct __DriverAPIRec mgaAPI = {
    mgaMakeCurrent,
    mgaUnbindContext,
    mgaOpenFullScreen,
-   mgaCloseFullScreen
+   mgaCloseFullScreen,
+
+/*dok   .GetMSC = get_MSC,
+   .WaitForMSC = driWaitForMSC32,
+   .WaitForSBC = NULL,
+   .SwapBuffersMSC = NULL*/
 };
 
 
@@ -623,3 +698,43 @@ void *__driCreateScreen(struct DRIDriverRec *driver,
    return (void *) psp;
 }
 
+#if 0     /* dok */
+/* This function is called by libGL.so as soon as libGL.so is loaded.
+ * This is where we'd register new extension functions with the dispatcher.
+ */
+void
+__driRegisterExtensions( void )
+{
+   PFNGLXENABLEEXTENSIONPROC glx_enable_extension;
+
+
+   if ( driCompareGLXAPIVersion( 20030317 ) >= 0 ) {
+      glx_enable_extension = (PFNGLXENABLEEXTENSIONPROC)
+	  glXGetProcAddress( "__glXEnableExtension" );
+
+      if ( glx_enable_extension != NULL ) {
+	 (*glx_enable_extension)( "GLX_SGI_swap_control", GL_FALSE );
+	 (*glx_enable_extension)( "GLX_SGI_video_sync", GL_FALSE );
+	 (*glx_enable_extension)( "GLX_MESA_swap_control", GL_FALSE );
+      }
+   }
+}
+
+static int
+get_MSC( __DRIscreenPrivate * priv, int64_t * count )
+{
+   drmVBlank vbl;
+   int ret;
+
+
+   /* Don't wait for anything.  Just get the current frame count. */
+
+   vbl.request.type = DRM_VBLANK_ABSOLUTE;
+   vbl.request.sequence = 0;
+
+   ret = drmWaitVBlank( priv->fd, &vbl );
+   *count = vbl.reply.sequence;
+
+   return ret;
+}
+#endif

@@ -39,15 +39,15 @@
 #define LOCAL_VARS					\
    __DRIdrawablePrivate *dPriv = mmesa->driDrawable;	\
    __DRIscreenPrivate *sPriv = mmesa->driScreen;	\
-   GLuint pitch = dPriv->frontPitch;		        \
+   GLuint pitch = dPriv->frontPitch;			\
    GLuint height = dPriv->h;				\
    char *read_buf = (char *)(sPriv->pFB +		\
 			mmesa->readOffset +		\
-			dPriv->x * dPriv->cpp +	        \
+			dPriv->x * dPriv->cpp +		\
 			dPriv->y * pitch);		\
    char *buf = (char *)(sPriv->pFB +			\
 			mmesa->drawOffset +		\
-			dPriv->x * dPriv->cpp +	        \
+			dPriv->x * dPriv->cpp +		\
 			dPriv->y * pitch);		\
    GLuint p;						\
    (void) read_buf; (void) buf; (void) p
@@ -114,7 +114,7 @@
 
 #undef INIT_MONO_PIXEL
 #define INIT_MONO_PIXEL(p, color) \
-  p = MGAPACKCOLOR565( color[0], color[1], color[2] )
+  p = PACK_COLOR_565( color[0], color[1], color[2] )
 
 
 #define WRITE_RGBA( _x, _y, r, g, b, a )				\
@@ -146,7 +146,7 @@ do {								\
 
 #undef INIT_MONO_PIXEL
 #define INIT_MONO_PIXEL(p, color) \
-  p = MGAPACKCOLOR8888( color[0], color[1], color[2], color[3] )
+  p = PACK_COLOR_8888( color[3], color[0], color[1], color[2] )
 
 
 #define WRITE_RGBA(_x, _y, r, g, b, a)			\
@@ -231,10 +231,37 @@ do {								\
 
 
 
+/*
+ * This function is called to specify which buffer to read and write
+ * for software rasterization (swrast) fallbacks.  This doesn't necessarily
+ * correspond to glDrawBuffer() or glReadBuffer() calls.
+ */
+static void mgaDDSetBuffer(GLcontext *ctx, GLframebuffer *buffer,
+                           GLuint bufferBit)
+{
+   mgaContextPtr mmesa = MGA_CONTEXT(ctx);
+
+   if (bufferBit == FRONT_LEFT_BIT) 
+   {
+      mmesa->drawOffset = mmesa->driDrawable->frontOffset;
+      mmesa->readOffset = mmesa->driDrawable->frontOffset;
+   } 
+   else if (bufferBit == BACK_LEFT_BIT)
+   {
+      mmesa->drawOffset = mmesa->driDrawable->backOffset;
+      mmesa->readOffset = mmesa->driDrawable->backOffset;
+   }
+   else {
+      assert(0);
+   }
+}
+
 void mgaDDInitSpanFuncs( GLcontext *ctx )
 {
    mgaContextPtr mmesa = MGA_CONTEXT(ctx);
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
+
+   swdd->SetBuffer = mgaDDSetBuffer;
 
    switch (mmesa->driDrawable->cpp) {
    case 2:

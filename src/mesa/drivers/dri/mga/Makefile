@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.1.2.2 2003/04/26 21:17:43 keithw Exp $
+# $Id: Makefile,v 1.1.2.2.4.1 2003/05/13 16:39:38 dok666 Exp $
 
 # Mesa 3-D graphics library
 # Version:  5.0
@@ -54,29 +54,26 @@ SUBSET_MESA = 	$(MESABUILDDIR)/mesa.a \
 
 MINIGLX_SOURCES = server/mga_dri.c 
 
-DRIVER_SOURCES = mgabuffers.c \
-		 mgadd.c \
-		 mgaioctl.c \
-		 mgarender.c \
-		 mgastate.c \
-		 mgatris.c \
-		 ../common/mm.c 
+DRIVER_SOURCES = \
+		mgadd.c			\
+		mgapixel.c		\
+		mgaspan.c		\
+		mgatex.c		\
+		mga_texstate.c		\
+		mgavb.c			\
+		mgaioctl.c		\
+		mgarender.c		\
+		mgastate.c		\
+		mgatexmem.c		\
+		mgatris.c		\
+		mga_xmesa.c		\
+		../common/mm.c		\
+		../common/texmem.c	\
+		../common/utils.c
 
-SUBSET_DRIVER_SOURCES = \
-		radeon_subset_bitmap.c \
-		radeon_subset_readpix.c \
-		radeon_subset_select.c \
-		radeon_subset_tex.c \
-		radeon_subset_vtx.c 
+SUBSET_DRIVER_SOURCES =
 
-FULL_DRIVER_SOURCES = 	\
-		 mgapixel.c \
-		 mgaspan.c \
-		 mgatex.c \
-		 mgatexcnv.c \
-		 mgatexmem.c \
-		 mgavb.c \
-		 mga_xmesa.c
+FULL_DRIVER_SOURCES =
 
 
 INCLUDES = $(MINIGLX_INCLUDES) \
