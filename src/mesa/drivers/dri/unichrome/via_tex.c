@@ -382,7 +382,6 @@ static GLboolean viaUpdateTexUnit(GLcontext *ctx, GLuint unit)
       /* Upload teximages (not pipelined)
        */
       if (t->dirtyImages) {
-	 VIA_FLUSH_DMA(vmesa);
 	 if (!viaSetTexImages(vmesa, tObj)) {
 	    if (VIA_DEBUG & DEBUG_TEXTURE)
 	       fprintf(stderr, "viaSetTexImages failed for unit %d\n", unit);
@@ -569,7 +568,7 @@ static void viaTexImage(GLcontext *ctx,
    }
 
    vmesa->clearTexCache = 1;
-
+   t->dirtyImages |= (1<<level);
 
    pixels = _mesa_validate_pbo_teximage(ctx, dims, width, height, 1, format, type,
 					pixels, packing, "glTexImage");
@@ -637,15 +636,14 @@ static void viaTexSubImage2D(GLcontext *ctx,
                              struct gl_texture_object *texObj,
                              struct gl_texture_image *texImage)
 {
-    struct via_texture_object *t = texObj->DriverData;
-    
-    if (t) {
-	t->dirtyImages |= (1<<level);
-    }
+   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+  
+   VIA_FLUSH_DMA(vmesa);
+   vmesa->clearTexCache = 1;
 
-    _mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
-                              height, format, type, pixels, packing, texObj,
-                              texImage);
+   _mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
+			     height, format, type, pixels, packing, texObj,
+			     texImage);
 }
 
 static void viaTexImage1D(GLcontext *ctx, 
@@ -674,15 +672,14 @@ static void viaTexSubImage1D(GLcontext *ctx,
                              struct gl_texture_object *texObj,
                              struct gl_texture_image *texImage)
 {
-    struct via_texture_object *t = texObj->DriverData;
-    
-    if (t) {
-	t->dirtyImages |= (1<<level);
-    }
+   viaContextPtr vmesa = VIA_CONTEXT(ctx);
 
-    _mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
-                              format, type, pixels, packing, texObj,
-                              texImage);
+   VIA_FLUSH_DMA(vmesa);
+   vmesa->clearTexCache = 1;
+
+   _mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
+			     format, type, pixels, packing, texObj,
+			     texImage);
 }
 
 
