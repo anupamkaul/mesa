@@ -223,7 +223,7 @@ glutWireTorus(GLdouble innerRadius, GLdouble outerRadius,
   GLint nsides, GLint rings)
 {
 /*   glPushAttrib(GL_POLYGON_BIT); */
-  glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+/*   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE); */
   doughnut(innerRadius, outerRadius, nsides, rings);
 /*   glPopAttrib(); */
 }

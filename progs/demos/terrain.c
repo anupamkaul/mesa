@@ -545,16 +545,6 @@ key(unsigned char k, int x, int y)
    case 'z':
       v -= 0.5;
       break;
-   case 'p':
-      if (poutline) {
-	 glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	 poutline = 0;
-      }
-      else {
-	 glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	 poutline = 1;
-      }
-      break;
    case 'j':
       joyactive = (!joyactive);
       break;

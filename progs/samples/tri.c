@@ -140,15 +140,6 @@ static void Key(unsigned char key, int x, int y)
 	    zoom = 10;
 	}
 	break;
-      case '1':
-	glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
-	break;
-      case '2':
-	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	break;
-      case '3':
-	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-	break;
       case '4':
 	state = POINT;
 	break;
