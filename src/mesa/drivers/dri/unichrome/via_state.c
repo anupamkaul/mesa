@@ -80,7 +80,7 @@ static GLuint viaComputeLodBias(GLfloat bias)
    return (GLuint) b;
 }
 
-void viaEmitState(viaContextPtr vmesa)
+void viaEmitState(struct via_context *vmesa)
 {
    GLcontext *ctx = vmesa->glCtx;
    GLuint i = 0;
@@ -314,21 +314,21 @@ void viaEmitState(viaContextPtr vmesa)
 	 }
 
 	 BEGIN_RING(15);
-	 OUT_RING( (HC_SubA_HTXnTB << 24) | vmesa->regHTXnTB_0 );
-	 OUT_RING( (HC_SubA_HTXnMPMD << 24) | vmesa->regHTXnMPMD_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLCsat << 24) | vmesa->regHTXnTBLCsat_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLCop << 24) | vmesa->regHTXnTBLCop_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLMPfog << 24) | vmesa->regHTXnTBLMPfog_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLAsat << 24) | vmesa->regHTXnTBLAsat_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLRCb << 24) | vmesa->regHTXnTBLRCb_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLRAa << 24) | vmesa->regHTXnTBLRAa_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLRFog << 24) | vmesa->regHTXnTBLRFog_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLRCa << 24) | vmesa->regHTXnTBLRCa_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLRCc << 24) | vmesa->regHTXnTBLRCc_0 );
-	 OUT_RING( (HC_SubA_HTXnTBLRCbias << 24) | vmesa->regHTXnTBLRCbias_0 );
-	 OUT_RING( (HC_SubA_HTXnTBC << 24) | vmesa->regHTXnTBC_0 );
-	 OUT_RING( (HC_SubA_HTXnTRAH << 24) | vmesa->regHTXnTRAH_0 );
-	 OUT_RING( (HC_SubA_HTXnCLODu << 24) | vmesa->regHTXnCLOD_0 );
+	 OUT_RING( (HC_SubA_HTXnTB << 24) | vmesa->regHTXnTB[0] );
+	 OUT_RING( (HC_SubA_HTXnMPMD << 24) | vmesa->regHTXnMPMD[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLCsat << 24) | vmesa->regHTXnTBLCsat[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLCop << 24) | vmesa->regHTXnTBLCop[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLMPfog << 24) | vmesa->regHTXnTBLMPfog[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLAsat << 24) | vmesa->regHTXnTBLAsat[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLRCb << 24) | vmesa->regHTXnTBLRCb[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLRAa << 24) | vmesa->regHTXnTBLRAa[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLRFog << 24) | vmesa->regHTXnTBLRFog[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLRCa << 24) | vmesa->regHTXnTBLRCa[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLRCc << 24) | vmesa->regHTXnTBLRCc[0] );
+	 OUT_RING( (HC_SubA_HTXnTBLRCbias << 24) | vmesa->regHTXnTBLRCbias[0] );
+	 OUT_RING( (HC_SubA_HTXnTBC << 24) | vmesa->regHTXnTBC[0] );
+	 OUT_RING( (HC_SubA_HTXnTRAH << 24) | vmesa->regHTXnTRAH[0] );
+	 OUT_RING( (HC_SubA_HTXnCLODu << 24) | vmesa->regHTXnCLOD[0] );
 	 ADVANCE_RING();
 
 	 /* KW:  This test never succeeds:
@@ -439,21 +439,21 @@ void viaEmitState(viaContextPtr vmesa)
 	 }
 
 	 BEGIN_RING(15);
-	 OUT_RING( (HC_SubA_HTXnTB << 24) | vmesa->regHTXnTB_1 );
-	 OUT_RING( (HC_SubA_HTXnMPMD << 24) | vmesa->regHTXnMPMD_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLCsat << 24) | vmesa->regHTXnTBLCsat_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLCop << 24) | vmesa->regHTXnTBLCop_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLMPfog << 24) | vmesa->regHTXnTBLMPfog_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLAsat << 24) | vmesa->regHTXnTBLAsat_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLRCb << 24) | vmesa->regHTXnTBLRCb_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLRAa << 24) | vmesa->regHTXnTBLRAa_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLRFog << 24) | vmesa->regHTXnTBLRFog_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLRCa << 24) | vmesa->regHTXnTBLRCa_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLRCc << 24) | vmesa->regHTXnTBLRCc_1 );
-	 OUT_RING( (HC_SubA_HTXnTBLRCbias << 24) | vmesa->regHTXnTBLRCbias_1 );
-	 OUT_RING( (HC_SubA_HTXnTBC << 24) | vmesa->regHTXnTBC_1 );
-	 OUT_RING( (HC_SubA_HTXnTRAH << 24) | vmesa->regHTXnTRAH_1 );
-	 OUT_RING( (HC_SubA_HTXnCLODu << 24) | vmesa->regHTXnCLOD_1 );
+	 OUT_RING( (HC_SubA_HTXnTB << 24) | vmesa->regHTXnTB[1] );
+	 OUT_RING( (HC_SubA_HTXnMPMD << 24) | vmesa->regHTXnMPMD[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLCsat << 24) | vmesa->regHTXnTBLCsat[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLCop << 24) | vmesa->regHTXnTBLCop[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLMPfog << 24) | vmesa->regHTXnTBLMPfog[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLAsat << 24) | vmesa->regHTXnTBLAsat[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLRCb << 24) | vmesa->regHTXnTBLRCb[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLRAa << 24) | vmesa->regHTXnTBLRAa[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLRFog << 24) | vmesa->regHTXnTBLRFog[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLRCa << 24) | vmesa->regHTXnTBLRCa[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLRCc << 24) | vmesa->regHTXnTBLRCc[1] );
+	 OUT_RING( (HC_SubA_HTXnTBLRCbias << 24) | vmesa->regHTXnTBLRCbias[1] );
+	 OUT_RING( (HC_SubA_HTXnTBC << 24) | vmesa->regHTXnTBC[1] );
+	 OUT_RING( (HC_SubA_HTXnTRAH << 24) | vmesa->regHTXnTRAH[1] );
+	 OUT_RING( (HC_SubA_HTXnCLODu << 24) | vmesa->regHTXnCLOD[1] );
 	 ADVANCE_RING();
 
 	 /* KW:  This test never succeeds:
@@ -560,7 +560,7 @@ static void viaBlendEquationSeparate(GLcontext *ctx, GLenum rgbMode, GLenum aMod
 
 static void viaBlendFunc(GLcontext *ctx, GLenum sfactor, GLenum dfactor)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     GLboolean fallback = GL_FALSE;
     if (VIA_DEBUG & DEBUG_STATE) 
        fprintf(stderr, "%s in\n", __FUNCTION__);
@@ -613,7 +613,7 @@ static void viaBlendFuncSeparate(GLcontext *ctx, GLenum sfactorRGB,
 static void viaScissor(GLcontext *ctx, GLint x, GLint y,
                        GLsizei w, GLsizei h)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     if (!vmesa->driDrawable)
        return;
@@ -633,7 +633,7 @@ static void viaScissor(GLcontext *ctx, GLint x, GLint y,
 
 static void viaEnable(GLcontext *ctx, GLenum cap, GLboolean state)
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
 
    switch (cap) {
    case GL_SCISSOR_TEST:
@@ -657,7 +657,7 @@ static void viaRenderMode(GLcontext *ctx, GLenum mode)
 
 static void viaDrawBuffer(GLcontext *ctx, GLenum mode)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     if (VIA_DEBUG & (DEBUG_DRI|DEBUG_STATE)) 
        fprintf(stderr, "%s in\n", __FUNCTION__);
@@ -689,7 +689,7 @@ static void viaDrawBuffer(GLcontext *ctx, GLenum mode)
 
 static void viaClearColor(GLcontext *ctx, const GLfloat color[4])
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     GLubyte pcolor[4];
     CLAMPED_FLOAT_TO_UBYTE(pcolor[0], color[0]);
     CLAMPED_FLOAT_TO_UBYTE(pcolor[1], color[1]);
@@ -709,7 +709,7 @@ static void viaColorMask(GLcontext *ctx,
 			 GLboolean r, GLboolean g,
 			 GLboolean b, GLboolean a)
 {
-   viaContextPtr vmesa = VIA_CONTEXT( ctx );
+   struct via_context *vmesa = VIA_CONTEXT( ctx );
 
    if (VIA_DEBUG & DEBUG_STATE)
       fprintf(stderr, "%s r(%d) g(%d) b(%d) a(%d)\n", __FUNCTION__, r, g, b, a);
@@ -731,7 +731,7 @@ static void viaColorMask(GLcontext *ctx,
  */
 void viaCalcViewport(GLcontext *ctx)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     const GLfloat *v = ctx->Viewport._WindowMap.m;
     GLfloat *m = vmesa->ViewportMatrix.m;
     
@@ -762,7 +762,7 @@ static void viaDepthRange(GLcontext *ctx,
 
 void viaInitState(GLcontext *ctx)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     vmesa->regCmdB = HC_ACMD_HCmdB;
     vmesa->regEnable = HC_HenCW_MASK;
@@ -881,7 +881,7 @@ get_minmag_filter( GLenum min, GLenum mag )
 
 static GLboolean viaChooseTextureState(GLcontext *ctx) 
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     struct gl_texture_unit *texUnit0 = &ctx->Texture.Unit[0];
     struct gl_texture_unit *texUnit1 = &ctx->Texture.Unit[1];
 
@@ -891,27 +891,27 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
         if (texUnit0->_ReallyEnabled) {
             struct gl_texture_object *texObj = texUnit0->_Current;
    
-	    vmesa->regHTXnTB_0 = get_minmag_filter( texObj->MinFilter,
+	    vmesa->regHTXnTB[0] = get_minmag_filter( texObj->MinFilter,
 						    texObj->MagFilter );
 
-	    vmesa->regHTXnMPMD_0 &= ~(HC_HTXnMPMD_SMASK | HC_HTXnMPMD_TMASK);
-	    vmesa->regHTXnMPMD_0 |= get_wrap_mode( texObj->WrapS,
+	    vmesa->regHTXnMPMD[0] &= ~(HC_HTXnMPMD_SMASK | HC_HTXnMPMD_TMASK);
+	    vmesa->regHTXnMPMD[0] |= get_wrap_mode( texObj->WrapS,
 						   texObj->WrapT );
 
-	    vmesa->regHTXnTB_0 &= ~(HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
+	    vmesa->regHTXnTB[0] &= ~(HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
             if (texObj->Image[0][texObj->BaseLevel]->Border > 0) {
-	       vmesa->regHTXnTB_0 |= (HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
-	       vmesa->regHTXnTBC_0 = PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
+	       vmesa->regHTXnTB[0] |= (HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
+	       vmesa->regHTXnTBC[0] = PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
 						    FLOAT_TO_UBYTE(texObj->BorderColor[1]),
 						    FLOAT_TO_UBYTE(texObj->BorderColor[2]));
-	       vmesa->regHTXnTRAH_0 = FLOAT_TO_UBYTE(texObj->BorderColor[3]);
+	       vmesa->regHTXnTRAH[0] = FLOAT_TO_UBYTE(texObj->BorderColor[3]);
             }
 
 	    if (texUnit0->LodBias != 0.0f) {
 	       GLuint b = viaComputeLodBias(texUnit0->LodBias);
-	       vmesa->regHTXnTB_0 &= ~HC_HTXnFLDs_MASK;
-	       vmesa->regHTXnTB_0 |= HC_HTXnFLDs_ConstLOD;
-	       vmesa->regHTXnCLOD_0 = b | ((~b&0x1f)<<10); /* FIXME */
+	       vmesa->regHTXnTB[0] &= ~HC_HTXnFLDs_MASK;
+	       vmesa->regHTXnTB[0] |= HC_HTXnFLDs_ConstLOD;
+	       vmesa->regHTXnCLOD[0] = b | ((~b&0x1f)<<10); /* FIXME */
 	    }
 
 	    if (!viaTexCombineState( vmesa, texUnit0->_CurrentCombine, 0 )) {
@@ -924,27 +924,27 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
         if (texUnit1->_ReallyEnabled) {
             struct gl_texture_object *texObj = texUnit1->_Current;
 
-	    vmesa->regHTXnTB_1 = get_minmag_filter( texObj->MinFilter,
+	    vmesa->regHTXnTB[1] = get_minmag_filter( texObj->MinFilter,
 						    texObj->MagFilter );
-	    vmesa->regHTXnMPMD_1 &= ~(HC_HTXnMPMD_SMASK | HC_HTXnMPMD_TMASK);
-	    vmesa->regHTXnMPMD_1 |= get_wrap_mode( texObj->WrapS,
+	    vmesa->regHTXnMPMD[1] &= ~(HC_HTXnMPMD_SMASK | HC_HTXnMPMD_TMASK);
+	    vmesa->regHTXnMPMD[1] |= get_wrap_mode( texObj->WrapS,
 						   texObj->WrapT );
 
-	    vmesa->regHTXnTB_1 &= ~(HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
+	    vmesa->regHTXnTB[1] &= ~(HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
             if (texObj->Image[0][texObj->BaseLevel]->Border > 0) {
-	       vmesa->regHTXnTB_1 |= (HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
-	       vmesa->regHTXnTBC_1 = PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
+	       vmesa->regHTXnTB[1] |= (HC_HTXnTB_TBC_S | HC_HTXnTB_TBC_T);
+	       vmesa->regHTXnTBC[1] = PACK_COLOR_888(FLOAT_TO_UBYTE(texObj->BorderColor[0]),
 						    FLOAT_TO_UBYTE(texObj->BorderColor[1]),
 						    FLOAT_TO_UBYTE(texObj->BorderColor[2]));
-	       vmesa->regHTXnTRAH_1 = FLOAT_TO_UBYTE(texObj->BorderColor[3]);
+	       vmesa->regHTXnTRAH[1] = FLOAT_TO_UBYTE(texObj->BorderColor[3]);
             }
 
 
 	    if (texUnit1->LodBias != 0.0f) {
 	       GLuint b = viaComputeLodBias(texUnit1->LodBias);
-	       vmesa->regHTXnTB_1 &= ~HC_HTXnFLDs_MASK;
-	       vmesa->regHTXnTB_1 |= HC_HTXnFLDs_ConstLOD;
-	       vmesa->regHTXnCLOD_1 = b | ((~b&0x1f)<<10); /* FIXME */
+	       vmesa->regHTXnTB[1] &= ~HC_HTXnFLDs_MASK;
+	       vmesa->regHTXnTB[1] |= HC_HTXnFLDs_ConstLOD;
+	       vmesa->regHTXnCLOD[1] = b | ((~b&0x1f)<<10); /* FIXME */
 	    }
 
 	    if (!viaTexCombineState( vmesa, texUnit1->_CurrentCombine, 1 )) {
@@ -963,7 +963,7 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
 
 static void viaChooseColorState(GLcontext *ctx) 
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     GLenum s = ctx->Color.BlendSrcRGB;
     GLenum d = ctx->Color.BlendDstRGB;
 
@@ -1256,7 +1256,7 @@ static void viaChooseColorState(GLcontext *ctx)
 
 static void viaChooseFogState(GLcontext *ctx) 
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     if (ctx->Fog.Enabled) {
         GLubyte r, g, b, a;
@@ -1281,7 +1281,7 @@ static void viaChooseFogState(GLcontext *ctx)
 
 static void viaChooseDepthState(GLcontext *ctx) 
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     if (ctx->Depth.Test) {
         vmesa->regEnable |= HC_HenZT_MASK;
         if (ctx->Depth.Mask)
@@ -1305,7 +1305,7 @@ static void viaChooseDepthState(GLcontext *ctx)
 
 static void viaChooseLineState(GLcontext *ctx) 
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     if (ctx->Line.StippleFlag) {
         vmesa->regEnable |= HC_HenLP_MASK;
@@ -1319,7 +1319,7 @@ static void viaChooseLineState(GLcontext *ctx)
 
 static void viaChoosePolygonState(GLcontext *ctx) 
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     if (ctx->Polygon.StippleFlag) {
         vmesa->regEnable |= HC_HenSP_MASK;
@@ -1338,7 +1338,7 @@ static void viaChoosePolygonState(GLcontext *ctx)
 
 static void viaChooseStencilState(GLcontext *ctx) 
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     
     if (ctx->Stencil.Enabled) {
         GLuint temp;
@@ -1424,7 +1424,7 @@ static void viaChooseStencilState(GLcontext *ctx)
 
 static void viaChooseTriangle(GLcontext *ctx) 
 {       
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     if (ctx->Polygon.CullFlag == GL_TRUE) {
         switch (ctx->Polygon.CullFaceMode) {
@@ -1448,7 +1448,7 @@ static void viaChooseTriangle(GLcontext *ctx)
 
 void viaValidateState( GLcontext *ctx )
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     if (vmesa->newState & _NEW_TEXTURE) {
        GLboolean ok = (viaChooseTextureState(ctx) &&
@@ -1495,7 +1495,7 @@ void viaValidateState( GLcontext *ctx )
 
 static void viaInvalidateState(GLcontext *ctx, GLuint newState)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     VIA_FINISH_PRIM( vmesa );
     vmesa->newState |= newState;

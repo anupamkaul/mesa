@@ -74,7 +74,7 @@
 #define VIA_BLIT_FILL 0xF0
 #define VIA_BLIT_SET 0xFF
 
-static void dump_dma( viaContextPtr vmesa )
+static void dump_dma( struct via_context *vmesa )
 {
    GLuint i;
    GLuint *data = (GLuint *)vmesa->dma;
@@ -90,7 +90,7 @@ static void dump_dma( viaContextPtr vmesa )
 
 
 
-void viaCheckDma(viaContextPtr vmesa, GLuint bytes)
+void viaCheckDma(struct via_context *vmesa, GLuint bytes)
 {
     VIA_FINISH_PRIM( vmesa );
     if (vmesa->dmaLow + bytes > VIA_DMA_HIGHWATER) {
@@ -106,7 +106,7 @@ void viaCheckDma(viaContextPtr vmesa, GLuint bytes)
 } while (0)
 
 
-static void viaBlit(viaContextPtr vmesa, GLuint bpp,
+static void viaBlit(struct via_context *vmesa, GLuint bpp,
 		    GLuint srcBase, GLuint srcPitch, 
 		    GLuint dstBase, GLuint dstPitch,
 		    GLuint w, GLuint h, 
@@ -167,7 +167,7 @@ static void viaBlit(viaContextPtr vmesa, GLuint bpp,
     ADVANCE_RING();
 }
 
-static void viaFillBuffer(viaContextPtr vmesa,
+static void viaFillBuffer(struct via_context *vmesa,
 			  struct via_buffer *buffer,
 			  drm_clip_rect_t *pbox,
 			  int nboxes,
@@ -201,7 +201,7 @@ static void viaFillBuffer(viaContextPtr vmesa,
 static void viaClear(GLcontext *ctx, GLbitfield mask, GLboolean all,
                      GLint cx, GLint cy, GLint cw, GLint ch)
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    __DRIdrawablePrivate *dPriv = vmesa->driDrawable;
    int flag = 0;
    GLuint i = 0;
@@ -326,7 +326,7 @@ static void viaClear(GLcontext *ctx, GLbitfield mask, GLboolean all,
 
 
 
-static void viaDoSwapBuffers(viaContextPtr vmesa,
+static void viaDoSwapBuffers(struct via_context *vmesa,
 			     drm_clip_rect_t *b,
 			     GLuint nbox)
 {    
@@ -354,12 +354,17 @@ static void viaDoSwapBuffers(viaContextPtr vmesa,
 }
 
 
-static void viaEmitBreadcrumb( viaContextPtr vmesa, GLuint value )
+static void viaEmitBreadcrumb( struct via_context *vmesa, GLuint value )
 {
    struct via_buffer *buffer = &vmesa->breadcrumb;
 
    if (VIA_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "emit %x offset %x pitch %x\n", value, buffer->offset, buffer->pitch);
+
+   /* BUG: with this flush uncommented, the emit-breadcrumb blit
+    * has no effect:
+    */
+/*       VIA_FLUSH_DMA(vmesa); */
 
    viaBlit(vmesa,
 	   buffer->bpp, 
@@ -367,17 +372,25 @@ static void viaEmitBreadcrumb( viaContextPtr vmesa, GLuint value )
 	   buffer->offset, buffer->pitch, 
 	   1, 1,
 	   VIA_BLIT_FILL, value, 0); 
+
+   VIA_FLUSH_DMA(vmesa); 
 }
 
 
-static GLboolean viaReceivedBreadcrumb( viaContextPtr vmesa, GLuint value )
+static GLboolean viaReceivedBreadcrumb( struct via_context *vmesa )
 {
    GLuint *buf = (GLuint *)vmesa->breadcrumb.map; 
+   GLuint value;
+
+   if (vmesa->vblank_flags == VBLANK_FLAG_SYNC || vmesa->swap_count == 0) 
+      value = vmesa->swap_count;
+   else
+      value = vmesa->swap_count - 1;
 
    if (VIA_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "want %x got %x, addr %p\n", value, *buf, buf);
 
-   if (value == *buf) 
+   if (value <= *buf) 
       return GL_TRUE;
 
    if ((((GLuint)*vmesa->regEngineStatus) & 0xFFFEFFFF) == 0x00020000) {
@@ -389,41 +402,53 @@ static GLboolean viaReceivedBreadcrumb( viaContextPtr vmesa, GLuint value )
    return GL_FALSE;
 }
 
+static GLboolean viaCheckIdle( struct via_context *vmesa )
+{
+   return (vmesa->regEngineStatus[0] & 0xFFFEFFFF) == 0x00020000;
+}
+
+
+void viaWaitIdle( struct via_context *vmesa )
+{
+   while (!viaCheckIdle( vmesa )) {
+      if (vmesa->work) {
+	 vmesa->work->do_work( vmesa );
+      }
+   }
+}
+
+
 /* Wait for command stream to be processed *and* the next vblank to
  * occur.  Equivalent to calling WAIT_IDLE() and then WaitVBlank,
  * except that WAIT_IDLE() will spin the CPU polling, while this is
  * IRQ driven.
  */
-static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv, viaContextPtr vmesa )
+static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv, struct via_context *vmesa )
 {
    GLboolean missed_target;
 
+   viaEmitBreadcrumb(vmesa, vmesa->swap_count);
 
-   do {
-      /* BUG: with this flush uncommented, the emit-breadcrumb blit
-       * has no effect:
-       */
-/*       VIA_FLUSH_DMA(vmesa); */
-
-      if (vmesa->vblank_flags == VBLANK_FLAG_SYNC) 
-	 viaEmitBreadcrumb(vmesa, vmesa->swap_count);
-   
-      VIA_FLUSH_DMA(vmesa);
-
-      driWaitForVBlank( dPriv, & vmesa->vbl_seq, vmesa->vblank_flags, & missed_target );
-      if ( missed_target ) {
-	 vmesa->swap_missed_count++;
-	 vmesa->get_ust( &vmesa->swap_missed_ust );
+   while (!viaReceivedBreadcrumb(vmesa)) {	 
+      if (vmesa->work) {
+	 vmesa->work->do_work( vmesa );
       }
-   } while (vmesa->vblank_flags == VBLANK_FLAG_SYNC &&
-	    !viaReceivedBreadcrumb(vmesa, vmesa->swap_count));
+      else if (vmesa->vblank_flags == VBLANK_FLAG_SYNC) {
+	 driWaitForVBlank( dPriv, & vmesa->vbl_seq, vmesa->vblank_flags, & missed_target );
+	 if ( missed_target ) {
+	    vmesa->swap_missed_count++;
+	    vmesa->get_ust( &vmesa->swap_missed_ust );
+	 }
+      } 
+   }
 
+   vmesa->thrashing = 0;	/* reset flag on swap */
    vmesa->swap_count++;
 }
 
 
 
-static void viaDoPageFlipLocked(viaContextPtr vmesa, GLuint offset)
+static void viaDoPageFlipLocked(struct via_context *vmesa, GLuint offset)
 {
    RING_VARS;
 
@@ -452,7 +477,7 @@ static void viaDoPageFlipLocked(viaContextPtr vmesa, GLuint offset)
    vmesa->pfCurrentOffset = vmesa->sarea->pfCurrentOffset = offset;
 }
 
-void viaResetPageFlippingLocked(viaContextPtr vmesa)
+void viaResetPageFlippingLocked(struct via_context *vmesa)
 {
    if (VIA_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "%s\n", __FUNCTION__);
@@ -476,7 +501,7 @@ void viaResetPageFlippingLocked(viaContextPtr vmesa)
  */
 void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
 {
-   viaContextPtr vmesa = (viaContextPtr)dPriv->driContextPriv->driverPrivate;
+   struct via_context *vmesa = (struct via_context *)dPriv->driContextPriv->driverPrivate;
 
    viaWaitIdleVBlank(dPriv, vmesa);
 
@@ -501,7 +526,7 @@ void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
 
 void viaPageFlip(const __DRIdrawablePrivate *dPriv)
 {
-    viaContextPtr vmesa = (viaContextPtr)dPriv->driContextPriv->driverPrivate;
+    struct via_context *vmesa = (struct via_context *)dPriv->driContextPriv->driverPrivate;
     struct via_buffer buffer_tmp;
 
     VIA_FLUSH_DMA(vmesa);
@@ -526,7 +551,7 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
 
 #define VIA_CMDBUF_MAX_LAG 50000
 
-static int fire_buffer(viaContextPtr vmesa)
+static int fire_buffer(struct via_context *vmesa)
 {
    drm_via_cmdbuffer_t bufI;
    int ret;
@@ -571,7 +596,7 @@ static int fire_buffer(viaContextPtr vmesa)
 
       /* Fall through to PCI handling?!?
        */
-      WAIT_IDLE(vmesa);
+      viaWaitIdle(vmesa);
    }
 	    
    ret = drmCommandWrite(vmesa->driFd, DRM_VIA_PCICMD, &bufI, sizeof(bufI));
@@ -590,7 +615,7 @@ static int fire_buffer(viaContextPtr vmesa)
  * into the head of the DMA buffer being flushed.  Fires the buffer
  * for each cliprect.
  */
-static void via_emit_cliprect(viaContextPtr vmesa,
+static void via_emit_cliprect(struct via_context *vmesa,
 			      drm_clip_rect_t *b) 
 {
    struct via_buffer *buffer = vmesa->drawBuffer;
@@ -649,7 +674,7 @@ static int intersect_rect(drm_clip_rect_t *out,
     return 1;
 }
 
-void viaFlushDmaLocked(viaContextPtr vmesa, GLuint flags)
+void viaFlushDmaLocked(struct via_context *vmesa, GLuint flags)
 {
    int i;
    RING_VARS;
@@ -773,7 +798,7 @@ void viaFlushDmaLocked(viaContextPtr vmesa, GLuint flags)
    vmesa->newEmitState = ~0;
 }
 
-void viaWrapPrimitive( viaContextPtr vmesa )
+void viaWrapPrimitive( struct via_context *vmesa )
 {
    GLenum renderPrimitive = vmesa->renderPrimitive;
    GLenum hwPrimitive = vmesa->hwPrimitive;
@@ -792,7 +817,7 @@ void viaWrapPrimitive( viaContextPtr vmesa )
 
 }
 
-void viaFlushDma(viaContextPtr vmesa)
+void viaFlushDma(struct via_context *vmesa)
 {
    if (vmesa->dmaLow) {
       assert(!vmesa->dmaLastPrim);
@@ -805,15 +830,15 @@ void viaFlushDma(viaContextPtr vmesa)
 
 static void viaFlush(GLcontext *ctx)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     VIA_FLUSH_DMA(vmesa);
 }
 
 static void viaFinish(GLcontext *ctx)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     VIA_FLUSH_DMA(vmesa);
-    WAIT_IDLE(vmesa);
+    viaWaitIdle(vmesa);
 }
 
 static void viaClearStencil(GLcontext *ctx,  int s)

@@ -69,7 +69,7 @@
     } while (0)
 #endif
 
-static void via_draw_triangle(viaContextPtr vmesa,
+static void via_draw_triangle(struct via_context *vmesa,
 			      viaVertexPtr v0,
 			      viaVertexPtr v1,
 			      viaVertexPtr v2)
@@ -83,7 +83,7 @@ static void via_draw_triangle(viaContextPtr vmesa,
 }
 
 
-static void via_draw_quad(viaContextPtr vmesa,
+static void via_draw_quad(struct via_context *vmesa,
 			  viaVertexPtr v0,
 			  viaVertexPtr v1,
 			  viaVertexPtr v2,
@@ -100,7 +100,7 @@ static void via_draw_quad(viaContextPtr vmesa,
    COPY_DWORDS(vb, vertsize, v3);
 }
 
-static void via_draw_line(viaContextPtr vmesa,
+static void via_draw_line(struct via_context *vmesa,
 			  viaVertexPtr v0,
 			  viaVertexPtr v1)
 {
@@ -111,7 +111,7 @@ static void via_draw_line(viaContextPtr vmesa,
 }
 
 
-static void via_draw_point(viaContextPtr vmesa,
+static void via_draw_point(struct via_context *vmesa,
 			   viaVertexPtr v0)
 {
    GLuint vertsize = vmesa->vertexSize;
@@ -133,7 +133,7 @@ do {							\
    tmp.f[vertex_size-1] *= rhw;				\
 } while (0)
 
-static void via_ptex_tri (viaContextPtr vmesa,
+static void via_ptex_tri (struct via_context *vmesa,
 			  viaVertexPtr v0,
 			  viaVertexPtr v1,
 			  viaVertexPtr v2)
@@ -147,7 +147,7 @@ static void via_ptex_tri (viaContextPtr vmesa,
    PTEX_VERTEX(tmp, vertsize, v2); COPY_DWORDS(vb, vertsize, &tmp);
 }
 
-static void via_ptex_line (viaContextPtr vmesa,
+static void via_ptex_line (struct via_context *vmesa,
 			   viaVertexPtr v0,
 			   viaVertexPtr v1)
 {
@@ -159,7 +159,7 @@ static void via_ptex_line (viaContextPtr vmesa,
    PTEX_VERTEX(tmp, vertsize, v1); COPY_DWORDS(vb, vertsize, &tmp);
 }
 
-static void via_ptex_point (viaContextPtr vmesa,
+static void via_ptex_point (struct via_context *vmesa,
 			    viaVertexPtr v0)
 {
    GLuint vertsize = vmesa->hwVertexSize;
@@ -313,7 +313,7 @@ do {							\
 
 
 #define LOCAL_VARS(n)                                                   \
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);                             \
+    struct via_context *vmesa = VIA_CONTEXT(ctx);                             \
     GLuint color[n], spec[n];                                           \
     GLuint coloroffset = vmesa->coloroffset;              \
     GLuint specoffset = vmesa->specoffset;                       \
@@ -448,7 +448,7 @@ static void init_rast_tab(void)
  * primitives.
  */
 static void
-via_fallback_tri(viaContextPtr vmesa,
+via_fallback_tri(struct via_context *vmesa,
                  viaVertex *v0,
                  viaVertex *v1,
                  viaVertex *v2)
@@ -465,7 +465,7 @@ via_fallback_tri(viaContextPtr vmesa,
 
 
 static void
-via_fallback_line(viaContextPtr vmesa,
+via_fallback_line(struct via_context *vmesa,
                   viaVertex *v0,
                   viaVertex *v1)
 {
@@ -480,7 +480,7 @@ via_fallback_line(viaContextPtr vmesa,
 
 
 static void
-via_fallback_point(viaContextPtr vmesa,
+via_fallback_point(struct via_context *vmesa,
                    viaVertex *v0)
 {
     GLcontext *ctx = vmesa->glCtx;
@@ -493,7 +493,7 @@ via_fallback_point(viaContextPtr vmesa,
 
 static void viaResetLineStipple( GLcontext *ctx )
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    vmesa->regCmdB |= HC_HLPrst_MASK;
 }
 
@@ -510,7 +510,7 @@ static void viaResetLineStipple( GLcontext *ctx )
 #define INIT(x) viaRasterPrimitive(ctx, x, hwPrim[x])
 #undef LOCAL_VARS
 #define LOCAL_VARS                                              \
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);                     \
+    struct via_context *vmesa = VIA_CONTEXT(ctx);                     \
     GLubyte *vertptr = (GLubyte *)vmesa->verts;                 \
     const GLuint vertsize = vmesa->vertexSize;          \
     const GLuint * const elt = TNL_CONTEXT(ctx)->vb.Elts;       \
@@ -573,7 +573,7 @@ static void viaRenderClippedLine(GLcontext *ctx, GLuint ii, GLuint jj)
 static void viaFastRenderClippedPoly(GLcontext *ctx, const GLuint *elts,
                                      GLuint n)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     GLuint vertsize = vmesa->vertexSize;
     GLuint *vb = viaExtendPrimitive(vmesa, (n - 2) * 3 * 4 * vertsize);
     GLubyte *vertptr = (GLubyte *)vmesa->verts;
@@ -616,7 +616,7 @@ static void viaFastRenderClippedPoly(GLcontext *ctx, const GLuint *elts,
 static void viaChooseRenderState(GLcontext *ctx)
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    GLuint flags = ctx->_TriangleCaps;
    GLuint index = 0;
 
@@ -703,7 +703,7 @@ do {									\
 
 static void viaChooseVertexState( GLcontext *ctx )
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    GLuint index = tnl->render_inputs;
    GLuint regCmdB = HC_HVPMSK_X | HC_HVPMSK_Y | HC_HVPMSK_Z;
@@ -807,7 +807,7 @@ static GLboolean viaCheckPTexHack( GLcontext *ctx )
 
 static void viaRenderStart(GLcontext *ctx)
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
 
@@ -853,7 +853,7 @@ void viaRasterPrimitive(GLcontext *ctx,
 			GLenum glprim,
 			GLenum hwprim)
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    GLuint regCmdB;
    RING_VARS;
 
@@ -984,7 +984,7 @@ static void viaRenderPrimitive( GLcontext *ctx, GLuint prim )
 }
 
 
-void viaFinishPrimitive(viaContextPtr vmesa)
+void viaFinishPrimitive(struct via_context *vmesa)
 {
    if (VIA_DEBUG & (DEBUG_DMA|DEBUG_PRIMS)) 
       fprintf(stderr, "%s\n", __FUNCTION__);
@@ -1043,7 +1043,7 @@ void viaFinishPrimitive(viaContextPtr vmesa)
 /**********************************************************************/
 
 
-void viaFallback(viaContextPtr vmesa, GLuint bit, GLboolean mode)
+void viaFallback(struct via_context *vmesa, GLuint bit, GLboolean mode)
 {
     GLcontext *ctx = vmesa->glCtx;
     TNLcontext *tnl = TNL_CONTEXT(ctx);
@@ -1092,7 +1092,7 @@ void viaFallback(viaContextPtr vmesa, GLuint bit, GLboolean mode)
 
 static void viaRunPipeline( GLcontext *ctx )
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
 
    if (vmesa->newState) {
       vmesa->newRenderState |= vmesa->newState;
@@ -1110,7 +1110,7 @@ static void viaRunPipeline( GLcontext *ctx )
 
 void viaInitTriFuncs(GLcontext *ctx)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     TNLcontext *tnl = TNL_CONTEXT(ctx);
     static int firsttime = 1;
 

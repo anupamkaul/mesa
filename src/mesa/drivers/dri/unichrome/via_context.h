@@ -26,9 +26,6 @@
 #ifndef _VIACONTEXT_H
 #define _VIACONTEXT_H
 
-typedef struct via_context viaContext;
-typedef struct via_context *viaContextPtr;
-
 #include "dri_util.h"
 
 #include "mtypes.h"
@@ -39,6 +36,8 @@ typedef struct via_context *viaContextPtr;
 #include "via_screen.h"
 #include "via_tex.h"
 #include "via_common.h"
+
+struct via_context;
 
 /* Chip tags.  These are used to group the adapters into
  * related families.
@@ -78,10 +77,10 @@ enum VIACHIPTAGS {
 #include "tnl_dd/t_dd_vertex.h"
 #undef TAG
 
-typedef void (*via_tri_func)(viaContextPtr, viaVertex *, viaVertex *,
+typedef void (*via_tri_func)(struct via_context *, viaVertex *, viaVertex *,
                              viaVertex *);
-typedef void (*via_line_func)(viaContextPtr, viaVertex *, viaVertex *);
-typedef void (*via_point_func)(viaContextPtr, viaVertex *);
+typedef void (*via_line_func)(struct via_context *, viaVertex *, viaVertex *);
+typedef void (*via_point_func)(struct via_context *, viaVertex *);
 
 struct via_buffer {
    drm_handle_t handle;
@@ -101,12 +100,14 @@ struct via_buffer {
 #define VIA_MAX_TEXLEVELS	10
 
 struct via_tex_buffer {
+   struct via_tex_buffer *next, *prev;
    GLuint index;
    GLuint offset;
    GLuint size;
    GLuint memType;    
    unsigned char *bufAddr;
    GLuint texBase;
+   GLuint lastUsed;
 };
 
 
@@ -120,13 +121,8 @@ struct via_texture_image {
 struct via_texture_object {
    struct gl_texture_object obj; /* The "parent" object */
 
-   struct via_texture_object *next, *prev;
-
    GLuint texelBytes;
    GLuint memType;
-   GLuint dirtyImages;
-
-   struct via_texture_image *image[VIA_MAX_TEXLEVELS];
 
    GLuint regTexFM;
    GLuint regTexWidthLog2[2];
@@ -140,6 +136,11 @@ struct via_texture_object {
    GLint firstLevel, lastLevel;  /* upload tObj->Image[first .. lastLevel] */
 };              
 
+
+struct via_work {
+   struct via_work *next;
+   void (*do_work)( struct via_context * );
+};
 
 struct via_context {
    GLint refcount;   
@@ -233,38 +234,22 @@ struct via_context {
 
    GLuint regHLP;
    GLuint regHLPRF;
-
-   GLuint regHTXnCLOD_0;
-   GLuint regHTXnTB_0;
-   GLuint regHTXnMPMD_0;
-   GLuint regHTXnTBLCsat_0;
-   GLuint regHTXnTBLCop_0;
-   GLuint regHTXnTBLMPfog_0;
-   GLuint regHTXnTBLAsat_0;
-   GLuint regHTXnTBLRCb_0;
-   GLuint regHTXnTBLRAa_0;
-   GLuint regHTXnTBLRFog_0;
-   GLuint regHTXnTBLRCa_0;
-   GLuint regHTXnTBLRCc_0;
-   GLuint regHTXnTBLRCbias_0;
-   GLuint regHTXnTBC_0;
-   GLuint regHTXnTRAH_0;
-
-   GLuint regHTXnCLOD_1;
-   GLuint regHTXnTB_1;
-   GLuint regHTXnMPMD_1;
-   GLuint regHTXnTBLCsat_1;
-   GLuint regHTXnTBLCop_1;
-   GLuint regHTXnTBLMPfog_1;
-   GLuint regHTXnTBLAsat_1;
-   GLuint regHTXnTBLRCb_1;
-   GLuint regHTXnTBLRAa_1;
-   GLuint regHTXnTBLRFog_1;
-   GLuint regHTXnTBLRCa_1;
-   GLuint regHTXnTBLRCc_1;
-   GLuint regHTXnTBLRCbias_1;
-   GLuint regHTXnTBC_1;
-   GLuint regHTXnTRAH_1;
+   
+   GLuint regHTXnCLOD[2];
+   GLuint regHTXnTB[2];
+   GLuint regHTXnMPMD[2];
+   GLuint regHTXnTBLCsat[2];
+   GLuint regHTXnTBLCop[2];
+   GLuint regHTXnTBLMPfog[2];
+   GLuint regHTXnTBLAsat[2];
+   GLuint regHTXnTBLRCb[2];
+   GLuint regHTXnTBLRAa[2];
+   GLuint regHTXnTBLRFog[2];
+   GLuint regHTXnTBLRCa[2];
+   GLuint regHTXnTBLRCc[2];
+   GLuint regHTXnTBLRCbias[2];
+   GLuint regHTXnTBC[2];
+   GLuint regHTXnTRAH[2];
 
    int vertexSize;
    int hwVertexSize;
@@ -274,7 +259,6 @@ struct via_context {
 
    GLint lastStamp;
 
-   GLenum TexEnvImageFmt[2];
    GLuint ClearColor;
    GLuint ClearMask;
 
@@ -284,13 +268,17 @@ struct via_context {
 
    struct via_buffer *drawBuffer;
    struct via_buffer *readBuffer;
+
    int drawX;                   /* origin of drawable in draw buffer */
-   int drawY;
-    
+   int drawY;    
    int drawW;                  
-   int drawH;
-    
-   int drawXoff;
+   int drawH;    
+
+   int drawXoff;		/* drawX is 32byte aligned - this is
+				 * the delta to the real origin, in
+				 * pixel units.
+				 */
+
    GLuint numClipRects;         /* cliprects for that buffer */
    drm_clip_rect_t *pClipRects;
 
@@ -319,6 +307,7 @@ struct via_context {
    GLuint agpFullCount;
 
    GLboolean clearTexCache;
+   GLboolean thrashing;
 
    /* Configuration cache
     */
@@ -337,11 +326,13 @@ struct via_context {
 
    GLuint pfCurrentOffset;
    GLboolean allowPageFlip;
+
+   struct via_work *work;
 };
 
 
 
-#define VIA_CONTEXT(ctx)   ((viaContextPtr)(ctx->DriverCtx))
+#define VIA_CONTEXT(ctx)   ((struct via_context *)(ctx->DriverCtx))
 
 #define GET_DISPATCH_AGE(vmesa) vmesa->sarea->lastDispatch
 #define GET_ENQUEUE_AGE(vmesa) vmesa->sarea->lastEnqueue
@@ -364,11 +355,6 @@ struct via_context {
 #define UNLOCK_HARDWARE(vmesa)                                  	\
 	DRM_UNLOCK(vmesa->driFd, vmesa->driHwLock, vmesa->hHWContext);	
 
-#define WAIT_IDLE(vmesa)                                                       	\
-    do {                                                            	\
-	if ((((GLuint)*vmesa->regEngineStatus) & 0xFFFEFFFF) == 0x00020000)	\
-	    break;                                                        	\
-    } while (1)
 	
 
 extern GLuint VIA_DEBUG;
@@ -388,17 +374,17 @@ extern GLuint VIA_DEBUG;
 #define DEBUG_PIXEL     0x1000
 
 
-extern void viaGetLock(viaContextPtr vmesa, GLuint flags);
-extern void viaLock(viaContextPtr vmesa, GLuint flags);
-extern void viaUnLock(viaContextPtr vmesa, GLuint flags);
-extern void viaEmitHwStateLocked(viaContextPtr vmesa);
-extern void viaEmitScissorValues(viaContextPtr vmesa, int box_nr, int emit);
-extern void viaXMesaSetBackClipRects(viaContextPtr vmesa);
-extern void viaXMesaSetFrontClipRects(viaContextPtr vmesa);
+extern void viaGetLock(struct via_context *vmesa, GLuint flags);
+extern void viaLock(struct via_context *vmesa, GLuint flags);
+extern void viaUnLock(struct via_context *vmesa, GLuint flags);
+extern void viaEmitHwStateLocked(struct via_context *vmesa);
+extern void viaEmitScissorValues(struct via_context *vmesa, int box_nr, int emit);
+extern void viaXMesaSetBackClipRects(struct via_context *vmesa);
+extern void viaXMesaSetFrontClipRects(struct via_context *vmesa);
 extern void viaReAllocateBuffers(GLframebuffer *drawbuffer);
-extern void viaXMesaWindowMoved(viaContextPtr vmesa);
+extern void viaXMesaWindowMoved(struct via_context *vmesa);
 
-extern GLboolean viaTexCombineState(viaContextPtr vmesa,
+extern GLboolean viaTexCombineState(struct via_context *vmesa,
 				    const struct gl_tex_env_combine_state * combine, 
 				    unsigned unit );
 

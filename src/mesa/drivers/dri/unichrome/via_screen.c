@@ -404,7 +404,7 @@ void * __driCreateNewScreen( __DRInativeDisplay *dpy, int scrn, __DRIscreen *psc
 static int
 getSwapInfo( __DRIdrawablePrivate *dPriv, __DRIswapInfo * sInfo )
 {
-   viaContextPtr  vmesa;
+   struct via_context *vmesa;
 
    if ( (dPriv == NULL) || (dPriv->driContextPriv == NULL)
 	|| (dPriv->driContextPriv->driverPrivate == NULL)
@@ -412,7 +412,7 @@ getSwapInfo( __DRIdrawablePrivate *dPriv, __DRIswapInfo * sInfo )
       return -1;
    }
 
-   vmesa = (viaContextPtr) dPriv->driContextPriv->driverPrivate;
+   vmesa = (struct via_context *) dPriv->driContextPriv->driverPrivate;
    sInfo->swap_count = vmesa->swap_count;
    sInfo->swap_ust = vmesa->swap_ust;
    sInfo->swap_missed_count = vmesa->swap_missed_count;

@@ -70,7 +70,7 @@
 
 #undef LOCAL_VARS
 #define LOCAL_VARS                                                   	\
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);             		\
+    struct via_context *vmesa = VIA_CONTEXT(ctx);             		\
     __DRIdrawablePrivate *dPriv = vmesa->driDrawable;                	\
     GLuint draw_pitch = vmesa->drawBuffer->pitch;                       \
     GLuint read_pitch = vmesa->readBuffer->pitch;                       \
@@ -111,7 +111,7 @@
 /* 16 bit depthbuffer functions.
  */
 #define LOCAL_DEPTH_VARS                                \
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);             \
+    struct via_context *vmesa = VIA_CONTEXT(ctx);             \
     __DRIdrawablePrivate *dPriv = vmesa->driDrawable;   \
     GLuint depth_pitch = vmesa->depth.pitch;                  \
     GLuint height = dPriv->h;                           \
@@ -176,7 +176,7 @@
 static void viaSetBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
                       GLuint bufferBit)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     if (bufferBit == DD_FRONT_LEFT_BIT) {
 	vmesa->drawBuffer = vmesa->readBuffer = &vmesa->front;
@@ -193,23 +193,23 @@ static void viaSetBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
  */
 void viaSpanRenderStart( GLcontext *ctx )
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);     
+   struct via_context *vmesa = VIA_CONTEXT(ctx);     
    VIA_FINISH_PRIM(vmesa);
    LOCK_HARDWARE(vmesa);
    viaFlushDmaLocked(vmesa, 0);
-   WAIT_IDLE(vmesa);
+   viaWaitIdle(vmesa);
 }
 
 void viaSpanRenderFinish( GLcontext *ctx )
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    _swrast_flush( ctx );
    UNLOCK_HARDWARE( vmesa );
 }
 
 void viaInitSpanFuncs(GLcontext *ctx)
 {
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
     swdd->SetBuffer = viaSetBuffer;

@@ -50,7 +50,7 @@ static const struct gl_texture_format *
 viaChooseTexFormat( GLcontext *ctx, GLint internalFormat,
 		    GLenum format, GLenum type )
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    const GLboolean do32bpt = ( vmesa->viaScreen->bitsPerPixel == 32
 /* 			       && vmesa->viaScreen->textureSize > 4*1024*1024 */
       );
@@ -201,14 +201,150 @@ static int logbase2(int n)
    return log2;
 }
 
+static const char *get_memtype_name( GLint memType )
+{
+   static const char *names[] = {
+      "VIA_MEM_VIDEO",
+      "VIA_MEM_AGP",
+      "VIA_MEM_SYSTEM",
+      "VIA_MEM_MIXED",
+      "VIA_MEM_UNKNOWN"
+   };
+
+   return names[memType];
+}
+
+
+static GLboolean viaMoveTexObject( struct via_context *vmesa,
+				   struct via_texture_object *viaObj,
+				   GLint newMemType )
+{
+   struct via_texture_image **viaImage = 
+      (struct via_texture_image **)&viaObj->obj.Image[0][0];
+
+   struct via_tex_buffer newTexBuf[VIA_MAX_TEXLEVELS];
+   GLint i;
+
+   if (VIA_DEBUG & DEBUG_TEXTURE)
+      fprintf(stderr, "%s, from %s to %s\n",
+	      __FUNCTION__,
+	      get_memtype_name(viaObj->memType),
+	      get_memtype_name(newMemType));
+
+   memset(newTexBuf, 0, sizeof(newTexBuf));
+
+   /* First do all the allocations (or fail):
+    */ 
+   for (i = viaObj->firstLevel; i <= viaObj->lastLevel; i++) {    
+      if (viaImage[i]->texMem.memType != newMemType) {	 
+
+	 /* Don't allow uploads in a thrash state.  Should try and
+	  * catch this earlier.
+	  */
+	 if (vmesa->thrashing && newMemType != VIA_MEM_SYSTEM)
+	    goto cleanup;
+
+	 newTexBuf[i].size = viaImage[i]->texMem.size;
+	 newTexBuf[i].memType = newMemType;
+	 if (!via_alloc_texture(vmesa, &newTexBuf[i])) 
+	    goto cleanup;
+      }
+   }
+
+
+   /* Now copy all the image data and free the old texture memory.
+    */
+   for (i = viaObj->firstLevel; i <= viaObj->lastLevel; i++) {    
+      if (viaImage[i]->texMem.memType != newMemType) {
+	 memcpy(newTexBuf[i].bufAddr,
+		viaImage[i]->texMem.bufAddr, 
+		viaImage[i]->texMem.size);
+
+	 via_free_texture(vmesa, &viaImage[i]->texMem);
+	 viaImage[i]->texMem = newTexBuf[i];
+	 viaImage[i]->image.Data = viaImage[i]->texMem.bufAddr;
+	 
+/* 	 move_to_head( &viaImage[i], &vmesa->image_list[newMemType] );		        */
+      }
+   }
+
+   if (VIA_DEBUG & DEBUG_TEXTURE)
+      fprintf(stderr, "%s - success\n", __FUNCTION__);
+
+   viaObj->memType = newMemType;
+   return GL_TRUE;
+
+ cleanup:
+   /* Release any allocations made prior to failure:
+    */
+   if (VIA_DEBUG & DEBUG_TEXTURE)
+      fprintf(stderr, "%s - failed\n", __FUNCTION__);
+
+   for (i = viaObj->firstLevel; i <= viaObj->lastLevel; i++) {    
+      if (newTexBuf[i].index) {
+	 via_free_texture(vmesa, &newTexBuf[i]);
+      }
+   }
+   
+   return GL_FALSE;   
+}
+
+
+
+static GLboolean viaSwapOutTexObject( struct via_context *vmesa,
+				      struct via_texture_object *viaObj )
+{
+   return viaMoveTexObject( vmesa, viaObj, VIA_MEM_SYSTEM );
+}
+
+
+
+
+
+
+static GLboolean viaSwapInTexObject( struct via_context *vmesa,
+				     struct via_texture_object *viaObj )
+{
+   const struct via_texture_image *baseImage = 
+      (struct via_texture_image *)viaObj->obj.Image[0][viaObj->obj.BaseLevel];   
+
+   if (baseImage->texMem.memType != VIA_MEM_SYSTEM) 
+      return viaMoveTexObject( vmesa, viaObj, baseImage->texMem.memType );
+
+   return (viaMoveTexObject( vmesa, viaObj, VIA_MEM_AGP ) ||
+	   viaMoveTexObject( vmesa, viaObj, VIA_MEM_VIDEO ));
+}
+
+
+void viaSwapOutWork( struct via_context *vmesa,
+		     GLboolean (*checkIdle)( struct via_context * ))
+{
+/*    for (i = VIA_MEM_VIDEO; i < VIA_MEM_AGP; i++) { */
+/*       foreach_s( viaImage, ) */
+/* 	 } */
+}
+
+/* Free any resources pending on values upto 'fence'
+ */
+void viaTexRetireFence( struct via_context *vmesa,
+			GLuint fence )
+{
+/*    foreach_s(viaImage, tmp, vmesa->deleted_tex_image_queue) { */
+      
+   
+}
+
 
 /* Basically, just collect the image dimensions and addresses for each
  * image and update the texture object state accordingly.
  */
-static GLboolean viaSetTexImages(viaContextPtr vmesa,
-				 struct via_texture_object *t)
+static GLboolean viaSetTexImages(GLcontext *ctx,
+				 struct gl_texture_object *texObj)
 {
-   const struct gl_texture_image *baseImage = t->obj.Image[0][t->obj.BaseLevel];
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
+   struct via_texture_object *viaObj = (struct via_texture_object *)texObj;
+   const struct via_texture_image *baseImage = 
+      (struct via_texture_image *)texObj->Image[0][texObj->BaseLevel];
    GLint firstLevel, lastLevel, numLevels;
    GLuint texFormat;
    GLint w, h, p;
@@ -218,7 +354,7 @@ static GLboolean viaSetTexImages(viaContextPtr vmesa,
    GLuint widthExp = 0;
    GLuint heightExp = 0;    
 
-   switch (baseImage->TexFormat->MesaFormat) {
+   switch (baseImage->image.TexFormat->MesaFormat) {
    case MESA_FORMAT_ARGB8888:
       texFormat = HC_HTXnFM_ARGB8888;
       break;
@@ -259,56 +395,78 @@ static GLboolean viaSetTexImages(viaContextPtr vmesa,
     * GL_TEXTURE_MAX_LOD, GL_TEXTURE_BASE_LEVEL, and GL_TEXTURE_MAX_LEVEL.
     * Yes, this looks overly complicated, but it's all needed.
     */
-   if (t->obj.MinFilter == GL_LINEAR || t->obj.MinFilter == GL_NEAREST) {
-      firstLevel = lastLevel = t->obj.BaseLevel;
+   if (texObj->MinFilter == GL_LINEAR || texObj->MinFilter == GL_NEAREST) {
+      firstLevel = lastLevel = texObj->BaseLevel;
    }
    else {
-      firstLevel = t->obj.BaseLevel + (GLint)(t->obj.MinLod + 0.5);
-      firstLevel = MAX2(firstLevel, t->obj.BaseLevel);
-      lastLevel = t->obj.BaseLevel + (GLint)(t->obj.MaxLod + 0.5);
-      lastLevel = MAX2(lastLevel, t->obj.BaseLevel);
-      lastLevel = MIN2(lastLevel, t->obj.BaseLevel + baseImage->MaxLog2);
-      lastLevel = MIN2(lastLevel, t->obj.MaxLevel);
+      firstLevel = texObj->BaseLevel + (GLint)(texObj->MinLod + 0.5);
+      firstLevel = MAX2(firstLevel, texObj->BaseLevel);
+      lastLevel = texObj->BaseLevel + (GLint)(texObj->MaxLod + 0.5);
+      lastLevel = MAX2(lastLevel, texObj->BaseLevel);
+      lastLevel = MIN2(lastLevel, texObj->BaseLevel + baseImage->image.MaxLog2);
+      lastLevel = MIN2(lastLevel, texObj->MaxLevel);
       lastLevel = MAX2(firstLevel, lastLevel);        /* need at least one level */
    }
 
-   /* save these values */
-   t->firstLevel = firstLevel;
-   t->lastLevel = lastLevel;
-   
    numLevels = lastLevel - firstLevel + 1;
-    
-   if (t->memType == VIA_MEM_AGP)
-      t->regTexFM = (HC_SubA_HTXnFM << 24) | HC_HTXnLoc_AGP | texFormat;
-   else
-      t->regTexFM = (HC_SubA_HTXnFM << 24) | HC_HTXnLoc_Local | texFormat;
-        
 
-   for (i = 0; i < numLevels; i++) {    
-      struct via_texture_image *image = 
-	 (struct via_texture_image *)t->obj.Image[0][firstLevel + i];
+   /* save these values, check if they effect the residency of the
+    * texture:
+    */
+   if (viaObj->firstLevel != firstLevel ||
+       viaObj->lastLevel != lastLevel) {
+      viaObj->firstLevel = firstLevel;
+      viaObj->lastLevel = lastLevel;
+      viaObj->memType = VIA_MEM_MIXED;
+   }
 
-      if (!image) {
- 	 if (VIA_DEBUG & DEBUG_TEXTURE)
-	    fprintf(stderr, "%s: no image[%d]\n", __FUNCTION__, firstLevel + i);	 
+   if (VIA_DEBUG & DEBUG_TEXTURE)
+      fprintf(stderr, "%s, current memType: %s\n",
+	      __FUNCTION__,
+	      get_memtype_name(viaObj->memType));
+
+   
+   if (viaObj->memType == VIA_MEM_MIXED ||
+       viaObj->memType == VIA_MEM_SYSTEM) {
+      if (!viaSwapInTexObject(vmesa, viaObj)) {
+ 	 if (VIA_DEBUG & DEBUG_TEXTURE) 
+	    if (!vmesa->thrashing)
+	       fprintf(stderr, "Thrashing flag set for frame %d\n", vmesa->swap_count);
+	 vmesa->thrashing = GL_TRUE;
 	 return GL_FALSE;
       }
-	    
-      w = image->image.WidthLog2;
-      h = image->image.HeightLog2;
-      p = image->pitchLog2;
+   }
 
-      texBase = image->texMem.texBase;
+   if (viaObj->memType == VIA_MEM_AGP)
+      viaObj->regTexFM = (HC_SubA_HTXnFM << 24) | HC_HTXnLoc_AGP | texFormat;
+   else
+      viaObj->regTexFM = (HC_SubA_HTXnFM << 24) | HC_HTXnLoc_Local | texFormat;
+
+
+   for (i = 0; i < numLevels; i++) {    
+      struct via_texture_image *viaImage = 
+	 (struct via_texture_image *)texObj->Image[0][firstLevel + i];
+
+      w = viaImage->image.WidthLog2;
+      h = viaImage->image.HeightLog2;
+      p = viaImage->pitchLog2;
+
+      texBase = viaImage->texMem.texBase;
       if (!texBase) {
 	 if (VIA_DEBUG & DEBUG_TEXTURE)
 	    fprintf(stderr, "%s: no texBase[%d]\n", __FUNCTION__, i);	 
 	 return GL_FALSE;
       }
 
-      t->regTexBaseAndPitch[i].baseL = (((HC_SubA_HTXnL0BasL + i) << 24) | 
+      /* Image has to remain resident until the coming fence is retired.
+       */
+/*       viaImage->lastUse = vmesa->currentFence; */
+
+
+      viaObj->regTexBaseAndPitch[i].baseL = (((HC_SubA_HTXnL0BasL + i) << 24) | 
 					(texBase & 0xFFFFFF));
 
-      t->regTexBaseAndPitch[i].pitchLog2 = (((HC_SubA_HTXnL0Pit + i) << 24) |
+      viaObj->regTexBaseAndPitch[i].pitchLog2 = (((HC_SubA_HTXnL0Pit + i) << 24) |
 					    (p << 20));
 					      
 					      
@@ -319,7 +477,7 @@ static GLboolean viaSetTexImages(viaContextPtr vmesa,
       k = 3 - (i % 3);                                              
       basH |= ((texBase & 0xFF000000) >> (k << 3));
       if (k == 1) {
-	 t->regTexBaseH[j] = ((j + HC_SubA_HTXnL012BasH) << 24) | basH;
+	 viaObj->regTexBaseH[j] = ((j + HC_SubA_HTXnL012BasH) << 24) | basH;
 	 basH = 0;
       }
             
@@ -331,8 +489,8 @@ static GLboolean viaSetTexImages(viaContextPtr vmesa,
       widthExp |= (((GLuint)w & 0xF) << (m << 2));
       heightExp |= (((GLuint)h & 0xF) << (m << 2));
       if (m == 5) {
-	 t->regTexWidthLog2[l] = ((l + HC_SubA_HTXnL0_5WE) << 24 | widthExp);
-	 t->regTexHeightLog2[l] = ((l + HC_SubA_HTXnL0_5HE) << 24 | heightExp);  
+	 viaObj->regTexWidthLog2[l] = ((l + HC_SubA_HTXnL0_5WE) << 24 | widthExp);
+	 viaObj->regTexHeightLog2[l] = ((l + HC_SubA_HTXnL0_5HE) << 24 | heightExp);  
 	 widthExp = 0;
 	 heightExp = 0;
       }
@@ -342,102 +500,40 @@ static GLboolean viaSetTexImages(viaContextPtr vmesa,
    }
         
    if (k != 1) {
-      t->regTexBaseH[j] = ((j + HC_SubA_HTXnL012BasH) << 24) | basH;      
+      viaObj->regTexBaseH[j] = ((j + HC_SubA_HTXnL012BasH) << 24) | basH;      
    }
    if (m != 5) {
-      t->regTexWidthLog2[l] = ((l + HC_SubA_HTXnL0_5WE) << 24 | widthExp);
-      t->regTexHeightLog2[l] = ((l + HC_SubA_HTXnL0_5HE) << 24 | heightExp);
+      viaObj->regTexWidthLog2[l] = ((l + HC_SubA_HTXnL0_5WE) << 24 | widthExp);
+      viaObj->regTexHeightLog2[l] = ((l + HC_SubA_HTXnL0_5HE) << 24 | heightExp);
    }
 
    return GL_TRUE;
 }
 
 
-static GLboolean viaUpdateTexUnit(GLcontext *ctx, GLuint unit)
+GLboolean viaUpdateTextureState( GLcontext *ctx )
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
-   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_unit *texUnit = ctx->Texture.Unit;
+   GLuint i;
 
-   if (texUnit->_ReallyEnabled == TEXTURE_2D_BIT || 
-       texUnit->_ReallyEnabled == TEXTURE_1D_BIT) {
+   for (i = 0; i < 2; i++) {   
+      if (texUnit[i]._ReallyEnabled == TEXTURE_2D_BIT || 
+	  texUnit[i]._ReallyEnabled == TEXTURE_1D_BIT) {
 
-      struct via_texture_object *t = 
-	 (struct via_texture_object *)texUnit->_Current;
-
-      /* Upload teximages (not pipelined)
-       */
-      if (t->dirtyImages) {
-	 if (!viaSetTexImages(vmesa, t)) {
-	    if (VIA_DEBUG & DEBUG_TEXTURE)
-	       fprintf(stderr, "viaSetTexImages failed for unit %d\n", unit);
+	 if (!viaSetTexImages(ctx, texUnit[i]._Current)) 
 	    return GL_FALSE;
-	 }
-	 t->dirtyImages = 0;
       }
-
-      return GL_TRUE;
+      else if (texUnit[i]._ReallyEnabled) {
+	 return GL_FALSE;
+      } 
    }
-   else if (texUnit->_ReallyEnabled) {
-      return GL_FALSE;
-   } 
-   else {
-      VIA_FLUSH_DMA(vmesa);
-      return GL_TRUE;
-   }
-}
-
- 
-GLboolean viaUpdateTextureState(GLcontext *ctx)
-{
-   return (viaUpdateTexUnit(ctx, 0) &&
-	   viaUpdateTexUnit(ctx, 1));
+   
+   return GL_TRUE;
 }
 
 
 
-static void choose_texture_heap( GLcontext *ctx,
-				 struct via_texture_object *t,
-				 GLint level,
-				 GLint width,
-				 GLint height )
-{
-   t->memType = VIA_MEM_AGP; 
-/*    t->memType = VIA_MEM_VIDEO;  */
-}
 
-static GLboolean viaSwapInTexImage( GLcontext *ctx,
-				    struct gl_texture_image *texImage )
-{
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
-   struct via_texture_image *viaImage = (struct via_texture_image *)texImage;
-
-   if (via_alloc_texture(vmesa, &viaImage->texMem)) {
-      memcpy(viaImage->texMem.bufAddr, texImage->Data, 
-	     viaImage->texMem.size);
-
-      texImage->Data = viaImage->texMem.bufAddr;
-      return GL_TRUE;
-   }
-   else
-      return GL_FALSE;
-}
-
-static GLboolean viaSwapOutTexImage( GLcontext *ctx,
-				     struct gl_texture_image *texImage )
-{
-   struct via_texture_image *viaImage = (struct via_texture_image *)texImage;
-   GLubyte *data = MESA_PBUFFER_ALLOC(viaImage->texMem.size);
-
-   if (data) {
-      memcpy(data, viaImage->texMem.bufAddr, 
-	     viaImage->texMem.size);
-
-      texImage->Data = data;
-      return GL_TRUE;
-   }
-   else
-      return GL_FALSE;
-}
 
 				 
 
@@ -452,16 +548,13 @@ static void viaTexImage(GLcontext *ctx,
 			struct gl_texture_object *texObj,
 			struct gl_texture_image *texImage)
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    GLint postConvWidth = width;
    GLint postConvHeight = height;
    GLint texelBytes, sizeInBytes;
    struct via_texture_object *viaObj = (struct via_texture_object *)texObj;
    struct via_texture_image *viaImage = (struct via_texture_image *)texImage;
-
-   if (viaObj->memType == VIA_MEM_UNKNOWN) {
-      choose_texture_heap(ctx, viaObj, level, width, height);
-   }
+   int heaps[3], nheaps, i;
 
    if (ctx->_ImageTransferState & IMAGE_CONVOLUTION_BIT) {
       _mesa_adjust_image_for_convolution(ctx, dims, &postConvWidth,
@@ -509,24 +602,53 @@ static void viaTexImage(GLcontext *ctx,
     */
    viaImage->texMem.size = sizeInBytes;
    viaImage->texMem.memType = viaObj->memType;
-
-   if (via_alloc_texture(vmesa, &viaImage->texMem)) {
-      texImage->Data = viaImage->texMem.bufAddr;
+   
+      
+   switch (viaObj->memType) {
+   case VIA_MEM_UNKNOWN:
+      heaps[0] = VIA_MEM_AGP;
+      heaps[1] = VIA_MEM_VIDEO;
+      heaps[2] = VIA_MEM_SYSTEM;
+      nheaps = 3;
+      break;
+   case VIA_MEM_AGP:
+   case VIA_MEM_VIDEO:
+      heaps[0] = viaObj->memType;
+      heaps[1] = VIA_MEM_SYSTEM;
+      nheaps = 2;
+      break;
+   case VIA_MEM_SYSTEM:
+   case VIA_MEM_MIXED:
+   default:
+      heaps[1] = VIA_MEM_SYSTEM;
+      nheaps = 1;
+      break;
    }
-   else {
-      if (VIA_DEBUG & DEBUG_TEXTURE)
-	 fprintf(stderr, "%s: use system memory\n", __FUNCTION__);
-
-      /* No room, use system memory: */
-      texImage->Data = MESA_PBUFFER_ALLOC(sizeInBytes);
-      if (!texImage->Data) {
-	 _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
-	 return;
-      }
+	
+   for (i = 0; i < nheaps; i++) {
+      viaImage->texMem.memType = heaps[i];
+      if (via_alloc_texture(vmesa, &viaImage->texMem)) 
+	 break;
    }
+
+   texImage->Data = viaImage->texMem.bufAddr;
+   if (!texImage->Data) {
+      _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
+      return;
+   }
+
+   if (viaObj->memType == VIA_MEM_UNKNOWN)
+      viaObj->memType = viaImage->texMem.memType;
+   else if (viaObj->memType != viaImage->texMem.memType)
+      viaObj->memType = VIA_MEM_MIXED;
+
+   if (VIA_DEBUG & DEBUG_TEXTURE)
+      fprintf(stderr, "%s, obj %s, image : %s\n",
+	      __FUNCTION__,	      
+	      get_memtype_name(viaObj->memType),
+	      get_memtype_name(viaImage->texMem.memType));
 
    vmesa->clearTexCache = 1;
-   viaObj->dirtyImages |= (1<<level);
 
    pixels = _mesa_validate_pbo_teximage(ctx, dims, width, height, 1, format, type,
 					pixels, packing, "glTexImage");
@@ -594,7 +716,7 @@ static void viaTexSubImage2D(GLcontext *ctx,
                              struct gl_texture_object *texObj,
                              struct gl_texture_image *texImage)
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
   
    VIA_FLUSH_DMA(vmesa);
    vmesa->clearTexCache = 1;
@@ -630,7 +752,7 @@ static void viaTexSubImage1D(GLcontext *ctx,
                              struct gl_texture_object *texObj,
                              struct gl_texture_image *texImage)
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
 
    VIA_FLUSH_DMA(vmesa);
    vmesa->clearTexCache = 1;
@@ -645,17 +767,11 @@ static void viaTexSubImage1D(GLcontext *ctx,
 static GLboolean viaIsTextureResident(GLcontext *ctx,
                                       struct gl_texture_object *texObj)
 {
-   GLuint i;
-   
-   for (i = 0; i < MAX_TEXTURE_LEVELS; i++) {
-      struct via_texture_image *image = 
-	 (struct via_texture_image *)&texObj->Image[0][i];
-	 
-      if (!image->texMem.index) 
-	 return GL_FALSE;
-   }
+   struct via_texture_object *viaObj = 
+      (struct via_texture_object *)texObj;
 
-   return GL_TRUE;
+   return (viaObj->memType == VIA_MEM_AGP ||
+	   viaObj->memType == VIA_MEM_VIDEO);
 }
 
 
@@ -676,7 +792,6 @@ static struct gl_texture_object *viaNewTextureObject( GLcontext *ctx,
    _mesa_initialize_texture_object(&obj->obj, name, target);
    (void) ctx;
 
-   obj->dirtyImages = ~0;
    obj->memType = VIA_MEM_UNKNOWN;
 
    return &obj->obj;
@@ -686,10 +801,14 @@ static struct gl_texture_object *viaNewTextureObject( GLcontext *ctx,
 static void viaFreeTextureImageData( GLcontext *ctx, 
 				     struct gl_texture_image *texImage )
 {
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_context *vmesa = VIA_CONTEXT(ctx);
    struct via_texture_image *image = (struct via_texture_image *)texImage;
 
    if (image->texMem.index) {
+      /* Actually just doing a flush here isn't enough to ensure
+       * synchronization - need to make sure that any outstanding
+       * drawing with this texture has completed.
+       */
       VIA_FLUSH_DMA(vmesa);
       via_free_texture(vmesa, &image->texMem);
    }

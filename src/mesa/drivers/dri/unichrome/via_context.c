@@ -89,8 +89,8 @@ static const GLubyte *viaGetString(GLcontext *ctx, GLenum name)
 	 "UniChrome (K8M800)",
 	 "UniChrome (PM8x0/CN400)",
       };
-      const viaContext * const via = VIA_CONTEXT(ctx);
-      const unsigned id = via->viaScreen->deviceID;
+      struct via_context *vmesa = VIA_CONTEXT(ctx);
+      unsigned id = vmesa->viaScreen->deviceID;
 
       offset = driGetRendererString( buffer, 
 				     chipset_names[(id > VIA_PM800) ? 0 : id],
@@ -131,7 +131,7 @@ buffer_align( unsigned width )
  * \sa AllocateBuffer
  */
 static GLboolean
-calculate_buffer_parameters( viaContextPtr vmesa )
+calculate_buffer_parameters( struct via_context *vmesa )
 {
    const unsigned shift = vmesa->viaScreen->bitsPerPixel / 16;
    const unsigned extra = 32;
@@ -221,7 +221,7 @@ calculate_buffer_parameters( viaContextPtr vmesa )
 void viaReAllocateBuffers(GLframebuffer *drawbuffer)
 {
     GET_CURRENT_CONTEXT(ctx);
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
 
     _swrast_alloc_buffers( drawbuffer );
     calculate_buffer_parameters( vmesa );
@@ -230,7 +230,7 @@ void viaReAllocateBuffers(GLframebuffer *drawbuffer)
 static void viaBufferSize(GLframebuffer *buffer, GLuint *width, GLuint *height)
 {
     GET_CURRENT_CONTEXT(ctx);
-    viaContextPtr vmesa = VIA_CONTEXT(ctx);       
+    struct via_context *vmesa = VIA_CONTEXT(ctx);       
     *width = vmesa->driDrawable->w;
     *height = vmesa->driDrawable->h;
 }
@@ -294,7 +294,7 @@ static const struct dri_debug_control debug_control[] =
 
 
 static GLboolean
-AllocateDmaBuffer(const GLvisual *visual, viaContextPtr vmesa)
+AllocateDmaBuffer(const GLvisual *visual, struct via_context *vmesa)
 {
     if (vmesa->dma)
         via_free_dma_buffer(vmesa);
@@ -308,7 +308,7 @@ AllocateDmaBuffer(const GLvisual *visual, viaContextPtr vmesa)
 }
 
 static void
-FreeBuffer(viaContextPtr vmesa)
+FreeBuffer(struct via_context *vmesa)
 {
     if (vmesa->front.map && vmesa->drawType == GLX_PBUFFER_BIT)
 	via_free_draw_buffer(vmesa, &vmesa->front);
@@ -339,7 +339,7 @@ viaCreateContext(const __GLcontextModes *mesaVis,
                  void *sharedContextPrivate)
 {
     GLcontext *ctx, *shareCtx;
-    viaContextPtr vmesa;
+    struct via_context *vmesa;
     __DRIscreenPrivate *sPriv = driContextPriv->driScreenPriv;
     viaScreenPrivate *viaScreen = (viaScreenPrivate *)sPriv->private;
     drm_via_sarea_t *saPriv = (drm_via_sarea_t *)
@@ -347,7 +347,7 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     struct dd_function_table functions;
 
     /* Allocate via context */
-    vmesa = (viaContextPtr) CALLOC_STRUCT(via_context);
+    vmesa = (struct via_context *) CALLOC_STRUCT(via_context);
     if (!vmesa) {
         return GL_FALSE;
     }
@@ -411,7 +411,7 @@ viaCreateContext(const __GLcontextModes *mesaVis,
 
     /* Allocate the Mesa context */
     if (sharedContextPrivate)
-        shareCtx = ((viaContextPtr) sharedContextPrivate)->glCtx;
+        shareCtx = ((struct via_context *) sharedContextPrivate)->glCtx;
     else
         shareCtx = NULL;
 
@@ -563,8 +563,8 @@ void
 viaDestroyContext(__DRIcontextPrivate *driContextPriv)
 {
     GET_CURRENT_CONTEXT(ctx);
-    viaContextPtr vmesa = (viaContextPtr)driContextPriv->driverPrivate;
-    viaContextPtr current = ctx ? VIA_CONTEXT(ctx) : NULL;
+    struct via_context *vmesa = (struct via_context *)driContextPriv->driverPrivate;
+    struct via_context *current = ctx ? VIA_CONTEXT(ctx) : NULL;
     assert(vmesa); /* should never be null */
 
     /* check if we're deleting the currently bound context */
@@ -574,7 +574,7 @@ viaDestroyContext(__DRIcontextPrivate *driContextPriv)
     }
 
     if (vmesa) {
-        WAIT_IDLE(vmesa);
+        viaWaitIdle(vmesa);
 	if (vmesa->doPageFlip) {
 	   LOCK_HARDWARE(vmesa);
 	   if (vmesa->pfCurrentOffset != 0) {
@@ -596,7 +596,7 @@ viaDestroyContext(__DRIcontextPrivate *driContextPriv)
 }
 
 
-void viaXMesaWindowMoved(viaContextPtr vmesa)
+void viaXMesaWindowMoved(struct via_context *vmesa)
 {
    __DRIdrawablePrivate *dPriv = vmesa->driDrawable;
    GLuint bytePerPixel = vmesa->viaScreen->bitsPerPixel >> 3;
@@ -668,7 +668,7 @@ viaMakeCurrent(__DRIcontextPrivate *driContextPriv,
     }	
 
     if (driContextPriv) {
-        viaContextPtr vmesa = (viaContextPtr)driContextPriv->driverPrivate;
+        struct via_context *vmesa = (struct via_context *)driContextPriv->driverPrivate;
 	GLcontext *ctx = vmesa->glCtx;
 
 	if ( vmesa->driDrawable != driDrawPriv ) {
@@ -698,7 +698,7 @@ viaMakeCurrent(__DRIcontextPrivate *driContextPriv,
     return GL_TRUE;
 }
 
-void viaGetLock(viaContextPtr vmesa, GLuint flags)
+void viaGetLock(struct via_context *vmesa, GLuint flags)
 {
     __DRIdrawablePrivate *dPriv = vmesa->driDrawable;
     __DRIscreenPrivate *sPriv = vmesa->driScreen;
@@ -731,10 +731,10 @@ viaSwapBuffers(__DRIdrawablePrivate *drawablePrivate)
     __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *)drawablePrivate;
 
     if (dPriv && dPriv->driContextPriv && dPriv->driContextPriv->driverPrivate) {
-        viaContextPtr vmesa;
+        struct via_context *vmesa;
         GLcontext *ctx;
 	
-        vmesa = (viaContextPtr)dPriv->driContextPriv->driverPrivate;
+        vmesa = (struct via_context *)dPriv->driContextPriv->driverPrivate;
         ctx = vmesa->glCtx;
         if (ctx->Visual.doubleBufferMode) {
             _mesa_notifySwapBuffers(ctx);

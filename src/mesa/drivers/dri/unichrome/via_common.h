@@ -100,9 +100,11 @@
 #define VIA_DEPTH   0x4
 #define VIA_STENCIL 0x8
 
-#define VIA_MEM_VIDEO 0
-#define VIA_MEM_AGP   1
-#define VIA_MEM_UNKNOWN 0xff
+#define VIA_MEM_VIDEO   0	/* matches drm constant */
+#define VIA_MEM_AGP     1	/* matches drm constant */
+#define VIA_MEM_SYSTEM  2		
+#define VIA_MEM_MIXED   3
+#define VIA_MEM_UNKNOWN 4
 
 typedef struct {
 	u_int32_t offset;
