@@ -188,6 +188,10 @@ typedef struct _drm_via_sarea {
 	unsigned int XvMCSubPicOn[VIA_NR_XVMC_PORTS];
 	unsigned int XvMCCtxNoGrabbed;	/* Last context to hold decoder */
 
+	/* Used by the 3d driver only at this point, for pageflipping:
+	 */
+	unsigned int pfCurrentOffset;
+
 } drm_via_sarea_t;
 
 typedef struct _drm_via_cmdbuf_size {

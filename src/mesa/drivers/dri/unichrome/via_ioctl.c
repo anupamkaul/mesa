@@ -374,7 +374,7 @@ static GLboolean viaReceivedBreadcrumb( viaContextPtr vmesa, GLuint value )
    GLuint *buf = (GLuint *)vmesa->breadcrumb.map; 
 
    if (VIA_DEBUG)
-      fprintf(stderr, "want %x got %x, addr %x\n", value, *buf, buf);
+      fprintf(stderr, "want %x got %x, addr %p\n", value, *buf, buf);
 
    if (value == *buf) 
       return GL_TRUE;
@@ -421,6 +421,55 @@ static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv, viaContextPtr 
 }
 
 
+
+static void viaDoPageFlipLocked(viaContextPtr vmesa, GLuint offset)
+{
+   RING_VARS;
+
+   if (VIA_DEBUG)
+      fprintf(stderr, "%s %x\n", __FUNCTION__, offset);
+
+   if (!vmesa->nDoneFirstFlip) {
+      vmesa->nDoneFirstFlip = GL_TRUE;
+      BEGIN_RING(4);
+      OUT_RING(HALCYON_HEADER2);
+      OUT_RING(0x00fe0000);
+      OUT_RING(0x0000000e);
+      OUT_RING(0x0000000e);
+      ADVANCE_RING();
+   }
+
+   BEGIN_RING(4);
+   OUT_RING( HALCYON_HEADER2 );
+   OUT_RING( 0x00fe0000 );
+   OUT_RING((HC_SubA_HFBBasL << 24) | (offset & 0xFFFFF8) | 0x2);
+   OUT_RING((HC_SubA_HFBDrawFirst << 24) |
+	    ((offset & 0xFF000000) >> 24) | 0x0100);
+   ADVANCE_RING();
+
+   viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS);
+   vmesa->pfCurrentOffset = vmesa->sarea->pfCurrentOffset = offset;
+}
+
+void viaResetPageFlippingLocked(viaContextPtr vmesa)
+{
+   if (VIA_DEBUG)
+      fprintf(stderr, "%s\n", __FUNCTION__);
+
+   viaDoPageFlipLocked( vmesa, 0 );
+
+   if (vmesa->front.offset != 0) {
+      viaBuffer buffer_tmp;
+      memcpy(&buffer_tmp, &vmesa->back, sizeof(viaBuffer));
+      memcpy(&vmesa->back, &vmesa->front, sizeof(viaBuffer));
+      memcpy(&vmesa->front, &buffer_tmp, sizeof(viaBuffer));
+   }
+
+   assert(vmesa->front.offset == 0);
+   vmesa->doPageFlip = vmesa->allowPageFlip = 0;
+}
+
+
 /*
  * Copy the back buffer to the front buffer. 
  */
@@ -432,6 +481,15 @@ void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
 
    LOCK_HARDWARE(vmesa);
 
+   /* Catch and cleanup situation where we were pageflipping but have
+    * stopped.
+    */
+   if (dPriv->numClipRects && vmesa->sarea->pfCurrentOffset != 0) {
+      viaResetPageFlippingLocked(vmesa);
+      UNLOCK_HARDWARE(vmesa);
+      return;
+   }
+      
    viaDoSwapBuffers(vmesa, dPriv->pClipRects, dPriv->numClipRects);
    viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS);
 
@@ -447,37 +505,12 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
 
     VIA_FLUSH_DMA(vmesa);
     LOCK_HARDWARE(vmesa);
-
-    {
-        RING_VARS;
-
-	if (!vmesa->nDoneFirstFlip) {
-    	    vmesa->nDoneFirstFlip = GL_TRUE; /* XXX: FIXME LATER!!! */
-	    BEGIN_RING(4);
-    	    OUT_RING(HALCYON_HEADER2);
-    	    OUT_RING(0x00fe0000);
-    	    OUT_RING(0x0000000e);
-    	    OUT_RING(0x0000000e);
-	    ADVANCE_RING();
-	}
-
-	BEGIN_RING(4);
-	OUT_RING( HALCYON_HEADER2 );
-	OUT_RING( 0x00fe0000 );
-	OUT_RING((HC_SubA_HFBBasL << 24) | (vmesa->back.offset & 0xFFFFF8) | 0x2);
-	OUT_RING((HC_SubA_HFBDrawFirst << 24) |
-		 ((vmesa->back.offset & 0xFF000000) >> 24) | 0x0100);
-	ADVANCE_RING();
-
-    }
-
-    viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS);    
+    viaDoPageFlipLocked(vmesa, vmesa->back.offset);
     UNLOCK_HARDWARE(vmesa);
 
     viaWaitIdleVBlank(dPriv, vmesa);
-
-
     vmesa->get_ust( &vmesa->swap_ust );
+
 
     /* KW: FIXME: When buffers are freed, could free frontbuffer by
      * accident:
@@ -485,15 +518,6 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
     memcpy(&buffer_tmp, &vmesa->back, sizeof(viaBuffer));
     memcpy(&vmesa->back, &vmesa->front, sizeof(viaBuffer));
     memcpy(&vmesa->front, &buffer_tmp, sizeof(viaBuffer));
-    
-    if(vmesa->currentPage) {
-	vmesa->currentPage = 0;
-    }
-    else {
-	vmesa->currentPage = 1;
-    }
-
-    if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);        
 }
 
 

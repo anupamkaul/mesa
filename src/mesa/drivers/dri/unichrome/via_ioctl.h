@@ -36,6 +36,7 @@ void viaInitIoctlFuncs(GLcontext *ctx);
 void viaCopyBuffer(const __DRIdrawablePrivate *dpriv);
 void viaPageFlip(const __DRIdrawablePrivate *dpriv);
 void viaCheckDma(viaContextPtr vmesa, GLuint bytes);
+void viaResetPageFlippingLocked(viaContextPtr vmesa);
 
 #define VIA_FINISH_PRIM(vmesa) do {		\
    if (vmesa->dmaLastPrim)			\

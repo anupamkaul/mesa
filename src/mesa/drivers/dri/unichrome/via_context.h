@@ -245,8 +245,6 @@ struct via_context_t {
     GLuint needClip;
     GLframebuffer *glBuffer;
     GLboolean doPageFlip;
-    /*=* John Sheng [2003.5.31] flip *=*/
-    GLuint currentPage;
 
     viaBuffer *drawBuffer;
     viaBuffer *readBuffer;
@@ -307,6 +305,8 @@ struct via_context_t {
 
    PFNGLXGETUSTPROC get_ust;
 
+   GLuint pfCurrentOffset;
+   GLboolean allowPageFlip;
 };
 
 

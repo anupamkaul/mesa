@@ -212,8 +212,7 @@ calculate_buffer_parameters( viaContextPtr vmesa )
    /*=* John Sheng [2003.5.31] flip *=*/
    if( vmesa->viaScreen->width == vmesa->driDrawable->w && 
        vmesa->viaScreen->height == vmesa->driDrawable->h ) {
-      vmesa->doPageFlip = getenv("VIA_PAGEFLIP") != 0;
-      /* vmesa->currentPage = 0; */
+      vmesa->doPageFlip = vmesa->allowPageFlip;
       assert(vmesa->back.pitch == vmesa->front.pitch);
    }
    else
@@ -541,7 +540,9 @@ viaCreateContext(const __GLcontextModes *mesaVis,
      */
     vmesa->vblank_flags = getenv("VIA_VSYNC") ? VBLANK_FLAG_SYNC : VBLANK_FLAG_NO_IRQ;
 
-    
+    if (getenv("VIA_PAGEFLIP"))
+       vmesa->allowPageFlip = 1;
+   
     vmesa->get_ust = (PFNGLXGETUSTPROC) glXGetProcAddress( (const GLubyte *) "__glXGetUST" );
     if ( vmesa->get_ust == NULL ) {
        vmesa->get_ust = get_ust_nop;
@@ -583,6 +584,15 @@ viaDestroyContext(__DRIcontextPrivate *driContextPriv)
     if (vmesa) {
 	/*=* John Sheng [2003.5.31]  agp tex *=*/
         WAIT_IDLE(vmesa);
+	if (vmesa->doPageFlip) {
+	   LOCK_HARDWARE(vmesa);
+	   if (vmesa->pfCurrentOffset != 0) {
+	      fprintf(stderr, "%s - reset pf\n", __FUNCTION__);
+	      viaResetPageFlippingLocked(vmesa);
+	   }
+	   UNLOCK_HARDWARE(vmesa);
+	}
+	
 	if(VIA_DEBUG) fprintf(stderr, "agpFullCount = %d\n", vmesa->agpFullCount);    
 	
 	_swsetup_DestroyContext(vmesa->glCtx);
@@ -725,6 +735,12 @@ void viaGetLock(viaContextPtr vmesa, GLuint flags)
     if (vmesa->lastStamp != dPriv->lastStamp) {
        viaXMesaWindowMoved(vmesa);
        vmesa->lastStamp = dPriv->lastStamp;
+    }
+
+    if (vmesa->doPageFlip &&
+	vmesa->pfCurrentOffset != vmesa->sarea->pfCurrentOffset) {
+       fprintf(stderr, "%s - reset pf\n", __FUNCTION__);
+       viaResetPageFlippingLocked(vmesa);
     }
 }
 
