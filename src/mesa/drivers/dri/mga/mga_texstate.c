@@ -95,7 +95,7 @@ mgaSetTexImages( mgaContextPtr mmesa,
 
     txformat = TMC_tformat[ baseImage->TexFormat->MesaFormat ];
 
-#endif
+#endif /* MGA_USE_TABLE_FOR_FORMAT */
 
    /* Compute which mipmap levels we really want to send to the hardware.
     * This depends on the base image size, GL_TEXTURE_MIN_LOD,
@@ -112,15 +112,12 @@ mgaSetTexImages( mgaContextPtr mmesa,
    lastLevel = MAX2(firstLevel, lastLevel); /* need at least one level */
    log2Width = tObj->Image[firstLevel]->WidthLog2;
    log2Height = tObj->Image[firstLevel]->HeightLog2;
+   width = tObj->Image[firstLevel]->Width;
+   height = tObj->Image[firstLevel]->Height;
 
-   numLevels = lastLevel - firstLevel + 1;
-   if ( MGA_IS_G200( mmesa ) ) {
-      numLevels = MIN2( numLevels, G200_TEX_MAXLEVELS );
-   }
-   else {
-      assert(numLevels <= G400_TEX_MAXLEVELS);
-   }
-       
+   numLevels = MIN2( lastLevel - firstLevel + 1,
+                     MGA_IS_G200(mmesa) ? G200_TEX_MAXLEVELS : G400_TEX_MAXLEVELS);
+
 
    /* We are going to upload all levels that are present, even if
     * later levels wouldn't be used by the current filtering mode.  This
@@ -142,8 +139,8 @@ mgaSetTexImages( mgaContextPtr mmesa,
       t->base.dirty_images[0] |= (1<<i);
 
       totalSize += ((MAX2( texImage->Width, 8 ) *
-		     MAX2( texImage->Height, 8 ) *
-		     baseImage->TexFormat->TexelBytes) + 31) & ~31;
+                     MAX2( texImage->Height, 8 ) *
+                     baseImage->TexFormat->TexelBytes) + 31) & ~31;
    }
 
    numLevels = i;
@@ -160,16 +157,19 @@ mgaSetTexImages( mgaContextPtr mmesa,
 		       & TMC_tpitchext_MASK);
    t->setup.texctl |= txformat;
 
+
+   /* Set the texture width.  In order to support non-power of 2 textures and
+    * textures larger than 1024 texels wide, "linear" pitch must be used.  For
+    * the linear pitch, if the width is 2048, a value of zero is used.
+    */
+
    t->setup.texctl |= TMC_tpitchlin_enable;
-   if ( baseImage->Width < 2048 ) {
-      t->setup.texctl |= (baseImage->Width << TMC_tpitchext_SHIFT);
-   }
+   t->setup.texctl |= (baseImage->Width & (2048 - 1)) << TMC_tpitchext_SHIFT;
+
 
    /* G400 specifies the number of mip levels in a strange way.  Since there
     * are up to 12 levels, it requires 4 bits.  Three of the bits are at the
     * high end of TEXFILTER.  The other bit is in the middle.  Weird.
-    */
-   /* FIXME: Is this correct for G200?
     */
 
    t->setup.texfilter &= TF_mapnb_MASK & TF_mapnbhigh_MASK & TF_reserved_MASK;
@@ -178,12 +178,6 @@ mgaSetTexImages( mgaContextPtr mmesa,
 
    /* warp texture registers */
    ofs = MGA_IS_G200(mmesa) ? 28 : 11;
-
-   width = baseImage->Width;
-   height = baseImage->Height;
-
-   log2Width = baseImage->WidthLog2;
-   log2Height = baseImage->HeightLog2;
 
    t->setup.texwidth = (MGA_FIELD(TW_twmask, width - 1) |
 			MGA_FIELD(TW_rfw, (10 - log2Width - 8) & 63 ) |
