@@ -1,3 +1,19 @@
+/**
+ * \file miniglx_events.c
+ * \brief Mini GLX client/server communication functions.
+ * \author Keith Whitwell
+ *
+ * The Mini GLX interface is a subset of the GLX interface, plus a
+ * minimal set of Xlib functions.  This file adds interfaces to
+ * arbitrate a single cliprect between multiple direct rendering
+ * clients.
+ *
+ * A fairly complete client/server non-blocking communication
+ * mechanism.  Probably overkill given that none of our messages
+ * currently exceed 1 byte in length and take place over the
+ * relatively benign channel provided by a unix domain socket.
+ */
+
 /*
  * Mesa 3-D graphics library
  * Version:  5.0
@@ -22,24 +38,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: miniglx_events.c,v 1.1.2.11 2003/04/28 13:21:10 keithw Exp $ */
+/* $Id: miniglx_events.c,v 1.1.2.12 2003/05/18 12:36:26 jrfonseca Exp $ */
 
-
-/**
- * \file miniglx_events.c
- * \brief Mini GLX client/server communication functions.
- * \author Keith Whitwell
- *
- * The Mini GLX interface is a subset of the GLX interface, plus a
- * minimal set of Xlib functions.  This file adds interfaces to
- * arbitrate a single cliprect between multiple direct rendering
- * clients.
- *
- * A fairly complete client/server non-blocking communication
- * mechanism.  Probably overkill given that none of our messages
- * currently exceed 1 byte in length and take place over the
- * relatively benign channel provided by a unix domain socket.
- */
 
 #include <assert.h>
 #include <errno.h>
@@ -69,7 +69,7 @@
 
 #define MINIGLX_FIFO_NAME "/tmp/miniglx.fifo"
 
-
+/** Character messages. */
 enum msgs {
    _CanIHaveFocus,
    _IDontWantFocus,
@@ -213,16 +213,18 @@ static int send_char_msg( Display *dpy, int i, char msg )
 
 
 /**
- * \brief Block and recieve a message from a socket connection.
+ * \brief Block and receive a message from a socket connection.
  *
  * \param dpy the display handle.
  * \param connection the index in dpy->fd of the socket connection.
  * \param msg storage for the recieved message.
  * \param msg_size the number of bytes to read.
  *
- * \internal Block and read from the connection's file descriptor
- * until msg_size bytes have been received.  Only called from
- * welcome_message_part().
+ * \internal 
+ * Block and read from the connection's file descriptor
+ * until msg_size bytes have been received.  
+ *
+ * Only called from welcome_message_part().
  */
 static int blocking_read( Display *dpy, int connection, 
 			  char *msg, size_t msg_size )
@@ -241,8 +243,23 @@ static int blocking_read( Display *dpy, int connection,
    return True;
 }
 
-
-
+/**
+ * \brief Send/receive a part of the welcome message.
+ *
+ * \param dpy the display handle.
+ * \param i the index in dpy->fd of the socket connection.
+ * \param msg storage for the sent/received message.
+ * \param sz the number of bytes to write/read.
+ *
+ * \return True on success, or False on failure.
+ *
+ * This function is called by welcome_message_part(), to either send or receive
+ * (via blocking_read()) part of the welcome message, according to whether
+ * Display::IsClient is set.
+ *
+ * Each part of the welcome message on the wire consists of a count and then the
+ * actual message data with that number of bytes.
+ */
 static int welcome_message_part( Display *dpy, int i, void **msg, int sz )
 {
    if (dpy->IsClient) {
@@ -260,6 +277,18 @@ static int welcome_message_part( Display *dpy, int i, void **msg, int sz )
    return True;
 }
 
+/**
+ * \brief Send/receive the welcome message.
+ *
+ * \param dpy the display handle.
+ * \param i the index in dpy->fd of the socket connection.
+ *
+ * \return True on success, or False on failure.
+ *
+ * Using welcome_message_part(), sends/receives the client ID, the client
+ * configuration details in DRIDriverContext::shared, and the driver private
+ * message in DRIDriverContext::driverClientMsg.
+ */
 static int welcome_message( Display *dpy, int i )
 {
    void *tmp = &dpy->driverContext.shared;
@@ -281,21 +310,14 @@ static int welcome_message( Display *dpy, int i )
 
 
 /**
- * \brief Do the first part of setting up the framebuffer device.
+ * \brief Handle a new client connection.
  *
  * \param dpy the display handle.
  *
- * \return GL_TRUE on success, or GL_FALSE on failure.
+ * \return True on success or False on failure.
  * 
- * \sa This is called during XOpenDisplay().
- *
- * \internal
- * Gets the VT number, opens the respective console TTY device. Saves its state
- * to restore when exiting and goes into graphics mode.
- *
- * Opens the framebuffer device and make a copy of the original variable screen
- * information and gets the fixed screen information.  Maps the framebuffer and
- * MMIO region into the process address space.
+ * Acepts the connection, sets it in non-blocking operation, and finds a free
+ * slot in Display::fd for it.
  */
 static int handle_new_client( Display *dpy )
 {
@@ -349,9 +371,19 @@ static int handle_new_client( Display *dpy )
    return False;
 }
 
-/* This routine "puffs out" the very basic communciations between
+/**
+ * This routine "puffs out" the very basic communciations between
  * client & server to full-sized X Events that can be handled by the
  * application.
+ *
+ * \param dpy the display handle.
+ * \param i the index in dpy->fd of the socket connection.
+ *
+ * \return True on success or False on failure.
+ *
+ * \internal
+ * Interprets the message (see msg) into a XEvent and advances the file FIFO
+ * buffer.
  */
 static int
 handle_fifo_read( Display *dpy, int i )
@@ -478,6 +510,17 @@ handle_fifo_read( Display *dpy, int i )
    return True;
 }
 
+/**
+ * Handle a VT signal
+ *
+ * \param dpy display handle.
+ *
+ * The VT switches is detected by comparing Display::haveVT and
+ * Display::hwActive. When loosing the VT the hardware lock is acquired, the
+ * hardware is shutdown via a call to DRIDriverRec::shutdownHardware(), and the
+ * VT released. When aquiring the VT back the hardware state is restored via a
+ * call to DRIDriverRec::restoreHardware() and the hardware lock released.
+ */
 static void __driHandleVtSignals( Display *dpy )
 {
    dpy->vtSignalFlag = 0;
@@ -513,12 +556,35 @@ static void __driHandleVtSignals( Display *dpy )
 #undef max
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
-/* This all looks pretty complex, but is necessary especially on the
+/**
+ * Logic for the select() call.
+ *
+ * \param dpy display handle.
+ * \param n highest fd in any set plus one.
+ * \param rfds fd set to be watched for reading, or NULL to create one.
+ * \param wfds fd set to be watched for writing, or NULL to create one.
+ * \param xfds fd set to be watched for exceptions or error, or NULL to create one.
+ * \param tv timeout value, or NULL for no timeout.
+ * 
+ * \return number of file descriptors contained in the sets, or a negative number on failure.
+ * 
+ * \note
+ * This all looks pretty complex, but is necessary especially on the
  * server side to prevent a poorly-behaved client from causing the
  * server to block in a read or write and hence not service the other
  * clients.
  *
+ * \sa
  * See select_tut in the linux manual pages for more discussion.
+ *
+ * \internal
+ * Creates and initializes the file descriptor sets by inspecting Display::fd
+ * if these aren't passed in the function call. Calls select() and fullfill the
+ * demands by trying to fill MiniGLXConnection::readbuf and draining
+ * MiniGLXConnection::writebuf. 
+ * The server fd[0] is handled specially for new connections, by calling
+ * handle_new_client().
+ * 
  */
 int 
 __miniglx_Select( Display *dpy, int n, fd_set *rfds, fd_set *wfds, fd_set *xfds,
@@ -638,6 +704,17 @@ __miniglx_Select( Display *dpy, int n, fd_set *rfds, fd_set *wfds, fd_set *xfds,
    return retval;
 }
 
+/**
+ * \brief Handle socket events.
+ *
+ * \param dpy the display handle.
+ * \param nonblock whether to return immediatly or wait for an event.
+ *
+ * \return True on success, False on failure. Aborts on critical error.
+ *
+ * \internal
+ * This function is the select() main loop.
+ */
 static int handle_fd_events( Display *dpy, int nonblock )
 {
    while (1) {
@@ -652,8 +729,18 @@ static int handle_fd_events( Display *dpy, int nonblock )
    }
 }
 
-
-
+/**
+ * Initializes the connections.
+ *
+ * \param dpy the display handle.
+ *
+ * \return True on success or False on failure.
+ *
+ * Allocates and initializes the Display::fd array and create a unix socket on
+ * the first entry. For a server binds the socket to a filename and listen for
+ * connections. For a client connects to the server and waits for a welcome
+ * message. Sets the socket in nonblocking mode.
+ */
 int __miniglx_open_connections( Display *dpy )
 {
    struct sockaddr_un sa;
@@ -733,6 +820,11 @@ int __miniglx_open_connections( Display *dpy )
 }
 
 
+/**
+ * Frees the connections initialzed by __miniglx_open_connections().
+ *
+ * \param dpy the display handle.
+ */
 void __miniglx_close_connections( Display *dpy )
 {
    int i;
@@ -749,6 +841,16 @@ void __miniglx_close_connections( Display *dpy )
 }
 
 
+/**
+ * Set a drawable flag.
+ *
+ * \param dpy the display handle.
+ * \param w drawable (window).
+ * \param flag flag.
+ *
+ * Sets the specified drawable flag in the SAREA and increment its stamp while
+ * holding the light hardware lock.
+ */
 static void set_drawable_flag( Display *dpy, int w, int flag )
 {
    if (dpy->driverContext.pSAREA) {
@@ -769,11 +871,10 @@ static void set_drawable_flag( Display *dpy, int w, int flag )
 
 
 
-
 /**
  * \brief Map Window.
  *
- * \param display the display handle as returned by XOpenDisplay().
+ * \param dpy the display handle as returned by XOpenDisplay().
  * \param w the window handle.
  * 
  * If called by a client, sends a request for focus to the server.  If
@@ -798,7 +899,7 @@ XMapWindow( Display *dpy, Window w )
 /**
  * \brief Unmap Window.
  *
- * \param display the display handle as returned by XOpenDisplay().
+ * \param dpy the display handle as returned by XOpenDisplay().
  * \param w the window handle.
  * 
  * Called from the client:  Lets the server know that the window won't
@@ -825,11 +926,11 @@ XUnmapWindow( Display *dpy, Window w )
 /**
  * \brief Block and wait for next X event.
  *
- * \param display the display handle as returned by XOpenDisplay().
+ * \param dpy the display handle as returned by XOpenDisplay().
  * \param event_return a pointer to an XEvent struct for the returned data.
  *
  * Wait until there is a new XEvent pending.
- **/
+ */
 int XNextEvent(Display *dpy, XEvent *event_return)
 {
    for (;;) {
@@ -843,13 +944,13 @@ int XNextEvent(Display *dpy, XEvent *event_return)
 /**
  * \brief Non-blocking check for next X event.
  *
- * \param display the display handle as returned by XOpenDisplay().
- * \param event_mask IGNORED
+ * \param dpy the display handle as returned by XOpenDisplay().
+ * \param event_mask ignored.
  * \param event_return a pointer to an XEvent struct for the returned data.
  *
  * Check if there is a new XEvent pending.  Note that event_mask is
  * ignored and any pending event will be returned.
- **/
+ */
 Bool XCheckMaskEvent(Display *dpy, long event_mask, XEvent *event_return)
 {
    if ( dpy->eventqueue.head != dpy->eventqueue.tail )
@@ -859,10 +960,3 @@ Bool XCheckMaskEvent(Display *dpy, long event_mask, XEvent *event_return)
  
    return dequeue_event( dpy, event_return ); 
 }
-
-
-
-
-
-
-/*@}*/

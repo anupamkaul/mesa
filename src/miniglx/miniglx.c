@@ -1,3 +1,12 @@
+/**
+ * \file miniglx.c
+ * \brief Mini GLX interface functions.
+ * \author Brian Paul
+ *
+ * The Mini GLX interface is a subset of the GLX interface, plus a
+ * minimal set of Xlib functions.
+ */
+
 /*
  * Mesa 3-D graphics library
  * Version:  5.0
@@ -22,18 +31,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: miniglx.c,v 1.1.4.53 2003/04/26 21:17:47 keithw Exp $ */
-
-
-/**
- * \file miniglx.c
- * \brief Mini GLX interface functions.
- * \author Brian Paul
- *
- * The Mini GLX interface is a subset of the GLX interface, plus a
- * minimal set of Xlib functions.
- */
-
+/* $Id: miniglx.c,v 1.1.4.54 2003/05/18 12:36:26 jrfonseca Exp $ */
 
 /**
  * \mainpage Mini GLX
@@ -352,11 +350,10 @@ OpenFBDev( Display *dpy )
  * \brief Setup up the desired framebuffer device mode.  
  *
  * \param dpy the display handle.
- * \param win the window handle, from which the screen size is taken.
  * 
  * \return GL_TRUE on success, or GL_FALSE on failure.
  * 
- * \sa This is called during XCreateWindow().
+ * \sa This is called during __miniglx_StartServer().
  *
  * \internal
  *
@@ -926,6 +923,9 @@ static int InitDriver( Display *dpy )
  * Asks the driver for a list of supported visuals.  Performs the per-screen
  * client-side initialization.  Also setups the callbacks in the screen private
  * information.
+ *
+ * Does the framebuffer device setup. Calls __miniglx_open_connections() to
+ * serve clients.
  */
 Display *
 __miniglx_StartServer( const char *display_name )
@@ -996,14 +996,30 @@ __miniglx_StartServer( const char *display_name )
 }
 
 
-   /* Need to:
-    *   - read config file (get driver name)
-    *      - but what about virtualWidth, etc?
-    *   - load driver module
-    *   - determine dpy->driverClientMsgSize,
-    *   - allocate dpy->driverClientMsg
-    */
-
+/**
+ * \brief Initialize the graphics system.
+ * 
+ * \param display_name currently ignored. It is recommended to pass it as NULL.
+ * \return a pointer to a #Display if the function is able to initialize
+ * the graphics system, NULL otherwise.
+ * 
+ * Allocates a MiniGLXDisplayRec structure and fills in with information from a
+ * configuration file. 
+ *
+ * Calls __miniglx_open_connections() to connect to the server.
+ * 
+ * Loads the DRI driver and pulls in Mini GLX specific hooks into a
+ * DRIDriverRec structure, and the standard DRI \e __driCreateScreen hook.
+ * Asks the driver for a list of supported visuals.  Performs the per-screen
+ * client-side initialization.  Also setups the callbacks in the screen private
+ * information.
+ *
+ * \todo
+ *   - read config file
+ *      - what about virtualWidth, etc?
+ *   - determine dpy->driverClientMsgSize,
+ *   - allocate dpy->driverClientMsg
+ */
 Display *
 XOpenDisplay( const char *display_name )
 {
@@ -1083,11 +1099,13 @@ XOpenDisplay( const char *display_name )
  * 
  * \param dpy display handle. It becomes invalid at this point.
  * 
- * If there is a window open calls XDestroyWindow().
+ * Destroys the window if any, and destroys the per-screen
+ * driver private information.
+ * Calls __miniglx_close_connections().
+ * 
+ * If a server, puts the the framebuffer back into the initial state.
  *
- * Destroys the per-screen driver private information and asks the driver to
- * halt the framebuffer device before unloading it. Closes the framebuffer
- * device. Finally frees the display structure.
+ * Finally frees the display structure.
  */
 void
 XCloseDisplay( Display *dpy )
@@ -1250,7 +1268,7 @@ XCreateWindow( Display *display, Window parent, int x, int y,
  * \param display display handle.
  * \param w window handle.
  *
- * This function frees window \p w.
+ * This function calls XUnmapWindow() and frees window \p w.
  * 
  * In case of destroying the current buffer first unbinds the GLX context
  * by calling glXMakeCurrent() with no drawable.

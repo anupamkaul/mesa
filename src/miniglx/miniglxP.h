@@ -194,12 +194,11 @@ struct DRIDriverContextRec {
    void *MMIOAddress;       /**< \brief start of the mmap'd MMIO region */
    
    /**
-    * \name Client configuration details
+    * \brief Client configuration details
     *
     * These are computed on the server and sent to clients as part of
     * the initial handshaking.
     */
-   /*@{*/
    struct {
       unsigned long hSAREA;
       int SAREASize;
@@ -211,7 +210,6 @@ struct DRIDriverContextRec {
       int virtualHeight;
    } shared;
    
-   /*@}*/
    /**
     * \name From DRIInfoRec
     */
@@ -364,12 +362,18 @@ struct MiniGLXContextRec {
 #define MINIGLX_EVENT_QUEUE_SZ 16
 #define MINIGLX_EVENT_QUEUE_MASK (MINIGLX_EVENT_QUEUE_SZ-1)
 
+/**
+ * A connection to/from the server
+ *
+ * All information is to/from the server is buffered and then dispatched by 
+ * __miniglx_Select() to avoid blocking the server.
+ */
 struct MiniGLXConnection {
-   int fd;
-   char readbuf[MINIGLX_BUF_SIZE];
-   char writebuf[MINIGLX_BUF_SIZE];
-   int readbuf_count;
-   int writebuf_count;
+   int fd;				/**< \brief file descriptor */
+   char readbuf[MINIGLX_BUF_SIZE];	/**< \brief read buffer */
+   char writebuf[MINIGLX_BUF_SIZE];	/**< \brief write buffer */
+   int readbuf_count;			/**< \brief counf of bytes waiting to be read */
+   int writebuf_count;			/**< \brief counf of bytes waiting to be written */
 };
 
 
@@ -381,7 +385,7 @@ struct MiniGLXConnection {
 struct MiniGLXDisplayRec {
    /** \brief fixed framebuffer screen info */
    struct fb_fix_screeninfo FixedInfo; 
-   /** \brief original and current variable frambuffer screen info */
+   /** \brief original and current variable framebuffer screen info */
    struct fb_var_screeninfo OrigVarInfo, VarInfo;
    struct sigaction OrigSigUsr1;
    struct sigaction OrigSigUsr2;
@@ -393,13 +397,16 @@ struct MiniGLXDisplayRec {
    int rotateMode;
 
 
-   volatile int vtSignalFlag, haveVT;
-   int hwActive;
+   volatile int vtSignalFlag;
+   volatile int haveVT;	/**< \brief whether the VT is hold */
+   int hwActive;	/**< \brief whether the hardware is active -- mimics
+			  the variations of MiniGLXDisplayRec::haveVT */
 
 
-   int IsClient, clientID;
-   int nrFds;
-   struct MiniGLXConnection *fd;
+   int IsClient;	/**< \brief whether it's a client or the server */
+   int clientID;
+   int nrFds;		/**< \brief number of connections (usually just one for the clients) */
+   struct MiniGLXConnection *fd;	/**< \brief connections */
 
    struct {
       int nr, head, tail;

@@ -67,7 +67,7 @@ __driUtilMessage(const char *f, ...)
  * \brief Find a visual.
  * 
  * \param dpy the display handle.
- * \param screen the screen number. It is currently ignored and should be zero.
+ * \param scrn the screen number. It is currently ignored and should be zero.
  * \param vid visual ID.
  * 
  * \return pointer to the wanted __GLXvisualConfigRec if found, or NULL otherwise.
@@ -341,7 +341,9 @@ static void driDestroyDrawable(Display *dpy, void *drawablePrivate)
  * \param dpy the display handle.
  * \param scrn the screen number.
  * \param draw the GLX drawable info.
+ * \param vid visual ID.
  * \param pdraw will receive the drawable dependent methods.
+ * 
  *
  * \returns a opaque pointer to the per-drawable private info on success, or NULL
  * on failure.
@@ -424,6 +426,7 @@ static void *driCreateDrawable(Display *dpy, int scrn,
  * 
  * \param dpy the display handle.
  * \param draw the GLX drawable.
+ * \param screenPrivate opaque pointer to the per-screen private information.
  *
  * \return pointer to a __DRIdrawableRec structure.
  *
@@ -476,7 +479,6 @@ static void driDestroyContext(Display *dpy, int scrn, void *contextPrivate)
  * \brief Create the per-drawable private driver information.
  * 
  * \param dpy the display handle.
- * \param scrn the screen number.
  * \param vis the visual information.
  * \param sharedPrivate the shared context dependent methods or NULL if non-existent.
  * \param pctx will receive the context dependent methods.
@@ -591,6 +593,9 @@ static void driDestroyScreen(Display *dpy, int scrn, void *screenPrivate)
  * \param dpy the display handle.
  * \param scrn the screen number.
  * \param psc will receive the screen dependent methods.
+ * \param numConfigs number of visuals.
+ * \param config visuals.
+ * \param driverAPI driver callbacks structure.
  *
  * \return a pointer to the per-screen private information.
  * 
@@ -599,6 +604,8 @@ static void driDestroyScreen(Display *dpy, int scrn, void *screenPrivate)
  * opens the DRM device verifying that the exported version matches the
  * expected.  It copies the driver callback functions and calls
  * __DriverAPIRec::InitDriver.
+ *
+ * If a client maps the framebuffer and SAREA regions.
  */
 __DRIscreenPrivate *
 __driUtilCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
@@ -726,6 +733,10 @@ __driUtilCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
  * 
  * \param dpy the display handle.
  * \param scrn the screen number.
+ * \param psc pointer to the screen dependent methods structure.
+ * \param numConfigs number of visuals.
+ * \param config visuals.
+ * \param driverAPI driver callbacks structure.
  * 
  * \internal
  * Same as __driUtilCreateScreen() but without opening the DRM device.
