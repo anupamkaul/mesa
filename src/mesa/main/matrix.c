@@ -32,7 +32,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: matrix.c,v 1.45.4.8 2003/03/24 18:23:32 keithw Exp $ */
+/* $Id: matrix.c,v 1.45.4.8.4.1 2003/05/17 15:41:27 dok666 Exp $ */
 
 
 #include "glheader.h"
@@ -45,6 +45,7 @@
 #include "mmath.h"
 #include "mtypes.h"
 #include "math/m_matrix.h"
+#include "math/m_xform.h"
 
 
 /**
@@ -560,10 +561,6 @@ _mesa_set_viewport( GLcontext *ctx, GLint x, GLint y,
     */
 /*    _mesa_ResizeBuffersMESA(); */
 
-   if (ctx->Driver.Viewport) {
-      (*ctx->Driver.Viewport)( ctx, x, y, width, height );
-   }
-
    if (ctx->_RotateMode) {
       GLint tmp, tmps;
       tmp = x; x = y; y = tmp;
@@ -584,6 +581,9 @@ _mesa_set_viewport( GLcontext *ctx, GLint x, GLint y,
    ctx->Viewport._WindowMap.type = MATRIX_3D_NO_ROT;
    ctx->NewState |= _NEW_VIEWPORT;
 
+   if (ctx->Driver.Viewport) {
+      (*ctx->Driver.Viewport)( ctx, x, y, width, height );
+   }
 }
 
 
