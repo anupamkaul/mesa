@@ -41,14 +41,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  * codegen isn't available.  This is slowed significantly by all the
  * gumph necessary to get to the tnl pointer.
  */
-
-
-/* MultiTexcoord ends up with both of these branches, unfortunately
- * (it may get its own version of the macro after size-tracking is
- * working). 
- *
- * Errors (VertexAttribNV when ATTR>15) are handled at a higher level.  
- */
 #define ATTRF( ATTR, N, A, B, C, D )				\
 {								\
    GET_CURRENT_CONTEXT( ctx );					\
@@ -84,241 +76,146 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define ATTR2F( ATTR, A, B, C, D )  ATTRF( ATTR, 2, A, B, 0, 1 )
 #define ATTR1F( ATTR, A, B, C, D )  ATTRF( ATTR, 1, A, 0, 0, 1 )
 
-#define ATTR3UB( ATTR, A, B, C )		\
-   ATTR3F( ATTR,				\
-	   UBYTE_TO_FLOAT(A),			\
-	   UBYTE_TO_FLOAT(B),			\
-	   UBYTE_TO_FLOAT(C))
+#define ATTRS( ATTRIB )						\
+static void attrib_##ATTRIB##_1_0( GLfloat s )			\
+{								\
+   ATTR1F( ATTRIB, s );						\
+}								\
+								\
+static void attrib_##ATTRIB##_1_1( const GLfloat *v )		\
+{								\
+   ATTR1F( ATTRIB, v[0] );					\
+}								\
+								\
+static void attrib_##ATTRIB##_2_0( GLfloat s, GLfloat t )	\
+{								\
+   ATTR2F( ATTRIB, s, t );					\
+}								\
+								\
+static void attrib_##ATTRIB##_2_1( const GLfloat *v )		\
+{								\
+   ATTR2F( ATTRIB, v[0], v[1] );				\
+}								\
+								\
+static void attrib_##ATTRIB##_3_0( GLfloat s, GLfloat t, 	\
+				   GLfloat r )			\
+{								\
+   ATTR3F( ATTRIB, s, t, r );					\
+}								\
+								\
+static void attrib_##ATTRIB##_3_1( const GLfloat *v )		\
+{								\
+   ATTR3F( ATTRIB, v[0], v[1], v[2] );				\
+}								\
+								\
+static void attrib_##ATTRIB##_4_0( GLfloat s, GLfloat t,	\
+				   GLfloat r, GLfloat q )	\
+{								\
+   ATTR4F( ATTRIB, s, t, r, q );				\
+}								\
+								\
+static void attrib_##ATTRIB##_4_1( const GLfloat *v )		\
+{								\
+   ATTR4F( ATTRIB, v[0], v[1], v[2], v[3] );			\
+}
 
-
-#define ATTR4UB( ATTR, A, B, C, D )		\
-   ATTR4F( ATTR,				\
-	   UBYTE_TO_FLOAT(A),			\
-	   UBYTE_TO_FLOAT(B),			\
-	   UBYTE_TO_FLOAT(C),			\
-	   UBYTE_TO_FLOAT(D))
-
-
-/* Vertex
+/* Generate a lot of functions:
  */
-static void tnl_Vertex2f( GLfloat x, GLfloat y )
-{
-   ATTR2F( VERT_ATTRIB_POS, x, y ); 
+ATTRS( 0 )
+ATTRS( 1 )
+ATTRS( 2 )
+ATTRS( 3 )
+ATTRS( 4 )
+ATTRS( 5 )
+ATTRS( 6 )
+ATTRS( 7 )
+ATTRS( 8 )
+ATTRS( 9 )
+ATTRS( 10 )
+ATTRS( 11 )
+ATTRS( 12 )
+ATTRS( 13 )
+ATTRS( 14 )
+ATTRS( 15 )
+
+
+static void *lookup_or_generate( GLuint attr, GLuint sz, GLuint v,
+				 void *fallback_attr_func )
+{ 
+   GET_CURRENT_CONTEXT( ctx ); 
+   TNLcontext *tnl = TNL_CONTEXT(ctx); 
+   void *ptr = 0;
+
+   if (tnl->vertex_active[attr] != sz)
+      tnl_fixup_vertex( ctx, attr, sz );
+
+   if (ptr == 0)
+      ptr = tnl->generated[attr][sz-1][v];
+   
+   if (ptr == 0 && attr == 0)
+      ptr = tnl->codegen.vertex[sz-1][v]( ctx );
+
+   if (ptr == 0 && attr != 0)
+      ptr = tnl->codegen.attr[sz-1][v]( ctx, attr );
+
+   if (ptr == 0)
+      ptr = fallback_attr_func;
+
+   ctx->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;
+
+   tnl->tabf[v][sz-1][attr] = ptr;
+
+   if (dispatch_entry[attr][sz-1][v]) 
+      ((void **)ctx->Exec)[dispatch_entry[attr][sz-1][v]] = ptr;
+
+   return ptr;
 }
 
-static void tnl_Vertex2fv( const GLfloat *v )
-{
-   ATTR2F( VERT_ATTRIB_POS, v[0], v[1] ); 
-}
 
-static void tnl_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
-{
-   ATTR3F( VERT_ATTRIB_POS, x, y, z ); 
-}
-
-static void tnl_Vertex3fv( const GLfloat *v )
-{
-   ATTR3F( VERT_ATTRIB_POS, v[0], v[1], v[2] ); 
-}
-
-static void tnl_Vertex4f( GLfloat x, GLfloat y, GLfloat z, GLfloat w )
-{
-   ATTR4F( VERT_ATTRIB_POS, x, y, z, w ); 
-}
-
-static void tnl_Vertex4fv( const GLfloat *v )
-{
-   ATTR4F( VERT_ATTRIB_POS, v[0], v[1], v[2], v[3] ); 
-}
-
-
-/* Color
+/* These functions choose one of the ATTR's generated above (or from
+ * codegen).  Like the ATTR functions, they live in the GL dispatch
+ * table and in the second-level dispatch table for MultiTexCoord,
+ * AttribNV, etc.
  */
-static void tnl_Color3ub( GLubyte r, GLubyte g, GLubyte b )
-{
-   ATTR3UB( VERT_ATTRIB_COLOR0, r, g, b );
+#define CHOOSE( FNTYPE, ATTR, SZ, V, ARGS1, ARGS2 )	\
+static void choose_##ATTR##_##SZ##_##V ARGS1		\
+{							\
+   void *ptr = choose(ctx, ATTR, SZ, V, 		\
+		      attrib_##ATTR##_##SZ##_##V );	\
+   							\
+   (FN_TYPE) ptr ARGS2;					\
 }
 
-static void tnl_Color3ubv( const GLubyte *v )
-{
-   ATTR3UB( VERT_ATTRIB_COLOR0, v[0], v[1], v[2] );
-}
-
-static void tnl_Color4ub( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
-{
-   ATTR4UB( VERT_ATTRIB_COLOR0, r, g, b, a );
-}
-
-static void tnl_Color4ubv( const GLubyte *v )
-{
-   ATTR4UB( VERT_ATTRIB_COLOR0, v[0], v[1], v[2], v[3] );
-}
-
-static void tnl_Color3f( GLfloat r, GLfloat g, GLfloat b )
-{
-   ATTR3F( VERT_ATTRIB_COLOR0, r, g, b );
-}
-
-static void tnl_Color3fv( const GLfloat *v )
-{
-   ATTR3F( VERT_ATTRIB_COLOR0, v[0], v[1], v[2] );
-}
-
-static void tnl_Color4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
-{
-   ATTR4F( VERT_ATTRIB_COLOR0, r, g, b, a );
-}
-
-static void tnl_Color4fv( const GLfloat *v )
-{
-   ATTR4F( VERT_ATTRIB_COLOR0, v[0], v[1], v[2], v[3] );
-}
+#define CHOOSERS( ATTR )						\
+CHOOSE( ATTR, 1, 1, pfv, (const GLfloat *v), (v))			\
+CHOOSE( ATTR, 2, 1, pfv, (const GLfloat *v), (v))			\
+CHOOSE( ATTR, 3, 1, pfv, (const GLfloat *v), (v))			\
+CHOOSE( ATTR, 4, 1, pfv, (const GLfloat *v), (v))			\
+CHOOSE( ATTR, 1, 0, p1f, (GLfloat a), (a))				\
+CHOOSE( ATTR, 2, 0, p2f, (GLfloat a, GLfloat b), (a,b))		\
+CHOOSE( ATTR, 3, 0, p3f, (GLfloat a, GLfloat c), (a,b,c))		\
+CHOOSE( ATTR, 4, 0, p4f, (GLfloat a, GLfloat c,GLfloat d), (a,b,c,d))
 
 
-/* Secondary Color
- */
-static void tnl_SecondaryColor3ubEXT( GLubyte r, GLubyte g, GLubyte b )
-{
-   ATTR3UB( VERT_ATTRIB_COLOR1, r, g, b );
-}
-
-static void tnl_SecondaryColor3ubvEXT( const GLubyte *v )
-{
-   ATTR3UB( VERT_ATTRIB_COLOR1, v[0], v[1], v[2] );
-}
-
-static void tnl_SecondaryColor3fEXT( GLfloat r, GLfloat g, GLfloat b )
-{
-   ATTR3F( VERT_ATTRIB_COLOR1, r, g, b );
-}
-
-static void tnl_SecondaryColor3fvEXT( const GLfloat *v )
-{
-   ATTR3F( VERT_ATTRIB_COLOR1, v[0], v[1], v[2] );
-}
+CHOOSERS( 0 )
+CHOOSERS( 1 )
+CHOOSERS( 2 )
+CHOOSERS( 3 )
+CHOOSERS( 4 )
+CHOOSERS( 5 )
+CHOOSERS( 6 )
+CHOOSERS( 7 )
+CHOOSERS( 8 )
+CHOOSERS( 9 )
+CHOOSERS( 10 )
+CHOOSERS( 11 )
+CHOOSERS( 12 )
+CHOOSERS( 13 )
+CHOOSERS( 14 )
+CHOOSERS( 15 )
 
 
 
-/* Fog Coord
- */
-static void tnl_FogCoordfEXT( GLfloat f )
-{
-   ATTR1F( VERT_ATTRIB_FOG, f );
-}
-
-static void tnl_FogCoordfvEXT( const GLfloat *v )
-{
-   ATTR1F( VERT_ATTRIB_FOG, v[0] );
-}
-
-
-
-/* Normal
- */
-static void tnl_Normal3f( GLfloat n0, GLfloat n1, GLfloat n2 )
-{
-   ATTR3F( VERT_ATTRIB_NORMAL, n0, n1, n2 );
-}
-
-static void tnl_Normal3fv( const GLfloat *v )
-{
-   ATTR3F( VERT_ATTRIB_COLOR1, v[0], v[1], v[2] );
-}
-
-
-/* TexCoord
- */
-static void tnl_TexCoord1f( GLfloat s )
-{
-   ATTR1F( VERT_ATTRIB_TEX0, s );
-}
-
-static void tnl_TexCoord1fv( const GLfloat *v )
-{
-   ATTR1F( VERT_ATTRIB_TEX0, v[0] );
-}
-
-static void tnl_TexCoord2f( GLfloat s, GLfloat t )
-{
-   ATTR2F( VERT_ATTRIB_TEX0, s, t );
-}
-
-static void tnl_TexCoord2fv( const GLfloat *v )
-{
-   ATTR2F( VERT_ATTRIB_TEX0, v[0], v[1] );
-}
-
-static void tnl_TexCoord3f( GLfloat s, GLfloat t, GLfloat r )
-{
-   ATTR3F( VERT_ATTRIB_TEX0, s, t, r );
-}
-
-static void tnl_TexCoord3fv( const GLfloat *v )
-{
-   ATTR3F( VERT_ATTRIB_TEX0, v[0], v[1], v[2] );
-}
-
-static void tnl_TexCoord4f( GLfloat s, GLfloat t, GLfloat r, GLfloat q )
-{
-   ATTR4F( VERT_ATTRIB_TEX0, s, t, r, q );
-}
-
-static void tnl_TexCoord4fv( const GLfloat *v )
-{
-   ATTR4F( VERT_ATTRIB_TEX0, v[0], v[1], v[2], v[3] );
-}
-
-
-/* Miscellaneous: 
- *
- * These don't alias NV attributes, but still need similar treatment.
- * Basically these are attributes with numbers greater than 16.
- */
-static void tnl_EdgeFlag( GLboolean flag )
-{
-   GLfloat f = flag ? 1 : 0;
-   ATTR1F( VERT_ATTRIB_EDGEFLAG, f);
-}
-
-static void tnl_EdgeFlagv( const GLboolean *flag )
-{
-   GLfloat f = flag[0] ? 1 : 0;
-   ATTR1F( VERT_ATTRIB_EDGEFLAG, f);
-}
-
-static void tnl_Indexi( GLint idx )
-{
-   ATTR1F( VERT_ATTRIB_INDEX, idx );
-}
-
-static void tnl_Indexiv( const GLint *idx )
-{
-   ATTR1F( VERT_ATTRIB_INDEX, idx );
-}
-
-/* Use dispatch switching to build 'ranges' of eval vertices for each
- * type, avoiding need for flags.  (Make
- * evalcoords/evalpoints/vertices/attr0 mutually exclusive)
- */
-static void _tnl_EvalCoord1f( GLfloat u )
-{
-   ATTR1F( VERT_ATTRIB_POS, u );
-}
-
-static void _tnl_EvalCoord1fv( const GLfloat *v )
-{
-   ATTR1F( VERT_ATTRIB_POS, v[0] );
-}
-
-static void _tnl_EvalCoord2f( GLfloat u, GLfloat v )
-{
-   ATTR2F( VERT_ATTRIB_POS, u, v );
-}
-
-static void _tnl_EvalCoord2fv( const GLfloat *v )
-{
-   ATTR2F( VERT_ATTRIB_POS, v[0], v[1] );
-}
 
 
 
@@ -339,121 +236,122 @@ static void _tnl_EvalCoord2fv( const GLfloat *v )
  * dispatch without the "*4" below, or even do the checks every time.
  */
 struct attr_dispatch_tab {
-   void (*tab[32*4])( void );
-   void (*swapped[32*4])( void );
+   void (*tabfv[4][32])( const GLfloat * );
+
    int swapcount;
-   int installed_sizes[32];
+   int installed;		/* bitmap */
+   int installed_sizes[32];	/* active sizes */
 };
 
-#define DISPATCH_ATTR1F( ATTR, N,  ) 
-   tnl->vb.attr_dispatch 
+#define DISPATCH_ATTRFV( ATTR, COUNT, P ) tnl->vb.tabfv[COUNT-1][ATTR]( P )
+#define DISPATCH_ATTR1FV( ATTR, V ) tnl->vb.tabfv[0][attr]( V )
+#define DISPATCH_ATTR2FV( ATTR, V ) tnl->vb.tabfv[1][attr]( V )
+#define DISPATCH_ATTR3FV( ATTR, V ) tnl->vb.tabfv[2][attr]( V )
+#define DISPATCH_ATTR4FV( ATTR, V ) tnl->vb.tabfv[3][attr]( V )
 
-/* Result at the back end after second dispatch -- could further
- * specialize for attr zero -- maybe just in the codegen version.
+#define DISPATCH_ATTR1F( ATTR, S ) tnl->vb.tabfv[0][attr]( &S )
+#ifdef USE_X86_ASM
+/* Naughty cheat:
  */
-static void tnl_Attr1f( GLint attr, GLfloat s )
+#define DISPATCH_ATTR2F( ATTR, S,T ) tnl->vb.tabfv[1][attr]( &S )
+#define DISPATCH_ATTR3F( ATTR, S,T,R ) tnl->vb.tabfv[2][attr]( &S )
+#define DISPATCH_ATTR4F( ATTR, S,T,R,Q ) tnl->vb.tabfv[3][attr]( &S )
+#else
+/* Safe:
+ */
+#define DISPATCH_ATTR2F( ATTR, S,T ) 		\
+do { 						\
+   GLfloat v[2]; 				\
+   v[0] = S; v[1] = T;				\
+   tnl->vb.tabfv[1][attr]( v );			\
+} while (0)
+#define DISPATCH_ATTR3F( ATTR, S,T,R ) 		\
+do { 						\
+   GLfloat v[3]; 				\
+   v[0] = S; v[1] = T; v[2] = R;		\
+   tnl->vb.tabfv[2][attr]( v );			\
+} while (0)
+#define DISPATCH_ATTR4F( ATTR, S,T,R,Q )	\
+do { 						\
+   GLfloat v[4]; 				\
+   v[0] = S; v[1] = T; v[2] = R; v[3] = Q;	\
+   tnl->vb.tabfv[3][attr]( v );			\
+} while (0)
+#endif
+
+
+
+static void enum_error( void )
 {
-   ATTR1F( attr, s );
+   GET_CURRENT_CONTEXT( ctx );
+   _mesa_error( ctx, GL_INVALID_ENUM, __FUNCTION__ );
 }
 
-static void tnl_Attr1fv( GLint attr, const GLfloat *v )
+static void op_error( void )
 {
-   ATTR1F( attr, v[0] );
-}
-
-static void tnl_Attr2f( GLint attr, GLfloat s, GLfloat t )
-{
-   ATTR2F( attr, s, t );
-}
-
-static void tnl_Attr2fv( GLint attr, const GLfloat *v )
-{
-   ATTR2F( attr, v[0], v[1] );
-}
-
-static void tnl_Attr3f( GLint attr, GLfloat s, GLfloat t, GLfloat r )
-{
-   ATTR3F( attr, s, t, r );
-}
-
-static void tnl_Attr3fv( GLint attr, const GLfloat *v )
-{
-   ATTR3F( attr, v[0], v[1], v[2] );
-}
-
-static void tnl_Attr4f( GLint attr, GLfloat s, GLfloat t, GLfloat r, GLfloat q )
-{
-   ATTR4F( attr, s, t, r, q );
-}
-
-static void tnl_Attr4fv( GLint attr, const GLfloat *v )
-{
-   ATTR4F( attr, v[0], v[1], v[2], v[3] );
+   GET_CURRENT_CONTEXT( ctx );
+   _mesa_error( ctx, GL_INVALID_OPERATION, __FUNCTION__ );
 }
 
 
-/* MultiTexcoord:  Send through second level dispatch.
+/* First level for MultiTexcoord:  Send through second level dispatch.
+ * These are permanently installed in the toplevel dispatch.
+ *
+ * Assembly can optimize the generation of arrays by using &s instead
+ * of building 'v'.
  */
 static void tnl_MultiTexCoord1fARB( GLenum target, GLfloat s  )
 {
-   GLuint attr = (target - GL_TEXTURE0_ARB) + VERT_ATTRIB_TEX0;
-   if (attr < MAX_VERT_ATTRS)
-      DISPATCH_ATTR1F( attr, s );
+   GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
+   DISPATCH_ATTR1FV( attr, &s );
 }
 
 static void tnl_MultiTexCoord1fvARB( GLenum target, const GLfloat *v )
 {
-   GLuint attr = (target - GL_TEXTURE0_ARB) + VERT_ATTRIB_TEX0;
-   if (attr < MAX_VERT_ATTRS)
-      DISPATCH_ATTR1F( attr, v[0] );
+   GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
+   DISPATCH_ATTR1FV( attr, v );
 }
 
 static void tnl_MultiTexCoord2fARB( GLenum target, GLfloat s, GLfloat t )
 {
-   GLuint attr = (target - GL_TEXTURE0_ARB) + VERT_ATTRIB_TEX0;
-   if (attr < MAX_VERT_ATTRS)
-      DISPATCH_ATTR2F( attr, s, t );
+   GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
+   DISPATCH_ATTR2F( attr, s, t );
 }
 
 static void tnl_MultiTexCoord2fvARB( GLenum target, const GLfloat *v )
 {
-   GLuint attr = (target - GL_TEXTURE0_ARB) + VERT_ATTRIB_TEX0;
-   if (attr < MAX_VERT_ATTRS)
-      DISPATCH_ATTR2F( attr, v[0], v[1] );
+   GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
+   DISPATCH_ATTR2FV( attr, v );
 }
 
 static void tnl_MultiTexCoord3fARB( GLenum target, GLfloat s, GLfloat t,
 				    GLfloat r)
 {
-   GLuint attr = (target - GL_TEXTURE0_ARB) + VERT_ATTRIB_TEX0;
-   if (attr < MAX_VERT_ATTRS)
-      DISPATCH_ATTR3F( attr, s, t, r );
+   GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
+   DISPATCH_ATTR3F( attr, s, t, r );
 }
 
 static void tnl_MultiTexCoord3fvARB( GLenum target, const GLfloat *v )
 {
-   GLuint attr = (target - GL_TEXTURE0_ARB) + VERT_ATTRIB_TEX0;
-   if (attr < MAX_VERT_ATTRS)
-      DISPATCH_ATTR3F( attr, v[0], v[1], v[2] );
+   GLuint attr = (target & 0x7);
+   DISPATCH_ATTR3FV( attr, v );
 }
 
 static void tnl_MultiTexCoord4fARB( GLenum target, GLfloat s, GLfloat t,
 				    GLfloat r, GLfloat q )
 {
-   GLuint attr = (target - GL_TEXTURE0_ARB) + VERT_ATTRIB_TEX0;
-   if (attr < MAX_VERT_ATTRS)
-      DISPATCH_ATTR4F( attr, s, t, r, q );
+   GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
+   DISPATCH_ATTR4F( attr, s, t, r, q );
 }
 
 static void tnl_MultiTexCoord4fvARB( GLenum target, const GLfloat *v )
 {
-   GLuint attr = (target - GL_TEXTURE0_ARB) + VERT_ATTRIB_TEX0;
-   if (attr < MAX_VERT_ATTRS)
-      DISPATCH_ATTR4F( attr, v[0], v[1], v[2], v[3] );
+   GLuint attr = (target & 0x7) + VERT_ATTRIB_TEX0;
+   DISPATCH_ATTR4FV( attr, v );
 }
 
 
-/* NV_vertex_program:
+/* First level for NV_vertex_program:
  *
  * Check for errors & reroute through second dispatch layer to get
  * size tracking per-attribute.
@@ -463,15 +361,15 @@ static void tnl_VertexAttrib1fNV( GLuint index, GLfloat s )
    if (index < MAX_VERT_ATTRS)
       DISPATCH_ATTR1F( index, s );
    else
-      DISPATCH_ERROR; 
+      enum_error(); 
 }
 
 static void tnl_VertexAttrib1fvNV( GLuint index, const GLfloat *v )
 {
    if (index < MAX_VERT_ATTRS)
-      DISPATCH_ATTR1F( index, v[0] );
+      DISPATCH_ATTR1FV( index, v );
    else
-      DISPATCH_ERROR;
+      enum_error();
 }
 
 static void tnl_VertexAttrib2fNV( GLuint index, GLfloat s, GLfloat t )
@@ -479,15 +377,15 @@ static void tnl_VertexAttrib2fNV( GLuint index, GLfloat s, GLfloat t )
    if (index < MAX_VERT_ATTRS)
       DISPATCH_ATTR2F( index, s, t );
    else
-      DISPATCH_ERROR;
+      enum_error();
 }
 
 static void tnl_VertexAttrib2fvNV( GLuint index, const GLfloat *v )
 {
    if (index < MAX_VERT_ATTRS)
-      DISPATCH_ATTR2F( index, v[0], v[1] );
+      DISPATCH_ATTR2FV( index, v );
    else
-      DISPATCH_ERROR;
+      enum_error();
 }
 
 static void tnl_VertexAttrib3fNV( GLuint index, GLfloat s, GLfloat t, 
@@ -496,15 +394,15 @@ static void tnl_VertexAttrib3fNV( GLuint index, GLfloat s, GLfloat t,
    if (index < MAX_VERT_ATTRS)
       DISPATCH_ATTR3F( index, s, t, r );
    else
-      DISPATCH_ERROR;
+      enum_error();
 }
 
 static void tnl_VertexAttrib3fvNV( GLuint index, const GLfloat *v )
 {
    if (index < MAX_VERT_ATTRS)
-      DISPATCH_ATTR3F( index, v[0], v[1], v[2] );
+      DISPATCH_ATTR3FV( index, v );
    else
-      DISPATCH_ERROR;
+      enum_error();
 }
 
 static void tnl_VertexAttrib4fNV( GLuint index, GLfloat s, GLfloat t,
@@ -513,21 +411,16 @@ static void tnl_VertexAttrib4fNV( GLuint index, GLfloat s, GLfloat t,
    if (index < MAX_VERT_ATTRS)
       DISPATCH_ATTR4F( index, s, t, r, q );
    else
-      DISPATCH_ERROR;
+      enum_error();
 }
 
 static void tnl_VertexAttrib4fvNV( GLuint index, const GLfloat *v )
 {
    if (index < MAX_VERT_ATTRS)
-      DISPATCH_ATTR4F( index, v[0], v[1], v[2], v[3] );
+      DISPATCH_ATTR4FV( index, v );
    else
-      DISPATCH_ERROR;
+      enum_error();
 }
-
-
-
-
-
 
 
 /* Materials:  
@@ -536,25 +429,46 @@ static void tnl_VertexAttrib4fvNV( GLuint index, const GLfloat *v )
  * the NV_vertex_program leaves off.  There are a lot of good things
  * about treating materials this way.  
  *
- * *** Need a dispatch step (like VertexAttribute GLint attr, and MultiTexCoord)
- * *** to expand vertex size, etc.  Use the same second level dispatch
- * *** (keyed by attr number) as above.
+ * However: I don't want to double the number of generated functions
+ * just to cope with this, so I unroll the 'C' varients of CHOOSE and
+ * ATTRF into this function, and dispense with codegen and
+ * second-level dispatch.
  */
-#define MAT( ATTR, face, params )		\
+#define MAT_ATTR( A, N, params )			\
+do {							\
+   if (tnl->vertex_active[A] != N) {			\
+      tnl_fixup_vertex( ctx, A, N );			\
+   }							\
+							\
+   {							\
+      GLfloat *dest = tnl->attrptr[A];			\
+      if (N>0) dest[0] = params[0];			\
+      if (N>1) dest[1] = params[1];			\
+      if (N>2) dest[2] = params[2];			\
+      if (N>3) dest[3] = params[3];			\
+      ctx->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;	\
+   }							\
+} while (0)
+
+
+#define MAT( ATTR, N, face, params )		\
 do {						\
    if (face != GL_BACK)				\
-      DISPATCH_ATTRF( ATTR, N, params );	\
+      MAT_ATTR( ATTR, N, params ); /* front */	\
    if (face != GL_FRONT)			\
-      DISPATCH_ATTRF( ATTR+7, N, params );	\
+      MAT_ATTR( ATTR+7, N, params ); /* back */	\
 } while (0)
 
 
 /* NOTE: Have to remove/dealwith colormaterial crossovers, probably
- * later on - in the meantime just store everything.
+ * later on - in the meantime just store everything.  
  */
 static void _tnl_Materialfv( GLenum face, GLenum pname, 
 			       const GLfloat *params )
 {
+   GET_CURRENT_CONTEXT( ctx ); 
+   TNLcontext *tnl = TNL_CONTEXT(ctx);
+
    switch (pname) {
    case GL_EMISSION:
       MAT( VERT_ATTRIB_FRONT_EMMISSION, 4, face, params );
@@ -572,7 +486,7 @@ static void _tnl_Materialfv( GLenum face, GLenum pname,
       MAT( VERT_ATTRIB_FRONT_SHININESS, 1, face, params );
       break;
    case GL_COLOR_INDEXES:
-      MAT( VERT_ATTRIB_FRONT_EMMISSION, 3, face, params );
+      MAT( VERT_ATTRIB_FRONT_EMMISSION, 3, face, params ); /* ??? */
       break;
    case GL_AMBIENT_AND_DIFFUSE:
       MAT( VERT_ATTRIB_FRONT_AMBIENT, 4, face, params );
@@ -587,113 +501,96 @@ static void _tnl_Materialfv( GLenum face, GLenum pname,
 
 
 
-/* Codegen support
- */
-static struct dynfn *lookup( struct dynfn *l, int key )
-{
-   struct dynfn *f;
 
-   foreach( f, l ) {
-      if (f->key == key) 
-	 return f;
+
+/* These functions are the initial state for dispatch entries for all
+ * entrypoints except those requiring double-dispatch (multitexcoord,
+ * material, vertexattrib).
+ *
+ * These may provoke a vertex-upgrade where the existing vertex buffer
+ * is flushed and a new element is added to the active vertex layout.
+ * This can happen between begin/end pairs.
+ */
+static float id[4] = { 0, 0, 0, 1 };
+
+static void _tnl_fixup_vertex( GLcontext *ctx, GLuint attr, GLuint sz )
+{
+   if (tnl->vertex_present[ATTR] < SZ) {
+      tnl_upgrade_vertex( tnl, ATTR, SZ );
+   }
+   else {
+      int i;
+
+      /* Just clean the bits that won't be touched otherwise:
+       */
+      for (i = SZ ; i < tnl->vertex_present[ATTR] ; i++)
+	 tnl->attrptr[ATTR][i] = id[i];
+
+      if (ctx->Driver.NeedFlush & FLUSH_UPDATE_CURRENT) {
+	 _tnl_reset_attr_dispatch_tab( ctx );
+	 _mesa_install_exec_vtxfmt( ctx, &tnl->chooser );
+      }
+   }
+}
+
+
+
+/* EvalCoord needs special treatment as ususal:
+ */
+static void evalcoord( GLfloat a, GLfloat b, GLuint type ) 
+{
+   GET_CURRENT_CONTEXT( ctx );					
+   TNLcontext *tnl = TNL_CONTEXT(ctx);				
+   
+   /* Initialize the list of eval fixups:
+    */
+   if (!tnl->evalptr) {
+      init_eval_ptr( ctx );
    }
 
-   return 0;
-}
+   /* Note that this vertex will need to be fixed up:
+    */
+   tnl->evalptr[0].vert = tnl->initial_counter - tnl->counter;
+   tnl->evalptr[0].type = type;
 
-/* Vertex descriptor
- */
-struct _tnl_vertex_descriptor {
-   GLuint attr_bits[4];
-};
-
-
-/* Can't use the loopback template for this:
- */
-#define CHOOSE(FN, FNTYPE, MASK, ACTIVE, ARGS1, ARGS2 )			\
-static void choose_##FN ARGS1						\
-{									\
-   int key = tnl->vertex_format & (MASK|ACTIVE);			\
-   struct dynfn *dfn = lookup( &tnl->dfn_cache.FN, key );		\
-									\
-   if (dfn == 0)							\
-      dfn = tnl->codegen.FN( &vb, key );				\
-   else if (MESA_VERBOSE & DEBUG_CODEGEN)				\
-      _mesa_debug(NULL, "%s -- cached codegen\n", __FUNCTION__ );		\
-									\
-   if (dfn)								\
-      tnl->context->Exec->FN = (FNTYPE)(dfn->code);			\
-   else {								\
-      if (MESA_VERBOSE & DEBUG_CODEGEN)					\
-	 _mesa_debug(NULL, "%s -- generic version\n", __FUNCTION__ );	\
-      tnl->context->Exec->FN = tnl_##FN;				\
-   }									\
-									\
-   tnl->context->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;		\
-   tnl->context->Exec->FN ARGS2;					\
+   /* Now emit the vertex with eval data in obj coordinates:
+    */
+   ATTRF( 0, 2, a, b, 0, 1 );
 }
 
 
+static void _tnl_EvalCoord1f( GLfloat u )
+{
+   evalcoord( u, 0, _TNL_EVAL_COORD1 );
+}
 
-CHOOSE(Normal3f, p3f, 3, VERT_ATTRIB_NORMAL, 
-       (GLfloat a,GLfloat b,GLfloat c), (a,b,c))
-CHOOSE(Normal3fv, pfv, 3, VERT_ATTRIB_NORMAL, 
-       (const GLfloat *v), (v))
+static void _tnl_EvalCoord1fv( const GLfloat *v )
+{
+   evalcoord( v[0], 0, _TNL_EVAL_COORD1 );
+}
 
-CHOOSE(Color4ub, p4ub, 4, VERT_ATTRIB_COLOR0,
-	(GLubyte a,GLubyte b, GLubyte c, GLubyte d), (a,b,c,d))
-CHOOSE(Color4ubv, pubv, 4, VERT_ATTRIB_COLOR0, 
-	(const GLubyte *v), (v))
-CHOOSE(Color3ub, p3ub, 3, VERT_ATTRIB_COLOR0, 
-	(GLubyte a,GLubyte b, GLubyte c), (a,b,c))
-CHOOSE(Color3ubv, pubv, 3, VERT_ATTRIB_COLOR0, 
-	(const GLubyte *v), (v))
+static void _tnl_EvalCoord2f( GLfloat u, GLfloat v )
+{
+   evalcoord( u, v, _TNL_EVAL_COORD2 );
+}
 
-CHOOSE(Color4f, p4f, 4, VERT_ATTRIB_COLOR0, 
-	(GLfloat a,GLfloat b, GLfloat c, GLfloat d), (a,b,c,d))
-CHOOSE(Color4fv, pfv, 4, VERT_ATTRIB_COLOR0, 
-	(const GLfloat *v), (v))
-CHOOSE(Color3f, p3f, 3, VERT_ATTRIB_COLOR0,
-	(GLfloat a,GLfloat b, GLfloat c), (a,b,c))
-CHOOSE(Color3fv, pfv, 3, VERT_ATTRIB_COLOR0,
-	(const GLfloat *v), (v))
+static void _tnl_EvalCoord2fv( const GLfloat *u )
+{
+   evalcoord( v[0], v[1], _TNL_EVAL_COORD2 );
+}
+
+static void _tnl_EvalPoint1( GLint i )
+{
+   evalcoord( (GLfloat)i, 0, _TNL_EVAL_POINT1 );
+}
+
+static void _tnl_EvalPoint2( GLint i, GLint j )
+{
+   evalcoord( (GLfloat)i, (GLfloat)j, _TNL_EVAL_POINT2 );
+}
 
 
-CHOOSE(SecondaryColor3ubEXT, p3ub, VERT_ATTRIB_COLOR1, 
-	(GLubyte a,GLubyte b, GLubyte c), (a,b,c))
-CHOOSE(SecondaryColor3ubvEXT, pubv, VERT_ATTRIB_COLOR1, 
-	(const GLubyte *v), (v))
-CHOOSE(SecondaryColor3fEXT, p3f, VERT_ATTRIB_COLOR1,
-	(GLfloat a,GLfloat b, GLfloat c), (a,b,c))
-CHOOSE(SecondaryColor3fvEXT, pfv, VERT_ATTRIB_COLOR1,
-	(const GLfloat *v), (v))
 
-CHOOSE(TexCoord2f, p2f, VERT_ATTRIB_TEX0, 
-       (GLfloat a,GLfloat b), (a,b))
-CHOOSE(TexCoord2fv, pfv, VERT_ATTRIB_TEX0, 
-       (const GLfloat *v), (v))
-CHOOSE(TexCoord1f, p1f, VERT_ATTRIB_TEX0, 
-       (GLfloat a), (a))
-CHOOSE(TexCoord1fv, pfv, VERT_ATTRIB_TEX0, 
-       (const GLfloat *v), (v))
-
-CHOOSE(MultiTexCoord2fARB, pe2f, VERT_ATTRIB_TEX0,
-	 (GLenum u,GLfloat a,GLfloat b), (u,a,b))
-CHOOSE(MultiTexCoord2fvARB, pefv, MASK_ST_ALL, ACTIVE_ST_ALL,
-	(GLenum u,const GLfloat *v), (u,v))
-CHOOSE(MultiTexCoord1fARB, pe1f, MASK_ST_ALL, ACTIVE_ST_ALL,
-	 (GLenum u,GLfloat a), (u,a))
-CHOOSE(MultiTexCoord1fvARB, pefv, MASK_ST_ALL, ACTIVE_ST_ALL,
-	(GLenum u,const GLfloat *v), (u,v))
-
-CHOOSE(Vertex3f, p3f, VERT_ATTRIB_POS, 
-       (GLfloat a,GLfloat b,GLfloat c), (a,b,c))
-CHOOSE(Vertex3fv, pfv, VERT_ATTRIB_POS, 
-       (const GLfloat *v), (v))
-CHOOSE(Vertex2f, p2f, VERT_ATTRIB_POS, 
-       (GLfloat a,GLfloat b), (a,b))
-CHOOSE(Vertex2fv, pfv, VERT_ATTRIB_POS, 
-       (const GLfloat *v), (v))
 
 
 
@@ -701,18 +598,14 @@ CHOOSE(Vertex2fv, pfv, VERT_ATTRIB_POS,
 
 void _tnl_InitVtxfmtChoosers( GLvertexformat *vfmt )
 {
+
+
    vfmt->Color3f = choose_Color3f;
    vfmt->Color3fv = choose_Color3fv;
-   vfmt->Color3ub = choose_Color3ub;
-   vfmt->Color3ubv = choose_Color3ubv;
    vfmt->Color4f = choose_Color4f;
    vfmt->Color4fv = choose_Color4fv;
-   vfmt->Color4ub = choose_Color4ub;
-   vfmt->Color4ubv = choose_Color4ubv;
    vfmt->SecondaryColor3fEXT = choose_SecondaryColor3fEXT;
    vfmt->SecondaryColor3fvEXT = choose_SecondaryColor3fvEXT;
-   vfmt->SecondaryColor3ubEXT = choose_SecondaryColor3ubEXT;
-   vfmt->SecondaryColor3ubvEXT = choose_SecondaryColor3ubvEXT;
    vfmt->MultiTexCoord1fARB = dd_MultiTexCoord1fARB;
    vfmt->MultiTexCoord1fvARB = dd_MultiTexCoord1fvARB;
    vfmt->MultiTexCoord2fARB = dd_MultiTexCoord2fARB;
@@ -759,36 +652,22 @@ static struct dynfn *codegen_noop( struct _vb *vb, int key )
 
 void _tnl_InitCodegen( struct dfn_generators *gen )
 {
-   /* Generate an attribute or vertex command.
-    */
-   gen->Attr1f = codegen_noop;
-   gen->Attr1fv = codegen_noop;
-   gen->Attr2f = codegen_noop;
-   gen->Attr2fv = codegen_noop;
-   gen->Attr3f = codegen_noop;
-   gen->Attr3fv = codegen_noop;
-   gen->Attr4f = codegen_noop;
-   gen->Attr4fv = codegen_noop;
+   gen->attr[0][1] = codegen_noop;
+   gen->attr[0][0] = codegen_noop;
+   gen->attr[1][1] = codegen_noop;
+   gen->attr[1][0] = codegen_noop;
+   gen->attr[2][1] = codegen_noop;
+   gen->attr[2][0] = codegen_noop;
+   gen->attr[3][1] = codegen_noop;
+   gen->attr[3][0] = codegen_noop;
+
+   gen->vertex[1][1] = codegen_noop;
+   gen->vertex[1][0] = codegen_noop;
+   gen->vertex[2][1] = codegen_noop;
+   gen->vertex[2][0] = codegen_noop;
+   gen->vertex[3][1] = codegen_noop;
+   gen->vertex[3][0] = codegen_noop;
    
-   /* Index is never zero for these...
-    */
-   gen->Attr3ub = codegen_noop;
-   gen->Attr3ubv = codegen_noop;
-   gen->Attr4ub = codegen_noop;
-   gen->Attr4ubv = codegen_noop;
-
-   /* As above, but deal with the extra (redundant by now) index
-    * argument to the generated function.
-    */
-   gen->NVAttr1f = codegen_noop;
-   gen->NVAttr1fv = codegen_noop;
-   gen->NVAttr2f = codegen_noop;
-   gen->NVAttr2fv = codegen_noop;
-   gen->NVAttr3f = codegen_noop;
-   gen->NVAttr3fv = codegen_noop;
-   gen->NVAttr4f = codegen_noop;
-   gen->NVAttr4fv = codegen_noop;
-
 
    if (!getenv("MESA_NO_CODEGEN")) {
 #if defined(USE_X86_ASM)

@@ -50,11 +50,8 @@ typedef void (*p2f)( GLfloat, GLfloat );
 typedef void (*p1f)( GLfloat );
 typedef void (*pe2f)( GLenum, GLfloat, GLfloat );
 typedef void (*pe1f)( GLenum, GLfloat );
-typedef void (*p4ub)( GLubyte, GLubyte, GLubyte, GLubyte );
-typedef void (*p3ub)( GLubyte, GLubyte, GLubyte );
 typedef void (*pfv)( const GLfloat * );
 typedef void (*pefv)( GLenum, const GLfloat * );
-typedef void (*pubv)( const GLubyte * );
 
 /* Want to keep a cache of these around.  Each is parameterized by
  * only a single value which has only a small range.  Only expect a
@@ -67,63 +64,43 @@ struct dynfn {
 };
 
 struct dfn_lists {
+   struct dynfn Attr1f;
+   struct dynfn Attr1fv;
+   struct dynfn Attr2f;
+   struct dynfn Attr2fv;
+   struct dynfn Attr3f;
+   struct dynfn Attr3fv;
+   struct dynfn Attr4f;
+   struct dynfn Attr4fv;
+   struct dynfn Vertex1f;
+   struct dynfn Vertex1fv;
    struct dynfn Vertex2f;
    struct dynfn Vertex2fv;
    struct dynfn Vertex3f;
    struct dynfn Vertex3fv;
-   struct dynfn Color4ub;
-   struct dynfn Color4ubv;
-   struct dynfn Color3ub;
-   struct dynfn Color3ubv;
-   struct dynfn Color4f;
-   struct dynfn Color4fv;
-   struct dynfn Color3f;
-   struct dynfn Color3fv;
-   struct dynfn SecondaryColor3ubEXT;
-   struct dynfn SecondaryColor3ubvEXT;
-   struct dynfn SecondaryColor3fEXT;
-   struct dynfn SecondaryColor3fvEXT;
-   struct dynfn Normal3f;
-   struct dynfn Normal3fv;
-   struct dynfn TexCoord2f;
-   struct dynfn TexCoord2fv;
-   struct dynfn TexCoord1f;
-   struct dynfn TexCoord1fv;
-   struct dynfn MultiTexCoord2fARB;
-   struct dynfn MultiTexCoord2fvARB;
-   struct dynfn MultiTexCoord1fARB;
-   struct dynfn MultiTexCoord1fvARB;
+   struct dynfn Vertex4f;
+   struct dynfn Vertex4fv;
 };
 
 struct _vb;
 
 struct dfn_generators {
+   struct dynfn *(*Attr1f)( struct _vb *, int );
+   struct dynfn *(*Attr1fv)( struct _vb *, int );
+   struct dynfn *(*Attr2f)( struct _vb *, int );
+   struct dynfn *(*Attr2fv)( struct _vb *, int );
+   struct dynfn *(*Attr3f)( struct _vb *, int );
+   struct dynfn *(*Attr3fv)( struct _vb *, int );
+   struct dynfn *(*Attr4f)( struct _vb *, int );
+   struct dynfn *(*Attr4fv)( struct _vb *, int );
+   struct dynfn *(*Vertex1f)( struct _vb *, int );
+   struct dynfn *(*Vertex1fv)( struct _vb *, int );
    struct dynfn *(*Vertex2f)( struct _vb *, int );
    struct dynfn *(*Vertex2fv)( struct _vb *, int );
    struct dynfn *(*Vertex3f)( struct _vb *, int );
    struct dynfn *(*Vertex3fv)( struct _vb *, int );
-   struct dynfn *(*Color4ub)( struct _vb *, int );
-   struct dynfn *(*Color4ubv)( struct _vb *, int );
-   struct dynfn *(*Color3ub)( struct _vb *, int );
-   struct dynfn *(*Color3ubv)( struct _vb *, int );
-   struct dynfn *(*Color4f)( struct _vb *, int );
-   struct dynfn *(*Color4fv)( struct _vb *, int );
-   struct dynfn *(*Color3f)( struct _vb *, int );
-   struct dynfn *(*Color3fv)( struct _vb *, int );
-   struct dynfn *(*SecondaryColor3ubEXT)( struct _vb *, int );
-   struct dynfn *(*SecondaryColor3ubvEXT)( struct _vb *, int );
-   struct dynfn *(*SecondaryColor3fEXT)( struct _vb *, int );
-   struct dynfn *(*SecondaryColor3fvEXT)( struct _vb *, int );
-   struct dynfn *(*Normal3f)( struct _vb *, int );
-   struct dynfn *(*Normal3fv)( struct _vb *, int );
-   struct dynfn *(*TexCoord2f)( struct _vb *, int );
-   struct dynfn *(*TexCoord2fv)( struct _vb *, int );
-   struct dynfn *(*TexCoord1f)( struct _vb *, int );
-   struct dynfn *(*TexCoord1fv)( struct _vb *, int );
-   struct dynfn *(*MultiTexCoord2fARB)( struct _vb *, int );
-   struct dynfn *(*MultiTexCoord2fvARB)( struct _vb *, int );
-   struct dynfn *(*MultiTexCoord1fARB)( struct _vb *, int );
-   struct dynfn *(*MultiTexCoord1fvARB)( struct _vb *, int );
+   struct dynfn *(*Vertex4f)( struct _vb *, int );
+   struct dynfn *(*Vertex4fv)( struct _vb *, int );
 };
 
 struct prim {
@@ -206,28 +183,18 @@ struct dynfn *tnl_makeX86Vertex2f( TNLcontext *, int );
 struct dynfn *tnl_makeX86Vertex2fv( TNLcontext *, int );
 struct dynfn *tnl_makeX86Vertex3f( TNLcontext *, int );
 struct dynfn *tnl_makeX86Vertex3fv( TNLcontext *, int );
-struct dynfn *tnl_makeX86Color4ub( TNLcontext *, int );
-struct dynfn *tnl_makeX86Color4ubv( TNLcontext *, int );
-struct dynfn *tnl_makeX86Color3ub( TNLcontext *, int );
-struct dynfn *tnl_makeX86Color3ubv( TNLcontext *, int );
-struct dynfn *tnl_makeX86Color4f( TNLcontext *, int );
-struct dynfn *tnl_makeX86Color4fv( TNLcontext *, int );
-struct dynfn *tnl_makeX86Color3f( TNLcontext *, int );
-struct dynfn *tnl_makeX86Color3fv( TNLcontext *, int );
-struct dynfn *tnl_makeX86SecondaryColor3ubEXT( TNLcontext *, int );
-struct dynfn *tnl_makeX86SecondaryColor3ubvEXT( TNLcontext *, int );
-struct dynfn *tnl_makeX86SecondaryColor3fEXT( TNLcontext *, int );
-struct dynfn *tnl_makeX86SecondaryColor3fvEXT( TNLcontext *, int );
-struct dynfn *tnl_makeX86Normal3f( TNLcontext *, int );
-struct dynfn *tnl_makeX86Normal3fv( TNLcontext *, int );
-struct dynfn *tnl_makeX86TexCoord2f( TNLcontext *, int );
-struct dynfn *tnl_makeX86TexCoord2fv( TNLcontext *, int );
-struct dynfn *tnl_makeX86TexCoord1f( TNLcontext *, int );
-struct dynfn *tnl_makeX86TexCoord1fv( TNLcontext *, int );
-struct dynfn *tnl_makeX86MultiTexCoord2fARB( TNLcontext *, int );
-struct dynfn *tnl_makeX86MultiTexCoord2fvARB( TNLcontext *, int );
-struct dynfn *tnl_makeX86MultiTexCoord1fARB( TNLcontext *, int );
-struct dynfn *tnl_makeX86MultiTexCoord1fvARB( TNLcontext *, int );
+struct dynfn *tnl_makeX86Vertex4f( TNLcontext *, int );
+struct dynfn *tnl_makeX86Vertex4fv( TNLcontext *, int );
+struct dynfn *tnl_makeX86Attr4f( TNLcontext *, int );
+struct dynfn *tnl_makeX86Attr4fv( TNLcontext *, int );
+struct dynfn *tnl_makeX86Attr3f( TNLcontext *, int );
+struct dynfn *tnl_makeX86Attr3fv( TNLcontext *, int );
+struct dynfn *tnl_makeX86Attr2f( TNLcontext *, int );
+struct dynfn *tnl_makeX86Attr2fv( TNLcontext *, int );
+struct dynfn *tnl_makeX86Attr1f( TNLcontext *, int );
+struct dynfn *tnl_makeX86Attr1fv( TNLcontext *, int );
+
+
 
 
 #endif

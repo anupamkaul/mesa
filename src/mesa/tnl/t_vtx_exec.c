@@ -297,7 +297,7 @@ static void wrap_buffer( void )
 
    /* Reemit saved vertices 
     * *** POSSIBLY IN NEW FORMAT
-    *       --> Can't always extend at end of vertex?
+    *       --> Can't always extend at end of vertex
     */
    for (i = 0 ; i < nrverts; i++) {
       if (MESA_VERBOSE & DEBUG_VERTS) {
