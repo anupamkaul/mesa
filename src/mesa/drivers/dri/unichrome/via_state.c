@@ -1347,15 +1347,6 @@ static void viaChooseLineState(GLcontext *ctx)
 {
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
 
-    if (ctx->Line.SmoothFlag) {
-        vmesa->regEnable |= HC_HenAA_MASK;
-    }
-    else {
-        if (!ctx->Polygon.SmoothFlag) {
-            vmesa->regEnable &= ~HC_HenAA_MASK;
-        }
-    }
-
     if (ctx->Line.StippleFlag) {
         vmesa->regEnable |= HC_HenLP_MASK;
         vmesa->regHLP = ctx->Line.StipplePattern;
@@ -1369,17 +1360,6 @@ static void viaChooseLineState(GLcontext *ctx)
 static void viaChoosePolygonState(GLcontext *ctx) 
 {
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
-
-    /* KW: FIXME: this should be in viaRasterPrimitive (somehow)
-     */
-    if (ctx->Polygon.SmoothFlag) {
-        vmesa->regEnable |= HC_HenAA_MASK;
-    }
-    else {
-        if (!ctx->Line.SmoothFlag) {
-            vmesa->regEnable &= ~HC_HenAA_MASK;
-        }
-    }
 
     if (ctx->Polygon.StippleFlag) {
         vmesa->regEnable |= HC_HenSP_MASK;
@@ -1520,7 +1500,7 @@ static void viaChooseTriangle(GLcontext *ctx)
 void viaValidateState( GLcontext *ctx )
 {
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
-    
+
     if (vmesa->newState & _NEW_TEXTURE) {
        GLboolean ok = (viaChooseTextureState(ctx) &&
 		       viaUpdateTextureState(ctx));
@@ -1552,6 +1532,13 @@ void viaValidateState( GLcontext *ctx )
         vmesa->regEnable |= HC_HenCS_MASK;
     else
         vmesa->regEnable &= ~HC_HenCS_MASK;
+
+    if (ctx->Point.SmoothFlag ||
+	ctx->Line.SmoothFlag ||
+	ctx->Polygon.SmoothFlag)
+        vmesa->regEnable |= HC_HenAA_MASK;
+    else 
+        vmesa->regEnable &= ~HC_HenAA_MASK;
 
     vmesa->newEmitState |= vmesa->newState;
     vmesa->newState = 0;
