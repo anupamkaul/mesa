@@ -264,7 +264,7 @@ viaChooseTexFormat( GLcontext *ctx, GLint internalFormat,
       if ( format == GL_RGB && type == GL_UNSIGNED_SHORT_5_6_5 ) {
 	 return &_mesa_texformat_rgb565;
       }
-      return do32bpt ? &_mesa_texformat_rgb888 : &_mesa_texformat_rgb565;
+      return do32bpt ? &_mesa_texformat_argb8888 : &_mesa_texformat_rgb565;
 
    case GL_RGBA8:
    case GL_RGB10_A2:
