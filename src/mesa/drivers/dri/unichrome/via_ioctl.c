@@ -444,7 +444,8 @@ void viaWaitIdle( struct via_context *vmesa )
    if (vmesa->lastDma >= vmesa->lastBreadcrumbRead) 
       viaWaitBreadcrumb( vmesa, vmesa->lastDma );
 
-   viaCheckIdle(vmesa);
+   while(!viaCheckIdle(vmesa))
+      ;
 }
 
 
