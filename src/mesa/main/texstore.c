@@ -1007,6 +1007,40 @@ _mesa_texstore_argb8888(STORE_PARAMS)
                      srcWidth, srcHeight, srcDepth, srcFormat, srcType,
                      srcAddr, srcPacking);
    }
+   else if (!ctx->_ImageTransferState &&
+	    !srcPacking->SwapBytes &&
+	    dstFormat == &_mesa_texformat_argb8888 &&
+	    baseInternalFormat == GL_RGB &&
+	    srcFormat == GL_RGB &&
+	    srcType == GL_UNSIGNED_BYTE && 
+	    littleEndian) {
+      /* optimized path: GL_RGB, GL_UNSIGNED_BYTE, little endian  */
+
+      /* Avoids creating the tempoary image on this commonly used
+       * driver path.
+       */
+      const GLubyte *src = srcAddr;
+      GLubyte *dstImage = (GLubyte *) dstAddr
+                        + dstZoffset * dstImageStride
+                        + dstYoffset * dstRowStride
+                        + dstXoffset * dstFormat->TexelBytes;
+      GLint img, row, col;
+      for (img = 0; img < srcDepth; img++) {
+         GLubyte *dstRow = dstImage;
+         for (row = 0; row < srcHeight; row++) {
+            GLuint *dstUI = (GLuint *) dstRow;
+	    for (col = 0; col < srcWidth; col++) {
+	       dstUI[col] = PACK_COLOR_8888( 0xff,
+					     src[RCOMP],
+					     src[GCOMP],
+					     src[BCOMP] );
+	       src += 3;
+	    }
+            dstRow += dstRowStride;
+         }
+         dstImage += dstImageStride;
+      }
+   }
    else {
       /* general path */
       const GLchan *tempImage = _mesa_make_temp_chan_image(ctx, dims,
