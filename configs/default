@@ -11,7 +11,7 @@ MESA_MINOR=3
 MESA_TINY=0
 
 # external projects
-DRM_SOURCE_PATH=$(TOP)/../drm
+DRM_SOURCE_PATH=/X11R6/SourceForge/DRI-freedesktop/drm
 
 # Compiler and flags
 CC = cc
