@@ -174,6 +174,7 @@ calculate_buffer_parameters( viaContextPtr vmesa )
    if (vmesa->hasBack) {
       vmesa->back.bpp = vmesa->viaScreen->bitsPerPixel;
       vmesa->back.pitch = (buffer_align( vmesa->driDrawable->w ) << shift) + extra;
+      vmesa->back.pitch = MIN2(vmesa->back.pitch, vmesa->front.pitch);
       vmesa->back.size = vmesa->back.pitch * vmesa->driDrawable->h;
       if (vmesa->back.map)
 	 via_free_draw_buffer(vmesa, &vmesa->back);
@@ -211,14 +212,9 @@ calculate_buffer_parameters( viaContextPtr vmesa )
    /*=* John Sheng [2003.5.31] flip *=*/
    if( vmesa->viaScreen->width == vmesa->driDrawable->w && 
        vmesa->viaScreen->height == vmesa->driDrawable->h ) {
-#define ALLOW_EXPERIMENTAL_PAGEFLIP 0
-#if ALLOW_EXPERIMENTAL_PAGEFLIP
-      vmesa->doPageFlip = GL_TRUE;
+      vmesa->doPageFlip = getenv("VIA_PAGEFLIP") != 0;
       /* vmesa->currentPage = 0; */
       assert(vmesa->back.pitch == vmesa->front.pitch);
-#else
-      vmesa->doPageFlip = GL_FALSE;
-#endif
    }
    else
       vmesa->doPageFlip = GL_FALSE;
@@ -308,6 +304,9 @@ FreeBuffer(viaContextPtr vmesa)
 
     if (vmesa->depth.map)
         via_free_draw_buffer(vmesa, &vmesa->depth);
+
+    if (vmesa->breadcrumb.map)
+        via_free_draw_buffer(vmesa, &vmesa->breadcrumb);
 
     if (vmesa->dma)
         via_free_dma_buffer(vmesa);
@@ -498,6 +497,19 @@ viaCreateContext(const __GLcontextModes *mesaVis,
         return GL_FALSE;
     }
 
+    /* Allocate a small piece of fb memory for synchronization:
+     */
+    vmesa->breadcrumb.bpp = 32;
+    vmesa->breadcrumb.pitch = buffer_align( 64 ) << 2;
+    vmesa->breadcrumb.size = vmesa->breadcrumb.pitch;
+
+    if (!via_alloc_draw_buffer(vmesa, &vmesa->breadcrumb)) {
+        fprintf(stderr ,"AllocateDmaBuffer fail\n");
+        FreeBuffer(vmesa);
+        FREE(vmesa);
+        return GL_FALSE;
+    }
+
     driInitExtensions( ctx, card_extensions, GL_TRUE );
     viaInitStateFuncs(ctx);
     viaInitTextures(ctx);
@@ -546,6 +558,8 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     if (VIA_DEBUG) {
 	fprintf(stderr, "regEngineStatus = %x\n", *vmesa->regEngineStatus);
     }
+
+
     
     if (VIA_DEBUG) fprintf(stderr, "%s - out\n", __FUNCTION__);    
     return GL_TRUE;

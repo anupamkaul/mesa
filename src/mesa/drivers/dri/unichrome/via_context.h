@@ -103,9 +103,12 @@ struct via_context_t {
     GLint refcount;   
     GLcontext *glCtx;
     GLcontext *shareCtx;
+
     viaBuffer front;
     viaBuffer back;
     viaBuffer depth;
+    viaBuffer breadcrumb;
+
     GLboolean hasBack;
     GLboolean hasDepth;
     GLboolean hasStencil;

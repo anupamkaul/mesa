@@ -353,6 +353,72 @@ static void viaDoSwapBuffers(viaContextPtr vmesa,
 }
 
 
+static void viaEmitBreadcrumb( viaContextPtr vmesa, GLuint value )
+{
+   viaBuffer *buffer = &vmesa->breadcrumb;
+
+   if (VIA_DEBUG)
+      fprintf(stderr, "emit %x offset %x pitch %x\n", value, buffer->offset, buffer->pitch);
+
+   viaBlit(vmesa,
+	   buffer->bpp, 
+	   buffer->offset, buffer->pitch,
+	   buffer->offset, buffer->pitch, 
+	   1, 1,
+	   VIA_BLIT_FILL, value, 0); 
+}
+
+
+static GLboolean viaReceivedBreadcrumb( viaContextPtr vmesa, GLuint value )
+{
+   GLuint *buf = (GLuint *)vmesa->breadcrumb.map; 
+
+   if (VIA_DEBUG)
+      fprintf(stderr, "want %x got %x, addr %x\n", value, *buf, buf);
+
+   if (value == *buf) 
+      return GL_TRUE;
+
+   if ((((GLuint)*vmesa->regEngineStatus) & 0xFFFEFFFF) == 0x00020000) {
+      if (VIA_DEBUG)
+	 fprintf(stderr, "failsafe - engine is idle\n");
+      return GL_TRUE;
+   }
+   
+   return GL_FALSE;
+}
+
+/* Wait for command stream to be processed *and* the next vblank to
+ * occur.  Equivalent to calling WAIT_IDLE() and then WaitVBlank,
+ * except that WAIT_IDLE() will spin the CPU polling, while this is
+ * IRQ driven.
+ */
+static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv, viaContextPtr vmesa )
+{
+   GLboolean missed_target;
+
+
+   do {
+      /* BUG: with this flush uncommented, the emit-breadcrumb blit
+       * has no effect:
+       */
+/*       VIA_FLUSH_DMA(vmesa); */
+
+      if (vmesa->vblank_flags == VBLANK_FLAG_SYNC) 
+	 viaEmitBreadcrumb(vmesa, vmesa->swap_count);
+   
+      VIA_FLUSH_DMA(vmesa);
+
+      driWaitForVBlank( dPriv, & vmesa->vbl_seq, vmesa->vblank_flags, & missed_target );
+      if ( missed_target ) {
+	 vmesa->swap_missed_count++;
+	 vmesa->get_ust( &vmesa->swap_missed_ust );
+      }
+   } while (vmesa->vblank_flags == VBLANK_FLAG_SYNC &&
+	    !viaReceivedBreadcrumb(vmesa, vmesa->swap_count));
+
+   vmesa->swap_count++;
+}
 
 
 /*
@@ -361,40 +427,26 @@ static void viaDoSwapBuffers(viaContextPtr vmesa,
 void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
 {
    viaContextPtr vmesa = (viaContextPtr)dPriv->driContextPriv->driverPrivate;
-   GLboolean missed_target;
 
-   VIA_FLUSH_DMA(vmesa);
-   driWaitForVBlank( dPriv, & vmesa->vbl_seq, vmesa->vblank_flags, & missed_target );
-   if ( missed_target ) {
-      vmesa->swap_missed_count++;
-      vmesa->get_ust( &vmesa->swap_missed_ust );
-   }
+   viaWaitIdleVBlank(dPriv, vmesa);
+
    LOCK_HARDWARE(vmesa);
 
    viaDoSwapBuffers(vmesa, dPriv->pClipRects, dPriv->numClipRects);
    viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS);
 
    UNLOCK_HARDWARE(vmesa);
-   vmesa->swap_count++;
    vmesa->get_ust( &vmesa->swap_ust );
 }
 
-/*
- * XXX implement when full-screen extension is done.
- */
+
 void viaPageFlip(const __DRIdrawablePrivate *dPriv)
 {
     viaContextPtr vmesa = (viaContextPtr)dPriv->driContextPriv->driverPrivate;
     viaBuffer buffer_tmp;
-    GLboolean missed_target;
 
+    viaWaitIdleVBlank(dPriv, vmesa);
 
-    VIA_FLUSH_DMA(vmesa);
-    driWaitForVBlank( dPriv, &vmesa->vbl_seq, vmesa->vblank_flags, &missed_target );
-    if ( missed_target ) {
-       vmesa->swap_missed_count++;
-       vmesa->get_ust( &vmesa->swap_missed_ust );
-    }
     LOCK_HARDWARE(vmesa);
 
     {
@@ -422,7 +474,6 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
 
     viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS);    
     UNLOCK_HARDWARE(vmesa);
-    vmesa->swap_count++;
     vmesa->get_ust( &vmesa->swap_ust );
 
     /* KW: FIXME: When buffers are freed, could free frontbuffer by
