@@ -372,6 +372,7 @@ static GLboolean viaUpdateTexUnit(GLcontext *ctx, GLuint unit)
 	       fprintf(stderr, "viaSetTexImages failed for unit %d\n", unit);
 	    return GL_FALSE;
 	 }
+	 t->dirtyImages = 0;
       }
 
       return GL_TRUE;
@@ -401,12 +402,43 @@ static void choose_texture_heap( GLcontext *ctx,
 				 GLint height )
 {
    t->memType = VIA_MEM_AGP; 
-
-   /* Problems with VIA_MEM_VIDEO at the moment.  Don't know if we
-    * ever properly tested it in the old setup:
-    */
 /*    t->memType = VIA_MEM_VIDEO;  */
 }
+
+static GLboolean viaSwapInTexImage( GLcontext *ctx,
+				    struct gl_texture_image *texImage )
+{
+   viaContextPtr vmesa = VIA_CONTEXT(ctx);
+   struct via_texture_image *viaImage = (struct via_texture_image *)texImage;
+
+   if (via_alloc_texture(vmesa, &viaImage->texMem)) {
+      memcpy(viaImage->texMem.bufAddr, texImage->Data, 
+	     viaImage->texMem.size);
+
+      texImage->Data = viaImage->texMem.bufAddr;
+      return GL_TRUE;
+   }
+   else
+      return GL_FALSE;
+}
+
+static GLboolean viaSwapOutTexImage( GLcontext *ctx,
+				     struct gl_texture_image *texImage )
+{
+   struct via_texture_image *viaImage = (struct via_texture_image *)texImage;
+   GLubyte *data = MESA_PBUFFER_ALLOC(viaImage->texMem.size);
+
+   if (data) {
+      memcpy(data, viaImage->texMem.bufAddr, 
+	     viaImage->texMem.size);
+
+      texImage->Data = data;
+      return GL_TRUE;
+   }
+   else
+      return GL_FALSE;
+}
+
 				 
 
 
@@ -480,7 +512,6 @@ static void viaTexImage(GLcontext *ctx,
 
    if (via_alloc_texture(vmesa, &viaImage->texMem)) {
       texImage->Data = viaImage->texMem.bufAddr;
-      texImage->IsClientData = GL_TRUE;	/* not really, but it'll do for now */
    }
    else {
       if (VIA_DEBUG & DEBUG_TEXTURE)
@@ -652,47 +683,24 @@ static struct gl_texture_object *viaNewTextureObject( GLcontext *ctx,
 }
 
 
-static void viaDeleteTextureImage( GLcontext *ctx, 
-				   struct gl_texture_image *teximage )
+static void viaFreeTextureImageData( GLcontext *ctx, 
+				     struct gl_texture_image *texImage )
 {
    viaContextPtr vmesa = VIA_CONTEXT(ctx);
-   struct via_texture_image *image = (struct via_texture_image *)teximage;
+   struct via_texture_image *image = (struct via_texture_image *)texImage;
 
    if (image->texMem.index) {
+      VIA_FLUSH_DMA(vmesa);
       via_free_texture(vmesa, &image->texMem);
    }
-   else if (teximage->Data && !teximage->IsClientData) {
-      MESA_PBUFFER_FREE( teximage->Data );
+   else if (texImage->Data && !texImage->IsClientData) {
+      MESA_PBUFFER_FREE( texImage->Data );
    }
-   FREE( image );
+   
+   texImage->Data = NULL;
 }
 
 
-static void viaDeleteTextureObject( GLcontext *ctx, 
-				    struct gl_texture_object *texObj )
-{
-   viaContextPtr vmesa = VIA_CONTEXT(ctx);
-   GLuint i, face;
-
-   VIA_FLUSH_DMA(vmesa);
-	 
-   _mesa_free_colortable_data(&texObj->Palette);
-
-   /* free the texture images */
-   for (face = 0; face < 6; face++) {
-      for (i = 0; i < MAX_TEXTURE_LEVELS; i++) {
-	 if (texObj->Image[face][i]) {
-	    viaDeleteTextureImage( ctx, texObj->Image[face][i] );
-	 }
-      }
-   }
-
-   /* destroy the mutex -- it may have allocated memory (eg on bsd) */
-   _glthread_DESTROY_MUTEX(texObj->Mutex);
-
-   /* free this object */
-   FREE(texObj);
-}
 
 
 void viaInitTextureFuncs(struct dd_function_table * functions)
@@ -705,8 +713,9 @@ void viaInitTextureFuncs(struct dd_function_table * functions)
 
    functions->NewTextureObject = viaNewTextureObject;
    functions->NewTextureImage = viaNewTextureImage;
-   functions->DeleteTexture = viaDeleteTextureObject;
-
+   functions->DeleteTexture = _mesa_delete_texture_object;
+   functions->FreeTexImageData = viaFreeTextureImageData;
+					    
    functions->UpdateTexturePalette = 0;
    functions->IsTextureResident = viaIsTextureResident;
 }
