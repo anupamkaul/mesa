@@ -65,10 +65,11 @@ mgaSetTexImages( mgaContextPtr mmesa,
     GLint totalSize;
     GLint width, height;
     GLint i;
-    GLint lastLevel;
+    GLint firstLevel, lastLevel, numLevels;
     GLint log2Width, log2Height;
     GLuint txformat = 0;
     GLint ofs;
+    GLuint size = 0;
 
     /* Set the hardware texture format
      */
@@ -97,36 +98,63 @@ mgaSetTexImages( mgaContextPtr mmesa,
 
 #endif
 
-   /* We are going to upload all levels that are present, even if
-    * later levels wouldn't be used by the current filtering mode.  This
-    * allows the filtering mode to change without forcing another upload
-    * of the images.
+   /* Calculate mipmap offsets and dimensions.
     */
-
-   lastLevel = ((MGA_IS_G200(mmesa)) ? G200_TEX_MAXLEVELS : G400_TEX_MAXLEVELS) 
-       - 1;
-
    totalSize = 0;
-   for ( i = 0 ; i <= lastLevel ; i++ ) {
+
+   /* Compute which mipmap levels we really want to send to the hardware.
+    * This depends on the base image size, GL_TEXTURE_MIN_LOD,
+    * GL_TEXTURE_MAX_LOD, GL_TEXTURE_BASE_LEVEL, and GL_TEXTURE_MAX_LEVEL.
+    * Yes, this looks overly complicated, but it's all needed.
+    */
+   firstLevel = tObj->BaseLevel + (GLint) (tObj->MinLod + 0.5);
+   firstLevel = MAX2(firstLevel, tObj->BaseLevel);
+   lastLevel = tObj->BaseLevel + (GLint) (tObj->MaxLod + 0.5);
+   lastLevel = MAX2(lastLevel, tObj->BaseLevel);
+   lastLevel = MIN2(lastLevel, tObj->BaseLevel + baseImage->MaxLog2);
+   lastLevel = MIN2(lastLevel, tObj->MaxLevel);
+   lastLevel = MAX2(firstLevel, lastLevel); /* need at least one level */
+
+   numLevels = MIN2( lastLevel - firstLevel + 1,
+                     MGA_IS_G200(mmesa) ? G200_TEX_MAXLEVELS : G400_TEX_MAXLEVELS);
+
+   baseImage = tObj->Image[firstLevel];
+   
+   for ( i = 0 ; i < numLevels ; i++ ) {
       const struct gl_texture_image *texImage;
 
-      texImage = tObj->Image[i];
-      if ( texImage == NULL ) {
-	 lastLevel = i - 1;
+      texImage = tObj->Image[i + firstLevel];
+      if ( !texImage ) {
+         numLevels = i;
 	 break;
+      }
+
+      if (i && (texImage->Width < 8 || texImage->Height < 8)) {
+         numLevels = i;
+         break;
+      }
+      
+      size = ((MAX2( texImage->Width, 8 ) *
+               MAX2( texImage->Height, 8 ) *
+               baseImage->TexFormat->TexelBytes) + 31) & ~31;
+      if (!size) {
+         numLevels = i;
+         break;
       }
 
       t->offsets[i] = totalSize;
       t->base.dirty_images[0] |= (1<<i);
-
-      totalSize += ((MAX2( texImage->Width, 8 ) *
-		     MAX2( texImage->Height, 8 ) *
-		     baseImage->TexFormat->TexelBytes) + 31) & ~31;
+      
+      totalSize += size;
    }
 
-   t->base.totalSize = totalSize;
+   lastLevel = firstLevel + numLevels - 1;
+   
+   /* save these values */
+   t->firstLevel = firstLevel;
    t->lastLevel = lastLevel;
-
+   
+   t->base.totalSize = totalSize;
 
    /* setup hardware register values */
    t->setup.texctl &= (TMC_tformat_MASK & TMC_tpitch_MASK 
@@ -146,8 +174,8 @@ mgaSetTexImages( mgaContextPtr mmesa,
    /* FIXME: Is this correct for G200?
     */
    t->setup.texfilter &= TF_mapnb_MASK & ~(1U << 18) & ~(0x1ff00);
-   t->setup.texfilter |= ((lastLevel & 0x01e) << (TF_mapnb_SHIFT - 1));
-   t->setup.texfilter |= ((lastLevel & 0x001) << 18);
+   t->setup.texfilter |= (((numLevels-1) & 0x07) << (TF_mapnb_SHIFT));
+   t->setup.texfilter |= (((numLevels-1) & 0x08) << 15);
 
    /* warp texture registers */
    ofs = MGA_IS_G200(mmesa) ? 28 : 11;

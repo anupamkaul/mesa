@@ -89,16 +89,17 @@ mgaDestroyTexObj( mgaContextPtr mmesa, mgaTextureObjectPtr t )
  *      been hardware accelerated.
  */
 static void mgaUploadSubImage( mgaContextPtr mmesa,
-			       mgaTextureObjectPtr t, GLint level )
+			       mgaTextureObjectPtr t, GLint hwlevel )
 {
    struct gl_texture_image * texImage;
    unsigned     offset;
    unsigned     texelBytes;
    unsigned     length;
+   const int    level = hwlevel + t->firstLevel;
 
 
-   if ( (level < 0) 
-	|| (level >= (MGA_IS_G200(mmesa) 
+   if ( (hwlevel < 0) 
+	|| (hwlevel >= (MGA_IS_G200(mmesa) 
 		      ? G200_TEX_MAXLEVELS : G400_TEX_MAXLEVELS)) ) {
       fprintf( stderr, "[%s:%d] level = %d\n", __FILE__, __LINE__, level );
       return;
@@ -120,14 +121,14 @@ static void mgaUploadSubImage( mgaContextPtr mmesa,
 
 
    /* find the proper destination offset for this level */
-   if ( MGA_IS_G200(mmesa) ) {
-      offset = (t->base.memBlock->ofs + t->offsets[level]);
+   if (MGA_IS_G200(mmesa) ) {
+      offset = (t->base.memBlock->ofs + t->offsets[hwlevel]);
    }
    else {
       unsigned  i;
 
       offset = t->base.memBlock->ofs;
-      for ( i = 0 ; i < level ; i++ ) {
+      for ( i = 0 ; i < hwlevel ; i++ ) {
 	 offset += (t->offsets[1] >> (i * 2));
       }
 
@@ -143,7 +144,7 @@ static void mgaUploadSubImage( mgaContextPtr mmesa,
 
    texelBytes = texImage->TexFormat->TexelBytes;
    length = texImage->Width * texImage->Height * texelBytes;
-   if ( t->base.heap->heapId == MGA_CARD_HEAP ) {
+   if (t->base.heap->heapId == MGA_CARD_HEAP ) {
       unsigned  tex_offset = 0;
       unsigned  to_copy;
 

@@ -86,7 +86,7 @@ struct mga_texture_object_s;
 struct mga_screen_private_s;
 
 #define G200_TEX_MAXLEVELS 5
-#define G400_TEX_MAXLEVELS 12
+#define G400_TEX_MAXLEVELS 11
 
 typedef struct mga_texture_object_s
 {
@@ -137,6 +137,7 @@ typedef struct mga_texture_object_s
     */
    GLuint             offsets[G400_TEX_MAXLEVELS];
 
+   int                firstLevel;
    int                lastLevel;
    int                texelBytes;
    GLuint             age;
