@@ -422,19 +422,19 @@ static void mga_g400_emit_state( drm_mga_private_t *dev_priv )
  */
 static int mga_verify_context( drm_mga_private_t *dev_priv )
 {
-#if 0
 	drm_mga_sarea_t *sarea_priv = dev_priv->sarea_priv;
 	drm_mga_context_regs_t *ctx = &sarea_priv->context_state;
 
 	if ( ctx->dstorg != dev_priv->front_offset &&
-	     ctx->dstorg != dev_priv->back_offset ) {
+	     ctx->dstorg != dev_priv->back_offset &&
+	     ctx->dstorg != MGA_DSTORG_EXTENDED_CONTEXT) {
 		DRM_ERROR( "*** bad DSTORG: %x (front %x, back %x)\n\n",
 			   ctx->dstorg, dev_priv->front_offset,
 			   dev_priv->back_offset );
 		ctx->dstorg = 0;
 		return DRM_ERR(EINVAL);
 	}
-#endif
+
 	return 0;
 }
 
