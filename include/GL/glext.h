@@ -2930,6 +2930,9 @@ extern void APIENTRY glTextureColorMaskSGIS (GLboolean, GLboolean, GLboolean, GL
 typedef void (APIENTRY * PFNGLTEXTURECOLORMASKSGISPROC) (GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha);
 #endif
 
+#ifndef GL_MESA_texture_env_combine2
+#define GL_MESA_texture_env_combine2 1
+#endif
 
 #ifdef __cplusplus
 }
