@@ -35,6 +35,7 @@
 #include "via_tris.h"
 #include "via_ioctl.h"
 #include "via_state.h"
+#include "via_fb.h"
 #include "via_3d_reg.h"
 
 #include "vblank.h"
@@ -117,7 +118,7 @@ static void viaBlit(struct via_context *vmesa, GLuint bpp,
     GLuint dwGEMode, srcX, dstX, cmd;
     RING_VARS;
 
-    if (VIA_DEBUG & DEBUG_IOCTL)
+    if (VIA_DEBUG & DEBUG_2D)
        fprintf(stderr, "%s bpp %d src %x/%x dst %x/%x w %d h %d  mode: %x color: 0x%08x mask 0x%08x\n",
 	       __FUNCTION__, bpp, srcBase, srcPitch, dstBase, dstPitch, w,h, blitMode, color, nMask);
 
@@ -237,7 +238,7 @@ static void viaClear(GLcontext *ctx, GLbitfield mask, GLboolean all,
 	    mask &= ~DD_STENCIL_BIT;
 	 }
 	 else {
-	    if (VIA_DEBUG & DEBUG_IOCTL)
+	    if (VIA_DEBUG & DEBUG_2D)
 	       fprintf(stderr, "XXX: Clear stencil writemask %x -- need triangles (or a ROP?)\n", 
 		       ctx->Stencil.WriteMask[0]);
 	 }
@@ -351,20 +352,20 @@ static void viaDoSwapBuffers(struct via_context *vmesa,
 	      w, h,
 	      VIA_BLIT_COPY, 0, 0); 
    }
+
+   viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS); /* redundant */
 }
 
 
-static void viaEmitBreadcrumb( struct via_context *vmesa, GLuint value )
+static void viaEmitBreadcrumbLocked( struct via_context *vmesa )
 {
    struct via_buffer *buffer = &vmesa->breadcrumb;
+   GLuint value = vmesa->lastBreadcrumbWrite + 1;
 
-   if (VIA_DEBUG & DEBUG_IOCTL)
-      fprintf(stderr, "emit %x offset %x pitch %x\n", value, buffer->offset, buffer->pitch);
+   if (VIA_DEBUG & DEBUG_IOCTL) 
+      fprintf(stderr, "%s %d\n", __FUNCTION__, value);
 
-   /* BUG: with this flush uncommented, the emit-breadcrumb blit
-    * has no effect:
-    */
-/*       VIA_FLUSH_DMA(vmesa); */
+   assert(!vmesa->dmaLow);
 
    viaBlit(vmesa,
 	   buffer->bpp, 
@@ -373,48 +374,75 @@ static void viaEmitBreadcrumb( struct via_context *vmesa, GLuint value )
 	   1, 1,
 	   VIA_BLIT_FILL, value, 0); 
 
-   VIA_FLUSH_DMA(vmesa); 
+   viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS); /* often redundant */
+   vmesa->lastBreadcrumbWrite = value;
 }
 
-
-static GLboolean viaReceivedBreadcrumb( struct via_context *vmesa )
+void viaEmitBreadcrumb( struct via_context *vmesa )
 {
-   GLuint *buf = (GLuint *)vmesa->breadcrumb.map; 
-   GLuint value;
+   LOCK_HARDWARE(vmesa);
+   if (vmesa->dmaLow) 
+      viaFlushDmaLocked(vmesa, 0);
 
-   if (vmesa->vblank_flags == VBLANK_FLAG_SYNC || vmesa->swap_count == 0) 
-      value = vmesa->swap_count;
-   else
-      value = vmesa->swap_count - 1;
-
-   if (VIA_DEBUG & DEBUG_IOCTL)
-      fprintf(stderr, "want %x got %x, addr %p\n", value, *buf, buf);
-
-   if (value <= *buf) 
-      return GL_TRUE;
-
-   if ((((GLuint)*vmesa->regEngineStatus) & 0xFFFEFFFF) == 0x00020000) {
-      if (VIA_DEBUG & DEBUG_IOCTL)
-	 fprintf(stderr, "failsafe - engine is idle\n");
-      return GL_TRUE;
-   }
-   
-   return GL_FALSE;
+   viaEmitBreadcrumbLocked( vmesa );
+   UNLOCK_HARDWARE(vmesa);
 }
 
 static GLboolean viaCheckIdle( struct via_context *vmesa )
 {
-   return (vmesa->regEngineStatus[0] & 0xFFFEFFFF) == 0x00020000;
+   if ((vmesa->regEngineStatus[0] & 0xFFFEFFFF) == 0x00020000) {
+      return GL_TRUE;
+   }
+   return GL_FALSE;
+}
+
+
+GLboolean viaCheckBreadcrumb( struct via_context *vmesa, GLuint value )
+{
+   GLuint *buf = (GLuint *)vmesa->breadcrumb.map; 
+   vmesa->lastBreadcrumbRead = *buf;
+
+   if (VIA_DEBUG & DEBUG_IOCTL) 
+      fprintf(stderr, "%s %d <= %d: %d\n", __FUNCTION__, value, vmesa->lastBreadcrumbRead,
+	      value <= vmesa->lastBreadcrumbRead);
+
+   return value <= vmesa->lastBreadcrumbRead;
+}
+
+static void viaWaitBreadcrumb( struct via_context *vmesa, GLuint value )
+{
+   if (VIA_DEBUG & DEBUG_IOCTL) 
+      fprintf(stderr, "%s %d\n", __FUNCTION__, value);
+
+   assert(value < vmesa->lastBreadcrumbWrite);
+
+   while (!viaCheckBreadcrumb( vmesa, value )) {
+      viaSwapOutWork( vmesa );
+      via_release_pending_textures( vmesa );
+   }
 }
 
 
 void viaWaitIdle( struct via_context *vmesa )
 {
-   while (!viaCheckIdle( vmesa )) {
-      if (vmesa->work) {
-	 vmesa->work->do_work( vmesa );
-      }
+   VIA_FLUSH_DMA(vmesa);
+
+   if (VIA_DEBUG & DEBUG_IOCTL)
+      fprintf(stderr, "%s lastDma %d lastBreadcrumbWrite %d\n",
+	      __FUNCTION__, vmesa->lastDma, vmesa->lastBreadcrumbWrite);
+
+   /* Need to emit a new breadcrumb?
+    */
+   if (vmesa->lastDma == vmesa->lastBreadcrumbWrite) {
+      LOCK_HARDWARE(vmesa);
+      viaEmitBreadcrumbLocked( vmesa );
+      UNLOCK_HARDWARE(vmesa);
    }
+
+   /* Need to wait?
+    */
+   if (vmesa->lastDma > vmesa->lastBreadcrumbRead) 
+      viaWaitBreadcrumb( vmesa, vmesa->lastDma );
 }
 
 
@@ -423,18 +451,32 @@ void viaWaitIdle( struct via_context *vmesa )
  * except that WAIT_IDLE() will spin the CPU polling, while this is
  * IRQ driven.
  */
-static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv, struct via_context *vmesa )
+static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv, 
+			       struct via_context *vmesa,
+			       GLuint value )
 {
    GLboolean missed_target;
 
-   viaEmitBreadcrumb(vmesa, vmesa->swap_count);
+   VIA_FLUSH_DMA(vmesa); 
 
-   while (!viaReceivedBreadcrumb(vmesa)) {	 
-      if (vmesa->work) {
-	 vmesa->work->do_work( vmesa );
+   if (vmesa->thrashing)
+      viaSwapOutWork(vmesa);
+
+   if (!value)
+      return;
+
+   assert(value < vmesa->lastBreadcrumbWrite);
+   
+   if (value <= vmesa->lastBreadcrumbRead)
+      return;
+   
+   while (!viaCheckBreadcrumb(vmesa, value)) {	 
+      if (viaSwapOutWork(vmesa)) {
+	 continue;
       }
       else if (vmesa->vblank_flags == VBLANK_FLAG_SYNC) {
-	 driWaitForVBlank( dPriv, & vmesa->vbl_seq, vmesa->vblank_flags, & missed_target );
+	 driWaitForVBlank( dPriv, & vmesa->vbl_seq, 
+			   vmesa->vblank_flags, & missed_target );
 	 if ( missed_target ) {
 	    vmesa->swap_missed_count++;
 	    vmesa->get_ust( &vmesa->swap_missed_ust );
@@ -443,7 +485,8 @@ static void viaWaitIdleVBlank( const __DRIdrawablePrivate *dPriv, struct via_con
    }
 
    vmesa->thrashing = 0;	/* reset flag on swap */
-   vmesa->swap_count++;
+   vmesa->swap_count++;   
+   via_release_pending_textures( vmesa );
 }
 
 
@@ -452,7 +495,7 @@ static void viaDoPageFlipLocked(struct via_context *vmesa, GLuint offset)
 {
    RING_VARS;
 
-   if (VIA_DEBUG & DEBUG_IOCTL)
+   if (VIA_DEBUG & DEBUG_2D)
       fprintf(stderr, "%s %x\n", __FUNCTION__, offset);
 
    if (!vmesa->nDoneFirstFlip) {
@@ -473,13 +516,14 @@ static void viaDoPageFlipLocked(struct via_context *vmesa, GLuint offset)
 	    ((offset & 0xFF000000) >> 24) | 0x0100);
    ADVANCE_RING();
 
-   viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS);
    vmesa->pfCurrentOffset = vmesa->sarea->pfCurrentOffset = offset;
+
+   viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS); /* often redundant */
 }
 
 void viaResetPageFlippingLocked(struct via_context *vmesa)
 {
-   if (VIA_DEBUG & DEBUG_IOCTL)
+   if (VIA_DEBUG & DEBUG_2D)
       fprintf(stderr, "%s\n", __FUNCTION__);
 
    viaDoPageFlipLocked( vmesa, 0 );
@@ -503,7 +547,8 @@ void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
 {
    struct via_context *vmesa = (struct via_context *)dPriv->driContextPriv->driverPrivate;
 
-   viaWaitIdleVBlank(dPriv, vmesa);
+   VIA_FLUSH_DMA(vmesa);
+   viaWaitIdleVBlank(dPriv, vmesa, vmesa->lastSwap[1]);
 
    LOCK_HARDWARE(vmesa);
 
@@ -512,14 +557,15 @@ void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
     */
    if (dPriv->numClipRects && vmesa->sarea->pfCurrentOffset != 0) {
       viaResetPageFlippingLocked(vmesa);
-      UNLOCK_HARDWARE(vmesa);
       return;
    }
-      
-   viaDoSwapBuffers(vmesa, dPriv->pClipRects, dPriv->numClipRects);
-   viaFlushDmaLocked(vmesa, VIA_NO_CLIPRECTS);
 
+   viaDoSwapBuffers(vmesa, dPriv->pClipRects, dPriv->numClipRects);
+   vmesa->lastSwap[1] = vmesa->lastSwap[0];
+   vmesa->lastSwap[0] = vmesa->lastBreadcrumbWrite;
+   viaEmitBreadcrumbLocked(vmesa);
    UNLOCK_HARDWARE(vmesa);
+
    vmesa->get_ust( &vmesa->swap_ust );
 }
 
@@ -530,11 +576,15 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
     struct via_buffer buffer_tmp;
 
     VIA_FLUSH_DMA(vmesa);
+    viaWaitIdleVBlank(dPriv, vmesa, vmesa->lastSwap[0]);
+
     LOCK_HARDWARE(vmesa);
     viaDoPageFlipLocked(vmesa, vmesa->back.offset);
+    vmesa->lastSwap[1] = vmesa->lastSwap[0];
+    vmesa->lastSwap[0] = vmesa->lastBreadcrumbWrite;
+    viaEmitBreadcrumbLocked(vmesa);
     UNLOCK_HARDWARE(vmesa);
 
-    viaWaitIdleVBlank(dPriv, vmesa);
     vmesa->get_ust( &vmesa->swap_ust );
 
 
@@ -742,6 +792,7 @@ void viaFlushDmaLocked(struct via_context *vmesa, GLuint flags)
 		 __FUNCTION__, vmesa->dmaLow);
    }
 
+   vmesa->lastDma = vmesa->lastBreadcrumbWrite;
 
    if (VIA_DEBUG & DEBUG_DMA)
       dump_dma( vmesa );

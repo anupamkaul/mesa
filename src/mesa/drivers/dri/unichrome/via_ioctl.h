@@ -39,6 +39,10 @@ void viaCheckDma(struct via_context *vmesa, GLuint bytes);
 void viaResetPageFlippingLocked(struct via_context *vmesa);
 void viaWaitIdle(struct via_context *vmesa);
 
+GLboolean viaCheckBreadcrumb( struct via_context *vmesa, GLuint value );
+void viaEmitBreadcrumb( struct via_context *vmesa );
+
+
 #define VIA_FINISH_PRIM(vmesa) do {		\
    if (vmesa->dmaLastPrim)			\
       viaFinishPrimitive( vmesa );		\

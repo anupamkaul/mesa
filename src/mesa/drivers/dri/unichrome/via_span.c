@@ -194,10 +194,8 @@ static void viaSetBuffer(GLcontext *ctx, GLframebuffer *colorBuffer,
 void viaSpanRenderStart( GLcontext *ctx )
 {
    struct via_context *vmesa = VIA_CONTEXT(ctx);     
-   VIA_FINISH_PRIM(vmesa);
-   LOCK_HARDWARE(vmesa);
-   viaFlushDmaLocked(vmesa, 0);
    viaWaitIdle(vmesa);
+   LOCK_HARDWARE(vmesa);
 }
 
 void viaSpanRenderFinish( GLcontext *ctx )

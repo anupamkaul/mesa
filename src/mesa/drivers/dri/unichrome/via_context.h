@@ -101,6 +101,7 @@ struct via_buffer {
 
 struct via_tex_buffer {
    struct via_tex_buffer *next, *prev;
+   struct via_texture_image *image;
    GLuint index;
    GLuint offset;
    GLuint size;
@@ -114,7 +115,7 @@ struct via_tex_buffer {
 
 struct via_texture_image {
    struct gl_texture_image image;
-   struct via_tex_buffer texMem;
+   struct via_tex_buffer *texMem;
    GLint pitchLog2;
 };
 
@@ -137,10 +138,6 @@ struct via_texture_object {
 };              
 
 
-struct via_work {
-   struct via_work *next;
-   void (*do_work)( struct via_context * );
-};
 
 struct via_context {
    GLint refcount;   
@@ -327,15 +324,20 @@ struct via_context {
    GLuint pfCurrentOffset;
    GLboolean allowPageFlip;
 
-   struct via_work *work;
+   GLuint lastBreadcrumbRead;
+   GLuint lastBreadcrumbWrite;
+   GLuint lastSwap[2];
+   GLuint lastDma;
+
+   struct via_tex_buffer tex_image_list[VIA_MEM_SYSTEM+1];
+   struct via_tex_buffer freed_tex_buffers;
+   
 };
 
 
 
 #define VIA_CONTEXT(ctx)   ((struct via_context *)(ctx->DriverCtx))
 
-#define GET_DISPATCH_AGE(vmesa) vmesa->sarea->lastDispatch
-#define GET_ENQUEUE_AGE(vmesa) vmesa->sarea->lastEnqueue
 
 
 /* Lock the hardware and validate our state.  
@@ -372,6 +374,7 @@ extern GLuint VIA_DEBUG;
 #define DEBUG_SYNC      0x400
 #define DEBUG_SLEEP     0x800
 #define DEBUG_PIXEL     0x1000
+#define DEBUG_2D        0x2000
 
 
 extern void viaGetLock(struct via_context *vmesa, GLuint flags);

@@ -28,7 +28,10 @@
 
 #include "mtypes.h"
 
+struct via_context;
+
 GLboolean viaUpdateTextureState(GLcontext *ctx);
 void viaInitTextureFuncs(struct dd_function_table * functions);
+GLboolean viaSwapOutWork( struct via_context *vmesa );
 
 #endif

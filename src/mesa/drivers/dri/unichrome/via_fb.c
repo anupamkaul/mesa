@@ -29,6 +29,7 @@
 #include "via_fb.h"
 #include "xf86drm.h"
 #include "imports.h"
+#include "simple_list.h"
 #include <sys/ioctl.h>
 
 GLboolean
@@ -96,9 +97,23 @@ via_free_dma_buffer(struct via_context *vmesa)
     vmesa->dma = 0;
 } 
 
-GLboolean
-via_alloc_texture(struct via_context *vmesa, struct via_tex_buffer *t)
+
+/* These functions now allocate and free the via_tex_buffer struct as well:
+ */
+struct via_tex_buffer *
+via_alloc_texture(struct via_context *vmesa,
+		  GLuint size,
+		  GLuint memType)
 {
+   struct via_tex_buffer *t = CALLOC_STRUCT(via_tex_buffer);
+   
+   if (!t)
+      goto cleanup;
+
+   t->size = size;
+   t->memType = memType;
+   insert_at_tail(&vmesa->tex_image_list[memType], t);
+
    if (t->memType == VIA_MEM_AGP || 
        t->memType == VIA_MEM_VIDEO) {
       drm_via_mem_t fb;
@@ -108,15 +123,11 @@ via_alloc_texture(struct via_context *vmesa, struct via_tex_buffer *t)
       fb.type = t->memType;
 
       if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_ALLOCMEM, &fb) != 0 || 
-	  fb.index == 0) {
-	 if (VIA_DEBUG & (DEBUG_IOCTL|DEBUG_TEXTURE))
-	    fprintf(stderr, "via_alloc_texture fail\n");
-	 t->index = 0;
-	 return GL_FALSE;
-      }	
+	  fb.index == 0) 
+	 goto cleanup;
 
       if (0)
-	 fprintf(stderr, "offset %x index %x\n", fb.offset, fb.index);
+	 fprintf(stderr, "offset %lx index %lx\n", fb.offset, fb.index);
 
       t->offset = fb.offset;
       t->index = fb.index;
@@ -130,44 +141,87 @@ via_alloc_texture(struct via_context *vmesa, struct via_tex_buffer *t)
 	 t->texBase = fb.offset;
       }
 
-      return GL_TRUE;
+      return t;
    }
    else if (t->memType == VIA_MEM_SYSTEM) {
       
       t->bufAddr = MESA_PBUFFER_ALLOC(t->size);      
-      t->texBase = 0;
-      t->offset = 0;
-      t->index = 0;
-      
-      return t->bufAddr != NULL;
+      if (!t->bufAddr)
+	 goto cleanup;
+
+      return t;
    }
-   else
-      return GL_FALSE;
+
+ cleanup:
+   if (t) {
+      remove_from_list(t);
+      FREE(t);
+   }
+
+   return NULL;
 }
+
+
+static void
+via_do_free_texture(struct via_context *vmesa, struct via_tex_buffer *t)
+{
+   drm_via_mem_t fb;
+
+   remove_from_list( t );
+
+   fb.context = vmesa->hHWContext;
+   fb.index = t->index;
+   fb.type = t->memType;
+
+   if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
+      fprintf(stderr, "via_free_texture fail\n");
+   }
+
+   FREE(t);
+}
+
+
+/* Release textures which were potentially still being referenced by
+ * hardware at the time when they were originally freed.
+ */
+void 
+via_release_pending_textures( struct via_context *vmesa )
+{
+   struct via_tex_buffer *s, *tmp;
+   
+   foreach_s( s, tmp, &vmesa->freed_tex_buffers ) {
+      if (s->lastUsed <= vmesa->lastBreadcrumbRead) {
+	 if (VIA_DEBUG & DEBUG_TEXTURE)
+	    fprintf(stderr, "%s: release tex sz %d lastUsed %x\n",__FUNCTION__, s->size, s->lastUsed); 
+	 remove_from_list(s);
+	 via_do_free_texture(vmesa, s);
+      }
+   }
+}
+      
 
 
 void
 via_free_texture(struct via_context *vmesa, struct via_tex_buffer *t)
 {
-    if (t->memType == VIA_MEM_SYSTEM) {
-       MESA_PBUFFER_FREE(t->bufAddr);
-       t->bufAddr = 0;
-    }
-    else if (t->index) {
-       drm_via_mem_t fb;
+   if (!t) {
+      return;
+   }
+   else if (t->memType == VIA_MEM_SYSTEM) {
+      remove_from_list(t);
+      MESA_PBUFFER_FREE(t->bufAddr);
+      FREE(t);
+   }
+   else if (t->index && viaCheckBreadcrumb(vmesa, t->lastUsed)) {
+      remove_from_list(t);
+      via_do_free_texture( vmesa, t );
+   }
+   else {
+      /* Close current breadcrumb so that we can free this eventually:
+       */
+      if (t->lastUsed == vmesa->lastBreadcrumbWrite) 
+	 viaEmitBreadcrumb(vmesa);
 
-       fb.context = vmesa->hHWContext;
-       fb.index = t->index;
-       fb.type = t->memType;
-
-       if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
-	  fb.context = vmesa->hHWContext;
-	  if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
-	     fprintf(stderr, "via_free_texture fail\n");
-	  }
-       }
-
-       t->bufAddr = NULL;
-       t->index = 0;
-    }
+      move_to_tail( &vmesa->freed_tex_buffers, t );
+   }
 }

@@ -289,6 +289,7 @@ static const struct dri_debug_control debug_control[] =
     { "sync",  DEBUG_SYNC },
     { "sleep", DEBUG_SLEEP },
     { "pix",   DEBUG_PIXEL },
+    { "2d",    DEBUG_2D },
     { NULL,    0 }
 };
 
@@ -405,6 +406,10 @@ viaCreateContext(const __GLcontextModes *mesaVis,
        break;
     }
 
+    make_empty_list(&vmesa->freed_tex_buffers);
+    make_empty_list(&vmesa->tex_image_list[VIA_MEM_VIDEO]);
+    make_empty_list(&vmesa->tex_image_list[VIA_MEM_AGP]);
+    make_empty_list(&vmesa->tex_image_list[VIA_MEM_SYSTEM]);
 
     _mesa_init_driver_functions(&functions);
     viaInitTextureFuncs(&functions);
