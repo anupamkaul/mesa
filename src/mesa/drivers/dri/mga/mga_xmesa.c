@@ -272,6 +272,7 @@ static const char * const card_extensions[] =
 #endif
    "GL_EXT_secondary_color",
    "GL_EXT_stencil_wrap",
+   "GL_MESA_ycbcr_texture",
    "GL_SGIS_generate_mipmap",
    "GL_SGIS_texture_lod",
    NULL

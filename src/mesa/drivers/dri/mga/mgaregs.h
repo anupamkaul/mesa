@@ -1052,6 +1052,7 @@
 #    define TMC_tformat_tw8a 		0x7 		/* val 7, shift 0 */
 #    define TMC_tformat_tw8al 		0x8 		/* val 8, shift 0 */
 #    define TMC_tformat_tw422 		0xa 		/* val 10, shift 0 */
+#    define TMC_tformat_tw422uyvy	0xb 		/* val 11, shift 0 */
 #    define TMC_tpitchlin_MASK 		0xfffffeff 	/* bit 8 */
 #    define TMC_tpitchlin_disable 	0x0 		
 #    define TMC_tpitchlin_enable 	0x100 		

@@ -43,9 +43,9 @@
 #include "simple_list.h"
 #include "texformat.h"
 
-
+#define MGA_USE_TABLE_FOR_FORMAT
 #ifdef MGA_USE_TABLE_FOR_FORMAT
-#define TMC_nr_tformat (MESA_FORMAT_CI8 + 1)
+#define TMC_nr_tformat (MESA_FORMAT_YCBCR_REV + 1)
 static const unsigned TMC_tformat[ TMC_nr_tformat ] =
 {
     [MESA_FORMAT_ARGB8888] = TMC_tformat_tw32 | TMC_takey_1 | TMC_tamask_0,
@@ -53,6 +53,8 @@ static const unsigned TMC_tformat[ TMC_nr_tformat ] =
     [MESA_FORMAT_ARGB4444] = TMC_tformat_tw12 | TMC_takey_1 | TMC_tamask_0,
     [MESA_FORMAT_ARGB1555] = TMC_tformat_tw15 | TMC_takey_1 | TMC_tamask_0,
     [MESA_FORMAT_CI8]      = TMC_tformat_tw8  | TMC_takey_1 | TMC_tamask_0,
+    [MESA_FORMAT_YCBCR]     = TMC_tformat_tw422uyvy | TMC_takey_1 | TMC_tamask_0,
+    [MESA_FORMAT_YCBCR_REV] = TMC_tformat_tw422 | TMC_takey_1 | TMC_tamask_0,
 };
 #endif
 
@@ -80,6 +82,8 @@ mgaSetTexImages( mgaContextPtr mmesa,
 	case MESA_FORMAT_ARGB4444: txformat = TMC_tformat_tw12;	break;
 	case MESA_FORMAT_ARGB1555: txformat = TMC_tformat_tw15; break;
 	case MESA_FORMAT_CI8:      txformat = TMC_tformat_tw8;  break;
+        case MESA_FORMAT_YCBCR:    txformat  = TMC_tformat_tw422uyvy; break;
+        case MESA_FORMAT_YCBCR_REV: txformat = TMC_tformat_tw422; break;
 
 	default:
 	_mesa_problem(NULL, "unexpected texture format in %s", __FUNCTION__);

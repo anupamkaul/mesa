@@ -222,6 +222,13 @@ mgaChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
       /* FIXME: This will report incorrect component sizes... */
       return &_mesa_texformat_argb4444;
 
+   case GL_YCBCR_MESA:
+      if (type == GL_UNSIGNED_SHORT_8_8_APPLE ||
+	  type == GL_UNSIGNED_BYTE)
+         return &_mesa_texformat_ycbcr;
+      else
+         return &_mesa_texformat_ycbcr_rev;
+
    case GL_COLOR_INDEX:
    case GL_COLOR_INDEX1_EXT:
    case GL_COLOR_INDEX2_EXT:
