@@ -574,7 +574,7 @@ static void swizzle_copy(GLubyte *dst,
       break;
    case 3:
       for (i = 0; i < count; i++) {
-	 COPY_4UBV(tmp, src);
+ 	 COPY_4UBV(tmp, src); 
 	 src += srcComponents;      
 	 dst[0] = tmp[map[0]];
 	 dst[1] = tmp[map[1]];
@@ -584,7 +584,7 @@ static void swizzle_copy(GLubyte *dst,
       break;
    case 2:
       for (i = 0; i < count; i++) {
-	 COPY_4UBV(tmp, src);
+ 	 COPY_4UBV(tmp, src); 
 	 src += srcComponents;      
 	 dst[0] = tmp[map[0]];
 	 dst[1] = tmp[map[1]];
@@ -1177,6 +1177,36 @@ _mesa_texstore_argb8888(STORE_PARAMS)
                      dstRowStride, dstImageStride,
                      srcWidth, srcHeight, srcDepth, srcFormat, srcType,
                      srcAddr, srcPacking);
+   }
+   else if (!ctx->_ImageTransferState &&
+            !srcPacking->SwapBytes &&
+	    dstFormat == &_mesa_texformat_argb8888 &&
+            srcFormat == GL_RGB &&
+            srcType == GL_UNSIGNED_BYTE) {
+
+      int img, row, col;
+      GLubyte *dstImage = (GLubyte *) dstAddr
+                        + dstZoffset * dstImageStride
+                        + dstYoffset * dstRowStride
+                        + dstXoffset * dstFormat->TexelBytes;
+      for (img = 0; img < srcDepth; img++) {
+         const GLint srcRowStride = _mesa_image_row_stride(srcPacking,
+                                                 srcWidth, srcFormat, srcType);
+         GLubyte *srcRow = (GLubyte *) _mesa_image_address(dims, srcPacking,
+                  srcAddr, srcWidth, srcHeight, srcFormat, srcType, img, 0, 0);
+         GLubyte *dstRow = dstImage;
+         for (row = 0; row < srcHeight; row++) {
+            for (col = 0; col < srcWidth; col++) {
+               dstRow[col * 4 + 0] = srcRow[col * 3 + BCOMP];
+               dstRow[col * 4 + 1] = srcRow[col * 3 + GCOMP];
+               dstRow[col * 4 + 2] = srcRow[col * 3 + RCOMP];
+               dstRow[col * 4 + 3] = 0xff;
+            }
+            dstRow += dstRowStride;
+            srcRow += srcRowStride;
+         }
+         dstImage += dstImageStride;
+      }
    }
    else if (!ctx->_ImageTransferState &&
 	    !srcPacking->SwapBytes &&
