@@ -161,8 +161,7 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 #endif
 
    mgaScreen->textureOffset[MGA_CARD_HEAP] = serverInfo->textureOffset;
-   mgaScreen->textureOffset[MGA_AGP_HEAP] = (serverInfo->agpTextureOffset |
-					     PDEA_pagpxfer_enable | 1);
+   mgaScreen->textureOffset[MGA_AGP_HEAP] = (serverInfo->agpTextureOffset | 3);
 
    mgaScreen->textureSize[MGA_CARD_HEAP] = serverInfo->textureSize;
    mgaScreen->textureSize[MGA_AGP_HEAP] = serverInfo->agpTextureSize;
@@ -211,11 +210,20 @@ mgaInitDriver(__DRIscreenPrivate *sPriv)
 static void
 mgaDestroyScreen(__DRIscreenPrivate *sPriv)
 {
-   mgaScreenPrivate *mgaScreen = (mgaScreenPrivate *) sPriv->private;
+   mgaScreenPrivate *mgaScreen  = (mgaScreenPrivate *) sPriv->private;
+   MGADRIPtr         serverInfo = (MGADRIPtr)sPriv->pDevPriv;
 
    if (MGA_DEBUG&DEBUG_VERBOSE_DRI)
       fprintf(stderr, "mgaDestroyScreen\n");
 
+   if ( mgaScreen->texVirtual[MGA_AGP_HEAP] ) {
+      drmUnmap( mgaScreen->texVirtual[MGA_AGP_HEAP],
+                serverInfo->agpTextureSize );
+   }
+   if (mgaScreen->bufs)
+      drmUnmapBufs( mgaScreen->bufs );
+   drmUnmap( mgaScreen->mmio.map, mgaScreen->mmio.size );
+   
    /*drmUnmap(mgaScreen->agp_tex.map, mgaScreen->agp_tex.size);*/
    free(mgaScreen);
    sPriv->private = NULL;
