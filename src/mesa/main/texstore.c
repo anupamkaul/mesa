@@ -1209,6 +1209,36 @@ _mesa_texstore_argb8888(STORE_PARAMS)
       }
    }
    else if (!ctx->_ImageTransferState &&
+            !srcPacking->SwapBytes &&
+	    dstFormat == &_mesa_texformat_argb8888 &&
+            srcFormat == GL_RGBA &&
+            srcType == GL_UNSIGNED_BYTE) {
+
+      int img, row, col;
+      GLubyte *dstImage = (GLubyte *) dstAddr
+                        + dstZoffset * dstImageStride
+                        + dstYoffset * dstRowStride
+                        + dstXoffset * dstFormat->TexelBytes;
+      for (img = 0; img < srcDepth; img++) {
+         const GLint srcRowStride = _mesa_image_row_stride(srcPacking,
+                                                 srcWidth, srcFormat, srcType);
+         GLubyte *srcRow = (GLubyte *) _mesa_image_address(dims, srcPacking,
+                  srcAddr, srcWidth, srcHeight, srcFormat, srcType, img, 0, 0);
+         GLubyte *dstRow = dstImage;
+         for (row = 0; row < srcHeight; row++) {
+            for (col = 0; col < srcWidth; col++) {
+               dstRow[col * 4 + 0] = srcRow[col * 4 + BCOMP];
+               dstRow[col * 4 + 1] = srcRow[col * 4 + GCOMP];
+               dstRow[col * 4 + 2] = srcRow[col * 4 + RCOMP];
+               dstRow[col * 4 + 3] = srcRow[col * 4 + ACOMP];
+            }
+            dstRow += dstRowStride;
+            srcRow += srcRowStride;
+         }
+         dstImage += dstImageStride;
+      }
+   }
+   else if (!ctx->_ImageTransferState &&
 	    !srcPacking->SwapBytes &&
 	    dstFormat == &_mesa_texformat_argb8888 &&
 	    srcType == GL_UNSIGNED_BYTE && 
