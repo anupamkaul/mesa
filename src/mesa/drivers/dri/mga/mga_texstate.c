@@ -69,7 +69,6 @@ mgaSetTexImages( mgaContextPtr mmesa,
     GLint log2Width, log2Height;
     GLuint txformat = 0;
     GLint ofs;
-    GLuint size = 0;
 
     /* Set the hardware texture format
      */
@@ -134,18 +133,12 @@ mgaSetTexImages( mgaContextPtr mmesa,
          break;
       }
       
-      size = ((MAX2( texImage->Width, 8 ) *
-               MAX2( texImage->Height, 8 ) *
-               baseImage->TexFormat->TexelBytes) + 31) & ~31;
-      if (!size) {
-         numLevels = i;
-         break;
-      }
-
       t->offsets[i] = totalSize;
       t->base.dirty_images[0] |= (1<<i);
       
-      totalSize += size;
+      totalSize += ((MAX2( texImage->Width, 8 ) *
+                     MAX2( texImage->Height, 8 ) *
+                     baseImage->TexFormat->TexelBytes) + 31) & ~31;
    }
 
    lastLevel = firstLevel + numLevels - 1;
