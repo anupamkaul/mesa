@@ -1,4 +1,4 @@
-/* $Id: texobj.c,v 1.68 2003/04/01 18:10:10 brianp Exp $ */
+/* $Id: texobj.c,v 1.68.2.1 2003/04/02 20:48:23 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -109,17 +109,17 @@ _mesa_initialize_texture_object( struct gl_texture_object *obj,
 }
 
 
-/*
- * Deallocate a texture object.  It should have already been removed from
- * the texture object pool.
- * \param texObj  the texture object to deallocate
+/**
+ * Free a texture object data, but not the object itself.
+ *
+ * It should have already been removed from the texture object pool.
+ *
+ * \param texObj  the texture object to free.
  */
 void
-_mesa_delete_texture_object( GLcontext *ctx, struct gl_texture_object *texObj )
+_mesa_free_texture_object_data( struct gl_texture_object *texObj )
 {
    GLuint i;
-
-   (void) ctx;
 
    assert(texObj);
 
@@ -134,11 +134,33 @@ _mesa_delete_texture_object( GLcontext *ctx, struct gl_texture_object *texObj )
 
    /* destroy the mutex -- it may have allocated memory (eg on bsd) */
    _glthread_DESTROY_MUTEX(texObj->Mutex);
+}
+
+/**
+ * Deallocate a texture object.  
+ *
+ * It should have already been removed from the texture object pool.
+ *
+ * \param texObj  the texture object to deallocate.
+ *
+ * \todo The \p ctx parameter is should never be referenced here as the texture
+ * unlinking from context data should be done \u before calling this function,
+ * and not during. Therefore it should be removed.
+ */
+void
+_mesa_delete_texture_object( GLcontext *ctx, struct gl_texture_object *texObj )
+{
+   GLuint i;
+
+   (void) ctx;
+
+   assert(texObj);
+
+   _mesa_delete_texture_object_data( texObj);
 
    /* free this object */
    _mesa_free(texObj);
 }
-
 
 /**
  * Add the given texture object to the texture object pool.

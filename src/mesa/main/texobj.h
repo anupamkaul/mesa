@@ -1,4 +1,4 @@
-/* $Id: texobj.h,v 1.9 2003/04/01 16:41:55 brianp Exp $ */
+/* $Id: texobj.h,v 1.9.2.1 2003/04/02 20:48:24 jrfonseca Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -43,6 +43,9 @@ _mesa_new_texture_object( GLcontext *ctx, GLuint name, GLenum target );
 extern void
 _mesa_initialize_texture_object( struct gl_texture_object *obj,
                                  GLuint name, GLenum target );
+
+extern void
+_mesa_free_texture_object_data( struct gl_texture_object *obj );
 
 extern void
 _mesa_delete_texture_object( GLcontext *ctx, struct gl_texture_object *obj );
