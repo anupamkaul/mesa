@@ -572,9 +572,10 @@ driAllocateTexture( driTexHeap * const * heap_array, unsigned nr_heaps,
    }
    else {
       assert( t->heap == NULL );
-
+#if 0
       fprintf( stderr, "[%s:%d] unable to allocate texture\n",
 	       __FUNCTION__, __LINE__ );
+#endif
       return -1;
    }
 }
