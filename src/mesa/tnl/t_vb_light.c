@@ -1,4 +1,4 @@
-/* $Id: t_vb_light.c,v 1.18.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_vb_light.c,v 1.18.2.3 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -46,7 +46,7 @@
 
 typedef void (*light_func)( GLcontext *ctx,
 			    struct vertex_buffer *VB,
-			    struct gl_pipeline_stage *stage,
+			    struct tnl_pipeline_stage *stage,
 			    GLvector4f *input );
 
 struct light_stage_data {
@@ -100,7 +100,7 @@ static void init_lighting( void )
 }
 
 
-static GLboolean run_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static GLboolean run_lighting( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    struct light_stage_data *store = LIGHT_STAGE_DATA(stage);
    TNLcontext *tnl = TNL_CONTEXT(ctx);
@@ -127,7 +127,7 @@ static GLboolean run_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
 /* Called in place of do_lighting when the light table may have changed.
  */
 static GLboolean run_validate_lighting( GLcontext *ctx,
-					struct gl_pipeline_stage *stage )
+					struct tnl_pipeline_stage *stage )
 {
    GLuint ind = 0;
    light_func *tab;
@@ -177,7 +177,7 @@ static void alloc_4f( struct gl_client_array *a, GLuint sz )
  * allocate data until the first time the stage is run.
  */
 static GLboolean run_init_lighting( GLcontext *ctx,
-				    struct gl_pipeline_stage *stage )
+				    struct tnl_pipeline_stage *stage )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct light_stage_data *store;
@@ -212,7 +212,7 @@ static GLboolean run_init_lighting( GLcontext *ctx,
  * Check if lighting is enabled.  If so, configure the pipeline stage's
  * type, inputs, and outputs.
  */
-static void check_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static void check_lighting( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    stage->active = ctx->Light.Enabled && !ctx->VertexProgram.Enabled;
    if (stage->active) {
@@ -235,7 +235,7 @@ static void check_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
    }
 }
 
-static void dtr( struct gl_pipeline_stage *stage )
+static void dtr( struct tnl_pipeline_stage *stage )
 {
    struct light_stage_data *store = LIGHT_STAGE_DATA(stage);
 
@@ -252,9 +252,9 @@ static void dtr( struct gl_pipeline_stage *stage )
    }
 }
 
-struct gl_pipeline_stage *_tnl_lighting_stage( GLcontext *ctx )
+struct tnl_pipeline_stage *_tnl_lighting_stage( GLcontext *ctx )
 {
-   stage = CALLOC_STRUCT( gl_pipeline_stage );
+   stage = CALLOC_STRUCT( tnl_pipeline_stage );
 
    stage->name = "lighting";
    stage->recheck = _NEW_LIGHT;

@@ -1,4 +1,4 @@
-/* $Id: t_vb_fog.c,v 1.17.2.3 2002/10/31 15:32:41 keithw Exp $ */
+/* $Id: t_vb_fog.c,v 1.17.2.4 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -129,7 +129,7 @@ static void make_win_fog_coords( GLcontext *ctx, GLvector4f *out,
 
 
 static GLboolean run_fog_stage( GLcontext *ctx,
-				struct gl_pipeline_stage *stage )
+				struct tnl_pipeline_stage *stage )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    struct fog_stage_data *store = FOG_STAGE_DATA(stage);
@@ -189,7 +189,7 @@ static GLboolean run_fog_stage( GLcontext *ctx,
 }
 
 
-static void check_fog_stage( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static void check_fog_stage( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    stage->active = ctx->Fog.Enabled && !ctx->VertexProgram.Enabled;
    
@@ -207,7 +207,7 @@ static void check_fog_stage( GLcontext *ctx, struct gl_pipeline_stage *stage )
 /* Called the first time stage->run() is invoked.
  */
 static GLboolean alloc_fog_data( GLcontext *ctx,
-				 struct gl_pipeline_stage *stage )
+				 struct tnl_pipeline_stage *stage )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct fog_stage_data *store;
@@ -229,7 +229,7 @@ static GLboolean alloc_fog_data( GLcontext *ctx,
 }
 
 
-static void free_fog_data( struct gl_pipeline_stage *stage )
+static void free_fog_data( struct tnl_pipeline_stage *stage )
 {
    struct fog_stage_data *store = FOG_STAGE_DATA(stage);
    if (store) {
@@ -240,9 +240,9 @@ static void free_fog_data( struct gl_pipeline_stage *stage )
 }
 
 
-struct gl_pipeline_stage *_tnl_fog_stage( GLcontext *ctx )
+struct tnl_pipeline_stage *_tnl_fog_stage( GLcontext *ctx )
 {
-   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+   struct tnl_pipeline_stage *stage = CALLOC_STRUCT( tnl_pipeline_stage );
 
    stage->name = "fog";
    stage->recheck = _NEW_FOG;

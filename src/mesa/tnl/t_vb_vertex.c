@@ -1,4 +1,4 @@
-/* $Id: t_vb_vertex.c,v 1.14.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_vb_vertex.c,v 1.14.2.3 2003/01/16 00:38:45 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -131,7 +131,7 @@ static void (*(usercliptab[5]))( GLcontext *,
 
 
 static GLboolean run_vertex_stage( GLcontext *ctx,
-				   struct gl_pipeline_stage *stage )
+				   struct tnl_pipeline_stage *stage )
 {
    struct vertex_stage_data *store = (struct vertex_stage_data *)stage->privatePtr;
    TNLcontext *tnl = TNL_CONTEXT(ctx);
@@ -221,13 +221,13 @@ static GLboolean run_vertex_stage( GLcontext *ctx,
 }
 
 
-static void check_vertex( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static void check_vertex( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    stage->active = !ctx->VertexProgram.Enabled;
 }
 
 static GLboolean init_vertex_stage( GLcontext *ctx,
-				    struct gl_pipeline_stage *stage )
+				    struct tnl_pipeline_stage *stage )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    struct vertex_stage_data *store;
@@ -256,7 +256,7 @@ static GLboolean init_vertex_stage( GLcontext *ctx,
    return stage->run( ctx, stage );
 }
 
-static void dtr( struct gl_pipeline_stage *stage )
+static void dtr( struct tnl_pipeline_stage *stage )
 {
    struct vertex_stage_data *store = VERTEX_STAGE_DATA(stage);
 
@@ -273,9 +273,9 @@ static void dtr( struct gl_pipeline_stage *stage )
 
 
 
-struct gl_pipeline_stage *_tnl_vertex_transform_stage( GLcontext *ctx )
+struct tnl_pipeline_stage *_tnl_vertex_transform_stage( GLcontext *ctx )
 {
-   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+   struct tnl_pipeline_stage *stage = CALLOC_STRUCT( tnl_pipeline_stage );
 
    stage->name = "texture transform";
    stage->recheck = 0;

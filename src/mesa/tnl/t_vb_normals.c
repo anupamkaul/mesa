@@ -1,4 +1,4 @@
-/* $Id: t_vb_normals.c,v 1.15.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_vb_normals.c,v 1.15.2.3 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -54,7 +54,7 @@ struct normal_stage_data {
 
 
 static GLboolean run_normal_stage( GLcontext *ctx,
-				   struct gl_pipeline_stage *stage )
+				   struct tnl_pipeline_stage *stage )
 {
    struct normal_stage_data *store = NORMAL_STAGE_DATA(stage);
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
@@ -85,7 +85,7 @@ static GLboolean run_normal_stage( GLcontext *ctx,
 
 
 static GLboolean run_validate_normal_stage( GLcontext *ctx,
-					    struct gl_pipeline_stage *stage )
+					    struct tnl_pipeline_stage *stage )
 {
    struct normal_stage_data *store = NORMAL_STAGE_DATA(stage);
 
@@ -136,7 +136,7 @@ static GLboolean run_validate_normal_stage( GLcontext *ctx,
 
 
 static void check_normal_transform( GLcontext *ctx,
-				    struct gl_pipeline_stage *stage )
+				    struct tnl_pipeline_stage *stage )
 {
    stage->active = ctx->_NeedNormals && !ctx->VertexProgram.Enabled;
    /* Don't clobber the initialize function:
@@ -147,7 +147,7 @@ static void check_normal_transform( GLcontext *ctx,
 
 
 static GLboolean alloc_normal_data( GLcontext *ctx,
-				 struct gl_pipeline_stage *stage )
+				 struct tnl_pipeline_stage *stage )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct normal_stage_data *store;
@@ -166,7 +166,7 @@ static GLboolean alloc_normal_data( GLcontext *ctx,
 
 
 
-static void free_normal_data( struct gl_pipeline_stage *stage )
+static void free_normal_data( struct tnl_pipeline_stage *stage )
 {
    struct normal_stage_data *store = NORMAL_STAGE_DATA(stage);
    if (store) {
@@ -183,9 +183,9 @@ static void free_normal_data( struct gl_pipeline_stage *stage )
 
 
 
-struct gl_pipeline_stage *_tnl_normal_transform_stage( GLcontext *ctx )
+struct tnl_pipeline_stage *_tnl_normal_transform_stage( GLcontext *ctx )
 {
-   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+   struct tnl_pipeline_stage *stage = CALLOC_STRUCT( tnl_pipeline_stage );
 
    stage->name = "normal transform";
    stage->recheck = _TNL_NEW_NORMAL_TRANSFORM;

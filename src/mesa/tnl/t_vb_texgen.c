@@ -1,4 +1,4 @@
-/* $Id: t_vb_texgen.c,v 1.13.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_vb_texgen.c,v 1.13.2.3 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -517,7 +517,7 @@ static void texgen( GLcontext *ctx,
 
 
 static GLboolean run_texgen_stage( GLcontext *ctx,
-				   struct gl_pipeline_stage *stage )
+				   struct tnl_pipeline_stage *stage )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    struct texgen_stage_data *store = TEXGEN_STAGE_DATA( stage );
@@ -538,7 +538,7 @@ static GLboolean run_texgen_stage( GLcontext *ctx,
 
 
 static GLboolean run_validate_texgen_stage( GLcontext *ctx,
-					    struct gl_pipeline_stage *stage )
+					    struct tnl_pipeline_stage *stage )
 {
    struct texgen_stage_data *store = TEXGEN_STAGE_DATA(stage);
    GLuint i;
@@ -582,7 +582,7 @@ static GLboolean run_validate_texgen_stage( GLcontext *ctx,
 }
 
 
-static void check_texgen( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static void check_texgen( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    GLuint i;
    stage->active = 0;
@@ -618,7 +618,7 @@ static void check_texgen( GLcontext *ctx, struct gl_pipeline_stage *stage )
 /* Called the first time stage->run() is invoked.
  */
 static GLboolean alloc_texgen_data( GLcontext *ctx,
-				    struct gl_pipeline_stage *stage )
+				    struct tnl_pipeline_stage *stage )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    struct texgen_stage_data *store;
@@ -642,7 +642,7 @@ static GLboolean alloc_texgen_data( GLcontext *ctx,
 }
 
 
-static void free_texgen_data( struct gl_pipeline_stage *stage )
+static void free_texgen_data( struct tnl_pipeline_stage *stage )
 
 {
    struct texgen_stage_data *store = TEXGEN_STAGE_DATA(stage);
@@ -663,9 +663,9 @@ static void free_texgen_data( struct gl_pipeline_stage *stage )
 
 
 
-struct gl_pipeline_stage *_tnl_texgen_stage( GLcontext *ctx )
+struct tnl_pipeline_stage *_tnl_texgen_stage( GLcontext *ctx )
 {
-   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+   struct tnl_pipeline_stage *stage = CALLOC_STRUCT( tnl_pipeline_stage );
 
    stage->name = "texgen";
    stage->recheck = _NEW_TEXTURE;

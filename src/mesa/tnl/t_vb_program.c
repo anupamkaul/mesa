@@ -1,4 +1,4 @@
-/* $Id: t_vb_program.c,v 1.14.2.3 2002/11/19 12:01:29 keithw Exp $ */
+/* $Id: t_vb_program.c,v 1.14.2.4 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -143,7 +143,7 @@ struct vp_stage_data {
 /**
  * This function executes vertex programs
  */
-static GLboolean run_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static GLboolean run_vp( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vp_stage_data *store = VP_STAGE_DATA(stage);
@@ -289,7 +289,7 @@ static GLboolean run_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
  * This function validates stuff.
  */
 static GLboolean run_validate_program( GLcontext *ctx,
-					struct gl_pipeline_stage *stage )
+					struct tnl_pipeline_stage *stage )
 {
 #if 000
    /* XXX do we need any validation for vertex programs? */
@@ -353,7 +353,7 @@ static void init_color_array( struct gl_client_array *a, GLvector4f *vec )
  * allocate data until the first time the stage is run.
  */
 static GLboolean run_init_vp( GLcontext *ctx,
-                              struct gl_pipeline_stage *stage )
+                              struct tnl_pipeline_stage *stage )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &(tnl->vb);
@@ -392,7 +392,7 @@ static GLboolean run_init_vp( GLcontext *ctx,
  * Check if vertex program mode is enabled. 
  * If so, configure the pipeline stage's type, inputs, and outputs.
  */
-static void check_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static void check_vp( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    stage->active = ctx->VertexProgram.Enabled;
 
@@ -416,7 +416,7 @@ static void check_vp( GLcontext *ctx, struct gl_pipeline_stage *stage )
 /**
  * Destructor for this pipeline stage.
  */
-static void dtr( struct gl_pipeline_stage *stage )
+static void dtr( struct tnl_pipeline_stage *stage )
 {
    struct vp_stage_data *store = VP_STAGE_DATA(stage);
 
@@ -436,9 +436,9 @@ static void dtr( struct gl_pipeline_stage *stage )
    }
 }
 
-struct gl_pipeline_stage *_tnl_vertex_program_stage( GLcontext *ctx )
+struct tnl_pipeline_stage *_tnl_vertex_program_stage( GLcontext *ctx )
 {
-   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+   struct tnl_pipeline_stage *stage = CALLOC_STRUCT( tnl_pipeline_stage );
 
    stage->name = "vertex-program";
    stage->recheck = _NEW_ALL;

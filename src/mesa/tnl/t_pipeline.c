@@ -1,4 +1,4 @@
-/* $Id: t_pipeline.c,v 1.22.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_pipeline.c,v 1.22.2.3 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -42,7 +42,7 @@
 
 
 void _tnl_install_pipeline( GLcontext *ctx,
-			    const struct gl_pipeline_stage **stages )
+			    const struct tnl_pipeline_stage **stages )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct gl_pipeline *pipe = &tnl->pipeline;
@@ -87,7 +87,7 @@ void _tnl_validate_pipeline( GLcontext *ctx )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct gl_pipeline *pipe = &tnl->pipeline;
-   struct gl_pipeline_stage *s = pipe->stages;
+   struct tnl_pipeline_stage *s = pipe->stages;
    GLuint newstate = pipe->build_state_changes;
    GLuint generated[2];
    GLuint changed_inputs[2];
@@ -138,7 +138,7 @@ void _tnl_run_pipeline( GLcontext *ctx )
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
    struct gl_pipeline *pipe = &tnl->pipeline;
-   struct gl_pipeline_stage *s = pipe->stages;
+   struct tnl_pipeline_stage *s = pipe->stages;
    GLuint changed_state = pipe->run_state_changes;
    GLuint changed_inputs[2];
    GLboolean running = GL_TRUE;
@@ -219,7 +219,7 @@ void _tnl_run_pipeline( GLcontext *ctx )
  * Some work can be done to lift some of the restrictions in the final
  * case, if it becomes necessary to do so.
  */
-const struct gl_pipeline_stage *_tnl_default_pipeline[] = {
+const struct tnl_pipeline_stage *_tnl_default_pipeline[] = {
    &_tnl_vertex_transform_stage,
    &_tnl_normal_transform_stage,
    &_tnl_lighting_stage,

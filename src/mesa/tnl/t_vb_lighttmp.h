@@ -1,4 +1,4 @@
-/* $Id: t_vb_lighttmp.h,v 1.25.2.1 2002/10/15 16:56:52 keithw Exp $ */
+/* $Id: t_vb_lighttmp.h,v 1.25.2.2 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -60,7 +60,7 @@
  */
 static void TAG(light_rgba_spec)( GLcontext *ctx,
 				  struct vertex_buffer *VB,
-				  struct gl_pipeline_stage *stage,
+				  struct tnl_pipeline_stage *stage,
 				  GLvector4f *input )
 {
    struct light_stage_data *store = LIGHT_STAGE_DATA(stage);
@@ -251,7 +251,7 @@ static void TAG(light_rgba_spec)( GLcontext *ctx,
 
 static void TAG(light_rgba)( GLcontext *ctx,
 			     struct vertex_buffer *VB,
-			     struct gl_pipeline_stage *stage,
+			     struct tnl_pipeline_stage *stage,
 			     GLvector4f *input )
 {
    struct light_stage_data *store = LIGHT_STAGE_DATA(stage);
@@ -442,7 +442,7 @@ static void TAG(light_rgba)( GLcontext *ctx,
  */
 static void TAG(light_fast_rgba_single)( GLcontext *ctx,
 					 struct vertex_buffer *VB,
-					 struct gl_pipeline_stage *stage,
+					 struct tnl_pipeline_stage *stage,
 					 GLvector4f *input )
 
 {
@@ -548,7 +548,7 @@ static void TAG(light_fast_rgba_single)( GLcontext *ctx,
  */
 static void TAG(light_fast_rgba)( GLcontext *ctx,
 				  struct vertex_buffer *VB,
-				  struct gl_pipeline_stage *stage,
+				  struct tnl_pipeline_stage *stage,
 				  GLvector4f *input )
 {
    struct light_stage_data *store = LIGHT_STAGE_DATA(stage);
@@ -668,7 +668,7 @@ static void TAG(light_fast_rgba)( GLcontext *ctx,
  */
 static void TAG(light_ci)( GLcontext *ctx,
 			   struct vertex_buffer *VB,
-			   struct gl_pipeline_stage *stage,
+			   struct tnl_pipeline_stage *stage,
 			   GLvector4f *input )
 {
    struct light_stage_data *store = LIGHT_STAGE_DATA(stage);

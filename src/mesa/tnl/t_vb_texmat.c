@@ -1,4 +1,4 @@
-/* $Id: t_vb_texmat.c,v 1.8.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_vb_texmat.c,v 1.8.2.3 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -55,7 +55,7 @@ struct texmat_stage_data {
 
 #define TEXMAT_STAGE_DATA(stage) ((struct texmat_stage_data *)stage->privatePtr)
 
-static void check_texmat( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static void check_texmat( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    GLuint i;
    stage->active = 0;
@@ -77,7 +77,7 @@ static void check_texmat( GLcontext *ctx, struct gl_pipeline_stage *stage )
 }
 
 static GLboolean run_texmat_stage( GLcontext *ctx,
-				   struct gl_pipeline_stage *stage )
+				   struct tnl_pipeline_stage *stage )
 {
    struct texmat_stage_data *store = TEXMAT_STAGE_DATA(stage);
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
@@ -102,7 +102,7 @@ static GLboolean run_texmat_stage( GLcontext *ctx,
 /* Called the first time stage->run() is invoked.
  */
 static GLboolean alloc_texmat_data( GLcontext *ctx,
-				    struct gl_pipeline_stage *stage )
+				    struct tnl_pipeline_stage *stage )
 {
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
    struct texmat_stage_data *store;
@@ -123,7 +123,7 @@ static GLboolean alloc_texmat_data( GLcontext *ctx,
 }
 
 
-static void free_texmat_data( struct gl_pipeline_stage *stage )
+static void free_texmat_data( struct tnl_pipeline_stage *stage )
 {
    struct texmat_stage_data *store = TEXMAT_STAGE_DATA(stage);
    GLuint i;
@@ -137,9 +137,9 @@ static void free_texmat_data( struct gl_pipeline_stage *stage )
    }
 }
 
-struct gl_pipeline_stage *_tnl_texture_transform_stage( GLcontext *ctx )
+struct tnl_pipeline_stage *_tnl_texture_transform_stage( GLcontext *ctx )
 {
-   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+   struct tnl_pipeline_stage *stage = CALLOC_STRUCT( tnl_pipeline_stage );
 
    stage->name = "texture transform";
    stage->recheck = _NEW_TEXTURE|_NEW_TEXTURE_MATRIX;

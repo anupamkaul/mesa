@@ -1,4 +1,4 @@
-/* $Id: t_vb_render.c,v 1.31.2.2 2002/10/17 14:26:37 keithw Exp $ */
+/* $Id: t_vb_render.c,v 1.31.2.3 2003/01/16 00:38:44 keithw Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -277,7 +277,7 @@ void _tnl_RenderClippedLine( GLcontext *ctx, GLuint ii, GLuint jj )
 
 
 static GLboolean run_render( GLcontext *ctx,
-			     struct gl_pipeline_stage *stage )
+			     struct tnl_pipeline_stage *stage )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
@@ -358,7 +358,7 @@ static GLboolean run_render( GLcontext *ctx,
 /* Quite a bit of work involved in finding out the inputs for the
  * render stage.
  */
-static void check_render( GLcontext *ctx, struct gl_pipeline_stage *stage )
+static void check_render( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 {
    GLuint i;
 
@@ -404,15 +404,15 @@ static void check_render( GLcontext *ctx, struct gl_pipeline_stage *stage )
 
 
 
-static void dtr( struct gl_pipeline_stage *stage )
+static void dtr( struct tnl_pipeline_stage *stage )
 {
 }
 
 
 
-struct gl_pipeline_stage *_tnl_render_stage( GLcontext *ctx )
+struct tnl_pipeline_stage *_tnl_render_stage( GLcontext *ctx )
 {
-   struct gl_pipeline_stage *stage = CALLOC_STRUCT( gl_pipeline_stage );
+   struct tnl_pipeline_stage *stage = CALLOC_STRUCT( tnl_pipeline_stage );
 
    stage->name = "render";
    stage->recheck = (_NEW_BUFFERS |

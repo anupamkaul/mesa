@@ -42,7 +42,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 /* Versions of all the entrypoints for situations where codegen isn't
  * available.  This is slowed significantly by all the gumph necessary
- * to get to the tnl pointer.
+ * to get to the tnl pointer, which can be avoided with codegen.
  *
  * Note: Only one size for each attribute may be active at once.
  * Eg. if Color3f is installed/active, then Color4f may not be, even
@@ -187,10 +187,7 @@ static void *lookup_or_generate( GLuint attr, GLuint sz, GLuint v,
 { 
    GET_CURRENT_CONTEXT( ctx ); 
    TNLcontext *tnl = TNL_CONTEXT(ctx); 
-   struct dynfn *dfn;
    void *ptr = 0;
-   int isvertex = (attr == 0);
-   int key;
 
    /* This will remove any installed handlers for attr with different
     * sz, will flush, copy and expand the copied vertices if sz won't
@@ -200,24 +197,31 @@ static void *lookup_or_generate( GLuint attr, GLuint sz, GLuint v,
    if (tnl->vtx.attrib_sz[attr] != sz)
       tnl_fixup_vertex( ctx, attr, sz );
 
-   if (isvertex) 
-      key = tnl->vtx.vertex_size;
-   else
-      key = (GLuint)tnl->vtx.attrptr[attr];
 
-   for (dfn = tnl->vtx.generated[sz-1][v][isvertex] ; dfn ; dfn = dfn->next) {
-      if (dfn->key == key) {
-	 ptr = dfn->code;
-	 break;
+   {
+      struct dynfn *dfn;
+      int isvertex = (attr == 0);
+      int key;
+
+      if (isvertex) 
+	 key = tnl->vtx.vertex_size;
+      else
+	 key = (GLuint)tnl->vtx.attrptr[attr];
+
+      for (dfn = tnl->vtx.generated[sz-1][v][isvertex]; dfn; dfn = dfn->next) {
+	 if (dfn->key == key) {
+	    ptr = dfn->code;
+	    break;
+	 }
       }
-   }
 
-   if (ptr == 0) {
-      dfn = tnl->vtx.codegen[sz-1][v][isvertex]( ctx, key );
-      if (dfn) {
-	 ptr = dfn->code;
-	 dfn->next = tnl->vtx.generated[sz-1][v][isvertex];
-	 tnl->vtx.generated[sz-1][v][isvertex] = dfn;
+      if (ptr == 0) {
+	 dfn = tnl->vtx.codegen[sz-1][v][isvertex]( ctx, key );
+	 if (dfn) {
+	    ptr = dfn->code;
+	    dfn->next = tnl->vtx.generated[sz-1][v][isvertex];
+	    tnl->vtx.generated[sz-1][v][isvertex] = dfn;
+	 }
       }
    }
 
