@@ -30,7 +30,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: imports.h,v 1.8.4.1 2003/03/20 12:56:58 jrfonseca Exp $ */
+/* $Id: imports.h,v 1.8.4.1.4.1 2003/05/13 16:47:05 dok666 Exp $ */
 
 
 #ifndef IMPORTS_H
@@ -241,7 +241,7 @@ extern void
 _mesa_warning( __GLcontext *gc, const char *fmtString, ... );
 
 extern void
-_mesa_problem( const __GLcontext *ctx, const char *s );
+_mesa_problem( const __GLcontext *ctx, const char *fmtString, ... );
 
 extern void
 _mesa_error( __GLcontext *ctx, GLenum error, const char *fmtString, ... );

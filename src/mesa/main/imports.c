@@ -45,7 +45,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: imports.c,v 1.25.4.2 2003/03/20 12:56:57 jrfonseca Exp $ */
+/* $Id: imports.c,v 1.25.4.2.4.1 2003/05/13 16:47:05 dok666 Exp $ */
 
 
 #include "glheader.h"
@@ -464,14 +464,21 @@ _mesa_warning( GLcontext *ctx, const char *fmtString, ... )
  * Prints the message to stderr, either via fprintf() or xf86fprintf().
  */
 void
-_mesa_problem( const GLcontext *ctx, const char *s )
+_mesa_problem( const GLcontext *ctx, const char *fmtString, ... )
 {
+   va_list args;
+   char str[MAXSTRING];
    (void) ctx;
+
+   va_start( args, fmtString );
+   vsnprintf( str, MAXSTRING, fmtString, args );
+   va_end( args );
+
 #if defined(XFree86LOADER) && defined(IN_MODULE)
-   xf86fprintf(stderr, "Mesa implementation error: %s\n", s);
+   xf86fprintf(stderr, "Mesa implementation error: %s\n", str);
    xf86fprintf(stderr, "Please report to the DRI project at dri.sourceforge.net\n");
 #else
-   fprintf(stderr, "Mesa implementation error: %s\n", s);
+   fprintf(stderr, "Mesa implementation error: %s\n", str);
    fprintf(stderr, "Please report to the Mesa bug database at www.mesa3d.org\n" );
 #endif
 }
