@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.1.2.2 2003/04/15 09:47:37 keithw Exp $
+# $Id: Makefile,v 1.1.2.2.4.1 2003/05/06 02:16:31 dok666 Exp $
 
 # Mesa 3-D graphics library
 # Version:  5.0
@@ -96,7 +96,7 @@ SYMLINKS = server/Makefile \
 
 
 $(SYMLINKS):
-	rm -f $@ && ln -s ../../radeon/$@ $@
+	mkdir -p server && rm -f $@ && ln -s ../../radeon/$@ $@
 
 
 ##### TARGETS #####
