@@ -457,6 +457,32 @@ void viaWaitIdle( struct via_context *vmesa )
 }
 
 
+void viaWaitIdleLocked( struct via_context *vmesa )
+{
+   if (vmesa->dmaLow) 
+      viaFlushDmaLocked(vmesa, 0);
+
+   if (VIA_DEBUG & DEBUG_IOCTL)
+      fprintf(stderr, "%s lastDma %d lastBreadcrumbWrite %d\n",
+	      __FUNCTION__, vmesa->lastDma, vmesa->lastBreadcrumbWrite);
+
+   /* Need to emit a new breadcrumb?
+    */
+   if (vmesa->lastDma == vmesa->lastBreadcrumbWrite) {
+      viaEmitBreadcrumbLocked( vmesa );
+   }
+
+   /* Need to wait?
+    */
+   if (vmesa->lastDma >= vmesa->lastBreadcrumbRead) 
+      viaWaitBreadcrumb( vmesa, vmesa->lastDma );
+
+   while(!viaCheckIdle(vmesa))
+      ;
+}
+
+
+
 /* Wait for command stream to be processed *and* the next vblank to
  * occur.  Equivalent to calling WAIT_IDLE() and then WaitVBlank,
  * except that WAIT_IDLE() will spin the CPU polling, while this is
@@ -578,6 +604,7 @@ void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
     */
    if (dPriv->numClipRects && vmesa->sarea->pfCurrentOffset != 0) {
       viaResetPageFlippingLocked(vmesa);
+      UNLOCK_HARDWARE(vmesa);xo
       return;
    }
 
@@ -670,7 +697,7 @@ static int fire_buffer(struct via_context *vmesa)
 
       /* Fall through to PCI handling?!?
        */
-      viaWaitIdle(vmesa);
+      viaWaitIdleLocked(vmesa);
    }
 	    
    ret = drmCommandWrite(vmesa->driFd, DRM_VIA_PCICMD, &bufI, sizeof(bufI));
