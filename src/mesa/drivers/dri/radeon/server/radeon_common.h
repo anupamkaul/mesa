@@ -416,7 +416,7 @@ enum drmRadeonCmdType {
 } ;
 
 /**
- * \brief Commands understood by the DRM_RADEON_CMDBUF ioctl.
+ * \brief Command packet headers understood by the DRM_RADEON_CMDBUF ioctl.
  *
  * \sa drmRadeonCmdType.
  */

@@ -42,6 +42,9 @@ clean:
 		tnl_dd \
 		tnl \
 		miniglx \
-		radeon_subset
+		radeon_subset \
+		radeonfb \
+		radeondrm \
+		agpgart
 	rm -rf *.tag
 

@@ -45,7 +45,7 @@ SHOW_USED_FILES        = YES
 #---------------------------------------------------------------------------
 QUIET                  = YES
 WARNINGS               = YES
-WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_UNDOCUMENTED   = NO
 WARN_FORMAT            = 
 WARN_LOGFILE           = 
 #---------------------------------------------------------------------------

@@ -232,24 +232,29 @@ struct radeon_texture_state {
 
 /**
  * \brief Radeon state atom double-linked list.
+ *
+ * The state information is the actual command packet.
  */
 struct radeon_state_atom {
    struct radeon_state_atom *next, *prev;
    const char *name;		         /**< \brief for debugging purposes */
    int cmd_size;		         /**< \brief size in bytes */
    GLuint is_tcl;                        /**< \brief whether is associated with TCL */
-   int *cmd;			         /**< \brief one or more cmd's */
-   int *lastcmd;			 /**< \brief one or more cmd's */
+   int *cmd;			         /**< \brief one or more command packets */
+   int *lastcmd;			 /**< \brief one or more command packets */
    GLboolean (*check)( GLcontext * );    /**< \brief callback to determin whether this state is active */
 };
    
 
-
-/* Trying to keep these relatively short as the variables are becoming
- * extravagently long.  Drop the RADEON_ off the front of everything -
- * I think we know we're in the radeon driver by now, and keep the
- * prefix to 3 letters unless absolutely impossible.  
+/**
+ * \name Indices for the command packets fields
+ * 
+ * \note Trying to keep these relatively short as the variables are becoming
+ * extravagently long.  Drop the RADEON_ off the front of everything - I think
+ * we know we're in the radeon driver by now, and keep the prefix to 3 letters
+ * unless absolutely impossible.  
  */
+/*@{*/
 
 #define CTX_CMD_0             0
 #define CTX_PP_MISC           1
@@ -441,6 +446,8 @@ struct radeon_state_atom {
 #define SHN_CMD_0          0
 #define SHN_SHININESS      1
 #define SHN_STATE_SIZE     2
+
+/*@}*/
 
 
 /**
@@ -734,7 +741,7 @@ struct radeon_context {
  *
  * \param cpp desired characters (bytes) per pixel. Shouble be either 2 or 4.
  * \param r red color component.
- * \param r green color component.
+ * \param g green color component.
  * \param b blue color component.
  * \param a alpha color component.
  *

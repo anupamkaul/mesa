@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: macros.h,v 1.30.4.1 2003/03/20 12:56:58 jrfonseca Exp $ */
+/* $Id: macros.h,v 1.30.4.2 2003/05/18 14:11:26 jrfonseca Exp $ */
 
 
 #ifndef MACROS_H
@@ -39,7 +39,7 @@
  */
 
 
-/* Limits: */
+/* Limits */
 #define MAX_GLUSHORT	0xffff
 #define MAX_GLUINT	0xffffffff
 

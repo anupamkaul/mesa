@@ -28,7 +28,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: context.c,v 1.188.2.1.2.17 2003/04/29 08:20:39 keithw Exp $ */
+/* $Id: context.c,v 1.188.2.1.2.18 2003/05/18 14:11:24 jrfonseca Exp $ */
 
 /**
  * \mainpage Mesa Core Module
@@ -220,6 +220,7 @@ _mesa_makeCurrent(__GLcontext *gc)
  * \brief Share context callback.
  * 
  * \param gc context.
+ * \param gcShare shared context.
  * \return GL_TRUE on success, or GL_FALSE on failure.
  *
  * \ifnot subset
@@ -427,13 +428,14 @@ __glCoreNopDispatch(void)
  * is acceptable but the actual depth type will be GLushort or GLuint as
  * needed.
  * \param stencilBits requested minimum bits per stencil buffer value
- * \param accumBits requested minimum bits per accum buffer component
+ * \param accumRedBits, accumGreenBits, accumBlueBits, accumAlphaBits number of bits per color component in accum buffer.
  * \param indexBits number of bits per pixel if \p rgbFlag is GL_FALSE
- * \param red number of bits per color component in frame buffer for RGB(A)
+ * \param redBits number of bits per color component in frame buffer for RGB(A)
  * mode.  We always use 8 in core Mesa though.
- * \param green same as above.
- * \param blue same as above.
+ * \param greenBits same as above.
+ * \param blueBits same as above.
  * \param alphaBits same as above.
+ * \param numSamples not really used.
  * 
  * \return pointer to new GLvisual or NULL if requested parameters can't be
  * met.
@@ -1020,9 +1022,7 @@ init_attrib_groups( GLcontext *ctx )
  * This includes allocating all the other structs and arrays which hang off of
  * the context by pointers.
  * 
- * \param ctx GL context.
- * 
- * \sa _mesa_create_context() for the remaining parameter description.
+ * \sa _mesa_create_context() for the parameter description.
  *
  * Performs the imports and exports callback tables initialzation, and
  * miscellaenuos one-time initializations. If no shared context is supplied one
@@ -1120,7 +1120,7 @@ _mesa_initialize_context( GLcontext *ctx,
  * \brief Allocate and initialize a GLcontext structure.
  *
  * \param visual a GLvisual pointer (we copy the struct contents)
- * \param sharelist another context to share display lists with or NULL
+ * \param share_list another context to share display lists with or NULL
  * \param driver_ctx pointer to device driver's context state struct
  * \param direct direct rendering?
  * 

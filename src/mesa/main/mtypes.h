@@ -29,7 +29,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: mtypes.h,v 1.97.4.9 2003/03/23 23:22:48 jrfonseca Exp $ */
+/* $Id: mtypes.h,v 1.97.4.10 2003/05/18 14:11:26 jrfonseca Exp $ */
 
 
 #ifndef TYPES_H
@@ -205,7 +205,6 @@ struct gl_color_table {
 
 /**
  * \name Bit flags used for updating material values.
- * .
  */
 /*@{*/
 #define FRONT_AMBIENT_BIT     0x1
@@ -1826,7 +1825,7 @@ struct matrix_stack
 
 /**
  * \name Bits for __GLcontextRec::_NeedEyeCoords.
- * .
+ * 
  */
 /*@{*/
 #define NEED_EYE_TEXGEN          0x1
@@ -2208,7 +2207,6 @@ do {									\
  * glBegin()/glEnd() pair and flush the vertices.
  * 
  * \param ctx GL context.
- * \param retval value to return value in case the assertation fails.
  */
 #define ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx)				\
 do {									\

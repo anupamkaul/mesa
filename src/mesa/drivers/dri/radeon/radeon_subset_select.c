@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: radeon_subset_select.c,v 1.1.2.7 2003/04/27 14:21:22 keithw Exp $ */
+/* $Id: radeon_subset_select.c,v 1.1.2.8 2003/05/18 14:11:28 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -560,6 +560,7 @@ select_triangle(const vertex *v0,
  * \param x x vertex coordinate.
  * \param y y vertex coordinate.
  * \param z z vertex coordinate.
+ * \param w homogeneous coordinate.
  * 
  * Stores the vertex and current attributes in ::vb, transforms it into eye space and then clip space.
  * 
@@ -995,5 +996,3 @@ void radeonInitSelect( GLcontext *ctx )
 {
    ctx->Driver.RenderMode = radeonRenderMode;
 }
-
-/*@}*/

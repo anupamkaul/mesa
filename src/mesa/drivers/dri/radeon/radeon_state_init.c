@@ -73,7 +73,7 @@ void radeonPrintDirty( radeonContextPtr rmesa, const char *msg )
 /**
  * \brief Constructs a register packet command.
  *
- * \param register ID.
+ * \param id register ID.
  * \return integer equivalent of the command.
  * 
  * \sa drmRadeonCmdHeader and drmRadeonCmdType::RADEON_CMD_PACKET.

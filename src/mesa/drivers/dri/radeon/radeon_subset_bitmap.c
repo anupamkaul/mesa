@@ -53,12 +53,12 @@
 /**
  * \brief Cope with depth operations by drawing individual pixels as points
  *
- * \param ctx GL context.
- * \param px x coordinate of the bitmap corner.
- * \param py y coordinate of the bitmap corner.
+ * \param xorig x coordinate of the bitmap corner.
+ * \param yorig y coordinate of the bitmap corner.
+ * \param xmove increment to the final x coordinate.
+ * \param ymove increment to the final y coordinate.
  * \param width bitmap width.
  * \param height bitmap height.
- * \param unpack unpacking pixel attributes.
  * \param bitmap bitmap pointer.
  * 
  * Clips the bitmap coordinates and adjusts for windows coordinates. Draws the

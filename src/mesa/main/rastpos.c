@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: rastpos.c,v 1.39.4.8 2003/03/23 14:58:08 jrfonseca Exp $ */
+/* $Id: rastpos.c,v 1.39.4.9 2003/05/18 14:11:27 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -89,6 +89,7 @@ viewclip_point_z( const GLfloat v[] )
 /**
  * \brief Clip a point against the user clipping planes.
  * 
+ * \param ctx GL context.
  * \param v vertex vector describing the point to clip.
  * 
  * \return zero if the point was clipped, or one otherwise.
@@ -284,6 +285,7 @@ shade_rastpos(GLcontext *ctx,
 /**
  * \brief Set the raster position for pixel operations.
  *
+ * \param ctx GL context.
  * \param x x coordinate for the raster position.
  * \param y y coordinate for the raster position.
  * \param z z coordinate for the raster position.

@@ -101,7 +101,7 @@ static void radeonGetBufferSize( GLframebuffer *buffer,
  * \param ctx GL context.
  * \param name name of the string to return.
  *
- * \param pointer to a static string describing the aspect specified by \p
+ * \return pointer to a static string describing the aspect specified by \p
  * name.
  *
  * \sa glGetString().

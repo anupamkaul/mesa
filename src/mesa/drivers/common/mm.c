@@ -69,7 +69,7 @@ void mmDumpMemInfo( memHeap_t *heap )
 /**
  * \brief Memory heap initialization.
  * 
- * \param offset offset in bytes.
+ * \param ofs offset in bytes.
  * \param size total size in bytes
  * 
  * \return a heap pointer on success, or NULL on failure.
@@ -230,7 +230,7 @@ static __inline__ int Join2Blocks(TMemBlock *p)
 /**
  * \brief Free a memory block.
  * 
- * \param pointer to a block.
+ * \param b pointer to a block.
  *
  * \return 0 on success, or -1 on failure.
  *

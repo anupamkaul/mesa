@@ -32,7 +32,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: matrix.c,v 1.45.4.8 2003/03/24 18:23:32 keithw Exp $ */
+/* $Id: matrix.c,v 1.45.4.9 2003/05/18 14:11:26 jrfonseca Exp $ */
 
 
 #include "glheader.h"
@@ -136,7 +136,7 @@ _mesa_Ortho( GLdouble left, GLdouble right,
 /**
  * \brief Set the current matrix stack.
  *
- * \param nome matrix stack.
+ * \param mode matrix stack.
  *
  * \sa glMatrixMode().
  *

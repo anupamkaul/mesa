@@ -1044,6 +1044,7 @@ void radeonUpdateWindow( GLcontext *ctx )
 /**
  * \brief Set the viewport.
  *
+ * \param ctx GL context.
  * \param x \e x position of the lower left corner of the viewport rectangle.
  * Not used.
  * \param y \e y position of the lower left corner of the viewport rectangle.
@@ -1287,6 +1288,7 @@ static void radeonReadBuffer( GLcontext *ctx, GLenum mode )
 /**
  * \brief Enable or disable a GL capability.
  *
+ * \param ctx GL context.
  * \param cap GL capability.
  * \param state whether to enable or disable the capability.
  *

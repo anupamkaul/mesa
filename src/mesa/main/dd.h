@@ -27,7 +27,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: dd.h,v 1.74.6.6 2003/03/23 23:22:47 jrfonseca Exp $ */
+/* $Id: dd.h,v 1.74.6.7 2003/05/18 14:11:25 jrfonseca Exp $ */
 
 
 #ifndef DD_INCLUDED
@@ -530,7 +530,6 @@ struct dd_function_table {
    
    /**
     * \name Imaging functionality
-    * .
     */
    /*@{*/
    void (*CopyColorTable)( GLcontext *ctx,
@@ -842,7 +841,6 @@ struct dd_function_table {
 typedef struct {
    /**
     * \name Vertex
-    * .
     */
    /*@{*/
    void (*ArrayElement)( GLint ); /* NOTE */

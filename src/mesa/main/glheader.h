@@ -4,7 +4,7 @@
  * 
  * This is the top-most include file of the Mesa sources.
  * It includes gl.h and all system headers which are needed.
- * Other Mesa source files should \u not directly include any system
+ * Other Mesa source files should \e not directly include any system
  * headers.  This allows Mesa to be integrated into XFree86 and
  * allows system-dependent hacks/work-arounds to be collected in one place.
  *
@@ -40,7 +40,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: glheader.h,v 1.29.4.2 2003/03/23 03:51:34 jrfonseca Exp $ */
+/* $Id: glheader.h,v 1.29.4.3 2003/05/18 14:11:25 jrfonseca Exp $ */
 
 
 #ifndef GLHEADER_H

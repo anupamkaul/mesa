@@ -949,7 +949,7 @@ static int RADEONScreenInit( struct DRIDriverContextRec *ctx, RADEONInfoPtr info
 /**
  * \brief Get Radeon chip family from chipset number.
  * 
- * \param driver private data.
+ * \param info driver private data.
  *
  * \return non-zero on sucess, or zero on failure.
  *

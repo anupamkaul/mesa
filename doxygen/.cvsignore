@@ -1,4 +1,5 @@
 *.tag
+agpgart
 array_cache
 core
 core_subset
@@ -6,6 +7,8 @@ math
 math_subset
 miniglx
 radeon_subset
+radeondrm
+radeonfb
 swrast
 swrast_setup
 tnl

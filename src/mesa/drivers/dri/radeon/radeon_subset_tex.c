@@ -803,7 +803,7 @@ static void radeonTexImage2D( GLcontext *ctx, GLenum target, GLint level,
  * \param ctx GL context.
  * \param target texture environment.
  * \param pname texture parameter. Accepted value is GL_TEXTURE_ENV_COLOR.
- * \param pvalue texture value.
+ * \param param parameter value.
  *
  * Updates the current unit's RADEON_TEX_PP_TFACTOR register and informs of the
  * state change.

@@ -34,7 +34,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: hash.c,v 1.14.4.2 2003/03/23 23:22:48 jrfonseca Exp $ */
+/* $Id: hash.c,v 1.14.4.3 2003/05/18 14:11:26 jrfonseca Exp $ */
 
 #include "glheader.h"
 #include "imports.h"
@@ -234,7 +234,7 @@ void _mesa_HashRemove(struct _mesa_HashTable *table, GLuint key)
 
 
 /**
- * \param Get the key of the "first" entry in the hash table.
+ * \brief Get the key of the "first" entry in the hash table.
  * 
  * This is used in the course of deleting all display lists when
  * a context is destroyed.
@@ -284,7 +284,7 @@ void _mesa_HashPrint(const struct _mesa_HashTable *table)
 
 
 /**
- * \param Find a block of adjacent unused hash keys.
+ * \brief Find a block of adjacent unused hash keys.
  * 
  * \param table the hash table.
  * \param numKeys number of keys needed.

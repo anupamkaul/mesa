@@ -137,15 +137,13 @@ static void ReadRGBASpan( const GLcontext *ctx,
  * To be used with particular pixel formats GL_UNSIGNED_BYTE and GL_RGBA, when pixel
  * scaling, biasing and mapping are disabled.
  *
- * \param ctx GL context.
  * \param x x start position of the reading rectangle.
  * \param y y start position of the reading rectangle.
  * \param width width of the reading rectangle.
  * \param height height of the reading recatangle.
  * \param format pixel format. Must be GL_RGBA.
- * \param format pixel type. Must be GL_UNSIGNED_BYTE.
- * \param packing packing attributes. Must specify byte alignment and no byte
- * swaping or LSB ordering.
+ * \param type pixel type. Must be GL_UNSIGNED_BYTE.
+ * \param pixels pixel data.
  * 
  * After asserting the above conditions, compensates for clipping and calls
  * ReadRGBASpan() to read each row.

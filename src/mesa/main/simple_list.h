@@ -33,7 +33,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-/* $Id: simple_list.h,v 1.2.8.1 2003/03/20 19:38:46 jrfonseca Exp $ */
+/* $Id: simple_list.h,v 1.2.8.2 2003/05/18 14:11:27 jrfonseca Exp $ */
 
 
 #ifndef _SIMPLE_LIST_H
@@ -105,7 +105,7 @@ do {						\
 /**
  * \brief Make a empty list empty.
  *
- * \param sentinel list (sentinal element).
+ * \param sentinal list (sentinal element).
  */
 #define make_empty_list(sentinal)		\
 do {						\
