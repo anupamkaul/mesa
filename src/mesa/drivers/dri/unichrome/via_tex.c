@@ -308,14 +308,6 @@ static GLboolean viaMoveTexObject( struct via_context *vmesa,
 }
 
 
-#if 0
-static GLboolean viaSwapOutTexObject( struct via_context *vmesa,
-				      struct via_texture_object *viaObj )
-{
-   return viaMoveTexObject( vmesa, viaObj, VIA_MEM_SYSTEM );
-}
-#endif
-
 
 static GLboolean viaSwapInTexObject( struct via_context *vmesa,
 				     struct via_texture_object *viaObj )
@@ -334,8 +326,27 @@ static GLboolean viaSwapInTexObject( struct via_context *vmesa,
 }
 
 
+/* This seems crude, but it asks a fairly pertinent question and gives
+ * an accurate answer:
+ */
+static GLboolean viaIsTexMemLow( struct via_context *vmesa,
+				 GLuint heap )
+{
+#if 1
+   struct via_tex_buffer *buf =  via_alloc_texture(vmesa, 512 * 1024, heap );
+   if (!buf)
+      return GL_TRUE;
+   
+   via_free_texture(vmesa, buf);
+   return GL_FALSE;
+#else
+   return GL_TRUE;
+#endif
+}
+
+
 /* Speculatively move texture images which haven't been used in a
- * while back to system memory.  Do at most one image per call.
+ * while back to system memory. 
  * 
  * TODO: only do this when texture memory is low.
  * 
@@ -353,15 +364,30 @@ GLboolean viaSwapOutWork( struct via_context *vmesa )
    GLuint heap, target;
 
    if (VIA_DEBUG & DEBUG_TEXTURE)
-      fprintf(stderr, "%s\n", __FUNCTION__);
+      fprintf(stderr, "%s VID %d AGP %d SYS %d\n", __FUNCTION__,
+	      vmesa->total_alloc[VIA_MEM_VIDEO],
+	      vmesa->total_alloc[VIA_MEM_AGP],
+	      vmesa->total_alloc[VIA_MEM_SYSTEM]);
 
-   if (vmesa->thrashing)
-      target = 64*1024*1024;
-   else
-      target = 64*1024;
    
    for (heap = VIA_MEM_VIDEO; heap <= VIA_MEM_AGP; heap++) {
       GLuint nr = 0, sz = 0;
+
+      if (vmesa->thrashing) {
+ 	 if (VIA_DEBUG & DEBUG_TEXTURE)
+	    fprintf(stderr, "Heap %d: trash flag\n", heap);
+	 target = 1*1024*1024;
+      }
+      else if (viaIsTexMemLow(vmesa, heap)) {
+ 	 if (VIA_DEBUG & DEBUG_TEXTURE)
+	    fprintf(stderr, "Heap %d: low memory\n", heap);
+	 target = 64*1024;
+      }
+      else {
+ 	 if (VIA_DEBUG & DEBUG_TEXTURE)
+	    fprintf(stderr, "Heap %d: nothing to do\n", heap);
+	 continue;
+      }
 
       foreach_s( s, tmp, &vmesa->tex_image_list[heap] ) {
 	 if (s->lastUsed < vmesa->lastSwap[1]) {
@@ -373,19 +399,29 @@ GLboolean viaSwapOutWork( struct via_context *vmesa )
 		       "back copy tex sz %d, lastUsed %d lastSwap %d\n", 
 		       s->size, s->lastUsed, vmesa->lastSwap[1]);
 
-	    done += s->size;
-	    viaMoveTexBuffers( vmesa, &s, 1, VIA_MEM_SYSTEM );
-	    viaObj->memType = VIA_MEM_MIXED;
+	    if (viaMoveTexBuffers( vmesa, &s, 1, VIA_MEM_SYSTEM )) {
+	       viaObj->memType = VIA_MEM_MIXED;
+	       done += s->size;
+	    }
+	    else {
+	       if (VIA_DEBUG & DEBUG_TEXTURE)
+		  fprintf(stderr, "Failed to back copy texture!\n");
+	       sz += s->size;
+	    }
 	 }
 	 else {
 	    nr ++;
 	    sz += s->size;
 	 }
 
-	 if (done > target)
+	 if (done > target) {
+	    vmesa->thrashing = GL_FALSE; /* might not get set otherwise? */
 	    return GL_TRUE;
+	 }
       }
 
+      assert(sz == vmesa->total_alloc[heap]);
+	 
       if (VIA_DEBUG & DEBUG_TEXTURE)
 	 fprintf(stderr, "Heap %d: nr %d tot sz %d\n", heap, nr, sz);
    }
@@ -481,7 +517,7 @@ static GLboolean viaSetTexImages(GLcontext *ctx,
       viaObj->memType = VIA_MEM_MIXED;
    }
 
-   if (VIA_DEBUG & DEBUG_TEXTURE)
+   if (VIA_DEBUG & DEBUG_TEXTURE & 0)
       fprintf(stderr, "%s, current memType: %s\n",
 	      __FUNCTION__,
 	      get_memtype_name(viaObj->memType));
@@ -708,8 +744,9 @@ static void viaTexImage(GLcontext *ctx,
       return;
    }
 
-   if (viaImage->texMem->memType == VIA_MEM_SYSTEM)
-      fprintf(stderr, "upload to VIA_MEM_SYSTEM!\n");
+   if (VIA_DEBUG & DEBUG_TEXTURE)
+      fprintf(stderr, "upload %d bytes to %s\n", sizeInBytes, 
+	      get_memtype_name(viaImage->texMem->memType));
 
    viaImage->texMem->image = viaImage;
    texImage->Data = viaImage->texMem->bufAddr;

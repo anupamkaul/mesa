@@ -328,6 +328,8 @@ struct via_context {
    GLuint lastBreadcrumbWrite;
    GLuint lastSwap[2];
    GLuint lastDma;
+   
+   GLuint total_alloc[VIA_MEM_SYSTEM+1];
 
    struct via_tex_buffer tex_image_list[VIA_MEM_SYSTEM+1];
    struct via_tex_buffer freed_tex_buffers;

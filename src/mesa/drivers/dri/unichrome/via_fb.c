@@ -140,7 +140,7 @@ via_alloc_texture(struct via_context *vmesa,
 
       t->offset = fb.offset;
       t->index = fb.index;
-
+      
       if (t->memType == VIA_MEM_AGP) {
 	 t->bufAddr = (GLubyte *)((GLuint)vmesa->viaScreen->agpLinearStart +
 				  fb.offset); 	
@@ -151,6 +151,7 @@ via_alloc_texture(struct via_context *vmesa,
 	 t->texBase = fb.offset;
       }
 
+      vmesa->total_alloc[t->memType] += t->size;
       return t;
    }
    else if (t->memType == VIA_MEM_SYSTEM) {
@@ -159,6 +160,7 @@ via_alloc_texture(struct via_context *vmesa,
       if (!t->bufAddr)
 	 goto cleanup;
 
+      vmesa->total_alloc[t->memType] += t->size;
       return t;
    }
 
@@ -178,6 +180,8 @@ via_do_free_texture(struct via_context *vmesa, struct via_tex_buffer *t)
    drm_via_mem_t fb;
 
    remove_from_list( t );
+
+   vmesa->total_alloc[t->memType] -= t->size;
 
    fb.context = vmesa->hHWContext;
    fb.index = t->index;
@@ -221,6 +225,7 @@ via_free_texture(struct via_context *vmesa, struct via_tex_buffer *t)
    }
    else if (t->memType == VIA_MEM_SYSTEM) {
       remove_from_list(t);
+      vmesa->total_alloc[t->memType] -= t->size;
       MESA_PBUFFER_FREE(t->bufAddr);
       FREE(t);
    }
