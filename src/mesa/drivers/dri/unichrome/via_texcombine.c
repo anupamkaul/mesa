@@ -36,21 +36,12 @@
 #include "macros.h"
 #include "colormac.h"
 #include "enums.h"
-#include "dd.h"
 
-#include "mm.h"
 #include "via_context.h"
 #include "via_state.h"
 #include "via_tex.h"
-#include "via_tris.h"
-#include "via_ioctl.h"
+#include "via_3d_reg.h"
 
-#include "swrast/swrast.h"
-#include "array_cache/acache.h"
-#include "tnl/tnl.h"
-#include "swrast_setup/swrast_setup.h"
-
-#include "tnl/t_pipeline.h"
 
 #define VIA_USE_ALPHA (HC_XTC_Adif - HC_XTC_Dif)
 

@@ -38,6 +38,7 @@
 #include "via_tex.h"
 #include "via_tris.h"
 #include "via_ioctl.h"
+#include "via_3d_reg.h"
 
 #include "swrast/swrast.h"
 #include "array_cache/acache.h"
@@ -117,14 +118,10 @@ void viaEmitState(viaContextPtr vmesa)
       GLuint pitch, format, offset;
 	
       if (vmesa->depthBits == 16) {
-	 /* We haven't support 16bit depth yet */
 	 format = HC_HZWBFM_16;
-	 /*format = HC_HZWBFM_32;*/
-	 if (VIA_DEBUG) fprintf(stderr, "z format = 16\n");
       }	    
       else {
 	 format = HC_HZWBFM_32;
-	 if (VIA_DEBUG) fprintf(stderr, "z format = 32\n");
       }
 	    
 	    
@@ -198,12 +195,14 @@ void viaEmitState(viaContextPtr vmesa)
 	 OUT_RING( (HC_ParaType_Tex << 16) | (HC_SubType_TexGeneral << 24) );
 
 	 if (texUnit0->Enabled && texUnit1->Enabled) {
-	    if (VIA_DEBUG) fprintf(stderr, "multi texture\n");
+	    if (VIA_DEBUG & DEBUG_TEXTURE) 
+	       fprintf(stderr, "multi texture\n");
 	    nDummyValue = (HC_SubA_HTXSMD << 24) | (1 << 3);
                 
 	 }
 	 else {
-	    if (VIA_DEBUG) fprintf(stderr, "single texture\n");
+	    if (VIA_DEBUG & DEBUG_TEXTURE) 
+	       fprintf(stderr, "single texture\n");
 	    nDummyValue = (HC_SubA_HTXSMD << 24) | 0;
 	 }
 
@@ -226,9 +225,9 @@ void viaEmitState(viaContextPtr vmesa)
 
       if (texUnit0->Enabled) {
 	 struct gl_texture_object *texObj = texUnit0->_Current;
-	 viaTextureObjectPtr t = (viaTextureObjectPtr)texObj->DriverData;
+	 struct via_texture_object *t = (struct via_texture_object *)texObj->DriverData;
 	 GLuint numLevels = t->lastLevel - t->firstLevel + 1;
-	 if (VIA_DEBUG) {
+	 if (VIA_DEBUG & DEBUG_TEXTURE) {
 	    fprintf(stderr, "texture0 enabled\n");
 	 }		
 	 if (numLevels == 8) {
@@ -352,10 +351,10 @@ void viaEmitState(viaContextPtr vmesa)
 	
       if (texUnit1->Enabled) {
 	 struct gl_texture_object *texObj = texUnit1->_Current;
-	 viaTextureObjectPtr t = (viaTextureObjectPtr)texObj->DriverData;
+	 struct via_texture_object *t = (struct via_texture_object *)texObj->DriverData;
 	 GLuint numLevels = t->lastLevel - t->firstLevel + 1;
 	 int texunit = (texUnit0->Enabled ? 1 : 0);
-	 if (VIA_DEBUG) {
+	 if (VIA_DEBUG & DEBUG_TEXTURE) {
 	    fprintf(stderr, "texture1 enabled\n");
 	 }		
 	 if (numLevels == 8) {
@@ -525,24 +524,25 @@ void viaEmitState(viaContextPtr vmesa)
 }
 
 
-static __inline__ GLuint viaPackColor(GLuint format,
+static __inline__ GLuint viaPackColor(GLuint bpp,
                                       GLubyte r, GLubyte g,
                                       GLubyte b, GLubyte a)
 {
-    switch (format) {
-    case 0x10:
+    switch (bpp) {
+    case 16:
         return PACK_COLOR_565(r, g, b);
-    case 0x20:
+    case 32:
         return PACK_COLOR_8888(a, r, g, b);        
     default:
-        if (VIA_DEBUG) fprintf(stderr, "unknown format %d\n", (int)format);
-        return PACK_COLOR_8888(a, r, g, b);
+       assert(0);
+       return 0;
    }
 }
 
 static void viaBlendEquationSeparate(GLcontext *ctx, GLenum rgbMode, GLenum aMode)
 {
-    if (VIA_DEBUG) fprintf(stderr, "%s in\n", __FUNCTION__);
+    if (VIA_DEBUG & DEBUG_STATE) 
+       fprintf(stderr, "%s in\n", __FUNCTION__);
 
     /* GL_EXT_blend_equation_separate not supported */
     ASSERT(rgbMode == aMode);
@@ -556,14 +556,14 @@ static void viaBlendEquationSeparate(GLcontext *ctx, GLenum rgbMode, GLenum aMod
     FALLBACK(VIA_CONTEXT(ctx), VIA_FALLBACK_LOGICOP,
              (ctx->Color.ColorLogicOpEnabled &&
               ctx->Color.LogicOp != GL_COPY));
-    if (VIA_DEBUG) fprintf(stderr, "%s out\n", __FUNCTION__);
 }
 
 static void viaBlendFunc(GLcontext *ctx, GLenum sfactor, GLenum dfactor)
 {
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
     GLboolean fallback = GL_FALSE;
-    if (VIA_DEBUG) fprintf(stderr, "%s in\n", __FUNCTION__);
+    if (VIA_DEBUG & DEBUG_STATE) 
+       fprintf(stderr, "%s in\n", __FUNCTION__);
 
     switch (ctx->Color.BlendSrcRGB) {
     case GL_SRC_ALPHA_SATURATE:  
@@ -589,7 +589,6 @@ static void viaBlendFunc(GLcontext *ctx, GLenum sfactor, GLenum dfactor)
     }
 
     FALLBACK(vmesa, VIA_FALLBACK_BLEND_FUNC, fallback);
-    if (VIA_DEBUG) fprintf(stderr, "%s out\n", __FUNCTION__);
 }
 
 /* Shouldn't be called as the extension is disabled.
@@ -619,7 +618,7 @@ static void viaScissor(GLcontext *ctx, GLint x, GLint y,
     if (!vmesa->driDrawable)
        return;
 
-    if (VIA_DEBUG)
+    if (VIA_DEBUG & DEBUG_STATE)
        fprintf(stderr, "%s %d,%d %dx%d, drawH %d\n", __FUNCTION__, x,y,w,h, vmesa->driDrawable->h);
 
     if (vmesa->scissor) {
@@ -630,8 +629,6 @@ static void viaScissor(GLcontext *ctx, GLint x, GLint y,
     vmesa->scissorRect.y1 = vmesa->driDrawable->h - y - h;
     vmesa->scissorRect.x2 = x + w;
     vmesa->scissorRect.y2 = vmesa->driDrawable->h - y;
-
-    if (VIA_DEBUG) fprintf(stderr, "%s out\n", __FUNCTION__);    
 }
 
 static void viaEnable(GLcontext *ctx, GLenum cap, GLboolean state)
@@ -661,7 +658,10 @@ static void viaRenderMode(GLcontext *ctx, GLenum mode)
 static void viaDrawBuffer(GLcontext *ctx, GLenum mode)
 {
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
-    if (VIA_DEBUG) fprintf(stderr, "%s in\n", __FUNCTION__);
+
+    if (VIA_DEBUG & (DEBUG_DRI|DEBUG_STATE)) 
+       fprintf(stderr, "%s in\n", __FUNCTION__);
+
     if (mode == GL_FRONT) {
         VIA_FLUSH_DMA(vmesa);
 	vmesa->drawBuffer = vmesa->readBuffer = &vmesa->front;
@@ -685,9 +685,6 @@ static void viaDrawBuffer(GLcontext *ctx, GLenum mode)
     * gets called.
     */
    _swrast_DrawBuffer(ctx, mode);
-
-
-    if (VIA_DEBUG) fprintf(stderr, "%s out\n", __FUNCTION__);    
 }
 
 static void viaClearColor(GLcontext *ctx, const GLfloat color[4])
@@ -714,7 +711,7 @@ static void viaColorMask(GLcontext *ctx,
 {
    viaContextPtr vmesa = VIA_CONTEXT( ctx );
 
-   if (VIA_DEBUG)
+   if (VIA_DEBUG & DEBUG_STATE)
       fprintf(stderr, "%s r(%d) g(%d) b(%d) a(%d)\n", __FUNCTION__, r, g, b, a);
 
    vmesa->ClearMask = (((!r) << WRITEMASK_RED_SHIFT) |
@@ -889,29 +886,10 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
     struct gl_texture_unit *texUnit1 = &ctx->Texture.Unit[1];
 
     if (texUnit0->_ReallyEnabled || texUnit1->_ReallyEnabled) {
-	if (VIA_DEBUG) {
-	    fprintf(stderr, "texUnit0->_ReallyEnabled = %x\n",texUnit0->_ReallyEnabled);
-	}
-
-	if (VIA_DEBUG) {
-            struct gl_texture_object *texObj0 = texUnit0->_Current;
-            struct gl_texture_object *texObj1 = texUnit1->_Current;
-
-	    fprintf(stderr, "env mode: 0x%04x / 0x%04x\n", texUnit0->EnvMode, texUnit1->EnvMode);
-
-	    if ( (texObj0 != NULL) && (texObj0->Image[0][0] != NULL) )
-	      fprintf(stderr, "format 0: 0x%04x\n", texObj0->Image[0][0]->Format);
-		    
-	    if ( (texObj1 != NULL) && (texObj1->Image[0][0] != NULL) )
-	      fprintf(stderr, "format 1: 0x%04x\n", texObj1->Image[0][0]->Format);
-	}
-
         vmesa->regEnable |= HC_HenTXMP_MASK | HC_HenTXCH_MASK | HC_HenTXPP_MASK;
 
         if (texUnit0->_ReallyEnabled) {
             struct gl_texture_object *texObj = texUnit0->_Current;
-
-	    if (VIA_DEBUG) fprintf(stderr, "texUnit0->_ReallyEnabled\n");    
    
 	    vmesa->regHTXnTB_0 = get_minmag_filter( texObj->MinFilter,
 						    texObj->MagFilter );
@@ -936,10 +914,11 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
 	       vmesa->regHTXnCLOD_0 = b | ((~b&0x1f)<<10); /* FIXME */
 	    }
 
-	    if (VIA_DEBUG) fprintf(stderr, "texUnit0->EnvMode %x\n",texUnit0->EnvMode);    
-
-	    if (!viaTexCombineState( vmesa, texUnit0->_CurrentCombine, 0 ))
+	    if (!viaTexCombineState( vmesa, texUnit0->_CurrentCombine, 0 )) {
+	       if (VIA_DEBUG & DEBUG_TEXTURE)
+		  fprintf(stderr, "viaTexCombineState failed for unit 0\n");
 	       return GL_FALSE;
+	    }
         }
 
         if (texUnit1->_ReallyEnabled) {
@@ -968,22 +947,12 @@ static GLboolean viaChooseTextureState(GLcontext *ctx)
 	       vmesa->regHTXnCLOD_1 = b | ((~b&0x1f)<<10); /* FIXME */
 	    }
 
-	    if (!viaTexCombineState( vmesa, texUnit1->_CurrentCombine, 1 ))
+	    if (!viaTexCombineState( vmesa, texUnit1->_CurrentCombine, 1 )) {
+	       if (VIA_DEBUG & DEBUG_TEXTURE)
+		  fprintf(stderr, "viaTexCombineState failed for unit 0\n");
 	       return GL_FALSE;
+	    }
         }
-	
-	if (VIA_DEBUG) {
-	    fprintf( stderr, "Csat_0 / Cop_0 = 0x%08x / 0x%08x\n",
-		     vmesa->regHTXnTBLCsat_0, vmesa->regHTXnTBLCop_0 );
-	    fprintf( stderr, "Asat_0        = 0x%08x\n",
-		     vmesa->regHTXnTBLAsat_0 );
-	    fprintf( stderr, "RCb_0 / RAa_0 = 0x%08x / 0x%08x\n",
-		     vmesa->regHTXnTBLRCb_0, vmesa->regHTXnTBLRAa_0 );
-	    fprintf( stderr, "RCa_0 / RCc_0 = 0x%08x / 0x%08x\n",
-		     vmesa->regHTXnTBLRCa_0, vmesa->regHTXnTBLRCc_0 );
-	    fprintf( stderr, "RCbias_0      = 0x%08x\n",
-		     vmesa->regHTXnTBLRCbias_0 );
-	}
     }
     else {
         vmesa->regEnable &= (~(HC_HenTXMP_MASK | HC_HenTXCH_MASK | HC_HenTXPP_MASK));
@@ -1456,14 +1425,7 @@ static void viaChooseStencilState(GLcontext *ctx)
 static void viaChooseTriangle(GLcontext *ctx) 
 {       
     viaContextPtr vmesa = VIA_CONTEXT(ctx);
-    if (VIA_DEBUG) {
-       fprintf(stderr, "GL_CULL_FACE = %x\n", GL_CULL_FACE);    
-       fprintf(stderr, "ctx->Polygon.CullFlag = %x\n", ctx->Polygon.CullFlag);       
-       fprintf(stderr, "GL_FRONT = %x\n", GL_FRONT);    
-       fprintf(stderr, "ctx->Polygon.CullFaceMode = %x\n", ctx->Polygon.CullFaceMode);    
-       fprintf(stderr, "GL_CCW = %x\n", GL_CCW);    
-       fprintf(stderr, "ctx->Polygon.FrontFace = %x\n", ctx->Polygon.FrontFace);    
-    }
+
     if (ctx->Polygon.CullFlag == GL_TRUE) {
         switch (ctx->Polygon.CullFaceMode) {
         case GL_FRONT:

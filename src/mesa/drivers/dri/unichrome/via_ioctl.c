@@ -35,6 +35,7 @@
 #include "via_tris.h"
 #include "via_ioctl.h"
 #include "via_state.h"
+#include "via_3d_reg.h"
 
 #include "vblank.h"
 #include "drm.h"
@@ -116,7 +117,7 @@ static void viaBlit(viaContextPtr vmesa, GLuint bpp,
     GLuint dwGEMode, srcX, dstX, cmd;
     RING_VARS;
 
-    if (VIA_DEBUG)
+    if (VIA_DEBUG & DEBUG_IOCTL)
        fprintf(stderr, "%s bpp %d src %x/%x dst %x/%x w %d h %d  mode: %x color: 0x%08x mask 0x%08x\n",
 	       __FUNCTION__, bpp, srcBase, srcPitch, dstBase, dstPitch, w,h, blitMode, color, nMask);
 
@@ -167,7 +168,7 @@ static void viaBlit(viaContextPtr vmesa, GLuint bpp,
 }
 
 static void viaFillBuffer(viaContextPtr vmesa,
-			  viaBuffer *buffer,
+			  struct via_buffer *buffer,
 			  drm_clip_rect_t *pbox,
 			  int nboxes,
 			  GLuint pixel,
@@ -236,7 +237,7 @@ static void viaClear(GLcontext *ctx, GLbitfield mask, GLboolean all,
 	    mask &= ~DD_STENCIL_BIT;
 	 }
 	 else {
-	    if (VIA_DEBUG)
+	    if (VIA_DEBUG & DEBUG_IOCTL)
 	       fprintf(stderr, "XXX: Clear stencil writemask %x -- need triangles (or a ROP?)\n", 
 		       ctx->Stencil.WriteMask[0]);
 	 }
@@ -330,8 +331,8 @@ static void viaDoSwapBuffers(viaContextPtr vmesa,
 			     GLuint nbox)
 {    
    GLuint bytePerPixel = vmesa->viaScreen->bitsPerPixel >> 3;
-   viaBuffer *front = &vmesa->front;
-   viaBuffer *back = &vmesa->back;
+   struct via_buffer *front = &vmesa->front;
+   struct via_buffer *back = &vmesa->back;
    GLuint i;
         
    for (i = 0; i < nbox; i++, b++) {        
@@ -355,9 +356,9 @@ static void viaDoSwapBuffers(viaContextPtr vmesa,
 
 static void viaEmitBreadcrumb( viaContextPtr vmesa, GLuint value )
 {
-   viaBuffer *buffer = &vmesa->breadcrumb;
+   struct via_buffer *buffer = &vmesa->breadcrumb;
 
-   if (VIA_DEBUG)
+   if (VIA_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "emit %x offset %x pitch %x\n", value, buffer->offset, buffer->pitch);
 
    viaBlit(vmesa,
@@ -373,14 +374,14 @@ static GLboolean viaReceivedBreadcrumb( viaContextPtr vmesa, GLuint value )
 {
    GLuint *buf = (GLuint *)vmesa->breadcrumb.map; 
 
-   if (VIA_DEBUG)
+   if (VIA_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "want %x got %x, addr %p\n", value, *buf, buf);
 
    if (value == *buf) 
       return GL_TRUE;
 
    if ((((GLuint)*vmesa->regEngineStatus) & 0xFFFEFFFF) == 0x00020000) {
-      if (VIA_DEBUG)
+      if (VIA_DEBUG & DEBUG_IOCTL)
 	 fprintf(stderr, "failsafe - engine is idle\n");
       return GL_TRUE;
    }
@@ -426,7 +427,7 @@ static void viaDoPageFlipLocked(viaContextPtr vmesa, GLuint offset)
 {
    RING_VARS;
 
-   if (VIA_DEBUG)
+   if (VIA_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "%s %x\n", __FUNCTION__, offset);
 
    if (!vmesa->nDoneFirstFlip) {
@@ -453,16 +454,16 @@ static void viaDoPageFlipLocked(viaContextPtr vmesa, GLuint offset)
 
 void viaResetPageFlippingLocked(viaContextPtr vmesa)
 {
-   if (VIA_DEBUG)
+   if (VIA_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "%s\n", __FUNCTION__);
 
    viaDoPageFlipLocked( vmesa, 0 );
 
    if (vmesa->front.offset != 0) {
-      viaBuffer buffer_tmp;
-      memcpy(&buffer_tmp, &vmesa->back, sizeof(viaBuffer));
-      memcpy(&vmesa->back, &vmesa->front, sizeof(viaBuffer));
-      memcpy(&vmesa->front, &buffer_tmp, sizeof(viaBuffer));
+      struct via_buffer buffer_tmp;
+      memcpy(&buffer_tmp, &vmesa->back, sizeof(struct via_buffer));
+      memcpy(&vmesa->back, &vmesa->front, sizeof(struct via_buffer));
+      memcpy(&vmesa->front, &buffer_tmp, sizeof(struct via_buffer));
    }
 
    assert(vmesa->front.offset == 0);
@@ -501,7 +502,7 @@ void viaCopyBuffer(const __DRIdrawablePrivate *dPriv)
 void viaPageFlip(const __DRIdrawablePrivate *dPriv)
 {
     viaContextPtr vmesa = (viaContextPtr)dPriv->driContextPriv->driverPrivate;
-    viaBuffer buffer_tmp;
+    struct via_buffer buffer_tmp;
 
     VIA_FLUSH_DMA(vmesa);
     LOCK_HARDWARE(vmesa);
@@ -515,9 +516,9 @@ void viaPageFlip(const __DRIdrawablePrivate *dPriv)
     /* KW: FIXME: When buffers are freed, could free frontbuffer by
      * accident:
      */
-    memcpy(&buffer_tmp, &vmesa->back, sizeof(viaBuffer));
-    memcpy(&vmesa->back, &vmesa->front, sizeof(viaBuffer));
-    memcpy(&vmesa->front, &buffer_tmp, sizeof(viaBuffer));
+    memcpy(&buffer_tmp, &vmesa->back, sizeof(struct via_buffer));
+    memcpy(&vmesa->back, &vmesa->front, sizeof(struct via_buffer));
+    memcpy(&vmesa->front, &buffer_tmp, sizeof(struct via_buffer));
 }
 
 
@@ -592,7 +593,7 @@ static int fire_buffer(viaContextPtr vmesa)
 static void via_emit_cliprect(viaContextPtr vmesa,
 			      drm_clip_rect_t *b) 
 {
-   viaBuffer *buffer = vmesa->drawBuffer;
+   struct via_buffer *buffer = vmesa->drawBuffer;
    GLuint *vb = (GLuint *)(vmesa->dma + vmesa->dmaCliprectAddr);
 
    GLuint format = (vmesa->viaScreen->bitsPerPixel == 0x20 
@@ -653,7 +654,7 @@ void viaFlushDmaLocked(viaContextPtr vmesa, GLuint flags)
    int i;
    RING_VARS;
 
-   if (VIA_DEBUG)
+   if (VIA_DEBUG & (DEBUG_IOCTL|DEBUG_DMA))
       fprintf(stderr, "%s\n", __FUNCTION__);
 
    if (*(GLuint *)vmesa->driHwLock != (DRM_LOCK_HELD|vmesa->hHWContext) &&
@@ -711,13 +712,13 @@ void viaFlushDmaLocked(viaContextPtr vmesa, GLuint flags)
    case 0:
       break;
    default:
-      if (VIA_DEBUG)
+      if (VIA_DEBUG & DEBUG_IOCTL)
 	 fprintf(stderr, "%s: unaligned value for vmesa->dmaLow: %x\n",
 		 __FUNCTION__, vmesa->dmaLow);
    }
 
 
-   if (VIA_DEBUG)
+   if (VIA_DEBUG & DEBUG_DMA)
       dump_dma( vmesa );
 
    if (flags & VIA_NO_CLIPRECTS) {
@@ -777,7 +778,7 @@ void viaWrapPrimitive( viaContextPtr vmesa )
    GLenum renderPrimitive = vmesa->renderPrimitive;
    GLenum hwPrimitive = vmesa->hwPrimitive;
 
-   if (VIA_DEBUG) fprintf(stderr, "%s\n", __FUNCTION__);
+   if (VIA_DEBUG & DEBUG_PRIMS) fprintf(stderr, "%s\n", __FUNCTION__);
    
    if (vmesa->dmaLastPrim)
       viaFinishPrimitive( vmesa );

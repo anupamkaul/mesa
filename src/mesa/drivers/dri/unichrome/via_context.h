@@ -26,9 +26,8 @@
 #ifndef _VIACONTEXT_H
 #define _VIACONTEXT_H
 
-typedef struct via_context_t viaContext;
-typedef struct via_context_t *viaContextPtr;
-typedef struct via_texture_object_t *viaTextureObjectPtr;
+typedef struct via_context viaContext;
+typedef struct via_context *viaContextPtr;
 
 #include "dri_util.h"
 
@@ -84,37 +83,79 @@ typedef void (*via_tri_func)(viaContextPtr, viaVertex *, viaVertex *,
 typedef void (*via_line_func)(viaContextPtr, viaVertex *, viaVertex *);
 typedef void (*via_point_func)(viaContextPtr, viaVertex *);
 
-typedef struct {
-    drm_handle_t handle;
-    drmSize size;
-    GLuint offset;
-    GLuint index;
-    GLuint pitch;
-    GLuint bpp;
-    char *map;
-    GLuint orig;		/* The drawing origin, 
-				 * at (drawX,drawY) in screen space.
-				 */
-    char *origMap;
-} viaBuffer, *viaBufferPtr;
+struct via_buffer {
+   drm_handle_t handle;
+   drmSize size;
+   GLuint offset;
+   GLuint index;
+   GLuint pitch;
+   GLuint bpp;
+   char *map;
+   GLuint orig;		/* The drawing origin, 
+			 * at (drawX,drawY) in screen space.
+			 */
+   char *origMap;
+};
 
 
-struct via_context_t {
-    GLint refcount;   
-    GLcontext *glCtx;
-    GLcontext *shareCtx;
+#define VIA_MAX_TEXLEVELS	10
 
-    viaBuffer front;
-    viaBuffer back;
-    viaBuffer depth;
-    viaBuffer breadcrumb;
+struct via_tex_buffer {
+   GLuint index;
+   GLuint offset;
+   GLuint size;
+   GLuint memType;    
+   unsigned char *bufAddr;
+   GLuint texBase;
+};
 
-    GLboolean hasBack;
-    GLboolean hasDepth;
-    GLboolean hasStencil;
-    GLboolean hasAccum;
-    GLuint    depthBits;
-    GLuint    stencilBits;
+
+
+struct via_texture_image {
+   const struct gl_texture_image *image;
+   GLint pitchLog2;
+   struct via_tex_buffer texMem;
+};
+
+struct via_texture_object {
+   struct via_texture_object *next, *prev;
+
+   GLuint texelBytes;
+
+   GLuint memType;
+   GLuint dirtyImages;
+
+   struct via_texture_image *image[VIA_MAX_TEXLEVELS];
+
+   GLuint regTexFM;
+   GLuint regTexWidthLog2[2];
+   GLuint regTexHeightLog2[2];
+   GLuint regTexBaseH[4];
+   struct {
+      GLuint baseL;
+      GLuint pitchLog2;
+   } regTexBaseAndPitch[12];
+
+   GLint firstLevel, lastLevel;  /* upload tObj->Image[first .. lastLevel] */
+};              
+
+
+struct via_context {
+   GLint refcount;   
+   GLcontext *glCtx;
+   GLcontext *shareCtx;
+
+   struct via_buffer front;
+   struct via_buffer back;
+   struct via_buffer depth;
+   struct via_buffer breadcrumb;
+
+   GLboolean hasBack;
+   GLboolean hasDepth;
+   GLboolean hasStencil;
+   GLboolean hasAccum;
+   GLuint    depthBits;
+   GLuint    stencilBits;
 
    GLboolean have_hw_stencil;
    GLuint ClearDepth;
@@ -123,162 +164,162 @@ struct via_context_t {
    GLfloat depth_max;
    GLfloat polygon_offset_scale;
 
-    GLubyte    *dma;
-    viaRegion tex;
+   GLubyte    *dma;
+   viaRegion tex;
     
-    /* Textures
+   /* Textures
     */
-    viaTextureObjectPtr CurrentTexObj[2];
-    struct via_texture_object_t TexObjList;
-    struct via_texture_object_t SwappedOut;
-    memHeap_t *texHeap;
+   struct via_texture_object *CurrentTexObj[2];
+   struct via_texture_object TexObjList;
+   struct via_texture_object SwappedOut;
+   memHeap_t *texHeap;
 
-    /* Bit flag to keep 0track of fallbacks.
-     */
-    GLuint Fallback;
-
-    /* State for via_tris.c.
-     */
-    GLuint newState;            /* _NEW_* flags */
-    GLuint newEmitState;            /* _NEW_* flags */
-    GLuint newRenderState;            /* _NEW_* flags */
-
-    struct tnl_attr_map vertex_attrs[VERT_ATTRIB_MAX];
-    GLuint vertex_attr_count;
-
-    GLuint setupIndex;
-    GLuint renderIndex;
-    GLmatrix ViewportMatrix;
-    GLenum renderPrimitive;
-    GLenum hwPrimitive;
-    unsigned char *verts;
-
-    /* drmBufPtr dma_buffer;
+   /* Bit flag to keep 0track of fallbacks.
     */
-    GLuint dmaLow;
-    GLuint dmaCliprectAddr;
-    GLuint dmaLastPrim;
-    GLboolean useAgp;
+   GLuint Fallback;
+
+   /* State for via_tris.c.
+    */
+   GLuint newState;            /* _NEW_* flags */
+   GLuint newEmitState;            /* _NEW_* flags */
+   GLuint newRenderState;            /* _NEW_* flags */
+
+   struct tnl_attr_map vertex_attrs[VERT_ATTRIB_MAX];
+   GLuint vertex_attr_count;
+
+   GLuint setupIndex;
+   GLuint renderIndex;
+   GLmatrix ViewportMatrix;
+   GLenum renderPrimitive;
+   GLenum hwPrimitive;
+   unsigned char *verts;
+
+   /* drmBufPtr dma_buffer;
+    */
+   GLuint dmaLow;
+   GLuint dmaCliprectAddr;
+   GLuint dmaLastPrim;
+   GLboolean useAgp;
    
 
-    /* Fallback rasterization functions 
-     */
-    via_point_func drawPoint;
-    via_line_func drawLine;
-    via_tri_func drawTri;
+   /* Fallback rasterization functions 
+    */
+   via_point_func drawPoint;
+   via_line_func drawLine;
+   via_tri_func drawTri;
 
-    /* Hardware register
-     */
-    GLuint regCmdA_End;
-    GLuint regCmdB;
+   /* Hardware register
+    */
+   GLuint regCmdA_End;
+   GLuint regCmdB;
 
-    GLuint regEnable;
-    GLuint regHFBBMSKL;
-    GLuint regHROP;
+   GLuint regEnable;
+   GLuint regHFBBMSKL;
+   GLuint regHROP;
 
-    GLuint regHZWTMD;
-    GLuint regHSTREF;
-    GLuint regHSTMD;
+   GLuint regHZWTMD;
+   GLuint regHSTREF;
+   GLuint regHSTMD;
 
-    GLuint regHATMD;
-    GLuint regHABLCsat;
-    GLuint regHABLCop;
-    GLuint regHABLAsat;
-    GLuint regHABLAop;
-    GLuint regHABLRCa;
-    GLuint regHABLRFCa;
-    GLuint regHABLRCbias;
-    GLuint regHABLRCb;
-    GLuint regHABLRFCb;
-    GLuint regHABLRAa;
-    GLuint regHABLRAb;
-    GLuint regHFogLF;
-    GLuint regHFogCL;
-    GLuint regHFogCH;
+   GLuint regHATMD;
+   GLuint regHABLCsat;
+   GLuint regHABLCop;
+   GLuint regHABLAsat;
+   GLuint regHABLAop;
+   GLuint regHABLRCa;
+   GLuint regHABLRFCa;
+   GLuint regHABLRCbias;
+   GLuint regHABLRCb;
+   GLuint regHABLRFCb;
+   GLuint regHABLRAa;
+   GLuint regHABLRAb;
+   GLuint regHFogLF;
+   GLuint regHFogCL;
+   GLuint regHFogCH;
 
-    GLuint regHLP;
-    GLuint regHLPRF;
+   GLuint regHLP;
+   GLuint regHLPRF;
 
-    GLuint regHTXnCLOD_0;
-    GLuint regHTXnTB_0;
-    GLuint regHTXnMPMD_0;
-    GLuint regHTXnTBLCsat_0;
-    GLuint regHTXnTBLCop_0;
-    GLuint regHTXnTBLMPfog_0;
-    GLuint regHTXnTBLAsat_0;
-    GLuint regHTXnTBLRCb_0;
-    GLuint regHTXnTBLRAa_0;
-    GLuint regHTXnTBLRFog_0;
-    GLuint regHTXnTBLRCa_0;
-    GLuint regHTXnTBLRCc_0;
-    GLuint regHTXnTBLRCbias_0;
-    GLuint regHTXnTBC_0;
-    GLuint regHTXnTRAH_0;
+   GLuint regHTXnCLOD_0;
+   GLuint regHTXnTB_0;
+   GLuint regHTXnMPMD_0;
+   GLuint regHTXnTBLCsat_0;
+   GLuint regHTXnTBLCop_0;
+   GLuint regHTXnTBLMPfog_0;
+   GLuint regHTXnTBLAsat_0;
+   GLuint regHTXnTBLRCb_0;
+   GLuint regHTXnTBLRAa_0;
+   GLuint regHTXnTBLRFog_0;
+   GLuint regHTXnTBLRCa_0;
+   GLuint regHTXnTBLRCc_0;
+   GLuint regHTXnTBLRCbias_0;
+   GLuint regHTXnTBC_0;
+   GLuint regHTXnTRAH_0;
 
-    GLuint regHTXnCLOD_1;
-    GLuint regHTXnTB_1;
-    GLuint regHTXnMPMD_1;
-    GLuint regHTXnTBLCsat_1;
-    GLuint regHTXnTBLCop_1;
-    GLuint regHTXnTBLMPfog_1;
-    GLuint regHTXnTBLAsat_1;
-    GLuint regHTXnTBLRCb_1;
-    GLuint regHTXnTBLRAa_1;
-    GLuint regHTXnTBLRFog_1;
-    GLuint regHTXnTBLRCa_1;
-    GLuint regHTXnTBLRCc_1;
-    GLuint regHTXnTBLRCbias_1;
-    GLuint regHTXnTBC_1;
-    GLuint regHTXnTRAH_1;
+   GLuint regHTXnCLOD_1;
+   GLuint regHTXnTB_1;
+   GLuint regHTXnMPMD_1;
+   GLuint regHTXnTBLCsat_1;
+   GLuint regHTXnTBLCop_1;
+   GLuint regHTXnTBLMPfog_1;
+   GLuint regHTXnTBLAsat_1;
+   GLuint regHTXnTBLRCb_1;
+   GLuint regHTXnTBLRAa_1;
+   GLuint regHTXnTBLRFog_1;
+   GLuint regHTXnTBLRCa_1;
+   GLuint regHTXnTBLRCc_1;
+   GLuint regHTXnTBLRCbias_1;
+   GLuint regHTXnTBC_1;
+   GLuint regHTXnTRAH_1;
 
-    int vertexSize;
-    int hwVertexSize;
-    GLboolean ptexHack;
-    int coloroffset;
-    int specoffset;
+   int vertexSize;
+   int hwVertexSize;
+   GLboolean ptexHack;
+   int coloroffset;
+   int specoffset;
 
-    GLint lastStamp;
+   GLint lastStamp;
 
-    GLenum TexEnvImageFmt[2];
-    GLuint ClearColor;
-    GLuint ClearMask;
+   GLenum TexEnvImageFmt[2];
+   GLuint ClearColor;
+   GLuint ClearMask;
 
-    /* DRI stuff
-     */
-    GLboolean doPageFlip;
+   /* DRI stuff
+    */
+   GLboolean doPageFlip;
 
-    viaBuffer *drawBuffer;
-    viaBuffer *readBuffer;
-    int drawX;                   /* origin of drawable in draw buffer */
-    int drawY;
+   struct via_buffer *drawBuffer;
+   struct via_buffer *readBuffer;
+   int drawX;                   /* origin of drawable in draw buffer */
+   int drawY;
     
-    int drawW;                  
-    int drawH;
+   int drawW;                  
+   int drawH;
     
-    int drawXoff;
-    GLuint numClipRects;         /* cliprects for that buffer */
-    drm_clip_rect_t *pClipRects;
+   int drawXoff;
+   GLuint numClipRects;         /* cliprects for that buffer */
+   drm_clip_rect_t *pClipRects;
 
-    GLboolean scissor;
-    drm_clip_rect_t drawRect;
-    drm_clip_rect_t scissorRect;
+   GLboolean scissor;
+   drm_clip_rect_t drawRect;
+   drm_clip_rect_t scissorRect;
 
-    drm_context_t hHWContext;
-    drm_hw_lock_t *driHwLock;
-    int driFd;
-    __DRInativeDisplay *display;
+   drm_context_t hHWContext;
+   drm_hw_lock_t *driHwLock;
+   int driFd;
+   __DRInativeDisplay *display;
 
-    __DRIdrawablePrivate *driDrawable;
-    __DRIscreenPrivate *driScreen;
-    viaScreenPrivate *viaScreen;
-    drm_via_sarea_t *sarea;
-    volatile GLuint* regMMIOBase;
-    volatile GLuint* pnGEMode;
-    volatile GLuint* regEngineStatus;
-    volatile GLuint* regTranSet;
-    volatile GLuint* regTranSpace;
-    GLuint* agpBase;
-    GLuint drawType;
+   __DRIdrawablePrivate *driDrawable;
+   __DRIscreenPrivate *driScreen;
+   viaScreenPrivate *viaScreen;
+   drm_via_sarea_t *sarea;
+   volatile GLuint* regMMIOBase;
+   volatile GLuint* pnGEMode;
+   volatile GLuint* regEngineStatus;
+   volatile GLuint* regTranSet;
+   volatile GLuint* regTranSpace;
+   GLuint* agpBase;
+   GLuint drawType;
 
    GLuint nDoneFirstFlip;
    GLuint agpFullCount;
@@ -336,11 +377,21 @@ struct via_context_t {
     } while (1)
 	
 
-#ifdef DEBUG
 extern GLuint VIA_DEBUG;
-#else
-#define VIA_DEBUG 0
-#endif
+
+#define DEBUG_TEXTURE	0x1
+#define DEBUG_STATE	0x2
+#define DEBUG_IOCTL	0x4
+#define DEBUG_PRIMS	0x8
+#define DEBUG_VERTS	0x10
+#define DEBUG_FALLBACKS	0x20
+#define DEBUG_VERBOSE	0x40
+#define DEBUG_DRI       0x80
+#define DEBUG_DMA       0x100
+#define DEBUG_SANITY    0x200
+#define DEBUG_SYNC      0x400
+#define DEBUG_SLEEP     0x800
+#define DEBUG_PIXEL     0x1000
 
 
 extern void viaGetLock(viaContextPtr vmesa, GLuint flags);

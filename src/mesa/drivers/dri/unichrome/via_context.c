@@ -64,10 +64,7 @@
 #include "vblank.h"
 #include "utils.h"
 
-#ifdef DEBUG
 GLuint VIA_DEBUG = 0;
-#endif
-
 
 /**
  * Return various strings for \c glGetString.
@@ -277,6 +274,25 @@ static const struct tnl_pipeline_stage *via_pipeline[] = {
 };
 
 
+static const struct dri_debug_control debug_control[] =
+{
+    { "fall",  DEBUG_FALLBACKS },
+    { "tex",   DEBUG_TEXTURE },
+    { "ioctl", DEBUG_IOCTL },
+    { "prim",  DEBUG_PRIMS },
+    { "vert",  DEBUG_VERTS },
+    { "state", DEBUG_STATE },
+    { "verb",  DEBUG_VERBOSE },
+    { "dri",   DEBUG_DRI },
+    { "dma",   DEBUG_DMA },
+    { "san",   DEBUG_SANITY },
+    { "sync",  DEBUG_SYNC },
+    { "sleep", DEBUG_SLEEP },
+    { "pix",   DEBUG_PIXEL },
+    { NULL,    0 }
+};
+
+
 static GLboolean
 AllocateDmaBuffer(const GLvisual *visual, viaContextPtr vmesa)
 {
@@ -331,7 +347,7 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     struct dd_function_table functions;
 
     /* Allocate via context */
-    vmesa = (viaContextPtr) CALLOC_STRUCT(via_context_t);
+    vmesa = (viaContextPtr) CALLOC_STRUCT(via_context);
     if (!vmesa) {
         return GL_FALSE;
     }
@@ -514,12 +530,9 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     viaInitIoctlFuncs(ctx);
     viaInitState(ctx);
         
-#ifdef DEBUG
     if (getenv("VIA_DEBUG"))
-	VIA_DEBUG = 1;
-    else
-	VIA_DEBUG = 0;	
-#endif	
+       VIA_DEBUG = driParseDebugString( getenv( "VIA_DEBUG" ),
+					debug_control );
 
     if (getenv("VIA_NO_RAST"))
        FALLBACK(vmesa, VIA_FALLBACK_USER_DISABLE, 1);
@@ -550,9 +563,6 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     vmesa->regTranSet = (GLuint *)((GLuint)viaScreen->reg + 0x43C);
     vmesa->regTranSpace = (GLuint *)((GLuint)viaScreen->reg + 0x440);
     vmesa->agpBase = viaScreen->agpBase;
-    if (VIA_DEBUG) {
-	fprintf(stderr, "regEngineStatus = %x\n", *vmesa->regEngineStatus);
-    }
 
     return GL_TRUE;
 }
@@ -659,7 +669,7 @@ viaMakeCurrent(__DRIcontextPrivate *driContextPriv,
                __DRIdrawablePrivate *driDrawPriv,
                __DRIdrawablePrivate *driReadPriv)
 {
-    if (VIA_DEBUG) {
+    if (VIA_DEBUG & DEBUG_DRI) {
 	fprintf(stderr, "driContextPriv = %08x\n", (GLuint)driContextPriv);
 	fprintf(stderr, "driDrawPriv = %08x\n", (GLuint)driDrawPriv);    
 	fprintf(stderr, "driReadPriv = %08x\n", (GLuint)driReadPriv);
@@ -677,12 +687,10 @@ viaMakeCurrent(__DRIcontextPrivate *driContextPriv,
 	   }
 	   ctx->Driver.DrawBuffer( ctx, ctx->Color.DrawBuffer[0] );
 	}
-	if (VIA_DEBUG) fprintf(stderr, "viaMakeCurrent: w = %d\n", vmesa->driDrawable->w);
 
         _mesa_make_current2(vmesa->glCtx,
                             (GLframebuffer *)driDrawPriv->driverPrivate,
                             (GLframebuffer *)driReadPriv->driverPrivate);
-	if (VIA_DEBUG) fprintf(stderr, "Context %d MakeCurrent\n", vmesa->hHWContext);
 	
         viaXMesaWindowMoved(vmesa);
 	ctx->Driver.Scissor(vmesa->glCtx,

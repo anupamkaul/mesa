@@ -27,12 +27,11 @@
 
 #include "via_context.h"
 
-extern GLboolean via_alloc_draw_buffer(viaContextPtr vmesa, viaBuffer *buf);
+extern GLboolean via_alloc_draw_buffer(viaContextPtr vmesa, struct via_buffer *buf);
 extern GLboolean via_alloc_dma_buffer(viaContextPtr vmesa);
-extern GLboolean via_alloc_texture(viaContextPtr vmesa, viaTextureObjectPtr t);
-extern GLboolean via_alloc_texture_agp(viaContextPtr vmesa, viaTextureObjectPtr t);
+extern GLboolean via_alloc_texture(viaContextPtr vmesa, struct via_tex_buffer *t);
 
-extern void via_free_draw_buffer(viaContextPtr vmesa, viaBuffer *buf);
+extern void via_free_draw_buffer(viaContextPtr vmesa, struct via_buffer *buf);
 extern void via_free_dma_buffer(viaContextPtr vmesa);
-extern void via_free_texture(viaContextPtr vmesa, viaTextureObjectPtr t);
+extern void via_free_texture(viaContextPtr vmesa, struct via_tex_buffer *t);
 #endif

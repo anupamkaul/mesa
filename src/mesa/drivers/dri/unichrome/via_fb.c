@@ -31,12 +31,12 @@
 #include <sys/ioctl.h>
 
 GLboolean
-via_alloc_draw_buffer(viaContextPtr vmesa, viaBuffer *buf)
+via_alloc_draw_buffer(viaContextPtr vmesa, struct via_buffer *buf)
 {
    drm_via_mem_t mem;
    mem.context = vmesa->hHWContext;
    mem.size = buf->size;
-   mem.type = VIDEO;
+   mem.type = VIA_MEM_VIDEO;
 
    if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_ALLOCMEM, &mem)) 
       return GL_FALSE;
@@ -49,7 +49,7 @@ via_alloc_draw_buffer(viaContextPtr vmesa, viaBuffer *buf)
 }
 
 void
-via_free_draw_buffer(viaContextPtr vmesa, viaBuffer *buf)
+via_free_draw_buffer(viaContextPtr vmesa, struct via_buffer *buf)
 {
    drm_via_mem_t mem;
 
@@ -57,7 +57,7 @@ via_free_draw_buffer(viaContextPtr vmesa, viaBuffer *buf)
 
    mem.context = vmesa->hHWContext;
    mem.index = buf->index;
-   mem.type = VIDEO;
+   mem.type = VIA_MEM_VIDEO;
    ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &mem);
    buf->map = NULL;
 }
@@ -77,7 +77,7 @@ via_alloc_dma_buffer(viaContextPtr vmesa)
    vmesa->useAgp = 
      ( 0 == drmCommandWrite(vmesa->driFd, DRM_VIA_DMA_INIT, 
 			     &init, sizeof(init)));
-   if (VIA_DEBUG) {
+   if (VIA_DEBUG & DEBUG_DMA) {
       if (vmesa->useAgp) 
          fprintf(stderr, "unichrome_dri.so: Using AGP.\n");
       else
@@ -96,90 +96,57 @@ via_free_dma_buffer(viaContextPtr vmesa)
 } 
 
 GLboolean
-via_alloc_texture(viaContextPtr vmesa, viaTextureObjectPtr t)
+via_alloc_texture(viaContextPtr vmesa, struct via_tex_buffer *t)
 {
     drm_via_mem_t fb;
 
     fb.context = vmesa->hHWContext;
-    fb.size = t->texMem.size;
-    fb.type = VIDEO;
-    if (VIA_DEBUG) {
-	fprintf(stderr, "texture size = %d\n", fb.size);
-	fprintf(stderr, "texture type = %d\n", fb.type);
-    }
+    fb.size = t->size;
+    fb.type = t->memType;
+
     if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_ALLOCMEM, &fb)) {
 	fprintf(stderr, "via_alloc_texture fail\n");
+	t->index = 0;
         return GL_FALSE;
     }	
     
-    t->texMem.offset = fb.offset;
-    t->texMem.index = fb.index;
-    if (VIA_DEBUG) fprintf(stderr, "texture index = %d\n", (GLuint)fb.index);
-    
-    t->bufAddr = (unsigned char *)(fb.offset + (GLuint)vmesa->driScreen->pFB);
-    return GL_TRUE;
-}
+    t->offset = fb.offset;
+    t->index = fb.index;
 
-GLboolean
-via_alloc_texture_agp(viaContextPtr vmesa, viaTextureObjectPtr t)
-{
-    drm_via_mem_t fb;
-
-    fb.context = vmesa->hHWContext;
-    fb.size = t->texMem.size;
-    fb.type = AGP;
-    if (VIA_DEBUG) {
-	fprintf(stderr, "texture_agp size = %d\n", fb.size);
-	fprintf(stderr, "texture type = %d\n", fb.type);
+    if (t->memType == VIA_MEM_AGP) {
+       t->bufAddr = (unsigned char *)((GLuint)vmesa->viaScreen->agpLinearStart + fb.offset); 	
+       t->texBase = (GLuint)vmesa->agpBase + fb.offset;
     }
-    if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_ALLOCMEM, &fb)) {
-	fprintf(stderr, "via_alloc_texture_agp fail\n");
-        return GL_FALSE;
-    }	
-    
-    t->texMem.offset = fb.offset;
-    t->texMem.index = fb.index;
-    if (VIA_DEBUG) fprintf(stderr, "texture agp index = %d\n", (GLuint)fb.index);
-    
-    t->bufAddr = (unsigned char *)((GLuint)vmesa->viaScreen->agpLinearStart + fb.offset); 	
+    else {
+       t->bufAddr = (unsigned char *)(fb.offset + (GLuint)vmesa->driScreen->pFB);
+       t->texBase = fb.offset;
+    }
 
-    t->inAGP = GL_TRUE;
     return GL_TRUE;
 }
+
 
 void
-via_free_texture(viaContextPtr vmesa, viaTextureObjectPtr t)
+via_free_texture(viaContextPtr vmesa, struct via_tex_buffer *t)
 {
     drm_via_mem_t fb;
-    if (VIA_DEBUG) {
-	fprintf(stderr, "via_free_texture: index = %d\n",
-            t->texMem.index);
-	fprintf(stderr, "via_free_texture: size = %d\n",
-            t->texMem.size);
-    }
-    if (!vmesa) {
-	fprintf(stderr, "!mesa\n");
-	return;
-    }
-    
-    fb.context = vmesa->hHWContext;
-    fb.index = t->texMem.index;
-    
-    if(t->inAGP)
-	fb.type = AGP;
-    else
-        fb.type = VIDEO;
-	    
-    if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
-	if(vmesa->shareCtx) {
-	    fb.context = ((viaContextPtr)((GLcontext *)(vmesa->shareCtx)->DriverCtx))->hHWContext;
-	    if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
-		fprintf(stderr, "via_free_texture fail\n");
-	    }
-	}
-	else
-	    fprintf(stderr, "via_free_texture fail\n");
-    }
 
-    t->bufAddr = NULL;
+    assert(vmesa);
+    assert(vmesa->shareCtx);
+    
+    if (t->index) {
+       fb.context = vmesa->hHWContext;
+       fb.index = t->index;
+       fb.type = t->memType;
+	    
+       if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
+	  fb.context = ((viaContextPtr)((GLcontext *)(vmesa->shareCtx)->DriverCtx))->hHWContext;
+	  if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
+	     fprintf(stderr, "via_free_texture fail\n");
+	  }
+       }
+
+       t->bufAddr = NULL;
+       t->index = 0;
+    }
 }

@@ -116,20 +116,13 @@ viaInitDriver(__DRIscreenPrivate *sPriv)
     viaScreen->irqEnabled = gDRIPriv->irqEnabled;
     viaScreen->irqEnabled = 1;
 
-    if (VIA_DEBUG) {
+    if (VIA_DEBUG & DEBUG_DRI) {
 	fprintf(stderr, "deviceID = %08x\n", viaScreen->deviceID);
 	fprintf(stderr, "width = %08x\n", viaScreen->width);	
 	fprintf(stderr, "height = %08x\n", viaScreen->height);	
 	fprintf(stderr, "cpp = %08x\n", viaScreen->cpp);	
 	fprintf(stderr, "fbOffset = %08x\n", viaScreen->fbOffset);	
     }
-    /* DBG */
-    /*
-    if (gDRIPriv->bitsPerPixel == 15)
-        viaScreen->fbFormat = DV_PF_555;
-    else
-        viaScreen->fbFormat = DV_PF_565;
-    */	
 
     viaScreen->bufs = via_create_empty_buffers();
     if (viaScreen->bufs == NULL) {

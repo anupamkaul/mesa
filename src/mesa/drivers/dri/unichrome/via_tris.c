@@ -42,6 +42,7 @@
 #include "via_state.h"
 #include "via_span.h"
 #include "via_ioctl.h"
+#include "via_3d_reg.h"
 
 /***********************************************************************
  *                    Emit primitives as inline vertices               *
@@ -856,7 +857,7 @@ void viaRasterPrimitive(GLcontext *ctx,
    GLuint regCmdB;
    RING_VARS;
 
-   if (VIA_DEBUG) 
+   if (VIA_DEBUG & DEBUG_PRIMS) 
       fprintf(stderr, "%s: %s/%s\n", __FUNCTION__, _mesa_lookup_enum_by_nr(glprim),
 	      _mesa_lookup_enum_by_nr(hwprim));
 
@@ -938,7 +939,8 @@ void viaRasterPrimitive(GLcontext *ctx,
 /*     assert((vmesa->dmaLow & 0x4) == 0); */
 
       if (vmesa->dmaCliprectAddr == ~0) {
-	 if (VIA_DEBUG) fprintf(stderr, "reserve cliprect space at %x\n", vmesa->dmaLow);
+	 if (VIA_DEBUG & DEBUG_DMA) 
+	    fprintf(stderr, "reserve cliprect space at %x\n", vmesa->dmaLow);
 	 vmesa->dmaCliprectAddr = vmesa->dmaLow;
 	 BEGIN_RING(8);
 	 OUT_RING( HC_HEADER2 );    
@@ -984,7 +986,7 @@ static void viaRenderPrimitive( GLcontext *ctx, GLuint prim )
 
 void viaFinishPrimitive(viaContextPtr vmesa)
 {
-   if (VIA_DEBUG)
+   if (VIA_DEBUG & (DEBUG_DMA|DEBUG_PRIMS)) 
       fprintf(stderr, "%s\n", __FUNCTION__);
 
    if (!vmesa->dmaLastPrim || vmesa->dmaCliprectAddr == ~0) {
@@ -1014,7 +1016,7 @@ void viaFinishPrimitive(viaContextPtr vmesa)
 	 viaFlushDma( vmesa );
    }
    else {
-      if (VIA_DEBUG)
+      if (VIA_DEBUG & (DEBUG_DMA|DEBUG_PRIMS)) 
 	 fprintf(stderr, "remove empty primitive\n");
 
       /* Remove the primitive header:
@@ -1046,14 +1048,15 @@ void viaFallback(viaContextPtr vmesa, GLuint bit, GLboolean mode)
     GLcontext *ctx = vmesa->glCtx;
     TNLcontext *tnl = TNL_CONTEXT(ctx);
     GLuint oldfallback = vmesa->Fallback;
-    if (VIA_DEBUG) fprintf(stderr, "%s old %x bit %x mode %d\n", __FUNCTION__,
-                   vmesa->Fallback, bit, mode);
     
     if (mode) {
         vmesa->Fallback |= bit;
         if (oldfallback == 0) {
 	    VIA_FLUSH_DMA(vmesa);
-	    if (0) fprintf(stderr, "ENTER FALLBACK %x\n", bit);
+
+ 	    if (VIA_DEBUG & DEBUG_FALLBACKS) 
+	       fprintf(stderr, "ENTER FALLBACK %x\n", bit);
+
             _swsetup_Wakeup(ctx);
             vmesa->renderIndex = ~0;
         }
@@ -1063,7 +1066,8 @@ void viaFallback(viaContextPtr vmesa, GLuint bit, GLboolean mode)
         if (oldfallback == bit) {
 	    _swrast_flush( ctx );
 
-	    if (0) fprintf(stderr, "LEAVE FALLBACK %x\n", bit);
+ 	    if (VIA_DEBUG & DEBUG_FALLBACKS) 
+	       fprintf(stderr, "LEAVE FALLBACK %x\n", bit);
 
 	    tnl->Driver.Render.Start = viaRenderStart;
             tnl->Driver.Render.PrimitiveNotify = viaRenderPrimitive;

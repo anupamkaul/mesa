@@ -99,8 +99,11 @@
 #define VIA_BACK    0x2
 #define VIA_DEPTH   0x4
 #define VIA_STENCIL 0x8
-#define VIDEO 0
-#define AGP 1
+
+#define VIA_MEM_VIDEO 0
+#define VIA_MEM_AGP   1
+#define VIA_MEM_UNKNOWN 0xff
+
 typedef struct {
 	u_int32_t offset;
 	u_int32_t size;
