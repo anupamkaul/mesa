@@ -150,15 +150,12 @@ mgaSetTexImages( mgaContextPtr mmesa,
    t->base.totalSize = totalSize;
 
    /* setup hardware register values */
-   t->setup.texctl &= (TMC_tformat_MASK & TMC_tpitch_MASK 
-		       & TMC_tpitchext_MASK);
+   t->setup.texctl &= (TMC_tformat_MASK & TMC_tpitchext_MASK);
    t->setup.texctl |= txformat;
 
-   if ( baseImage->WidthLog2 >= 3 )
-      t->setup.texctl |= ((baseImage->WidthLog2 - 3) << TMC_tpitch_SHIFT);
-   else
-      t->setup.texctl |= (TMC_tpitchlin_enable |
-			  (baseImage->Width << TMC_tpitchext_SHIFT));
+   t->setup.texctl |= TMC_tpitchlin_enable;
+   if ( baseImage->Width < 2048 )
+      t->setup.texctl |= (baseImage->Width << TMC_tpitchext_SHIFT);
 
    /* G400 specifies the number of mip levels in a strange way.  Since there
     * are up to 12 levels, it requires 4 bits.  Three of the bits are at the

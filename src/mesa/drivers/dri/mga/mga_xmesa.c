@@ -367,7 +367,7 @@ mgaCreateContext( const __GLcontextModes *mesaVis,
 				    mmesa->nr_heaps,
 				    & ctx->Const,
 				    4,
-				    10, /* max 2D texture size is 1024x1024 */
+				    11, /* max 2D texture size is 2048x2048 */
 				    0,  /* 3D textures unsupported. */
 				    0,  /* cube textures unsupported. */
 				    0,  /* texture rectangles unsupported. */
