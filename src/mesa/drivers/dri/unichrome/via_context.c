@@ -481,7 +481,6 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     vmesa->driScreen = sPriv;
     vmesa->sarea = saPriv;
 
-    vmesa->texHeap = mmInit(0, viaScreen->textureSize);
     vmesa->renderIndex = ~0;
     vmesa->setupIndex = ~0;
     vmesa->hwPrimitive = GL_POLYGON+1;
@@ -492,12 +491,6 @@ viaCreateContext(const __GLcontextModes *mesaVis,
     vmesa->drawType = GLX_WINDOW_BIT;
 
 
-    make_empty_list(&vmesa->TexObjList);
-    make_empty_list(&vmesa->SwappedOut);
-
-    vmesa->CurrentTexObj[0] = 0;
-    vmesa->CurrentTexObj[1] = 0;
-    
     _math_matrix_ctr(&vmesa->ViewportMatrix);
 
     /* Do this early, before VIA_FLUSH_DMA can be called:
@@ -524,7 +517,6 @@ viaCreateContext(const __GLcontextModes *mesaVis,
 
     driInitExtensions( ctx, card_extensions, GL_TRUE );
     viaInitStateFuncs(ctx);
-    viaInitTextures(ctx);
     viaInitTriFuncs(ctx);
     viaInitSpanFuncs(ctx);
     viaInitIoctlFuncs(ctx);

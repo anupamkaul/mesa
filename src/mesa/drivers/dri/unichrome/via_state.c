@@ -225,7 +225,7 @@ void viaEmitState(viaContextPtr vmesa)
 
       if (texUnit0->Enabled) {
 	 struct gl_texture_object *texObj = texUnit0->_Current;
-	 struct via_texture_object *t = (struct via_texture_object *)texObj->DriverData;
+	 struct via_texture_object *t = (struct via_texture_object *)texObj;
 	 GLuint numLevels = t->lastLevel - t->firstLevel + 1;
 	 if (VIA_DEBUG & DEBUG_TEXTURE) {
 	    fprintf(stderr, "texture0 enabled\n");
@@ -351,7 +351,7 @@ void viaEmitState(viaContextPtr vmesa)
 	
       if (texUnit1->Enabled) {
 	 struct gl_texture_object *texObj = texUnit1->_Current;
-	 struct via_texture_object *t = (struct via_texture_object *)texObj->DriverData;
+	 struct via_texture_object *t = (struct via_texture_object *)texObj;
 	 GLuint numLevels = t->lastLevel - t->firstLevel + 1;
 	 int texunit = (texUnit0->Enabled ? 1 : 0);
 	 if (VIA_DEBUG & DEBUG_TEXTURE) {

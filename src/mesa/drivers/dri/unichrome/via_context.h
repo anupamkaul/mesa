@@ -112,16 +112,17 @@ struct via_tex_buffer {
 
 
 struct via_texture_image {
-   const struct gl_texture_image *image;
-   GLint pitchLog2;
+   struct gl_texture_image image;
    struct via_tex_buffer texMem;
+   GLint pitchLog2;
 };
 
 struct via_texture_object {
+   struct gl_texture_object obj; /* The "parent" object */
+
    struct via_texture_object *next, *prev;
 
    GLuint texelBytes;
-
    GLuint memType;
    GLuint dirtyImages;
 
@@ -167,13 +168,6 @@ struct via_context {
    GLubyte    *dma;
    viaRegion tex;
     
-   /* Textures
-    */
-   struct via_texture_object *CurrentTexObj[2];
-   struct via_texture_object TexObjList;
-   struct via_texture_object SwappedOut;
-   memHeap_t *texHeap;
-
    /* Bit flag to keep 0track of fallbacks.
     */
    GLuint Fallback;

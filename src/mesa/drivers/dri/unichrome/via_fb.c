@@ -132,7 +132,7 @@ via_free_texture(viaContextPtr vmesa, struct via_tex_buffer *t)
     drm_via_mem_t fb;
 
     assert(vmesa);
-    assert(vmesa->shareCtx);
+/*     assert(vmesa->shareCtx); */
     
     if (t->index) {
        fb.context = vmesa->hHWContext;
@@ -140,7 +140,9 @@ via_free_texture(viaContextPtr vmesa, struct via_tex_buffer *t)
        fb.type = t->memType;
 	    
        if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
-	  fb.context = ((viaContextPtr)((GLcontext *)(vmesa->shareCtx)->DriverCtx))->hHWContext;
+/*  	  fb.context = ((viaContextPtr)((GLcontext *)(vmesa->shareCtx)->DriverCtx))->hHWContext; */
+
+	  fb.context = vmesa->hHWContext;
 	  if (ioctl(vmesa->driFd, DRM_IOCTL_VIA_FREEMEM, &fb)) {
 	     fprintf(stderr, "via_free_texture fail\n");
 	  }

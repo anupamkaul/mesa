@@ -30,6 +30,5 @@
 
 GLboolean viaUpdateTextureState(GLcontext *ctx);
 void viaInitTextureFuncs(struct dd_function_table * functions);
-void viaInitTextures(GLcontext *ctx);
 
 #endif
