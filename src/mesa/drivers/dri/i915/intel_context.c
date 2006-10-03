@@ -550,13 +550,6 @@ intelMakeCurrent(__DRIcontextPrivate * driContextPriv,
       GLframebuffer *drawFb = (GLframebuffer *) driDrawPriv->driverPrivate;
       GLframebuffer *readFb = (GLframebuffer *) driReadPriv->driverPrivate;
 
-      if (intel->driDrawable != driDrawPriv) {
-         /* Shouldn't the readbuffer be stored also? */
-         driDrawableInitVBlank(driDrawPriv, intel->vblank_flags, &intel->vbl_seq);
-
-         intel->driDrawable = driDrawPriv;
-         intelWindowMoved(intel);
-      }
 
       /* XXX FBO temporary fix-ups! */
       /* if the renderbuffers don't have regions, init them from the context */
@@ -586,7 +579,18 @@ intelMakeCurrent(__DRIcontextPrivate * driContextPriv,
 
       _mesa_make_current(&intel->ctx, drawFb, readFb);
 
-      intel_draw_buffer(&intel->ctx, drawFb);
+      /* The drawbuffer won't always be updated by _mesa_make_current: 
+       */
+      if (intel->ctx.DrawBuffer == drawFb) {
+
+	 if (intel->driDrawable != driDrawPriv) {
+	    driDrawableInitVBlank(driDrawPriv, intel->vblank_flags, &intel->vbl_seq);	    
+	    intel->driDrawable = driDrawPriv;
+	    intelWindowMoved(intel);
+	 }
+
+	 intel_draw_buffer(&intel->ctx, drawFb);
+      }
    }
    else {
       _mesa_make_current(NULL, NULL, NULL);
