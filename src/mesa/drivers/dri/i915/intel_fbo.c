@@ -113,7 +113,7 @@ intel_delete_renderbuffer(struct gl_renderbuffer *rb)
    }
 
    if (intel && irb->region) {
-      intel_region_release(intel->intelScreen, &irb->region);
+      intel_region_release(&irb->region);
    }
 
    _mesa_free(irb);
@@ -227,9 +227,7 @@ intel_alloc_renderbuffer_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
 
    /* free old region */
    if (irb->region) {
-      /*LOCK_HARDWARE(intel); */
-      intel_region_release(intel->intelScreen, &irb->region);
-      /*UNLOCK_HARDWARE(intel); */
+      intel_region_release(&irb->region);
    }
 
    /* allocate new memory region/renderbuffer */
@@ -588,14 +586,13 @@ static void
 intel_finish_render_texture(GLcontext * ctx,
                             struct gl_renderbuffer_attachment *att)
 {
-   struct intel_context *intel = intel_context(ctx);
    struct intel_renderbuffer *irb = intel_renderbuffer(att->Renderbuffer);
 
    DBG("End render texture (tid %u) tex %u\n", _glthread_GetID(), att->Texture->Name);
 
    if (irb) {
       /* just release the region */
-      intel_region_release(intel->intelScreen, &irb->region);
+      intel_region_release(&irb->region);
    }
    else if (att->Renderbuffer) {
       /* software fallback */

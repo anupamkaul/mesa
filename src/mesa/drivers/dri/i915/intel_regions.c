@@ -113,8 +113,7 @@ intel_region_reference(struct intel_region **dst, struct intel_region *src)
 }
 
 void
-intel_region_release(intelScreenPrivate *intelScreen,
-                     struct intel_region **region)
+intel_region_release(struct intel_region **region)
 {
    if (!*region)
       return;

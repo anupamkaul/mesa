@@ -396,7 +396,7 @@ meta_tex_rect_source(struct intel_context *intel,
       return GL_FALSE;
    }
 
-/*    intel_region_release(intel, &i915->meta.tex_region[0]); */
+/*    intel_region_release(&i915->meta.tex_region[0]); */
 /*    intel_region_reference(&i915->meta.tex_region[0], region); */
    i915->meta.tex_buffer[0] = buffer;
    i915->meta.tex_offset[0] = offset;
@@ -483,9 +483,9 @@ static void
 leave_meta_state(struct intel_context *intel)
 {
    struct i915_context *i915 = i915_context(&intel->ctx);
-   intel_region_release(intel->intelScreen, &i915->meta.draw_region);
-   intel_region_release(intel->intelScreen, &i915->meta.depth_region);
-/*    intel_region_release(intel, &i915->meta.tex_region[0]); */
+   intel_region_release(&i915->meta.draw_region);
+   intel_region_release(&i915->meta.depth_region);
+/*    intel_region_release(&i915->meta.tex_region[0]); */
    SET_STATE(i915, state);
 }
 

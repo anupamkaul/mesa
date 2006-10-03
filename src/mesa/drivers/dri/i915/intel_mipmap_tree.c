@@ -128,7 +128,7 @@ intel_miptree_release(struct intel_context *intel,
 
       DBG("%s deleting %p\n", __FUNCTION__, *mt);
 
-      intel_region_release(intel->intelScreen, &((*mt)->region));
+      intel_region_release(&((*mt)->region));
 
       for (i = 0; i < MAX_TEXTURE_LEVELS; i++)
          if ((*mt)->level[i].image_offset)
