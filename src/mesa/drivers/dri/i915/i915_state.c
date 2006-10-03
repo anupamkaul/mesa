@@ -364,24 +364,38 @@ i915PolygonStipple(GLcontext * ctx, const GLubyte * mask)
 static void
 i915Scissor(GLcontext * ctx, GLint x, GLint y, GLsizei w, GLsizei h)
 {
+   struct intel_context *intel = intel_context(ctx);
    struct i915_context *i915 = I915_CONTEXT(ctx);
    int x1, y1, x2, y2;
 
    if (!ctx->DrawBuffer)
       return;
 
-   x1 = x;
-   y1 = ctx->DrawBuffer->Height - (y + h);
-   x2 = x + w - 1;
-   y2 = y1 + h - 1;
+   DBG("%s %d,%d %dx%d\n", __FUNCTION__, x, y, w, h);
 
-   DBG("[%s] x(%d) y(%d) w(%d) h(%d)\n", __FUNCTION__,
-       x, y, w, h);
-
+   if (ctx->DrawBuffer->Name == 0) {
+      x1 = x;
+      y1 = ctx->DrawBuffer->Height - (y + h);
+      x2 = x + w - 1;
+      y2 = y1 + h - 1;
+      DBG("%s %d..%d,%d..%d (inverted)\n", __FUNCTION__, x1, x2, y1, y2);
+   }
+   else {
+      /* FBO - not inverted
+       */
+      x1 = x;
+      y1 = y;
+      x2 = x + w - 1;
+      y2 = y + h - 1;
+      DBG("%s %d..%d,%d..%d (not inverted)\n", __FUNCTION__, x1, x2, y1, y2);
+   }
+   
    x1 = CLAMP(x1, 0, ctx->DrawBuffer->Width - 1);
    y1 = CLAMP(y1, 0, ctx->DrawBuffer->Height - 1);
    x2 = CLAMP(x2, 0, ctx->DrawBuffer->Width - 1);
    y2 = CLAMP(y2, 0, ctx->DrawBuffer->Height - 1);
+   
+   DBG("%s %d..%d,%d..%d (clamped)\n", __FUNCTION__, x1, x2, y1, y2);
 
    I915_STATECHANGE(i915, I915_UPLOAD_BUFFERS);
    i915->state.Buffer[I915_DESTREG_SR1] = (y1 << 16) | (x1 & 0xffff);
