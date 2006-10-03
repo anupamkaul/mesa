@@ -74,7 +74,7 @@ intel_miptree_create(struct intel_context *intel,
    mt->depth0 = depth0;
    mt->cpp = compressed ? 2 : cpp;
    mt->compressed = compressed;
-   mt->refcount = 0; /*Allow for unused miptrees */
+   mt->refcount = 1; 
 
    switch (intel->intelScreen->deviceID) {
    case PCI_CHIP_I945_G:
