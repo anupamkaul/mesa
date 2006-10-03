@@ -447,7 +447,7 @@ intelClearWithBlit(GLcontext * ctx, GLbitfield mask, GLboolean all,
          ASSERT(intel->pClipRects == &intel->fboRect);
          clear.x1 = cx;
          clear.y1 = intel->ctx.DrawBuffer->Height - cy - ch;
-         clear.x2 = clear.y1 + cw;
+         clear.x2 = clear.x1 + cw;
          clear.y2 = clear.y1 + ch;
          /* no change to mask */
       }
