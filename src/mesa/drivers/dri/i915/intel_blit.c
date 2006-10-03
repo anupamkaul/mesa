@@ -443,10 +443,10 @@ intelClearWithBlit(GLcontext * ctx, GLbitfield mask, GLboolean all,
       }
       else {
          /* clearing FBO */
-         ASSERT(intel->numClipRects == 1);
-         ASSERT(intel->pClipRects == &intel->fboRect);
+         assert(intel->numClipRects == 1);
+         assert(intel->pClipRects == &intel->fboRect);
          clear.x1 = cx;
-         clear.y1 = intel->ctx.DrawBuffer->Height - cy - ch;
+         clear.y1 = cy;
          clear.x2 = clear.x1 + cw;
          clear.y2 = clear.y1 + ch;
          /* no change to mask */
