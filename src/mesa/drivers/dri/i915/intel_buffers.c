@@ -197,39 +197,6 @@ intelSetBackClipRects(struct intel_context *intel)
       intel->pClipRects = dPriv->pBackClipRects;
       intel->drawX = dPriv->backX;
       intel->drawY = dPriv->backY;
-
-      if (dPriv->numBackClipRects == 1 &&
-          dPriv->x == dPriv->backX && dPriv->y == dPriv->backY) {
-
-         /* Repeat the calculation of the back cliprect dimensions here
-          * as early versions of dri.a in the Xserver are incorrect.  Try
-          * very hard not to restrict future versions of dri.a which
-          * might eg. allocate truly private back buffers.
-          */
-         int x1, y1;
-         int x2, y2;
-
-         x1 = dPriv->x;
-         y1 = dPriv->y;
-         x2 = dPriv->x + dPriv->w;
-         y2 = dPriv->y + dPriv->h;
-
-         if (x1 < 0)
-            x1 = 0;
-         if (y1 < 0)
-            y1 = 0;
-         if (x2 > intel->intelScreen->width)
-            x2 = intel->intelScreen->width;
-         if (y2 > intel->intelScreen->height)
-            y2 = intel->intelScreen->height;
-
-         if (x1 == dPriv->pBackClipRects[0].x1 &&
-             y1 == dPriv->pBackClipRects[0].y1) {
-
-            dPriv->pBackClipRects[0].x2 = x2;
-            dPriv->pBackClipRects[0].y2 = y2;
-         }
-      }
    }
 }
 
