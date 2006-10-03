@@ -551,14 +551,18 @@ intel_render_texture(GLcontext * ctx,
       }
    }
 
-   DBG("Begin render texture tex=%u w=%d h=%d refcount=%d\n",
+   DBG("Begin render texture tid %x tex=%u w=%d h=%d refcount=%d\n",
+       _glthread_GetID(),
        att->Texture->Name, newImage->Width, newImage->Height,
        irb->Base.RefCount);
 
    /* point the renderbufer's region to the texture image region */
    intel_image = intel_texture_image(newImage);
-   if (irb->region != intel_image->mt->region)
+   if (irb->region != intel_image->mt->region) {
+      if (irb->region)
+	 intel_region_release(&irb->region);
       intel_region_reference(&irb->region, intel_image->mt->region);
+   }
 
    /* compute offset of the particular 2D image within the texture region */
    imageOffset = intel_miptree_image_offset(intel_image->mt,
@@ -588,7 +592,7 @@ intel_finish_render_texture(GLcontext * ctx,
 {
    struct intel_renderbuffer *irb = intel_renderbuffer(att->Renderbuffer);
 
-   DBG("End render texture (tid %u) tex %u\n", _glthread_GetID(), att->Texture->Name);
+   DBG("End render texture (tid %x) tex %u\n", _glthread_GetID(), att->Texture->Name);
 
    if (irb) {
       /* just release the region */
