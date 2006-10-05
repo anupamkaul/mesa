@@ -65,8 +65,11 @@ pool_create(struct _DriBufferPool *pool,
 static int
 pool_destroy(struct _DriBufferPool *pool, void *private)
 {
+   int ret;
    drmBO *buf = (drmBO *) private;
-   return drmBODestroy(pool->fd, buf);
+   ret = drmBODestroy(pool->fd, buf);
+   free(buf);
+   return ret;
 }
 
 static int
