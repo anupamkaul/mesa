@@ -86,6 +86,8 @@ intelStartInlinePrimitive(struct intel_context *intel,
 {
    BATCH_LOCALS;
 
+   intel->vtbl.emit_state(intel);
+
    /* Need to make sure at the very least that we don't wrap
     * batchbuffers in BEGIN_BATCH below, otherwise the primitive will
     * be emitted to a batchbuffer missing the required full-state
@@ -123,7 +125,6 @@ intelWrapInlinePrimitive(struct intel_context *intel)
 
    intel_flush_inline_primitive(intel);
    intel_batchbuffer_flush(intel->batch);
-   intel->vtbl.emit_state(intel);
    intelStartInlinePrimitive(intel, prim, batchflags);  /* ??? */
 }
 
@@ -1046,8 +1047,6 @@ intel_meta_draw_poly(struct intel_context *intel,
 {
    union fi *vb;
    GLint i;
-
-   intel->vtbl.emit_state(intel);
 
    /* All 3d primitives should be emitted with INTEL_BATCH_CLIPRECTS,
     * otherwise the drawing origin (DR4) might not be set correctly.
