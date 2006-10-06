@@ -291,7 +291,7 @@ do_blit_copypixels(GLcontext * ctx,
 	 GLint dx = dstx - srcx;
          GLint dy = dsty - srcy;
 
-         if (!_mesa_clip_to_region(x, y, x+w, y+h, &dstx, &dsty, &width, &height))
+         if (!_mesa_clip_to_region(x, y, x+w-1, y+h-1, &dstx, &dsty, &width, &height))
             goto out;
 	 
          srcx = dstx - dx;
