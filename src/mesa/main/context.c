@@ -1698,15 +1698,6 @@ _mesa_make_current( GLcontext *newCtx, GLframebuffer *drawBuffer,
          if (!newCtx->DrawBuffer || newCtx->DrawBuffer->Name == 0) {
             newCtx->DrawBuffer = drawBuffer;
          }
-	 else
-	    _mesa_printf("not setting ctx %p DrawBuffer %p/%d,%d (new %p/%d,%d)\n",
-			 newCtx, newCtx->DrawBuffer, 
-			 newCtx->DrawBuffer->Width,
-			 newCtx->DrawBuffer->Height,
-			 drawBuffer,
-			 drawBuffer->Width,
-			 drawBuffer->Height);
-			 
          if (!newCtx->ReadBuffer || newCtx->ReadBuffer->Name == 0) {
             newCtx->ReadBuffer = readBuffer;
          }

@@ -182,7 +182,7 @@ intelCopyTexImage1D(GLcontext * ctx, GLenum target, GLint level,
    struct gl_texture_object *texObj =
       _mesa_select_tex_object(ctx, texUnit, target);
    struct gl_texture_image *texImage =
-      _mesa_select_tex_image(ctx, texUnit, target, level);
+      _mesa_select_tex_image(ctx, texObj, target, level);
 
    if (border)
       goto fail;
@@ -218,7 +218,7 @@ intelCopyTexImage2D(GLcontext * ctx, GLenum target, GLint level,
    struct gl_texture_object *texObj =
       _mesa_select_tex_object(ctx, texUnit, target);
    struct gl_texture_image *texImage =
-      _mesa_select_tex_image(ctx, texUnit, target, level);
+      _mesa_select_tex_image(ctx, texObj, target, level);
 
    if (border)
       goto fail;
@@ -252,7 +252,7 @@ intelCopyTexSubImage1D(GLcontext * ctx, GLenum target, GLint level,
    struct gl_texture_unit *texUnit =
       &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
    struct gl_texture_image *texImage =
-      _mesa_select_tex_image(ctx, texUnit, target, level);
+      _mesa_select_tex_image(ctx, texObj, target, level);
    GLenum internalFormat = texImage->InternalFormat;
 
    /* XXX need to check <border> as in above function? */
@@ -277,7 +277,7 @@ intelCopyTexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
    struct gl_texture_unit *texUnit =
       &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
    struct gl_texture_image *texImage =
-      _mesa_select_tex_image(ctx, texUnit, target, level);
+      _mesa_select_tex_image(ctx, texObj, target, level);
    GLenum internalFormat = texImage->InternalFormat;
 
 
