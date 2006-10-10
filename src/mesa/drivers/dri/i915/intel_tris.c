@@ -29,6 +29,8 @@
 #include "context.h"
 #include "macros.h"
 #include "enums.h"
+#include "texobj.h"
+#include "state.h"
 #include "dd.h"
 
 #include "swrast/swrast.h"
@@ -857,6 +859,11 @@ intelRunPipeline(GLcontext * ctx)
 {
    struct intel_context *intel = intel_context(ctx);
 
+   _mesa_lock_context_textures(ctx);
+   
+   if (ctx->NewState)
+      _mesa_update_state(ctx);
+
    if (intel->NewGLState) {
       if (intel->NewGLState & _NEW_TEXTURE) {
          intel->vtbl.update_texture_state(intel);
@@ -871,6 +878,8 @@ intelRunPipeline(GLcontext * ctx)
    }
 
    _tnl_run_pipeline(ctx);
+
+   _mesa_unlock_context_textures(ctx);
 }
 
 static void
