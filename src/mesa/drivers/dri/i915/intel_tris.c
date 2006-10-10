@@ -188,8 +188,20 @@ intel_draw_quad(struct intel_context *intel,
 
    COPY_DWORDS(j, vb, vertsize, v0);
    COPY_DWORDS(j, vb, vertsize, v1);
-   COPY_DWORDS(j, vb, vertsize, v3);
-   COPY_DWORDS(j, vb, vertsize, v1);
+
+   /* If smooth shading, draw like a trifan which gives better
+    * rasterization.  Otherwise draw as two triangles with provoking
+    * vertex in third position as required for flat shading.
+    */
+   if (intel->ctx.Light.ShadeModel == GL_FLAT) {
+      COPY_DWORDS(j, vb, vertsize, v3);
+      COPY_DWORDS(j, vb, vertsize, v1);
+   }
+   else {
+      COPY_DWORDS(j, vb, vertsize, v2);
+      COPY_DWORDS(j, vb, vertsize, v0);
+   }
+
    COPY_DWORDS(j, vb, vertsize, v2);
    COPY_DWORDS(j, vb, vertsize, v3);
 }
