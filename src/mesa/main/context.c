@@ -733,6 +733,10 @@ alloc_shared_state( GLcontext *ctx )
    ss->DefaultCubeMap->RefCount += MAX_TEXTURE_IMAGE_UNITS;
    ss->DefaultRect->RefCount += MAX_TEXTURE_IMAGE_UNITS;
 
+   _glthread_INIT_MUTEX(ss->TexMutex);
+   ss->TextureStateStamp = 0;
+
+
 #if FEATURE_EXT_framebuffer_object
    ss->FrameBuffers = _mesa_NewHashTable();
    if (!ss->FrameBuffers)
@@ -1694,6 +1698,15 @@ _mesa_make_current( GLcontext *newCtx, GLframebuffer *drawBuffer,
          if (!newCtx->DrawBuffer || newCtx->DrawBuffer->Name == 0) {
             newCtx->DrawBuffer = drawBuffer;
          }
+	 else
+	    _mesa_printf("not setting ctx %p DrawBuffer %p/%d,%d (new %p/%d,%d)\n",
+			 newCtx, newCtx->DrawBuffer, 
+			 newCtx->DrawBuffer->Width,
+			 newCtx->DrawBuffer->Height,
+			 drawBuffer,
+			 drawBuffer->Width,
+			 drawBuffer->Height);
+			 
          if (!newCtx->ReadBuffer || newCtx->ReadBuffer->Name == 0) {
             newCtx->ReadBuffer = readBuffer;
          }

@@ -4206,6 +4206,8 @@ make_3d_mipmap(const struct gl_texture_format *format, GLint border,
  * For GL_SGIX_generate_mipmap:
  * Generate a complete set of mipmaps from texObj's base-level image.
  * Stop at texObj's MaxLevel or when we get to the 1x1 texture.
+ *
+ * Note:  must be called with texObj already locked.
  */
 void
 _mesa_generate_mipmap(GLcontext *ctx, GLenum target,
