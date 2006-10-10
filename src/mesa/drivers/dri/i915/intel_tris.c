@@ -862,7 +862,7 @@ intelRunPipeline(GLcontext * ctx)
    _mesa_lock_context_textures(ctx);
    
    if (ctx->NewState)
-      _mesa_update_state(ctx);
+      _mesa_update_state_locked(ctx);
 
    if (intel->NewGLState) {
       if (intel->NewGLState & _NEW_TEXTURE) {

@@ -2246,6 +2246,9 @@ _mesa_TexImage1D( GLenum target, GLint level, GLint internalFormat,
          return;   /* error was recorded */
       }
 
+      if (ctx->NewState & _IMAGE_NEW_TRANSFER_STATE)
+	 _mesa_update_state(ctx);
+
       texUnit = &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
       texObj = _mesa_select_tex_object(ctx, texUnit, target);
       _mesa_lock_texture(ctx, texObj);
@@ -2267,9 +2270,6 @@ _mesa_TexImage1D( GLenum target, GLint level, GLint internalFormat,
 				    postConvWidth, 1, 1,
 				    border, internalFormat);
 	 
-	 if (ctx->NewState & _IMAGE_NEW_TRANSFER_STATE)
-	    _mesa_update_state(ctx);
-
 	 ASSERT(ctx->Driver.TexImage1D);
 
 	 /* Give the texture to the driver!  <pixels> may be null! */
@@ -2348,6 +2348,9 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
          return;   /* error was recorded */
       }
 
+      if (ctx->NewState & _IMAGE_NEW_TRANSFER_STATE)
+	 _mesa_update_state(ctx);
+
       texUnit = &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
       texObj = _mesa_select_tex_object(ctx, texUnit, target);
       _mesa_lock_texture(ctx, texObj);
@@ -2368,9 +2371,6 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
 				    postConvWidth, postConvHeight, 1,
 				    border, internalFormat);
 	 
-	 if (ctx->NewState & _IMAGE_NEW_TRANSFER_STATE)
-	    _mesa_update_state(ctx);
-
 	 ASSERT(ctx->Driver.TexImage2D);
 
 	 /* Give the texture to the driver!  <pixels> may be null! */
@@ -2445,6 +2445,9 @@ _mesa_TexImage3D( GLenum target, GLint level, GLint internalFormat,
          return;   /* error was recorded */
       }
 
+      if (ctx->NewState & _IMAGE_NEW_TRANSFER_STATE)
+	 _mesa_update_state(ctx);
+
       texUnit = &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
       texObj = _mesa_select_tex_object(ctx, texUnit, target);
       _mesa_lock_texture(ctx, texObj);
@@ -2464,9 +2467,6 @@ _mesa_TexImage3D( GLenum target, GLint level, GLint internalFormat,
 	 _mesa_init_teximage_fields(ctx, target, texImage,
 				    width, height, depth,
 				    border, internalFormat);
-
-	 if (ctx->NewState & _IMAGE_NEW_TRANSFER_STATE)
-	    _mesa_update_state(ctx);
 
 	 ASSERT(ctx->Driver.TexImage3D);
 

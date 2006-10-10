@@ -144,6 +144,8 @@ _mesa_copy_texture_state( const GLcontext *src, GLcontext *dst )
       dst->Texture.Unit[i].Combine.ScaleShiftA = src->Texture.Unit[i].Combine.ScaleShiftA;
 
       /* copy texture object bindings, not contents of texture objects */
+      _mesa_lock_context_textures(dst);
+
       copy_texture_binding(src, &dst->Texture.Unit[i].Current1D,
                            src->Texture.Unit[i].Current1D);
       copy_texture_binding(src, &dst->Texture.Unit[i].Current2D,
@@ -154,6 +156,8 @@ _mesa_copy_texture_state( const GLcontext *src, GLcontext *dst )
                            src->Texture.Unit[i].CurrentCubeMap);
       copy_texture_binding(src, &dst->Texture.Unit[i].CurrentRect,
                            src->Texture.Unit[i].CurrentRect);
+
+      _mesa_unlock_context_textures(dst);
    }
 }
 
