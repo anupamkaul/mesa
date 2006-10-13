@@ -353,6 +353,8 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
    intelScreenPrivate *intelScreen;
    I830DRIPtr gDRIPriv = (I830DRIPtr) sPriv->pDevPriv;
    drmI830Sarea *sarea;
+   unsigned batchPoolSize = 1024*1024;
+
    PFNGLXSCRENABLEEXTENSIONPROC glx_enable_extension =
       (PFNGLXSCRENABLEEXTENSIONPROC) (*dri_interface->
                                       getProcAddress("glxEnableExtension"));
@@ -380,7 +382,12 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
    sarea = (drmI830Sarea *)
       (((GLubyte *) sPriv->pSAREA) + intelScreen->sarea_priv_offset);
 
+   intelScreen->maxBatchSize = BATCH_SZ;
    intelScreen->deviceID = gDRIPriv->deviceID;
+   if (intelScreen->deviceID == PCI_CHIP_I865_G)
+      intelScreen->maxBatchSize = 4096;
+   batchPoolSize /= intelScreen->maxBatchSize;
+
    intelScreen->mem = gDRIPriv->mem;
    intelScreen->cpp = gDRIPriv->cpp;
 
@@ -486,7 +493,8 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
                                              DRM_BO_FLAG_EXE |
                                              DRM_BO_FLAG_MEM_TT |
                                              DRM_BO_FLAG_MEM_LOCAL,
-                                             BATCH_SZ, 100, 5);
+                                             intelScreen->maxBatchSize, 
+					     batchPoolSize, 5);
    if (!intelScreen->batchPool) {
       fprintf(stderr, "Failed to initialize batch pool - possible incorrect agpgart installed\n");
       return GL_FALSE;

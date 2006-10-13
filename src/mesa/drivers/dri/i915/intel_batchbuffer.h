@@ -6,7 +6,7 @@
 
 struct intel_context;
 
-#define BATCH_SZ 4096
+#define BATCH_SZ 16384
 #define BATCH_RESERVED 16
 
 #define MAX_RELOCS 100
@@ -37,6 +37,7 @@ struct intel_batchbuffer
 
    struct buffer_reloc reloc[MAX_RELOCS];
    GLuint nr_relocs;
+   GLuint size;
 };
 
 struct intel_batchbuffer *intel_batchbuffer_alloc(struct intel_context
@@ -76,7 +77,7 @@ GLboolean intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
 static INLINE GLuint
 intel_batchbuffer_space(struct intel_batchbuffer *batch)
 {
-   return (BATCH_SZ - BATCH_RESERVED) - (batch->ptr - batch->map);
+   return (batch->size - BATCH_RESERVED) - (batch->ptr - batch->map);
 }
 
 
@@ -93,7 +94,7 @@ static INLINE void
 intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
                                 GLuint sz, GLuint flags)
 {
-   assert(sz < BATCH_SZ - 8);
+   assert(sz < batch->size - 8);
    if (intel_batchbuffer_space(batch) < sz ||
        (batch->flags != 0 && flags != 0 && batch->flags != flags))
       intel_batchbuffer_flush(batch);

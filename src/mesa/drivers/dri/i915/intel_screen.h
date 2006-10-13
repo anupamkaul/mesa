@@ -92,6 +92,7 @@ typedef struct
    struct _DriBufferPool *texPool;
    struct _DriBufferPool *regionPool;
    struct _DriBufferPool *staticPool;
+   unsigned int maxBatchSize;
 } intelScreenPrivate;
 
 

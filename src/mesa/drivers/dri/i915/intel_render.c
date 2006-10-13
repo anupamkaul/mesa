@@ -126,7 +126,7 @@ do {						\
 #define FLUSH() INTEL_FIREVERTICES(intel)
 
 #define GET_SUBSEQUENT_VB_MAX_VERTS() \
-  ((BATCH_SZ - 1500) / (intel->vertex_size*4))
+  ((intel->batch->size - 1500) / (intel->vertex_size*4))
 #define GET_CURRENT_VB_MAX_VERTS() GET_SUBSEQUENT_VB_MAX_VERTS()
 
 #define ALLOC_VERTS( nr ) \

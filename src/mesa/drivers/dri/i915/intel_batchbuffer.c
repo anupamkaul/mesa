@@ -82,11 +82,13 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
 {
 
    int i;
+
    /*
     * Get a new, free batchbuffer.
     */
 
-   driBOData(batch->buffer, BATCH_SZ, NULL, 0);
+   batch->size =  batch->intel->intelScreen->maxBatchSize;
+   driBOData(batch->buffer, batch->size, NULL, 0);
 
    driBOResetList(&batch->list);
 
