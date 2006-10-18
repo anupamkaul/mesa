@@ -83,6 +83,8 @@ intel_region_unmap(intelScreenPrivate *intelScreen, struct intel_region *region)
    }
 }
 
+#undef TEST_CACHED_TEXTURES
+
 struct intel_region *
 intel_region_alloc(intelScreenPrivate *intelScreen,
                    GLuint cpp, GLuint pitch, GLuint height)
@@ -97,7 +99,14 @@ intel_region_alloc(intelScreenPrivate *intelScreen,
    region->refcount = 1;
 
    driGenBuffers(intelScreen->regionPool,
-                 "region", 1, &region->buffer, 64, 0, 0);
+                 "region", 1, &region->buffer, 64,
+#ifdef TEST_CACHED_TEXTURES		 
+		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_BIND_CACHED |
+		 DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 
+#else
+		 0,
+#endif
+		 0);
    driBOData(region->buffer, pitch * cpp * height, NULL, 0);
    return region;
 }
@@ -158,7 +167,7 @@ intel_region_create_static(intelScreenPrivate *intelScreen,
 
    driGenBuffers(intelScreen->staticPool, "static region", 1,
                  &region->buffer, 64,
-                 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_NO_EVICT |
+                 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_NO_MOVE |
                  DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 0);
    driBOSetStatic(region->buffer, offset, pitch * cpp * height, virtual, 0);
 
@@ -189,7 +198,7 @@ intel_region_update_static(intelScreenPrivate *intelScreen,
    driDeleteBuffers(1, &region->buffer);
    driGenBuffers(intelScreen->staticPool, "static region", 1,
                  &region->buffer, 64,
-                 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_NO_EVICT |
+                 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_NO_MOVE |
                  DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 0);
    driBOSetStatic(region->buffer, offset, pitch * cpp * height, virtual, 0);
 
