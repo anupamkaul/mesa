@@ -89,6 +89,8 @@ intelCopyBuffer(const __DRIdrawablePrivate * dPriv,
 	 swap.seqtype |= DRM_VBLANK_SECONDARY;
       }
 
+      intel_batchbuffer_flush(intel->batch);
+
       if (!drmCommandWriteRead(intel->driFd, DRM_I915_VBLANK_SWAP, &swap,
 			       sizeof(swap))) {
 	 intel->swap_scheduled = 1;
