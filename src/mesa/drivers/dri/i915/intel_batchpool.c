@@ -95,7 +95,7 @@ createBPool(int fd, unsigned long bufSize, unsigned numBufs, unsigned flags,
 
    _glthread_INIT_MUTEX(p->mutex);
 
-   if (drmBOCreate(fd, NULL, 0, numBufs * bufSize, NULL, drm_bo_type_dc,
+   if (drmBOCreate(fd, 0, numBufs * bufSize, 0, NULL, drm_bo_type_dc,
                    flags, 0, &p->kernelBO)) {
       free(p->bufs);
       free(p);

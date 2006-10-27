@@ -31,6 +31,7 @@
 
 #include <xf86drm.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "dri_bufpool.h"
 
 /*
@@ -44,16 +45,18 @@ pool_create(struct _DriBufferPool *pool,
 {
    drmBO *buf = (drmBO *) malloc(sizeof(*buf));
    int ret;
+   unsigned pageSize = getpagesize();
 
    if (!buf)
       return NULL;
 
-   if (alignment && ((4096 % alignment) != 0))
+   if ((alignment > pageSize) && (alignment % pageSize)) {
       return NULL;
+   }
 
-   ret = drmBOCreate(pool->fd, NULL, 0, size, NULL, drm_bo_type_dc,
+   ret = drmBOCreate(pool->fd, 0, size, alignment / pageSize,
+		     NULL, drm_bo_type_dc,
                      flags, hint, buf);
-
    if (ret) {
       free(buf);
       return NULL;
@@ -181,7 +184,7 @@ pool_setstatic(struct _DriBufferPool *pool, unsigned long offset,
    if (!buf)
       return NULL;
 
-   ret = drmBOCreate(pool->fd, NULL, offset, size, NULL, drm_bo_type_fake,
+   ret = drmBOCreate(pool->fd, offset, size, 0, NULL, drm_bo_type_fake,
                      flags, 0, buf);
 
    if (ret) {
