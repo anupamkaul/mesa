@@ -89,8 +89,7 @@ copy_image_data_to_tree(struct intel_context *intel,
                                intelImage->base.RowStride,
                                intelImage->base.RowStride *
                                intelImage->base.Height);
-
-      free(intelImage->base.Data);
+      _mesa_align_free(intelImage->base.Data);
       intelImage->base.Data = NULL;
    }
 
