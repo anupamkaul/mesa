@@ -365,7 +365,7 @@ intelTexImage(GLcontext * ctx,
       assert(!texImage->Data);
    }
    else if (texImage->Data) {
-      free(texImage->Data);
+      _mesa_align_free(texImage->Data);
    }
 
    /* If this is the only texture image in the tree, could call
