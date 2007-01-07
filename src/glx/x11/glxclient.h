@@ -349,6 +349,11 @@ struct __GLXcontextRec {
      * Per context direct rendering interface functions and data.
      */
     __DRIcontext driContext;
+
+    /**
+     * Pointer to the mode used to create this context.
+     */
+    const __GLcontextModes * mode;
 #endif
     
     /**
@@ -456,6 +461,7 @@ typedef struct __GLXscreenConfigsRec {
      * Per screen direct rendering interface functions and data.
      */
     __DRIscreen driScreen;
+    void *drawHash;
 #endif
 
     /**
