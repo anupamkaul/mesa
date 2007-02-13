@@ -25,6 +25,20 @@
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
+#ifndef CTX_ARG
+#define CTX_ARG GLcontext *ctx
+#define GET_REAL_CTX
+#endif
+
+#ifndef CLIPPED_LINE
+#define CLIPPED_LINE(a, b) \
+   tnl->Driver.Render.ClippedLine(ctx, a, b)
+#endif
+
+#ifndef CLIPPED_POLYGON
+#define CLIPPED_POLYGON(list, nr) \
+   tnl->Driver.Render.ClippedPolygon(ctx, list, nr)
+#endif
 
 #define CLIP_DOTPROD(K, A, B, C, D) X(K)*A + Y(K)*B + Z(K)*C + W(K)*D
 
@@ -115,8 +129,9 @@ do {									\
 /* Clip a line against the viewport and user clip planes.
  */
 static INLINE void
-TAG(clip_line)( GLcontext *ctx, GLuint v0, GLuint v1, GLubyte mask )
+TAG(clip_line)( CTX_ARG, GLuint v0, GLuint v1, GLubyte mask )
 {
+   GET_REAL_CTX
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
    tnl_interp_func interp = tnl->Driver.Render.Interp;
@@ -177,15 +192,16 @@ TAG(clip_line)( GLcontext *ctx, GLuint v0, GLuint v1, GLubyte mask )
       ASSERT(t1 == 0.0);
    }
 
-   tnl->Driver.Render.ClippedLine( ctx, v0, v1 );
+   CLIPPED_LINE( v0, v1 );
 }
 
 
 /* Clip a triangle against the viewport and user clip planes.
  */
 static INLINE void
-TAG(clip_tri)( GLcontext *ctx, GLuint v0, GLuint v1, GLuint v2, GLubyte mask )
+TAG(clip_tri)( CTX_ARG, GLuint v0, GLuint v1, GLuint v2, GLubyte mask )
 {
+   GET_REAL_CTX
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
    tnl_interp_func interp = tnl->Driver.Render.Interp;
@@ -227,16 +243,17 @@ TAG(clip_tri)( GLcontext *ctx, GLuint v0, GLuint v1, GLuint v2, GLubyte mask )
       }
    }
 
-   tnl->Driver.Render.ClippedPolygon( ctx, inlist, n );
+   CLIPPED_POLYGON( inlist, n );
 }
 
 
 /* Clip a quad against the viewport and user clip planes.
  */
 static INLINE void
-TAG(clip_quad)( GLcontext *ctx, GLuint v0, GLuint v1, GLuint v2, GLuint v3,
+TAG(clip_quad)( CTX_ARG, GLuint v0, GLuint v1, GLuint v2, GLuint v3,
                 GLubyte mask )
 {
+   GET_REAL_CTX
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
    tnl_interp_func interp = tnl->Driver.Render.Interp;
@@ -278,7 +295,7 @@ TAG(clip_quad)( GLcontext *ctx, GLuint v0, GLuint v1, GLuint v2, GLuint v3,
       }
    }
 
-   tnl->Driver.Render.ClippedPolygon( ctx, inlist, n );
+   CLIPPED_POLYGON( inlist, n );
 }
 
 #undef W
@@ -289,3 +306,6 @@ TAG(clip_quad)( GLcontext *ctx, GLuint v0, GLuint v1, GLuint v2, GLuint v3,
 #undef TAG
 #undef POLY_CLIP
 #undef LINE_CLIP
+#undef CTX_ARG
+#undef CLIPPED_POLYGON
+#undef CLIPPED_LINE

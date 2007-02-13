@@ -58,6 +58,7 @@ extern const struct tnl_pipeline_stage _tnl_vertex_program_stage;
 extern const struct tnl_pipeline_stage _tnl_arb_vertex_shader_stage;
 #endif
 extern const struct tnl_pipeline_stage _tnl_render_stage;
+extern const struct tnl_pipeline_stage _tnl_indexed_render_stage;
 
 /* Shorthand to plug in the default pipeline:
  */

@@ -44,6 +44,7 @@
 #include "drivers/common/driverfuncs.h"
 
 #include "intel_screen.h"
+#include "intel_idx_render.h"
 
 #include "i830_dri.h"
 
@@ -85,7 +86,7 @@ int INTEL_DEBUG = (0);
 #include "extension_helper.h"
 
 
-#define DRIVER_DATE                     "20061102"
+#define DRIVER_DATE                     "20070213 (mm)"
 
 _glthread_Mutex lockMutex;
 static GLboolean lockMutexInit = GL_FALSE;
@@ -210,6 +211,9 @@ static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_arb_vertex_program_stage,
    &_tnl_vertex_program_stage,
 #if 1
+   &_tnl_indexed_render_stage,        /* ADD: rastersetup-to-dma, indexed prims */
+#endif
+#if 0
    &_intel_render_stage,        /* ADD: unclipped rastersetup-to-dma */
 #endif
    &_tnl_render_stage,
@@ -463,6 +467,8 @@ intelInitContext(struct intel_context *intel,
    intel_bufferobj_init(intel);
    intel_fbo_init(intel);
 
+   intel_idx_init(intel);
+
    if (intel->ctx.Mesa_DXTn) {
       _mesa_enable_extension(ctx, "GL_EXT_texture_compression_s3tc");
       _mesa_enable_extension(ctx, "GL_S3_s3tc");
@@ -497,6 +503,8 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
       GLboolean release_texture_heaps;
 
       INTEL_FIREVERTICES(intel);
+
+      intel_idx_destroy(intel);
 
       intel->vtbl.destroy(intel);
 

@@ -15,6 +15,7 @@ DRIVER_SOURCES = \
 	i830_texstate.c \
 	i830_vtbl.c \
 	intel_render.c \
+	intel_idx_render.c \
 	intel_regions.c \
 	intel_buffer_objects.c \
 	intel_batchbuffer.c \

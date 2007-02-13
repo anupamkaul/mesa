@@ -295,6 +295,9 @@ struct intel_context
   int height;
   int current_rotation;
 
+   /* Support for indexed rendering path
+    */
+   struct intel_buffer_object *vertex_buffer_obj;
 };
 
 /* These are functions now:

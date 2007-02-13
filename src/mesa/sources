@@ -131,6 +131,7 @@ TNL_SOURCES = \
 	tnl/t_vb_light.c \
 	tnl/t_vb_normals.c \
 	tnl/t_vb_points.c \
+	tnl/t_vb_index.c \
 	tnl/t_vp_build.c \
 	tnl/t_vertex.c \
 	tnl/t_vertex_sse.c \
