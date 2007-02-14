@@ -163,9 +163,9 @@ static void emit_prims( GLcontext *ctx,
    ADVANCE_BATCH();
    
    
-
    for (i = 0; i < nr_prims; i++) {
       GLuint nr, hw_prim;
+      GLuint start = prim[i].start;
 
       switch (prim[i].mode) {
       case GL_TRIANGLES:
@@ -197,14 +197,16 @@ static void emit_prims( GLcontext *ctx,
       /* Pack indices into 16bits 
        */
       for (j = 0; j < nr-1; j += 2) {
-	 OUT_BATCH( indices[j] | (indices[j+1]<<16) );
+	 OUT_BATCH( indices[start+j] | (indices[start+j+1]<<16) );
       }
 
       if (j < nr)
-	 OUT_BATCH( indices[j] );
+	 OUT_BATCH( indices[start+j] );
 
       ADVANCE_BATCH();
    }
+
+   intel_batchbuffer_flush(intel->batch);
 }
 
 
