@@ -71,9 +71,9 @@ static GLboolean check_idx_render(GLcontext *ctx,
       
 static GLuint get_max_vb_size( GLcontext *ctx )
 {
-   /* Basically arbitarily large. 
+   /* Basically limited to what is addressable by the 16-bit indices.
     */
-   return 16 * 1024 * 1024;
+   return (1<<16)-1;
 }
 
 static void
@@ -130,7 +130,7 @@ static void emit_prims( GLcontext *ctx,
 			GLuint nr_indices )
 {
    struct intel_context *intel = intel_context(ctx);
-   GLuint i;
+   GLuint i, j;
 
    assert(indices);
 
@@ -184,9 +184,9 @@ static void emit_prims( GLcontext *ctx,
       if (nr == 0)
 	 continue;
 	  
-      /* I'm assuming the elts are dwords, but are they?? 
+      /* XXX: Can emit upto 64k indices, need to split larger prims
        */
-      BEGIN_BATCH(nr + 2, 0);
+      BEGIN_BATCH(2 + (nr+1)/2, 0);
       OUT_BATCH(0);
       OUT_BATCH( _3DPRIMITIVE | 
 		 hw_prim | 
@@ -194,11 +194,14 @@ static void emit_prims( GLcontext *ctx,
 		 PRIM_INDIRECT_ELTS | 
 		 nr );
       
-      /* XXX: is there a limit on this?  Need to split large prims?? 
+      /* Pack indices into 16bits 
        */
-      memcpy(intel->batch->ptr, 
-	     indices + prim->start,
-	     nr * sizeof(GLuint));
+      for (j = 0; j < nr-1; j += 2) {
+	 OUT_BATCH( indices[j] | (indices[j+1]<<16) );
+      }
+
+      if (j < nr)
+	 OUT_BATCH( indices[j] );
 
       ADVANCE_BATCH();
    }
