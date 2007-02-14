@@ -88,7 +88,7 @@ build_and_emit_vertices(GLcontext * ctx, GLuint nr)
     */
    ctx->Driver.BufferData( ctx,
 			   GL_ARRAY_BUFFER_ARB,
-			   nr * intel->vertex_size,
+			   nr * intel->vertex_size * sizeof(GLuint),
 			   NULL,
 			   GL_DYNAMIC_DRAW_ARB,
 			   &intel->vertex_buffer_obj->Base );
@@ -114,7 +114,7 @@ static void emit_built_vertices( GLcontext *ctx, GLuint nr )
 
    ctx->Driver.BufferData( ctx,
 			   GL_ARRAY_BUFFER_ARB,
-			   nr * intel->vertex_size,
+			   nr * intel->vertex_size * sizeof(GLuint),
 			   _tnl_get_vertex( ctx, 0 ),
 			   GL_DYNAMIC_DRAW_ARB,
 			   &intel->vertex_buffer_obj->Base );
@@ -186,7 +186,7 @@ static void emit_prims( GLcontext *ctx,
 	  
       /* XXX: Can emit upto 64k indices, need to split larger prims
        */
-      BEGIN_BATCH(2 + (nr+1)/2, 0);
+      BEGIN_BATCH(2 + (nr+1)/2, INTEL_BATCH_CLIPRECTS);
       OUT_BATCH(0);
       OUT_BATCH( _3DPRIMITIVE | 
 		 hw_prim | 
