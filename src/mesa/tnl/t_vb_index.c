@@ -421,6 +421,8 @@ static GLboolean run_render( GLcontext *ctx,
     */
    tnl->Driver.Render.Start( ctx );
 
+   tnl->clipspace.new_inputs |= VERT_BIT_POS;
+
 
    if (VB->ClipOrMask) {
       tab = VB->Elts ? render_tab_elts_clip : render_tab_verts_clip;
