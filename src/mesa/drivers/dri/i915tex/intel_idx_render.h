@@ -32,5 +32,6 @@
 
 void intel_idx_init( struct intel_context *intel );
 void intel_idx_destroy( struct intel_context *intel );
+void intel_idx_lost_hardware( struct intel_context *intel );
 
 #endif

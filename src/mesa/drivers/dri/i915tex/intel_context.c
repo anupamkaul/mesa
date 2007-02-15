@@ -235,6 +235,8 @@ static const struct dri_debug_control debug_control[] = {
    {"reg", DEBUG_REGION},
    {"fbo", DEBUG_FBO},
    {"lock", DEBUG_LOCK},
+   {"idx", DEBUG_IDX},
+   {"tri", DEBUG_TRI},
    {NULL, 0}
 };
 

@@ -185,6 +185,7 @@ struct intel_context
    struct _DriFenceObject *first_swap_fence;
 
    struct intel_batchbuffer *batch;
+   struct intel_vb *vb;
 
    struct
    {
@@ -294,10 +295,6 @@ struct intel_context
   int width;
   int height;
   int current_rotation;
-
-   /* Support for indexed rendering path
-    */
-   struct intel_buffer_object *vertex_buffer_obj;
 };
 
 /* These are functions now:
@@ -386,6 +383,8 @@ extern int INTEL_DEBUG;
 #define DEBUG_REGION    0x400
 #define DEBUG_FBO       0x800
 #define DEBUG_LOCK      0x1000
+#define DEBUG_IDX       0x2000
+#define DEBUG_TRI       0x4000
 
 #define DBG(...)  do { if (INTEL_DEBUG & FILE_DEBUG_FLAG) _mesa_printf(__VA_ARGS__); } while(0)
 

@@ -27,6 +27,7 @@
 
 #include "intel_batchbuffer.h"
 #include "intel_ioctl.h"
+#include "intel_idx_render.h"
 
 /* Relocations in kernel space:
  *    - pass dma buffer seperately
@@ -256,6 +257,9 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
 
    if (used == 0)
       return batch->last_fence;
+
+
+   intel_idx_lost_hardware(intel);
 
    /* Add the MI_BATCH_BUFFER_END.  Always add an MI_FLUSH - this is a
     * performance drain that we would like to avoid.
