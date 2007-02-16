@@ -55,7 +55,7 @@ _tnl_CreateContext( GLcontext *ctx )
 
    /* Initialize the VB.
     */
-   tnl->vb.Size = ctx->Const.MaxArrayLockSize + MAX_CLIPPED_VERTICES;
+   tnl->vb.Size = ctx->Const.MaxArrayLockSize * 1.2 + MAX_CLIPPED_VERTICES;
 
 
    /* Initialize tnl state.
