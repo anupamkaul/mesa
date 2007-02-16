@@ -167,7 +167,7 @@ static void check_flush( struct idx_context *idx,
    assert(idx->nr_prims <= IDX_MAX_PRIM);
    assert(idx->nr_indices <= idx->index_buffer_size);
 
-   if (idx->hw_max_indexable_verts < idx->VB->Count + MAX_CLIPPED_VERTICES) {
+   if (idx->hw_max_indexable_verts <= idx->VB->Count + MAX_CLIPPED_VERTICES) {
       flush( idx );
    }
 
@@ -483,6 +483,9 @@ static GLboolean run_index_render( GLcontext *ctx,
 					   &idx->hw_max_indexable_verts,
 					   &idx->hw_max_indices))
       return GL_TRUE;
+
+   if (idx->hw_max_indexable_verts > VB->Size)
+      idx->hw_max_indexable_verts = VB->Size;
 
    idx->orig_VB_count = VB->Count;
    idx->nr_prims = 0;
