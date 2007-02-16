@@ -54,7 +54,7 @@
 
 
 
-#define MAX_VBO 16		/* XXX: make dynamic */
+#define MAX_VBO 32		/* XXX: make dynamic */
 #define VBO_SIZE (128*1024)
 
 
@@ -236,9 +236,9 @@ static void *get_space( struct intel_vb *vb, GLuint nr, GLuint vertex_size )
    void *ptr;
    GLuint space = nr * vertex_size * 4;
 
-   DBG("%s %d %d\n", __FUNCTION__, nr, vertex_size);
+   DBG("%s %d*%d, vbo %d\n", __FUNCTION__, nr, vertex_size, vb->nr_vbo);
 
-   if (vb->current_vbo_used + space > vb->current_vbo_size)
+   if (vb->current_vbo_used + space > vb->current_vbo_size || !vb->current_vbo_ptr)
       get_next_vbo( vb, space );
 
    if (vb->vertex_size != vertex_size) {
@@ -248,6 +248,8 @@ static void *get_space( struct intel_vb *vb, GLuint nr, GLuint vertex_size )
    }
 
    if (!vb->current_vbo_ptr) {
+      DBG("%s map vbo %d\n", __FUNCTION__, vb->nr_vbo);
+
       /* Map the vbo now, will be unmapped in release_current_vbo, above.
        */
       vb->current_vbo_ptr = ctx->Driver.MapBuffer( ctx,
@@ -366,11 +368,12 @@ static void emit_prims( GLcontext *ctx,
 	 OUT_BATCH( (offset + indices[start+j]) );
 
       ADVANCE_BATCH();
+
+      /* This won't fail, but only because of the wierd emit above:
+       */
+      assert(!vb->dirty);
    }
 
-   /* This won't fail, but only because of the wierd emit above:
-    */
-   assert(!vb->dirty);
 
    DBG("%s - done\n", __FUNCTION__);
 }
