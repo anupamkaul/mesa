@@ -346,8 +346,12 @@ static void polygon( struct idx_context *idx,
 #define CTX_ARG struct idx_context *idx
 #define GET_REAL_CTX GLcontext *ctx = idx->ctx;
 
-#define CLIPPED_POLYGON( list, n ) polygon( idx, list, n )
-#define CLIPPED_LINE( a, b ) line( idx, a, b )
+#define CLIPPED_POLYGON( list, n ) \
+do { polygon( idx, list, n ); VB->Count = newvert; } while (0)
+
+#define CLIPPED_LINE( a, b ) \
+do { line( idx, a, b ); VB->Count = newvert; } while (0)
+
 
 #define W(i) coord[i][3]
 #define Z(i) coord[i][2]
