@@ -45,7 +45,8 @@
 #include "t_pipeline.h"
 
 #define IDX_MAX_PRIM 64
-#define IDX_MAX_INDEX 2048	/* xxx: fix me! */
+#define INITIAL_INDEX_BUFSZ 2048
+
 
 struct idx_context {
    GLcontext *ctx;
@@ -58,11 +59,13 @@ struct idx_context {
    struct _mesa_prim prim[IDX_MAX_PRIM];	
 
    GLuint nr_indices;
-   GLuint indices[2048];
+   GLuint *indices;
    GLuint index_buffer_size;
 
-   GLuint vb_size;
    GLuint orig_VB_count;
+
+   GLuint hw_max_indexable_verts;
+   GLuint hw_max_indices;
 
    GLboolean flatshade;
 };
@@ -84,8 +87,8 @@ static GLboolean init_idx( GLcontext *ctx,
 
    stage->privatePtr = (void *)idx;
 
-   idx->index_buffer_size = IDX_MAX_INDEX;
-
+   idx->index_buffer_size = INITIAL_INDEX_BUFSZ;
+   idx->indices = _mesa_malloc(idx->index_buffer_size * sizeof(GLuint));
    idx->VB = VB;
    idx->tnl = tnl;
    idx->ctx = ctx;
@@ -106,7 +109,7 @@ static void free_idx( struct tnl_pipeline_stage *stage )
 static void flush( struct idx_context *idx )
 {
    assert(idx->nr_prims <= IDX_MAX_PRIM);
-   assert(idx->nr_indices <= IDX_MAX_INDEX);
+   assert(idx->nr_indices <= idx->index_buffer_size);
 
    if (idx->VB->ClipOrMask) {
       idx->tnl->Driver.Render.EmitBuiltVertices( idx->ctx, idx->VB->Count );
@@ -128,14 +131,57 @@ static void flush( struct idx_context *idx )
    idx->current_prim = NULL;
 }
 
-static void check_flush( struct idx_context *idx )
+static void try_grow_indices( struct idx_context *idx, GLuint indices )
 {
-   if (idx->index_buffer_size - idx->nr_indices < MAX_CLIPPED_VERTICES ||
-       idx->vb_size - idx->VB->Count < MAX_CLIPPED_VERTICES) {
-      _mesa_printf("forced flush\n");
-      flush( idx );
+   GLuint new_size = idx->index_buffer_size * 2;
+
+   while (new_size < indices) 
+      new_size *= 2;
+
+   if (new_size > idx->hw_max_indices)
+      new_size = idx->hw_max_indices;
+
+   if (new_size > idx->index_buffer_size &&
+       new_size > indices) {
+
+      GLuint old_size = idx->index_buffer_size;
+      idx->index_buffer_size = new_size;
+      idx->indices = _mesa_realloc(idx->indices, 
+				   old_size * sizeof(GLuint),
+				   new_size * sizeof(GLuint));
    }
 }
+
+
+/* We clip into the pre-allocated vertex buffer (held by t_vertex.c).
+ * This may eventually fill up, so need to check after each clipped
+ * primitive how we are doing.  Similarly, we may run out of space for
+ * indices. For non-clipped prims, this is done once at the start of
+ * drawing.
+ */
+static void check_flush( struct idx_context *idx, 
+			 GLuint elts )
+{
+   GLuint indices = elts + idx->nr_indices + MAX_CLIPPED_VERTICES * 3;
+
+   assert(idx->nr_prims <= IDX_MAX_PRIM);
+   assert(idx->nr_indices <= idx->index_buffer_size);
+
+   if (idx->hw_max_indexable_verts < idx->VB->Count + MAX_CLIPPED_VERTICES) {
+      flush( idx );
+   }
+
+   if (idx->index_buffer_size < indices) {
+      try_grow_indices( idx, indices );
+
+      if (idx->index_buffer_size < indices) 
+	 flush( idx );
+   }
+
+   assert (idx->index_buffer_size > indices);
+   assert (idx->hw_max_indexable_verts > idx->VB->Count + MAX_CLIPPED_VERTICES);
+}
+
 
 static void elt( struct idx_context *idx, GLuint i )
 {
@@ -155,6 +201,36 @@ static GLenum reduce_mode( GLuint mode )
       return GL_TRIANGLES;
    }
 }
+
+static GLenum nr_elts( GLuint mode, GLuint count )
+{
+   switch (mode) {
+   case GL_POINTS:
+      return count;
+   case GL_LINES:
+      return count;
+   case GL_LINE_LOOP:
+      return count * 2 + 2;
+   case GL_LINE_STRIP:
+      return count * 2;
+   case GL_TRIANGLES:
+      return count;
+   case GL_TRIANGLE_STRIP:
+      return count * 3;
+   case GL_TRIANGLE_FAN:
+      return count * 3;
+   case GL_QUADS:
+      return (count / 4) * 6;
+   case GL_QUAD_STRIP:
+      return (count / 2) * 6;
+   case GL_POLYGON:
+      return count * 3;
+   default:
+      return 0;
+   }
+}
+
+
 
 static void set_mode( struct idx_context *idx, GLuint flags )
 {
@@ -184,6 +260,9 @@ static void points( struct idx_context *idx, GLuint start, GLuint count )
    const GLubyte *mask = idx->VB->ClipMask;
    GLuint i;
 
+   if (idx->VB->ClipOrMask)
+      check_flush(idx, count);
+
    if (elts) {
       for (i = 0; i < count; i++) {
 	 GLuint e = elts[i];
@@ -197,6 +276,9 @@ static void points( struct idx_context *idx, GLuint start, GLuint count )
 	    elt( idx, i );
       }
    }      
+
+   if (idx->VB->ClipOrMask)
+      check_flush(idx, 0);
 }
 
 static void line( struct idx_context *idx, GLuint a, GLuint b )
@@ -216,6 +298,11 @@ static void quad( struct idx_context *idx,
 		  GLuint a, GLuint b, 
 		  GLuint c, GLuint d )
 {
+   /* If smooth shading, draw like a trifan which gives better
+    * rasterization on some hardware.  Otherwise draw as two triangles
+    * with provoking vertex in third position as required for flat
+    * shading.
+    */
    if (idx->flatshade) {
       elt( idx, a );
       elt( idx, b );
@@ -228,32 +315,26 @@ static void quad( struct idx_context *idx,
    else {
       elt( idx, a );
       elt( idx, b );
-      elt( idx, d );
+      elt( idx, c );
       
-      elt( idx, b );
+      elt( idx, a );
       elt( idx, c );
       elt( idx, d );
    }
 }
 
-static void clipped_poly( struct idx_context *idx, 
-			  const GLuint *elts, GLuint nr )
+/* 
+ */
+static void polygon( struct idx_context *idx, 
+		     const GLuint *elts, GLuint nr )
 {
    GLuint i;
 
-   for (i = 0; i < nr; i++)
+   for (i = 2; i < nr; i++) {
+      elt( idx, elts[0] );
+      elt( idx, elts[i-1] );
       elt( idx, elts[i] );
-
-   check_flush( idx );
-}
-
-
-static void clipped_line( struct idx_context *idx, GLuint a, GLuint b )
-{
-   elt( idx, a );
-   elt( idx, b );
-
-   check_flush( idx );
+   }
 }
 
 
@@ -265,8 +346,8 @@ static void clipped_line( struct idx_context *idx, GLuint a, GLuint b )
 #define CTX_ARG struct idx_context *idx
 #define GET_REAL_CTX GLcontext *ctx = idx->ctx;
 
-#define CLIPPED_POLYGON( list, n ) clipped_poly( idx, list, n )
-#define CLIPPED_LINE( a, b ) clipped_line( idx, a, b )
+#define CLIPPED_POLYGON( list, n ) polygon( idx, list, n )
+#define CLIPPED_LINE( a, b ) line( idx, a, b )
 
 #define W(i) coord[i][3]
 #define Z(i) coord[i][2]
@@ -289,9 +370,6 @@ static void clipped_line( struct idx_context *idx, GLuint a, GLuint b )
  */
 #define CLIPMASK (CLIP_FRUSTUM_BITS | CLIP_CULL_BIT)
 
-
-/* Vertices, with the possibility of clipping.
- */
 #define RENDER_POINTS( start, count ) \
    points( idx, start, count )
 
@@ -303,6 +381,7 @@ do {						\
       line( idx, v1, v2 );			\
    else if (!(c1 & c2 & CLIPMASK))		\
       clip_line_4( idx, v1, v2, ormask );	\
+   CHECK_FLUSH( idx ); \
 } while (0)
 
 #define RENDER_TRI( v1, v2, v3 )			\
@@ -313,6 +392,7 @@ do {							\
       tri( idx, v1, v2, v3 );			\
    else if (!(c1 & c2 & c3 & CLIPMASK))			\
       clip_tri_4( idx, v1, v2, v3, ormask );		\
+   CHECK_FLUSH( idx ); \
 } while (0)
 
 #define RENDER_QUAD( v1, v2, v3, v4 )			\
@@ -324,6 +404,7 @@ do {							\
       quad( idx, v1, v2, v3, v4 );			\
    else if (!(c1 & c2 & c3 & c4 & CLIPMASK)) 		\
       clip_quad_4( idx, v1, v2, v3, v4, ormask );	\
+   CHECK_FLUSH( idx ); \
 } while (0)
 
 #define INIT(x) \
@@ -337,59 +418,45 @@ do {							\
    (void) elt; (void) mask;
 
 
+/* Verts, clipping.
+ */
+#define CHECK_FLUSH(idx) check_flush(idx, 6)
 #define MASK(x) mask[x]
 #define TAG(x) x##_verts_clip
 #define PRESERVE_VB_DEFS
 #include "t_vb_rendertmp.h"
 
-/* Elts, with the possibility of clipping.
+/* Elts, clipping.
  */
 #undef ELT
 #undef TAG
 #define ELT(x) elt[x]
 #define TAG(x) x##_elts_clip
-#include "t_vb_rendertmp.h"
-
-
-/**********************************************************************/
-/*                  Render whole begin/end objects                    */
-/**********************************************************************/
-
-#define NEED_EDGEFLAG_SETUP 0
-
-
-/* Vertices, no clipping.
- */
-#define RENDER_POINTS( start, count ) \
-   points( idx, start, count )
-
-#define RENDER_LINE( v1, v2 ) \
-   line( idx, v1, v2 )
-
-#define RENDER_TRI( v1, v2, v3 ) \
-   tri( idx, v1, v2, v3 )
-
-#define RENDER_QUAD( v1, v2, v3, v4 ) \
-   quad( idx, v1, v2, v3, v4 )
-
-#define INIT(x) \
-   set_mode( idx, x )
-
-#define LOCAL_VARS						\
-   const GLuint * const elt = idx->VB->Elts;			\
-   (void) elt; 
-
-#define TAG(x) x##_verts
 #define PRESERVE_VB_DEFS
 #include "t_vb_rendertmp.h"
 
 
 /* Elts, no clipping.
  */
-#undef ELT
+#undef MASK
+#undef TAG
+#undef CHECK_FLUSH
+#define CHECK_FLUSH(idx) ((void)idx)
+#define MASK(x) 0
 #define TAG(x) x##_elts
-#define ELT(x) elt[x]
+#define PRESERVE_VB_DEFS
 #include "t_vb_rendertmp.h"
+
+
+/* Verts, no clipping
+ */
+#undef ELT
+#undef TAG
+#define ELT(x) x
+#define TAG(x) x##_verts
+#include "t_vb_rendertmp.h"
+
+
 
 
 /**********************************************************************/
@@ -397,8 +464,8 @@ do {							\
 /**********************************************************************/
 
 
-static GLboolean run_render( GLcontext *ctx,
-			     struct tnl_pipeline_stage *stage )
+static GLboolean run_index_render( GLcontext *ctx,
+				   struct tnl_pipeline_stage *stage )
 {
    struct idx_context *idx = (struct idx_context *)stage->privatePtr;
    TNLcontext *tnl = TNL_CONTEXT(ctx);
@@ -407,12 +474,26 @@ static GLboolean run_render( GLcontext *ctx,
    GLuint i;
 
 
-   if (!tnl->Driver.Render.CheckIdxRender( ctx, VB ))
+   if (!tnl->Driver.Render.CheckIdxRender( ctx,
+					   VB,
+					   &idx->hw_max_indexable_verts,
+					   &idx->hw_max_indices))
       return GL_TRUE;
 
    idx->orig_VB_count = VB->Count;
    idx->nr_prims = 0;
    idx->nr_indices = 0;
+   idx->flatshade = (ctx->Light.ShadeModel == GL_FLAT);
+
+   if (idx->index_buffer_size > idx->hw_max_indices) {
+      idx->index_buffer_size = MIN2(INITIAL_INDEX_BUFSZ, 
+				    idx->hw_max_indices);
+
+      _mesa_free(idx->indices);
+
+      idx->indices = _mesa_malloc(idx->index_buffer_size * 
+				  sizeof(GLuint));
+   }
 
 
    /* Allow the drivers to lock before projected verts are built so
@@ -427,12 +508,13 @@ static GLboolean run_render( GLcontext *ctx,
    if (VB->ClipOrMask) {
       tab = VB->Elts ? render_tab_elts_clip : render_tab_verts_clip;
 
-      idx->vb_size = tnl->Driver.Render.GetMaxVBSize( ctx );
 
-      /* The driver must guarentee this, it is not our fault if this
-       * fails:
+      /* In this case, what do we do?  Split the primitives?  Just
+       * fail?  Currently make it the driver's responsibility to set
+       * VB->Size small enough that this never happens.  Then any
+       * splitting will be done earlier in t_draw.c.
        */
-      assert (idx->vb_size >= VB->Count * 1.2);
+      assert (idx->hw_max_indexable_verts >= VB->Count * 1.2);
 	 
 
       /* Have to build these before clipping.  Not ideal, but there
@@ -455,6 +537,10 @@ static GLboolean run_render( GLcontext *ctx,
    for (i = 0 ; i < VB->PrimitiveCount ; i++)
    {
       const struct _mesa_prim *prim = &VB->Primitive[i];
+
+      if (!VB->ClipOrMask)
+	 check_flush( idx, 
+		      nr_elts( prim->mode, prim->count ));
       
       if (prim->count)
 	 tab[prim->mode]( idx, 
@@ -486,7 +572,7 @@ const struct tnl_pipeline_stage _tnl_indexed_render_stage =
    init_idx,			/* creator */
    free_idx,			/* destructor */
    NULL,			/* validate */
-   run_render			/* run */
+   run_index_render		/* run */
 };
 
 

@@ -57,6 +57,16 @@
 #define MAX_VBO 16		/* XXX: make dynamic */
 #define VBO_SIZE (128*1024)
 
+
+/* Basically limited to what is addressable by the 16-bit indices,
+ * and the number of indices we can fit in a batchbuffer after
+ * making room for state.
+ */
+#define HW_MAX_INDEXABLE_VERTS   ((1<<16)-1)
+#define HW_MAX_INDICES           ((BATCH_SZ - 1024) / 2)
+
+
+
 struct intel_vb {
    struct intel_context *intel;
 
@@ -78,7 +88,10 @@ struct intel_vb {
 
 
 static GLboolean check_idx_render(GLcontext *ctx, 
-				  struct vertex_buffer *VB)
+				  struct vertex_buffer *VB,
+				  GLuint *max_nr_verts,
+				  GLuint *max_nr_indices )
+
 {
    struct intel_context *intel = intel_context(ctx);
    GLuint i;
@@ -86,6 +99,12 @@ static GLboolean check_idx_render(GLcontext *ctx,
    if (intel->Fallback != 0 ||
        intel->RenderIndex != 0)
       return GL_FALSE;
+
+   /* These are constant, but for some hardware they might vary
+    * depending on the state, eg. according to vertex size.
+    */
+   *max_nr_verts = HW_MAX_INDEXABLE_VERTS;
+   *max_nr_indices = HW_MAX_INDICES;
 
    /* Fix points with different dstorg bias state??  or use different
     * viewport transform in this case only (requires flush at level
@@ -141,19 +160,25 @@ release_current_vbo( struct intel_vb *vb )
 {
    GLcontext *ctx = &vb->intel->ctx;
 
-   ctx->Driver.UnmapBuffer( ctx, 
-			    GL_ARRAY_BUFFER_ARB,
-			    &vb->current_vbo->Base );
+   DBG("%s\n", __FUNCTION__);
+
+   if (vb->current_vbo_ptr)
+      ctx->Driver.UnmapBuffer( ctx, 
+			       GL_ARRAY_BUFFER_ARB,
+			       &vb->current_vbo->Base );
 
    vb->current_vbo = NULL;
    vb->current_vbo_ptr = NULL;
    vb->current_vbo_size = 0;
    vb->current_vbo_used = 0;
+   vb->dirty = 0;
 }
 
 static void 
 reset_vbo( struct intel_vb *vb )
 {
+   DBG("%s\n", __FUNCTION__);
+
    if (vb->current_vbo)
       release_current_vbo( vb );
 
@@ -167,6 +192,8 @@ static void
 get_next_vbo( struct intel_vb *vb, GLuint size )
 {
    GLcontext *ctx = &vb->intel->ctx;
+
+   DBG("%s\n", __FUNCTION__);
 
    /* XXX: just allocate more vbos here:
     */
@@ -201,18 +228,15 @@ get_next_vbo( struct intel_vb *vb, GLuint size )
 			   GL_DYNAMIC_DRAW_ARB,
 			   &vb->current_vbo->Base );
 
-   /* Map the vbo now, will be unmapped in release_current_vbo, above.
-    */
-   vb->current_vbo_ptr = ctx->Driver.MapBuffer( ctx,
-						GL_ARRAY_BUFFER_ARB,
-						GL_WRITE_ONLY,
-						&vb->current_vbo->Base );
 }
       
 static void *get_space( struct intel_vb *vb, GLuint nr, GLuint vertex_size )
 {
+   GLcontext *ctx = &vb->intel->ctx;
    void *ptr;
    GLuint space = nr * vertex_size * 4;
+
+   DBG("%s %d %d\n", __FUNCTION__, nr, vertex_size);
 
    if (vb->current_vbo_used + space > vb->current_vbo_size)
       get_next_vbo( vb, space );
@@ -222,6 +246,16 @@ static void *get_space( struct intel_vb *vb, GLuint nr, GLuint vertex_size )
       vb->hw_vbo_offset = vb->current_vbo_used;
       vb->dirty = 1;
    }
+
+   if (!vb->current_vbo_ptr) {
+      /* Map the vbo now, will be unmapped in release_current_vbo, above.
+       */
+      vb->current_vbo_ptr = ctx->Driver.MapBuffer( ctx,
+						   GL_ARRAY_BUFFER_ARB,
+						   GL_WRITE_ONLY,
+						   &vb->current_vbo->Base );
+   }
+
 
    /* Hmm, could just re-emit the vertex buffer packet & avoid this:
     */
@@ -234,19 +268,14 @@ static void *get_space( struct intel_vb *vb, GLuint nr, GLuint vertex_size )
 }
 
 
-static GLuint get_max_vb_size( GLcontext *ctx )
-{
-   /* Basically limited to what is addressable by the 16-bit indices.
-    */
-   return (1<<16)-1;
-}
-
 static void
 build_and_emit_vertices(GLcontext * ctx, GLuint nr)
 {
    struct intel_context *intel = intel_context(ctx);
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    void *ptr = get_space(intel->vb, nr, intel->vertex_size );
+
+   DBG("%s %d\n", __FUNCTION__, nr);
 
    assert(tnl->clipspace.vertex_size == intel->vertex_size * 4);
 
@@ -263,6 +292,8 @@ static void emit_built_vertices( GLcontext *ctx, GLuint nr )
 {
    struct intel_context *intel = intel_context(ctx);
    void *ptr = get_space(intel->vb, nr, intel->vertex_size );
+
+   DBG("%s %d\n", __FUNCTION__, nr);
 
    memcpy(ptr, _tnl_get_vertex(ctx, 0), 
 	  nr * intel->vertex_size * sizeof(GLuint));
@@ -349,15 +380,17 @@ static void emit_prims( GLcontext *ctx,
  */
 void intel_idx_lost_hardware( struct intel_context *intel )
 {
+   GLcontext *ctx = &intel->ctx;
    struct intel_vb *vb = intel->vb;
 
    DBG("%s\n", __FUNCTION__);
 
-   if (vb->current_vbo) 
-      release_current_vbo( vb );
-
-
-/*    reset_vbo(intel->vb); */
+   if (vb->current_vbo_ptr) {
+      ctx->Driver.UnmapBuffer( ctx, 
+			       GL_ARRAY_BUFFER_ARB,
+			       &vb->current_vbo->Base );
+      vb->current_vbo_ptr = NULL;
+   }
 }
 
 void intel_idx_init( struct intel_context *intel )
@@ -367,7 +400,6 @@ void intel_idx_init( struct intel_context *intel )
    GLuint i;
 
    tnl->Driver.Render.CheckIdxRender       = check_idx_render;
-   tnl->Driver.Render.GetMaxVBSize         = get_max_vb_size;
    tnl->Driver.Render.BuildAndEmitVertices = build_and_emit_vertices;
    tnl->Driver.Render.EmitBuiltVertices    = emit_built_vertices;
    tnl->Driver.Render.EmitPrims            = emit_prims;

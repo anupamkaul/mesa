@@ -489,8 +489,10 @@ struct tnl_device_driver
        * This function is called only from _tnl_render_stage in tnl/t_render.c.
        */
       
-      GLboolean (*CheckIdxRender)( GLcontext *ctx, struct vertex_buffer *VB );
-      GLuint (*GetMaxVBSize)( GLcontext *ctx );
+      GLboolean (*CheckIdxRender)( GLcontext *ctx, 
+				   struct vertex_buffer *VB,
+				   GLuint *max_indexable_vertices,
+				   GLuint *max_indices );
       void (*BuildAndEmitVertices)( GLcontext *ctx, GLuint nr );
       void (*EmitBuiltVertices)( GLcontext *ctx, GLuint nr );
       void (*EmitPrims)( GLcontext *ctx,
