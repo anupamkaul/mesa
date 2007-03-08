@@ -131,13 +131,10 @@ struct intel_context
                                struct intel_region * draw_region,
                                struct intel_region * depth_region);
 
-        GLuint(*flush_cmd) (void);
+      GLuint (*flush_cmd) (void);
 
       void (*reduced_primitive_state) (struct intel_context * intel,
                                        GLenum rprim);
-
-        GLboolean(*check_vertex_size) (struct intel_context * intel,
-                                       GLuint expected);
 
 
       /* Metaops: 

@@ -646,7 +646,6 @@ i830_assert_not_dirty( struct intel_context *intel )
 void
 i830InitVtbl(struct i830_context *i830)
 {
-   i830->intel.vtbl.check_vertex_size = i830_check_vertex_size;
    i830->intel.vtbl.destroy = i830_destroy_context;
    i830->intel.vtbl.emit_state = i830_emit_state;
    i830->intel.vtbl.lost_hardware = i830_lost_hardware;

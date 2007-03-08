@@ -46,9 +46,6 @@
 #include "intel_reg.h"
 #include "intel_idx_render.h"
 
-/* XXX: NAUGHTY:
- */
-#include "i915_reg.h"
 
 #define FILE_DEBUG_FLAG DEBUG_IDX
 
@@ -62,7 +59,7 @@
  * and the number of indices we can fit in a batchbuffer after
  * making room for state.
  */
-#define HW_MAX_INDEXABLE_VERTS   ((1<<16)-1)
+#define HW_MAX_INDEXABLE_VERTS   0xfffe 
 #define HW_MAX_INDICES           ((BATCH_SZ - 1024) / 2)
 
 
@@ -73,20 +70,35 @@ struct intel_vb {
    struct intel_buffer_object *vbo[MAX_VBO];
    GLuint nr_vbo;
 
-   struct intel_buffer_object *current_vbo;
 
    GLuint current_vbo_size;
    GLuint current_vbo_used;
    void *current_vbo_ptr;
 
-   GLuint hw_vbo_offset;
    GLuint hw_vbo_delta;
    GLuint vertex_size;
 
-   GLuint dirty;
+   struct {
+      struct intel_buffer_object *current_vbo;
+      GLuint hw_vbo_offset;
+   } state;
 };
 
 
+/* Have to fallback for:
+ *     - points (needs different viewport)
+ *     - twoside light
+ *     - z offset
+ *     - unfilled prims
+ *     - lines && linestipple
+ *     - tris && tristipple && !hwstipple
+ *     - point attenuation (bug!)
+ *     - aa tris && strict-conformance
+ *     - aa points && strict-conformance 
+ *     - PLUS: any fallback-to-swrast condition (intel->Fallback)
+ *
+ * If binning, need to flush bins and fall
+ */
 static GLboolean check_idx_render(GLcontext *ctx, 
 				  struct vertex_buffer *VB,
 				  GLuint *max_nr_verts,
@@ -119,42 +131,6 @@ static GLboolean check_idx_render(GLcontext *ctx,
 }
 
 
-static void 
-emit_vb_state( struct intel_vb *vb )
-{
-   struct intel_context *intel = vb->intel;
-
-   DBG("%s\n", __FUNCTION__);
-
-   /* Additionally, emit our vertex buffer state.
-    * 
-    * XXX: need to push into the regular state mechanism, otherwise
-    * will fail with multiple apps when they mix up the submit order
-    * of their batchbuffers.
-    *
-    * XXX: need i830 version
-    */
-   BEGIN_BATCH(3, 0);
-
-   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
-	     I1_LOAD_S(0) |
-	     I1_LOAD_S(1) |
-	     2);
-
-   OUT_RELOC(vb->current_vbo->buffer,
-	     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
-	     DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
-	     vb->hw_vbo_offset);
-
-   OUT_BATCH((vb->vertex_size << 24) |
-	     (vb->vertex_size << 16));
-
-   ADVANCE_BATCH();
-   
-   vb->dirty = 0;
-}
-
-
 static void
 release_current_vbo( struct intel_vb *vb )
 {
@@ -167,11 +143,12 @@ release_current_vbo( struct intel_vb *vb )
 			       GL_ARRAY_BUFFER_ARB,
 			       &vb->current_vbo->Base );
 
-   vb->current_vbo = NULL;
+   vb->state.current_vbo = NULL;
+   vb->intel->state.intel |= INTEL_NEW_VBO;
+
    vb->current_vbo_ptr = NULL;
    vb->current_vbo_size = 0;
    vb->current_vbo_used = 0;
-   vb->dirty = 0;
 }
 
 static void 
@@ -212,11 +189,13 @@ get_next_vbo( struct intel_vb *vb, GLuint size )
    if (size < VBO_SIZE) 
       size = VBO_SIZE;
    
-   vb->current_vbo = vb->vbo[vb->nr_vbo++];
+   vb->state.current_vbo = vb->vbo[vb->nr_vbo++];
+   vb->state.hw_vbo_offset = 0;
+   vb->intel->state.intel |= INTEL_NEW_VBO;
+
    vb->current_vbo_size = size;
    vb->current_vbo_used = 0;
-   vb->hw_vbo_offset = 0;
-   vb->dirty = 1;
+
 
    /* Clear out buffer contents and break any hardware dependency on
     * the old memory:
@@ -243,8 +222,8 @@ static void *get_space( struct intel_vb *vb, GLuint nr, GLuint vertex_size )
 
    if (vb->vertex_size != vertex_size) {
       vb->vertex_size = vertex_size;
-      vb->hw_vbo_offset = vb->current_vbo_used;
-      vb->dirty = 1;
+      vb->state.hw_vbo_offset = vb->current_vbo_used;
+      vb->intel->state.intel |= INTEL_NEW_VBO;
    }
 
    if (!vb->current_vbo_ptr) {
@@ -343,13 +322,7 @@ static void emit_prims( GLcontext *ctx,
 	  
       /* XXX: Can emit upto 64k indices, need to split larger prims
        */
-      BEGIN_BATCH(2 + (nr+1)/2, INTEL_BATCH_CLIPRECTS);
-
-      /* Most state has already been emitted by the RenderStart callback.  
-       */
-      if (vb->dirty) {
-	 emit_vb_state( vb );
-      }
+      EMIT_STATE_BEGIN_BATCH(2 + (nr+1)/2, INTEL_BATCH_CLIPRECTS);
 
       OUT_BATCH(0);
       OUT_BATCH( _3DPRIMITIVE | 
@@ -368,10 +341,6 @@ static void emit_prims( GLcontext *ctx,
 	 OUT_BATCH( (offset + indices[start+j]) );
 
       ADVANCE_BATCH();
-
-      /* This won't fail, but only because of the wierd emit above:
-       */
-      assert(!vb->dirty);
    }
 
 

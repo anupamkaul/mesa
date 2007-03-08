@@ -119,8 +119,6 @@ struct i915_fragment_program
    struct gl_fragment_program FragProg;
 
    GLboolean translated;
-   GLboolean params_uptodate;
-   GLboolean on_hardware;
    GLboolean error;             /* If program is malformed for any reason. */
 
    GLuint nr_tex_indirect;
@@ -129,43 +127,15 @@ struct i915_fragment_program
    GLuint nr_decl_insn;
 
 
-
-
-   /* TODO: split between the stored representation of a program and
-    * the state used to build that representation.
-    */
-   GLcontext *ctx;
-
-   GLuint declarations[I915_PROGRAM_SIZE];
-   GLuint program[I915_PROGRAM_SIZE];
-
    GLfloat constant[I915_MAX_CONSTANT][4];
    GLuint constant_flags[I915_MAX_CONSTANT];
    GLuint nr_constants;
-
-   GLuint *csr;                 /* Cursor, points into program.
-                                 */
-
-   GLuint *decl;                /* Cursor, points into declarations.
-                                 */
-
-   GLuint decl_s;               /* flags for which s regs need to be decl'd */
-   GLuint decl_t;               /* flags for which t regs need to be decl'd */
-
-   GLuint temp_flag;            /* Tracks temporary regs which are in
-                                 * use.
-                                 */
-
-   GLuint utemp_flag;           /* Tracks TYPE_U temporary regs which are in
-                                 * use.
-                                 */
 
 
 
    /* Helpers for i915_fragprog.c:
     */
    GLuint wpos_tex;
-   GLboolean depth_written;
 
    struct
    {
@@ -174,20 +144,6 @@ struct i915_fragment_program
    } param[I915_MAX_CONSTANT];
    GLuint nr_params;
 
-
-   /* Helpers for i915_texprog.c:
-    */
-   GLuint src_texture;          /* Reg containing sampled texture color,
-                                 * else UREG_BAD.
-                                 */
-
-   GLuint src_previous;         /* Reg containing color from previous 
-                                 * stage.  May need to be decl'd.
-                                 */
-
-   GLuint last_tex_stage;       /* Number of last enabled texture unit */
-
-   struct vertex_buffer *VB;
 };
 
 
@@ -216,7 +172,6 @@ struct i915_hw_state
     */
    struct intel_region *draw_region;
    struct intel_region *depth_region;
-/*    struct intel_region *tex_region[I915_TEX_UNITS]; */
 
    /* Regions aren't actually that appropriate here as the memory may
     * be from a PBO or FBO.  Just use the buffer id.  Will have to do
@@ -230,39 +185,17 @@ struct i915_hw_state
    GLuint emitted;              /* I915_UPLOAD_* */
 };
 
-#define I915_FOG_PIXEL  2
-#define I915_FOG_VERTEX 1
-#define I915_FOG_NONE   0
+
 
 struct i915_context
 {
    struct intel_context intel;
-
-   GLuint last_ReallyEnabled;
-   GLuint vertex_fog;
-   GLuint lodbias_ss2[MAX_TEXTURE_UNITS];
-
 
    struct i915_fragment_program *current_program;
 
    struct i915_hw_state meta, initial, state, *current;
 };
 
-
-#define I915_STATECHANGE(i915, flag)					\
-do {									\
-   INTEL_FIREVERTICES( &(i915)->intel );					\
-   (i915)->state.emitted &= ~(flag);					\
-} while (0)
-
-#define I915_ACTIVESTATE(i915, flag, mode)			\
-do {								\
-   INTEL_FIREVERTICES( &(i915)->intel );				\
-   if (mode)							\
-      (i915)->state.active |= (flag);				\
-   else								\
-      (i915)->state.active &= ~(flag);				\
-} while (0)
 
 
 /*======================================================================

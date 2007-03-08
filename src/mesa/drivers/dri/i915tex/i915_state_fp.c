@@ -26,53 +26,67 @@
  **************************************************************************/
 
 #include "glheader.h"
-#include "mtypes.h"
-#include "imports.h"
-#include "simple_list.h"
+#include "macros.h"
 #include "enums.h"
-#include "image.h"
-#include "texstore.h"
-#include "texformat.h"
-#include "texmem.h"
-#include "swrast/swrast.h"
 
-#include "mm.h"
+#include "tnl/tnl.h"
+#include "tnl/t_context.h"
+#include "intel_batchbuffer.h"
 
-#include "intel_ioctl.h"
-
-#include "i915_context.h"
 #include "i915_reg.h"
+#include "i915_context.h"
+#include "i915_program.h"
+
+#include "program_instruction.h"
+#include "program.h"
+#include "programopt.h"
 
 
 
-static void
-i915TexEnv(GLcontext * ctx, GLenum target,
-           GLenum pname, const GLfloat * param)
+void
+i915_upload_program()
 {
-   struct i915_context *i915 = I915_CONTEXT(ctx);
+   if (dirty & I915_UPLOAD_PROGRAM) {
+      if (INTEL_DEBUG & DEBUG_STATE)
+         fprintf(stderr, "I915_UPLOAD_PROGRAM:\n");
 
-   switch (pname) {
-   case GL_TEXTURE_LOD_BIAS:{
-         GLuint unit = ctx->Texture.CurrentUnit;
-         GLint b = (int) ((*param) * 16.0);
-         if (b > 255)
-            b = 255;
-         if (b < -256)
-            b = -256;
-         I915_STATECHANGE(i915, I915_UPLOAD_TEX(unit));
-         i915->lodbias_ss2[unit] =
-            ((b << SS2_LOD_BIAS_SHIFT) & SS2_LOD_BIAS_MASK);
-         break;
-      }
+      assert((state->Program[0] & 0x1ff) + 2 == state->ProgramSize);
 
-   default:
-      break;
+      emit(intel, state->Program, state->ProgramSize * sizeof(GLuint));
+      if (INTEL_DEBUG & DEBUG_STATE)
+         i915_disassemble_program(state->Program, state->ProgramSize);
    }
 }
 
 
+
+
 void
-i915InitTextureFuncs(struct dd_function_table *functions)
+i915ValidateFragmentProgram(struct i915_context *i915)
 {
-   functions->TexEnv = i915TexEnv;
+   GLcontext *ctx = &i915->intel.ctx;
+   struct intel_context *intel = intel_context(ctx);
+
+   struct i915_fragment_program *p =
+      (struct i915_fragment_program *) ctx->FragmentProgram._Current;
+
+   int i, offset = 0;
+
+   if (i915->current_program != p) {
+
+
+      i915->current_program = p;
+   }
+
+
+   /* Important:
+    */
+   VB->AttribPtr[VERT_ATTRIB_POS] = VB->NdcPtr;
+
+   if (!p->translated)
+      translate_program(p);
+
+
+      i915_upload_program(i915, p);
 }
+

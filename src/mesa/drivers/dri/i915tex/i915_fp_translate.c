@@ -80,6 +80,15 @@ src_vector(struct i915_fragment_program *p,
       src = UREG(REG_TYPE_R, source->Index);
       break;
    case PROGRAM_INPUT:
+      /* XXX: Packing COL1, FOGC into a single attribute works for
+       * texenv programs, but will fail for real fragment programs
+       * that use these attributes and expect them to be a full 4
+       * components wide.  Could use a texcoord to pass these
+       * attributes if necessary, but that won't work in the general
+       * case.
+       * 
+       * We also use a texture coordinate to pass wpos when possible.
+       */
       switch (source->Index) {
       case FRAG_ATTRIB_WPOS:
          src = i915_emit_decl(p, REG_TYPE_T, p->wpos_tex, D0_CHANNEL_ALL);
@@ -122,19 +131,15 @@ src_vector(struct i915_fragment_program *p,
       break;
 
    case PROGRAM_ENV_PARAM:
-      src =
-         i915_emit_param4fv(p,
-                            p->ctx->FragmentProgram.Parameters[source->
-                                                               Index]);
+      src = i915_emit_param4fv(
+	 p, p->ctx->FragmentProgram.Parameters[source->Index]);
       break;
 
    case PROGRAM_CONSTANT:
    case PROGRAM_STATE_VAR:
    case PROGRAM_NAMED_PARAM:
-      src =
-         i915_emit_param4fv(p,
-                            program->Base.Parameters->ParameterValues[source->
-                                                                      Index]);
+      src = i915_emit_param4fv(
+	 p, program->Base.Parameters->ParameterValues[source->Index]);
       break;
 
    default:
@@ -168,7 +173,6 @@ get_result_vector(struct i915_fragment_program *p,
       case FRAG_RESULT_COLR:
          return UREG(REG_TYPE_OC, 0);
       case FRAG_RESULT_DEPR:
-         p->depth_written = 1;
          return UREG(REG_TYPE_OD, 0);
       default:
          i915_program_error(p, "Bad inst->DstReg.Index");
@@ -761,7 +765,7 @@ upload_program(struct i915_fragment_program *p)
 static void
 fixup_depth_write(struct i915_fragment_program *p)
 {
-   if (p->depth_written) {
+   if (p->fp->Base.OutputsWritten & (1<<FRAG_RESULT_DEPR)) {
       GLuint depth = UREG(REG_TYPE_OD, 0);
 
       i915_emit_arith(p,
@@ -775,309 +779,24 @@ fixup_depth_write(struct i915_fragment_program *p)
 #define FRAG_BIT_TEX(n)  (FRAG_BIT_TEX0 << (n))
 
 
-static void
-check_wpos(struct i915_fragment_program *p)
-{
-   GLuint inputs = p->FragProg.Base.InputsRead;
-   GLint i;
-
-   p->wpos_tex = -1;
-
-   for (i = 0; i < p->ctx->Const.MaxTextureCoordUnits; i++) {
-      if (inputs & FRAG_BIT_TEX(i))
-         continue;
-      else if (inputs & FRAG_BIT_WPOS) {
-         p->wpos_tex = i;
-         inputs &= ~FRAG_BIT_WPOS;
-      }
-   }
-
-   if (inputs & FRAG_BIT_WPOS) {
-      i915_program_error(p, "No free texcoord for wpos value");
-   }
-}
-
-
-static void
-translate_program(struct i915_fragment_program *p)
-{
-   struct i915_context *i915 = I915_CONTEXT(p->ctx);
-
-   i915_init_program(i915, p);
-   check_wpos(p);
-   upload_program(p);
-   fixup_depth_write(p);
-   i915_fini_program(p);
-
-   p->translated = 1;
-}
-
-
-static void
-track_params(struct i915_fragment_program *p)
-{
-   GLint i;
-
-   if (p->nr_params)
-      _mesa_load_state_parameters(p->ctx, p->FragProg.Base.Parameters);
-
-   for (i = 0; i < p->nr_params; i++) {
-      GLint reg = p->param[i].reg;
-      COPY_4V(p->constant[reg], p->param[i].values);
-   }
-
-   p->params_uptodate = 1;
-   p->on_hardware = 0;          /* overkill */
-}
-
-
-static void
-i915BindProgram(GLcontext * ctx, GLenum target, struct gl_program *prog)
-{
-   if (target == GL_FRAGMENT_PROGRAM_ARB) {
-      struct i915_context *i915 = I915_CONTEXT(ctx);
-      struct i915_fragment_program *p = (struct i915_fragment_program *) prog;
-
-      if (i915->current_program == p)
-         return;
-
-      if (i915->current_program) {
-         i915->current_program->on_hardware = 0;
-         i915->current_program->params_uptodate = 0;
-      }
-
-      i915->current_program = p;
-
-      assert(p->on_hardware == 0);
-      assert(p->params_uptodate == 0);
-
-      /* Hack: make sure fog is correctly enabled according to this
-       * fragment program's fog options.
-       */
-      ctx->Driver.Enable(ctx, GL_FRAGMENT_PROGRAM_ARB,
-                         ctx->FragmentProgram.Enabled);
-   }
-}
-
-static struct gl_program *
-i915NewProgram(GLcontext * ctx, GLenum target, GLuint id)
-{
-   switch (target) {
-   case GL_VERTEX_PROGRAM_ARB:
-      return _mesa_init_vertex_program(ctx, CALLOC_STRUCT(gl_vertex_program),
-                                       target, id);
-
-   case GL_FRAGMENT_PROGRAM_ARB:{
-         struct i915_fragment_program *prog =
-            CALLOC_STRUCT(i915_fragment_program);
-         if (prog) {
-            i915_init_program(I915_CONTEXT(ctx), prog);
-
-            return _mesa_init_fragment_program(ctx, &prog->FragProg,
-                                               target, id);
-         }
-         else
-            return NULL;
-      }
-
-   default:
-      /* Just fallback:
-       */
-      return _mesa_new_program(ctx, target, id);
-   }
-}
-
-static void
-i915DeleteProgram(GLcontext * ctx, struct gl_program *prog)
-{
-   if (prog->Target == GL_FRAGMENT_PROGRAM_ARB) {
-      struct i915_context *i915 = I915_CONTEXT(ctx);
-      struct i915_fragment_program *p = (struct i915_fragment_program *) prog;
-
-      if (i915->current_program == p)
-         i915->current_program = 0;
-   }
-
-   _mesa_delete_program(ctx, prog);
-}
-
-
-static GLboolean
-i915IsProgramNative(GLcontext * ctx, GLenum target, struct gl_program *prog)
-{
-   if (target == GL_FRAGMENT_PROGRAM_ARB) {
-      struct i915_fragment_program *p = (struct i915_fragment_program *) prog;
-
-      if (!p->translated)
-         translate_program(p);
-
-      return !p->error;
-   }
-   else
-      return GL_TRUE;
-}
-
-static void
-i915ProgramStringNotify(GLcontext * ctx,
-                        GLenum target, struct gl_program *prog)
-{
-   if (target == GL_FRAGMENT_PROGRAM_ARB) {
-      struct i915_fragment_program *p = (struct i915_fragment_program *) prog;
-      p->translated = 0;
-
-      /* Hack: make sure fog is correctly enabled according to this
-       * fragment program's fog options.
-       */
-      ctx->Driver.Enable(ctx, GL_FRAGMENT_PROGRAM_ARB,
-                         ctx->FragmentProgram.Enabled);
-
-      if (p->FragProg.FogOption) {
-         /* add extra instructions to do fog, then turn off FogOption field */
-         _mesa_append_fog_code(ctx, &p->FragProg);
-         p->FragProg.FogOption = GL_NONE;
-      }
-   }
-
-   _tnl_program_string(ctx, target, prog);
-}
 
 
 void
-i915ValidateFragmentProgram(struct i915_context *i915)
+i915EmitFragmentProgram(struct i915_context *i915)
 {
    GLcontext *ctx = &i915->intel.ctx;
    struct intel_context *intel = intel_context(ctx);
-   TNLcontext *tnl = TNL_CONTEXT(ctx);
-   struct vertex_buffer *VB = &tnl->vb;
-
    struct i915_fragment_program *p =
       (struct i915_fragment_program *) ctx->FragmentProgram._Current;
 
-   const GLuint inputsRead = p->FragProg.Base.InputsRead;
-   GLuint s4 = i915->state.Ctx[I915_CTXREG_LIS4] & ~S4_VFMT_MASK;
-   GLuint s2 = S2_TEXCOORD_NONE;
-   int i, offset = 0;
+   if (!p->translated) {
+      i915_init_program(i915, p);
+      check_wpos(p);
+      upload_program(p);
+      fixup_depth_write(p);
+      i915_fini_program(p);
 
-   if (i915->current_program != p) {
-      if (i915->current_program) {
-         i915->current_program->on_hardware = 0;
-         i915->current_program->params_uptodate = 0;
-      }
-
-      i915->current_program = p;
+      p->translated = 1;
    }
-
-
-   /* Important:
-    */
-   VB->AttribPtr[VERT_ATTRIB_POS] = VB->NdcPtr;
-
-   if (!p->translated)
-      translate_program(p);
-
-   intel->vertex_attr_count = 0;
-   intel->wpos_offset = 0;
-   intel->wpos_size = 0;
-   intel->coloroffset = 0;
-   intel->specoffset = 0;
-
-   if (inputsRead & FRAG_BITS_TEX_ANY) {
-      EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_4F_VIEWPORT, S4_VFMT_XYZW, 16);
-   }
-   else {
-      EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_3F_VIEWPORT, S4_VFMT_XYZ, 12);
-   }
-
-   if (inputsRead & FRAG_BIT_COL0) {
-      intel->coloroffset = offset / 4;
-      EMIT_ATTR(_TNL_ATTRIB_COLOR0, EMIT_4UB_4F_BGRA, S4_VFMT_COLOR, 4);
-   }
-
-   if ((inputsRead & (FRAG_BIT_COL1 | FRAG_BIT_FOGC)) ||
-       i915->vertex_fog != I915_FOG_NONE) {
-
-      if (inputsRead & FRAG_BIT_COL1) {
-         intel->specoffset = offset / 4;
-         EMIT_ATTR(_TNL_ATTRIB_COLOR1, EMIT_3UB_3F_BGR, S4_VFMT_SPEC_FOG, 3);
-      }
-      else
-         EMIT_PAD(3);
-
-      if ((inputsRead & FRAG_BIT_FOGC) || i915->vertex_fog != I915_FOG_NONE)
-         EMIT_ATTR(_TNL_ATTRIB_FOG, EMIT_1UB_1F, S4_VFMT_SPEC_FOG, 1);
-      else
-         EMIT_PAD(1);
-   }
-
-   /* XXX this was disabled, but enabling this code helped fix the Glean
-    * tfragprog1 fog tests.
-    */
-#if 1
-   if ((inputsRead & FRAG_BIT_FOGC) || i915->vertex_fog != I915_FOG_NONE) {
-      EMIT_ATTR(_TNL_ATTRIB_FOG, EMIT_1F, S4_VFMT_FOG_PARAM, 4);
-   }
-#endif
-
-   for (i = 0; i < p->ctx->Const.MaxTextureCoordUnits; i++) {
-      if (inputsRead & FRAG_BIT_TEX(i)) {
-         int sz = VB->TexCoordPtr[i]->size;
-
-         s2 &= ~S2_TEXCOORD_FMT(i, S2_TEXCOORD_FMT0_MASK);
-         s2 |= S2_TEXCOORD_FMT(i, SZ_TO_HW(sz));
-
-         EMIT_ATTR(_TNL_ATTRIB_TEX0 + i, EMIT_SZ(sz), 0, sz * 4);
-      }
-      else if (i == p->wpos_tex) {
-
-         /* If WPOS is required, duplicate the XYZ position data in an
-          * unused texture coordinate:
-          */
-         s2 &= ~S2_TEXCOORD_FMT(i, S2_TEXCOORD_FMT0_MASK);
-         s2 |= S2_TEXCOORD_FMT(i, SZ_TO_HW(3));
-
-         intel->wpos_offset = offset;
-         intel->wpos_size = 3 * sizeof(GLuint);
-
-         EMIT_PAD(intel->wpos_size);
-      }
-   }
-
-   if (s2 != i915->state.Ctx[I915_CTXREG_LIS2] ||
-       s4 != i915->state.Ctx[I915_CTXREG_LIS4]) {
-      int k;
-
-      I915_STATECHANGE(i915, I915_UPLOAD_CTX);
-
-      /* Must do this *after* statechange, so as not to affect
-       * buffered vertices reliant on the old state:
-       */
-      intel->vertex_size = _tnl_install_attrs(&intel->ctx,
-                                              intel->vertex_attrs,
-                                              intel->vertex_attr_count,
-                                              intel->ViewportMatrix.m, 0);
-
-      intel->vertex_size >>= 2;
-
-      i915->state.Ctx[I915_CTXREG_LIS2] = s2;
-      i915->state.Ctx[I915_CTXREG_LIS4] = s4;
-
-      k = intel->vtbl.check_vertex_size(intel, intel->vertex_size);
-      assert(k);
-   }
-
-   if (!p->params_uptodate)
-      track_params(p);
-
-   if (!p->on_hardware)
-      i915_upload_program(i915, p);
 }
 
-void
-i915InitFragProgFuncs(struct dd_function_table *functions)
-{
-   functions->BindProgram = i915BindProgram;
-   functions->NewProgram = i915NewProgram;
-   functions->DeleteProgram = i915DeleteProgram;
-   functions->IsProgramNative = i915IsProgramNative;
-   functions->ProgramStringNotify = i915ProgramStringNotify;
-}

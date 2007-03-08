@@ -115,50 +115,23 @@ translate_wrap_mode(GLenum wrap)
  * something which is understandable and reliable.
  */
 static GLboolean
-i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
+i915_update_sampler(struct intel_context *intel, GLuint unit)
 {
    GLcontext *ctx = &intel->ctx;
    struct i915_context *i915 = i915_context(ctx);
-   struct gl_texture_object *tObj = ctx->Texture.Unit[unit]._Current;
+   struct gl_texture_unit *tUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_object *tObj = tUnit->_Current;
    struct intel_texture_object *intelObj = intel_texture_object(tObj);
    struct gl_texture_image *firstImage;
    GLuint *state = i915->state.Tex[unit];
 
    memset(state, 0, sizeof(state));
-
-   /*We need to refcount these. */
-
-   if (i915->state.tex_buffer[unit] != NULL) {
-       driBOUnReference(i915->state.tex_buffer[unit]);
-       i915->state.tex_buffer[unit] = NULL;
-   }
-
-   if (!intel_finalize_mipmap_tree(intel, unit))
-      return GL_FALSE;
+   
 
    /* Get first image here, since intelObj->firstLevel will get set in
     * the intel_finalize_mipmap_tree() call above.
     */
    firstImage = tObj->Image[0][intelObj->firstLevel];
-
-   i915->state.tex_buffer[unit] = driBOReference(intelObj->mt->region->buffer);
-   i915->state.tex_offset[unit] = intel_miptree_image_offset(intelObj->mt, 0,
-                                                             intelObj->
-                                                             firstLevel);
-
-   state[I915_TEXREG_MS3] =
-      (((firstImage->Height - 1) << MS3_HEIGHT_SHIFT) |
-       ((firstImage->Width - 1) << MS3_WIDTH_SHIFT) |
-       translate_texture_format(firstImage->TexFormat->MesaFormat) |
-       MS3_USE_FENCE_REGS);
-
-   state[I915_TEXREG_MS4] =
-      (((((intelObj->mt->pitch * intelObj->mt->cpp) / 4) -
-         1) << MS4_PITCH_SHIFT) | MS4_CUBE_FACE_ENA_MASK |
-       ((((intelObj->lastLevel -
-           intelObj->firstLevel) *
-          4)) << MS4_MAX_LOD_SHIFT) | ((firstImage->Depth -
-                                        1) << MS4_VOLUME_DEPTH_SHIFT));
 
 
    {
@@ -190,7 +163,8 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
          mipFilt = MIPFILTER_LINEAR;
          break;
       default:
-         return GL_FALSE;
+	 minFilt = FILTER_NEAREST;
+	 mipFilt = MIPFILTER_NONE;
       }
 
       if (tObj->MaxAnisotropy > 1.0) {
@@ -206,11 +180,18 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
             magFilt = FILTER_LINEAR;
             break;
          default:
-            return GL_FALSE;
+	    magFilt = FILTER_NEAREST;
+	    break;
          }
       }
 
-      state[I915_TEXREG_SS2] = i915->lodbias_ss2[unit];
+      {
+         GLint b = (int) ((tObj->LodBias + tUnit->LodBias) * 16.0);
+	 b = CLAMP(b, -256, 255);
+
+	 state[I915_TEXREG_SS2] |= ((b << SS2_LOD_BIAS_SHIFT) & SS2_LOD_BIAS_MASK);
+      }
+
 
       /* YUV conversion:
        */
@@ -256,8 +237,19 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
            wt == GL_CLAMP ||
            wr == GL_CLAMP ||
            ws == GL_CLAMP_TO_BORDER ||
-           wt == GL_CLAMP_TO_BORDER || wr == GL_CLAMP_TO_BORDER))
-         return GL_FALSE;
+           wt == GL_CLAMP_TO_BORDER || 
+	   wr == GL_CLAMP_TO_BORDER)) {
+	 
+/*          return GL_FALSE; */
+	 sampler->fallback = true;
+      }
+
+
+      /* Or some field in tObj? */
+      if (ctx->Texture.Unit[i]._ReallyEnabled == TEXTURE_RECT_BIT)
+	 ss3 = SS3_NORMALIZED_COORDS;
+      else
+	 ss3 = 0;
 
 
       state[I915_TEXREG_SS3] = ss3;     /* SS3_NORMALIZED_COORDS */
@@ -277,6 +269,7 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
                                                 tObj->_BorderChan[3]);
 
 
+   
    I915_ACTIVESTATE(i915, I915_UPLOAD_TEX(unit), GL_TRUE);
    /* memcmp was already disabled, but definitely won't work as the
     * region might now change and that wouldn't be detected:
@@ -284,14 +277,9 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
    I915_STATECHANGE(i915, I915_UPLOAD_TEX(unit));
 
 
-#if 0
    DBG(TEXTURE, "state[I915_TEXREG_SS2] = 0x%x\n", state[I915_TEXREG_SS2]);
    DBG(TEXTURE, "state[I915_TEXREG_SS3] = 0x%x\n", state[I915_TEXREG_SS3]);
    DBG(TEXTURE, "state[I915_TEXREG_SS4] = 0x%x\n", state[I915_TEXREG_SS4]);
-   DBG(TEXTURE, "state[I915_TEXREG_MS2] = 0x%x\n", state[I915_TEXREG_MS2]);
-   DBG(TEXTURE, "state[I915_TEXREG_MS3] = 0x%x\n", state[I915_TEXREG_MS3]);
-   DBG(TEXTURE, "state[I915_TEXREG_MS4] = 0x%x\n", state[I915_TEXREG_MS4]);
-#endif
 
    return GL_TRUE;
 }
@@ -299,40 +287,38 @@ i915_update_tex_unit(struct intel_context *intel, GLuint unit, GLuint ss3)
 
 
 
+
+
 void
-i915UpdateTextureState(struct intel_context *intel)
+i915_tex_state_emit()
 {
-   GLboolean ok = GL_TRUE;
-   GLuint i;
+      int nr = 0;
 
-   for (i = 0; i < I915_TEX_UNITS && ok; i++) {
-      switch (intel->ctx.Texture.Unit[i]._ReallyEnabled) {
-      case TEXTURE_1D_BIT:
-      case TEXTURE_2D_BIT:
-      case TEXTURE_CUBE_BIT:
-      case TEXTURE_3D_BIT:
-         ok = i915_update_tex_unit(intel, i, SS3_NORMALIZED_COORDS);
-         break;
-      case TEXTURE_RECT_BIT:
-         ok = i915_update_tex_unit(intel, i, 0);
-         break;
-      case 0:{
-            struct i915_context *i915 = i915_context(&intel->ctx);
-            if (i915->state.active & I915_UPLOAD_TEX(i))
-               I915_ACTIVESTATE(i915, I915_UPLOAD_TEX(i), GL_FALSE);
+      for (i = 0; i < I915_TEX_UNITS; i++)
+         if (dirty & I915_UPLOAD_TEX(i))
+            nr++;
 
-	    if (i915->state.tex_buffer[i] != NULL) {
-	       driBOUnReference(i915->state.tex_buffer[i]);
-	       i915->state.tex_buffer[i] = NULL;
-	    }
+      for (i = 0; i < I915_TEX_UNITS; i++)
+	 update_sampler( i915, i );
 
-            break;
+
+      BEGIN_BATCH(2 + nr * 3, 0);
+      OUT_BATCH(_3DSTATE_SAMPLER_STATE | (3 * nr));
+      OUT_BATCH((dirty & I915_UPLOAD_TEX_ALL) >> I915_UPLOAD_TEX_0_SHIFT);
+      for (i = 0; i < I915_TEX_UNITS; i++)
+         if (dirty & I915_UPLOAD_TEX(i)) {
+            OUT_BATCH(state->Tex[i][I915_TEXREG_SS2]);
+            OUT_BATCH(state->Tex[i][I915_TEXREG_SS3]);
+            OUT_BATCH(state->Tex[i][I915_TEXREG_SS4]);
          }
-      default:
-         ok = GL_FALSE;
-         break;
-      }
-   }
-
-   FALLBACK(intel, I915_FALLBACK_TEXTURE, !ok);
+      ADVANCE_BATCH();
 }
+
+const struct i915_tracked_state i915_upload_samplers = {
+   .dirty = {
+      .mesa = (_NEW_TEXTURE),
+      .intel = 0,
+      .indirect = 0
+   },
+   .update = upload_samplers
+};

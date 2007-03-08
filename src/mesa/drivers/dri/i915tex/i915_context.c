@@ -52,6 +52,7 @@ static const struct dri_extension i915_extensions[] = {
    {"GL_ARB_fragment_program", NULL},
    {"GL_ARB_shadow", NULL},
    {"GL_ARB_texture_env_crossbar", NULL},
+   {"GL_EXT_stencil_two_side", NULL},
    {"GL_ARB_texture_non_power_of_two", NULL},
    {"GL_EXT_shadow_funcs", NULL},
    /* ARB extn won't work if not enabled */
@@ -70,20 +71,6 @@ i915InvalidateState(GLcontext * ctx, GLuint new_state)
    _tnl_InvalidateState(ctx, new_state);
    _tnl_invalidate_vertex_state(ctx, new_state);
    intel_context(ctx)->NewGLState |= new_state;
-
-   /* Todo: gather state values under which tracked parameters become
-    * invalidated, add callbacks for things like
-    * ProgramLocalParameters, etc.
-    */
-   {
-      struct i915_fragment_program *p =
-         (struct i915_fragment_program *) ctx->FragmentProgram._Current;
-      if (p && p->nr_params)
-         p->params_uptodate = 0;
-   }
-
-   if (new_state & (_NEW_FOG | _NEW_HINT | _NEW_PROGRAM))
-      i915_update_fog(ctx);
 }
 
 
@@ -91,8 +78,6 @@ static void
 i915InitDriverFunctions(struct dd_function_table *functions)
 {
    intelInitDriverFunctions(functions);
-   i915InitStateFunctions(functions);
-   i915InitTextureFuncs(functions);
    i915InitFragProgFuncs(functions);
    functions->UpdateState = i915InvalidateState;
 }
@@ -162,6 +147,11 @@ i915CreateContext(const __GLcontextModes * mesaVis,
 
    driInitExtensions(ctx, i915_extensions, GL_FALSE);
 
+   /* always enbale pixel fog. vertex fog uses precaculted fog coord
+    * will conflict with appended fog program
+    */
+   _tnl_allow_vertex_fog( ctx, 0 );
+   _tnl_allow_pixel_fog( ctx, 1 );
 
    _tnl_init_vertices(ctx, ctx->Const.MaxArrayLockSize + 12,
                       36 * sizeof(GLfloat));
