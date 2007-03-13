@@ -260,13 +260,14 @@ static void upload_S6( struct intel_context *intel )
 
    /* _NEW_COLOR
     */
-   if (intel->state.Color->AlphaEnabled) {
+   if (1) {
       int test = intel_translate_compare_func(intel->state.Color->AlphaFunc);
       GLubyte refByte;
 
       CLAMPED_FLOAT_TO_UBYTE(refByte, intel->state.Color->AlphaRef);
       
-      LIS6 |= S6_ALPHA_TEST_ENABLE;
+      if (intel->state.Color->AlphaEnabled)
+	 LIS6 |= S6_ALPHA_TEST_ENABLE;
 
       LIS6 |= ((test << S6_ALPHA_TEST_FUNC_SHIFT) |
 	       (((GLuint) refByte) << S6_ALPHA_REF_SHIFT));
@@ -274,8 +275,7 @@ static void upload_S6( struct intel_context *intel )
 
    /* _NEW_COLOR
     */
-   if (intel->state.Color->BlendEnabled && 
-       !STATE_LOGICOP_ENABLED(&intel->state)) {
+   if (1) {
 
       GLuint eqRGB = intel->state.Color->BlendEquationRGB;
       GLuint srcRGB = intel->state.Color->BlendSrcRGB;
@@ -285,22 +285,27 @@ static void upload_S6( struct intel_context *intel )
 	 srcRGB = dstRGB = GL_ONE;
       }
 
-      LIS6 |= (S6_CBUF_BLEND_ENABLE |
-	       SRC_BLND_FACT(intel_translate_blend_factor(srcRGB)) |
+      if (intel->state.Color->BlendEnabled && 
+	  !STATE_LOGICOP_ENABLED(&intel->state))
+	  LIS6 |= S6_CBUF_BLEND_ENABLE;
+
+      LIS6 |= (SRC_BLND_FACT(intel_translate_blend_factor(srcRGB)) |
 	       DST_BLND_FACT(intel_translate_blend_factor(dstRGB)) |
 	       (i915_translate_blend_equation(eqRGB) << S6_CBUF_BLEND_FUNC_SHIFT));
    }
 
    /* _NEW_DEPTH 
     */
-   if (intel->state.Depth->Test) {
+   if (1) {
       GLint func = intel_translate_compare_func(intel->state.Depth->Func);
 
-      LIS6 |= S6_DEPTH_TEST_ENABLE;
       LIS6 |= func << S6_DEPTH_TEST_FUNC_SHIFT;
 
-      if (intel->state.Depth->Mask)
-	 LIS6 |= S6_DEPTH_WRITE_ENABLE;
+      if (intel->state.Depth->Test) {
+	 LIS6 |= S6_DEPTH_TEST_ENABLE;
+	 if (intel->state.Depth->Mask)
+	    LIS6 |= S6_DEPTH_WRITE_ENABLE;
+      }
    }
 
    BEGIN_BATCH(2, 0);   

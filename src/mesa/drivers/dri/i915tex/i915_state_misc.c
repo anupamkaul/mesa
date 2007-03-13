@@ -50,7 +50,7 @@ static void upload_MODES4( struct intel_context *intel )
    GLuint modes4 = _3DSTATE_MODES_4_CMD;
 
    /* _NEW_STENCIL */
-   if (intel->state.Stencil->Enabled) {
+   if (1||intel->state.Stencil->Enabled) {
       GLint testmask = intel->state.Stencil->ValueMask[0] & 0xff;
       GLint writemask = intel->state.Stencil->WriteMask[0] & 0xff;
 
@@ -61,7 +61,7 @@ static void upload_MODES4( struct intel_context *intel )
    }
 
    /* _NEW_COLOR */
-   if (intel->state.Color->_LogicOpEnabled)
+   if (1 || intel->state.Color->_LogicOpEnabled)
    {
       modes4 |= (ENABLE_LOGIC_OP_FUNC |
 		 LOGIC_OP_FUNC(intel_translate_logic_op(intel->state.Color->LogicOp)));
@@ -192,29 +192,35 @@ static void upload_IAB( struct intel_context *intel )
 		 IAB_MODIFY_ENABLE |
 		 0);
 
-   if (intel->state.Color->BlendEnabled) {      
+   if (1) {      
       GLuint eqRGB = intel->state.Color->BlendEquationRGB;
       GLuint eqA = intel->state.Color->BlendEquationA;
       GLuint srcRGB = intel->state.Color->BlendSrcRGB;
       GLuint dstRGB = intel->state.Color->BlendDstRGB;
       GLuint srcA = intel->state.Color->BlendSrcA;
       GLuint dstA = intel->state.Color->BlendDstA;
-      
-      if (srcA != srcRGB ||
-	  dstA != dstRGB ||
-	  eqA != eqRGB) {
-
-	 if (eqA == GL_MIN || eqA == GL_MAX) {
-	    srcA = dstA = GL_ONE;
-	 }
 
 	 iab |= (IAB_MODIFY_FUNC | 
 		 IAB_MODIFY_SRC_FACTOR | 
 		 IAB_MODIFY_DST_FACTOR |
 		 SRC_ABLND_FACT(intel_translate_blend_factor(srcA)) |
 		 DST_ABLND_FACT(intel_translate_blend_factor(dstA)) |
-		 (i915_translate_blend_equation(eqA) << IAB_FUNC_SHIFT) |
-		 IAB_ENABLE );
+		 (i915_translate_blend_equation(eqA) << IAB_FUNC_SHIFT));
+      
+      if (srcA != srcRGB ||
+	  dstA != dstRGB ||
+	  eqA != eqRGB) {
+
+#if 0
+	 /* later */
+	 if (eqA == GL_MIN || eqA == GL_MAX) {
+	    srcA = dstA = GL_ONE;
+	 }
+#endif
+
+
+	 if (intel->state.Color->BlendEnabled)
+	    iab |= IAB_ENABLE;
       }	 
    }
 

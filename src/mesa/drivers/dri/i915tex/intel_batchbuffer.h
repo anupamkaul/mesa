@@ -123,7 +123,7 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 #define OUT_BATCH_F(fl) do {			\
    fi_type fi;					\
    fi.f = fl;					\
-   _mesa_printf("OUT_BATCH_F(%f)\n", fl);  \
+   _mesa_printf("OUT_BATCH(0x%08x)\n", fi.i);  \
    intel_batchbuffer_emit_dword(intel->batch, fi.i);	\
 } while (0)
 

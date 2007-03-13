@@ -120,11 +120,13 @@ upload_constants(struct intel_context *intel)
       OUT_BATCH( (1 << (nr - 1)) | ((1 << (nr - 1)) - 1) );
 
       for (i = 0; i < nr; i++) {
-	 OUT_BATCH(p->constant[i][0]);
-	 OUT_BATCH(p->constant[i][1]);
-	 OUT_BATCH(p->constant[i][2]);
-	 OUT_BATCH(p->constant[i][3]);
+	 OUT_BATCH_F(p->constant[i][0]);
+	 OUT_BATCH_F(p->constant[i][1]);
+	 OUT_BATCH_F(p->constant[i][2]);
+	 OUT_BATCH_F(p->constant[i][3]);
       }
+      
+      ADVANCE_BATCH();
    }
 }
 

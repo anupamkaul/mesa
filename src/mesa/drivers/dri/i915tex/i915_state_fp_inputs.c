@@ -182,6 +182,10 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
 				     intel->ViewportMatrix.m, 0);
 
       intel->vertex_size = vs >> 2;
+
+      _mesa_printf("inputs %x vertex size %d\n", 
+		   inputsRead,
+		   intel->vertex_size);
       i915->fragprog.LIS2 = s2;
       i915->fragprog.LIS4 = s4;
       intel->state.dirty.intel |= I915_NEW_VERTEX_FORMAT;
