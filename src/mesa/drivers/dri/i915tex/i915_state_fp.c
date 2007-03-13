@@ -49,8 +49,16 @@ static void i915_upload_fp( struct intel_context *intel )
    struct i915_fragment_program *fp = i915->fragment_program;
    GLuint i;
 
-   assert (&i915->fragment_program->Base == intel->state.FragmentProgram->_Current);
+   if (&fp->Base != intel->state.FragmentProgram->_Current) {
+      i915->fragment_program = (struct i915_fragment_program *)
+	 intel->state.FragmentProgram->_Current;
      
+      fp = i915->fragment_program;
+      /* This is stupid 
+       */
+      intel->state.dirty.intel |= INTEL_NEW_FRAGMENT_PROGRAM;
+   }
+
    /* As the compiled program depends only on the original program
     * text (??? for now at least ???), there is no need for a compiled
     * program cache, just store the compiled version with the original

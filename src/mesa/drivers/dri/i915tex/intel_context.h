@@ -422,10 +422,6 @@ extern void intelInitDriverFunctions(struct dd_function_table *functions);
 
 void intel_lost_hardware( struct intel_context *intel );
 
-/* ================================================================
- * intel_state.c:
- */
-extern void intel_emit_state( struct intel_context *intel );
 
 /*======================================================================
  * Inline conversion functions.  

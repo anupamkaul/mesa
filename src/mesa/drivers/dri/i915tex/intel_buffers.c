@@ -573,6 +573,20 @@ intelClear(GLcontext *ctx, GLbitfield mask)
       }
    }
 
+   {
+      const GLfloat *color = intel->ctx.Color.ClearColor;
+      GLubyte clear[4];
+      
+      CLAMPED_FLOAT_TO_UBYTE(clear[0], color[0]);
+      CLAMPED_FLOAT_TO_UBYTE(clear[1], color[1]);
+      CLAMPED_FLOAT_TO_UBYTE(clear[2], color[2]);
+      CLAMPED_FLOAT_TO_UBYTE(clear[3], color[3]);
+      
+      /* compute both 32 and 16-bit clear values */
+      intel->ClearColor8888 = INTEL_PACKCOLOR8888(clear[0], clear[1],
+						  clear[2], clear[3]);
+      intel->ClearColor565 = INTEL_PACKCOLOR565(clear[0], clear[1], clear[2]);
+   }
 
    intelFlush(ctx);             /* XXX intelClearWithBlit also does this */
 

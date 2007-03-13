@@ -80,6 +80,12 @@ void intel_emit_state( struct intel_context *intel )
    if (state->intel == 0)
       return;
 
+   if (!intel->metaops.active) {
+      intel->state.DrawBuffer = intel->ctx.DrawBuffer;
+      intel->state.ReadBuffer = intel->ctx.ReadBuffer;
+      intel->state.RenderMode = intel->ctx.RenderMode;
+      intel->state._ColorDrawBufferMask0 = intel->ctx.DrawBuffer->_ColorDrawBufferMask[0];
+   }
 
    if (INTEL_DEBUG) {
       /* Debug version which enforces various sanity checks on the
@@ -127,3 +133,25 @@ void intel_emit_state( struct intel_context *intel )
 }
 
 
+
+void intel_state_init( struct intel_context *intel )
+{
+   GLcontext *ctx = &intel->ctx;
+
+   intel->state.Color = &ctx->Color;
+   intel->state.Depth = &ctx->Depth;
+   intel->state.Fog = &ctx->Fog;
+   intel->state.Hint = &ctx->Hint;
+   intel->state.Light = &ctx->Light;
+   intel->state.Line = &ctx->Line;
+   intel->state.Point = &ctx->Point;
+   intel->state.Polygon = &ctx->Polygon;
+   intel->state.Scissor = &ctx->Scissor;
+   intel->state.Stencil = &ctx->Stencil;
+   intel->state.Texture = &ctx->Texture;
+   intel->state.Transform = &ctx->Transform;
+   intel->state.Viewport = &ctx->Viewport;
+   intel->state.VertexProgram = &ctx->VertexProgram;
+   intel->state.FragmentProgram = &ctx->FragmentProgram;
+   intel->state.PolygonStipple = &ctx->PolygonStipple[0];
+}

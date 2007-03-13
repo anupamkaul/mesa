@@ -112,22 +112,30 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 #define BEGIN_BATCH(n, flags) do {				\
    assert(!intel->prim.flush);					\
    intel_batchbuffer_require_space(intel->batch, (n)*4, flags);	\
+   _mesa_printf("BEGIN_BATCH(%d,%d) in %s\n", n, flags, __FUNCTION__); \
 } while (0)
 
-#define OUT_BATCH(d)  intel_batchbuffer_emit_dword(intel->batch, d)
+#define OUT_BATCH(d) do {				\
+      _mesa_printf("OUT_BATCH(0x%08x)\n", d);  		\
+      intel_batchbuffer_emit_dword(intel->batch, d);	\
+} while (0)
 
 #define OUT_BATCH_F(fl) do {			\
    fi_type fi;					\
    fi.f = fl;					\
+   _mesa_printf("OUT_BATCH_F(%f)\n", fl);  \
    intel_batchbuffer_emit_dword(intel->batch, fi.i);	\
 } while (0)
 
-#define OUT_RELOC(buf,flags,mask,delta) do { 				\
-   assert((delta) >= 0);							\
+#define OUT_RELOC(buf,flags,mask,delta) do {				\
+   assert((delta) >= 0);						\
+   _mesa_printf("OUT_RELOC( buf %p offset %x )\n", buf, delta);		\
    intel_batchbuffer_emit_reloc(intel->batch, buf, flags, mask, delta);	\
 } while (0)
 
-#define ADVANCE_BATCH() do { } while(0)
+#define ADVANCE_BATCH() do { \
+   _mesa_printf("ADVANCE_BATCH()\n");		\
+} while(0)
 
 
 #endif

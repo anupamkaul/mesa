@@ -195,7 +195,7 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
 const struct intel_tracked_state i915_vertex_format = {
    .dirty = {
       .mesa  = 0,
-      .intel   = (I915_NEW_FRAGMENT_PROGRAM 
+      .intel   = (INTEL_NEW_FRAGMENT_PROGRAM 
 /* 		 | INTEL_NEW_VB_OUTPUT_SIZES */
 	 ), 
       .extra = 0

@@ -60,6 +60,7 @@
 #include "intel_buffer_objects.h"
 #include "intel_fbo.h"
 #include "intel_metaops.h"
+#include "intel_state.h"
 
 #include "vblank.h"
 #include "utils.h"
@@ -349,28 +350,6 @@ intelInitDriverFunctions(struct dd_function_table *functions)
 }
 
 
-static void intel_attribs_init( struct intel_context *intel )
-{
-   GLcontext *ctx = &intel->ctx;
-
-   intel->state.Color = &ctx->Color;
-   intel->state.Depth = &ctx->Depth;
-   intel->state.Fog = &ctx->Fog;
-   intel->state.Hint = &ctx->Hint;
-   intel->state.Light = &ctx->Light;
-   intel->state.Line = &ctx->Line;
-   intel->state.Point = &ctx->Point;
-   intel->state.Polygon = &ctx->Polygon;
-   intel->state.Scissor = &ctx->Scissor;
-   intel->state.Stencil = &ctx->Stencil;
-   intel->state.Texture = &ctx->Texture;
-   intel->state.Transform = &ctx->Transform;
-   intel->state.Viewport = &ctx->Viewport;
-   intel->state.VertexProgram = &ctx->VertexProgram;
-   intel->state.FragmentProgram = &ctx->FragmentProgram;
-   intel->state.PolygonStipple = &ctx->PolygonStipple[0];
-}
-
 
 GLboolean
 intelInitContext(struct intel_context *intel,
@@ -502,7 +481,7 @@ intelInitContext(struct intel_context *intel,
    intel_bufferobj_init(intel);
    intel_fbo_init(intel);
 
-   intel_attribs_init(intel);
+   intel_state_init(intel);
    intel_metaops_init(intel);
    intel_idx_init(intel);
 

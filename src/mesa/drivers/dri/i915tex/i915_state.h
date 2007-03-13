@@ -42,7 +42,7 @@ void i915_destroy_state( struct i915_context *i915 );
 const struct intel_tracked_state i915_check_fallback;
 const struct intel_tracked_state i915_fp_upload_constants;
 const struct intel_tracked_state i915_fp_compile_and_upload;
-const struct intel_tracked_state i915_fp_inputs;
+const struct intel_tracked_state i915_vertex_format;
 const struct intel_tracked_state i915_invarient_state;
 const struct intel_tracked_state i915_upload_BFO;
 const struct intel_tracked_state i915_upload_BLENDCOLOR;
