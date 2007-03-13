@@ -1,52 +1,60 @@
-/*
- Copyright (C) Intel Corp.  2006.  All Rights Reserved.
- Intel funded Tungsten Graphics (http://www.tungstengraphics.com) to
- develop this 3D driver.
- 
- Permission is hereby granted, free of charge, to any person obtaining
- a copy of this software and associated documentation files (the
- "Software"), to deal in the Software without restriction, including
- without limitation the rights to use, copy, modify, merge, publish,
- distribute, sublicense, and/or sell copies of the Software, and to
- permit persons to whom the Software is furnished to do so, subject to
- the following conditions:
- 
- The above copyright notice and this permission notice (including the
- next paragraph) shall be included in all copies or substantial
- portions of the Software.
- 
- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
- EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
- IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
- LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
- OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
- WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- 
- **********************************************************************/
+/**************************************************************************
+ * 
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * All Rights Reserved.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sub license, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial portions
+ * of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+ * IN NO EVENT SHALL TUNGSTEN GRAPHICS AND/OR ITS SUPPLIERS BE LIABLE FOR
+ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ **************************************************************************/
  /*
   * Authors:
   *   Keith Whitwell <keith@tungstengraphics.com>
   */
  
 
-
 #include "intel_batchbuffer.h"
 #include "intel_regions.h"
+#include "intel_state_inlines.h"
 
-#include "brw_context.h"
-#include "brw_state.h"
-#include "brw_defines.h"
+#include "macros.h"
+
+#include "i915_context.h"
+#include "i915_state.h"
+#include "i915_state_inlines.h"
+#include "i915_reg.h"
+
+
+#define STATE_LOGICOP_ENABLED(state) \
+  ((state)->Color->ColorLogicOpEnabled || \
+   ((state)->Color->BlendEnabled && (state)->Color->BlendEquationRGB == GL_LOGIC_OP))
+
 
 /***********************************************************************
  * S0,S1: Vertex buffer state.  
  */
-static void upload_S0S1( struct i915_context *i915 )
+static void upload_S0S1( struct intel_context *intel )
 {
-   struct intel_context *intel = &i915->intel;
 
    /* INTEL_NEW_VBO */
-   if (intel->vb->state.current_vbo) {
+   if (intel->state.vbo) {
 
       BEGIN_BATCH(3, 0);
 
@@ -56,10 +64,10 @@ static void upload_S0S1( struct i915_context *i915 )
 		2);
 
       /* INTEL_NEW_VBO, INTEL_NEW_RELOC */
-      OUT_RELOC(intel->vb->state.current_vbo->buffer,
+      OUT_RELOC(intel->state.vbo,
 		DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
 		DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
-		intel->vb->state.hw_vbo_offset);
+		intel->state.vbo_offset);
 
       /* INTEL_NEW_VERTEX_SIZE */
       OUT_BATCH((intel->vertex_size << 24) |
@@ -69,102 +77,97 @@ static void upload_S0S1( struct i915_context *i915 )
    }
 }
 
-const struct i915_tracked_state i915_upload_S0S1 = {
+const struct intel_tracked_state i915_upload_S0S1 = {
    .dirty = {
       .mesa = 0,
-      .intel = INTEL_NEW_VBO | INTEL_NEW_VERTEX_SIZE | INTEL_NEW_RELOC,
-      .indirect = 0
+      .intel = INTEL_NEW_VBO | INTEL_NEW_VERTEX_SIZE | INTEL_NEW_FENCE,
+      .extra = 0
    },
    .update = upload_S0S1
 };
 
 
-/***********************************************************************
- * S2: Vertex format 
- */
-static void upload_S2( struct i915_context *i915 )
-{
-   /* I915_NEW_FRAGPROG */
-   i915->state.Ctx[I915_CTXREG_LIS2] = i915->state.fragprog.LIS2;
-}
-
-const struct i915_tracked_state i915_upload_S2 = {
-   .dirty = {
-      .mesa = 0,
-      .intel = I915_NEW_FRAGPROG,
-      .indirect = 0
-   },
-   .update = upload_S2
-};
 
 
 
 /***********************************************************************
  * S4: Vertex format, rasterization state
  */
-static void upload_S4(struct brw_context *brw)
+static void upload_S2S4(struct intel_context *intel)
 {
-
-   /* I915_NEW_FRAGPROG */
-   i915->state.Ctx[I915_CTXREG_LIS4] |= i915->state.fragprog.LIS4;
+   struct i915_context *i915 = i915_context( &intel->ctx );
+   GLuint LIS2, LIS4;
+   
+   /* I915_NEW_VERTEX_FORMAT */
+   LIS2 = i915->fragprog.LIS2;
+   LIS4 = i915->fragprog.LIS4;
 
 
    /* _NEW_POLYGON, _NEW_BUFFERS */
    {
       GLuint mode;
 
-      if (!ctx->Polygon.CullFlag) {
+      if (!intel->state.Polygon->CullFlag) {
 	 mode = S4_CULLMODE_NONE;
       }
-      else if (ctx->Polygon.CullFaceMode != GL_FRONT_AND_BACK) {
+      else if (intel->state.Polygon->CullFaceMode != GL_FRONT_AND_BACK) {
 	 mode = S4_CULLMODE_CW;
 	 
-	 if (ctx->DrawBuffer && ctx->DrawBuffer->Name != 0)
+	 if (intel->state.DrawBuffer && intel->state.DrawBuffer->Name != 0)
 	    mode ^= (S4_CULLMODE_CW ^ S4_CULLMODE_CCW);
-	 if (ctx->Polygon.CullFaceMode == GL_FRONT)
+	 if (intel->state.Polygon->CullFaceMode == GL_FRONT)
 	    mode ^= (S4_CULLMODE_CW ^ S4_CULLMODE_CCW);
-	 if (ctx->Polygon.FrontFace != GL_CCW)
+	 if (intel->state.Polygon->FrontFace != GL_CCW)
 	    mode ^= (S4_CULLMODE_CW ^ S4_CULLMODE_CCW);
       }
       else {
 	 mode = S4_CULLMODE_BOTH;
       }
-      i915->state.Ctx[I915_CTXREG_LIS4] |= mode;
+
+      LIS4 |= mode;
    }
 
 
    /* _NEW_LINE */
    {
-      GLint width = (GLint) (ctx->Line.Width * 2);
+      GLint width = (GLint) (intel->state.Line->Width * 2);
 
       CLAMP_SELF(width, 1, 0xf);
-      i915->state.Ctx[I915_CTXREG_LIS4] |= width << S4_LINE_WIDTH_SHIFT;
+      LIS4 |= width << S4_LINE_WIDTH_SHIFT;
 
-      if (ctx->Line.Smooth)
-	 i915->state.Ctx[I915_CTXREG_LIS4] |= S4_LINE_ANTIALIAS_ENABLE;
+      if (intel->state.Line->SmoothFlag)
+	 LIS4 |= S4_LINE_ANTIALIAS_ENABLE;
    }
 
    /* _NEW_POINT */
    {
-      GLint point_size = (int) ctx->Point._Size;
+      GLint point_size = (int) intel->state.Point->_Size;
 
       CLAMP_SELF(point_size, 1, 255);
-      i915->state.Ctx[I915_CTXREG_LIS4] |= point_size << S4_POINT_WIDTH_SHIFT;
+      LIS4 |= point_size << S4_POINT_WIDTH_SHIFT;
    }
 
    /* _NEW_LIGHT */
-   if (ctx->Light.ShadeModel == GL_FLAT) {
-      i915->state.Ctx[I915_CTXREG_LIS4] |= (S4_FLATSHADE_ALPHA |
-                                            S4_FLATSHADE_COLOR |
-                                            S4_FLATSHADE_SPECULAR);
+   if (intel->state.Light->ShadeModel == GL_FLAT) {
+      LIS4 |= (S4_FLATSHADE_ALPHA |
+	       S4_FLATSHADE_COLOR |
+	       S4_FLATSHADE_SPECULAR);
    }
 
-
-   I915_SET_STATE_IMMEDIATE(i915, , &bcc);
+   
+   BEGIN_BATCH(3, 0);
+   
+   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
+	     I1_LOAD_S(2) |
+	     I1_LOAD_S(4) |
+	     2);
+   OUT_BATCH(LIS2);
+   OUT_BATCH(LIS4);
+   ADVANCE_BATCH();
 }
 
 
-const struct i915_tracked_state i915_upload_S4 = {
+const struct intel_tracked_state i915_upload_S2S4 = {
    .dirty = {
       .mesa = (_NEW_POLYGON | 
 	       _NEW_BUFFERS |
@@ -172,10 +175,10 @@ const struct i915_tracked_state i915_upload_S4 = {
 	       _NEW_POINT |
 	       _NEW_LIGHT),
 
-      .intel = I915_NEW_FRAGPROG,
-      .indirect = 0
+      .intel = I915_NEW_VERTEX_FORMAT,
+      .extra = 0
    },
-   .update = upload_S4
+   .update = upload_S2S4
 };
 
 
@@ -183,63 +186,66 @@ const struct i915_tracked_state i915_upload_S4 = {
 /***********************************************************************
  * 
  */
-static void upload_S5( struct i915_context *i915 )
+static void upload_S5( struct intel_context *intel )
 {
+   GLuint LIS5 = 0;
+
    /* _NEW_STENCIL */
-   if (ctx->Stencil.Enabled) {
-      GLint test = intel_translate_compare_func(ctx->Stencil.Function[0]);
-      GLint fop = intel_translate_stencil_op(fail);
-      GLint dfop = intel_translate_stencil_op(zfail);
-      GLint dpop = intel_translate_stencil_op(zpass);
+   if (intel->state.Stencil->Enabled) {
+      GLint test = intel_translate_compare_func(intel->state.Stencil->Function[0]);
+      GLint fop = intel_translate_stencil_op(intel->state.Stencil->FailFunc[0]);
+      GLint dfop = intel_translate_stencil_op(intel->state.Stencil->ZFailFunc[0]);
+      GLint dpop = intel_translate_stencil_op(intel->state.Stencil->ZPassFunc[0]);
+      GLint ref = intel->state.Stencil->Ref[0] & 0xff;
       
-      i915->state.Ctx[I915_CTXREG_LIS5] |= (S5_STENCIL_TEST_ENABLE |
-					    S5_STENCIL_WRITE_ENABLE);
-
-      i915->state.Ctx[I915_CTXREG_LIS5] |= ((ref << S5_STENCIL_REF_SHIFT) |
-					    (test <<
-					     S5_STENCIL_TEST_FUNC_SHIFT));
-
-
-
-      i915->state.Ctx[I915_CTXREG_LIS5] |= ((fop << S5_STENCIL_FAIL_SHIFT) |
-					    (dfop <<
-					     S5_STENCIL_PASS_Z_FAIL_SHIFT) |
-					    (dpop <<
-					     S5_STENCIL_PASS_Z_PASS_SHIFT));
-
+      LIS5 |= (S5_STENCIL_TEST_ENABLE |
+	       S5_STENCIL_WRITE_ENABLE |
+	       (ref  << S5_STENCIL_REF_SHIFT) |
+	       (test << S5_STENCIL_TEST_FUNC_SHIFT) |
+	       (fop  << S5_STENCIL_FAIL_SHIFT) |
+	       (dfop << S5_STENCIL_PASS_Z_FAIL_SHIFT) |
+	       (dpop << S5_STENCIL_PASS_Z_PASS_SHIFT));
    }
 
    /* _NEW_COLOR */
-   if (RGBA_LOGICOP_ENABLED(ctx)) {
-      i915->state.Ctx[I915_CTXREG_LIS5] |= S5_LOGICOP_ENABLE;
+   if (STATE_LOGICOP_ENABLED(&intel->state)) {
+      LIS5 |= S5_LOGICOP_ENABLE;
    }
 
-   if (ctx->Color.DitherFlag) {
-      i915->state.Ctx[I915_CTXREG_LIS5] |= S5_COLOR_DITHER_ENABLE;
+   if (intel->state.Color->DitherFlag) {
+      LIS5 |= S5_COLOR_DITHER_ENABLE;
    }
 
    {
-      const GLubyte *mask = ctx->Color.ColorMask;
+      const GLubyte *mask = intel->state.Color->ColorMask;
 
       if (!mask[0])
-	 i915->state.Ctx[I915_CTXREG_LIS5] |= S5_WRITEDISABLE_RED;
+	 LIS5 |= S5_WRITEDISABLE_RED;
 
       if (!mask[1])
-	 i915->state.Ctx[I915_CTXREG_LIS5] |= S5_WRITEDISABLE_GREEN;
+	 LIS5 |= S5_WRITEDISABLE_GREEN;
 
       if (!mask[2])
-	 i915->state.Ctx[I915_CTXREG_LIS5] |= S5_WRITEDISABLE_BLUE;
+	 LIS5 |= S5_WRITEDISABLE_BLUE;
 
       if (!mask[3])
-	 i915->state.Ctx[I915_CTXREG_LIS5] |= S5_WRITEDISABLE_ALPHA;
+	 LIS5 |= S5_WRITEDISABLE_ALPHA;
    }
+
+   BEGIN_BATCH(2, 0);   
+   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
+	     I1_LOAD_S(5) |
+	     1);
+   OUT_BATCH(LIS5);
+   ADVANCE_BATCH();
+
 }
 
-const struct i915_tracked_state i915_upload_S5 = {
+const struct intel_tracked_state i915_upload_S5 = {
    .dirty = {
       .mesa = (_NEW_STENCIL | _NEW_COLOR),
       .intel = 0,
-      .indirect = 0
+      .extra = 0
    },
    .update = upload_S5
 };
@@ -247,68 +253,70 @@ const struct i915_tracked_state i915_upload_S5 = {
 
 /***********************************************************************
  */
-static void upload_S6( struct i915_context *i915 )
+static void upload_S6( struct intel_context *intel )
 {
-   struct i915_context *i915 = I915_CONTEXT(ctx);
-
-
-   i915->state.Ctx[I915_CTXREG_LIS6] = (S6_COLOR_WRITE_ENABLE |
-					(2 << S6_TRISTRIP_PV_SHIFT));
+   GLuint LIS6 = (S6_COLOR_WRITE_ENABLE |
+		  (2 << S6_TRISTRIP_PV_SHIFT));
 
    /* _NEW_COLOR
     */
-   if (ctx->Color.AlphaTest) {
-      int test = intel_translate_compare_func(ctx->Color.AlphaFunc);
+   if (intel->state.Color->AlphaEnabled) {
+      int test = intel_translate_compare_func(intel->state.Color->AlphaFunc);
       GLubyte refByte;
 
-      CLAMPED_FLOAT_TO_UBYTE(refByte, ctx->Color.AlphaRef);
+      CLAMPED_FLOAT_TO_UBYTE(refByte, intel->state.Color->AlphaRef);
       
-      i915->state.Ctx[I915_CTXREG_LIS6] |= S6_ALPHA_TEST_ENABLE;
+      LIS6 |= S6_ALPHA_TEST_ENABLE;
 
-      i915->state.Ctx[I915_CTXREG_LIS6] |= ((test << S6_ALPHA_TEST_FUNC_SHIFT) |
-					    (((GLuint) refByte) << S6_ALPHA_REF_SHIFT));
+      LIS6 |= ((test << S6_ALPHA_TEST_FUNC_SHIFT) |
+	       (((GLuint) refByte) << S6_ALPHA_REF_SHIFT));
    }
 
    /* _NEW_COLOR
     */
-   if (ctx->Color.BlendEnabled && !RGBA_LOGICOP_ENABLED(ctx)) {
+   if (intel->state.Color->BlendEnabled && 
+       !STATE_LOGICOP_ENABLED(&intel->state)) {
 
-      GLuint eqRGB = ctx->Color.BlendEquationRGB;
-      GLuint eqA = ctx->Color.BlendEquationA;
-      GLuint srcRGB = ctx->Color.BlendSrcRGB;
-      GLuint dstRGB = ctx->Color.BlendDstRGB;
-      GLuint srcA = ctx->Color.BlendSrcA;
-      GLuint dstA = ctx->Color.BlendDstA;
+      GLuint eqRGB = intel->state.Color->BlendEquationRGB;
+      GLuint srcRGB = intel->state.Color->BlendSrcRGB;
+      GLuint dstRGB = intel->state.Color->BlendDstRGB;
       
       if (eqRGB == GL_MIN || eqRGB == GL_MAX) {
 	 srcRGB = dstRGB = GL_ONE;
       }
 
-      i915->state.Ctx[I915_CTXREG_LIS6] |= S6_CBUF_BLEND_ENABLE;
-      
-      lis6 |= SRC_BLND_FACT(intel_translate_blend_factor(srcRGB));
-      lis6 |= DST_BLND_FACT(intel_translate_blend_factor(dstRGB));
-      lis6 |= translate_blend_equation(eqRGB) << S6_CBUF_BLEND_FUNC_SHIFT;
+      LIS6 |= (S6_CBUF_BLEND_ENABLE |
+	       SRC_BLND_FACT(intel_translate_blend_factor(srcRGB)) |
+	       DST_BLND_FACT(intel_translate_blend_factor(dstRGB)) |
+	       (i915_translate_blend_equation(eqRGB) << S6_CBUF_BLEND_FUNC_SHIFT));
    }
 
    /* _NEW_DEPTH 
     */
-   if (ctx->Depth.Test) {
-      GLint func = intel_translate_compare_func(ctx->Depth.Func);
+   if (intel->state.Depth->Test) {
+      GLint func = intel_translate_compare_func(intel->state.Depth->Func);
 
-      i915->state.Ctx[I915_CTXREG_LIS6] |= S6_DEPTH_TEST_ENABLE;
-      i915->state.Ctx[I915_CTXREG_LIS6] |= func << S6_DEPTH_TEST_FUNC_SHIFT;
+      LIS6 |= S6_DEPTH_TEST_ENABLE;
+      LIS6 |= func << S6_DEPTH_TEST_FUNC_SHIFT;
 
-      if (ctx->Depth.Mask)
-	 i915->state.Ctx[I915_CTXREG_LIS6] |= S6_DEPTH_WRITE_ENABLE;
+      if (intel->state.Depth->Mask)
+	 LIS6 |= S6_DEPTH_WRITE_ENABLE;
    }
+
+   BEGIN_BATCH(2, 0);   
+   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
+	     I1_LOAD_S(6) |
+	     1);
+   OUT_BATCH(LIS6);
+   ADVANCE_BATCH();
+
 }
 
-const struct i915_tracked_state i915_upload_S6 = {
+const struct intel_tracked_state i915_upload_S6 = {
    .dirty = {
       .mesa = (_NEW_COLOR | _NEW_DEPTH),
       .intel = 0,
-      .indirect = 0
+      .extra = 0
    },
    .update = upload_S6
 };

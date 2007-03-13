@@ -42,6 +42,7 @@
 #include "intel_regions.h"
 #include "intel_tris.h"
 #include "intel_pixel.h"
+#include "intel_metaops.h"
 
 #define FILE_DEBUG_FLAG DEBUG_PIXEL
 
@@ -154,19 +155,19 @@ do_texture_copypixels(GLcontext * ctx,
 
    intelFlush(&intel->ctx);
 
-   intel->vtbl.install_meta_state(intel);
+   intel_install_meta_state(intel);
 
    /* Is this true?  Also will need to turn depth testing on according
     * to state:
     */
-   intel->vtbl.meta_no_stencil_write(intel);
-   intel->vtbl.meta_no_depth_write(intel);
+   intel_meta_no_stencil_write(intel);
+   intel_meta_no_depth_write(intel);
 
    /* Set the 3d engine to draw into the destination region:
     */
-   intel->vtbl.meta_draw_region(intel, dst, intel->intelScreen->depth_region);
+   intel_meta_draw_region(intel, dst, intel->intelScreen->depth_region);
 
-   intel->vtbl.meta_import_pixel_state(intel);
+   intel_meta_import_pixel_state(intel);
 
    if (src->cpp == 2) {
       src_format = GL_RGB;
@@ -179,15 +180,15 @@ do_texture_copypixels(GLcontext * ctx,
 
    /* Set the frontbuffer up as a large rectangular texture.
     */
-   if (!intel->vtbl.meta_tex_rect_source(intel, src->buffer, 0,
+   if (!intel_meta_tex_rect_source(intel, src->buffer, 0,
                                          src->pitch,
                                          src->height, src_format, src_type)) {
-      intel->vtbl.leave_meta_state(intel);
+      intel_leave_meta_state(intel);
       return GL_FALSE;
    }
 
 
-   intel->vtbl.meta_texture_blend_replace(intel);
+   intel_meta_texture_blend_replace(intel);
 
    LOCK_HARDWARE(intel);
 
@@ -229,7 +230,7 @@ do_texture_copypixels(GLcontext * ctx,
                            srcx, srcx + width, srcy, srcy + height);
 
     out:
-      intel->vtbl.leave_meta_state(intel);
+      intel_leave_meta_state(intel);
       intel_batchbuffer_flush(intel->batch);
    }
    UNLOCK_HARDWARE(intel);

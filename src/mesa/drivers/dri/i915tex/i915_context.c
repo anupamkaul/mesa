@@ -39,6 +39,7 @@
 
 #include "utils.h"
 #include "i915_reg.h"
+#include "i915_state.h"
 
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
@@ -60,26 +61,12 @@ static const struct dri_extension i915_extensions[] = {
    {NULL, NULL}
 };
 
-/* Override intel default.
- */
-static void
-i915InvalidateState(GLcontext * ctx, GLuint new_state)
-{
-   _swrast_InvalidateState(ctx, new_state);
-   _swsetup_InvalidateState(ctx, new_state);
-   _vbo_InvalidateState(ctx, new_state);
-   _tnl_InvalidateState(ctx, new_state);
-   _tnl_invalidate_vertex_state(ctx, new_state);
-   intel_context(ctx)->NewGLState |= new_state;
-}
-
 
 static void
 i915InitDriverFunctions(struct dd_function_table *functions)
 {
    intelInitDriverFunctions(functions);
    i915InitFragProgFuncs(functions);
-   functions->UpdateState = i915InvalidateState;
 }
 
 
@@ -98,13 +85,9 @@ i915CreateContext(const __GLcontextModes * mesaVis,
    if (!i915)
       return GL_FALSE;
 
-   if (0)
-      _mesa_printf("\ntexmem-0-3 branch\n\n");
-
    i915InitVtbl(i915);
-   i915InitMetaFuncs(i915);
-
    i915InitDriverFunctions(&functions);
+   i915_init_state(i915);
 
    if (!intelInitContext(intel, mesaVis, driContextPriv,
                          sharedContextPrivate, &functions)) {
@@ -157,8 +140,6 @@ i915CreateContext(const __GLcontextModes * mesaVis,
                       36 * sizeof(GLfloat));
 
    intel->verts = TNL_CONTEXT(ctx)->clipspace.vertex_buf;
-
-   i915InitState(i915);
 
    return GL_TRUE;
 }

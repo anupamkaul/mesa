@@ -33,6 +33,46 @@
 #include "texmem.h"
 
 
+struct intel_texture_object
+{
+   struct gl_texture_object base;       /* The "parent" object */
+
+   /* The mipmap tree must include at least these levels once
+    * validated:
+    */
+   GLuint firstLevel;
+   GLuint lastLevel;
+
+   /* Offset for firstLevel image:
+    */
+   GLuint textureOffset;
+
+   /* On validation any active images held in main memory or in other
+    * regions will be copied to this region and the old storage freed.
+    */
+   struct intel_mipmap_tree *mt;
+};
+
+
+
+struct intel_texture_image
+{
+   struct gl_texture_image base;
+
+   /* These aren't stored in gl_texture_image 
+    */
+   GLuint level;
+   GLuint face;
+
+   /* If intelImage->mt != NULL, image data is stored here.
+    * Else if intelImage->base.Data != NULL, image is stored there.
+    * Else there is no image data.
+    */
+   struct intel_mipmap_tree *mt;
+};
+
+
+
 void intelInitTextureFuncs(struct dd_function_table *functions);
 
 const struct gl_texture_format *intelChooseTextureFormat(GLcontext * ctx,

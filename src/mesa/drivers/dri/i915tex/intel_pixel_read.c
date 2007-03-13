@@ -94,9 +94,9 @@ do_texture_readpixels(GLcontext * ctx,
       return GL_FALSE;
    }
 
-   intel->vtbl.meta_texrect_source(intel, intel_readbuf_region(intel));
+   intel_meta_texrect_source(intel, intel_readbuf_region(intel));
 
-   if (!intel->vtbl.meta_render_dest(intel, dest_region, type, format)) {
+   if (!intel_meta_render_dest(intel, dest_region, type, format)) {
       if (INTEL_DEBUG & DEBUG_PIXEL)
          fprintf(stderr, "%s: couldn't set dest %s/%s\n",
                  __FUNCTION__,
@@ -108,9 +108,9 @@ do_texture_readpixels(GLcontext * ctx,
    LOCK_HARDWARE(intel);
 
    if (intel->driDrawable->numClipRects) {
-      intel->vtbl.install_meta_state(intel);
-      intel->vtbl.meta_no_depth_write(intel);
-      intel->vtbl.meta_no_stencil_write(intel);
+      intel_install_meta_state(intel);
+      intel_meta_no_depth_write(intel);
+      intel_meta_no_stencil_write(intel);
 
       if (!driClipRectToFramebuffer(ctx->ReadBuffer, &x, &y, &width, &height)) {
          UNLOCK_HARDWARE(intel);
@@ -127,28 +127,28 @@ do_texture_readpixels(GLcontext * ctx,
 
       /* Set the frontbuffer up as a large rectangular texture.
        */
-      intel->vtbl.meta_tex_rect_source(intel, src_region, textureFormat);
+      intel_meta_tex_rect_source(intel, src_region, textureFormat);
 
 
-      intel->vtbl.meta_texture_blend_replace(i830, glTextureFormat);
+      intel_meta_texture_blend_replace(i830, glTextureFormat);
 
 
       /* Set the 3d engine to draw into the destination region:
        */
 
-      intel->vtbl.meta_draw_region(intel, dest_region);
-      intel->vtbl.meta_draw_format(intel, destFormat, depthFormat);     /* ?? */
+      intel_meta_draw_region(intel, dest_region);
+      intel_meta_draw_format(intel, destFormat, depthFormat);     /* ?? */
 
 
       /* Draw a single quad, no cliprects:
        */
-      intel->vtbl.meta_disable_cliprects(intel);
+      intel_meta_disable_cliprects(intel);
 
-      intel->vtbl.draw_quad(intel,
+      intel_draw_quad(intel,
                             0, width, 0, height,
                             0x00ff00ff, x, x + width, y, y + height);
 
-      intel->vtbl.leave_meta_state(intel);
+      intel_leave_meta_state(intel);
    }
    UNLOCK_HARDWARE(intel);
 

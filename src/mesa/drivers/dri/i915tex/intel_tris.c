@@ -88,7 +88,7 @@ intelStartInlinePrimitive(struct intel_context *intel,
 {
    BATCH_LOCALS;
 
-   intel->vtbl.emit_state(intel);
+   intel_emit_state(intel);
 
    /* Need to make sure at the very least that we don't wrap
     * batchbuffers in BEGIN_BATCH below, otherwise the primitive will
@@ -97,7 +97,7 @@ intelStartInlinePrimitive(struct intel_context *intel,
     */
    if (intel_batchbuffer_space(intel->batch) < 100) {
       intel_batchbuffer_flush(intel->batch);
-      intel->vtbl.emit_state(intel);
+      intel_emit_state(intel);
    }
 
 /*    _mesa_printf("%s *", __progname); */
@@ -143,7 +143,7 @@ intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords)
 
 /*    _mesa_printf("."); */
 
-   intel->vtbl.assert_not_dirty(intel);
+   assert(intel->state.dirty.intel == 0);
 
    ptr = (GLuint *) intel->batch->ptr;
    intel->batch->ptr += sz;
@@ -750,76 +750,79 @@ intelFastRenderClippedPoly(GLcontext * ctx, const GLuint * elts, GLuint n)
 
 
 
-#define ANY_FALLBACK_FLAGS (DD_LINE_STIPPLE | DD_TRI_STIPPLE | DD_POINT_ATTEN | DD_POINT_SMOOTH | DD_TRI_SMOOTH)
-#define ANY_RASTER_FLAGS (DD_TRI_LIGHT_TWOSIDE | DD_TRI_OFFSET | DD_TRI_UNFILLED)
-
-void
-intelChooseRenderState(GLcontext * ctx)
+static void update_render_index( struct intel_context *intel )
 {
+   GLcontext *ctx = &intel->ctx;
    TNLcontext *tnl = TNL_CONTEXT(ctx);
-   struct intel_context *intel = intel_context(ctx);
-   GLuint flags = ctx->_TriangleCaps;
+
+   /* INTEL_NEW_FRAGMENT_PROGRAM, XXX!
+    */
    const struct gl_fragment_program *fprog = ctx->FragmentProgram._Current;
    GLboolean have_wpos = (fprog && (fprog->Base.InputsRead & FRAG_BIT_WPOS));
    GLuint index = 0;
 
-   if (INTEL_DEBUG & DEBUG_STATE)
-      fprintf(stderr, "\n%s\n", __FUNCTION__);
+   intel->draw_point = intel_draw_point;
+   intel->draw_line = intel_draw_line;
+   intel->draw_tri = intel_draw_triangle;
 
-   if ((flags & (ANY_FALLBACK_FLAGS | ANY_RASTER_FLAGS)) || have_wpos) {
+   /* _NEW_LIGHT
+    */
+   if (intel->state.Light->Enabled && intel->state.Light->Model.TwoSide)
+      index |= INTEL_TWOSIDE_BIT;
 
-      if (flags & ANY_RASTER_FLAGS) {
-         if (flags & DD_TRI_LIGHT_TWOSIDE)
-            index |= INTEL_TWOSIDE_BIT;
-         if (flags & DD_TRI_OFFSET)
-            index |= INTEL_OFFSET_BIT;
-         if (flags & DD_TRI_UNFILLED)
-            index |= INTEL_UNFILLED_BIT;
-      }
+   /* _NEW_POLYGON 
+    */
+   if (intel->state.Polygon->OffsetPoint ||
+       intel->state.Polygon->OffsetLine ||
+       intel->state.Polygon->OffsetFill)
+      index |= INTEL_OFFSET_BIT;
+      
+   if (intel->state.Polygon->FrontMode != GL_FILL ||
+       intel->state.Polygon->BackMode != GL_FILL)
+      index |= INTEL_UNFILLED_BIT;
 
-      if (have_wpos) {
-         intel->draw_point = intel_wpos_point;
-         intel->draw_line = intel_wpos_line;
-         intel->draw_tri = intel_wpos_triangle;
+   if (have_wpos) {
+      intel->draw_point = intel_wpos_point;
+      intel->draw_line = intel_wpos_line;
+      intel->draw_tri = intel_wpos_triangle;
 
-         /* Make sure these get called:
-          */
-         index |= INTEL_FALLBACK_BIT;
-      }
-      else {
-         intel->draw_point = intel_draw_point;
-         intel->draw_line = intel_draw_line;
-         intel->draw_tri = intel_draw_triangle;
-      }
-
-      /* Hook in fallbacks for specific primitives.
+      /* Make sure these get called:
        */
-      if (flags & ANY_FALLBACK_FLAGS) {
-         if (flags & DD_LINE_STIPPLE)
-            intel->draw_line = intel_fallback_line;
+      index |= INTEL_FALLBACK_BIT;
+   }
 
-         if ((flags & DD_TRI_STIPPLE) && !intel->hw_stipple)
-            intel->draw_tri = intel_fallback_tri;
+   /* _NEW_LINE
+    */
+   if (intel->state.Line->StippleFlag) {
+      intel->draw_line = intel_fallback_line;
+      index |= INTEL_FALLBACK_BIT;
+   }
+	    
+   /* INTEL_NEW_FALLBACK ??  _NEW_POLYGON_STIPPLE at least...
+    */
+   if (intel->state.Polygon->StippleFlag && !intel->hw_stipple) {
+      intel->draw_tri = intel_fallback_tri;
+      index |= INTEL_FALLBACK_BIT;
+   }
 
-         if (flags & DD_TRI_SMOOTH) {
-	    if (intel->strict_conformance)
-	       intel->draw_tri = intel_fallback_tri;
-	 }
+   if (intel->state.Line->SmoothFlag && intel->strict_conformance) {
+      intel->draw_tri = intel_fallback_tri;
+      index |= INTEL_FALLBACK_BIT;
+   }
 
-         if (flags & DD_POINT_ATTEN) {
-	    if (0)
-	       intel->draw_point = intel_atten_point;
-	    else
-	       intel->draw_point = intel_fallback_point;
-	 }
+   /* _NEW_POINT
+    */
+   if (intel->state.Point->_Attenuated) {
+      if (0)
+	 intel->draw_point = intel_atten_point;
+      else
+	 intel->draw_point = intel_fallback_point;
+      index |= INTEL_FALLBACK_BIT;
+   }
 
-	 if (flags & DD_POINT_SMOOTH) {
-	    if (intel->strict_conformance)
-	       intel->draw_point = intel_fallback_point;
-	 }
-
-         index |= INTEL_FALLBACK_BIT;
-      }
+   if (intel->state.Point->SmoothFlag && intel->strict_conformance) {
+      intel->draw_point = intel_fallback_point;
+      index |= INTEL_FALLBACK_BIT;
    }
 
    if (intel->RenderIndex != index) {
@@ -844,6 +847,21 @@ intelChooseRenderState(GLcontext * ctx)
       }
    }
 }
+
+
+const struct intel_tracked_state intel_update_render_index = {
+   .dirty = {
+      .mesa = (_NEW_LINE |
+	       _NEW_POLYGON |
+	       _NEW_LIGHT |
+	       _NEW_POLYGONSTIPPLE),
+
+      .intel = INTEL_NEW_FRAGMENT_PROGRAM,
+      .extra = 0
+   },
+   .update = update_render_index
+};
+
 
 static const GLenum reduced_prim[GL_POLYGON + 1] = {
    GL_POINTS,
@@ -876,18 +894,7 @@ intelRunPipeline(GLcontext * ctx)
    if (ctx->NewState)
       _mesa_update_state_locked(ctx);
 
-   if (intel->NewGLState) {
-      if (intel->NewGLState & _NEW_TEXTURE) {
-         intel->vtbl.update_texture_state(intel);
-      }
-
-      if (!intel->Fallback) {
-         if (intel->NewGLState & _INTEL_NEW_RENDERSTATE)
-            intelChooseRenderState(ctx);
-      }
-
-      intel->NewGLState = 0;
-   }
+   intel_emit_state( intel );
 
    _tnl_run_pipeline(ctx);
 
@@ -899,8 +906,7 @@ intelRenderStart(GLcontext * ctx)
 {
    struct intel_context *intel = intel_context(ctx);
 
-   intel->vtbl.render_start(intel_context(ctx));
-   intel->vtbl.emit_state(intel);
+   intel_emit_state(intel);
 }
 
 static void
@@ -929,7 +935,12 @@ intelRasterPrimitive(GLcontext * ctx, GLenum rprim, GLuint hwprim)
       fprintf(stderr, "%s %s %x\n", __FUNCTION__,
               _mesa_lookup_enum_by_nr(rprim), hwprim);
 
-   intel->vtbl.reduced_primitive_state(intel, rprim);
+   if (intel->reduced_primitive != rprim) {
+      INTEL_FIREVERTICES(intel);
+      
+      intel->reduced_primitive = rprim;
+      intel->state.dirty.intel |= INTEL_NEW_REDUCED_PRIMITIVE;
+   }
 
    /* Start a new primitive.  Arrange to have it flushed later on.
     */
@@ -1023,6 +1034,7 @@ intelFallback(struct intel_context *intel, GLuint bit, GLboolean mode)
                     bit, getFallbackString(bit));
          _swsetup_Wakeup(ctx);
          intel->RenderIndex = ~0;
+	 intel->state.dirty.intel |= INTEL_NEW_FALLBACK;
       }
    }
    else {
@@ -1045,7 +1057,7 @@ intelFallback(struct intel_context *intel, GLuint bit, GLboolean mode)
                             intel->vertex_attr_count,
                             intel->ViewportMatrix.m, 0);
 
-         intel->NewGLState |= _INTEL_NEW_RENDERSTATE;
+	 intel->state.dirty.intel |= INTEL_NEW_FALLBACK;
       }
    }
 }
@@ -1060,65 +1072,6 @@ union fi
 /**********************************************************************/
 /*             Used only with the metaops callbacks.                  */
 /**********************************************************************/
-void
-intel_meta_draw_poly(struct intel_context *intel,
-                     GLuint n,
-                     GLfloat xy[][2],
-                     GLfloat z, GLuint color, GLfloat tex[][2])
-{
-   union fi *vb;
-   GLint i;
-
-   /* All 3d primitives should be emitted with INTEL_BATCH_CLIPRECTS,
-    * otherwise the drawing origin (DR4) might not be set correctly.
-    */
-   intelStartInlinePrimitive(intel, PRIM3D_TRIFAN, INTEL_BATCH_CLIPRECTS);
-   vb = (union fi *) intelExtendInlinePrimitive(intel, n * 6);
-
-   for (i = 0; i < n; i++) {
-      vb[0].f = xy[i][0];
-      vb[1].f = xy[i][1];
-      vb[2].f = z;
-      vb[3].i = color;
-      vb[4].f = tex[i][0];
-      vb[5].f = tex[i][1];
-      vb += 6;
-   }
-
-   INTEL_FIREVERTICES(intel);
-}
-
-void
-intel_meta_draw_quad(struct intel_context *intel,
-                     GLfloat x0, GLfloat x1,
-                     GLfloat y0, GLfloat y1,
-                     GLfloat z,
-                     GLuint color,
-                     GLfloat s0, GLfloat s1, GLfloat t0, GLfloat t1)
-{
-   GLfloat xy[4][2];
-   GLfloat tex[4][2];
-
-   xy[0][0] = x0;
-   xy[0][1] = y0;
-   xy[1][0] = x1;
-   xy[1][1] = y0;
-   xy[2][0] = x1;
-   xy[2][1] = y1;
-   xy[3][0] = x0;
-   xy[3][1] = y1;
-
-   tex[0][0] = s0;
-   tex[0][1] = t0;
-   tex[1][0] = s1;
-   tex[1][1] = t0;
-   tex[2][0] = s1;
-   tex[2][1] = t1;
-   tex[3][0] = s0;
-   tex[3][1] = t1;
-
-   intel_meta_draw_poly(intel, 4, xy, z, color, tex);
-}
 
 
 

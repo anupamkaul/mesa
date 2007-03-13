@@ -28,59 +28,18 @@
 #include "mtypes.h"
 #include "enums.h"
 #include "texformat.h"
+#include "macros.h"
 #include "dri_bufmgr.h"
 
 #include "intel_mipmap_tree.h"
 #include "intel_tex.h"
+#include "intel_batchbuffer.h"
+#include "intel_state_inlines.h"
 
 #include "i915_context.h"
 #include "i915_reg.h"
 
 
-static GLuint
-translate_texture_format(GLuint mesa_format)
-{
-   switch (mesa_format) {
-   case MESA_FORMAT_L8:
-      return MAPSURF_8BIT | MT_8BIT_L8;
-   case MESA_FORMAT_I8:
-      return MAPSURF_8BIT | MT_8BIT_I8;
-   case MESA_FORMAT_A8:
-      return MAPSURF_8BIT | MT_8BIT_A8;
-   case MESA_FORMAT_AL88:
-      return MAPSURF_16BIT | MT_16BIT_AY88;
-   case MESA_FORMAT_RGB565:
-      return MAPSURF_16BIT | MT_16BIT_RGB565;
-   case MESA_FORMAT_ARGB1555:
-      return MAPSURF_16BIT | MT_16BIT_ARGB1555;
-   case MESA_FORMAT_ARGB4444:
-      return MAPSURF_16BIT | MT_16BIT_ARGB4444;
-   case MESA_FORMAT_ARGB8888:
-      return MAPSURF_32BIT | MT_32BIT_ARGB8888;
-   case MESA_FORMAT_YCBCR_REV:
-      return (MAPSURF_422 | MT_422_YCRCB_NORMAL);
-   case MESA_FORMAT_YCBCR:
-      return (MAPSURF_422 | MT_422_YCRCB_SWAPY);
-   case MESA_FORMAT_RGB_FXT1:
-   case MESA_FORMAT_RGBA_FXT1:
-      return (MAPSURF_COMPRESSED | MT_COMPRESS_FXT1);
-   case MESA_FORMAT_Z16:
-      return (MAPSURF_16BIT | MT_16BIT_L16);
-   case MESA_FORMAT_RGBA_DXT1:
-   case MESA_FORMAT_RGB_DXT1:
-      return (MAPSURF_COMPRESSED | MT_COMPRESS_DXT1);
-   case MESA_FORMAT_RGBA_DXT3:
-      return (MAPSURF_COMPRESSED | MT_COMPRESS_DXT2_3);
-   case MESA_FORMAT_RGBA_DXT5:
-      return (MAPSURF_COMPRESSED | MT_COMPRESS_DXT4_5);
-   case MESA_FORMAT_Z24_S8:
-      return (MAPSURF_32BIT | MT_32BIT_xL824);
-   default:
-      fprintf(stderr, "%s: bad image format %x\n", __FUNCTION__, mesa_format);
-      abort();
-      return 0;
-   }
-}
 
 
 
@@ -114,24 +73,18 @@ translate_wrap_mode(GLenum wrap)
  * efficient, but this has gotten complex enough that we need
  * something which is understandable and reliable.
  */
-static GLboolean
-i915_update_sampler(struct intel_context *intel, GLuint unit)
+static void update_sampler(struct intel_context *intel, 
+			   GLuint unit,
+			   GLuint *state )
 {
-   GLcontext *ctx = &intel->ctx;
-   struct i915_context *i915 = i915_context(ctx);
-   struct gl_texture_unit *tUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_unit *tUnit = &intel->state.Texture->Unit[unit];
    struct gl_texture_object *tObj = tUnit->_Current;
    struct intel_texture_object *intelObj = intel_texture_object(tObj);
-   struct gl_texture_image *firstImage;
-   GLuint *state = i915->state.Tex[unit];
 
-   memset(state, 0, sizeof(state));
-   
-
-   /* Get first image here, since intelObj->firstLevel will get set in
-    * the intel_finalize_mipmap_tree() call above.
+   /* Need to do this after updating the maps, which call the
+    * intel_finalize_mipmap_tree and hence can update firstLevel:
     */
-   firstImage = tObj->Image[0][intelObj->firstLevel];
+   struct gl_texture_image *firstImage = tObj->Image[0][intelObj->firstLevel];
 
 
    {
@@ -189,7 +142,7 @@ i915_update_sampler(struct intel_context *intel, GLuint unit)
          GLint b = (int) ((tObj->LodBias + tUnit->LodBias) * 16.0);
 	 b = CLAMP(b, -256, 255);
 
-	 state[I915_TEXREG_SS2] |= ((b << SS2_LOD_BIAS_SHIFT) & SS2_LOD_BIAS_MASK);
+	 state[0] |= ((b << SS2_LOD_BIAS_SHIFT) & SS2_LOD_BIAS_MASK);
       }
 
 
@@ -197,24 +150,23 @@ i915_update_sampler(struct intel_context *intel, GLuint unit)
        */
       if (firstImage->TexFormat->MesaFormat == MESA_FORMAT_YCBCR ||
           firstImage->TexFormat->MesaFormat == MESA_FORMAT_YCBCR_REV)
-         state[I915_TEXREG_SS2] |= SS2_COLORSPACE_CONVERSION;
+         state[0] |= SS2_COLORSPACE_CONVERSION;
 
       /* Shadow:
        */
       if (tObj->CompareMode == GL_COMPARE_R_TO_TEXTURE_ARB &&
           tObj->Target != GL_TEXTURE_3D) {
 
-         state[I915_TEXREG_SS2] |=
-            (SS2_SHADOW_ENABLE |
-             intel_translate_compare_func(tObj->CompareFunc));
+         state[0] |= (SS2_SHADOW_ENABLE |
+		      intel_translate_compare_func(tObj->CompareFunc));
 
          minFilt = FILTER_4X4_FLAT;
          magFilt = FILTER_4X4_FLAT;
       }
 
-      state[I915_TEXREG_SS2] |= ((minFilt << SS2_MIN_FILTER_SHIFT) |
-                                 (mipFilt << SS2_MIP_FILTER_SHIFT) |
-                                 (magFilt << SS2_MAG_FILTER_SHIFT));
+      state[0] |= ((minFilt << SS2_MIN_FILTER_SHIFT) |
+		   (mipFilt << SS2_MIP_FILTER_SHIFT) |
+		   (magFilt << SS2_MAG_FILTER_SHIFT));
    }
 
    {
@@ -240,85 +192,63 @@ i915_update_sampler(struct intel_context *intel, GLuint unit)
            wt == GL_CLAMP_TO_BORDER || 
 	   wr == GL_CLAMP_TO_BORDER)) {
 	 
-/*          return GL_FALSE; */
-	 sampler->fallback = true;
+	 if (intel->strict_conformance) {
+	    assert(0);
+/* 	    sampler->fallback = true; */
+	    /* TODO */
+	 }
       }
 
-
-      /* Or some field in tObj? */
-      if (ctx->Texture.Unit[i]._ReallyEnabled == TEXTURE_RECT_BIT)
-	 ss3 = SS3_NORMALIZED_COORDS;
-      else
-	 ss3 = 0;
-
-
-      state[I915_TEXREG_SS3] = ss3;     /* SS3_NORMALIZED_COORDS */
-
-      state[I915_TEXREG_SS3] |=
+      state[1] =
          ((translate_wrap_mode(ws) << SS3_TCX_ADDR_MODE_SHIFT) |
           (translate_wrap_mode(wt) << SS3_TCY_ADDR_MODE_SHIFT) |
-          (translate_wrap_mode(wr) << SS3_TCZ_ADDR_MODE_SHIFT));
+          (translate_wrap_mode(wr) << SS3_TCZ_ADDR_MODE_SHIFT) |
+	  (unit << SS3_TEXTUREMAP_INDEX_SHIFT));
 
-      state[I915_TEXREG_SS3] |= (unit << SS3_TEXTUREMAP_INDEX_SHIFT);
+      /* Or some field in tObj? */
+      if (intel->state.Texture->Unit[unit]._ReallyEnabled == TEXTURE_RECT_BIT)
+	 state[1] |= SS3_NORMALIZED_COORDS;
    }
 
-
-   state[I915_TEXREG_SS4] = INTEL_PACKCOLOR8888(tObj->_BorderChan[0],
-                                                tObj->_BorderChan[1],
-                                                tObj->_BorderChan[2],
-                                                tObj->_BorderChan[3]);
-
-
-   
-   I915_ACTIVESTATE(i915, I915_UPLOAD_TEX(unit), GL_TRUE);
-   /* memcmp was already disabled, but definitely won't work as the
-    * region might now change and that wouldn't be detected:
-    */
-   I915_STATECHANGE(i915, I915_UPLOAD_TEX(unit));
-
-
-   DBG(TEXTURE, "state[I915_TEXREG_SS2] = 0x%x\n", state[I915_TEXREG_SS2]);
-   DBG(TEXTURE, "state[I915_TEXREG_SS3] = 0x%x\n", state[I915_TEXREG_SS3]);
-   DBG(TEXTURE, "state[I915_TEXREG_SS4] = 0x%x\n", state[I915_TEXREG_SS4]);
-
-   return GL_TRUE;
+   state[2] = INTEL_PACKCOLOR8888(tObj->_BorderChan[0],
+				  tObj->_BorderChan[1],
+				  tObj->_BorderChan[2],
+				  tObj->_BorderChan[3]);
 }
 
 
 
-
-
-
-void
-i915_tex_state_emit()
+static void upload_samplers( struct intel_context *intel )
 {
-      int nr = 0;
+   GLint i, dirty = 0, nr = 0;
+   GLuint state[I915_TEX_UNITS][3];
 
-      for (i = 0; i < I915_TEX_UNITS; i++)
-         if (dirty & I915_UPLOAD_TEX(i))
-            nr++;
+   for (i = 0; i < I915_TEX_UNITS; i++) {
+      if (intel->state.Texture->Unit[i]._ReallyEnabled) {
+	 update_sampler( intel, i, state[i] );
+	 nr++;
+	 dirty |= (1<<i);
+      }
+   }
 
-      for (i = 0; i < I915_TEX_UNITS; i++)
-	 update_sampler( i915, i );
-
-
-      BEGIN_BATCH(2 + nr * 3, 0);
-      OUT_BATCH(_3DSTATE_SAMPLER_STATE | (3 * nr));
-      OUT_BATCH((dirty & I915_UPLOAD_TEX_ALL) >> I915_UPLOAD_TEX_0_SHIFT);
-      for (i = 0; i < I915_TEX_UNITS; i++)
-         if (dirty & I915_UPLOAD_TEX(i)) {
-            OUT_BATCH(state->Tex[i][I915_TEXREG_SS2]);
-            OUT_BATCH(state->Tex[i][I915_TEXREG_SS3]);
-            OUT_BATCH(state->Tex[i][I915_TEXREG_SS4]);
-         }
-      ADVANCE_BATCH();
+   BEGIN_BATCH(2 + nr * 3, 0);
+   OUT_BATCH(_3DSTATE_SAMPLER_STATE | (3 * nr));
+   OUT_BATCH(dirty);
+   for (i = 0; i < I915_TEX_UNITS; i++) {
+      if (intel->state.Texture->Unit[i]._ReallyEnabled) {
+	 OUT_BATCH(state[i][0]);
+	 OUT_BATCH(state[i][1]);
+	 OUT_BATCH(state[i][2]);
+      }
+   }
+   ADVANCE_BATCH();
 }
 
-const struct i915_tracked_state i915_upload_samplers = {
+const struct intel_tracked_state i915_upload_samplers = {
    .dirty = {
-      .mesa = (_NEW_TEXTURE),
+      .mesa = _NEW_TEXTURE,
       .intel = 0,
-      .indirect = 0
+      .extra = 0
    },
    .update = upload_samplers
 };

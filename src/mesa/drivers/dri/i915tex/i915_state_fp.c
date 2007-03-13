@@ -28,65 +28,110 @@
 #include "glheader.h"
 #include "macros.h"
 #include "enums.h"
-
-#include "tnl/tnl.h"
-#include "tnl/t_context.h"
-#include "intel_batchbuffer.h"
-
-#include "i915_reg.h"
-#include "i915_context.h"
-#include "i915_program.h"
-
-#include "program_instruction.h"
 #include "program.h"
-#include "programopt.h"
+
+#include "intel_batchbuffer.h"
+#include "i915_context.h"
+#include "i915_fpc.h"
 
 
 
-void
-i915_upload_program()
+
+
+/*********************************************************************************
+ * Program instructions (and decls)
+ */
+
+
+static void i915_upload_fp( struct intel_context *intel )
 {
-   if (dirty & I915_UPLOAD_PROGRAM) {
-      if (INTEL_DEBUG & DEBUG_STATE)
-         fprintf(stderr, "I915_UPLOAD_PROGRAM:\n");
+   struct i915_context *i915 = i915_context( &intel->ctx );
+   struct i915_fragment_program *fp = i915->fragment_program;
+   GLuint i;
 
-      assert((state->Program[0] & 0x1ff) + 2 == state->ProgramSize);
-
-      emit(intel, state->Program, state->ProgramSize * sizeof(GLuint));
-      if (INTEL_DEBUG & DEBUG_STATE)
-         i915_disassemble_program(state->Program, state->ProgramSize);
-   }
-}
-
-
-
-
-void
-i915ValidateFragmentProgram(struct i915_context *i915)
-{
-   GLcontext *ctx = &i915->intel.ctx;
-   struct intel_context *intel = intel_context(ctx);
-
-   struct i915_fragment_program *p =
-      (struct i915_fragment_program *) ctx->FragmentProgram._Current;
-
-   int i, offset = 0;
-
-   if (i915->current_program != p) {
-
-
-      i915->current_program = p;
-   }
-
-
-   /* Important:
+   assert (&i915->fragment_program->Base == intel->state.FragmentProgram->_Current);
+     
+   /* As the compiled program depends only on the original program
+    * text (??? for now at least ???), there is no need for a compiled
+    * program cache, just store the compiled version with the original
+    * text.
     */
-   VB->AttribPtr[VERT_ATTRIB_POS] = VB->NdcPtr;
+   if (!fp->translated) {
+      i915_compile_fragment_program(i915, fp);
+   }
 
-   if (!p->translated)
-      translate_program(p);
+   BEGIN_BATCH( fp->program_size, 0 );
 
+   for (i = 0; i < fp->program_size; i++)
+      OUT_BATCH( fp->program[i] );
 
-      i915_upload_program(i915, p);
+   ADVANCE_BATCH();
 }
 
+
+/* See i915_wm.c:
+ */
+const struct intel_tracked_state i915_fp_compile_and_upload = {
+   .dirty = {
+      .mesa  = (0),
+      .intel   = (INTEL_NEW_FRAGMENT_PROGRAM), /* ?? Is this all ?? */
+      .extra = 0
+   },
+   .update = i915_upload_fp
+};
+
+
+/*********************************************************************************
+ * Program constants and state parameters
+ */
+static void
+upload_constants(struct intel_context *intel)
+{
+   struct i915_context *i915 = i915_context( &intel->ctx );
+   struct i915_fragment_program *p = i915->fragment_program;
+   GLint i;
+
+   /* XXX: Pull from state, not ctx!!! 
+    */
+   if (p->nr_params)
+      _mesa_load_state_parameters(&intel->ctx, p->Base.Base.Parameters);
+
+   for (i = 0; i < p->nr_params; i++) {
+      GLint reg = p->param[i].reg;
+      COPY_4V(p->constant[reg], p->param[i].values);
+   }
+
+   /* Always seemed to get a failure if I used memcmp() to
+    * shortcircuit this state upload.  Needs further investigation?
+    */
+   if (p->nr_constants) {
+      GLuint nr = p->nr_constants;
+
+      BEGIN_BATCH( nr * 4 + 2, 0 );
+      OUT_BATCH( _3DSTATE_PIXEL_SHADER_CONSTANTS | (nr * 4) );
+      OUT_BATCH( (1 << (nr - 1)) | ((1 << (nr - 1)) - 1) );
+
+      for (i = 0; i < nr; i++) {
+	 OUT_BATCH(p->constant[i][0]);
+	 OUT_BATCH(p->constant[i][1]);
+	 OUT_BATCH(p->constant[i][2]);
+	 OUT_BATCH(p->constant[i][3]);
+      }
+   }
+}
+
+
+/* This tracked state is unique in that the state it monitors varies
+ * dynamically depending on the parameters tracked by the fragment and
+ * vertex programs.  This is the template used as a starting point,
+ * each context will maintain a copy of this internally and update as
+ * required.
+ */
+const struct intel_tracked_state intel_constants = {
+   .dirty = {
+      .mesa = 0,      /* plus fp state flags */
+      .intel  = INTEL_NEW_FRAGMENT_PROGRAM,
+      .extra = 0
+   },
+   .update = upload_constants
+};

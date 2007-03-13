@@ -1101,8 +1101,6 @@ i830InitState(struct i830_context *i830)
 
    i830_init_packets(i830);
 
-   intelInitState(ctx);
-
    memcpy(&i830->initial, &i830->state, sizeof(i830->state));
 
    i830->current = &i830->state;

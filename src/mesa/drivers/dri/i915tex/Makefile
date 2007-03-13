@@ -8,28 +8,22 @@ MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
 	i915_context.c \
-	i915_fp.c \
-	i915_fp_debug.c \
-	i915_fp_emit.c \
-	i915_fp_state.c \
-	i915_fp_translate.c \
-	i915_metaops.c \
+	i915_fpc.c \
+	i915_fpc_debug.c \
+	i915_fpc_emit.c \
+	i915_fpc_translate.c \
 	i915_program.c \
 	i915_state.c \
+	i915_state_fp.c \
+	i915_state_fp_inputs.c \
+	i915_state_fallback.c \
+	i915_state_invarient.c \
 	i915_state_immediate.c \
-	i915_state_indirect.c \
+	i915_state_map.c \
 	i915_state_misc.c \
-	i915_tex.c \
+	i915_state_sampler.c \
 	i915_tex_layout.c \
-	i915_tex_state.c \
 	i915_vtbl.c \
-	i830_context.c \
-	i830_metaops.c \
-	i830_state.c \
-	i830_texblend.c \
-	i830_tex.c \
-	i830_texstate.c \
-	i830_vtbl.c \
 	intel_render.c \
 	intel_idx_render.c \
 	intel_regions.c \
@@ -43,6 +37,7 @@ DRIVER_SOURCES = \
 	intel_tex_validate.c \
 	intel_tex_format.c \
 	intel_tex.c \
+	intel_metaops.c \
 	intel_pixel.c \
 	intel_pixel_copy.c \
 	intel_pixel_read.c \
@@ -55,6 +50,7 @@ DRIVER_SOURCES = \
 	intel_screen.c \
 	intel_span.c \
 	intel_state.c \
+	intel_state_callbacks.c \
 	intel_tris.c \
 	intel_fbo.c \
 	intel_depthstencil.c \

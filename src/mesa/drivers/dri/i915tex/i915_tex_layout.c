@@ -36,21 +36,23 @@
 
 #define FILE_DEBUG_FLAG DEBUG_TEXTURE
 
-static GLint initial_offsets[6][2] = { {0, 0},
-{0, 2},
-{1, 0},
-{1, 2},
-{1, 1},
-{1, 3}
+static GLint initial_offsets[6][2] = {
+   {0, 0},
+   {0, 2},
+   {1, 0},
+   {1, 2},
+   {1, 1},
+   {1, 3}
 };
 
 
-static GLint step_offsets[6][2] = { {0, 2},
-{0, 2},
-{-1, 2},
-{-1, 2},
-{-1, 1},
-{-1, 1}
+static GLint step_offsets[6][2] = { 
+   {0, 2},
+   {0, 2},
+   {-1, 2},
+   {-1, 2},
+   {-1, 1},
+   {-1, 1}
 };
 
 GLboolean

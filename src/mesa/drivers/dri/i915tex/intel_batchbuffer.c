@@ -28,6 +28,7 @@
 #include "intel_batchbuffer.h"
 #include "intel_ioctl.h"
 #include "intel_idx_render.h"
+#include "intel_reg.h"
 
 /* Relocations in kernel space:
  *    - pass dma buffer seperately
@@ -243,7 +244,10 @@ do_flush_locked(struct intel_batchbuffer *batch,
          sched_yield();
          LOCK_HARDWARE(intel);
       }
-      intel->vtbl.lost_hardware(intel);
+      /* This sucks: 
+       */
+      intel->state.dirty.intel |= ~0;
+      intel->state.dirty.mesa |= ~0;
    }
 }
 

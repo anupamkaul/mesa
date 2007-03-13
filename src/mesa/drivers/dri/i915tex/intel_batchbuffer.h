@@ -116,6 +116,12 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 
 #define OUT_BATCH(d)  intel_batchbuffer_emit_dword(intel->batch, d)
 
+#define OUT_BATCH_F(fl) do {			\
+   fi_type fi;					\
+   fi.f = fl;					\
+   intel_batchbuffer_emit_dword(intel->batch, fi.i);	\
+} while (0)
+
 #define OUT_RELOC(buf,flags,mask,delta) do { 				\
    assert((delta) >= 0);							\
    intel_batchbuffer_emit_reloc(intel->batch, buf, flags, mask, delta);	\

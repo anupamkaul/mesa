@@ -59,6 +59,7 @@
 #include "intel_regions.h"
 #include "intel_buffer_objects.h"
 #include "intel_fbo.h"
+#include "intel_metaops.h"
 
 #include "vblank.h"
 #include "utils.h"
@@ -244,12 +245,24 @@ static const struct dri_debug_control debug_control[] = {
 static void
 intelInvalidateState(GLcontext * ctx, GLuint new_state)
 {
+   struct intel_context *intel = intel_context(ctx);
+
    _swrast_InvalidateState(ctx, new_state);
    _swsetup_InvalidateState(ctx, new_state);
    _vbo_InvalidateState(ctx, new_state);
    _tnl_InvalidateState(ctx, new_state);
    _tnl_invalidate_vertex_state(ctx, new_state);
-   intel_context(ctx)->NewGLState |= new_state;
+
+   assert(!intel->metaops.active);
+
+   intel->state.dirty.mesa |= new_state;
+   intel->state.dirty.intel |= INTEL_NEW_MESA;
+}
+
+void intel_lost_hardware( struct intel_context *intel )
+{
+   intel->state.dirty.intel |= ~0;
+   intel->state.dirty.mesa |= ~0;
 }
 
 
@@ -332,8 +345,30 @@ intelInitDriverFunctions(struct dd_function_table *functions)
 
    intelInitTextureFuncs(functions);
    intelInitPixelFuncs(functions);
-   intelInitStateFuncs(functions);
    intelInitBufferFuncs(functions);
+}
+
+
+static void intel_attribs_init( struct intel_context *intel )
+{
+   GLcontext *ctx = &intel->ctx;
+
+   intel->state.Color = &ctx->Color;
+   intel->state.Depth = &ctx->Depth;
+   intel->state.Fog = &ctx->Fog;
+   intel->state.Hint = &ctx->Hint;
+   intel->state.Light = &ctx->Light;
+   intel->state.Line = &ctx->Line;
+   intel->state.Point = &ctx->Point;
+   intel->state.Polygon = &ctx->Polygon;
+   intel->state.Scissor = &ctx->Scissor;
+   intel->state.Stencil = &ctx->Stencil;
+   intel->state.Texture = &ctx->Texture;
+   intel->state.Transform = &ctx->Transform;
+   intel->state.Viewport = &ctx->Viewport;
+   intel->state.VertexProgram = &ctx->VertexProgram;
+   intel->state.FragmentProgram = &ctx->FragmentProgram;
+   intel->state.PolygonStipple = &ctx->PolygonStipple[0];
 }
 
 
@@ -418,7 +453,7 @@ intelInitContext(struct intel_context *intel,
 
    intel->hw_stipple = 1;
 
-   /* XXX FBO: this doesn't seem to be used anywhere */
+   /* XXX FBO: recalculate on bind */
    switch (mesaVis->depthBits) {
    case 0:                     /* what to do in this case? */
    case 16:
@@ -446,8 +481,6 @@ intelInitContext(struct intel_context *intel,
    intel->do_irqs = (intel->intelScreen->irq_active &&
                      fthrottle_mode == DRI_CONF_FTHROTTLE_IRQS);
 
-   intel->do_usleeps = (fthrottle_mode == DRI_CONF_FTHROTTLE_USLEEPS);
-
    intel->vblank_flags = (intel->intelScreen->irq_active != 0)
       ? driGetDefaultVBlankFlags(&intel->optionCache) : VBLANK_FLAG_NO_IRQ;
 
@@ -469,7 +502,13 @@ intelInitContext(struct intel_context *intel,
    intel_bufferobj_init(intel);
    intel_fbo_init(intel);
 
+   intel_attribs_init(intel);
+   intel_metaops_init(intel);
    intel_idx_init(intel);
+
+   intel->state.dirty.mesa = ~0;
+   intel->state.dirty.intel = ~0;
+
 
    if (intel->ctx.Mesa_DXTn) {
       _mesa_enable_extension(ctx, "GL_EXT_texture_compression_s3tc");
@@ -672,7 +711,7 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
       intel->prim.flush = 0;
 
       /* re-emit all state */
-      intel->vtbl.lost_hardware(intel);
+      intel_lost_hardware(intel);
 
       /* force window update */
       intel->lastStamp = 0;

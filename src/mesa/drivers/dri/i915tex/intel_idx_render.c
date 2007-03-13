@@ -70,18 +70,17 @@ struct intel_vb {
    struct intel_buffer_object *vbo[MAX_VBO];
    GLuint nr_vbo;
 
+   struct intel_buffer_object *current_vbo;
 
    GLuint current_vbo_size;
    GLuint current_vbo_used;
    void *current_vbo_ptr;
 
+   GLuint hw_vbo_offset;
    GLuint hw_vbo_delta;
    GLuint vertex_size;
 
-   struct {
-      struct intel_buffer_object *current_vbo;
-      GLuint hw_vbo_offset;
-   } state;
+   GLuint dirty;
 };
 
 
@@ -130,6 +129,19 @@ static GLboolean check_idx_render(GLcontext *ctx,
    return GL_TRUE;
 }
 
+static void 
+emit_vb_state( struct intel_vb *vb )
+{
+   struct intel_context *intel = vb->intel;
+
+   DBG("%s\n", __FUNCTION__);
+
+   intel->state.vbo = vb->current_vbo->buffer;
+   intel->state.vbo_offset = vb->hw_vbo_offset;
+   intel->state.dirty.intel |= INTEL_NEW_VBO;
+   
+   vb->dirty = 0;
+}
 
 static void
 release_current_vbo( struct intel_vb *vb )
@@ -143,12 +155,11 @@ release_current_vbo( struct intel_vb *vb )
 			       GL_ARRAY_BUFFER_ARB,
 			       &vb->current_vbo->Base );
 
-   vb->state.current_vbo = NULL;
-   vb->intel->state.intel |= INTEL_NEW_VBO;
-
+   vb->current_vbo = NULL;
    vb->current_vbo_ptr = NULL;
    vb->current_vbo_size = 0;
    vb->current_vbo_used = 0;
+   vb->dirty = 0;
 }
 
 static void 
@@ -189,13 +200,11 @@ get_next_vbo( struct intel_vb *vb, GLuint size )
    if (size < VBO_SIZE) 
       size = VBO_SIZE;
    
-   vb->state.current_vbo = vb->vbo[vb->nr_vbo++];
-   vb->state.hw_vbo_offset = 0;
-   vb->intel->state.intel |= INTEL_NEW_VBO;
-
+   vb->current_vbo = vb->vbo[vb->nr_vbo++];
    vb->current_vbo_size = size;
    vb->current_vbo_used = 0;
-
+   vb->hw_vbo_offset = 0;
+   vb->dirty = 1;
 
    /* Clear out buffer contents and break any hardware dependency on
     * the old memory:
@@ -222,8 +231,8 @@ static void *get_space( struct intel_vb *vb, GLuint nr, GLuint vertex_size )
 
    if (vb->vertex_size != vertex_size) {
       vb->vertex_size = vertex_size;
-      vb->state.hw_vbo_offset = vb->current_vbo_used;
-      vb->intel->state.intel |= INTEL_NEW_VBO;
+      vb->hw_vbo_offset = vb->current_vbo_used;
+      vb->dirty = 1;
    }
 
    if (!vb->current_vbo_ptr) {
@@ -319,10 +328,22 @@ static void emit_prims( GLcontext *ctx,
 
       if (nr == 0)
 	 continue;
-	  
+
+      /* XXX: Need to ensure that both the state and the primitive
+       * command below end up in the same batchbuffer, otherwise there
+       * is a risk that another context might interpose a batchbuffer
+       * containing different statesetting commands.  Using logical
+       * contexts would fix this, as would the BRW scheme of only
+       * emitting batch commands while holding the lock.
+       */
+      if (vb->dirty) 
+	 emit_vb_state( vb );
+
+      intel_emit_state(intel);
+
       /* XXX: Can emit upto 64k indices, need to split larger prims
        */
-      EMIT_STATE_BEGIN_BATCH(2 + (nr+1)/2, INTEL_BATCH_CLIPRECTS);
+      BEGIN_BATCH(2 + (nr+1)/2, INTEL_BATCH_CLIPRECTS);
 
       OUT_BATCH(0);
       OUT_BATCH( _3DPRIMITIVE | 
