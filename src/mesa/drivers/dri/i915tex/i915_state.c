@@ -88,22 +88,20 @@ const struct intel_tracked_state *atoms[] =
     * state will be subject to caching so that we get something like
     * constant state objects from the i965 driver.
     */
-   &i915_upload_maps,		/* must do before samplers */
-   &i915_upload_samplers,
-
-   &i915_upload_BFO,
-
    &i915_upload_buffers,
+   &i915_upload_scissor,
 
    /* Note this packet has a dependency on the current primitive: 
     */
    &i915_upload_stipple, 
 
-   &i915_upload_scissor,
+   &i915_upload_maps,		/* must do before samplers */
+   &i915_upload_samplers,
 
-   &i915_upload_S0S1,
+   NULL,			/* i915_fp_constants */
 
-   NULL,			/* i915_constants */
+   &i915_upload_BFO,
+   &i915_upload_S0S1
 };
 
 
@@ -123,8 +121,8 @@ void i915_init_state( struct i915_context *i915 )
 	 intel->driver_state.atoms[i] = &i915->constants.tracked_state;
 
    _mesa_memcpy(&i915->constants.tracked_state, 
-		&i915_fp_upload_constants,
-		sizeof(i915_fp_upload_constants));
+		&i915_fp_constants,
+		sizeof(i915_fp_constants));
 }
 
 

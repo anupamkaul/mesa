@@ -231,17 +231,19 @@ static void upload_samplers( struct intel_context *intel )
       }
    }
 
-   BEGIN_BATCH(2 + nr * 3, 0);
-   OUT_BATCH(_3DSTATE_SAMPLER_STATE | (3 * nr));
-   OUT_BATCH(dirty);
-   for (i = 0; i < I915_TEX_UNITS; i++) {
-      if (intel->state.Texture->Unit[i]._ReallyEnabled) {
-	 OUT_BATCH(state[i][0]);
-	 OUT_BATCH(state[i][1]);
-	 OUT_BATCH(state[i][2]);
+   if (nr) {
+      BEGIN_BATCH(2 + nr * 3, 0);
+      OUT_BATCH(_3DSTATE_SAMPLER_STATE | (3 * nr));
+      OUT_BATCH(dirty);
+      for (i = 0; i < I915_TEX_UNITS; i++) {
+	 if (intel->state.Texture->Unit[i]._ReallyEnabled) {
+	    OUT_BATCH(state[i][0]);
+	    OUT_BATCH(state[i][1]);
+	    OUT_BATCH(state[i][2]);
+	 }
       }
+      ADVANCE_BATCH();
    }
-   ADVANCE_BATCH();
 }
 
 const struct intel_tracked_state i915_upload_samplers = {

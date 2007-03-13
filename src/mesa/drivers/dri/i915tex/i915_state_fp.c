@@ -135,7 +135,7 @@ upload_constants(struct intel_context *intel)
  * each context will maintain a copy of this internally and update as
  * required.
  */
-const struct intel_tracked_state intel_constants = {
+const struct intel_tracked_state i915_fp_constants = {
    .dirty = {
       .mesa = 0,      /* plus fp state flags */
       .intel  = INTEL_NEW_FRAGMENT_PROGRAM,

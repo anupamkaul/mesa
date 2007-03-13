@@ -155,7 +155,7 @@ static void upload_BLENDCOLOR( struct intel_context *intel )
 {
    /* _NEW_COLOR 
     */
-   if (intel->state.Color->BlendEnabled) {
+   if (1 || intel->state.Color->BlendEnabled) {
       const GLfloat *color = intel->state.Color->BlendColor;
       GLubyte r, g, b, a;
 
@@ -188,11 +188,11 @@ const struct intel_tracked_state i915_upload_BLENDCOLOR = {
  */
 static void upload_IAB( struct intel_context *intel )
 {
-   if (intel->state.Color->BlendEnabled) {      
-      GLuint iab = (_3DSTATE_INDEPENDENT_ALPHA_BLEND_CMD | 
-		    IAB_MODIFY_ENABLE |
-		    0);
+   GLuint iab = (_3DSTATE_INDEPENDENT_ALPHA_BLEND_CMD | 
+		 IAB_MODIFY_ENABLE |
+		 0);
 
+   if (intel->state.Color->BlendEnabled) {      
       GLuint eqRGB = intel->state.Color->BlendEquationRGB;
       GLuint eqA = intel->state.Color->BlendEquationA;
       GLuint srcRGB = intel->state.Color->BlendSrcRGB;
@@ -215,12 +215,12 @@ static void upload_IAB( struct intel_context *intel )
 		 DST_ABLND_FACT(intel_translate_blend_factor(dstA)) |
 		 (i915_translate_blend_equation(eqA) << IAB_FUNC_SHIFT) |
 		 IAB_ENABLE );
-      }
-	 
-      BEGIN_BATCH(1, 0);
-      OUT_BATCH( iab );
-      ADVANCE_BATCH();
+      }	 
    }
+
+   BEGIN_BATCH(1, 0);
+   OUT_BATCH( iab );
+   ADVANCE_BATCH();
 }
 
 const struct intel_tracked_state i915_upload_IAB = {

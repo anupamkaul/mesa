@@ -116,7 +116,7 @@ upload_maps( struct intel_context *intel )
 	  */
 	 i915->state.tex_buffer[i] = driBOReference(intelObj->mt->region->buffer);
 	 i915->state.tex_offset[i] = intel_miptree_image_offset(intelObj->mt, 0,
-								   intelObj-> firstLevel);
+								intelObj-> firstLevel);
 
 	 /* Get first image here, since intelObj->firstLevel will get set in
 	  * the intel_finalize_mipmap_tree() call above.
@@ -140,31 +140,32 @@ upload_maps( struct intel_context *intel )
       }
    }
 
+   if (nr) {
+      BEGIN_BATCH(2 + nr * 3, 0);
+      OUT_BATCH(_3DSTATE_MAP_STATE | (3 * nr));
+      OUT_BATCH(dirty);
 
-   BEGIN_BATCH(2 + nr * 3, 0);
-   OUT_BATCH(_3DSTATE_MAP_STATE | (3 * nr));
-   OUT_BATCH(dirty);
-
-   for (i = 0; i < I915_TEX_UNITS; i++) {
-      if (dirty & (1<<i)) {
+      for (i = 0; i < I915_TEX_UNITS; i++) {
+	 if (dirty & (1<<i)) {
 	 
-	 if (i915->state.tex_buffer[i]) {
-	    OUT_RELOC(i915->state.tex_buffer[i],
-		      DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
-		      DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
-		      i915->state.tex_offset[i]);
-	 }
-	 else {
-	    assert(i == 0);
-	    assert(intel->metaops.active); /* when does this happen? */
-	    OUT_BATCH(0);
-	 }
+	    if (i915->state.tex_buffer[i]) {
+	       OUT_RELOC(i915->state.tex_buffer[i],
+			 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
+			 DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
+			 i915->state.tex_offset[i]);
+	    }
+	    else {
+	       assert(i == 0);
+	       assert(intel->metaops.active); /* when does this happen? */
+	       OUT_BATCH(0);
+	    }
 
-	 OUT_BATCH(state[i][3]);
-	 OUT_BATCH(state[i][4]);
+	    OUT_BATCH(state[i][3]);
+	    OUT_BATCH(state[i][4]);
+	 }
       }
+      ADVANCE_BATCH();
    }
-   ADVANCE_BATCH();
 
 /*    return GL_TRUE; */
 }
