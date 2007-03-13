@@ -46,6 +46,7 @@
 #include "intel_reg.h"
 #include "intel_span.h"
 #include "intel_tex.h"
+#include "intel_state.h"
 
 static void intelRenderPrimitive(GLcontext * ctx, GLenum prim);
 static void intelRasterPrimitive(GLcontext * ctx, GLenum rprim,
@@ -157,7 +158,7 @@ intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords)
  *                    Emit primitives as inline vertices               *
  ***********************************************************************/
 
-#ifdef __i386__
+#if !defined(DEBUG) && defined(__i386__)
 #define COPY_DWORDS( j, vb, vertsize, v )			\
 do {								\
    int __tmp;							\
@@ -172,6 +173,7 @@ do {								\
 do {						\
    for ( j = 0 ; j < vertsize ; j++ ) {		\
       vb[j] = ((GLuint *)v)[j];			\
+      _mesa_printf("%d: %08x (%f)\n", j, vb[j], ((GLfloat *)v)[j]); \
    }						\
    vb += vertsize;				\
 } while (0)
@@ -905,7 +907,10 @@ static void
 intelRenderStart(GLcontext * ctx)
 {
    struct intel_context *intel = intel_context(ctx);
+   TNLcontext *tnl = TNL_CONTEXT(ctx);
+   struct vertex_buffer *VB = &tnl->vb;
 
+   VB->AttribPtr[VERT_ATTRIB_POS] = VB->NdcPtr;
    intel_emit_state(intel);
 }
 
