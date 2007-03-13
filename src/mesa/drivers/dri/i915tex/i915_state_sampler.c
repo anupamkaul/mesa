@@ -86,6 +86,7 @@ static void update_sampler(struct intel_context *intel,
     */
    struct gl_texture_image *firstImage = tObj->Image[0][intelObj->firstLevel];
 
+   state[0] = state[1] = state[2] = 0;
 
    {
       GLuint minFilt, mipFilt, magFilt;
@@ -206,7 +207,7 @@ static void update_sampler(struct intel_context *intel,
 	  (unit << SS3_TEXTUREMAP_INDEX_SHIFT));
 
       /* Or some field in tObj? */
-      if (intel->state.Texture->Unit[unit]._ReallyEnabled == TEXTURE_RECT_BIT)
+      if (intel->state.Texture->Unit[unit]._ReallyEnabled != TEXTURE_RECT_BIT)
 	 state[1] |= SS3_NORMALIZED_COORDS;
    }
 

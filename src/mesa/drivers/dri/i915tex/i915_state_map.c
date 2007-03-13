@@ -160,8 +160,8 @@ upload_maps( struct intel_context *intel )
 	       OUT_BATCH(0);
 	    }
 
-	    OUT_BATCH(state[i][3]);
-	    OUT_BATCH(state[i][4]);
+	    OUT_BATCH(state[i][0]);
+	    OUT_BATCH(state[i][1]);
 	 }
       }
       ADVANCE_BATCH();
