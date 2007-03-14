@@ -147,29 +147,29 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 #define BEGIN_BATCH_SEGMENT(seg, n, flags) do {				\
    assert(!intel->prim.flush);					\
    intel_batchbuffer_require_space(intel->batch, seg, (n)*4, flags);	\
-   _mesa_printf("BEGIN_BATCH(%d,%d,%d) in %s\n", seg, n, flags, __FUNCTION__); \
+   if (0) _mesa_printf("BEGIN_BATCH(%d,%d,%d) in %s\n", seg, n, flags, __FUNCTION__); \
 } while (0)
 
 #define OUT_BATCH_SEGMENT(seg, d) do {				\
-      _mesa_printf("OUT_BATCH(%d, 0x%08x)\n", seg, d);  		\
+      if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x)\n", seg, d);  		\
       intel_batchbuffer_emit_dword(intel->batch, seg, d);	\
 } while (0)
 
 #define OUT_BATCH_F_SEGMENT(seg, fl) do {			\
    fi_type fi;					\
    fi.f = fl;					\
-   _mesa_printf("OUT_BATCH(%d, 0x%08x)\n", seg, fi.i);  \
+   if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x)\n", seg, fi.i);  \
    intel_batchbuffer_emit_dword(intel->batch, seg, fi.i);	\
 } while (0)
 
 #define OUT_RELOC_SEGMENT(seg, buf,flags,mask,delta) do {				\
    assert((delta) >= 0);						\
-   _mesa_printf("OUT_RELOC( seg %d buf %p offset %x )\n", seg, buf, delta);		\
+   if (0) _mesa_printf("OUT_RELOC( seg %d buf %p offset %x )\n", seg, buf, delta);		\
    intel_batchbuffer_emit_reloc(intel->batch, seg, buf, flags, mask, delta);	\
 } while (0)
 
 #define ADVANCE_BATCH_SEGMENT(seg) do { \
-   _mesa_printf("ADVANCE_BATCH()\n");		\
+   if (0) _mesa_printf("ADVANCE_BATCH()\n");		\
 } while(0)
 
 

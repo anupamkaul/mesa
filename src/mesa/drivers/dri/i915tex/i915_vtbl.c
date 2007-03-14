@@ -165,11 +165,6 @@ static GLuint emit_indirect(struct intel_context *intel,
    GLuint delta;
    GLuint segment;
 
-   if (!state) {
-      segment = 0; 
-      goto out;
-   }
-
    switch (flag) {
    case LI0_STATE_DYNAMIC_INDIRECT:
       segment = SEGMENT_DYNAMIC_INDIRECT;
@@ -180,11 +175,12 @@ static GLuint emit_indirect(struct intel_context *intel,
        * like.
        */
       delta = ((intel->batch->segment_finish_offset[segment] + size - 4) |
-	       DIS0_BUFFER_VALID |
-	 DIS0_BUFFER_RESET);
+	       DIS0_BUFFER_VALID | 
+	       DIS0_BUFFER_RESET);
+
 
       BEGIN_BATCH(2,0);
-      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | flag | (1<<14));
+      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | flag | (1<<14) | 0);
       OUT_RELOC( intel->batch->buffer, 
 		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
 		 DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
@@ -215,7 +211,6 @@ static GLuint emit_indirect(struct intel_context *intel,
       break;
    }
 
- out:
    { 
       GLuint offset = intel->batch->segment_finish_offset[segment];
       intel->batch->segment_finish_offset[segment] += size;
@@ -223,22 +218,10 @@ static GLuint emit_indirect(struct intel_context *intel,
       if (state != NULL)
 	 memcpy(intel->batch->map + offset, state, size);
 
-      _mesa_printf("returning offset 0x%x\n", offset);
       return offset;
    }
 }
 
-
-static void emit(struct intel_context *intel, 
-		 const GLuint *state, GLuint size )
-{
-   GLint i;
-
-   BEGIN_BATCH( size/4, 0 );
-   for (i = 0; i < size/4; i++)
-      OUT_BATCH( state[i] );
-   ADVANCE_BATCH( );
-}
 
 static void
 i915_emit_invarient_state(struct intel_context *intel)
@@ -313,19 +296,9 @@ i915_emit_invarient_state(struct intel_context *intel)
 
       (_3DSTATE_BACKFACE_STENCIL_OPS | BFO_ENABLE_STENCIL_TWO_SIDE | 0)
    };
-
-   /* Do this once for initialization.  Not really needed if we do
-    * other indirect state later.
-    */
-#if 0
-   BEGIN_BATCH(2, 0);
-   OUT_BATCH(_3DSTATE_LOAD_INDIRECT | 0);
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-#endif
    
    emit_indirect( intel,
-		  LI0_STATE_STATIC_INDIRECT,
+ 		  LI0_STATE_STATIC_INDIRECT, 
 		  invarient_state,
 		  sizeof(invarient_state) );
 }
@@ -386,7 +359,7 @@ get_state_size(struct i915_hw_state *state)
 }
 
 #define OUT(x) do {				\
-  _mesa_printf("OUT(0x%08x)\n", x);		\
+  if (0) _mesa_printf("OUT(0x%08x)\n", x);		\
  *p++ = (x);					\
 } while(0)
 
@@ -424,13 +397,16 @@ i915_emit_state(struct intel_context *intel)
     * restart.
     */
    if (dirty & (I915_UPLOAD_INVARIENT | I915_UPLOAD_BUFFERS)) {
-      fprintf(stderr, "I915_UPLOAD_INVARIENT:\n");
+      if (INTEL_DEBUG & DEBUG_STATE)
+	 fprintf(stderr, "I915_UPLOAD_INVARIENT:\n");
+
       i915_emit_invarient_state(intel);
 
-      fprintf(stderr, "I915_UPLOAD_BUFFERS:\n");
+      if (INTEL_DEBUG & DEBUG_STATE)
+	 fprintf(stderr, "I915_UPLOAD_BUFFERS:\n");
 
-      /* This needs to go in dynamic indirect state, once that is
-       * working...
+      /* Does this go in dynamic indirect state, or static indirect
+       * state???
        */
       BEGIN_BATCH(3, 0);
       OUT_BATCH(state->Buffer[I915_DESTREG_CBUFADDR0]);
@@ -458,7 +434,7 @@ i915_emit_state(struct intel_context *intel)
       ADVANCE_BATCH();
 
 #if 0
-      /* What happens to scissor?
+      /* Where does scissor go?
        */
       OUT_BATCH(state->Buffer[I915_DESTREG_SENABLE]);
       OUT_BATCH(state->Buffer[I915_DESTREG_SR0]);
@@ -468,8 +444,11 @@ i915_emit_state(struct intel_context *intel)
    }
 
    if (dirty & I915_UPLOAD_CTX) {
-      fprintf(stderr, "I915_UPLOAD_CTX:\n");
+      if (INTEL_DEBUG & DEBUG_STATE)
+	 fprintf(stderr, "I915_UPLOAD_CTX:\n");
 
+      /* Immediate state: always goes in the batchbuffer.
+       */
       BEGIN_BATCH(5, 0);
       OUT_BATCH(state->Ctx[I915_CTXREG_LI]);
       OUT_BATCH(state->Ctx[I915_CTXREG_LIS2]);
@@ -477,20 +456,11 @@ i915_emit_state(struct intel_context *intel)
       OUT_BATCH(state->Ctx[I915_CTXREG_LIS5]);
       OUT_BATCH(state->Ctx[I915_CTXREG_LIS6]);
       ADVANCE_BATCH();
-
-#if 0
+      
       emit_indirect(intel, 
 		    LI0_STATE_DYNAMIC_INDIRECT,
 		    state->Ctx + I915_CTXREG_STATE4, 
 		    4 * sizeof(GLuint) );
-#else
-      BEGIN_BATCH(4, 0); 
-      OUT_BATCH(state->Ctx[I915_CTXREG_STATE4]); 
-      OUT_BATCH(state->Ctx[I915_CTXREG_IAB]); 
-      OUT_BATCH(state->Ctx[I915_CTXREG_BLENDCOLOR0]); 
-      OUT_BATCH(state->Ctx[I915_CTXREG_BLENDCOLOR1]); 
-      ADVANCE_BATCH();
-#endif
    }
 
 
@@ -506,11 +476,14 @@ i915_emit_state(struct intel_context *intel)
          if (dirty & I915_UPLOAD_TEX(i))
             nr++;
 
+      /* A bit of a nasty kludge so that we can setup the relocation
+       * information for the buffer address in the indirect state
+       * packet:
+       */
       offset = emit_indirect(intel, 
 			     LI0_STATE_MAP,
 			     NULL,
 			     (2 + nr * 3) * sizeof(GLuint) );
-
       
       p = (GLuint *)(intel->batch->map + offset);
       
@@ -540,7 +513,9 @@ i915_emit_state(struct intel_context *intel)
 
 
 
-      fprintf(stderr, "UPLOAD SAMPLERS:\n");
+      if (INTEL_DEBUG & DEBUG_STATE)
+	 fprintf(stderr, "UPLOAD SAMPLERS:\n");
+
       offset = emit_indirect(intel, 
 			     LI0_STATE_SAMPLER,
 			     NULL,
@@ -562,16 +537,13 @@ i915_emit_state(struct intel_context *intel)
    }
 
    if (dirty & I915_UPLOAD_PROGRAM) {
-      fprintf(stderr, "I915_UPLOAD_PROGRAM:\n");
+      if (INTEL_DEBUG & DEBUG_STATE)
+	 fprintf(stderr, "I915_UPLOAD_PROGRAM:\n");
 
       assert((state->Program[0] & 0x1ff) + 2 == state->ProgramSize);
 
-#if 1
       emit_indirect(intel, LI0_STATE_PROGRAM,
 		    state->Program, state->ProgramSize * sizeof(GLuint));
-#else
-      emit(intel, state->Program, state->ProgramSize * sizeof(GLuint));
-#endif
 
       if (INTEL_DEBUG & DEBUG_STATE)
          i915_disassemble_program(state->Program, state->ProgramSize);
@@ -579,13 +551,11 @@ i915_emit_state(struct intel_context *intel)
 
 
    if (dirty & I915_UPLOAD_CONSTANTS) {
-      fprintf(stderr, "I915_UPLOAD_CONSTANTS:\n");
-#if 1
+      if (INTEL_DEBUG & DEBUG_STATE)
+	 fprintf(stderr, "I915_UPLOAD_CONSTANTS:\n");
+
       emit_indirect(intel, LI0_STATE_CONSTANTS,
 		    state->Constant, state->ConstantSize * sizeof(GLuint));
-#else
-      emit(intel, state->Constant, state->ConstantSize * sizeof(GLuint));
-#endif
    }
 
 
