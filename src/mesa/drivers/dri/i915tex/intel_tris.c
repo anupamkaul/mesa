@@ -923,6 +923,12 @@ intelRenderFinish(GLcontext * ctx)
       _swrast_flush(ctx);
 
    INTEL_FIREVERTICES(intel);
+
+   if (intel->state.vbo) {      
+      intel->state.vbo = 0;
+      intel->state.vbo_offset = 0;
+   }
+   
 }
 
 
