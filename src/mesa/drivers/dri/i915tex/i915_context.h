@@ -66,12 +66,12 @@
 #define I915_DESTREG_SR2 11
 #define I915_DEST_SETUP_SIZE 12
 
-#define I915_CTXREG_STATE4		0
-#define I915_CTXREG_LI	        	1
-#define I915_CTXREG_LIS2		        2
-#define I915_CTXREG_LIS4	        	3
-#define I915_CTXREG_LIS5	        	4
-#define I915_CTXREG_LIS6	         	5
+#define I915_CTXREG_LI	        	0
+#define I915_CTXREG_LIS2		1
+#define I915_CTXREG_LIS4	        2
+#define I915_CTXREG_LIS5	        3
+#define I915_CTXREG_LIS6	        4
+#define I915_CTXREG_STATE4		5
 #define I915_CTXREG_IAB   	 	6
 #define I915_CTXREG_BLENDCOLOR0		7
 #define I915_CTXREG_BLENDCOLOR1		8

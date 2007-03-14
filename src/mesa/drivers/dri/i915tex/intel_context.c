@@ -263,7 +263,7 @@ intelFlush(GLcontext * ctx)
 
    INTEL_FIREVERTICES(intel);
 
-   if (intel->batch->map != intel->batch->ptr)
+   if (intel->batch->segment_finish_offset[0] != 0)
       intel_batchbuffer_flush(intel->batch);
 
    /* XXX: Need to do an MI_FLUSH here.

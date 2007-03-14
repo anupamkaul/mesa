@@ -66,15 +66,45 @@
  * server automatically waits on its own dma to complete before
  * modifying cliprects ???
  */
-
-static void
-intel_dump_batchbuffer(GLuint offset, GLuint * ptr, GLuint count)
+static void dump(GLuint offset, GLuint *ptr, GLuint count)
 {
-   int i;
-   fprintf(stderr, "\n\n\nSTART BATCH (%d dwords):\n", count / 4);
-   for (i = 0; i < count / 4; i += 4)
+   GLuint i;
+
+#if 0
+   for (i = 0; i < count; i += 4)
       fprintf(stderr, "0x%x:\t0x%08x 0x%08x 0x%08x 0x%08x\n",
               offset + i * 4, ptr[i], ptr[i + 1], ptr[i + 2], ptr[i + 3]);
+#else
+   for (i = 0; i < count; i++)
+      fprintf(stderr, "0x%x:\t0x%08x\n",
+              offset + i * 4, ptr[i]);
+#endif
+}
+
+
+static void
+intel_dump_batchbuffer(struct intel_batchbuffer *batch, GLubyte *map)
+{
+   GLuint *ptr = (GLuint *)map;
+   GLuint count = batch->segment_finish_offset[0];
+   GLuint buf = driBOOffset(batch->buffer);
+
+   fprintf(stderr, "\n\n\nIMMEDIATE: (%d)\n", count / 4);
+   dump( buf, ptr, count/4 );
+   fprintf(stderr, "END BATCH\n\n\n");
+
+   count = batch->segment_finish_offset[1] - batch->segment_start_offset[1];
+   ptr = (GLuint *)(map + batch->segment_start_offset[1]);
+
+   fprintf(stderr, "\n\n\nDYNAMIC: (%d)\n", count / 4);
+   dump( buf, ptr, count/4 );
+   fprintf(stderr, "END BATCH\n\n\n");
+
+   count = batch->segment_finish_offset[2] - batch->segment_start_offset[2];
+   ptr = (GLuint *)(map + batch->segment_start_offset[2]);
+
+   fprintf(stderr, "\n\n\nOTHER INDIRECT: (%d)\n", count / 4);
+   dump( buf, ptr, count/4 );
    fprintf(stderr, "END BATCH\n\n\n");
 }
 
@@ -99,7 +129,8 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
 
    for (i = 0; i < batch->nr_relocs; i++) {
       struct buffer_reloc *r = &batch->reloc[i];
-      driBOUnReference(r->buf);
+      if (r->buf != batch->buffer)
+	 driBOUnReference(r->buf);
    }
 
    batch->list_count = 0;
@@ -118,7 +149,10 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
 
 
    batch->map = driBOMap(batch->buffer, DRM_BO_FLAG_WRITE, 0);
-   batch->ptr = batch->map;
+
+   batch->segment_finish_offset[0] = batch->segment_start_offset[0];
+   batch->segment_finish_offset[1] = batch->segment_start_offset[1];
+   batch->segment_finish_offset[2] = batch->segment_start_offset[2];
 }
 
 /*======================================================================
@@ -136,6 +170,19 @@ intel_batchbuffer_alloc(struct intel_context *intel)
                  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE, 0);
    batch->last_fence = NULL;
    driBOCreateList(20, &batch->list);
+
+   batch->segment_start_offset[0] = 0 * SEGMENT_SZ;
+   batch->segment_start_offset[1] = 1 * SEGMENT_SZ;
+   batch->segment_start_offset[2] = 2 * SEGMENT_SZ;
+
+   batch->segment_finish_offset[0] = 0 * SEGMENT_SZ;
+   batch->segment_finish_offset[1] = 1 * SEGMENT_SZ;
+   batch->segment_finish_offset[2] = 2 * SEGMENT_SZ;
+
+   batch->segment_max_offset[0] = 1 * SEGMENT_SZ - BATCH_RESERVED;
+   batch->segment_max_offset[1] = 2 * SEGMENT_SZ;
+   batch->segment_max_offset[2] = 3 * SEGMENT_SZ;
+
    intel_batchbuffer_reset(batch);
    return batch;
 }
@@ -187,8 +234,8 @@ do_flush_locked(struct intel_batchbuffer *batch,
       ptr[r->offset / 4] = driBOOffset(r->buf) + r->delta;
    }
 
-   if (INTEL_DEBUG & DEBUG_BATCH)
-      intel_dump_batchbuffer(0, ptr, used);
+/*    if (INTEL_DEBUG & DEBUG_BATCH) */
+      intel_dump_batchbuffer(batch, ptr);
 
    driBOUnmap(batch->buffer);
    batch->map = NULL;
@@ -252,8 +299,9 @@ struct _DriFenceObject *
 intel_batchbuffer_flush(struct intel_batchbuffer *batch)
 {
    struct intel_context *intel = batch->intel;
-   GLuint used = batch->ptr - batch->map;
+   GLuint used = batch->segment_finish_offset[0] - batch->segment_start_offset[0];
    GLboolean was_locked = intel->locked;
+   GLint *ptr = (GLint *)(batch->map + batch->segment_finish_offset[0]);
 
    if (used == 0)
       return batch->last_fence;
@@ -265,19 +313,18 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
     * performance drain that we would like to avoid.
     */
    if (used & 4) {
-      ((int *) batch->ptr)[0] = intel->vtbl.flush_cmd();
-      ((int *) batch->ptr)[1] = 0;
-      ((int *) batch->ptr)[2] = MI_BATCH_BUFFER_END;
+      ptr[0] = intel->vtbl.flush_cmd();
+      ptr[1] = 0;
+      ptr[2] = MI_BATCH_BUFFER_END;
       used += 12;
    }
    else {
-      ((int *) batch->ptr)[0] = intel->vtbl.flush_cmd();
-      ((int *) batch->ptr)[1] = MI_BATCH_BUFFER_END;
+      ptr[0] = intel->vtbl.flush_cmd();
+      ptr[1] = MI_BATCH_BUFFER_END;
       used += 8;
    }
 
    driBOUnmap(batch->buffer);
-   batch->ptr = NULL;
    batch->map = NULL;
 
    /* TODO: Just pass the relocation list and dma buffer up to the
@@ -312,33 +359,38 @@ intel_batchbuffer_finish(struct intel_batchbuffer *batch)
  */
 GLboolean
 intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
+			     GLuint segment,
                              struct _DriBufferObject *buffer,
                              GLuint flags, GLuint mask, GLuint delta)
 {
    assert(batch->nr_relocs < MAX_RELOCS);
 
-   driBOAddListItem(&batch->list, buffer, flags, mask);
+   if (buffer != batch->buffer)
+      driBOAddListItem(&batch->list, buffer, flags, mask);
 
    {
       struct buffer_reloc *r = &batch->reloc[batch->nr_relocs++];
-      driBOReference(buffer);
+
+      if (buffer != batch->buffer)
+	 driBOReference(buffer);
+
       r->buf = buffer;
-      r->offset = batch->ptr - batch->map;
+      r->offset = batch->segment_finish_offset[segment];
       r->delta = delta;
    }
 
-   batch->ptr += 4;
+   batch->segment_finish_offset[segment] += 4;
    return GL_TRUE;
 }
 
 
-
 void
 intel_batchbuffer_data(struct intel_batchbuffer *batch,
+		       GLuint segment,
                        const void *data, GLuint bytes, GLuint flags)
 {
    assert((bytes & 3) == 0);
-   intel_batchbuffer_require_space(batch, bytes, flags);
-   __memcpy(batch->ptr, data, bytes);
-   batch->ptr += bytes;
+   intel_batchbuffer_require_space(batch, segment, bytes, flags);
+   __memcpy(batch->map + batch->segment_finish_offset[segment], data, bytes);
+   batch->segment_finish_offset[segment] += bytes;
 }

@@ -157,71 +157,171 @@ i915_check_vertex_size(struct intel_context *intel, GLuint expected)
    return sz == expected;
 }
 
+static GLuint *emit_indirect(struct intel_context *intel, 
+			     GLuint flag,
+			     const GLuint *state,
+			     GLuint size )
+{
+   GLint i;
+   GLuint delta;
+   GLuint segment;
+   GLuint *ptr;
+
+   switch (flag) {
+   case LI0_STATE_DYNAMIC_INDIRECT:
+      segment = SEGMENT_DYNAMIC_INDIRECT;
+
+      /* Dynamic indirect state is different - tell it the ending
+       * address, it will execute from either the previous end address
+       * or the beginning of the 4k page, depending on what it feels
+       * like.
+       */
+      delta = ((intel->batch->segment_finish_offset[segment] + size - 4) |
+	       DIS0_BUFFER_VALID |
+	 DIS0_BUFFER_RESET);
+
+      BEGIN_BATCH(2,0);
+      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | flag | (1<<14));
+      OUT_RELOC( intel->batch->buffer, 
+		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
+		 DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
+		 delta );
+      ADVANCE_BATCH();
+      break;
+
+   default:
+      segment = SEGMENT_OTHER_INDIRECT;
+
+      /* Other state is more conventional: tell the hardware the start
+       * point and size.
+       */
+      delta = (intel->batch->segment_finish_offset[segment] |
+	       SIS0_FORCE_LOAD | /* XXX: fix me */
+	       SIS0_BUFFER_VALID);
+
+      BEGIN_BATCH(3,0);
+      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | flag | (1<<14) | 1);
+      OUT_RELOC( intel->batch->buffer, 
+		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
+		 DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
+		 delta );
+      OUT_BATCH( (size/4)-1 );
+      ADVANCE_BATCH();
+
+      
+      break;
+   }
+	      
+   /* Now emit the indirect state.  XXX: better not flush! 
+    */
+   BEGIN_BATCH_SEGMENT( segment, size/4, 0 );
+   for (i = 0; i < size/4; i++)
+      OUT_BATCH_SEGMENT( segment, state[i] );
+   ADVANCE_BATCH_SEGMENT( segment );
+}
+
+
+static void emit(struct intel_context *intel, const GLuint *state, GLuint size )
+{
+   GLint i;
+
+   BEGIN_BATCH( size/4, 0 );
+   for (i = 0; i < size/4; i++)
+      OUT_BATCH( state[i] );
+   ADVANCE_BATCH( );
+}
 
 static void
 i915_emit_invarient_state(struct intel_context *intel)
 {
-   BATCH_LOCALS;
+   static GLuint invarient_state[] = {
 
-   BEGIN_BATCH(200, 0);
+      (_3DSTATE_AA_CMD |
+       AA_LINE_ECAAR_WIDTH_ENABLE |
+       AA_LINE_ECAAR_WIDTH_1_0 |
+       AA_LINE_REGION_WIDTH_ENABLE | 
+       AA_LINE_REGION_WIDTH_1_0),
 
-   OUT_BATCH(_3DSTATE_AA_CMD |
-             AA_LINE_ECAAR_WIDTH_ENABLE |
-             AA_LINE_ECAAR_WIDTH_1_0 |
-             AA_LINE_REGION_WIDTH_ENABLE | AA_LINE_REGION_WIDTH_1_0);
+      /* Could use these to reduce the size of vertices when the incoming
+       * array is constant.
+       */
+      (_3DSTATE_DFLT_DIFFUSE_CMD),
+      (0),
 
-   OUT_BATCH(_3DSTATE_DFLT_DIFFUSE_CMD);
-   OUT_BATCH(0);
+      (_3DSTATE_DFLT_SPEC_CMD),
+      (0),
 
-   OUT_BATCH(_3DSTATE_DFLT_SPEC_CMD);
-   OUT_BATCH(0);
+      (_3DSTATE_DFLT_Z_CMD),
+      (0),
 
-   OUT_BATCH(_3DSTATE_DFLT_Z_CMD);
-   OUT_BATCH(0);
+      /* We support texture crossbar via the fragment shader, rather than
+       * with this mechanism.
+       */
+      (_3DSTATE_COORD_SET_BINDINGS |
+       CSB_TCB(0, 0) |
+       CSB_TCB(1, 1) |
+       CSB_TCB(2, 2) |
+       CSB_TCB(3, 3) |
+       CSB_TCB(4, 4) |
+       CSB_TCB(5, 5) | 
+       CSB_TCB(6, 6) | 
+       CSB_TCB(7, 7)),
 
-   /* Don't support texture crossbar yet */
-   OUT_BATCH(_3DSTATE_COORD_SET_BINDINGS |
-             CSB_TCB(0, 0) |
-             CSB_TCB(1, 1) |
-             CSB_TCB(2, 2) |
-             CSB_TCB(3, 3) |
-             CSB_TCB(4, 4) | CSB_TCB(5, 5) | CSB_TCB(6, 6) | CSB_TCB(7, 7));
+      /* Setup OpenGL rasterization state:
+       */
+      (_3DSTATE_RASTER_RULES_CMD |
+       ENABLE_POINT_RASTER_RULE |
+       OGL_POINT_RASTER_RULE |
+       ENABLE_LINE_STRIP_PROVOKE_VRTX |
+       ENABLE_TRI_FAN_PROVOKE_VRTX |
+       LINE_STRIP_PROVOKE_VRTX(1) |
+       TRI_FAN_PROVOKE_VRTX(2) | 
+       ENABLE_TEXKILL_3D_4D | 
+       TEXKILL_4D),
 
-   OUT_BATCH(_3DSTATE_RASTER_RULES_CMD |
-             ENABLE_POINT_RASTER_RULE |
-             OGL_POINT_RASTER_RULE |
-             ENABLE_LINE_STRIP_PROVOKE_VRTX |
-             ENABLE_TRI_FAN_PROVOKE_VRTX |
-             LINE_STRIP_PROVOKE_VRTX(1) |
-             TRI_FAN_PROVOKE_VRTX(2) | ENABLE_TEXKILL_3D_4D | TEXKILL_4D);
+      /* Need to initialize this to zero.
+       */
+      (_3DSTATE_LOAD_STATE_IMMEDIATE_1 | 
+       I1_LOAD_S(3) | 
+       (1)),
+      (0),
 
-   /* Need to initialize this to zero.
+      (_3DSTATE_SCISSOR_ENABLE_CMD | DISABLE_SCISSOR_RECT),
+      (_3DSTATE_SCISSOR_RECT_0_CMD),
+      (0),
+      (0),
+
+      /* Turn off stipple for now
+       */
+      _3DSTATE_STIPPLE,
+      0,
+
+      /* For private depth buffers but shared color buffers, eg
+       * front-buffer rendering with a private depthbuffer.  We don't do
+       * this.
+       */
+      (_3DSTATE_DEPTH_SUBRECT_DISABLE),
+
+      (_3DSTATE_BACKFACE_STENCIL_OPS | BFO_ENABLE_STENCIL_TWO_SIDE | 0)
+   };
+
+   /* Do this once for initialization.  Not really needed if we do
+    * other indirect state later.
     */
-   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 | I1_LOAD_S(3) | (1));
+   BEGIN_BATCH(2, 0);
+   OUT_BATCH(_3DSTATE_LOAD_INDIRECT | 0);
    OUT_BATCH(0);
-
-   /* XXX: Use this */
-   OUT_BATCH(_3DSTATE_SCISSOR_ENABLE_CMD | DISABLE_SCISSOR_RECT);
-
-   OUT_BATCH(_3DSTATE_SCISSOR_RECT_0_CMD);
-   OUT_BATCH(0);
-   OUT_BATCH(0);
-
-   OUT_BATCH(_3DSTATE_DEPTH_SUBRECT_DISABLE);
-
-   OUT_BATCH(_3DSTATE_LOAD_INDIRECT | 0);       /* disable indirect state */
-   OUT_BATCH(0);
-
-
-   /* Don't support twosided stencil yet */
-   OUT_BATCH(_3DSTATE_BACKFACE_STENCIL_OPS | BFO_ENABLE_STENCIL_TWO_SIDE | 0);
-
    ADVANCE_BATCH();
+
+   
+
+   emit_indirect( intel,
+ 		  LI0_STATE_STATIC_INDIRECT, 
+		  invarient_state,
+		  sizeof(invarient_state) );
 }
 
 
-#define emit(intel, state, size )		     \
-   intel_batchbuffer_data(intel->batch, state, size, 0 )
 
 static GLuint
 get_dirty(struct i915_hw_state *state)
@@ -284,7 +384,6 @@ i915_emit_state(struct intel_context *intel)
 {
    struct i915_context *i915 = i915_context(&intel->ctx);
    struct i915_hw_state *state = i915->current;
-   int i;
    GLuint dirty;
    BATCH_LOCALS;
 
@@ -295,7 +394,8 @@ i915_emit_state(struct intel_context *intel)
     * scheduling is allowed, rather than assume that it is whenever a
     * batchbuffer fills up.
     */
-   intel_batchbuffer_require_space(intel->batch, get_state_size(state), 0);
+   intel_batchbuffer_require_space(intel->batch, 0,
+				   get_state_size(state), 0);
 
    /* Do this here as we may have flushed the batchbuffer above,
     * causing more state to be dirty!
@@ -305,121 +405,160 @@ i915_emit_state(struct intel_context *intel)
    if (INTEL_DEBUG & DEBUG_STATE)
       fprintf(stderr, "%s dirty: %x\n", __FUNCTION__, dirty);
 
-   if (dirty & I915_UPLOAD_INVARIENT) {
-      if (INTEL_DEBUG & DEBUG_STATE)
-         fprintf(stderr, "I915_UPLOAD_INVARIENT:\n");
+   /* This should not change during a scene for HWZ, correct?
+    *
+    * If it does change, we probably have to flush everything and
+    * restart.
+    */
+   if (dirty & (I915_UPLOAD_INVARIENT | I915_UPLOAD_BUFFERS)) {
+      fprintf(stderr, "I915_UPLOAD_INVARIENT:\n");
       i915_emit_invarient_state(intel);
-   }
 
-   if (dirty & I915_UPLOAD_CTX) {
-      if (INTEL_DEBUG & DEBUG_STATE)
-         fprintf(stderr, "I915_UPLOAD_CTX:\n");
-
-      emit(intel, state->Ctx, sizeof(state->Ctx));
-   }
-
-   if (dirty & I915_UPLOAD_BUFFERS) {
-      if (INTEL_DEBUG & DEBUG_STATE)
-         fprintf(stderr, "I915_UPLOAD_BUFFERS:\n");
-      BEGIN_BATCH(I915_DEST_SETUP_SIZE + 2, 0);
+      fprintf(stderr, "I915_UPLOAD_BUFFERS:\n");
+      /* This state cannot be handled by the hardware binner.  There
+       * is no need to put it in an indirect buffer.
+       */
+      BEGIN_BATCH(3, 0);
       OUT_BATCH(state->Buffer[I915_DESTREG_CBUFADDR0]);
       OUT_BATCH(state->Buffer[I915_DESTREG_CBUFADDR1]);
       OUT_RELOC(state->draw_region->buffer,
                 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_WRITE,
                 DRM_BO_MASK_MEM | DRM_BO_FLAG_WRITE,
                 state->draw_region->draw_offset);
+      ADVANCE_BATCH();
 
       if (state->depth_region) {
+	 BEGIN_BATCH(3, 0);
          OUT_BATCH(state->Buffer[I915_DESTREG_DBUFADDR0]);
          OUT_BATCH(state->Buffer[I915_DESTREG_DBUFADDR1]);
          OUT_RELOC(state->depth_region->buffer,
                    DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_WRITE,
                    DRM_BO_MASK_MEM | DRM_BO_FLAG_WRITE,
                    state->depth_region->draw_offset);
+	 ADVANCE_BATCH();
       }
 
+      BEGIN_BATCH(2, 0);
       OUT_BATCH(state->Buffer[I915_DESTREG_DV0]);
       OUT_BATCH(state->Buffer[I915_DESTREG_DV1]);
+      ADVANCE_BATCH();
+
+#if 0
+      /* Scissoring not allowed - what to do about this? 
+       */
       OUT_BATCH(state->Buffer[I915_DESTREG_SENABLE]);
       OUT_BATCH(state->Buffer[I915_DESTREG_SR0]);
       OUT_BATCH(state->Buffer[I915_DESTREG_SR1]);
       OUT_BATCH(state->Buffer[I915_DESTREG_SR2]);
+#endif
+   }
+
+   if (dirty & I915_UPLOAD_CTX) {
+      fprintf(stderr, "I915_UPLOAD_CTX:\n");
+
+      BEGIN_BATCH(5, 0);
+      OUT_BATCH(state->Ctx[I915_CTXREG_LI]);
+      OUT_BATCH(state->Ctx[I915_CTXREG_LIS2]);
+      OUT_BATCH(state->Ctx[I915_CTXREG_LIS4]);
+      OUT_BATCH(state->Ctx[I915_CTXREG_LIS5]);
+      OUT_BATCH(state->Ctx[I915_CTXREG_LIS6]);
       ADVANCE_BATCH();
+
+#if 0
+      emit_indirect(intel, LI0_STATE_DYNAMIC_INDIRECT,
+		    state->Ctx + I915_CTXREG_STATE4, 
+		    4 * sizeof(GLuint) );
+#else
+       BEGIN_BATCH(4, 0); 
+       OUT_BATCH(state->Ctx[I915_CTXREG_STATE4]); 
+       OUT_BATCH(state->Ctx[I915_CTXREG_IAB]); 
+       OUT_BATCH(state->Ctx[I915_CTXREG_BLENDCOLOR0]); 
+       OUT_BATCH(state->Ctx[I915_CTXREG_BLENDCOLOR1]); 
+       ADVANCE_BATCH();
+#endif
    }
 
-   if (dirty & I915_UPLOAD_STIPPLE) {
-      if (INTEL_DEBUG & DEBUG_STATE)
-         fprintf(stderr, "I915_UPLOAD_STIPPLE:\n");
-      emit(intel, state->Stipple, sizeof(state->Stipple));
-   }
-
-   if (dirty & I915_UPLOAD_FOG) {
-      if (INTEL_DEBUG & DEBUG_STATE)
-         fprintf(stderr, "I915_UPLOAD_FOG:\n");
-      emit(intel, state->Fog, sizeof(state->Fog));
-   }
 
    /* Combine all the dirty texture state into a single command to
     * avoid lockups on I915 hardware. 
     */
    if (dirty & I915_UPLOAD_TEX_ALL) {
+      assert(0);
+#if 0
+      GLuint buf[2 + I915_TEX_UNITS * 3];
       int nr = 0;
 
       for (i = 0; i < I915_TEX_UNITS; i++)
          if (dirty & I915_UPLOAD_TEX(i))
             nr++;
 
-      BEGIN_BATCH(2 + nr * 3, 0);
-      OUT_BATCH(_3DSTATE_MAP_STATE | (3 * nr));
-      OUT_BATCH((dirty & I915_UPLOAD_TEX_ALL) >> I915_UPLOAD_TEX_0_SHIFT);
+      fprintf(stderr, "UPLOAD MAPS:\n");
+
+      BEGIN_STATIC(2 + nr * 3, LI0_STATE_MAP);
+      OUT_STATIC(_3DSTATE_MAP_STATE | (3 * nr));
+      OUT_STATIC((dirty & I915_UPLOAD_TEX_ALL) >> I915_UPLOAD_TEX_0_SHIFT);
       for (i = 0; i < I915_TEX_UNITS; i++)
          if (dirty & I915_UPLOAD_TEX(i)) {
 
             if (state->tex_buffer[i]) {
-               OUT_RELOC(state->tex_buffer[i],
-                         DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
-                         DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
-                         state->tex_offset[i]);
+               OUT_STATIC_RELOC(state->tex_buffer[i],
+				  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
+				  DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
+				  state->tex_offset[i]);
             }
             else {
                assert(i == 0);
                assert(state == &i915->meta);
-               OUT_BATCH(0);
+               OUT_STATIC(0);
             }
 
-            OUT_BATCH(state->Tex[i][I915_TEXREG_MS3]);
-            OUT_BATCH(state->Tex[i][I915_TEXREG_MS4]);
+            OUT_STATIC(state->Tex[i][I915_TEXREG_MS3]);
+            OUT_STATIC(state->Tex[i][I915_TEXREG_MS4]);
          }
-      ADVANCE_BATCH();
+      ADVANCE_STATIC();
 
-      BEGIN_BATCH(2 + nr * 3, 0);
-      OUT_BATCH(_3DSTATE_SAMPLER_STATE | (3 * nr));
-      OUT_BATCH((dirty & I915_UPLOAD_TEX_ALL) >> I915_UPLOAD_TEX_0_SHIFT);
+
+      fprintf(stderr, "UPLOAD SAMPLERS:\n");
+      BEGIN_STATIC(2 + nr * 3, LI0_STATE_SAMPLER);
+      OUT_STATIC(_3DSTATE_SAMPLER_STATE | (3 * nr));
+      OUT_STATIC((dirty & I915_UPLOAD_TEX_ALL) >> I915_UPLOAD_TEX_0_SHIFT);
       for (i = 0; i < I915_TEX_UNITS; i++)
          if (dirty & I915_UPLOAD_TEX(i)) {
-            OUT_BATCH(state->Tex[i][I915_TEXREG_SS2]);
-            OUT_BATCH(state->Tex[i][I915_TEXREG_SS3]);
-            OUT_BATCH(state->Tex[i][I915_TEXREG_SS4]);
+            OUT_STATIC(state->Tex[i][I915_TEXREG_SS2]);
+            OUT_STATIC(state->Tex[i][I915_TEXREG_SS3]);
+            OUT_STATIC(state->Tex[i][I915_TEXREG_SS4]);
          }
-      ADVANCE_BATCH();
-   }
-
-   if (dirty & I915_UPLOAD_CONSTANTS) {
-      if (INTEL_DEBUG & DEBUG_STATE)
-         fprintf(stderr, "I915_UPLOAD_CONSTANTS:\n");
-      emit(intel, state->Constant, state->ConstantSize * sizeof(GLuint));
+      ADVANCE_STATIC();
+#endif
    }
 
    if (dirty & I915_UPLOAD_PROGRAM) {
-      if (INTEL_DEBUG & DEBUG_STATE)
-         fprintf(stderr, "I915_UPLOAD_PROGRAM:\n");
+      fprintf(stderr, "I915_UPLOAD_PROGRAM:\n");
 
       assert((state->Program[0] & 0x1ff) + 2 == state->ProgramSize);
 
+#if 1
+      emit_indirect(intel, LI0_STATE_PROGRAM,
+		    state->Program, state->ProgramSize * sizeof(GLuint));
+#else
       emit(intel, state->Program, state->ProgramSize * sizeof(GLuint));
+#endif
+
       if (INTEL_DEBUG & DEBUG_STATE)
          i915_disassemble_program(state->Program, state->ProgramSize);
    }
+
+
+   if (dirty & I915_UPLOAD_CONSTANTS) {
+      fprintf(stderr, "I915_UPLOAD_CONSTANTS:\n");
+#if 1
+      emit_indirect(intel, LI0_STATE_CONSTANTS,
+		    state->Constant, state->ConstantSize * sizeof(GLuint));
+#else
+      emit(intel, state->Constant, state->ConstantSize * sizeof(GLuint));
+#endif
+   }
+
 
    state->emitted |= dirty;
 }
