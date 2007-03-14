@@ -87,7 +87,8 @@ intel_dump_batchbuffer(struct intel_batchbuffer *batch, GLubyte *map)
 {
    GLuint *ptr = (GLuint *)map;
    GLuint count = batch->segment_finish_offset[0];
-   GLuint buf = driBOOffset(batch->buffer);
+   GLuint buf0 = driBOOffset(batch->buffer);
+   GLuint buf = buf0;;
 
    fprintf(stderr, "\n\n\nIMMEDIATE: (%d)\n", count / 4);
    dump( buf, ptr, count/4 );
@@ -95,6 +96,7 @@ intel_dump_batchbuffer(struct intel_batchbuffer *batch, GLubyte *map)
 
    count = batch->segment_finish_offset[1] - batch->segment_start_offset[1];
    ptr = (GLuint *)(map + batch->segment_start_offset[1]);
+   buf = buf0 + batch->segment_start_offset[1];
 
    fprintf(stderr, "\n\n\nDYNAMIC: (%d)\n", count / 4);
    dump( buf, ptr, count/4 );
@@ -102,6 +104,7 @@ intel_dump_batchbuffer(struct intel_batchbuffer *batch, GLubyte *map)
 
    count = batch->segment_finish_offset[2] - batch->segment_start_offset[2];
    ptr = (GLuint *)(map + batch->segment_start_offset[2]);
+   buf = buf0 + batch->segment_start_offset[2];
 
    fprintf(stderr, "\n\n\nOTHER INDIRECT: (%d)\n", count / 4);
    dump( buf, ptr, count/4 );
@@ -232,6 +235,8 @@ do_flush_locked(struct intel_batchbuffer *batch,
       struct buffer_reloc *r = &batch->reloc[i];
 
       ptr[r->offset / 4] = driBOOffset(r->buf) + r->delta;
+      _mesa_printf("reloc offset %x value 0x%x + 0x%x\n",
+		   r->offset, driBOOffset(r->buf), r->delta);
    }
 
 /*    if (INTEL_DEBUG & DEBUG_BATCH) */
@@ -358,12 +363,13 @@ intel_batchbuffer_finish(struct intel_batchbuffer *batch)
 /*  This is the only way buffers get added to the validate list.
  */
 GLboolean
-intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
-			     GLuint segment,
-                             struct _DriBufferObject *buffer,
-                             GLuint flags, GLuint mask, GLuint delta)
+intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
+			    GLuint offset,
+			    struct _DriBufferObject *buffer,
+			    GLuint flags, GLuint mask, GLuint delta)
 {
    assert(batch->nr_relocs < MAX_RELOCS);
+   assert((offset & 3) == 0);
 
    if (buffer != batch->buffer)
       driBOAddListItem(&batch->list, buffer, flags, mask);
@@ -375,9 +381,23 @@ intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
 	 driBOReference(buffer);
 
       r->buf = buffer;
-      r->offset = batch->segment_finish_offset[segment];
+      r->offset = offset;
       r->delta = delta;
    }
+
+   return GL_TRUE;
+}
+
+
+GLboolean
+intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
+			     GLuint segment,
+                             struct _DriBufferObject *buffer,
+                             GLuint flags, GLuint mask, GLuint delta)
+{
+   intel_batchbuffer_set_reloc( batch,
+				batch->segment_finish_offset[segment],
+				buffer, flags, mask, delta );
 
    batch->segment_finish_offset[segment] += 4;
    return GL_TRUE;

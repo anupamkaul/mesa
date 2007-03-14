@@ -84,6 +84,12 @@ void intel_batchbuffer_release_space(struct intel_batchbuffer *batch,
 				     GLuint segment,
                                      GLuint bytes);
 
+GLboolean
+intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
+			    GLuint offset,
+			    struct _DriBufferObject *buffer,
+			    GLuint flags, GLuint mask, GLuint delta);
+
 GLboolean intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
 				       GLuint segment,
                                        struct _DriBufferObject *buffer,
