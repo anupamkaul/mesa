@@ -426,7 +426,7 @@ i830_emit_state(struct intel_context *intel)
     * scheduling is allowed, rather than assume that it is whenever a
     * batchbuffer fills up.
     */
-   intel_batchbuffer_require_space(intel->batch, get_state_size(state), 0);
+   intel_batchbuffer_require_space(intel->batch, 0, get_state_size(state), 0);
 
    /* Do this here as we may have flushed the batchbuffer above,
     * causing more state to be dirty!

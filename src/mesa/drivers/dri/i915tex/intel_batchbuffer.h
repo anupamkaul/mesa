@@ -9,7 +9,8 @@ struct intel_context;
 /* Must be able to hold at minimum VB->Size * 3 * 2 bytes for
  * intel_idx_render.c indices, which is currently about 20k.
  */
-#define BATCH_SZ (64*1024)
+#define BATCH_SZ (3*32*1024)
+#define SEGMENT_SZ (32*1024)
 #define BATCH_RESERVED 16
 
 #define MAX_RELOCS 400
@@ -24,6 +25,13 @@ struct buffer_reloc
    GLuint delta;                /* not needed? */
 };
 
+enum {
+   SEGMENT_IMMEDIATE = 0,
+   SEGMENT_DYNAMIC_INDIRECT = 1,
+   SEGMENT_OTHER_INDIRECT = 2,
+   NR_SEGMENTS = 3
+};
+
 struct intel_batchbuffer
 {
    struct bufmgr *bm;
@@ -36,11 +44,18 @@ struct intel_batchbuffer
    drmBOList list;
    GLuint list_count;
    GLubyte *map;
-   GLubyte *ptr;
 
    struct buffer_reloc reloc[MAX_RELOCS];
    GLuint nr_relocs;
    GLuint size;
+
+   /* Put all the different types of packets into one buffer for
+    * easier validation.  This will have to change, but for now it is
+    * enough to get started.
+    */
+   GLuint segment_start_offset[NR_SEGMENTS];
+   GLuint segment_finish_offset[NR_SEGMENTS];
+   GLuint segment_max_offset[NR_SEGMENTS];
 };
 
 struct intel_batchbuffer *intel_batchbuffer_alloc(struct intel_context
@@ -62,12 +77,21 @@ void intel_batchbuffer_reset(struct intel_batchbuffer *batch);
  * intel_buffer_dword() calls.
  */
 void intel_batchbuffer_data(struct intel_batchbuffer *batch,
+			    GLuint segment,
                             const void *data, GLuint bytes, GLuint flags);
 
 void intel_batchbuffer_release_space(struct intel_batchbuffer *batch,
+				     GLuint segment,
                                      GLuint bytes);
 
+GLboolean
+intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
+			    GLuint offset,
+			    struct _DriBufferObject *buffer,
+			    GLuint flags, GLuint mask, GLuint delta);
+
 GLboolean intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
+				       GLuint segment,
                                        struct _DriBufferObject *buffer,
                                        GLuint flags,
                                        GLuint mask, GLuint offset);
@@ -78,27 +102,35 @@ GLboolean intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
  * work...
  */
 static INLINE GLuint
-intel_batchbuffer_space(struct intel_batchbuffer *batch)
+intel_batchbuffer_space(struct intel_batchbuffer *batch,
+			GLuint segment)
 {
-   return (batch->size - BATCH_RESERVED) - (batch->ptr - batch->map);
+   return (batch->segment_max_offset[segment] - 
+	   batch->segment_finish_offset[segment]);
 }
 
 
 static INLINE void
-intel_batchbuffer_emit_dword(struct intel_batchbuffer *batch, GLuint dword)
+intel_batchbuffer_emit_dword(struct intel_batchbuffer *batch, 
+			     GLuint segment,
+			     GLuint dword)
 {
    assert(batch->map);
-   assert(intel_batchbuffer_space(batch) >= 4);
-   *(GLuint *) (batch->ptr) = dword;
-   batch->ptr += 4;
+   assert(intel_batchbuffer_space(batch, segment) >= 4);
+   *(GLuint *) (batch->map + batch->segment_finish_offset[segment]) = dword;
+   batch->segment_finish_offset[segment] += 4;
 }
 
 static INLINE void
 intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
+				GLuint segment,
                                 GLuint sz, GLuint flags)
 {
-   assert(sz < batch->size - 8);
-   if (intel_batchbuffer_space(batch) < sz ||
+   /* XXX:  need to figure out flushing, etc.
+    */
+   assert(sz < SEGMENT_SZ);
+
+   if (intel_batchbuffer_space(batch, segment) < sz ||
        (batch->flags != 0 && flags != 0 && batch->flags != flags))
       intel_batchbuffer_flush(batch);
 
@@ -109,33 +141,44 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
  */
 #define BATCH_LOCALS
 
-#define BEGIN_BATCH(n, flags) do {				\
+
+/* Hack for indirect emit:
+ */
+#define BEGIN_BATCH_SEGMENT(seg, n, flags) do {				\
    assert(!intel->prim.flush);					\
-   intel_batchbuffer_require_space(intel->batch, (n)*4, flags);	\
-   _mesa_printf("BEGIN_BATCH(%d,%d) in %s\n", n, flags, __FUNCTION__); \
+   intel_batchbuffer_require_space(intel->batch, seg, (n)*4, flags);	\
+   if (0) _mesa_printf("BEGIN_BATCH(%d,%d,%d) in %s\n", seg, n, flags, __FUNCTION__); \
 } while (0)
 
-#define OUT_BATCH(d) do {				\
-      _mesa_printf("OUT_BATCH(0x%08x)\n", d);  		\
-      intel_batchbuffer_emit_dword(intel->batch, d);	\
+#define OUT_BATCH_SEGMENT(seg, d) do {				\
+      if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x)\n", seg, d);  		\
+      intel_batchbuffer_emit_dword(intel->batch, seg, d);	\
 } while (0)
 
-#define OUT_BATCH_F(fl) do {			\
+#define OUT_BATCH_F_SEGMENT(seg, fl) do {			\
    fi_type fi;					\
    fi.f = fl;					\
-   _mesa_printf("OUT_BATCH(0x%08x)\n", fi.i);  \
-   intel_batchbuffer_emit_dword(intel->batch, fi.i);	\
+   if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x)\n", seg, fi.i);  \
+   intel_batchbuffer_emit_dword(intel->batch, seg, fi.i);	\
 } while (0)
 
-#define OUT_RELOC(buf,flags,mask,delta) do {				\
+#define OUT_RELOC_SEGMENT(seg, buf,flags,mask,delta) do {				\
    assert((delta) >= 0);						\
-   _mesa_printf("OUT_RELOC( buf %p offset %x )\n", buf, delta);		\
-   intel_batchbuffer_emit_reloc(intel->batch, buf, flags, mask, delta);	\
+   if (0) _mesa_printf("OUT_RELOC( seg %d buf %p offset %x )\n", seg, buf, delta);		\
+   intel_batchbuffer_emit_reloc(intel->batch, seg, buf, flags, mask, delta);	\
 } while (0)
 
-#define ADVANCE_BATCH() do { \
-   _mesa_printf("ADVANCE_BATCH()\n");		\
+#define ADVANCE_BATCH_SEGMENT(seg) do { \
+   if (0) _mesa_printf("ADVANCE_BATCH()\n");		\
 } while(0)
+
+
+#define BEGIN_BATCH(n, flags)           BEGIN_BATCH_SEGMENT(0, n, flags)
+#define OUT_BATCH(d)                    OUT_BATCH_SEGMENT(0, d)
+#define OUT_BATCH_F(fl)                 OUT_BATCH_F_SEGMENT(0, fl)
+#define OUT_RELOC(buf,flags,mask,delta) OUT_RELOC_SEGMENT(0,buf,flags,mask, delta)
+#define ADVANCE_BATCH()                 ADVANCE_BATCH_SEGMENT(0)
+
 
 
 #endif

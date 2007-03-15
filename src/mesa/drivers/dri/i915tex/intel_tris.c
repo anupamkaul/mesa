@@ -57,7 +57,7 @@ static void intelRasterPrimitive(GLcontext * ctx, GLenum rprim,
 static void
 intel_flush_inline_primitive(struct intel_context *intel)
 {
-   GLuint used = intel->batch->ptr - intel->prim.start_ptr;
+   GLuint used = intel->batch->segment_finish_offset[0];
 
    assert(intel->prim.primitive != ~0);
 
@@ -72,7 +72,7 @@ intel_flush_inline_primitive(struct intel_context *intel)
    goto finished;
 
  do_discard:
-   intel->batch->ptr -= used;
+   intel->batch->segment_finish_offset[0] -= used;
 
  finished:
    intel->prim.primitive = ~0;
@@ -96,7 +96,8 @@ intelStartInlinePrimitive(struct intel_context *intel,
     * be emitted to a batchbuffer missing the required full-state
     * preamble.
     */
-   if (intel_batchbuffer_space(intel->batch) < 100) {
+   if (intel_batchbuffer_space(intel->batch, 0) < 100) {
+      assert(0);		/* XXX: later! */
       intel_batchbuffer_flush(intel->batch);
       intel_emit_state(intel);
    }
@@ -109,7 +110,7 @@ intelStartInlinePrimitive(struct intel_context *intel,
    BEGIN_BATCH(2, batch_flags);
    OUT_BATCH(0);
 
-   intel->prim.start_ptr = intel->batch->ptr;
+   intel->prim.start_ptr = intel->batch->map + intel->batch->segment_start_offset[0];
    intel->prim.primitive = prim;
    intel->prim.flush = intel_flush_inline_primitive;
 
@@ -139,15 +140,17 @@ intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords)
 
    assert(intel->prim.flush == intel_flush_inline_primitive);
 
-   if (intel_batchbuffer_space(intel->batch) < sz)
+   if (intel_batchbuffer_space(intel->batch, 0) < sz) {
+      assert(0);		/* XXX: later */
       intelWrapInlinePrimitive(intel);
+   }
 
 /*    _mesa_printf("."); */
 
    assert(intel->state.dirty.intel == 0);
 
-   ptr = (GLuint *) intel->batch->ptr;
-   intel->batch->ptr += sz;
+   ptr = (GLuint *) (intel->batch->map + intel->batch->segment_finish_offset[0]);
+   intel->batch->segment_finish_offset[0] += sz;
 
    return ptr;
 }

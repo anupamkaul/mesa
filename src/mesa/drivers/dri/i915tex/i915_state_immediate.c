@@ -61,7 +61,7 @@ static void upload_S0S1( struct intel_context *intel )
       OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
 		I1_LOAD_S(0) |
 		I1_LOAD_S(1) |
-		2);
+		1);
 
       /* INTEL_NEW_VBO, INTEL_NEW_RELOC */
       OUT_RELOC(intel->state.vbo,
@@ -160,7 +160,7 @@ static void upload_S2S4(struct intel_context *intel)
    OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
 	     I1_LOAD_S(2) |
 	     I1_LOAD_S(4) |
-	     2);
+	     1);
    OUT_BATCH(LIS2);
    OUT_BATCH(LIS4);
    ADVANCE_BATCH();
@@ -235,7 +235,7 @@ static void upload_S5( struct intel_context *intel )
    BEGIN_BATCH(2, 0);   
    OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
 	     I1_LOAD_S(5) |
-	     1);
+	     0);
    OUT_BATCH(LIS5);
    ADVANCE_BATCH();
 
@@ -311,7 +311,7 @@ static void upload_S6( struct intel_context *intel )
    BEGIN_BATCH(2, 0);   
    OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
 	     I1_LOAD_S(6) |
-	     1);
+	     0);
    OUT_BATCH(LIS6);
    ADVANCE_BATCH();
 

@@ -92,7 +92,7 @@ static void upload_invarient_state( struct intel_context *intel )
        */
       (_3DSTATE_LOAD_STATE_IMMEDIATE_1 | 
        I1_LOAD_S(3) | 
-       (1)),
+       (0)),
       (0),
 
       (_3DSTATE_SCISSOR_ENABLE_CMD | DISABLE_SCISSOR_RECT),
@@ -107,13 +107,16 @@ static void upload_invarient_state( struct intel_context *intel )
        */
       (_3DSTATE_DEPTH_SUBRECT_DISABLE),
 
-      /* Disable indirect state for now.
-       */
-      (_3DSTATE_LOAD_INDIRECT | 0),
-      (0),
-
       (_3DSTATE_BACKFACE_STENCIL_OPS | BFO_ENABLE_STENCIL_TWO_SIDE | 0)
    };
+
+   /* Disable indirect state for now.
+    */
+   BEGIN_BATCH(2, 0);
+   OUT_BATCH(_3DSTATE_LOAD_INDIRECT | 0);
+   OUT_BATCH(0);
+   ADVANCE_BATCH();
+
 
    {
       GLuint i;

@@ -74,6 +74,12 @@ static void i915_upload_fp( struct intel_context *intel )
       OUT_BATCH( fp->program[i] );
 
    ADVANCE_BATCH();
+
+#if 0
+   emit_indirect(intel, LI0_STATE_PROGRAM,
+		 state->Program, state->ProgramSize * sizeof(GLuint));
+#endif
+
 }
 
 
@@ -128,6 +134,11 @@ upload_constants(struct intel_context *intel)
       
       ADVANCE_BATCH();
    }
+
+#if 0
+      emit_indirect(intel, LI0_STATE_CONSTANTS,
+		    state->Constant, state->ConstantSize * sizeof(GLuint));
+#endif
 }
 
 

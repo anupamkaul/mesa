@@ -86,8 +86,6 @@ static void update_viewport( struct intel_context *intel )
       const GLfloat depthScale = 1.0F / DrawBuffer->_DepthMaxF;
       GLfloat *m = intel->ViewportMatrix.m;
 
-      _mesa_printf("depth scale %f\n", depthScale);
-
       m[MAT_SX] = v[MAT_SX];
       m[MAT_TX] = v[MAT_TX] + SUBPIXEL_X;
       
