@@ -36,6 +36,7 @@
 
 #include "i915_context.h"
 #include "i915_reg.h"
+#include "i915_cache.h"
 
 
 static GLuint
@@ -141,33 +142,30 @@ upload_maps( struct intel_context *intel )
    }
 
    if (nr) {
-      BEGIN_BATCH(2 + nr * 3, 0);
-      OUT_BATCH(_3DSTATE_MAP_STATE | (3 * nr));
-      OUT_BATCH(dirty);
+      struct i915_cache_packet packet;
+
+      packet_init( &packet, I915_CACHE_MAP, nr * 3 + 2, 0 );
+      packet_dword( &packet, _3DSTATE_MAP_STATE | (3 * nr));
+      packet_dword( &packet, dirty);
 
       for (i = 0; i < I915_TEX_UNITS; i++) {
 	 if (dirty & (1<<i)) {
 	 
-	    if (i915->state.tex_buffer[i]) {
-	       OUT_RELOC(i915->state.tex_buffer[i],
-			 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
-			 DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
-			 i915->state.tex_offset[i]);
-	    }
-	    else {
-	       assert(i == 0);
-	       assert(intel->metaops.active); /* when does this happen? */
-	       OUT_BATCH(0);
-	    }
+	    assert (i915->state.tex_buffer[i]);
 
-	    OUT_BATCH(state[i][0]);
-	    OUT_BATCH(state[i][1]);
+	    packet_reloc( &packet,
+			  i915->state.tex_buffer[i],
+			  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
+			  DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
+			  i915->state.tex_offset[i] );
+
+	    packet_dword( &packet, state[i][0] );
+	    packet_dword( &packet, state[i][1] );
 	 }
       }
-      ADVANCE_BATCH();
-   }
 
-/*    return GL_TRUE; */
+      i915_cache_emit( i915->cctx, &packet );
+   }
 }
 
 

@@ -30,9 +30,9 @@
 #include "enums.h"
 #include "program.h"
 
-#include "intel_batchbuffer.h"
 #include "i915_context.h"
 #include "i915_fpc.h"
+#include "i915_cache.h"
 
 
 
@@ -43,7 +43,7 @@
  */
 
 
-static void i915_upload_fp( struct intel_context *intel )
+static void upload_program( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
    struct i915_fragment_program *fp = i915->fragment_program;
@@ -60,99 +60,37 @@ static void i915_upload_fp( struct intel_context *intel )
    }
 
    /* As the compiled program depends only on the original program
-    * text (??? for now at least ???), there is no need for a compiled
-    * program cache, just store the compiled version with the original
-    * text.
+    * text, just store the compiled version in the fragment program
+    * struct.
     */
    if (!fp->translated) {
       i915_compile_fragment_program(i915, fp);
    }
 
-   BEGIN_BATCH( fp->program_size, 0 );
+   /* This is an unnnecessary copy - fix the interface...
+    */
+   {
+      struct i915_cache_packet packet;
 
-   for (i = 0; i < fp->program_size; i++)
-      OUT_BATCH( fp->program[i] );
+      packet_init( &packet, I915_CACHE_PROGRAM, fp->program_size, 0 );
 
-   ADVANCE_BATCH();
+      for (i = 0; i < fp->program_size; i++)
+	 packet_dword( &packet, fp->program[i] );
 
-#if 0
-   emit_indirect(intel, LI0_STATE_PROGRAM,
-		 state->Program, state->ProgramSize * sizeof(GLuint));
-#endif
-
+      i915_cache_emit( i915->cctx, &packet );
+   }
 }
 
 
 /* See i915_wm.c:
  */
-const struct intel_tracked_state i915_fp_compile_and_upload = {
+const struct intel_tracked_state i915_upload_program = {
    .dirty = {
       .mesa  = (0),
       .intel   = (INTEL_NEW_FRAGMENT_PROGRAM), /* ?? Is this all ?? */
       .extra = 0
    },
-   .update = i915_upload_fp
+   .update = upload_program
 };
 
 
-/*********************************************************************************
- * Program constants and state parameters
- */
-static void
-upload_constants(struct intel_context *intel)
-{
-   struct i915_context *i915 = i915_context( &intel->ctx );
-   struct i915_fragment_program *p = i915->fragment_program;
-   GLint i;
-
-   /* XXX: Pull from state, not ctx!!! 
-    */
-   if (p->nr_params)
-      _mesa_load_state_parameters(&intel->ctx, p->Base.Base.Parameters);
-
-   for (i = 0; i < p->nr_params; i++) {
-      GLint reg = p->param[i].reg;
-      COPY_4V(p->constant[reg], p->param[i].values);
-   }
-
-   /* Always seemed to get a failure if I used memcmp() to
-    * shortcircuit this state upload.  Needs further investigation?
-    */
-   if (p->nr_constants) {
-      GLuint nr = p->nr_constants;
-
-      BEGIN_BATCH( nr * 4 + 2, 0 );
-      OUT_BATCH( _3DSTATE_PIXEL_SHADER_CONSTANTS | (nr * 4) );
-      OUT_BATCH( (1 << (nr - 1)) | ((1 << (nr - 1)) - 1) );
-
-      for (i = 0; i < nr; i++) {
-	 OUT_BATCH_F(p->constant[i][0]);
-	 OUT_BATCH_F(p->constant[i][1]);
-	 OUT_BATCH_F(p->constant[i][2]);
-	 OUT_BATCH_F(p->constant[i][3]);
-      }
-      
-      ADVANCE_BATCH();
-   }
-
-#if 0
-      emit_indirect(intel, LI0_STATE_CONSTANTS,
-		    state->Constant, state->ConstantSize * sizeof(GLuint));
-#endif
-}
-
-
-/* This tracked state is unique in that the state it monitors varies
- * dynamically depending on the parameters tracked by the fragment and
- * vertex programs.  This is the template used as a starting point,
- * each context will maintain a copy of this internally and update as
- * required.
- */
-const struct intel_tracked_state i915_fp_constants = {
-   .dirty = {
-      .mesa = 0,      /* plus fp state flags */
-      .intel  = INTEL_NEW_FRAGMENT_PROGRAM,
-      .extra = 0
-   },
-   .update = upload_constants
-};

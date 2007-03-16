@@ -36,8 +36,9 @@
 #define I915_PROGRAM_SIZE      192
 
 
-#define I915_NEW_INPUT_SIZES      (INTEL_NEW_DRIVER0<<0)
-#define I915_NEW_VERTEX_FORMAT    (INTEL_NEW_DRIVER0<<1)
+#define I915_NEW_INPUT_SIZES       (INTEL_NEW_DRIVER0<<0)
+#define I915_NEW_VERTEX_FORMAT     (INTEL_NEW_DRIVER0<<1)
+#define I915_NEW_DYNAMIC_INDIRECT  (INTEL_NEW_DRIVER0<<2)
 
 
 
@@ -85,11 +86,24 @@ struct i915_fragment_program
 
 
 
+#define I915_DYNAMIC_MODES4       0
+#define I915_DYNAMIC_DEPTHSCALE_0 1 
+#define I915_DYNAMIC_DEPTHSCALE_1 2 
+#define I915_DYNAMIC_IAB          3
+#define I915_DYNAMIC_BC_0         4
+#define I915_DYNAMIC_BC_1         5
+#define I915_DYNAMIC_BFO_0        6
+#define I915_DYNAMIC_BFO_1        7
+#define I915_DYNAMIC_SIZE         8
+
+
+struct i915_cache_context;
 
 
 struct i915_context
 {
    struct intel_context intel;
+   struct i915_cache_context *cctx;
 
    struct i915_fragment_program *fragment_program;
 
@@ -104,22 +118,24 @@ struct i915_context
 
    struct {
       struct intel_tracked_state tracked_state;
-
-      /* For short-circuiting 
-       */
-      GLfloat last_buf[I915_MAX_CONSTANT][4];
-      GLuint last_bufsz;
    } constants;
 
    struct {
-      /* I915_NEW_INPUT_DIMENSIONS 
+      /* I915_NEW_VERTEX_FORMAT 
        */
-      GLubyte input_sizes[FRAG_ATTRIB_MAX];
-
       GLuint LIS2;
       GLuint LIS4;
-   } fragprog;
+   } vertex_format;
    
+   /* Used for short-circuiting packets.  Won't work for packets
+    * containing relocations.  This is zero'd out after lost_context
+    * events.
+    */
+   struct {
+      GLuint buf[I915_DYNAMIC_SIZE];
+      GLboolean done_reset;
+   } dyn_indirect;
+
 
    GLuint program_id;
 };

@@ -34,29 +34,65 @@
 #define I915_STATE_H
 
 #include "i915_context.h"
+#include "i915_reg.h"
+
 
 void i915_init_state( struct i915_context *i915 );
 void i915_destroy_state( struct i915_context *i915 );
 
 
 const struct intel_tracked_state i915_check_fallback;
-const struct intel_tracked_state i915_fp_constants;
-const struct intel_tracked_state i915_fp_compile_and_upload;
 const struct intel_tracked_state i915_vertex_format;
-const struct intel_tracked_state i915_invarient_state;
-const struct intel_tracked_state i915_upload_BFO;
-const struct intel_tracked_state i915_upload_BLENDCOLOR;
-const struct intel_tracked_state i915_upload_IAB;
-const struct intel_tracked_state i915_upload_MODES4;
+
+/* Immediate state: 
+ */
 const struct intel_tracked_state i915_upload_S0S1;
 const struct intel_tracked_state i915_upload_S2S4;
 const struct intel_tracked_state i915_upload_S5;
 const struct intel_tracked_state i915_upload_S6;
+const struct intel_tracked_state i915_upload_S7;
+
+/* Dynamic indirect:
+ */
+const struct intel_tracked_state i915_upload_BFO;
+const struct intel_tracked_state i915_upload_BLENDCOLOR;
+const struct intel_tracked_state i915_upload_DEPTHSCALE;
+const struct intel_tracked_state i915_upload_IAB;
+const struct intel_tracked_state i915_upload_MODES4;
+const struct intel_tracked_state i915_upload_dynamic_indirect;
+
+/* Static indirect:
+ */
+const struct intel_tracked_state i915_upload_invarient;
 const struct intel_tracked_state i915_upload_buffers;
-const struct intel_tracked_state i915_upload_maps;
-const struct intel_tracked_state i915_upload_samplers;
 const struct intel_tracked_state i915_upload_scissor;
 const struct intel_tracked_state i915_upload_stipple;
 
+/* Other indirect:
+ */
+const struct intel_tracked_state i915_upload_constants;
+const struct intel_tracked_state i915_upload_program;
+const struct intel_tracked_state i915_upload_maps;
+const struct intel_tracked_state i915_upload_samplers;
+
+
+static INLINE GLuint
+i915_translate_blend_equation(GLenum mode)
+{
+   switch (mode) {
+   case GL_FUNC_ADD:
+      return BLENDFUNC_ADD;
+   case GL_MIN:
+      return BLENDFUNC_MIN;
+   case GL_MAX:
+      return BLENDFUNC_MAX;
+   case GL_FUNC_SUBTRACT:
+      return BLENDFUNC_SUBTRACT;
+   case GL_FUNC_REVERSE_SUBTRACT:
+      return BLENDFUNC_REVERSE_SUBTRACT;
+   default:
+      return 0;
+   }
+}
 
 #endif

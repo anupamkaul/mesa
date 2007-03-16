@@ -173,8 +173,8 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
       }
    }
 
-   if (s2 != i915->fragprog.LIS2 || 
-       s4 != i915->fragprog.LIS4) {
+   if (s2 != i915->vertex_format.LIS2 || 
+       s4 != i915->vertex_format.LIS4) {
 
       GLuint vs = _tnl_install_attrs(&intel->ctx,
 				     intel->vertex_attrs,
@@ -186,8 +186,8 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
       _mesa_printf("inputs %x vertex size %d\n", 
 		   inputsRead,
 		   intel->vertex_size);
-      i915->fragprog.LIS2 = s2;
-      i915->fragprog.LIS4 = s4;
+      i915->vertex_format.LIS2 = s2;
+      i915->vertex_format.LIS4 = s4;
       intel->state.dirty.intel |= I915_NEW_VERTEX_FORMAT;
    }
 }

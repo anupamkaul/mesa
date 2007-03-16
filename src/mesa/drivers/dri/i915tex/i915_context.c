@@ -40,6 +40,7 @@
 #include "utils.h"
 #include "i915_reg.h"
 #include "i915_state.h"
+#include "i915_cache.h"
 
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
@@ -69,31 +70,9 @@ i915InitDriverFunctions(struct dd_function_table *functions)
    i915InitFragProgFuncs(functions);
 }
 
-
-
-GLboolean
-i915CreateContext(const __GLcontextModes * mesaVis,
-                  __DRIcontextPrivate * driContextPriv,
-                  void *sharedContextPrivate)
+static void i915_init_gl_constants( struct i915_context *i915 )
 {
-   struct dd_function_table functions;
-   struct i915_context *i915 =
-      (struct i915_context *) CALLOC_STRUCT(i915_context);
-   struct intel_context *intel = &i915->intel;
-   GLcontext *ctx = &intel->ctx;
-
-   if (!i915)
-      return GL_FALSE;
-
-   i915InitVtbl(i915);
-   i915InitDriverFunctions(&functions);
-   i915_init_state(i915);
-
-   if (!intelInitContext(intel, mesaVis, driContextPriv,
-                         sharedContextPrivate, &functions)) {
-      FREE(i915);
-      return GL_FALSE;
-   }
+   GLcontext *ctx = &i915->intel.ctx;
 
    ctx->Const.MaxTextureUnits = I915_TEX_UNITS;
    ctx->Const.MaxTextureImageUnits = I915_TEX_UNITS;
@@ -121,9 +100,37 @@ i915CreateContext(const __GLcontextModes * mesaVis,
    ctx->Const.FragmentProgram.MaxNativeTexInstructions = I915_MAX_TEX_INSN;
    ctx->Const.FragmentProgram.MaxNativeInstructions = (I915_MAX_ALU_INSN +
                                                        I915_MAX_TEX_INSN);
-   ctx->Const.FragmentProgram.MaxNativeTexIndirections =
-      I915_MAX_TEX_INDIRECT;
+   ctx->Const.FragmentProgram.MaxNativeTexIndirections = I915_MAX_TEX_INDIRECT;
    ctx->Const.FragmentProgram.MaxNativeAddressRegs = 0; /* I don't think we have one */
+}
+
+
+GLboolean
+i915CreateContext(const __GLcontextModes *mesaVis,
+                  __DRIcontextPrivate *driContextPriv,
+                  void *sharedContextPrivate)
+{
+   struct dd_function_table functions;
+   struct i915_context *i915 = CALLOC_STRUCT(i915_context);
+   struct intel_context *intel = &i915->intel;
+   GLcontext *ctx = &intel->ctx;
+
+   if (!i915)
+      goto bad;
+
+   i915InitVtbl(i915);
+   i915InitDriverFunctions(&functions);
+   i915_init_state(i915);
+
+   i915->cctx = i915_create_caches( i915 );
+   if (!i915->cctx)
+      goto bad;
+
+   if (!intelInitContext(intel, mesaVis, driContextPriv,
+                         sharedContextPrivate, &functions)) 
+      goto bad;
+
+   i915_init_gl_constants( i915 );
 
    ctx->_MaintainTexEnvProgram = 1;
    ctx->_UseTexEnvProgram = 1;
@@ -135,11 +142,19 @@ i915CreateContext(const __GLcontextModes * mesaVis,
     */
    _tnl_allow_vertex_fog( ctx, 0 );
    _tnl_allow_pixel_fog( ctx, 1 );
-
    _tnl_init_vertices(ctx, ctx->Const.MaxArrayLockSize + 12,
                       36 * sizeof(GLfloat));
 
    intel->verts = TNL_CONTEXT(ctx)->clipspace.vertex_buf;
 
    return GL_TRUE;
+
+ bad:
+   if (i915->cctx) 
+      i915_destroy_caches( i915->cctx );
+
+   if (i915) 
+      FREE(i915);
+
+   return GL_FALSE;
 }

@@ -33,11 +33,11 @@
 
 #include "intel_mipmap_tree.h"
 #include "intel_tex.h"
-#include "intel_batchbuffer.h"
 #include "intel_state_inlines.h"
 
 #include "i915_context.h"
 #include "i915_reg.h"
+#include "i915_cache.h"
 
 
 
@@ -221,6 +221,7 @@ static void update_sampler(struct intel_context *intel,
 
 static void upload_samplers( struct intel_context *intel )
 {
+   struct i915_context *i915 = i915_context( &intel->ctx );
    GLint i, dirty = 0, nr = 0;
    GLuint state[I915_TEX_UNITS][3];
 
@@ -233,17 +234,21 @@ static void upload_samplers( struct intel_context *intel )
    }
 
    if (nr) {
-      BEGIN_BATCH(2 + nr * 3, 0);
-      OUT_BATCH(_3DSTATE_SAMPLER_STATE | (3 * nr));
-      OUT_BATCH(dirty);
+      struct i915_cache_packet packet;
+
+      packet_init( &packet, I915_CACHE_SAMPLER, 2 + nr * 3, 0 );
+      packet_dword( &packet, _3DSTATE_SAMPLER_STATE | (3 * nr) );
+      packet_dword( &packet, dirty );
+
       for (i = 0; i < I915_TEX_UNITS; i++) {
 	 if (intel->state.Texture->Unit[i]._ReallyEnabled) {
-	    OUT_BATCH(state[i][0]);
-	    OUT_BATCH(state[i][1]);
-	    OUT_BATCH(state[i][2]);
+	    packet_dword( &packet, state[i][0] );
+	    packet_dword( &packet, state[i][1] );
+	    packet_dword( &packet, state[i][2] );
 	 }
       }
-      ADVANCE_BATCH();
+
+      i915_cache_emit( i915->cctx, &packet );
    }
 }
 

@@ -38,9 +38,14 @@
 
 #include "i915_context.h"
 #include "i915_state.h"
-#include "i915_state_inlines.h"
 #include "i915_reg.h"
 
+
+/* All state expressable with the LOAD_STATE_IMMEDIATE_1 packet.
+ * Would like to opportunistically recombine all these fragments into
+ * a single packet containing only what has changed, but for now emit
+ * as multiple packets.
+ */
 
 #define STATE_LOGICOP_ENABLED(state) \
   ((state)->Color->ColorLogicOpEnabled || \
@@ -99,8 +104,8 @@ static void upload_S2S4(struct intel_context *intel)
    GLuint LIS2, LIS4;
    
    /* I915_NEW_VERTEX_FORMAT */
-   LIS2 = i915->fragprog.LIS2;
-   LIS4 = i915->fragprog.LIS4;
+   LIS2 = i915->vertex_format.LIS2;
+   LIS4 = i915->vertex_format.LIS4;
 
 
    /* _NEW_POLYGON, _NEW_BUFFERS */
@@ -216,6 +221,12 @@ static void upload_S5( struct intel_context *intel )
       LIS5 |= S5_COLOR_DITHER_ENABLE;
    }
 
+   /* _NEW_POLYGON */
+   if (intel->state.Polygon->OffsetFill) {
+      LIS5 |= S5_GLOBAL_DEPTH_OFFSET_ENABLE;
+   }
+
+
    {
       const GLubyte *mask = intel->state.Color->ColorMask;
 
@@ -326,3 +337,32 @@ const struct intel_tracked_state i915_upload_S6 = {
    .update = upload_S6
 };
 
+
+/***********************************************************************
+ */
+static void upload_S7( struct intel_context *intel )
+{
+   GLfloat LIS7;
+
+   /* _NEW_POLYGON
+    */
+/*    LIS7 = intel->state.Polygon->OffsetUnits * DEPTH_SCALE; */
+   LIS7 = 0;
+
+   BEGIN_BATCH(2, 0);   
+   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
+	     I1_LOAD_S(7) |
+	     0);
+   OUT_BATCH_F(LIS7);
+   ADVANCE_BATCH();
+
+}
+
+const struct intel_tracked_state i915_upload_S7 = {
+   .dirty = {
+      .mesa = (_NEW_POLYGON),
+      .intel = 0,
+      .extra = 0
+   },
+   .update = upload_S7
+};

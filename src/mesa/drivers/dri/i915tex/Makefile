@@ -7,6 +7,7 @@ LIBNAME = i915tex_dri.so
 MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
+	i915_cache.c \
 	i915_context.c \
 	i915_fpc.c \
 	i915_fpc_debug.c \
@@ -14,14 +15,15 @@ DRIVER_SOURCES = \
 	i915_fpc_translate.c \
 	i915_program.c \
 	i915_state.c \
-	i915_state_fp.c \
-	i915_state_fp_inputs.c \
+	i915_state_constants.c \
+	i915_state_dynamic.c \
 	i915_state_fallback.c \
-	i915_state_invarient.c \
 	i915_state_immediate.c \
 	i915_state_map.c \
-	i915_state_misc.c \
+	i915_state_program.c \
 	i915_state_sampler.c \
+	i915_state_static.c \
+	i915_state_vertex.c \
 	i915_tex_layout.c \
 	i915_vtbl.c \
 	intel_render.c \

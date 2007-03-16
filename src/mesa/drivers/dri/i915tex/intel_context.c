@@ -264,6 +264,7 @@ void intel_lost_hardware( struct intel_context *intel )
 {
    intel->state.dirty.intel |= ~0;
    intel->state.dirty.mesa |= ~0;
+   intel->vtbl.lost_hardware( intel );
 }
 
 
@@ -520,21 +521,14 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
 
    assert(intel);               /* should never be null */
    if (intel) {
-      GLboolean release_texture_heaps;
-
       INTEL_FIREVERTICES(intel);
 
       intel_idx_destroy(intel);
 
-      intel->vtbl.destroy(intel);
-
-      release_texture_heaps = (intel->ctx.Shared->RefCount == 1);
       _swsetup_DestroyContext(&intel->ctx);
       _tnl_DestroyContext(&intel->ctx);
       _vbo_DestroyContext(&intel->ctx);
-
       _swrast_DestroyContext(&intel->ctx);
-      intel->Fallback = 0;      /* don't call _swrast_Flush later */
 
       intel_batchbuffer_free(intel->batch);
 
@@ -543,23 +537,17 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
 	 driFenceUnReference(intel->last_swap_fence);
 	 intel->last_swap_fence = NULL;
       }
+
       if (intel->first_swap_fence) {
 	 driFenceFinish(intel->first_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);
 	 driFenceUnReference(intel->first_swap_fence);
 	 intel->first_swap_fence = NULL;
       }
 
-
-      if (release_texture_heaps) {
-         /* This share group is about to go away, free our private
-          * texture object data.
-          */
-         if (INTEL_DEBUG & DEBUG_TEXTURE)
-            fprintf(stderr, "do something to free texture heaps\n");
-      }
-
       /* free the Mesa context */
       _mesa_free_context_data(&intel->ctx);
+
+      intel->vtbl.destroy(intel);
    }
 }
 

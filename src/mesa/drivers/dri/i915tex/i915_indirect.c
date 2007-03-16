@@ -6,10 +6,10 @@
 
 
 
-static GLuint emit_indirect(struct intel_context *intel, 
-			    GLuint flag,
-			    const GLuint *state,
-			    GLuint size )
+static GLuint i915_emit_indirect(struct intel_context *intel, 
+				 GLuint flag,
+				 const GLuint *state,
+				 GLuint size )
 {
    GLuint delta;
    GLuint segment;
@@ -127,3 +127,33 @@ const struct i915_tracked_state i915_indirect_state = {
    },
    .update = upload_indirect_state
 };
+
+
+#if 0
+      GLuint size = I915_DYNAMIC_SIZE * 4;
+      GLuint flag = i915->dyn_indirect.done_reset ? 0 : DIS0_BUFFER_RESET;
+      
+      GLuint delta = ( (intel->batch->segment_finish_offset[segment] + size - 4) |
+		       DIS0_BUFFER_VALID | 
+		       flag );
+
+      BEGIN_BATCH(2,0);
+      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | LI0_STATE_DYNAMIC_INDIRECT | (1<<14) | 0);
+      OUT_RELOC( intel->batch->buffer, 
+		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
+		 DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
+		 delta );
+      ADVANCE_BATCH();
+
+
+      {
+	 GLuint segment = SEGMENT_DYNAMIC_INDIRECT;
+	 GLuint offset = intel->batch->segment_finish_offset[segment];
+	 intel->batch->segment_finish_offset[segment] += size;
+	 
+	 if (state != NULL)
+	    memcpy(intel->batch->map + offset, state, size);
+
+	 return offset;
+      }
+#endif

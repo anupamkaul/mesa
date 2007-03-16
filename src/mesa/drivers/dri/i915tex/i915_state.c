@@ -46,19 +46,9 @@
 const struct intel_tracked_state *atoms[] =
 {
    &i915_check_fallback,
-   &i915_invarient_state,	
-
 
    &intel_update_viewport,
    &intel_update_render_index,
-
-   /* 
-    */
-/*    &i915_fp_choose_prog, */
-
-   /* Scan VB:
-    */
-/*    &i915_vb_output_sizes, */
 
    /* Get compiled version of the fragment program which is mildly
     * optimized according to input sizes.  This will be cached, but
@@ -67,41 +57,41 @@ const struct intel_tracked_state *atoms[] =
     * Also calculate vertex layout, immediate (S2,S4) state, vertex
     * size.
     */
-   &i915_fp_compile_and_upload,
+   &i915_upload_program,
    
    /* Calculate vertex format, program t_vertex.c, etc: 
     */
    &i915_vertex_format,
 
-
    /* Immediate state.  Don't make any effort to combine packets yet.
     */
-   &i915_upload_MODES4,
+   &i915_upload_S0S1,
    &i915_upload_S2S4,
    &i915_upload_S5,
    &i915_upload_S6,
-   &i915_upload_IAB,
-   &i915_upload_BLENDCOLOR,
+   &i915_upload_S7,
 
-   /* Other state.  This will eventually be able to emit itself either
-    * to the batchbuffer directly, or as indirect state.  Indirect
-    * state will be subject to caching so that we get something like
-    * constant state objects from the i965 driver.
+   /* Dynamic indirect.  Packets are combined in a final step.
     */
+   &i915_upload_BFO,
+   &i915_upload_BLENDCOLOR,
+   &i915_upload_DEPTHSCALE,
+   &i915_upload_IAB,
+   &i915_upload_MODES4,
+   &i915_upload_dynamic_indirect,
+
+   /* Static indirect state.
+    */
+   &i915_upload_invarient,	
    &i915_upload_buffers,
    &i915_upload_scissor,
+   &i915_upload_stipple,
 
-   /* Note this packet has a dependency on the current primitive: 
+   /* Other indirect state.  Also includes program state, above.
     */
-   &i915_upload_stipple, 
-
    &i915_upload_maps,		/* must do before samplers */
    &i915_upload_samplers,
-
-   NULL,			/* i915_fp_constants */
-
-   &i915_upload_BFO,
-   &i915_upload_S0S1
+   &i915_upload_constants	/* will be patched out at runtime */
 };
 
 
@@ -117,12 +107,12 @@ void i915_init_state( struct i915_context *i915 )
    /* Patch in a pointer to the dynamic state atom:
     */
    for (i = 0; i < intel->driver_state.nr_atoms; i++)
-      if (intel->driver_state.atoms[i] == NULL)
+      if (intel->driver_state.atoms[i] == &i915_upload_constants)
 	 intel->driver_state.atoms[i] = &i915->constants.tracked_state;
 
    _mesa_memcpy(&i915->constants.tracked_state, 
-		&i915_fp_constants,
-		sizeof(i915_fp_constants));
+		&i915_upload_constants,
+		sizeof(i915_upload_constants));
 }
 
 

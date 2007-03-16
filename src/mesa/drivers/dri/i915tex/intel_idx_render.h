@@ -25,59 +25,13 @@
  * 
  **************************************************************************/
 
+#ifndef INTEL_IDX_H
+#define INTEL_IDX_H
 
+#include "intel_context.h"
 
-#include "glheader.h"
-#include "mtypes.h"
-#include "imports.h"
-#include "macros.h"
-#include "colormac.h"
+void intel_idx_init( struct intel_context *intel );
+void intel_idx_destroy( struct intel_context *intel );
+void intel_idx_lost_hardware( struct intel_context *intel );
 
-#include "tnl/t_context.h"
-#include "tnl/t_vertex.h"
-
-#include "intel_batchbuffer.h"
-#include "intel_tex.h"
-#include "intel_regions.h"
-
-#include "i915_reg.h"
-#include "i915_context.h"
-#include "i915_cache.h"
-
-
-
-
-static void i915_destroy_context(struct intel_context *intel)
-{
-   struct i915_context *i915 = i915_context( &intel->ctx );
-
-   if (i915->cctx) 
-      i915_destroy_caches( i915->cctx );
-
-   FREE( i915 );
-}
-
-
-
-static GLuint i915_flush_cmd(void)
-{
-   return MI_FLUSH | FLUSH_MAP_CACHE;
-}
-
-static void i915_lost_hardware( struct intel_context *intel )
-{
-   struct i915_context *i915 = i915_context( &intel->ctx );
-
-   i915_clear_caches( i915->cctx );
-
-   memset(&i915->dyn_indirect, 0, sizeof(i915->dyn_indirect));
-}
-
-
-void
-i915InitVtbl(struct i915_context *i915)
-{
-   i915->intel.vtbl.destroy = i915_destroy_context;
-   i915->intel.vtbl.flush_cmd = i915_flush_cmd;
-   i915->intel.vtbl.lost_hardware = i915_lost_hardware;
-}
+#endif
