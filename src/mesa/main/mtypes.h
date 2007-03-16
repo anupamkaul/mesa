@@ -1919,7 +1919,7 @@ struct gl_vertex_program_state
    GLboolean PointSizeEnabled;      /**< GL_VERTEX_PROGRAM_POINT_SIZE_ARB/NV */
    GLboolean TwoSideEnabled;        /**< GL_VERTEX_PROGRAM_TWO_SIDE_ARB/NV */
    struct gl_vertex_program *Current;  /**< ptr to currently bound program */
-   const struct gl_vertex_program *_Current;    /**< ptr to currently bound
+   struct gl_vertex_program *_Current;    /**< ptr to currently bound
 					          program, including internal
 					          (t_vp_build.c) programs */
 
@@ -1947,7 +1947,7 @@ struct gl_fragment_program_state
    GLboolean _Enabled;    /**< Fragment program enabled and valid? */
    GLboolean _Active;     /**< Is a user program or internal program active? */
    struct gl_fragment_program *Current;  /**< User-bound program */
-   const struct gl_fragment_program *_Current; /**< currently active program 
+   struct gl_fragment_program *_Current; /**< currently active program 
 					       (including internal programs) */
    GLfloat Parameters[MAX_NV_FRAGMENT_PROGRAM_PARAMS][4]; /**< Env params */
 
