@@ -37,6 +37,7 @@
 #include "t_context.h"
 #include "t_pipeline.h"
 #include "t_vp_build.h"
+#include "t_vertex.h"
 
 #include "vbo/vbo.h"
 
