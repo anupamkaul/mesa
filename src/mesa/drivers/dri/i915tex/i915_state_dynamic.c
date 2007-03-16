@@ -128,6 +128,8 @@ const struct intel_tracked_state i915_upload_MODES4 = {
 };
 
 
+
+
 /***********************************************************************
  */
 
@@ -135,9 +137,7 @@ static void upload_BFO( struct intel_context *intel )
 {
    GLuint bf[2];
 
-   bf[0] = 0;
-   bf[1] = 0;
-   
+   memset( bf, 0, sizeof(bf) );
 
    /* _NEW_STENCIL 
     */
@@ -206,6 +206,8 @@ static void upload_BLENDCOLOR( struct intel_context *intel )
 {
    GLuint bc[2];
 
+   memset( bc, 0, sizeof(bc) );
+
    /* _NEW_COLOR 
     */
    if (intel->state.Color->BlendEnabled) {
@@ -220,10 +222,6 @@ static void upload_BLENDCOLOR( struct intel_context *intel )
       bc[0] = (_3DSTATE_CONST_BLEND_COLOR_CMD);
       bc[1] = (a << 24) | (r << 16) | (g << 8) | b;
 
-   }
-   else {
-      bc[0] = 0;
-      bc[1] = 0;
    }
 
    set_dynamic_indirect( intel, 
@@ -312,8 +310,7 @@ static void upload_DEPTHSCALE( struct intel_context *intel )
 {
    union { GLfloat f; GLuint u; } ds[2];
 
-   ds[0].u = 0;
-   ds[1].u = 0;
+   memset( ds, 0, sizeof(ds) );
    
    if (intel->state.Polygon->OffsetFill) {
       
@@ -354,22 +351,34 @@ const struct intel_tracked_state i915_upload_DEPTHSCALE = {
 static void emit_indirect( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
-   GLuint buf[I915_DYNAMIC_SIZE], count = 0;
-   
-   CHECK( I915_DYNAMIC_MODES4, 1 );
-   CHECK( I915_DYNAMIC_DEPTHSCALE_0, 2 );
-   CHECK( I915_DYNAMIC_IAB, 1 );
-   CHECK( I915_DYNAMIC_BC_0, 2 );
-   CHECK( I915_DYNAMIC_BFO_0, 2 );
+   GLboolean active;
+   GLuint i;
 
    /* XXX: need to check if we wrap 4kb and if so pad. 
     */
+/*    GLuint buf[I915_DYNAMIC_SIZE], count = 0; */   
+/*    CHECK( I915_DYNAMIC_MODES4, 1 ); */
+/*    CHECK( I915_DYNAMIC_DEPTHSCALE_0, 2 ); */
+/*    CHECK( I915_DYNAMIC_IAB, 1 ); */
+/*    CHECK( I915_DYNAMIC_BC_0, 2 ); */
+/*    CHECK( I915_DYNAMIC_BFO_0, 2 ); */
+
+
+
    /* Or just emit the whole lot, zeros and all (fix later...):
     */
+   for (active = 0, i = 0; i < I915_DYNAMIC_SIZE; i++)
+      if (i915->dyn_indirect.buf[i] != 0) {
+	 active = 1;
+	 break;
+      }
+
+
+
    /* Also - want to check that something has changed & we're not just
     * re-emitting the same stuff.
     */
-   if (count) {
+   if (active) {
       GLuint size = I915_DYNAMIC_SIZE * 4;
       GLuint flag = i915->dyn_indirect.done_reset ? 0 : DIS0_BUFFER_RESET;
       GLuint segment = SEGMENT_DYNAMIC_INDIRECT;

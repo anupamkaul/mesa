@@ -76,6 +76,8 @@ const struct intel_tracked_state *atoms[] =
    &i915_upload_BFO,
    &i915_upload_BLENDCOLOR,
    &i915_upload_DEPTHSCALE,
+/*    &i915_upload_FOGCOLOR, */
+/*    &i915_upload_FOGMODE, */
    &i915_upload_IAB,
    &i915_upload_MODES4,
    &i915_upload_dynamic_indirect,

@@ -102,7 +102,8 @@ do {									\
 static void i915_calculate_vertex_format( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
-   struct i915_fragment_program *fp = i915->fragment_program;
+   struct i915_fragment_program *fp = 
+      i915_fragment_program(intel->state.FragmentProgram->_Current);
    const GLuint inputsRead = fp->Base.Base.InputsRead;
    GLuint s2 = S2_TEXCOORD_NONE;
    GLuint s4 = 0;
@@ -127,21 +128,14 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
       EMIT_ATTR(_TNL_ATTRIB_COLOR0, EMIT_4UB_4F_BGRA, S4_VFMT_COLOR, 4);
    }
 
-   if (inputsRead & (FRAG_BIT_COL1 | FRAG_BIT_FOGC)) {
-      if (inputsRead & FRAG_BIT_COL1) {
-         intel->specoffset = offset / 4;
-         EMIT_ATTR(_TNL_ATTRIB_COLOR1, EMIT_3UB_3F_BGR, S4_VFMT_SPEC_FOG, 3);
-      }
-      else
-         EMIT_PAD(3);
-
-      if (inputsRead & FRAG_BIT_FOGC)
-         EMIT_ATTR(_TNL_ATTRIB_FOG, EMIT_1UB_1F, S4_VFMT_SPEC_FOG, 1);
-      else
-         EMIT_PAD(1);
+   if (inputsRead & FRAG_BIT_COL1) {
+      intel->specoffset = offset / 4;
+      EMIT_ATTR(_TNL_ATTRIB_COLOR1, EMIT_3UB_3F_BGR, S4_VFMT_SPEC_FOG, 3);
+      EMIT_PAD(1);
    }
 
    if (inputsRead & FRAG_BIT_FOGC) {
+      
       EMIT_ATTR(_TNL_ATTRIB_FOG, EMIT_1F, S4_VFMT_FOG_PARAM, 4);
    }
 
@@ -183,9 +177,11 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
 
       intel->vertex_size = vs >> 2;
 
-      _mesa_printf("inputs %x vertex size %d\n", 
-		   inputsRead,
-		   intel->vertex_size);
+      if (0)
+	 _mesa_printf("inputs %x vertex size %d\n", 
+		      inputsRead,
+		      intel->vertex_size);
+
       i915->vertex_format.LIS2 = s2;
       i915->vertex_format.LIS4 = s4;
       intel->state.dirty.intel |= I915_NEW_VERTEX_FORMAT;

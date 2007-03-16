@@ -57,6 +57,8 @@ const struct intel_tracked_state i915_upload_S7;
 const struct intel_tracked_state i915_upload_BFO;
 const struct intel_tracked_state i915_upload_BLENDCOLOR;
 const struct intel_tracked_state i915_upload_DEPTHSCALE;
+const struct intel_tracked_state i915_upload_FOGCOLOR;
+const struct intel_tracked_state i915_upload_FOGMODE;
 const struct intel_tracked_state i915_upload_IAB;
 const struct intel_tracked_state i915_upload_MODES4;
 const struct intel_tracked_state i915_upload_dynamic_indirect;
@@ -94,5 +96,17 @@ i915_translate_blend_equation(GLenum mode)
       return 0;
    }
 }
+
+static INLINE GLuint U_FIXED(GLfloat value, GLuint frac_bits)
+{
+   value *= (1<<frac_bits);
+   return value < 0 ? 0 : value;
+}
+
+static INLINE GLint S_FIXED(GLfloat value, GLuint frac_bits)
+{
+   return value * (1<<frac_bits);
+}
+
 
 #endif

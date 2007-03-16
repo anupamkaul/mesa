@@ -46,18 +46,11 @@
 static void upload_program( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
-   struct i915_fragment_program *fp = i915->fragment_program;
+   struct i915_fragment_program *fp = 
+      i915_fragment_program(intel->state.FragmentProgram->_Current);
    GLuint i;
+   
 
-   if (&fp->Base != intel->state.FragmentProgram->_Current) {
-      i915->fragment_program = (struct i915_fragment_program *)
-	 intel->state.FragmentProgram->_Current;
-     
-      fp = i915->fragment_program;
-      /* This is stupid 
-       */
-      intel->state.dirty.intel |= INTEL_NEW_FRAGMENT_PROGRAM;
-   }
 
    /* As the compiled program depends only on the original program
     * text, just store the compiled version in the fragment program
@@ -66,6 +59,10 @@ static void upload_program( struct intel_context *intel )
    if (!fp->translated) {
       i915_compile_fragment_program(i915, fp);
    }
+
+   if (0)
+      i915_disassemble_program( fp->program, 
+				fp->program_size );
 
    /* This is an unnnecessary copy - fix the interface...
     */

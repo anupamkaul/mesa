@@ -234,6 +234,9 @@ struct intel_context
     */
    struct bufmgr *bm;
 
+   /* Counter to track program string changes:
+    */
+   GLuint program_id;
 
    /* State for intelvb.c and inteltris.c.
     */

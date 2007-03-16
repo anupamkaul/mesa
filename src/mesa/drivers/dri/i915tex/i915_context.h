@@ -32,7 +32,6 @@
 
 
 #define I915_MAX_CONSTANT      32
-#define I915_CONSTANT_SIZE     (2+(4*I915_MAX_CONSTANT))
 #define I915_PROGRAM_SIZE      192
 
 
@@ -79,12 +78,7 @@ struct i915_fragment_program
 
 
 
-
-
-
 #define I915_TEX_UNITS 8
-
-
 
 #define I915_DYNAMIC_MODES4       0
 #define I915_DYNAMIC_DEPTHSCALE_0 1 
@@ -104,8 +98,6 @@ struct i915_context
 {
    struct intel_context intel;
    struct i915_cache_context *cctx;
-
-   struct i915_fragment_program *fragment_program;
 
    struct {
       /* Regions aren't actually that appropriate here as the memory may
@@ -136,8 +128,6 @@ struct i915_context
       GLboolean done_reset;
    } dyn_indirect;
 
-
-   GLuint program_id;
 };
 
 
@@ -148,7 +138,6 @@ struct i915_context
 extern void i915InitVtbl(struct i915_context *i915);
 
 
-
 /*======================================================================
  * i915_context.c
  */
@@ -156,39 +145,27 @@ extern GLboolean i915CreateContext(const __GLcontextModes * mesaVis,
                                    __DRIcontextPrivate * driContextPriv,
                                    void *sharedContextPrivate);
 
-
-/*======================================================================
- * i915_state.c
- */
-extern void i915InitStateFunctions(struct dd_function_table *functions);
-
-
-/*======================================================================
- * i915_tex.c
- */
-extern void i915UpdateTextureState(struct intel_context *intel);
-extern void i915InitTextureFuncs(struct dd_function_table *functions);
-
-
-
 /*======================================================================
  * i915_program.c
  */
 extern void i915InitFragProgFuncs(struct dd_function_table *functions);
 
+
+
 /*======================================================================
- * Inline conversion functions.  These are better-typed than the
- * macros used previously:
+ * Inline conversion functions.  
  */
 static INLINE struct i915_context *
-i915_context(GLcontext * ctx)
+i915_context( GLcontext *ctx )
 {
    return (struct i915_context *) ctx;
 }
 
-
-
-#define I915_CONTEXT(ctx)	i915_context(ctx)
+static INLINE struct i915_fragment_program *
+i915_fragment_program( struct gl_fragment_program *fp )
+{
+   return (struct i915_fragment_program *) fp;
+}
 
 
 

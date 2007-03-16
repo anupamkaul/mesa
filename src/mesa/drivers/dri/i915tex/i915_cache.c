@@ -228,6 +228,7 @@ void i915_cache_emit(struct i915_cache_context *cctx,
 {
    struct intel_context *intel = &cctx->i915->intel;
    GLuint size = packet_size( packet );
+
 #if 1
    GLuint hash = hash_packet( packet, size );
    struct i915_cache *cache = &cctx->cache[packet->cache_id];

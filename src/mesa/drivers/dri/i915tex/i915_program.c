@@ -71,7 +71,7 @@ static struct gl_program *i915NewProgram( GLcontext *ctx,
    case GL_FRAGMENT_PROGRAM_ARB: {
       struct i915_fragment_program *prog = CALLOC_STRUCT(i915_fragment_program);
       if (prog) {
-	 prog->id = i915->program_id++;
+	 prog->id = i915->intel.program_id++;
 
 	 return _mesa_init_fragment_program( ctx, &prog->Base,
 					     target, id );
@@ -105,13 +105,27 @@ static void i915ProgramStringNotify( GLcontext *ctx,
 				    struct gl_program *prog )
 {
    if (target == GL_FRAGMENT_PROGRAM_ARB) {
-      struct i915_context *i915 = i915_context(ctx);
-      struct i915_fragment_program *p = (struct i915_fragment_program *)prog;
-      struct i915_fragment_program *fp = (struct i915_fragment_program *)i915->fragment_program;
-      if (p == fp)
-	 i915->intel.state.dirty.intel |= INTEL_NEW_FRAGMENT_PROGRAM;
-      p->id = i915->program_id++;      
-      p->param_state = p->Base.Base.Parameters->StateFlags; 
+      struct intel_context *intel = intel_context(ctx);
+
+      if (prog == &intel->state.FragmentProgram->_Current->Base) 
+      {
+	 struct i915_fragment_program *p = 
+	    (struct i915_fragment_program *) prog;
+
+	 intel->state.dirty.intel |= INTEL_NEW_FRAGMENT_PROGRAM;
+
+	 p->id = intel->program_id++;      
+	 p->param_state = p->Base.Base.Parameters->StateFlags; 
+	 p->translated = 0;
+
+	 /* Gack! do this in the compiler: 
+	  */
+	 if (p->Base.FogOption) {
+	    /* add extra instructions to do fog, then turn off FogOption field */
+	    _mesa_append_fog_code(ctx, &p->Base);
+	    p->Base.FogOption = GL_NONE;
+	 }
+      }
    }
    else if (target == GL_VERTEX_PROGRAM_ARB) {
 

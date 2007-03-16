@@ -273,7 +273,7 @@ i915_translate_program(struct i915_fp_compile *p)
    const struct gl_fragment_program *program = &p->fp->Base;   
    const struct prog_instruction *inst = program->Base.Instructions;      
 
-   if (1)
+   if (0)
       i915_print_mesa_instructions(inst, program->Base.NumInstructions); 
 
    /* Is this a parse-failed program?  Ensure a valid program is

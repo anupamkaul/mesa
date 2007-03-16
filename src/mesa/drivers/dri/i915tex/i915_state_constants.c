@@ -44,7 +44,8 @@ static void
 upload_constants(struct intel_context *intel)
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
-   struct i915_fragment_program *p = i915->fragment_program;
+   struct i915_fragment_program *p = 
+      i915_fragment_program(intel->state.FragmentProgram->_Current);
    GLint i;
 
    /* XXX: Pull from state, not ctx!!!  Luckily no metaops programs
@@ -89,7 +90,7 @@ upload_constants(struct intel_context *intel)
  * each context will maintain a copy of this internally and update as
  * required.
  */
-const struct intel_tracked_state i915_fp_constants = {
+const struct intel_tracked_state i915_upload_constants = {
    .dirty = {
       .mesa = 0,      /* plus fp state flags */
       .intel  = INTEL_NEW_FRAGMENT_PROGRAM,

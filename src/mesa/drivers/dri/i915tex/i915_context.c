@@ -137,11 +137,9 @@ i915CreateContext(const __GLcontextModes *mesaVis,
 
    driInitExtensions(ctx, i915_extensions, GL_FALSE);
 
-   /* always enbale pixel fog. vertex fog uses precaculted fog coord
-    * will conflict with appended fog program
-    */
    _tnl_allow_vertex_fog( ctx, 0 );
    _tnl_allow_pixel_fog( ctx, 1 );
+
    _tnl_init_vertices(ctx, ctx->Const.MaxArrayLockSize + 12,
                       36 * sizeof(GLfloat));
 
