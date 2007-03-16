@@ -88,6 +88,8 @@ _tnl_DestroyContext( GLcontext *ctx )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
 
+   _tnl_free_vertices( ctx );
+
    _tnl_destroy_pipeline( ctx );
 
    if (ctx->_MaintainTnlProgram)
