@@ -63,7 +63,7 @@ static void set_dynamic_indirect( struct intel_context *intel,
 				  const GLuint *src,
 				  GLuint size )
 {
-#if 0
+#if 1
    struct i915_context *i915 = i915_context( &intel->ctx );
    GLuint *dest = i915->dyn_indirect.buf + offset;
    GLuint i;
@@ -356,8 +356,6 @@ static void emit_indirect( struct intel_context *intel )
    struct i915_context *i915 = i915_context( &intel->ctx );
    GLuint buf[I915_DYNAMIC_SIZE], count = 0;
    
-   return;
-
    CHECK( I915_DYNAMIC_MODES4, 1 );
    CHECK( I915_DYNAMIC_DEPTHSCALE_0, 2 );
    CHECK( I915_DYNAMIC_IAB, 1 );

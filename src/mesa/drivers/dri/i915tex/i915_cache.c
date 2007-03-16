@@ -72,7 +72,7 @@ static void emit_load_indirect( struct intel_context *intel,
 				GLuint state_type,
 				GLuint force_load_flag,
 				GLuint offset,
-				GLuint size )
+				GLuint dwords )
 {
    BEGIN_BATCH(3,0);
    OUT_BATCH( _3DSTATE_LOAD_INDIRECT | state_type | (1<<14) | 1);
@@ -80,15 +80,15 @@ static void emit_load_indirect( struct intel_context *intel,
 	      DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
 	      DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
 	      ( offset | force_load_flag | SIS0_BUFFER_VALID ) );
-   OUT_BATCH( (size/4)-1 );
+   OUT_BATCH( dwords - 1 );
    ADVANCE_BATCH();
 }
 
 
 static GLuint emit_packet( struct intel_context *intel,
-			   const struct i915_cache_packet *packet, 
-			   GLuint size )
+			   const struct i915_cache_packet *packet )
 {
+   GLuint size = packet->nr_dwords * sizeof(GLuint);
    GLuint segment = SEGMENT_OTHER_INDIRECT;
    GLuint offset = intel->batch->segment_finish_offset[segment];
    GLuint i;
@@ -112,6 +112,7 @@ static GLuint emit_packet( struct intel_context *intel,
 				   packet->reloc[i].mask,
 				   packet->dword[packet->reloc[i].dword].u );
    }
+
 
    return offset;
 }
@@ -207,14 +208,8 @@ static GLuint upload_cache( struct i915_cache *cache,
 
    /* Copy data to the buffer and emit relocations:
     */
-   item->offset = emit_packet( intel, packet, size );
+   item->offset = emit_packet( intel, packet );
       
-   if (INTEL_DEBUG & DEBUG_STATE)
-      _mesa_printf("upload %s: %d bytes to batchbuffer offset %x\n",
-		   cache->name,
-		   size, 
-		   item->offset);
-
    return item->offset;
 }
 
@@ -233,7 +228,7 @@ void i915_cache_emit(struct i915_cache_context *cctx,
 {
    struct intel_context *intel = &cctx->i915->intel;
    GLuint size = packet_size( packet );
-#if 0
+#if 1
    GLuint hash = hash_packet( packet, size );
    struct i915_cache *cache = &cctx->cache[packet->cache_id];
    GLuint addr;
@@ -246,9 +241,11 @@ void i915_cache_emit(struct i915_cache_context *cctx,
     * same as last time!
     */
    if (addr != cache->last_addr) {
-      emit_load_indirect( intel, cache->state_type, 
+      emit_load_indirect( intel, 
+			  cache->state_type, 
 			  cache->force_load_flag,
-			  addr, size );
+			  addr, 
+			  packet->nr_dwords );
 
       cache->force_load_flag = 0;
       cache->last_addr = addr;
