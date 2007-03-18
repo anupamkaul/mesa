@@ -30,8 +30,18 @@
 #define _INTEL_REG_H_
 
 
+#define CMD_MI   (0x0<<29)
+#define CMD_2D   (0x2<<29)
+#define CMD_3D   (0x3<<29)
+#define CMD_MASK (0x7<<29)
 
-#define CMD_3D (0x3<<29)
+#define CMD_MI_MASK  (0x3f << 23)
+#define CMD_MI_NOOP  (0x0 << 23)
+#define CMD_MI_FLUSH (0x1 << 23)
+
+#define CMD_2D_MASK              (0x7f << 22)
+#define CMD_2D_XY_COLOR_BLT      (0x50 << 22)
+#define CMD_2D_XY_SRC_COPY_BLT   (0x53 << 22)
 
 
 #define _3DPRIMITIVE         ((0x3<<29)|(0x1f<<24))
