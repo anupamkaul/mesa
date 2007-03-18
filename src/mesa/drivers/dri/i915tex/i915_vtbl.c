@@ -96,9 +96,9 @@ static GLuint i915_debug_packet(const GLuint *stream)
       case 0xb:
 	 return debug(stream, "3DSTATE_INDEPENDENT_ALPHA_BLEND", 1);
       case 0xc:
-	 return debug(stream, "3DSTATE_MODES4", 1);
-      case 0xd:
 	 return debug(stream, "3DSTATE_MODES5", 1);	 
+      case 0xd:
+	 return debug(stream, "3DSTATE_MODES4", 1);
       case 0x15:
 	 return debug(stream, "3DSTATE_FOG_COLOR", 1);
       case 0x16:
