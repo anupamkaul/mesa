@@ -181,6 +181,8 @@ struct intel_context
 
       void (*assert_not_dirty) (struct intel_context *intel);
 
+      GLuint (*debug_packet)(const GLuint *stream);
+
    } vtbl;
 
    GLint refcount;

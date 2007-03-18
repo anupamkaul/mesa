@@ -67,19 +67,29 @@
  * server automatically waits on its own dma to complete before
  * modifying cliprects ???
  */
-static void dump(GLuint offset, GLuint *ptr, GLuint count)
+static void dump(struct intel_context *intel,
+		 GLuint offset, GLuint *ptr, GLuint count)
 {
    GLuint i;
 
-#if 0
-   for (i = 0; i < count; i += 4)
-      fprintf(stderr, "0x%x:\t0x%08x 0x%08x 0x%08x 0x%08x\n",
-              offset + i * 4, ptr[i], ptr[i + 1], ptr[i + 2], ptr[i + 3]);
-#else
-   for (i = 0; i < count; i++)
-      fprintf(stderr, "0x%x:\t0x%08x\n",
-              offset + i * 4, ptr[i]);
-#endif
+   for (i = 0; i < count; ) {
+      GLuint len;
+      GLuint j;
+
+      _mesa_printf("[0x%x]: ", offset + i * 4);
+
+      len = intel->vtbl.debug_packet( &ptr[i] );
+      if (len == 0) {
+	 _mesa_printf("XXX bad/unknown packet: 0x%08x\n",  ptr[i]);
+	 assert(0);
+	 return;
+      }
+	 
+      for (j = 0; j < len; j++, i++)
+	 _mesa_printf("\t\t0x%08x\n",  ptr[i]);
+
+      _mesa_printf("\n");
+   }      
 }
 
 
@@ -91,25 +101,25 @@ intel_dump_batchbuffer(struct intel_batchbuffer *batch, GLubyte *map)
    GLuint buf0 = driBOOffset(batch->buffer);
    GLuint buf = buf0;;
 
-   fprintf(stderr, "\n\n\nIMMEDIATE: (%d)\n", count / 4);
-   dump( buf, ptr, count/4 );
-   fprintf(stderr, "END BATCH\n\n\n");
+   fprintf(stderr, "\n\nBATCH: (%d)\n", count / 4);
+   dump( batch->intel, buf, ptr, count/4 );
+   fprintf(stderr, "END-BATCH\n\n\n");
 
    count = batch->segment_finish_offset[1] - batch->segment_start_offset[1];
    ptr = (GLuint *)(map + batch->segment_start_offset[1]);
    buf = buf0 + batch->segment_start_offset[1];
 
-   fprintf(stderr, "\n\n\nDYNAMIC: (%d)\n", count / 4);
-   dump( buf, ptr, count/4 );
-   fprintf(stderr, "END BATCH\n\n\n");
+   fprintf(stderr, "\n\nDYNAMIC: (%d)\n", count / 4);
+   dump( batch->intel, buf, ptr, count/4 );
+   fprintf(stderr, "END-DYNAMIC\n\n\n");
 
    count = batch->segment_finish_offset[2] - batch->segment_start_offset[2];
    ptr = (GLuint *)(map + batch->segment_start_offset[2]);
    buf = buf0 + batch->segment_start_offset[2];
 
-   fprintf(stderr, "\n\n\nOTHER INDIRECT: (%d)\n", count / 4);
-   dump( buf, ptr, count/4 );
-   fprintf(stderr, "END BATCH\n\n\n");
+   fprintf(stderr, "\n\nINDIRECT: (%d)\n", count / 4);
+   dump( batch->intel, buf, ptr, count/4 );
+   fprintf(stderr, "END-INDIRECT\n\n\n");
 }
 
 void
