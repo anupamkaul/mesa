@@ -123,9 +123,9 @@ static GLuint i915_debug_packet(const GLuint *stream)
 	 case 0x4:
 	    return debug(stream, "3DSTATE_LOAD_STATE_IMMEDIATE", (cmd & 0xf) + 2);
 	 case 0x5:
-	    return debug(stream, "3DSTATE_PIXEL_SHADER_PROGRAM", (cmd & 0x1f) + 2);
+	    return debug(stream, "3DSTATE_PIXEL_SHADER_PROGRAM", (cmd & 0x1ff) + 2);
 	 case 0x6:
-	    return debug(stream, "3DSTATE_PIXEL_SHADER_CONSTANTS", (cmd & 0x1f) + 2);
+	    return debug(stream, "3DSTATE_PIXEL_SHADER_CONSTANTS", (cmd & 0xff) + 2);
 	 case 0x7:
 	    return debug(stream, "3DSTATE_LOAD_INDIRECT", (cmd & 0xff) + 2);
 	 case 0x80:
