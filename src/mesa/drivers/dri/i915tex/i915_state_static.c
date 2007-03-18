@@ -122,12 +122,14 @@ static void upload_static(struct intel_context *intel)
    struct intel_region *color_region = intel->state.draw_region;
    struct intel_region *depth_region = intel->state.depth_region;
    struct i915_cache_packet packet;
+   GLboolean scissor = (intel->state.Scissor->Enabled && 
+			intel->state.DrawBuffer);
    GLuint i;
 
    GLuint dwords = ((color_region ? 3 : 0) + 
 		    (depth_region ? 3 : 0) + 
 		    2 +		/* DV */
-		    4 +		/* SCISSOR */
+		    (scissor      ? 4 : 1) +	
 		    Elements(invarient_state));
 
    GLuint relocs = ((color_region ? 1 : 0) + 
@@ -204,8 +206,7 @@ static void upload_static(struct intel_context *intel)
 
    /* _NEW_SCISSOR, _NEW_BUFFERS 
     */
-   if (intel->state.Scissor->Enabled && 
-       intel->state.DrawBuffer) {
+   if (scissor) {
       
       GLint x = intel->state.Scissor->X;
       GLint y = intel->state.Scissor->Y;

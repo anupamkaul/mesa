@@ -54,8 +54,6 @@ struct i915_cache_item {
 
 struct i915_cache {
    GLuint id;   
-   const char *name;
-   GLuint state_type;
    struct i915_cache_item **items;
    GLuint size, n_items;
 };
@@ -232,12 +230,15 @@ void i915_cache_emit(struct i915_cache_context *cctx,
    struct i915_cache *cache = &cctx->cache[packet->cache_id];
    GLuint addr;
 
+   assert(packet->nr_dwords == packet->max_dwords);
+
    addr = search_cache( cache, hash, packet->dword, size );
    if (addr == 0)
       addr = upload_cache( cache, intel, hash, packet, size );
 
    cctx->i915->current.offsets[packet->cache_id] = addr;
    cctx->i915->current.sizes[packet->cache_id] = packet->nr_dwords;
+   cctx->i915->intel.state.dirty.intel |= I915_NEW_CACHED_INDIRECT;
 #endif
 }
 
@@ -272,15 +273,14 @@ static void clear_cache( struct i915_cache *cache )
 
 
 static void init_cache( struct i915_cache_context *cctx, 
-			const char *name,
 			GLuint id,
 			GLuint state_type )
 {
    struct i915_cache *cache = &cctx->cache[id];
 
+   assert(state_type == (LI0_STATE_STATIC_INDIRECT << id));
+
    cache->id = id;
-   cache->name = name;
-   cache->state_type = state_type;
    cache->size = 32;
    cache->n_items = 0;
    cache->items = ((struct i915_cache_item **)
@@ -294,27 +294,22 @@ struct i915_cache_context *i915_create_caches( struct i915_context *i915 )
    cctx->i915 = i915;
 
    init_cache( cctx,
-	       "STATIC",
 	       I915_CACHE_STATIC,
 	       LI0_STATE_STATIC_INDIRECT );
 
    init_cache( cctx,
-	       "MAP",
 	       I915_CACHE_MAP,
 	       LI0_STATE_MAP );
 
    init_cache( cctx,
-	       "SAMPLER",
 	       I915_CACHE_SAMPLER,
 	       LI0_STATE_SAMPLER );
 
    init_cache( cctx,
-	       "PROGRAM",
 	       I915_CACHE_PROGRAM,
 	       LI0_STATE_PROGRAM );
 
    init_cache( cctx,
-	       "CONSTANTS",
 	       I915_CACHE_CONSTANTS,
 	       LI0_STATE_CONSTANTS );
 
