@@ -144,7 +144,7 @@ upload_maps( struct intel_context *intel )
    if (nr) {
       struct i915_cache_packet packet;
 
-      packet_init( &packet, I915_CACHE_MAP, nr * 3 + 2, 0 );
+      packet_init( &packet, I915_CACHE_MAP, nr * 3 + 2, 1 );
       packet_dword( &packet, _3DSTATE_MAP_STATE | (3 * nr));
       packet_dword( &packet, dirty);
 
@@ -175,7 +175,7 @@ upload_maps( struct intel_context *intel )
 const struct intel_tracked_state i915_upload_maps = {
    .dirty = {
       .mesa = (_NEW_TEXTURE),
-      .intel = 0,
+      .intel = INTEL_NEW_FENCE,
       .extra = 0
    },
    .update = upload_maps
