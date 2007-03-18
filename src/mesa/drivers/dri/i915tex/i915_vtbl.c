@@ -82,7 +82,14 @@ static GLuint i915_debug_packet(const GLuint *stream)
    case 0x1:
       return 0;
    case 0x2:
-      return debug(stream, "blit command", (cmd & 0xff) + 2);
+      switch ((cmd >> 22) & 0xff) {	 
+      case 0x50:
+	 return debug(stream, "XY_COLOR_BLT", (cmd & 0xff) + 2);
+      case 0x53:
+	 return debug(stream, "XY_SRC_COPY_BLT", (cmd & 0xff) + 2);
+      default:
+	 return debug(stream, "blit command", (cmd & 0xff) + 2);
+      }
    case 0x3:
       switch ((cmd >> 24) & 0x1f) {	 
       case 0x6:
