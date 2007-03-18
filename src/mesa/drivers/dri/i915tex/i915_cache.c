@@ -210,7 +210,7 @@ void i915_cache_emit(struct i915_cache_context *cctx,
    struct intel_context *intel = &cctx->i915->intel;
    GLuint size = packet_size( packet );
 
-#ifdef I915_NO_INDIRECT_STATE
+#if 0
    GLuint i;
 
    BEGIN_BATCH(packet->nr_dwords, 0);

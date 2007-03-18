@@ -149,7 +149,7 @@ static void emit_dynamic_indirect( struct intel_context *intel,
    /* check if we cross a 4k boundary and if so pad to 4k and emit
     * full state.
     */
-   if (pagetop != ALIGN(offset + size * 4, 4096)) 
+   if (0 && pagetop != ALIGN(offset + size * 4, 4096)) 
    {
       dirty = (1<<I915_MAX_DYNAMIC)-1;
       size = I915_MAX_DYNAMIC;
@@ -159,7 +159,7 @@ static void emit_dynamic_indirect( struct intel_context *intel,
 
    /* Emit:
     */
-   if (0) {
+   if (dirty) {
       GLuint segment = SEGMENT_DYNAMIC_INDIRECT;
       GLuint *ptr;
 
@@ -170,13 +170,13 @@ static void emit_dynamic_indirect( struct intel_context *intel,
       OUT_RELOC( intel->batch->buffer, 
 		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
 		 DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
-		 ((offset + size - 4) | DIS0_BUFFER_VALID | flag) );
+		 ((offset + size*4 - 4) | DIS0_BUFFER_VALID | flag) );
       ADVANCE_BATCH();
 
       /* XXX:
        */
-      assert( offset + size < intel->batch->segment_max_offset[segment]);      
-      intel->batch->segment_finish_offset[segment] += size;
+      assert( offset + size*4 < intel->batch->segment_max_offset[segment]);      
+      intel->batch->segment_finish_offset[segment] += size*4;
 
       ptr = (GLuint *)(intel->batch->map + offset);
       
@@ -216,20 +216,22 @@ static void emit_cached_indirect( struct intel_context *intel,
       }
    }
 
+   /* Don't emit empty packets:
+    */
    for (i = 0; i < I915_MAX_CACHE; i++) {
       if (to->sizes[i] == 0) 
 	 dirty &= ~(1<<i);
    }
-	    
-	 
 
+   assert(!(dirty & (1<<I915_CACHE_ZERO)));
+	    
    /* Emit the load indirect packet.  The actual data has already been
     * emitted to the caches.
     */
    if (dirty) {
       GLuint nr = count_bits(dirty);
       GLuint size = nr * 2 + 1;
-      BEGIN_BATCH(2,0);
+      BEGIN_BATCH(size,0);
       OUT_BATCH( _3DSTATE_LOAD_INDIRECT | (dirty<<8) | (1<<14) | (size - 2));
 
       for (i = 0; i < I915_MAX_CACHE; i++) {
@@ -238,8 +240,7 @@ static void emit_cached_indirect( struct intel_context *intel,
 		       DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
 		       DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
 		       ( to->offsets[i] | flag | SIS0_BUFFER_VALID ) );
-
-	    OUT_BATCH( to->sizes[i] );
+	    OUT_BATCH( to->sizes[i]-1 );
 	 }
       }
 
