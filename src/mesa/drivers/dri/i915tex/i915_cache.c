@@ -198,7 +198,7 @@ static GLuint upload_cache( struct i915_cache *cache,
 static GLuint packet_size( const struct i915_cache_packet *packet ) 
 {
    return ((const char *)(packet->reloc + packet->nr_relocs) -
-	   (const char *)packet);
+	   (const char *)(packet->dword));
 }
 
 
