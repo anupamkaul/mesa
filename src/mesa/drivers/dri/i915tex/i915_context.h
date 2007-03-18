@@ -38,7 +38,8 @@
 #define I915_NEW_INPUT_SIZES       (INTEL_NEW_DRIVER0<<0)
 #define I915_NEW_VERTEX_FORMAT     (INTEL_NEW_DRIVER0<<1)
 #define I915_NEW_DYNAMIC_INDIRECT  (INTEL_NEW_DRIVER0<<2)
-
+#define I915_NEW_CACHED_INDIRECT   (INTEL_NEW_DRIVER0<<3)
+#define I915_NEW_IMMEDIATE         (INTEL_NEW_DRIVER0<<4)
 
 
 /* Hardware version of a parsed fragment program.  "Derived" from the
@@ -81,17 +82,59 @@ struct i915_fragment_program
 #define I915_TEX_UNITS 8
 
 #define I915_DYNAMIC_MODES4       0
-#define I915_DYNAMIC_DEPTHSCALE_0 1 
+#define I915_DYNAMIC_DEPTHSCALE_0 1 /* just the header */
 #define I915_DYNAMIC_DEPTHSCALE_1 2 
 #define I915_DYNAMIC_IAB          3
-#define I915_DYNAMIC_BC_0         4
+#define I915_DYNAMIC_BC_0         4 /* just the header */
 #define I915_DYNAMIC_BC_1         5
-#define I915_DYNAMIC_BFO_0        6
+#define I915_DYNAMIC_BFO_0        6 
 #define I915_DYNAMIC_BFO_1        7
-#define I915_DYNAMIC_SIZE         8
+#define I915_DYNAMIC_STP_0        8 
+#define I915_DYNAMIC_STP_1        9 
+#define I915_MAX_DYNAMIC          10
+
+
+#define I915_IMMEDIATE_S0         0
+#define I915_IMMEDIATE_S1         1
+#define I915_IMMEDIATE_S2         2
+#define I915_IMMEDIATE_S3         3
+#define I915_IMMEDIATE_S4         4
+#define I915_IMMEDIATE_S5         5
+#define I915_IMMEDIATE_S6         6
+#define I915_IMMEDIATE_S7         7
+#define I915_MAX_IMMEDIATE        8
+
+/* These must mach the order of LI0_STATE_* bits, as they will be used
+ * to generate hardware packets:
+ */
+#define I915_CACHE_STATIC         0 
+#define I915_CACHE_ZERO           1 /* placeholder */
+#define I915_CACHE_SAMPLER        2
+#define I915_CACHE_MAP            3
+#define I915_CACHE_PROGRAM        4
+#define I915_CACHE_CONSTANTS      5
+#define I915_MAX_CACHE            6
 
 
 struct i915_cache_context;
+
+/* Use to calculate differences between state emitted to hardware and
+ * current driver-calculated state.  
+ */
+struct i915_state 
+{
+   GLuint immediate[I915_MAX_IMMEDIATE];
+   GLuint dynamic[I915_MAX_DYNAMIC];
+
+   GLuint offsets[I915_MAX_CACHE];
+   GLuint sizes[I915_MAX_CACHE];
+
+   /* Something for vbo:
+    */
+   struct _DriBufferObject *vbo;
+   
+   GLuint id;			/* track lost context events */
+};
 
 
 struct i915_context
@@ -119,15 +162,13 @@ struct i915_context
       GLuint LIS4;
    } vertex_format;
    
-   /* Used for short-circuiting packets.  Won't work for packets
-    * containing relocations.  This is zero'd out after lost_context
-    * events.
+   /* Used for short-circuiting state updates.  Won't work for packets
+    * containing relocations, unless they are specifically invalidated
+    * after batchbuffer flushes - currently we zero out the whole
+    * state after lost_context events.
     */
-   struct {
-      GLuint buf[I915_DYNAMIC_SIZE];
-      GLboolean done_reset;
-   } dyn_indirect;
-
+   struct i915_state current;
+   struct i915_state hardware;
 };
 
 

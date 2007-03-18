@@ -242,11 +242,13 @@ do_flush_locked(struct intel_batchbuffer *batch,
 		      r->offset, driBOOffset(r->buf), r->delta);
    }
 
-   if (INTEL_DEBUG & DEBUG_BATCH)  
+   if (INTEL_DEBUG & DEBUG_BATCH)
       intel_dump_batchbuffer(batch, (GLubyte *)ptr);
+
 
    driBOUnmap(batch->buffer);
    batch->map = NULL;
+
 
    /* Throw away non-effective packets.  Won't work once we have
     * hardware contexts which would preserve statechanges beyond a

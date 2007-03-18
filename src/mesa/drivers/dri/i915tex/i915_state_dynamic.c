@@ -58,22 +58,21 @@
  * state every time.  Next would be to diff against previous, but note 
  */
 
-static void set_dynamic_indirect( struct intel_context *intel,
-				  GLuint offset,
-				  const GLuint *src,
-				  GLuint size )
+static inline void set_dynamic_indirect( struct intel_context *intel,
+					 GLuint offset,
+					 const GLuint *src,
+					 GLuint size )
 {
 #if 1
    struct i915_context *i915 = i915_context( &intel->ctx );
-   GLuint *dest = i915->dyn_indirect.buf + offset;
-   GLuint i;
+   GLuint *dst = i915->current.dynamic + offset;
 
-   for (i = 0; i < size; i++) {
-      if (dest[i] != src[i]) {
-	 dest[i] = src[i];
-	 intel->state.dirty.intel |= I915_NEW_DYNAMIC_INDIRECT;
-      }
-   }
+   if (memcmp(dst, src, size * 4) == 0)
+      return;
+
+   intel->state.dirty.intel |= I915_NEW_DYNAMIC_INDIRECT;
+   memcpy(dst, src, size * 4);
+
 #else
    GLuint i;
    BEGIN_BATCH(size, 0);
@@ -92,7 +91,7 @@ static void upload_MODES4( struct intel_context *intel )
    GLuint modes4 = 0;
 
    /* _NEW_STENCIL */
-   if (intel->state.Stencil->Enabled) {
+   if (1 || intel->state.Stencil->Enabled) {
       GLint testmask = intel->state.Stencil->ValueMask[0] & 0xff;
       GLint writemask = intel->state.Stencil->WriteMask[0] & 0xff;
 
@@ -104,7 +103,7 @@ static void upload_MODES4( struct intel_context *intel )
    }
 
    /* _NEW_COLOR */
-   if (intel->state.Color->_LogicOpEnabled) {
+   if (1 || intel->state.Color->_LogicOpEnabled) {
       modes4 |= (_3DSTATE_MODES_4_CMD |
 		 ENABLE_LOGIC_OP_FUNC |
 		 LOGIC_OP_FUNC(intel_translate_logic_op(intel->state.Color->LogicOp)));
@@ -141,7 +140,7 @@ static void upload_BFO( struct intel_context *intel )
 
    /* _NEW_STENCIL 
     */
-   if (intel->state.Stencil->Enabled) {
+   if (1 || intel->state.Stencil->Enabled) {
       if (intel->state.Stencil->TestTwoSide) {
 	 GLint test  = intel_translate_compare_func(intel->state.Stencil->Function[1]);
 	 GLint fop   = intel_translate_stencil_op(intel->state.Stencil->FailFunc[1]);
@@ -210,7 +209,7 @@ static void upload_BLENDCOLOR( struct intel_context *intel )
 
    /* _NEW_COLOR 
     */
-   if (intel->state.Color->BlendEnabled) {
+   if (1 || intel->state.Color->BlendEnabled) {
       const GLfloat *color = intel->state.Color->BlendColor;
       GLubyte r, g, b, a;
 
@@ -221,7 +220,6 @@ static void upload_BLENDCOLOR( struct intel_context *intel )
 
       bc[0] = (_3DSTATE_CONST_BLEND_COLOR_CMD);
       bc[1] = (a << 24) | (r << 16) | (g << 8) | b;
-
    }
 
    set_dynamic_indirect( intel, 
@@ -247,7 +245,7 @@ static void upload_IAB( struct intel_context *intel )
 {
    GLuint iab = 0;
 
-   if (intel->state.Color->BlendEnabled) {
+   if (1 || intel->state.Color->BlendEnabled) {
       GLuint eqRGB = intel->state.Color->BlendEquationRGB;
       GLuint eqA = intel->state.Color->BlendEquationA;
       GLuint srcRGB = intel->state.Color->BlendSrcRGB;
@@ -312,7 +310,7 @@ static void upload_DEPTHSCALE( struct intel_context *intel )
 
    memset( ds, 0, sizeof(ds) );
    
-   if (intel->state.Polygon->OffsetFill) {
+   if (1 || intel->state.Polygon->OffsetFill) {
       
       ds[0].u = (_3DSTATE_DEPTH_OFFSET_SCALE);
       ds[1].f = 0;		/* XXX */
@@ -334,87 +332,80 @@ const struct intel_tracked_state i915_upload_DEPTHSCALE = {
    .update = upload_DEPTHSCALE
 };
 
+
+
 /***********************************************************************
- * Do the group emit in a single packet.  
+ * Polygon stipple
+ *
+ * The i915 supports a 4x4 stipple natively, GL wants 32x32.
+ * Fortunately stipple is usually a repeating pattern.
+ *
+ * XXX: does stipple pattern need to be adjusted according to
+ * the window position?
+ *
+ * XXX: possibly need workaround for conform paths test. 
  */
 
-#define CHECK( idx, nr ) do {				\
-   if (i915->dyn_indirect.buf[idx] != 0) {		\
-      GLint i;						\
-      for (i = 0; i < nr; i++)				\
-	 buf[count++] = i915->dyn_indirect.buf[idx+i];	\
-   }							\
-} while (0)
-
-
-
-static void emit_indirect( struct intel_context *intel )
+static void upload_stipple( struct intel_context *intel )
 {
-   struct i915_context *i915 = i915_context( &intel->ctx );
-   GLboolean active;
-   GLuint i;
+   GLboolean hw_stipple_fallback = 0;
+   GLuint st[2];
 
-   /* XXX: need to check if we wrap 4kb and if so pad. 
+   st[0] = _3DSTATE_STIPPLE;
+   st[1] = 0;
+   
+   /* _NEW_POLYGON, INTEL_NEW_REDUCED_PRIMITIVE 
     */
-/*    GLuint buf[I915_DYNAMIC_SIZE], count = 0; */   
-/*    CHECK( I915_DYNAMIC_MODES4, 1 ); */
-/*    CHECK( I915_DYNAMIC_DEPTHSCALE_0, 2 ); */
-/*    CHECK( I915_DYNAMIC_IAB, 1 ); */
-/*    CHECK( I915_DYNAMIC_BC_0, 2 ); */
-/*    CHECK( I915_DYNAMIC_BFO_0, 2 ); */
+   if (intel->state.Polygon->StippleFlag &&
+       intel->reduced_primitive == GL_TRIANGLES) {
 
-
-
-   /* Or just emit the whole lot, zeros and all (fix later...):
-    */
-   for (active = 0, i = 0; i < I915_DYNAMIC_SIZE; i++)
-      if (i915->dyn_indirect.buf[i] != 0) {
-	 active = 1;
-	 break;
-      }
-
-
-
-   /* Also - want to check that something has changed & we're not just
-    * re-emitting the same stuff.
-    */
-   if (active) {
-      GLuint size = I915_DYNAMIC_SIZE * 4;
-      GLuint flag = i915->dyn_indirect.done_reset ? 0 : DIS0_BUFFER_RESET;
-      GLuint segment = SEGMENT_DYNAMIC_INDIRECT;
-      GLuint offset = intel->batch->segment_finish_offset[segment];
-
-      i915->dyn_indirect.done_reset = 1;
-
-      BEGIN_BATCH(2,0);
-      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | LI0_STATE_DYNAMIC_INDIRECT | (1<<14) | 0);
-      OUT_RELOC( intel->batch->buffer, 
-		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
-		 DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
-		 ((offset + size - 4) | DIS0_BUFFER_VALID | flag) );
-      ADVANCE_BATCH();
-
-      /* XXX:
+      /* _NEW_POLYGONSTIPPLE
        */
-      assert( offset + size < intel->batch->segment_max_offset[segment]);      
-      intel->batch->segment_finish_offset[segment] += size;
+      const GLubyte *mask = (const GLubyte *)intel->state.PolygonStipple;
+      GLubyte p[4];
+      GLint i, j, k;
 
-      /* Just emit the original buffer, zeros and all as this will
-       * avoid wrapping issues.  This is usually not emitted at all,
-       * so not urgent to fix:
-       */
-      memcpy(intel->batch->map + offset, i915->dyn_indirect.buf, size );      
+      p[0] = mask[12] & 0xf;
+      p[0] |= p[0] << 4;
+      p[1] = mask[8] & 0xf;
+      p[1] |= p[1] << 4;
+      p[2] = mask[4] & 0xf;
+      p[2] |= p[2] << 4;
+      p[3] = mask[0] & 0xf;
+      p[3] |= p[3] << 4;
+      
+      st[1] |= ST1_ENABLE;
+      st[1] |= (((p[0] & 0xf) << 0) |
+		((p[1] & 0xf) << 4) |
+		((p[2] & 0xf) << 8) | 
+		((p[3] & 0xf) << 12));
+
+      for (k = 0; k < 8; k++) {
+	 for (j = 3; j >= 0; j--) {
+	    for (i = 0; i < 4; i++, mask++) {
+	       if (*mask != p[j]) {
+		  hw_stipple_fallback = 1;
+		  st[1] = 0;
+	       }
+	    }
+	 }
+      }      
    }
+
+   assert(!hw_stipple_fallback); /* TODO */
+
+   set_dynamic_indirect( intel, 
+			 I915_DYNAMIC_STP_0,
+			 &st[0],
+			 2 );
 }
 
-const struct intel_tracked_state i915_upload_dynamic_indirect = {
+
+const struct intel_tracked_state i915_upload_stipple = {
    .dirty = {
-      .mesa = 0,
-      .intel = I915_NEW_DYNAMIC_INDIRECT,
+      .mesa = _NEW_POLYGONSTIPPLE, _NEW_POLYGON,
+      .intel = INTEL_NEW_REDUCED_PRIMITIVE,
       .extra = 0
    },
-   .update = emit_indirect
+   .update = upload_stipple
 };
-
-
-

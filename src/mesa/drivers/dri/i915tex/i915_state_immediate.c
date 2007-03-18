@@ -57,35 +57,34 @@
  */
 static void upload_S0S1( struct intel_context *intel )
 {
+   struct i915_context *i915 = i915_context( &intel->ctx );
+   GLuint S0, S1;
+
+   /* INTEL_NEW_VBO
+    */
+   S0 = intel->state.vbo_offset;
+
+   /* INTEL_NEW_VERTEX_SIZE -- do this where the vertex size is calculated! 
+    */
+   S1 = ((intel->vertex_size << 24) |
+	 (intel->vertex_size << 16));
 
    /* INTEL_NEW_VBO */
-   if (intel->state.vbo) {
-
-      BEGIN_BATCH(3, 0);
-
-      OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
-		I1_LOAD_S(0) |
-		I1_LOAD_S(1) |
-		1);
-
-      /* INTEL_NEW_VBO, INTEL_NEW_RELOC */
-      OUT_RELOC(intel->state.vbo,
-		DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
-		DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
-		intel->state.vbo_offset);
-
-      /* INTEL_NEW_VERTEX_SIZE */
-      OUT_BATCH((intel->vertex_size << 24) |
-		(intel->vertex_size << 16));
-
-      ADVANCE_BATCH();   
+   if (i915->current.vbo != intel->state.vbo ||
+       i915->current.immediate[I915_IMMEDIATE_S0] != S0 ||
+       i915->current.immediate[I915_IMMEDIATE_S1] != S1) 
+   {
+      i915->current.vbo = intel->state.vbo;
+      i915->current.immediate[I915_IMMEDIATE_S0] = S0;
+      i915->current.immediate[I915_IMMEDIATE_S1] = S1;
+      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
    }
 }
 
 const struct intel_tracked_state i915_upload_S0S1 = {
    .dirty = {
       .mesa = 0,
-      .intel = INTEL_NEW_VBO | INTEL_NEW_VERTEX_SIZE | INTEL_NEW_FENCE,
+      .intel = INTEL_NEW_VBO | INTEL_NEW_VERTEX_SIZE,
       .extra = 0
    },
    .update = upload_S0S1
@@ -159,16 +158,14 @@ static void upload_S2S4(struct intel_context *intel)
 	       S4_FLATSHADE_SPECULAR);
    }
 
-   
-   BEGIN_BATCH(3, 0);
-   
-   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
-	     I1_LOAD_S(2) |
-	     I1_LOAD_S(4) |
-	     1);
-   OUT_BATCH(LIS2);
-   OUT_BATCH(LIS4);
-   ADVANCE_BATCH();
+
+   if (LIS2 != i915->current.immediate[I915_IMMEDIATE_S2] ||
+       LIS4 != i915->current.immediate[I915_IMMEDIATE_S4]) {
+
+      i915->current.immediate[I915_IMMEDIATE_S2] = LIS2;
+      i915->current.immediate[I915_IMMEDIATE_S4] = LIS4;
+      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+   }
 }
 
 
@@ -193,6 +190,7 @@ const struct intel_tracked_state i915_upload_S2S4 = {
  */
 static void upload_S5( struct intel_context *intel )
 {
+   struct i915_context *i915 = i915_context( &intel->ctx );
    GLuint LIS5 = 0;
 
    /* _NEW_STENCIL */
@@ -243,18 +241,15 @@ static void upload_S5( struct intel_context *intel )
 	 LIS5 |= S5_WRITEDISABLE_ALPHA;
    }
 
-   BEGIN_BATCH(2, 0);   
-   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
-	     I1_LOAD_S(5) |
-	     0);
-   OUT_BATCH(LIS5);
-   ADVANCE_BATCH();
-
+   if (LIS5 != i915->current.immediate[I915_IMMEDIATE_S5]) {
+      i915->current.immediate[I915_IMMEDIATE_S5] = LIS5;
+      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+   }
 }
 
 const struct intel_tracked_state i915_upload_S5 = {
    .dirty = {
-      .mesa = (_NEW_STENCIL | _NEW_COLOR),
+      .mesa = (_NEW_STENCIL | _NEW_COLOR | _NEW_POLYGON),
       .intel = 0,
       .extra = 0
    },
@@ -266,19 +261,19 @@ const struct intel_tracked_state i915_upload_S5 = {
  */
 static void upload_S6( struct intel_context *intel )
 {
+   struct i915_context *i915 = i915_context( &intel->ctx );
    GLuint LIS6 = (S6_COLOR_WRITE_ENABLE |
 		  (2 << S6_TRISTRIP_PV_SHIFT));
 
    /* _NEW_COLOR
     */
-   if (1) {
+   if (intel->state.Color->AlphaEnabled) {
       int test = intel_translate_compare_func(intel->state.Color->AlphaFunc);
       GLubyte refByte;
 
       CLAMPED_FLOAT_TO_UBYTE(refByte, intel->state.Color->AlphaRef);
       
-      if (intel->state.Color->AlphaEnabled)
-	 LIS6 |= S6_ALPHA_TEST_ENABLE;
+      LIS6 |= S6_ALPHA_TEST_ENABLE;
 
       LIS6 |= ((test << S6_ALPHA_TEST_FUNC_SHIFT) |
 	       (((GLuint) refByte) << S6_ALPHA_REF_SHIFT));
@@ -286,8 +281,9 @@ static void upload_S6( struct intel_context *intel )
 
    /* _NEW_COLOR
     */
-   if (1) {
-
+   if (intel->state.Color->BlendEnabled && 
+       !STATE_LOGICOP_ENABLED(&intel->state))
+   {
       GLuint eqRGB = intel->state.Color->BlendEquationRGB;
       GLuint srcRGB = intel->state.Color->BlendSrcRGB;
       GLuint dstRGB = intel->state.Color->BlendDstRGB;
@@ -296,9 +292,7 @@ static void upload_S6( struct intel_context *intel )
 	 srcRGB = dstRGB = GL_ONE;
       }
 
-      if (intel->state.Color->BlendEnabled && 
-	  !STATE_LOGICOP_ENABLED(&intel->state))
-	  LIS6 |= S6_CBUF_BLEND_ENABLE;
+      LIS6 |= S6_CBUF_BLEND_ENABLE;
 
       LIS6 |= (SRC_BLND_FACT(intel_translate_blend_factor(srcRGB)) |
 	       DST_BLND_FACT(intel_translate_blend_factor(dstRGB)) |
@@ -307,25 +301,20 @@ static void upload_S6( struct intel_context *intel )
 
    /* _NEW_DEPTH 
     */
-   if (1) {
+   if (intel->state.Depth->Test) {
       GLint func = intel_translate_compare_func(intel->state.Depth->Func);
 
       LIS6 |= func << S6_DEPTH_TEST_FUNC_SHIFT;
 
-      if (intel->state.Depth->Test) {
-	 LIS6 |= S6_DEPTH_TEST_ENABLE;
-	 if (intel->state.Depth->Mask)
-	    LIS6 |= S6_DEPTH_WRITE_ENABLE;
-      }
+      LIS6 |= S6_DEPTH_TEST_ENABLE;
+      if (intel->state.Depth->Mask)
+	 LIS6 |= S6_DEPTH_WRITE_ENABLE;
    }
 
-   BEGIN_BATCH(2, 0);   
-   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
-	     I1_LOAD_S(6) |
-	     0);
-   OUT_BATCH(LIS6);
-   ADVANCE_BATCH();
-
+   if (LIS6 != i915->current.immediate[I915_IMMEDIATE_S6]) {
+      i915->current.immediate[I915_IMMEDIATE_S6] = LIS6;
+      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+   }
 }
 
 const struct intel_tracked_state i915_upload_S6 = {
@@ -342,6 +331,7 @@ const struct intel_tracked_state i915_upload_S6 = {
  */
 static void upload_S7( struct intel_context *intel )
 {
+   struct i915_context *i915 = i915_context( &intel->ctx );
    GLfloat LIS7;
 
    /* _NEW_POLYGON
@@ -349,13 +339,10 @@ static void upload_S7( struct intel_context *intel )
 /*    LIS7 = intel->state.Polygon->OffsetUnits * DEPTH_SCALE; */
    LIS7 = 0;
 
-   BEGIN_BATCH(2, 0);   
-   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
-	     I1_LOAD_S(7) |
-	     0);
-   OUT_BATCH_F(LIS7);
-   ADVANCE_BATCH();
-
+   if (LIS7 != i915->current.immediate[I915_IMMEDIATE_S7]) {
+      i915->current.immediate[I915_IMMEDIATE_S7] = LIS7;
+      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+   }
 }
 
 const struct intel_tracked_state i915_upload_S7 = {

@@ -58,8 +58,6 @@ struct i915_cache {
    GLuint state_type;
    struct i915_cache_item **items;
    GLuint size, n_items;
-   GLuint force_load_flag;
-   GLuint last_addr;
 };
 
 struct i915_cache_context {
@@ -67,22 +65,6 @@ struct i915_cache_context {
    struct i915_cache cache[I915_MAX_CACHE];
 };
 
-
-static void emit_load_indirect( struct intel_context *intel,
-				GLuint state_type,
-				GLuint force_load_flag,
-				GLuint offset,
-				GLuint dwords )
-{
-   BEGIN_BATCH(3,0);
-   OUT_BATCH( _3DSTATE_LOAD_INDIRECT | state_type | (1<<14) | 1);
-   OUT_RELOC( intel->batch->buffer, 
-	      DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
-	      DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
-	      ( offset | force_load_flag | SIS0_BUFFER_VALID ) );
-   OUT_BATCH( dwords - 1 );
-   ADVANCE_BATCH();
-}
 
 
 static GLuint emit_packet( struct intel_context *intel,
@@ -112,7 +94,6 @@ static GLuint emit_packet( struct intel_context *intel,
 				   packet->reloc[i].mask,
 				   packet->dword[packet->reloc[i].dword].u );
    }
-
 
    return offset;
 }
@@ -229,29 +210,7 @@ void i915_cache_emit(struct i915_cache_context *cctx,
    struct intel_context *intel = &cctx->i915->intel;
    GLuint size = packet_size( packet );
 
-#if 1
-   GLuint hash = hash_packet( packet, size );
-   struct i915_cache *cache = &cctx->cache[packet->cache_id];
-   GLuint addr;
-
-   addr = search_cache( cache, hash, packet->dword, size );
-   if (addr == 0)
-      addr = upload_cache( cache, intel, hash, packet, size );
-
-   /* Always have to tell the hardware about it, unless this is the
-    * same as last time!
-    */
-   if (addr != cache->last_addr) {
-      emit_load_indirect( intel, 
-			  cache->state_type, 
-			  cache->force_load_flag,
-			  addr, 
-			  packet->nr_dwords );
-
-      cache->force_load_flag = 0;
-      cache->last_addr = addr;
-   }
-#else
+#ifdef I915_NO_INDIRECT_STATE
    GLuint i;
 
    BEGIN_BATCH(packet->nr_dwords, 0);
@@ -268,6 +227,17 @@ void i915_cache_emit(struct i915_cache_context *cctx,
       OUT_BATCH(packet->dword[i].u);
 
    ADVANCE_BATCH();
+#else
+   GLuint hash = hash_packet( packet, size );
+   struct i915_cache *cache = &cctx->cache[packet->cache_id];
+   GLuint addr;
+
+   addr = search_cache( cache, hash, packet->dword, size );
+   if (addr == 0)
+      addr = upload_cache( cache, intel, hash, packet, size );
+
+   cctx->i915->current.offsets[packet->cache_id] = addr;
+   cctx->i915->current.sizes[packet->cache_id] = packet->nr_dwords;
 #endif
 }
 
@@ -278,6 +248,9 @@ void i915_cache_emit(struct i915_cache_context *cctx,
  * to fixup by the memory manager as they contain absolute agp
  * offsets, so we need to ensure there is a fresh version of the
  * struct available to receive the fixup.
+ *
+ * Also, temporarily, need to do this for every cache because they are
+ * all being stored in the batchbuffer!!
  */
 static void clear_cache( struct i915_cache *cache )
 {
@@ -294,11 +267,6 @@ static void clear_cache( struct i915_cache *cache )
    }
 
    cache->n_items = 0;
-
-   /* Make sure hardware knows we've abandoned old data:
-    */
-   cache->force_load_flag = SIS0_FORCE_LOAD;
-   cache->last_addr = ~0;
 }
 
 
@@ -326,6 +294,16 @@ struct i915_cache_context *i915_create_caches( struct i915_context *i915 )
    cctx->i915 = i915;
 
    init_cache( cctx,
+	       "STATIC",
+	       I915_CACHE_STATIC,
+	       LI0_STATE_STATIC_INDIRECT );
+
+   init_cache( cctx,
+	       "MAP",
+	       I915_CACHE_MAP,
+	       LI0_STATE_MAP );
+
+   init_cache( cctx,
 	       "SAMPLER",
 	       I915_CACHE_SAMPLER,
 	       LI0_STATE_SAMPLER );
@@ -339,34 +317,6 @@ struct i915_cache_context *i915_create_caches( struct i915_context *i915 )
 	       "CONSTANTS",
 	       I915_CACHE_CONSTANTS,
 	       LI0_STATE_CONSTANTS );
-
-   init_cache( cctx,
-	       "MAP",
-	       I915_CACHE_MAP,
-	       LI0_STATE_MAP );
-
-   /* These are all part of the LI0_STATIC_INDIRECT bucket.  Not
-    * really sure how to handle these.
-    */
-   init_cache( cctx,
-	       "BUFFERS",
-	       I915_CACHE_BUFFERS,
-	       LI0_STATE_STATIC_INDIRECT );
-
-   init_cache( cctx,
-	       "STIPPLE",
-	       I915_CACHE_STIPPLE,
-	       LI0_STATE_STATIC_INDIRECT );
-
-   init_cache( cctx,
-	       "SCISSOR",
-	       I915_CACHE_SCISSOR,
-	       LI0_STATE_STATIC_INDIRECT );
-
-   init_cache( cctx,
-	       "INVARIENT",
-	       I915_CACHE_INVARIENT,
-	       LI0_STATE_STATIC_INDIRECT );
 
    return cctx;
 }

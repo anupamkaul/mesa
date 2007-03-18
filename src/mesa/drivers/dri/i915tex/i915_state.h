@@ -61,14 +61,8 @@ const struct intel_tracked_state i915_upload_FOGCOLOR;
 const struct intel_tracked_state i915_upload_FOGMODE;
 const struct intel_tracked_state i915_upload_IAB;
 const struct intel_tracked_state i915_upload_MODES4;
+const struct intel_tracked_state i915_upload_STIPPLE;
 const struct intel_tracked_state i915_upload_dynamic_indirect;
-
-/* Static indirect:
- */
-const struct intel_tracked_state i915_upload_invarient;
-const struct intel_tracked_state i915_upload_buffers;
-const struct intel_tracked_state i915_upload_scissor;
-const struct intel_tracked_state i915_upload_stipple;
 
 /* Other indirect:
  */
@@ -76,6 +70,11 @@ const struct intel_tracked_state i915_upload_constants;
 const struct intel_tracked_state i915_upload_program;
 const struct intel_tracked_state i915_upload_maps;
 const struct intel_tracked_state i915_upload_samplers;
+const struct intel_tracked_state i915_upload_static;
+
+/* Perform state differencing and update hardware: 
+ */
+const struct intel_tracked_state i915_state_differencer;
 
 
 static INLINE GLuint
@@ -106,6 +105,11 @@ static INLINE GLuint U_FIXED(GLfloat value, GLuint frac_bits)
 static INLINE GLint S_FIXED(GLfloat value, GLuint frac_bits)
 {
    return value * (1<<frac_bits);
+}
+
+static INLINE GLuint ALIGN(GLuint x, GLuint align)
+{
+   return (x + align - 1) & ~(align - 1);
 }
 
 

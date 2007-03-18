@@ -37,17 +37,6 @@ struct i915_cache_context;
 struct i915_cache_packet;
 struct i915_context;
 
-enum {
-   I915_CACHE_SAMPLER,
-   I915_CACHE_PROGRAM,
-   I915_CACHE_CONSTANTS,
-   I915_CACHE_MAP,
-   I915_CACHE_BUFFERS,
-   I915_CACHE_STIPPLE,
-   I915_CACHE_SCISSOR,
-   I915_CACHE_INVARIENT,
-   I915_MAX_CACHE
-};
 
 struct i915_cache_context *i915_create_caches( struct i915_context *i915 );
 

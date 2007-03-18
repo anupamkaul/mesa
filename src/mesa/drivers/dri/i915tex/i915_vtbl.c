@@ -68,9 +68,15 @@ static void i915_lost_hardware( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
 
+   /* This is required currently as we use the batchbuffer to hold all
+    * the cached items:
+    */
    i915_clear_caches( i915->cctx );
 
-   memset(&i915->dyn_indirect, 0, sizeof(i915->dyn_indirect));
+   /* Update the batchbuffer id so the context tracker knows there has
+    * been a discontinuity.
+    */
+   i915->current.id++;
 }
 
 

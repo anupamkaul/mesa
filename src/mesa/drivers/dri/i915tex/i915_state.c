@@ -63,7 +63,7 @@ const struct intel_tracked_state *atoms[] =
     */
    &i915_vertex_format,
 
-   /* Immediate state.  Don't make any effort to combine packets yet.
+   /* Immediate state.  
     */
    &i915_upload_S0S1,
    &i915_upload_S2S4,
@@ -71,29 +71,30 @@ const struct intel_tracked_state *atoms[] =
    &i915_upload_S6,
    &i915_upload_S7,
 
-   /* Dynamic indirect.  Packets are combined in a final step.
+   /* Dynamic indirect. 
     */
    &i915_upload_BFO,
    &i915_upload_BLENDCOLOR,
    &i915_upload_DEPTHSCALE,
-/*    &i915_upload_FOGCOLOR, */
-/*    &i915_upload_FOGMODE, */
    &i915_upload_IAB,
    &i915_upload_MODES4,
-   &i915_upload_dynamic_indirect,
-
-   /* Static indirect state.
-    */
-   &i915_upload_invarient,	
-   &i915_upload_buffers,
-   &i915_upload_scissor,
-   &i915_upload_stipple,
+   &i915_upload_STIPPLE,
 
    /* Other indirect state.  Also includes program state, above.
     */
    &i915_upload_maps,		/* must do before samplers */
    &i915_upload_samplers,
-   &i915_upload_constants	/* will be patched out at runtime */
+   &i915_upload_constants,	/* will be patched out at runtime */
+   &i915_upload_static,
+
+
+   /* Combine packets, diff against hardware state and emit a minimal
+    * set of changes:
+    *
+    * XXX: Could delay this and only make this final step at the point
+    * where the first triangle gets drawn.
+    */
+   &i915_state_differencer,
 };
 
 
@@ -115,6 +116,9 @@ void i915_init_state( struct i915_context *i915 )
    _mesa_memcpy(&i915->constants.tracked_state, 
 		&i915_upload_constants,
 		sizeof(i915_upload_constants));
+
+   i915->hardware.id = 0;
+   i915->current.id = 1;
 }
 
 
