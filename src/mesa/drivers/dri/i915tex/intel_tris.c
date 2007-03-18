@@ -57,24 +57,19 @@ static void intelRasterPrimitive(GLcontext * ctx, GLenum rprim,
 static void
 intel_flush_inline_primitive(struct intel_context *intel)
 {
-   GLuint used = intel->batch->segment_finish_offset[0];
+   GLuint used = (intel->batch->map + intel->batch->segment_finish_offset[0] -
+		  intel->prim.start_ptr);
 
    assert(intel->prim.primitive != ~0);
 
-/*    _mesa_printf("/\n"); */
+   if (used < 8) {
+      intel->batch->segment_finish_offset[0] -= used;
+   }
+   else {
+      *(int *) intel->prim.start_ptr = (_3DPRIMITIVE |
+					intel->prim.primitive | (used / 4 - 2));
+   }
 
-   if (used < 8)
-      goto do_discard;
-
-   *(int *) intel->prim.start_ptr = (_3DPRIMITIVE |
-                                     intel->prim.primitive | (used / 4 - 2));
-
-   goto finished;
-
- do_discard:
-   intel->batch->segment_finish_offset[0] -= used;
-
- finished:
    intel->prim.primitive = ~0;
    intel->prim.start_ptr = 0;
    intel->prim.flush = 0;
@@ -102,22 +97,14 @@ intelStartInlinePrimitive(struct intel_context *intel,
       intel_emit_state(intel);
    }
 
-/*    _mesa_printf("%s *", __progname); */
+   intel->prim.start_ptr = intel->batch->map + intel->batch->segment_finish_offset[0];
+   intel->prim.primitive = prim;
+   intel->prim.flush = intel_flush_inline_primitive;
 
    /* Emit a slot which will be filled with the inline primitive
     * command later.
     */
-   BEGIN_BATCH(2, batch_flags);
-   OUT_BATCH(0);
-
-   intel->prim.start_ptr = intel->batch->map + intel->batch->segment_start_offset[0];
-   intel->prim.primitive = prim;
-   intel->prim.flush = intel_flush_inline_primitive;
-
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-
-/*    _mesa_printf(">"); */
+   intel->batch->segment_finish_offset[0] += sizeof(GLuint);
 }
 
 
@@ -176,7 +163,6 @@ do {								\
 do {						\
    for ( j = 0 ; j < vertsize ; j++ ) {		\
       vb[j] = ((GLuint *)v)[j];			\
-      _mesa_printf("%d: %08x (%f)\n", j, vb[j], ((GLfloat *)v)[j]); \
    }						\
    vb += vertsize;				\
 } while (0)
@@ -899,6 +885,7 @@ intelRunPipeline(GLcontext * ctx)
    if (ctx->NewState)
       _mesa_update_state_locked(ctx);
 
+   /* Want to update state but not emit: */
    intel_emit_state( intel );
 
    _tnl_run_pipeline(ctx);
