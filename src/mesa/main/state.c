@@ -943,6 +943,7 @@ update_arrays( GLcontext *ctx )
 static void
 update_program(GLcontext *ctx)
 {
+
    /* For now, just set the _Enabled (really enabled) flags.
     * In the future we may have to check other state to be sure we really
     * have a runable program or shader.
@@ -954,20 +955,24 @@ update_program(GLcontext *ctx)
    ctx->ATIFragmentShader._Enabled = ctx->ATIFragmentShader.Enabled
       && ctx->ATIFragmentShader.Current->Instructions;
       
-   ctx->FragmentProgram._Current = ctx->FragmentProgram.Current;
-   ctx->FragmentProgram._Active = ctx->FragmentProgram._Enabled;
+   if (ctx->_UseTexEnvProgram) {
+      const struct gl_fragment_program *prev = ctx->FragmentProgram._Current;
 
-   if (ctx->_MaintainTexEnvProgram && !ctx->FragmentProgram._Enabled) {
-#if 0
-      if (!ctx->_TexEnvProgram)
-	 ctx->_TexEnvProgram = (struct gl_fragment_program *)
-	    ctx->Driver.NewProgram(ctx, GL_FRAGMENT_PROGRAM_ARB, 0);
-      ctx->FragmentProgram._Current = ctx->_TexEnvProgram;
-#endif
+      ctx->FragmentProgram._Active = GL_TRUE;
 
-      if (ctx->_UseTexEnvProgram)
-	 ctx->FragmentProgram._Active = GL_TRUE;
+      if (ctx->FragmentProgram._Enabled) 
+	 ctx->FragmentProgram._Current = ctx->FragmentProgram.Current;
+     
+      if (ctx->FragmentProgram._Current != prev && ctx->Driver.BindProgram) {
+	 ctx->Driver.BindProgram(ctx, GL_FRAGMENT_PROGRAM_ARB,
+				 (struct gl_program *) ctx->FragmentProgram._Current);
+      }
+   } 
+   else {
+      ctx->FragmentProgram._Current = ctx->FragmentProgram.Current;
+      ctx->FragmentProgram._Active = ctx->FragmentProgram._Enabled;
    }
+
 }
 
 
