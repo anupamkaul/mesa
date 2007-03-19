@@ -80,16 +80,7 @@ const struct intel_tracked_state *atoms[] =
    &i915_upload_maps,		/* must do before samplers */
    &i915_upload_samplers,
    &i915_upload_constants,	/* will be patched out at runtime */
-   &i915_upload_static,
-
-
-   /* Combine packets, diff against hardware state and emit a minimal
-    * set of changes:
-    *
-    * XXX: Could delay this and only make this final step at the point
-    * where the first triangle gets drawn.
-    */
-   &i915_state_differencer,
+   &i915_upload_static
 };
 
 

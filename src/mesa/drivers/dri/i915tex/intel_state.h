@@ -37,7 +37,9 @@ struct intel_context;
 struct intel_tracked_state;
 
 void intel_state_init( struct intel_context *intel );
-void intel_emit_state( struct intel_context *intel );
+
+void intel_update_software_state( struct intel_context *intel );
+void intel_emit_hardware_state( struct intel_context *intel, GLuint dwords );
 
 
 const struct intel_tracked_state intel_update_viewport;

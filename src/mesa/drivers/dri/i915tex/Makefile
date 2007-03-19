@@ -28,6 +28,7 @@ DRIVER_SOURCES = \
 	i915_tex_layout.c \
 	i915_vtbl.c \
 	intel_render.c \
+	intel_vb.c \
 	intel_idx_render.c \
 	intel_regions.c \
 	intel_buffer_objects.c \

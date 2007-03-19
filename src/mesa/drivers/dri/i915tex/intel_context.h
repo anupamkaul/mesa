@@ -179,9 +179,17 @@ struct intel_context
       void (*rotate_window) (struct intel_context * intel,
                              __DRIdrawablePrivate * dPriv, GLuint srcBuf);
 
-      void (*assert_not_dirty) (struct intel_context *intel);
+
 
       GLuint (*debug_packet)(const GLuint *stream);
+
+      /* Can just return an upper bound: 
+       */
+      GLuint (*get_hardware_state_size) (struct intel_context *intel);
+
+      void (*emit_hardware_state) (struct intel_context *intel);
+
+      
 
    } vtbl;
 
@@ -379,22 +387,23 @@ extern int INTEL_DEBUG;
 #define INTEL_DEBUG		0
 #endif
 
-#define DEBUG_TEXTURE	0x1
-#define DEBUG_STATE	0x2
-#define DEBUG_IOCTL	0x4
-#define DEBUG_BLIT	0x8
-#define DEBUG_MIPTREE   0x10
-#define DEBUG_FALLBACKS	0x20
-#define DEBUG_VERBOSE	0x40
-#define DEBUG_BATCH     0x80
-#define DEBUG_PIXEL     0x100
-#define DEBUG_BUFMGR    0x200
-#define DEBUG_REGION    0x400
-#define DEBUG_FBO       0x800
-#define DEBUG_LOCK      0x1000
-#define DEBUG_IDX       0x2000
-#define DEBUG_TRI       0x4000
+#define DEBUG_TEXTURE	  0x1
+#define DEBUG_STATE	  0x2
+#define DEBUG_IOCTL	  0x4
+#define DEBUG_BLIT	  0x8
+#define DEBUG_MIPTREE     0x10
+#define DEBUG_FALLBACKS	  0x20
+#define DEBUG_VERBOSE     0x40
+#define DEBUG_BATCH       0x80
+#define DEBUG_PIXEL       0x100
+#define DEBUG_BUFMGR      0x200
+#define DEBUG_REGION      0x400
+#define DEBUG_FBO         0x800
+#define DEBUG_LOCK        0x1000
+#define DEBUG_IDX         0x2000
+#define DEBUG_TRI         0x4000
 #define DEBUG_ALWAYS_SYNC 0x8000
+#define DEBUG_VBO         0x10000
 
 #define DBG(...)  do { if (INTEL_DEBUG & FILE_DEBUG_FLAG) _mesa_printf(__VA_ARGS__); } while(0)
 

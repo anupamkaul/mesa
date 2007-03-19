@@ -27,7 +27,7 @@
 
 #include "intel_batchbuffer.h"
 #include "intel_ioctl.h"
-#include "intel_idx_render.h"
+#include "intel_vb.h"
 #include "intel_reg.h"
 
 /* Relocations in kernel space:
@@ -326,7 +326,7 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
       return batch->last_fence;
 
 
-   intel_idx_lost_hardware(intel);
+   intel_vb_flush( intel->vb );
 
    /* Add the MI_BATCH_BUFFER_END.  Always add an MI_FLUSH - this is a
     * performance drain that we would like to avoid.

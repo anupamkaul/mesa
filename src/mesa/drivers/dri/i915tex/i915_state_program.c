@@ -87,7 +87,8 @@ static void upload_program( struct intel_context *intel )
 const struct intel_tracked_state i915_upload_program = {
    .dirty = {
       .mesa  = (0),
-      .intel   = (INTEL_NEW_FRAGMENT_PROGRAM), /* ?? Is this all ?? */
+      .intel   = (INTEL_NEW_FRAGMENT_PROGRAM |
+		  I915_NEW_LOST_CACHE),
       .extra = 0
    },
    .update = upload_program

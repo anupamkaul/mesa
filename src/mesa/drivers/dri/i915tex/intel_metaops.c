@@ -48,6 +48,7 @@
 #include "intel_context.h"
 #include "intel_metaops.h"
 #include "intel_reg.h"
+#include "intel_state.h"
 
 
 #define DUP(i915, STRUCT, ATTRIB) 		\
@@ -403,17 +404,17 @@ intel_meta_draw_poly(struct intel_context *intel,
                      GLfloat xy[][2],
                      GLfloat z, GLuint color, GLfloat tex[][2])
 {
-   GLint sz;
    GLint i;
 
-   intel_emit_state( intel );
-
-   sz = intel->vertex_size;
+   intel_update_software_state( intel );
+   intel_emit_hardware_state( intel, 2+n*intel->vertex_size );
 
    /* All 3d primitives should be emitted with INTEL_BATCH_CLIPRECTS,
     * otherwise the drawing origin (DR4) might not be set correctly.
+    *
+    * XXX: use the vb for vertices!
     */
-   BEGIN_BATCH(2+n*sz, INTEL_BATCH_CLIPRECTS);
+   BEGIN_BATCH(2+n*intel->vertex_size, INTEL_BATCH_CLIPRECTS);
 
    OUT_BATCH( _3DPRIMITIVE |
 	      PRIM3D_TRIFAN | 

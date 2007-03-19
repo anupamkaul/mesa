@@ -174,8 +174,8 @@ upload_maps( struct intel_context *intel )
 
 const struct intel_tracked_state i915_upload_maps = {
    .dirty = {
-      .mesa = (_NEW_TEXTURE),
-      .intel = INTEL_NEW_FENCE,
+      .mesa = _NEW_TEXTURE,
+      .intel = INTEL_NEW_FENCE | I915_NEW_LOST_CACHE,
       .extra = 0
    },
    .update = upload_maps

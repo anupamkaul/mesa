@@ -34,12 +34,18 @@
 #define I915_MAX_CONSTANT      32
 #define I915_PROGRAM_SIZE      192
 
-
+/* Dirty flags for software state update:
+ */
 #define I915_NEW_INPUT_SIZES       (INTEL_NEW_DRIVER0<<0)
 #define I915_NEW_VERTEX_FORMAT     (INTEL_NEW_DRIVER0<<1)
-#define I915_NEW_DYNAMIC_INDIRECT  (INTEL_NEW_DRIVER0<<2)
-#define I915_NEW_CACHED_INDIRECT   (INTEL_NEW_DRIVER0<<3)
-#define I915_NEW_IMMEDIATE         (INTEL_NEW_DRIVER0<<4)
+#define I915_NEW_LOST_CACHE        (INTEL_NEW_DRIVER0<<5)
+
+/* Dirty flags for hardware emit
+ */
+#define I915_HW_DYNAMIC_INDIRECT  (1<<0)
+#define I915_HW_CACHED_INDIRECT   (1<<1)
+#define I915_HW_IMMEDIATE         (1<<2)
+
 
 
 /* Hardware version of a parsed fragment program.  "Derived" from the
@@ -169,6 +175,7 @@ struct i915_context
     */
    struct i915_state current;
    struct i915_state hardware;
+   GLuint hardware_dirty;
 };
 
 

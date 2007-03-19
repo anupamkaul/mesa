@@ -47,6 +47,7 @@
 #include "intel_span.h"
 #include "intel_tex.h"
 #include "intel_state.h"
+#include "intel_vb.h"
 
 static void intelRenderPrimitive(GLcontext * ctx, GLenum prim);
 static void intelRasterPrimitive(GLcontext * ctx, GLenum rprim,
@@ -57,87 +58,87 @@ static void intelRasterPrimitive(GLcontext * ctx, GLenum rprim,
 static void
 intel_flush_inline_primitive(struct intel_context *intel)
 {
-   GLuint used = (intel->batch->map + intel->batch->segment_finish_offset[0] -
-		  intel->prim.start_ptr);
+   GLuint used = intel_vb_end_dynamic_alloc( intel->vb );
+   GLuint verts = used / (intel->vertex_size * 4);
 
+   assert(verts * intel->vertex_size * sizeof(GLuint) == used);
    assert(intel->prim.primitive != ~0);
+   assert(verts < 65536);
 
-   if (used < 8) {
-      intel->batch->segment_finish_offset[0] -= used;
-   }
-   else {
-      *(int *) intel->prim.start_ptr = (_3DPRIMITIVE |
-					intel->prim.primitive | (used / 4 - 2));
+   intel->prim.flush = 0;
+
+   if (used) {
+      /* Need a loop to ensure the batch gets emitted to the same
+       * batchbuffer as the hardware state:
+       */
+      intel_emit_hardware_state( intel, 2 );
+
+      BEGIN_BATCH(2, 0);
+      OUT_BATCH(_3DPRIMITIVE |
+		intel->prim.primitive | 
+		PRIM_INDIRECT |
+		PRIM_INDIRECT_SEQUENTIAL |
+		(verts));
+      OUT_BATCH(0);		/* starting index - use this later */
+      ADVANCE_BATCH();
    }
 
    intel->prim.primitive = ~0;
-   intel->prim.start_ptr = 0;
-   intel->prim.flush = 0;
 }
 
 
 /* Emit a primitive referencing vertices in a vertex buffer.
  */
 void
-intelStartInlinePrimitive(struct intel_context *intel,
-                          GLuint prim, GLuint batch_flags)
+intelStartInlinePrimitive( struct intel_context *intel,
+                           GLuint prim,
+			   GLuint dwords )
 {
-   BATCH_LOCALS;
+   if (dwords == 0)
+      dwords = 256;
 
-   intel_emit_state(intel);
+   if (!intel_vb_begin_dynamic_alloc( intel->vb, dwords * 4 )) {
+      intel_batchbuffer_flush( intel->batch );
 
-   /* Need to make sure at the very least that we don't wrap
-    * batchbuffers in BEGIN_BATCH below, otherwise the primitive will
-    * be emitted to a batchbuffer missing the required full-state
-    * preamble.
-    */
-   if (intel_batchbuffer_space(intel->batch, 0) < 100) {
-      assert(0);		/* XXX: later! */
-      intel_batchbuffer_flush(intel->batch);
-      intel_emit_state(intel);
+      /* Should always succeed:
+       */
+      if (!intel_vb_begin_dynamic_alloc( intel->vb, dwords * 4 )) {
+	 assert(0);
+      }
    }
-
-   intel->prim.start_ptr = intel->batch->map + intel->batch->segment_finish_offset[0];
+      
    intel->prim.primitive = prim;
    intel->prim.flush = intel_flush_inline_primitive;
-
-   /* Emit a slot which will be filled with the inline primitive
-    * command later.
-    */
-   intel->batch->segment_finish_offset[0] += sizeof(GLuint);
 }
 
 
-void
-intelWrapInlinePrimitive(struct intel_context *intel)
+static void
+intelWrapInlinePrimitive( struct intel_context *intel,
+			  GLuint dwords )
 {
    GLuint prim = intel->prim.primitive;
-   GLuint batchflags = intel->batch->flags;
-
-   intel_flush_inline_primitive(intel);
-   intel_batchbuffer_flush(intel->batch);
-   intelStartInlinePrimitive(intel, prim, batchflags);  /* ??? */
+   intel_flush_inline_primitive( intel );
+   intelStartInlinePrimitive(intel, prim, dwords );
 }
 
 GLuint *
 intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords)
 {
-   GLuint sz = dwords * sizeof(GLuint);
-   GLuint *ptr;
+   GLuint bytes = dwords * sizeof(GLuint);
+   GLuint *ptr = intel_vb_extend_dynamic_alloc( intel->vb, bytes );
 
-   assert(intel->prim.flush == intel_flush_inline_primitive);
 
-   if (intel_batchbuffer_space(intel->batch, 0) < sz) {
-      assert(0);		/* XXX: later */
-      intelWrapInlinePrimitive(intel);
+   if (ptr == NULL) {
+      intelWrapInlinePrimitive( intel, dwords );
+      ptr = intel_vb_extend_dynamic_alloc( intel->vb, bytes );
+      
+      /* Should always succed:
+       */
+      assert(ptr != NULL);
    }
 
-/*    _mesa_printf("."); */
-
-   assert(intel->state.dirty.intel == 0);
-
-   ptr = (GLuint *) (intel->batch->map + intel->batch->segment_finish_offset[0]);
-   intel->batch->segment_finish_offset[0] += sz;
+   assert(intel->prim.flush == intel_flush_inline_primitive);
+   assert(intel->state.dirty.mesa == 0);
 
    return ptr;
 }
@@ -886,7 +887,7 @@ intelRunPipeline(GLcontext * ctx)
       _mesa_update_state_locked(ctx);
 
    /* Want to update state but not emit: */
-   intel_emit_state( intel );
+   intel_update_software_state( intel );
 
    _tnl_run_pipeline(ctx);
 
@@ -901,7 +902,9 @@ intelRenderStart(GLcontext * ctx)
    struct vertex_buffer *VB = &tnl->vb;
 
    VB->AttribPtr[VERT_ATTRIB_POS] = VB->NdcPtr;
-   intel_emit_state(intel);
+
+   assert(!intel->state.dirty.intel);
+   intel_update_software_state(intel);
 }
 
 static void
@@ -948,8 +951,11 @@ intelRasterPrimitive(GLcontext * ctx, GLenum rprim, GLuint hwprim)
    if (hwprim != intel->prim.primitive) {
       INTEL_FIREVERTICES(intel);
 
-      intelStartInlinePrimitive(intel, hwprim, INTEL_BATCH_CLIPRECTS);
+      intelStartInlinePrimitive( intel, hwprim, 0 );
    }
+
+   if (intel->state.dirty.intel)
+      intel_update_software_state( intel );
 }
 
 
@@ -980,6 +986,8 @@ intelRenderPrimitive(GLcontext * ctx, GLenum prim)
    /* Set some primitive-dependent state and Start? a new primitive.
     */
    intelRasterPrimitive(ctx, reduced_prim[prim], hw_prim[prim]);
+
+   assert(!intel->state.dirty.intel);
 }
 
 

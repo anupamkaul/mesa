@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,20 +25,27 @@
  * 
  **************************************************************************/
 
-#ifndef INTELTRIS_INC
-#define INTELTRIS_INC
+#ifndef INTEL_VB_H
+#define INTEL_VB_H
 
-#include "mtypes.h"
 
-extern void intelInitTriFuncs(GLcontext * ctx);
+struct intel_vb;
 
-/* dwords parameter is a minimum reservation amount.  If in doubt,
- * just use zero.
+struct intel_vb *intel_vb_init( struct intel_context *intel );
+void intel_vb_destroy( struct intel_vb *vb );
+
+void intel_vb_flush( struct intel_vb *vb );
+
+void *intel_vb_alloc( struct intel_vb *vb, GLuint space );
+
+/* If successful, guarantees you can later allocate upto
+ * min_free_space bytes without needing to flush.  
  */
-extern void intelStartInlinePrimitive( struct intel_context *intel, 
-				       GLuint prim, 
-				       GLuint dwords );
+GLboolean intel_vb_begin_dynamic_alloc( struct intel_vb *vb,
+					GLuint min_free_space );
 
-GLuint *intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords);
+void *intel_vb_extend_dynamic_alloc( struct intel_vb *vb, GLuint space );
+GLuint intel_vb_end_dynamic_alloc( struct intel_vb *vb );
+
 
 #endif

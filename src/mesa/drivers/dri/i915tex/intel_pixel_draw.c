@@ -65,7 +65,7 @@ do_texture_drawpixels(GLcontext * ctx,
       fprintf(stderr, "%s\n", __FUNCTION__);
 
    intelFlush(&intel->ctx);
-   intel_emit_state(intel);
+   assert(!intel->ctx.NewState);
 
    if (!dst)
       return GL_FALSE;

@@ -77,7 +77,7 @@ static void upload_S0S1( struct intel_context *intel )
       i915->current.vbo = intel->state.vbo;
       i915->current.immediate[I915_IMMEDIATE_S0] = S0;
       i915->current.immediate[I915_IMMEDIATE_S1] = S1;
-      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+      i915->hardware_dirty |= I915_HW_IMMEDIATE;
    }
 }
 
@@ -164,7 +164,7 @@ static void upload_S2S4(struct intel_context *intel)
 
       i915->current.immediate[I915_IMMEDIATE_S2] = LIS2;
       i915->current.immediate[I915_IMMEDIATE_S4] = LIS4;
-      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+      i915->hardware_dirty |= I915_HW_IMMEDIATE;
    }
 }
 
@@ -243,7 +243,7 @@ static void upload_S5( struct intel_context *intel )
 
    if (LIS5 != i915->current.immediate[I915_IMMEDIATE_S5]) {
       i915->current.immediate[I915_IMMEDIATE_S5] = LIS5;
-      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+      i915->hardware_dirty |= I915_HW_IMMEDIATE;
    }
 }
 
@@ -313,7 +313,7 @@ static void upload_S6( struct intel_context *intel )
 
    if (LIS6 != i915->current.immediate[I915_IMMEDIATE_S6]) {
       i915->current.immediate[I915_IMMEDIATE_S6] = LIS6;
-      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+      i915->hardware_dirty |= I915_HW_IMMEDIATE;
    }
 }
 
@@ -341,7 +341,7 @@ static void upload_S7( struct intel_context *intel )
 
    if (LIS7 != i915->current.immediate[I915_IMMEDIATE_S7]) {
       i915->current.immediate[I915_IMMEDIATE_S7] = LIS7;
-      intel->state.dirty.intel |= I915_NEW_IMMEDIATE;
+      i915->hardware_dirty |= I915_HW_IMMEDIATE;
    }
 }
 

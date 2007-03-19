@@ -70,7 +70,7 @@ static inline void set_dynamic_indirect( struct intel_context *intel,
    if (memcmp(dst, src, size * 4) == 0)
       return;
 
-   intel->state.dirty.intel |= I915_NEW_DYNAMIC_INDIRECT;
+   i915->hardware_dirty |= I915_HW_DYNAMIC_INDIRECT;
    memcpy(dst, src, size * 4);
 
 #else

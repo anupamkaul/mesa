@@ -25,19 +25,10 @@
  * 
  **************************************************************************/
 
-
-#include "glheader.h"
-#include "context.h"
-#include "macros.h"
-#include "enums.h"
-#include "colormac.h"
-#include "dd.h"
-
-#include "intel_screen.h"
 #include "intel_context.h"
-#include "intel_fbo.h"
-#include "intel_regions.h"
-#include "swrast/swrast.h"
+#include "intel_state.h"
+#include "intel_batchbuffer.h"
+#include "mtypes.h"
 
 /***********************************************************************
  */
@@ -72,7 +63,7 @@ static void xor_states( struct intel_state_flags *result,
 /***********************************************************************
  * Emit all state:
  */
-void intel_emit_state( struct intel_context *intel )
+void intel_update_software_state( struct intel_context *intel )
 {
    struct intel_state_flags *state = &intel->state.dirty;
    GLuint i;
@@ -131,6 +122,33 @@ void intel_emit_state( struct intel_context *intel )
 
    memset(state, 0, sizeof(*state));
 }
+
+
+void intel_emit_hardware_state( struct intel_context *intel,
+				GLuint dwords )
+{
+   GLuint i;
+
+   for (i = 0; i < 2; i++)
+   {
+      if (intel->state.dirty.intel)
+	 intel_update_software_state( intel );
+      
+      if (intel_batchbuffer_space( intel->batch, SEGMENT_IMMEDIATE ) <
+	  intel->vtbl.get_hardware_state_size( intel ) +  dwords * sizeof(GLuint))
+      {
+	 assert(i == 0);
+	 intel_batchbuffer_flush( intel->batch );
+      }
+      else 
+      {
+	 break;
+      }
+   } 
+      
+   intel->vtbl.emit_hardware_state( intel );
+}
+
 
 
 

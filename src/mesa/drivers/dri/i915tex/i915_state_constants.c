@@ -93,7 +93,8 @@ upload_constants(struct intel_context *intel)
 const struct intel_tracked_state i915_upload_constants = {
    .dirty = {
       .mesa = 0,      /* plus fp state flags */
-      .intel  = INTEL_NEW_FRAGMENT_PROGRAM,
+      .intel  = (INTEL_NEW_FRAGMENT_PROGRAM |
+		 I915_NEW_LOST_CACHE),
       .extra = 0
    },
    .update = upload_constants

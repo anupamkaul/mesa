@@ -43,11 +43,12 @@
 
 #include "drivers/common/driverfuncs.h"
 
-#include "intel_screen.h"
-#include "intel_idx_render.h"
 
 #include "i830_dri.h"
 
+#include "intel_screen.h"
+#include "intel_idx_render.h"
+#include "intel_vb.h"
 #include "intel_buffers.h"
 #include "intel_tex.h"
 #include "intel_span.h"
@@ -213,10 +214,10 @@ static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_arb_vertex_program_stage,
    &_tnl_vertex_program_stage,
 #if 1
-   &_tnl_indexed_render_stage,        /* ADD: rastersetup-to-dma, indexed prims */
-#endif
-#if 0
    &_intel_render_stage,        /* ADD: unclipped rastersetup-to-dma */
+#endif
+#if 1
+   &_tnl_indexed_render_stage,        /* ADD: rastersetup-to-dma, indexed prims */
 #endif
    &_tnl_render_stage,
    0,
@@ -239,6 +240,8 @@ static const struct dri_debug_control debug_control[] = {
    {"lock", DEBUG_LOCK},
    {"idx", DEBUG_IDX},
    {"tri", DEBUG_TRI},
+   {"sync", DEBUG_ALWAYS_SYNC},
+   {"vbo", DEBUG_VBO},
    {NULL, 0}
 };
 
@@ -260,10 +263,11 @@ intelInvalidateState(GLcontext * ctx, GLuint new_state)
    intel->state.dirty.intel |= INTEL_NEW_MESA;
 }
 
+/* This is usually called because of a batchbuffer flush.
+ */
 void intel_lost_hardware( struct intel_context *intel )
 {
-   intel->state.dirty.intel |= ~0;
-   intel->state.dirty.mesa |= ~0;
+   intel->state.dirty.intel |= INTEL_NEW_FENCE;
    intel->vtbl.lost_hardware( intel );
 }
 
@@ -486,6 +490,9 @@ intelInitContext(struct intel_context *intel,
    intel_metaops_init(intel);
    intel_idx_init(intel);
 
+
+   intel->vb = intel_vb_init(intel);
+
    intel->state.dirty.mesa = ~0;
    intel->state.dirty.intel = ~0;
 
@@ -530,7 +537,8 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
       _vbo_DestroyContext(&intel->ctx);
       _swrast_DestroyContext(&intel->ctx);
 
-      intel_batchbuffer_free(intel->batch);
+      intel_batchbuffer_free( intel->batch );
+      intel_vb_destroy( intel->vb );
 
       if (intel->last_swap_fence) {
 	 driFenceFinish(intel->last_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);

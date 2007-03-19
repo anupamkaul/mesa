@@ -248,37 +248,68 @@ static void emit_cached_indirect( struct intel_context *intel,
    }
 }
 
+GLuint i915_get_hardware_state_size( struct intel_context *intel )
+{
+   struct i915_context *i915 = i915_context( &intel->ctx );
+   GLuint max_dwords = 0;
 
-static void state_differencer( struct intel_context *intel )
+   /* Just return an upper bound.  The important information is
+    * whether the value is zero or non-zero.
+    */
+   if (i915->hardware_dirty & I915_HW_IMMEDIATE)
+      max_dwords += I915_MAX_IMMEDIATE + 1;
+
+   if (i915->hardware_dirty & I915_HW_DYNAMIC_INDIRECT)
+      max_dwords += 2;
+
+   if (i915->hardware_dirty & I915_HW_CACHED_INDIRECT)
+      max_dwords += (I915_MAX_CACHE-1) * 2 + 1;
+
+   return max_dwords;
+}
+
+
+/* Combine packets, diff against hardware state and emit a minimal set
+ * of changes.
+ */
+void i915_emit_hardware_state( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
    const struct i915_state *new = &i915->current;
    struct i915_state *old = &i915->hardware;
-   GLuint flags = intel->state.dirty.intel;
+   GLuint flags = i915->hardware_dirty;
 
-   if (flags & I915_NEW_IMMEDIATE) 
+   if (flags & I915_HW_IMMEDIATE)
       emit_immediates( intel, old, new );
    
-   if (flags & I915_NEW_DYNAMIC_INDIRECT) 
+   if (flags & I915_HW_DYNAMIC_INDIRECT) 
       emit_dynamic_indirect( intel, old, new );
 
-   if (flags & I915_NEW_CACHED_INDIRECT) 
+   if (flags & I915_HW_CACHED_INDIRECT)
       emit_cached_indirect( intel, old, new );
 
    memcpy(old, new, sizeof(*new));
+   i915->hardware_dirty = 0;
 }
 
-const struct intel_tracked_state i915_state_differencer = {
+
+#if 0
+static void update_hardware_dirty( struct intel_context *intel )
+{
+   struct i915_context *i915 = i915_context( &intel->ctx );
+   i915->hardware_dirty |= intel->state.dirty.intel;
+}
+
+
+const struct intel_tracked_state i915_set_hardware_dirty = {
    .dirty = {
       .mesa = 0,
       .intel = (I915_NEW_DYNAMIC_INDIRECT |
 		I915_NEW_CACHED_INDIRECT |
-		I915_NEW_IMMEDIATE |
-		INTEL_NEW_CONTEXT),
+		I915_NEW_IMMEDIATE),
       .extra = 0
    },
-   .update = state_differencer
+   .update = update_hardware_dirty
 };
 
-
-
+#endif

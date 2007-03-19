@@ -40,6 +40,9 @@
 void i915_init_state( struct i915_context *i915 );
 void i915_destroy_state( struct i915_context *i915 );
 
+void i915_emit_hardware_state( struct intel_context *intel );
+GLuint i915_get_hardware_state_size( struct intel_context *intel );
+
 
 const struct intel_tracked_state i915_check_fallback;
 const struct intel_tracked_state i915_vertex_format;
@@ -111,6 +114,7 @@ static INLINE GLuint ALIGN(GLuint x, GLuint align)
 {
    return (x + align - 1) & ~(align - 1);
 }
+
 
 
 #endif

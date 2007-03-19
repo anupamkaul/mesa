@@ -255,7 +255,7 @@ static void upload_samplers( struct intel_context *intel )
 const struct intel_tracked_state i915_upload_samplers = {
    .dirty = {
       .mesa = _NEW_TEXTURE,
-      .intel = 0,
+      .intel = I915_NEW_LOST_CACHE,
       .extra = 0
    },
    .update = upload_samplers

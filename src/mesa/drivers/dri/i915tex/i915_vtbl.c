@@ -43,8 +43,10 @@
 #include "i915_reg.h"
 #include "i915_context.h"
 #include "i915_cache.h"
+#include "i915_fpc.h"
+#include "i915_state.h"
 
-static GLuint debug( const int *stream, const char *name, GLuint len )
+static GLuint debug( const GLuint *stream, const char *name, GLuint len )
 {
    GLuint i;
 
@@ -61,10 +63,8 @@ static GLuint debug( const int *stream, const char *name, GLuint len )
    return len;
 }
 
-static GLuint debug_program( const int *stream, const char *name, GLuint len )
+static GLuint debug_program( const GLuint *stream, const char *name, GLuint len )
 {
-   GLuint i;
-
    if (len == 0) {
       _mesa_printf("Error - zero length packet (0x%08x)\n", stream[0]);
       return 0;
@@ -225,12 +225,14 @@ static void i915_lost_hardware( struct intel_context *intel )
    /* This is required currently as we use the batchbuffer to hold all
     * the cached items:
     */
+   intel->state.dirty.intel |= I915_NEW_LOST_CACHE;
    i915_clear_caches( i915->cctx );
 
    /* Update the batchbuffer id so the context tracker knows there has
     * been a discontinuity.
     */
    i915->current.id++;
+   i915->hardware_dirty = ~0;
 }
 
 
@@ -241,4 +243,6 @@ i915InitVtbl(struct i915_context *i915)
    i915->intel.vtbl.flush_cmd = i915_flush_cmd;
    i915->intel.vtbl.lost_hardware = i915_lost_hardware;
    i915->intel.vtbl.debug_packet = i915_debug_packet;
+   i915->intel.vtbl.get_hardware_state_size = i915_get_hardware_state_size;
+   i915->intel.vtbl.emit_hardware_state = i915_emit_hardware_state;
 }
