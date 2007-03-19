@@ -74,7 +74,6 @@ static void dump(struct intel_context *intel,
 
    for (i = 0; i < count; ) {
       GLuint len;
-      GLuint j;
 
       _mesa_printf("[0x%x]: ", offset + i * 4);
 

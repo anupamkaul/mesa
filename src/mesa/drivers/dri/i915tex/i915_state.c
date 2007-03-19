@@ -50,12 +50,7 @@ const struct intel_tracked_state *atoms[] =
    &intel_update_viewport,
    &intel_update_render_index,
 
-   /* Get compiled version of the fragment program which is mildly
-    * optimized according to input sizes.  This will be cached, but
-    * for now recompile on all changes.
-    *
-    * Also calculate vertex layout, immediate (S2,S4) state, vertex
-    * size.
+   /* Get compiled version of the fragment program.
     */
    &i915_upload_program,
    

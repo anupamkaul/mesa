@@ -346,7 +346,7 @@ const struct intel_tracked_state i915_upload_DEPTHSCALE = {
  * XXX: possibly need workaround for conform paths test. 
  */
 
-static void upload_stipple( struct intel_context *intel )
+static void upload_STIPPLE( struct intel_context *intel )
 {
    GLboolean hw_stipple_fallback = 0;
    GLuint st[2];
@@ -401,11 +401,11 @@ static void upload_stipple( struct intel_context *intel )
 }
 
 
-const struct intel_tracked_state i915_upload_stipple = {
+const struct intel_tracked_state i915_upload_STIPPLE = {
    .dirty = {
       .mesa = _NEW_POLYGONSTIPPLE, _NEW_POLYGON,
       .intel = INTEL_NEW_REDUCED_PRIMITIVE,
       .extra = 0
    },
-   .update = upload_stipple
+   .update = upload_STIPPLE
 };
