@@ -55,6 +55,9 @@ static void upload_program( struct intel_context *intel )
    /* As the compiled program depends only on the original program
     * text, just store the compiled version in the fragment program
     * struct.
+    *
+    * Could do the same with the indirect offset & avoid the need for
+    * hashing & caching the generated program.
     */
    if (!fp->translated) {
       i915_compile_fragment_program(i915, fp);

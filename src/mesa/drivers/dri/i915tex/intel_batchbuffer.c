@@ -84,11 +84,8 @@ static void dump(struct intel_context *intel,
 	 assert(0);
 	 return;
       }
-	 
-      for (j = 0; j < len; j++, i++)
-	 _mesa_printf("\t\t0x%08x\n",  ptr[i]);
-
-      _mesa_printf("\n");
+      
+      i += len;
    }      
 }
 
@@ -365,6 +362,16 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
    /* Reset the buffer:
     */
    intel_batchbuffer_reset(batch);
+
+
+   if (INTEL_DEBUG & DEBUG_ALWAYS_SYNC)
+   {
+      struct _DriFenceObject *fence = batch->last_fence;
+      driFenceReference(fence);
+      driFenceFinish(fence, 3, GL_FALSE);
+      driFenceUnReference(fence);
+   }
+
    return batch->last_fence;
 }
 
