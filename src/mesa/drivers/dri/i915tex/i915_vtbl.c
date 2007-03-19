@@ -53,6 +53,11 @@ static GLuint debug( const int *stream, const char *name, GLuint len )
    else
       _mesa_printf("%s (%d dwords):\n", name, len);
 
+   for (i = 0; i < len; i++)
+      _mesa_printf("\t\t0x%08x\n",  stream[i]);
+   
+   _mesa_printf("\n");
+
    return len;
 }
 
