@@ -405,36 +405,41 @@ intel_meta_draw_poly(struct intel_context *intel,
                      GLfloat z, GLuint color, GLfloat tex[][2])
 {
    GLint i;
-
    intel_update_software_state( intel );
-   intel_emit_hardware_state( intel, 2+n*intel->vertex_size );
 
-   /* All 3d primitives should be emitted with INTEL_BATCH_CLIPRECTS,
-    * otherwise the drawing origin (DR4) might not be set correctly.
-    *
-    * XXX: use the vb for vertices!
-    */
-   BEGIN_BATCH(2+n*intel->vertex_size, INTEL_BATCH_CLIPRECTS);
+   {
+      /* Must be after call to intel_update_software_state():
+       */
+      GLuint dwords = 2+n*intel->vertex_size;
+      intel_emit_hardware_state( intel, dwords );
 
-   OUT_BATCH( _3DPRIMITIVE |
-	      PRIM3D_TRIFAN | 
-	      (n * intel->vertex_size - 1 ));
+      /* All 3d primitives should be emitted with INTEL_BATCH_CLIPRECTS,
+       * otherwise the drawing origin (DR4) might not be set correctly.
+       *
+       * XXX: use the vb for vertices!
+       */
+      BEGIN_BATCH(dwords, INTEL_BATCH_CLIPRECTS);
+
+      OUT_BATCH( _3DPRIMITIVE |
+		 PRIM3D_TRIFAN | 
+		 (n * intel->vertex_size - 1 ));
 
 
-   for (i = 0; i < n; i++) {
-      OUT_BATCH_F( xy[i][0] );
-      OUT_BATCH_F( xy[i][1] );
-      OUT_BATCH_F( z );
-      OUT_BATCH( color );
-      if (intel->vertex_size == 6) {
-	 OUT_BATCH_F( tex[i][0] );
-	 OUT_BATCH_F( tex[i][1] );
+      for (i = 0; i < n; i++) {
+	 OUT_BATCH_F( xy[i][0] );
+	 OUT_BATCH_F( xy[i][1] );
+	 OUT_BATCH_F( z );
+	 OUT_BATCH( color );
+	 if (intel->vertex_size == 6) {
+	    OUT_BATCH_F( tex[i][0] );
+	    OUT_BATCH_F( tex[i][1] );
+	 }
+	 else {
+	    assert(intel->vertex_size == 4);
+	 }
       }
-      else {
-	 assert(intel->vertex_size == 4);
-      }
+      ADVANCE_BATCH();
    }
-   ADVANCE_BATCH();
 }
 
 void

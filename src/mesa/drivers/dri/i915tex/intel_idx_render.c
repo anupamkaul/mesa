@@ -187,29 +187,31 @@ static void emit_prims( GLcontext *ctx,
        * emitting batch commands while holding the lock.
        */
 /*       intelRenderPrimitive() */
-      intel_emit_hardware_state(intel, 1 + (nr+1)/2);
+      {
+	 GLuint dwords = 1 + (nr+1)/2;
+	 intel_emit_hardware_state(intel, dwords);
 
-      /* XXX: Can emit upto 64k indices, need to split larger prims
-       */
-      BEGIN_BATCH(1 + (nr+1)/2, INTEL_BATCH_CLIPRECTS);
-      OUT_BATCH( _3DPRIMITIVE | 
-		 hw_prim | 
-		 PRIM_INDIRECT | 
-		 PRIM_INDIRECT_ELTS | 
-		 nr );
+	 /* XXX: Can emit upto 64k indices, need to split larger prims
+	  */
+	 BEGIN_BATCH( dwords, INTEL_BATCH_CLIPRECTS );
+	 OUT_BATCH( _3DPRIMITIVE | 
+		    hw_prim | 
+		    PRIM_INDIRECT | 
+		    PRIM_INDIRECT_ELTS | 
+		    nr );
       
-      /* Pack indices into 16bits 
-       */
-      for (j = 0; j < nr-1; j += 2) {
-	 OUT_BATCH( (offset + indices[start+j]) | ((offset + indices[start+j+1])<<16) );
+	 /* Pack indices into 16bits 
+	  */
+	 for (j = 0; j < nr-1; j += 2) {
+	    OUT_BATCH( (offset + indices[start+j]) | ((offset + indices[start+j+1])<<16) );
+	 }
+
+	 if (j < nr)
+	    OUT_BATCH( (offset + indices[start+j]) );
+	 
+	 ADVANCE_BATCH();
       }
-
-      if (j < nr)
-	 OUT_BATCH( (offset + indices[start+j]) );
-
-      ADVANCE_BATCH();
    }
-
 
    DBG("%s - done\n", __FUNCTION__);
 }

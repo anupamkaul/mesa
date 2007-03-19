@@ -68,12 +68,14 @@ intel_flush_inline_primitive(struct intel_context *intel)
    intel->prim.flush = 0;
 
    if (used) {
+      GLuint dwords = 2;
+
       /* Need a loop to ensure the batch gets emitted to the same
        * batchbuffer as the hardware state:
        */
-      intel_emit_hardware_state( intel, 2 );
+      intel_emit_hardware_state( intel, dwords );
 
-      BEGIN_BATCH(2, 0);
+      BEGIN_BATCH( dwords, INTEL_BATCH_CLIPRECTS );
       OUT_BATCH(_3DPRIMITIVE |
 		intel->prim.primitive | 
 		PRIM_INDIRECT |
