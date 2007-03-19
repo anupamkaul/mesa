@@ -321,8 +321,12 @@ void i915_clear_caches( struct i915_cache_context *cctx )
 {
    GLint i;
 
-   for (i = 0; i < I915_MAX_CACHE; i++)
+   for (i = 0; i < I915_MAX_CACHE; i++) {
       clear_cache(&cctx->cache[i]);      
+
+      cctx->i915->current.offsets[i] = 0;
+      cctx->i915->current.sizes[i] = 0;
+   }
 }
 
 
