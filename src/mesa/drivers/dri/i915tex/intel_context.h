@@ -84,7 +84,7 @@ extern void intelFallback(struct intel_context *intel, GLuint bit,
 #define INTEL_NEW_MESA                    0x1 /* Mesa state has changed */
 #define INTEL_NEW_FRAGMENT_PROGRAM        0x2
 #define INTEL_NEW_VERTEX_SIZE             0x4
-#define INTEL_NEW_INPUT_SIZES             0x8
+#define INTEL_NEW_FRAG_ATTRIB_SIZES       0x8
 #define INTEL_NEW_CONTEXT                 0x10 /* Lost hardware? */
 #define INTEL_NEW_REDUCED_PRIMITIVE       0x20
 #define INTEL_NEW_FALLBACK                0x40
@@ -189,6 +189,8 @@ struct intel_context
 
       void (*emit_hardware_state) (struct intel_context *intel);
 
+      GLboolean (*check_indirect_space) (struct intel_context *intel);
+
       
 
    } vtbl;
@@ -247,6 +249,11 @@ struct intel_context
    /* Counter to track program string changes:
     */
    GLuint program_id;
+
+   /* Track TNL attrib sizes:
+    */
+   GLuint frag_attrib_sizes;
+   GLuint frag_attrib_varying;
 
    /* State for intelvb.c and inteltris.c.
     */

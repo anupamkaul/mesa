@@ -68,8 +68,11 @@ void intel_update_software_state( struct intel_context *intel )
    struct intel_state_flags *state = &intel->state.dirty;
    GLuint i;
 
-   if (state->intel == 0)
+   if (state->intel == 0) {
+      assert(state->mesa == 0);
+      assert(state->extra == 0);
       return;
+   }
 
    if (!intel->metaops.active) {
       intel->state.DrawBuffer = intel->ctx.DrawBuffer;
@@ -77,6 +80,9 @@ void intel_update_software_state( struct intel_context *intel )
       intel->state.RenderMode = intel->ctx.RenderMode;
       intel->state._ColorDrawBufferMask0 = intel->ctx.DrawBuffer->_ColorDrawBufferMask[0];
    }
+
+   if (!intel->vtbl.check_indirect_space( intel ))
+      intel_batchbuffer_flush( intel->batch );
 
    if (INTEL_DEBUG) {
       /* Debug version which enforces various sanity checks on the
@@ -131,8 +137,7 @@ void intel_emit_hardware_state( struct intel_context *intel,
 
    for (i = 0; i < 2; i++)
    {
-      if (intel->state.dirty.intel)
-	 intel_update_software_state( intel );
+      intel_update_software_state( intel );
       
       if (intel_batchbuffer_space( intel->batch, SEGMENT_IMMEDIATE ) <
 	  intel->vtbl.get_hardware_state_size( intel ) +  dwords * sizeof(GLuint))

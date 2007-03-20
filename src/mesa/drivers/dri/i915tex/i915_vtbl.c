@@ -236,6 +236,19 @@ static void i915_lost_hardware( struct intel_context *intel )
 }
 
 
+static GLboolean i915_check_indirect_space( struct intel_context *intel )
+{
+   GLuint dynamic_space = 
+      intel_batchbuffer_space( intel->batch, 
+			       SEGMENT_DYNAMIC_INDIRECT);
+   GLuint cache_space = 
+      intel_batchbuffer_space( intel->batch, 
+			       SEGMENT_OTHER_INDIRECT);
+
+   return (dynamic_space > I915_MAX_DYNAMIC * sizeof(GLuint) &&
+	   cache_space > I915_MAX_CACHE * PACKET_MAX_DWORDS * sizeof(GLuint));
+}
+
 void
 i915InitVtbl(struct i915_context *i915)
 {
@@ -245,4 +258,5 @@ i915InitVtbl(struct i915_context *i915)
    i915->intel.vtbl.debug_packet = i915_debug_packet;
    i915->intel.vtbl.get_hardware_state_size = i915_get_hardware_state_size;
    i915->intel.vtbl.emit_hardware_state = i915_emit_hardware_state;
+   i915->intel.vtbl.check_indirect_space = i915_check_indirect_space;
 }

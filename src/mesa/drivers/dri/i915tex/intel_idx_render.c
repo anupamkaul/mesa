@@ -179,12 +179,11 @@ static void emit_prims( GLcontext *ctx,
       if (nr == 0)
 	 continue;
 
-      /* XXX: Need to ensure that both the state and the primitive
-       * command below end up in the same batchbuffer, otherwise there
-       * is a risk that another context might interpose a batchbuffer
-       * containing different statesetting commands.  Using logical
-       * contexts would fix this, as would the BRW scheme of only
-       * emitting batch commands while holding the lock.
+      /* The 'dwords' usage below ensures that both the state and the
+       * primitive command below end up in the same batchbuffer,
+       * otherwise there is a risk that another context might
+       * interpose a batchbuffer containing different statesetting
+       * commands.
        */
 /*       intelRenderPrimitive() */
       {

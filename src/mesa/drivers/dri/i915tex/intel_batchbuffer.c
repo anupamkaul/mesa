@@ -438,3 +438,4 @@ intel_batchbuffer_data(struct intel_batchbuffer *batch,
    __memcpy(batch->map + batch->segment_finish_offset[segment], data, bytes);
    batch->segment_finish_offset[segment] += bytes;
 }
+

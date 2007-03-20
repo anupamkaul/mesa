@@ -37,37 +37,6 @@
 #include "tnl/t_vertex.h"
 
 
-#if 0
-/* Scan the TNL VB struct and look at the size of each attribute
- * coming out.  
- *
- * The fragment program has been determined by this point, so it is ok
- * to restrict the list to the inputs referenced by the fragprog.
- *
- * This is not a 
- */
-void check_input_sizes( struct intel_context *intel )
-{
-   struct i915_context *i915 = i915_context( &intel->ctx );
-   GLcontext *ctx = &intel->ctx;
-   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLubyte old_sizes[8];
-   GLuint i;
-
-   memcpy(old_sizes, i915->fragprog.input_sizes, sizeof(old_sizes));
-
-   for (i = 0; i < FRAG_ATTRIB_MAX; i++) {
-      GLvector4f *attrib = VB->AttribPtr[i];
-      i915->fragprog.input_sizes[i] = attrib->size;
-   }
-
-   /* Raise statechanges if input sizes and varying have changed: 
-    */
-   if (memcmp(i915->fragprog.input_sizes, old_sizes, sizeof(old_sizes)) != 0)
-      intel->state.dirty.intel |= I915_NEW_INPUT_SIZES;
-}
-
-#endif
 
 
 /***********************************************************************
@@ -97,7 +66,10 @@ do {									\
 /***********************************************************************
  * 
  */
-
+static inline GLuint attr_size(GLuint sizes, GLuint attr)
+{
+   return ((sizes >> (attr*2)) & 0x3) + 1;
+}
 
 static void i915_calculate_vertex_format( struct intel_context *intel )
 {
@@ -105,10 +77,14 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
    struct i915_fragment_program *fp = 
       i915_fragment_program(intel->state.FragmentProgram->_Current);
    const GLuint inputsRead = fp->Base.Base.InputsRead;
+   const GLuint sizes = intel->frag_attrib_sizes;
    GLuint s2 = S2_TEXCOORD_NONE;
    GLuint s4 = 0;
    GLuint offset = 0;
    GLuint i;
+   GLboolean need_w = (inputsRead & FRAG_BITS_TEX_ANY);
+   GLboolean have_w = (attr_size(sizes, FRAG_ATTRIB_WPOS) == 4);
+   GLboolean have_z = (attr_size(sizes, FRAG_ATTRIB_WPOS) >= 3);
 
    intel->vertex_attr_count = 0;
    intel->wpos_offset = 0;
@@ -116,12 +92,21 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
    intel->coloroffset = 0;
    intel->specoffset = 0;
 
-   if (inputsRead & FRAG_BITS_TEX_ANY) {
+
+   if (have_w && need_w) {
       EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_4F_VIEWPORT, S4_VFMT_XYZW, 16);
    }
-   else {
+   else if (1 || have_z) {
       EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_3F_VIEWPORT, S4_VFMT_XYZ, 12);
    }
+   else {
+      /* Need to update default z values to whatever zero maps to in
+       * the current viewport.  Or figure out that we don't need z in
+       * the current state.
+       */
+      EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_2F_VIEWPORT, S4_VFMT_XY, 8);
+   }
+   
 
    if (inputsRead & FRAG_BIT_COL0) {
       intel->coloroffset = offset / 4;
@@ -135,18 +120,26 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
    }
 
    if (inputsRead & FRAG_BIT_FOGC) {
-      
       EMIT_ATTR(_TNL_ATTRIB_FOG, EMIT_1F, S4_VFMT_FOG_PARAM, 4);
    }
 
    for (i = 0; i < I915_TEX_UNITS; i++) {
       if (inputsRead & (FRAG_BIT_TEX0 << i)) {
 
-	 /* _NEW_VB_OUTPUT_SIZES 
+	 /* INTEL_NEW_FRAG_ATTRIB_SIZES 
+	  *
+	  * Basically need to know whether or not to include the W
+	  * value.  This could be used to transform TXP->TEX
+	  * instructions in the fragment program, but so far haven't
+	  * seen much performance benefit from doing that.
+	  *
+	  * There could also be benefit in things like turning off
+	  * perspective interpolation for the texture coordinates when
+	  * it is detected that the application is really doing
+	  * 2d-type texture operations.
 	  */
-/*          int sz = VB->TexCoordPtr[i]->size; */
-	 int sz = 2;
-
+	 int sz = attr_size(sizes, FRAG_ATTRIB_TEX0+i); 
+	 
          s2 &= ~S2_TEXCOORD_FMT(i, S2_TEXCOORD_FMT0_MASK);
          s2 |= S2_TEXCOORD_FMT(i, SZ_TO_HW(sz));
 

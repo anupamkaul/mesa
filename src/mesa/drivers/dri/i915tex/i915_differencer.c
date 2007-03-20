@@ -173,9 +173,9 @@ static void emit_dynamic_indirect( struct intel_context *intel,
 		 ((offset + size*4 - 4) | DIS0_BUFFER_VALID | flag) );
       ADVANCE_BATCH();
 
-      /* XXX:
+      /* This should not be possible:
        */
-      assert( offset + size*4 < intel->batch->segment_max_offset[segment]);      
+      assert( offset + size*4 < intel->batch->segment_max_offset[segment]);
       intel->batch->segment_finish_offset[segment] += size*4;
 
       ptr = (GLuint *)(intel->batch->map + offset);

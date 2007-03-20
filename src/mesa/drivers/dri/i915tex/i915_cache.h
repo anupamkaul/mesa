@@ -90,6 +90,9 @@ static inline void packet_init( struct i915_cache_packet *packet,
 				GLuint nr_dwords, 
 				GLuint nr_relocs )
 {
+   assert(nr_dwords < PACKET_MAX_DWORDS);
+   assert(nr_relocs < PACKET_MAX_RELOCS);
+
    packet->nr_dwords = 0;
    packet->nr_relocs = 0;
    packet->reloc = (struct i915_cache_reloc *)&packet->dword[nr_dwords];

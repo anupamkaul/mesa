@@ -430,7 +430,6 @@ intelClearWithBlit(GLcontext * ctx, GLbitfield mask)
       skipBuffers = BUFFER_BIT_STENCIL;
    }
 
-   /* XXX Move this flush/lock into the following conditional? */
    intelFlush(&intel->ctx);
    LOCK_HARDWARE(intel);
 

@@ -313,9 +313,6 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
          else
             intel_meta_no_depth_write(intel);
 
-         /* XXX: Using INTEL_BATCH_NO_CLIPRECTS here is dangerous as the
-          * drawing origin may not be correctly emitted.
-          */
          intel_meta_draw_quad(intel, 
 			      clear.x1, clear.x2, 
 			      clear.y1, clear.y2, 
@@ -343,10 +340,9 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
             intel_meta_color_mask(intel, GL_TRUE);
             intel_meta_draw_region(intel, irbColor->region, NULL);
 
-            /* XXX: Using INTEL_BATCH_NO_CLIPRECTS here is dangerous as the
-             * drawing origin may not be correctly emitted.
-             */
-            intel_meta_draw_quad(intel, clear.x1, clear.x2, clear.y1, clear.y2, 0,      /* depth clear val */
+            intel_meta_draw_quad(intel, 
+				 clear.x1, clear.x2, 
+				 clear.y1, clear.y2, 0,      /* depth clear val */
                                  color, 0, 0, 0, 0);    /* texcoords */
 
             mask &= ~bufBit;

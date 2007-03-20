@@ -73,7 +73,7 @@ static GLuint emit_packet( struct intel_context *intel,
    GLuint offset = intel->batch->segment_finish_offset[segment];
    GLuint i;
 
-   /* XXX: 
+   /* This should not be possible:
     */
    assert(intel->batch->segment_finish_offset[segment] + size <
 	  intel->batch->segment_max_offset[segment]);

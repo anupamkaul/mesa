@@ -201,6 +201,7 @@ const struct dri_extension card_extensions[] = {
 };
 
 extern const struct tnl_pipeline_stage _intel_render_stage;
+extern const struct tnl_pipeline_stage _intel_check_frag_attrib_sizes;
 
 static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_vertex_transform_stage,
@@ -212,13 +213,10 @@ static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_texture_transform_stage,
    &_tnl_point_attenuation_stage,
    &_tnl_arb_vertex_program_stage,
-   &_tnl_vertex_program_stage,
-#if 1
-   &_intel_render_stage,        /* ADD: unclipped rastersetup-to-dma */
-#endif
-#if 1
-   &_tnl_indexed_render_stage,        /* ADD: rastersetup-to-dma, indexed prims */
-#endif
+   &_tnl_vertex_program_stage,   
+   &_intel_check_frag_attrib_sizes,
+   &_intel_render_stage,       /* ADD: unclipped rastersetup-to-dma */
+   &_tnl_indexed_render_stage, /* ADD: rastersetup-to-dma, indexed prims */
    &_tnl_render_stage,
    0,
 };

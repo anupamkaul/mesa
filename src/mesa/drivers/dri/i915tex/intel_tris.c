@@ -888,8 +888,10 @@ intelRunPipeline(GLcontext * ctx)
    if (ctx->NewState)
       _mesa_update_state_locked(ctx);
 
-   /* Want to update state but not emit: */
+#if 0
+   /* Maybe need this for fallbacks??? */
    intel_update_software_state( intel );
+#endif
 
    _tnl_run_pipeline(ctx);
 
@@ -899,14 +901,6 @@ intelRunPipeline(GLcontext * ctx)
 static void
 intelRenderStart(GLcontext * ctx)
 {
-   struct intel_context *intel = intel_context(ctx);
-   TNLcontext *tnl = TNL_CONTEXT(ctx);
-   struct vertex_buffer *VB = &tnl->vb;
-
-   VB->AttribPtr[VERT_ATTRIB_POS] = VB->NdcPtr;
-
-   assert(!intel->state.dirty.intel);
-   intel_update_software_state(intel);
 }
 
 static void
