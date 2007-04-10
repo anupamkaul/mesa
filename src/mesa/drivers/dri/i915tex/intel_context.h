@@ -52,6 +52,11 @@ struct intel_region;
 struct intel_context;
 struct _DriBufferObject;
 
+
+struct intel_texture_object;
+struct intel_texture_image;
+
+
 typedef void (*intel_tri_func) (struct intel_context *, intelVertex *,
                                 intelVertex *, intelVertex *);
 typedef void (*intel_line_func) (struct intel_context *, intelVertex *,
@@ -64,53 +69,92 @@ typedef void (*intel_point_func) (struct intel_context *, intelVertex *);
 #define INTEL_FALLBACK_STENCIL_BUFFER    0x8
 #define INTEL_FALLBACK_USER		 0x10
 #define INTEL_FALLBACK_RENDERMODE	 0x20
+#define INTEL_FALLBACK_OTHER    	 0x40
 
 extern void intelFallback(struct intel_context *intel, GLuint bit,
                           GLboolean mode);
 #define FALLBACK( intel, bit, mode ) intelFallback( intel, bit, mode )
 
-
 #define INTEL_WRITE_PART  0x1
 #define INTEL_WRITE_FULL  0x2
 #define INTEL_READ        0x4
 
-struct intel_texture_object
-{
-   struct gl_texture_object base;       /* The "parent" object */
 
-   /* The mipmap tree must include at least these levels once
-    * validated:
-    */
-   GLuint firstLevel;
-   GLuint lastLevel;
 
-   /* Offset for firstLevel image:
-    */
-   GLuint textureOffset;
+#define INTEL_NEW_MESA                    0x1 /* Mesa state has changed */
+#define INTEL_NEW_FRAGMENT_PROGRAM        0x2
+#define INTEL_NEW_VERTEX_SIZE             0x4
+#define INTEL_NEW_FRAG_ATTRIB_SIZES       0x8
+#define INTEL_NEW_CONTEXT                 0x10 /* Lost hardware? */
+#define INTEL_NEW_REDUCED_PRIMITIVE       0x20
+#define INTEL_NEW_FALLBACK                0x40
+#define INTEL_NEW_METAOPS                 0x80 /* not needed? */
+#define INTEL_NEW_VBO                     0x100
+#define INTEL_NEW_FENCE                   0x200	/* whatever invalidates RELOC's */
+#define INTEL_NEW_CBUF                    0x400
+#define INTEL_NEW_ZBUF                    0x800
+#define INTEL_NEW_WINDOW_DIMENSIONS       0x1000
 
-   /* On validation any active images held in main memory or in other
-    * regions will be copied to this region and the old storage freed.
-    */
-   struct intel_mipmap_tree *mt;
+#define INTEL_NEW_DRIVER0                 0x10000
+
+struct intel_state_flags {
+   GLuint mesa;
+   GLuint intel;
+   GLuint extra;
 };
 
 
+struct intel_context_state {
+   struct gl_colorbuffer_attrib	*Color;
+   struct gl_depthbuffer_attrib	*Depth;
+   struct gl_fog_attrib		*Fog;
+   struct gl_hint_attrib	*Hint;
+   struct gl_light_attrib	*Light;
+   struct gl_line_attrib	*Line;
+   struct gl_point_attrib	*Point;
+   struct gl_polygon_attrib	*Polygon;
+   GLuint                       *PolygonStipple;
+   struct gl_scissor_attrib	*Scissor;
+   struct gl_stencil_attrib	*Stencil;
+   struct gl_texture_attrib	*Texture;
+   struct gl_transform_attrib	*Transform;
+   struct gl_viewport_attrib	*Viewport;
+   struct gl_vertex_program_state *VertexProgram; 
+   struct gl_fragment_program_state *FragmentProgram;
 
-struct intel_texture_image
-{
-   struct gl_texture_image base;
+   GLframebuffer *DrawBuffer;	
+   GLframebuffer *ReadBuffer;	
+   GLenum RenderMode;
 
-   /* These aren't stored in gl_texture_image 
+   GLuint _ColorDrawBufferMask0; /* ???  */
+
+   struct intel_region *draw_region; /* INTEL_NEW_CBUF */
+   struct intel_region *depth_region; /* INTEL_NEW_ZBUF */
+
+
+   struct gl_fragment_program *fp;
+
+   /* Indexed rendering support.  GEN3 specific.
     */
-   GLuint level;
-   GLuint face;
+   struct _DriBufferObject *vbo;
+   GLuint vbo_offset;
 
-   /* If intelImage->mt != NULL, image data is stored here.
-    * Else if intelImage->base.Data != NULL, image is stored there.
-    * Else there is no image data.
-    */
-   struct intel_mipmap_tree *mt;
+
+   struct intel_state_flags dirty;
 };
+
+/* A single atom of derived state
+ */
+struct intel_tracked_state {
+   struct intel_state_flags dirty;
+   void (*update)( struct intel_context *intel );
+};
+
+struct intel_driver_state {
+   struct intel_tracked_state **atoms;
+   GLuint nr_atoms;
+};
+
 
 
 #define INTEL_MAX_FIXUP 64
@@ -122,69 +166,57 @@ struct intel_context
    struct
    {
       void (*destroy) (struct intel_context * intel);
-      void (*emit_state) (struct intel_context * intel);
       void (*lost_hardware) (struct intel_context * intel);
-      void (*update_texture_state) (struct intel_context * intel);
 
       void (*render_start) (struct intel_context * intel);
       void (*set_draw_region) (struct intel_context * intel,
                                struct intel_region * draw_region,
                                struct intel_region * depth_region);
 
-        GLuint(*flush_cmd) (void);
+      GLuint (*flush_cmd) (void);
 
-      void (*reduced_primitive_state) (struct intel_context * intel,
-                                       GLenum rprim);
-
-        GLboolean(*check_vertex_size) (struct intel_context * intel,
-                                       GLuint expected);
-
-
-      /* Metaops: 
-       */
-      void (*install_meta_state) (struct intel_context * intel);
-      void (*leave_meta_state) (struct intel_context * intel);
-
-      void (*meta_draw_region) (struct intel_context * intel,
-                                struct intel_region * draw_region,
-                                struct intel_region * depth_region);
-
-      void (*meta_color_mask) (struct intel_context * intel, GLboolean);
-
-      void (*meta_stencil_replace) (struct intel_context * intel,
-                                    GLuint mask, GLuint clear);
-
-      void (*meta_depth_replace) (struct intel_context * intel);
-
-      void (*meta_texture_blend_replace) (struct intel_context * intel);
-
-      void (*meta_no_stencil_write) (struct intel_context * intel);
-      void (*meta_no_depth_write) (struct intel_context * intel);
-      void (*meta_no_texture) (struct intel_context * intel);
-
-      void (*meta_import_pixel_state) (struct intel_context * intel);
-
-        GLboolean(*meta_tex_rect_source) (struct intel_context * intel,
-                                          struct _DriBufferObject * buffer,
-                                          GLuint offset,
-                                          GLuint pitch,
-                                          GLuint height,
-                                          GLenum format, GLenum type);
+      /* Do with metaops: */
       void (*rotate_window) (struct intel_context * intel,
                              __DRIdrawablePrivate * dPriv, GLuint srcBuf);
 
-      void (*assert_not_dirty) (struct intel_context *intel);
+
+
+      GLuint (*debug_packet)(const GLuint *stream);
+
+      /* Can just return an upper bound: 
+       */
+      GLuint (*get_hardware_state_size) (struct intel_context *intel);
+
+      void (*emit_hardware_state) (struct intel_context *intel);
+
+      GLboolean (*check_indirect_space) (struct intel_context *intel);
+
+      
 
    } vtbl;
 
    GLint refcount;
+
+   struct intel_context_state state;
+   
+   struct intel_driver_state driver_state;
+
+   struct {
+      /* Will be allocated on demand if needed.   
+       */
+      struct intel_context_state state;
+      struct gl_buffer_object *vbo;      
+      GLboolean active;
+   } metaops;
+
+   
    GLuint Fallback;
-   GLuint NewGLState;
 
    struct _DriFenceObject *last_swap_fence;
    struct _DriFenceObject *first_swap_fence;
 
    struct intel_batchbuffer *batch;
+   struct intel_vb *vb;
 
    struct
    {
@@ -195,18 +227,10 @@ struct intel_context
    } prim;
 
    GLboolean locked;
-   char *prevLockFile;
-   int prevLockLine;
 
    GLuint ClearColor565;
    GLuint ClearColor8888;
 
-   /* Offsets of fields within the current vertex:
-    */
-   GLuint coloroffset;
-   GLuint specoffset;
-   GLuint wpos_offset;
-   GLuint wpos_size;
 
    struct tnl_attr_map vertex_attrs[VERT_ATTRIB_MAX];
    GLuint vertex_attr_count;
@@ -214,15 +238,29 @@ struct intel_context
    GLfloat polygon_offset_scale;        /* dependent on depth_scale, bpp */
 
    GLboolean hw_stipple;
+   GLboolean hw_stencil;
+
    GLboolean strict_conformance;
 
    /* AGP memory buffer manager:
     */
    struct bufmgr *bm;
 
+   /* Counter to track program string changes:
+    */
+   GLuint program_id;
+
+   /* Track TNL attrib sizes:
+    */
+   GLuint frag_attrib_sizes;
+   GLuint frag_attrib_varying;
 
    /* State for intelvb.c and inteltris.c.
     */
+   GLuint coloroffset;
+   GLuint specoffset;
+   GLuint wpos_offset;
+   GLuint wpos_size;
    GLuint RenderIndex;
    GLmatrix ViewportMatrix;
    GLenum render_primitive;
@@ -230,13 +268,6 @@ struct intel_context
    GLuint vertex_size;
    GLubyte *verts;              /* points to tnl->clipspace.vertex_buf */
 
-#if 0
-   struct intel_region *front_region;   /* XXX FBO: obsolete */
-   struct intel_region *rotated_region; /* XXX FBO: obsolete */
-   struct intel_region *back_region;    /* XXX FBO: obsolete */
-   struct intel_region *draw_region;    /* XXX FBO: rename to color_region */
-   struct intel_region *depth_region;   /**< currently bound depth/Z region */
-#endif
 
    /* Fallback rasterization functions 
     */
@@ -251,9 +282,6 @@ struct intel_context
    drm_clip_rect_t *pClipRects;
    drm_clip_rect_t fboRect;     /**< cliprect for FBO rendering */
 
-   int perf_boxes;
-
-   GLuint do_usleeps;
    int do_irqs;
    GLuint irqsEmitted;
    drm_i915_irq_wait_t iw;
@@ -349,26 +377,30 @@ __memcpy(void *to, const void *from, size_t n)
 /* ================================================================
  * Debugging:
  */
-#define DO_DEBUG		0
-#if DO_DEBUG
+#if defined(DEBUG)
+#define DO_DEBUG 1
 extern int INTEL_DEBUG;
 #else
 #define INTEL_DEBUG		0
 #endif
 
-#define DEBUG_TEXTURE	0x1
-#define DEBUG_STATE	0x2
-#define DEBUG_IOCTL	0x4
-#define DEBUG_BLIT	0x8
-#define DEBUG_MIPTREE   0x10
-#define DEBUG_FALLBACKS	0x20
-#define DEBUG_VERBOSE	0x40
-#define DEBUG_BATCH     0x80
-#define DEBUG_PIXEL     0x100
-#define DEBUG_BUFMGR    0x200
-#define DEBUG_REGION    0x400
-#define DEBUG_FBO       0x800
-#define DEBUG_LOCK      0x1000
+#define DEBUG_TEXTURE	  0x1
+#define DEBUG_STATE	  0x2
+#define DEBUG_IOCTL	  0x4
+#define DEBUG_BLIT	  0x8
+#define DEBUG_MIPTREE     0x10
+#define DEBUG_FALLBACKS	  0x20
+#define DEBUG_VERBOSE     0x40
+#define DEBUG_BATCH       0x80
+#define DEBUG_PIXEL       0x100
+#define DEBUG_BUFMGR      0x200
+#define DEBUG_REGION      0x400
+#define DEBUG_FBO         0x800
+#define DEBUG_LOCK        0x1000
+#define DEBUG_IDX         0x2000
+#define DEBUG_TRI         0x4000
+#define DEBUG_ALWAYS_SYNC 0x8000
+#define DEBUG_VBO         0x10000
 
 #define DBG(...)  do { if (INTEL_DEBUG & FILE_DEBUG_FLAG) _mesa_printf(__VA_ARGS__); } while(0)
 
@@ -395,77 +427,12 @@ extern GLboolean intelInitContext(struct intel_context *intel,
 
 extern void intelGetLock(struct intel_context *intel, GLuint flags);
 
-extern void intelInitState(GLcontext * ctx);
 extern void intelFinish(GLcontext * ctx);
 extern void intelFlush(GLcontext * ctx);
 
 extern void intelInitDriverFunctions(struct dd_function_table *functions);
 
-
-/* ================================================================
- * intel_state.c:
- */
-extern void intelInitStateFuncs(struct dd_function_table *functions);
-
-#define COMPAREFUNC_ALWAYS		0
-#define COMPAREFUNC_NEVER		0x1
-#define COMPAREFUNC_LESS		0x2
-#define COMPAREFUNC_EQUAL		0x3
-#define COMPAREFUNC_LEQUAL		0x4
-#define COMPAREFUNC_GREATER		0x5
-#define COMPAREFUNC_NOTEQUAL		0x6
-#define COMPAREFUNC_GEQUAL		0x7
-
-#define STENCILOP_KEEP			0
-#define STENCILOP_ZERO			0x1
-#define STENCILOP_REPLACE		0x2
-#define STENCILOP_INCRSAT		0x3
-#define STENCILOP_DECRSAT		0x4
-#define STENCILOP_INCR			0x5
-#define STENCILOP_DECR			0x6
-#define STENCILOP_INVERT		0x7
-
-#define LOGICOP_CLEAR			0
-#define LOGICOP_NOR			0x1
-#define LOGICOP_AND_INV 		0x2
-#define LOGICOP_COPY_INV		0x3
-#define LOGICOP_AND_RVRSE		0x4
-#define LOGICOP_INV			0x5
-#define LOGICOP_XOR			0x6
-#define LOGICOP_NAND			0x7
-#define LOGICOP_AND			0x8
-#define LOGICOP_EQUIV			0x9
-#define LOGICOP_NOOP			0xa
-#define LOGICOP_OR_INV			0xb
-#define LOGICOP_COPY			0xc
-#define LOGICOP_OR_RVRSE		0xd
-#define LOGICOP_OR			0xe
-#define LOGICOP_SET			0xf
-
-#define BLENDFACT_ZERO			0x01
-#define BLENDFACT_ONE			0x02
-#define BLENDFACT_SRC_COLR		0x03
-#define BLENDFACT_INV_SRC_COLR 		0x04
-#define BLENDFACT_SRC_ALPHA		0x05
-#define BLENDFACT_INV_SRC_ALPHA 	0x06
-#define BLENDFACT_DST_ALPHA		0x07
-#define BLENDFACT_INV_DST_ALPHA 	0x08
-#define BLENDFACT_DST_COLR		0x09
-#define BLENDFACT_INV_DST_COLR		0x0a
-#define BLENDFACT_SRC_ALPHA_SATURATE	0x0b
-#define BLENDFACT_CONST_COLOR		0x0c
-#define BLENDFACT_INV_CONST_COLOR	0x0d
-#define BLENDFACT_CONST_ALPHA		0x0e
-#define BLENDFACT_INV_CONST_ALPHA	0x0f
-#define BLENDFACT_MASK          	0x0f
-
-#define MI_BATCH_BUFFER_END 	(0xA<<23)
-
-
-extern int intel_translate_compare_func(GLenum func);
-extern int intel_translate_stencil_op(GLenum op);
-extern int intel_translate_blend_factor(GLenum factor);
-extern int intel_translate_logic_op(GLenum opcode);
+void intel_lost_hardware( struct intel_context *intel );
 
 
 /*======================================================================

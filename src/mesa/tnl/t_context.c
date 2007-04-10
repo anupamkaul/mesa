@@ -37,6 +37,7 @@
 #include "t_context.h"
 #include "t_pipeline.h"
 #include "t_vp_build.h"
+#include "t_vertex.h"
 
 #include "vbo/vbo.h"
 
@@ -55,7 +56,7 @@ _tnl_CreateContext( GLcontext *ctx )
 
    /* Initialize the VB.
     */
-   tnl->vb.Size = ctx->Const.MaxArrayLockSize + MAX_CLIPPED_VERTICES;
+   tnl->vb.Size = ctx->Const.MaxArrayLockSize * 1.2 + MAX_CLIPPED_VERTICES;
 
 
    /* Initialize tnl state.
@@ -87,6 +88,8 @@ void
 _tnl_DestroyContext( GLcontext *ctx )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
+
+   _tnl_free_vertices( ctx );
 
    _tnl_destroy_pipeline( ctx );
 

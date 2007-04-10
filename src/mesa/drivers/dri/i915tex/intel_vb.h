@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,54 +25,27 @@
  * 
  **************************************************************************/
 
-#include "glheader.h"
-#include "mtypes.h"
-#include "imports.h"
-#include "simple_list.h"
-#include "enums.h"
-#include "image.h"
-#include "texstore.h"
-#include "texformat.h"
-#include "texmem.h"
-#include "swrast/swrast.h"
-
-#include "mm.h"
-
-#include "intel_ioctl.h"
-
-#include "i915_context.h"
-#include "i915_reg.h"
+#ifndef INTEL_VB_H
+#define INTEL_VB_H
 
 
+struct intel_vb;
 
-static void
-i915TexEnv(GLcontext * ctx, GLenum target,
-           GLenum pname, const GLfloat * param)
-{
-   struct i915_context *i915 = I915_CONTEXT(ctx);
+struct intel_vb *intel_vb_init( struct intel_context *intel );
+void intel_vb_destroy( struct intel_vb *vb );
 
-   switch (pname) {
-   case GL_TEXTURE_LOD_BIAS:{
-         GLuint unit = ctx->Texture.CurrentUnit;
-         GLint b = (int) ((*param) * 16.0);
-         if (b > 255)
-            b = 255;
-         if (b < -256)
-            b = -256;
-         I915_STATECHANGE(i915, I915_UPLOAD_TEX(unit));
-         i915->lodbias_ss2[unit] =
-            ((b << SS2_LOD_BIAS_SHIFT) & SS2_LOD_BIAS_MASK);
-         break;
-      }
+void intel_vb_flush( struct intel_vb *vb );
 
-   default:
-      break;
-   }
-}
+void *intel_vb_alloc( struct intel_vb *vb, GLuint space );
+
+/* If successful, guarantees you can later allocate upto
+ * min_free_space bytes without needing to flush.  
+ */
+GLboolean intel_vb_begin_dynamic_alloc( struct intel_vb *vb,
+					GLuint min_free_space );
+
+void *intel_vb_extend_dynamic_alloc( struct intel_vb *vb, GLuint space );
+GLuint intel_vb_end_dynamic_alloc( struct intel_vb *vb );
 
 
-void
-i915InitTextureFuncs(struct dd_function_table *functions)
-{
-   functions->TexEnv = i915TexEnv;
-}
+#endif

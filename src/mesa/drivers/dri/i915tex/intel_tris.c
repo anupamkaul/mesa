@@ -47,6 +47,8 @@
 #include "intel_reg.h"
 #include "intel_span.h"
 #include "intel_tex.h"
+#include "intel_state.h"
+#include "intel_vb.h"
 
 static void intelRenderPrimitive(GLcontext * ctx, GLenum prim);
 static void intelRasterPrimitive(GLcontext * ctx, GLenum rprim,
@@ -57,99 +59,91 @@ static void intelRasterPrimitive(GLcontext * ctx, GLenum rprim,
 static void
 intel_flush_inline_primitive(struct intel_context *intel)
 {
-   GLuint used = intel->batch->ptr - intel->prim.start_ptr;
+   GLuint used = intel_vb_end_dynamic_alloc( intel->vb );
+   GLuint verts = used / (intel->vertex_size * 4);
 
+   assert(verts * intel->vertex_size * sizeof(GLuint) == used);
    assert(intel->prim.primitive != ~0);
+   assert(verts < 65536);
 
-/*    _mesa_printf("/\n"); */
-
-   if (used < 8)
-      goto do_discard;
-
-   *(int *) intel->prim.start_ptr = (_3DPRIMITIVE |
-                                     intel->prim.primitive | (used / 4 - 2));
-
-   goto finished;
-
- do_discard:
-   intel->batch->ptr -= used;
-
- finished:
-   intel->prim.primitive = ~0;
-   intel->prim.start_ptr = 0;
    intel->prim.flush = 0;
+
+   if (used) {
+      GLuint dwords = 2;
+
+      /* Need a loop to ensure the batch gets emitted to the same
+       * batchbuffer as the hardware state:
+       */
+      intel_emit_hardware_state( intel, dwords );
+
+      BEGIN_BATCH( dwords, INTEL_BATCH_CLIPRECTS );
+      OUT_BATCH(_3DPRIMITIVE |
+		intel->prim.primitive | 
+		PRIM_INDIRECT |
+		PRIM_INDIRECT_SEQUENTIAL |
+		(verts));
+      OUT_BATCH(0);		/* starting index - use this later */
+      ADVANCE_BATCH();
+   }
+
+   intel->prim.primitive = ~0;
 }
 
 
 /* Emit a primitive referencing vertices in a vertex buffer.
  */
 void
-intelStartInlinePrimitive(struct intel_context *intel,
-                          GLuint prim, GLuint batch_flags)
+intelStartInlinePrimitive( struct intel_context *intel,
+                           GLuint prim,
+			   GLuint dwords )
 {
-   BATCH_LOCALS;
+   if (dwords == 0)
+      dwords = 256;
 
-   intel->vtbl.emit_state(intel);
+   if (!intel_vb_begin_dynamic_alloc( intel->vb, dwords * 4 )) {
+      intel_batchbuffer_flush( intel->batch );
 
-   /* Need to make sure at the very least that we don't wrap
-    * batchbuffers in BEGIN_BATCH below, otherwise the primitive will
-    * be emitted to a batchbuffer missing the required full-state
-    * preamble.
-    */
-   if (intel_batchbuffer_space(intel->batch) < 100) {
-      intel_batchbuffer_flush(intel->batch);
-      intel->vtbl.emit_state(intel);
+      /* Should always succeed:
+       */
+      if (!intel_vb_begin_dynamic_alloc( intel->vb, dwords * 4 )) {
+	 assert(0);
+      }
    }
 
-/*    _mesa_printf("%s *", __progname); */
+   intel_wait_flips(intel, INTEL_BATCH_CLIPRECTS);
 
-   intel_wait_flips(intel, batch_flags);
-
-   /* Emit a slot which will be filled with the inline primitive
-    * command later.
-    */
-   BEGIN_BATCH(2, batch_flags);
-   OUT_BATCH(0);
-
-   intel->prim.start_ptr = intel->batch->ptr;
    intel->prim.primitive = prim;
    intel->prim.flush = intel_flush_inline_primitive;
-
-   OUT_BATCH(0);
-   ADVANCE_BATCH();
-
-/*    _mesa_printf(">"); */
 }
 
 
-void
-intelWrapInlinePrimitive(struct intel_context *intel)
+static void
+intelWrapInlinePrimitive( struct intel_context *intel,
+			  GLuint dwords )
 {
    GLuint prim = intel->prim.primitive;
-   GLuint batchflags = intel->batch->flags;
-
-   intel_flush_inline_primitive(intel);
-   intel_batchbuffer_flush(intel->batch);
-   intelStartInlinePrimitive(intel, prim, batchflags);  /* ??? */
+   intel_flush_inline_primitive( intel );
+   intelStartInlinePrimitive(intel, prim, dwords );
 }
 
 GLuint *
 intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords)
 {
-   GLuint sz = dwords * sizeof(GLuint);
-   GLuint *ptr;
+   GLuint bytes = dwords * sizeof(GLuint);
+   GLuint *ptr = intel_vb_extend_dynamic_alloc( intel->vb, bytes );
+
+
+   if (ptr == NULL) {
+      intelWrapInlinePrimitive( intel, dwords );
+      ptr = intel_vb_extend_dynamic_alloc( intel->vb, bytes );
+      
+      /* Should always succed:
+       */
+      assert(ptr != NULL);
+   }
 
    assert(intel->prim.flush == intel_flush_inline_primitive);
-
-   if (intel_batchbuffer_space(intel->batch) < sz)
-      intelWrapInlinePrimitive(intel);
-
-/*    _mesa_printf("."); */
-
-   intel->vtbl.assert_not_dirty(intel);
-
-   ptr = (GLuint *) intel->batch->ptr;
-   intel->batch->ptr += sz;
+   assert(intel->state.dirty.mesa == 0);
 
    return ptr;
 }
@@ -160,7 +154,7 @@ intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords)
  *                    Emit primitives as inline vertices               *
  ***********************************************************************/
 
-#ifdef __i386__
+#if !defined(DEBUG) && defined(__i386__)
 #define COPY_DWORDS( j, vb, vertsize, v )			\
 do {								\
    int __tmp;							\
@@ -753,76 +747,79 @@ intelFastRenderClippedPoly(GLcontext * ctx, const GLuint * elts, GLuint n)
 
 
 
-#define ANY_FALLBACK_FLAGS (DD_LINE_STIPPLE | DD_TRI_STIPPLE | DD_POINT_ATTEN | DD_POINT_SMOOTH | DD_TRI_SMOOTH)
-#define ANY_RASTER_FLAGS (DD_TRI_LIGHT_TWOSIDE | DD_TRI_OFFSET | DD_TRI_UNFILLED)
-
-void
-intelChooseRenderState(GLcontext * ctx)
+static void update_render_index( struct intel_context *intel )
 {
+   GLcontext *ctx = &intel->ctx;
    TNLcontext *tnl = TNL_CONTEXT(ctx);
-   struct intel_context *intel = intel_context(ctx);
-   GLuint flags = ctx->_TriangleCaps;
+
+   /* INTEL_NEW_FRAGMENT_PROGRAM, XXX!
+    */
    const struct gl_fragment_program *fprog = ctx->FragmentProgram._Current;
    GLboolean have_wpos = (fprog && (fprog->Base.InputsRead & FRAG_BIT_WPOS));
    GLuint index = 0;
 
-   if (INTEL_DEBUG & DEBUG_STATE)
-      fprintf(stderr, "\n%s\n", __FUNCTION__);
+   intel->draw_point = intel_draw_point;
+   intel->draw_line = intel_draw_line;
+   intel->draw_tri = intel_draw_triangle;
 
-   if ((flags & (ANY_FALLBACK_FLAGS | ANY_RASTER_FLAGS)) || have_wpos) {
+   /* _NEW_LIGHT
+    */
+   if (intel->state.Light->Enabled && intel->state.Light->Model.TwoSide)
+      index |= INTEL_TWOSIDE_BIT;
 
-      if (flags & ANY_RASTER_FLAGS) {
-         if (flags & DD_TRI_LIGHT_TWOSIDE)
-            index |= INTEL_TWOSIDE_BIT;
-         if (flags & DD_TRI_OFFSET)
-            index |= INTEL_OFFSET_BIT;
-         if (flags & DD_TRI_UNFILLED)
-            index |= INTEL_UNFILLED_BIT;
-      }
+   /* _NEW_POLYGON 
+    */
+   if (intel->state.Polygon->OffsetPoint ||
+       intel->state.Polygon->OffsetLine ||
+       intel->state.Polygon->OffsetFill)
+      index |= INTEL_OFFSET_BIT;
+      
+   if (intel->state.Polygon->FrontMode != GL_FILL ||
+       intel->state.Polygon->BackMode != GL_FILL)
+      index |= INTEL_UNFILLED_BIT;
 
-      if (have_wpos) {
-         intel->draw_point = intel_wpos_point;
-         intel->draw_line = intel_wpos_line;
-         intel->draw_tri = intel_wpos_triangle;
+   if (have_wpos) {
+      intel->draw_point = intel_wpos_point;
+      intel->draw_line = intel_wpos_line;
+      intel->draw_tri = intel_wpos_triangle;
 
-         /* Make sure these get called:
-          */
-         index |= INTEL_FALLBACK_BIT;
-      }
-      else {
-         intel->draw_point = intel_draw_point;
-         intel->draw_line = intel_draw_line;
-         intel->draw_tri = intel_draw_triangle;
-      }
-
-      /* Hook in fallbacks for specific primitives.
+      /* Make sure these get called:
        */
-      if (flags & ANY_FALLBACK_FLAGS) {
-         if (flags & DD_LINE_STIPPLE)
-            intel->draw_line = intel_fallback_line;
+      index |= INTEL_FALLBACK_BIT;
+   }
 
-         if ((flags & DD_TRI_STIPPLE) && !intel->hw_stipple)
-            intel->draw_tri = intel_fallback_tri;
+   /* _NEW_LINE
+    */
+   if (intel->state.Line->StippleFlag) {
+      intel->draw_line = intel_fallback_line;
+      index |= INTEL_FALLBACK_BIT;
+   }
+	    
+   /* INTEL_NEW_FALLBACK ??  _NEW_POLYGON_STIPPLE at least...
+    */
+   if (intel->state.Polygon->StippleFlag && !intel->hw_stipple) {
+      intel->draw_tri = intel_fallback_tri;
+      index |= INTEL_FALLBACK_BIT;
+   }
 
-         if (flags & DD_TRI_SMOOTH) {
-	    if (intel->strict_conformance)
-	       intel->draw_tri = intel_fallback_tri;
-	 }
+   if (intel->state.Line->SmoothFlag && intel->strict_conformance) {
+      intel->draw_tri = intel_fallback_tri;
+      index |= INTEL_FALLBACK_BIT;
+   }
 
-         if (flags & DD_POINT_ATTEN) {
-	    if (0)
-	       intel->draw_point = intel_atten_point;
-	    else
-	       intel->draw_point = intel_fallback_point;
-	 }
+   /* _NEW_POINT
+    */
+   if (intel->state.Point->_Attenuated) {
+      if (0)
+	 intel->draw_point = intel_atten_point;
+      else
+	 intel->draw_point = intel_fallback_point;
+      index |= INTEL_FALLBACK_BIT;
+   }
 
-	 if (flags & DD_POINT_SMOOTH) {
-	    if (intel->strict_conformance)
-	       intel->draw_point = intel_fallback_point;
-	 }
-
-         index |= INTEL_FALLBACK_BIT;
-      }
+   if (intel->state.Point->SmoothFlag && intel->strict_conformance) {
+      intel->draw_point = intel_fallback_point;
+      index |= INTEL_FALLBACK_BIT;
    }
 
    if (intel->RenderIndex != index) {
@@ -847,6 +844,21 @@ intelChooseRenderState(GLcontext * ctx)
       }
    }
 }
+
+
+const struct intel_tracked_state intel_update_render_index = {
+   .dirty = {
+      .mesa = (_NEW_LINE |
+	       _NEW_POLYGON |
+	       _NEW_LIGHT |
+	       _NEW_POLYGONSTIPPLE),
+
+      .intel = INTEL_NEW_FRAGMENT_PROGRAM,
+      .extra = 0
+   },
+   .update = update_render_index
+};
+
 
 static const GLenum reduced_prim[GL_POLYGON + 1] = {
    GL_POINTS,
@@ -879,18 +891,10 @@ intelRunPipeline(GLcontext * ctx)
    if (ctx->NewState)
       _mesa_update_state_locked(ctx);
 
-   if (intel->NewGLState) {
-      if (intel->NewGLState & _NEW_TEXTURE) {
-         intel->vtbl.update_texture_state(intel);
-      }
-
-      if (!intel->Fallback) {
-         if (intel->NewGLState & _INTEL_NEW_RENDERSTATE)
-            intelChooseRenderState(ctx);
-      }
-
-      intel->NewGLState = 0;
-   }
+#if 0
+   /* Maybe need this for fallbacks??? */
+   intel_update_software_state( intel );
+#endif
 
    _tnl_run_pipeline(ctx);
 
@@ -900,10 +904,6 @@ intelRunPipeline(GLcontext * ctx)
 static void
 intelRenderStart(GLcontext * ctx)
 {
-   struct intel_context *intel = intel_context(ctx);
-
-   intel->vtbl.render_start(intel_context(ctx));
-   intel->vtbl.emit_state(intel);
 }
 
 static void
@@ -915,6 +915,12 @@ intelRenderFinish(GLcontext * ctx)
       _swrast_flush(ctx);
 
    INTEL_FIREVERTICES(intel);
+
+   if (intel->state.vbo) {      
+      intel->state.vbo = 0;
+      intel->state.vbo_offset = 0;
+   }
+   
 }
 
 
@@ -932,15 +938,23 @@ intelRasterPrimitive(GLcontext * ctx, GLenum rprim, GLuint hwprim)
       fprintf(stderr, "%s %s %x\n", __FUNCTION__,
               _mesa_lookup_enum_by_nr(rprim), hwprim);
 
-   intel->vtbl.reduced_primitive_state(intel, rprim);
+   if (intel->reduced_primitive != rprim) {
+      INTEL_FIREVERTICES(intel);
+      
+      intel->reduced_primitive = rprim;
+      intel->state.dirty.intel |= INTEL_NEW_REDUCED_PRIMITIVE;
+   }
 
    /* Start a new primitive.  Arrange to have it flushed later on.
     */
    if (hwprim != intel->prim.primitive) {
       INTEL_FIREVERTICES(intel);
 
-      intelStartInlinePrimitive(intel, hwprim, INTEL_BATCH_CLIPRECTS);
+      intelStartInlinePrimitive( intel, hwprim, 0 );
    }
+
+   if (intel->state.dirty.intel)
+      intel_update_software_state( intel );
 }
 
 
@@ -971,6 +985,8 @@ intelRenderPrimitive(GLcontext * ctx, GLenum prim)
    /* Set some primitive-dependent state and Start? a new primitive.
     */
    intelRasterPrimitive(ctx, reduced_prim[prim], hw_prim[prim]);
+
+   assert(!intel->state.dirty.intel);
 }
 
 
@@ -1026,6 +1042,7 @@ intelFallback(struct intel_context *intel, GLuint bit, GLboolean mode)
                     bit, getFallbackString(bit));
          _swsetup_Wakeup(ctx);
          intel->RenderIndex = ~0;
+	 intel->state.dirty.intel |= INTEL_NEW_FALLBACK;
       }
    }
    else {
@@ -1048,7 +1065,7 @@ intelFallback(struct intel_context *intel, GLuint bit, GLboolean mode)
                             intel->vertex_attr_count,
                             intel->ViewportMatrix.m, 0);
 
-         intel->NewGLState |= _INTEL_NEW_RENDERSTATE;
+	 intel->state.dirty.intel |= INTEL_NEW_FALLBACK;
       }
    }
 }
@@ -1063,65 +1080,6 @@ union fi
 /**********************************************************************/
 /*             Used only with the metaops callbacks.                  */
 /**********************************************************************/
-void
-intel_meta_draw_poly(struct intel_context *intel,
-                     GLuint n,
-                     GLfloat xy[][2],
-                     GLfloat z, GLuint color, GLfloat tex[][2])
-{
-   union fi *vb;
-   GLint i;
-
-   /* All 3d primitives should be emitted with INTEL_BATCH_CLIPRECTS,
-    * otherwise the drawing origin (DR4) might not be set correctly.
-    */
-   intelStartInlinePrimitive(intel, PRIM3D_TRIFAN, INTEL_BATCH_CLIPRECTS);
-   vb = (union fi *) intelExtendInlinePrimitive(intel, n * 6);
-
-   for (i = 0; i < n; i++) {
-      vb[0].f = xy[i][0];
-      vb[1].f = xy[i][1];
-      vb[2].f = z;
-      vb[3].i = color;
-      vb[4].f = tex[i][0];
-      vb[5].f = tex[i][1];
-      vb += 6;
-   }
-
-   INTEL_FIREVERTICES(intel);
-}
-
-void
-intel_meta_draw_quad(struct intel_context *intel,
-                     GLfloat x0, GLfloat x1,
-                     GLfloat y0, GLfloat y1,
-                     GLfloat z,
-                     GLuint color,
-                     GLfloat s0, GLfloat s1, GLfloat t0, GLfloat t1)
-{
-   GLfloat xy[4][2];
-   GLfloat tex[4][2];
-
-   xy[0][0] = x0;
-   xy[0][1] = y0;
-   xy[1][0] = x1;
-   xy[1][1] = y0;
-   xy[2][0] = x1;
-   xy[2][1] = y1;
-   xy[3][0] = x0;
-   xy[3][1] = y1;
-
-   tex[0][0] = s0;
-   tex[0][1] = t0;
-   tex[1][0] = s1;
-   tex[1][1] = t0;
-   tex[2][0] = s1;
-   tex[2][1] = t1;
-   tex[3][0] = s0;
-   tex[3][1] = t1;
-
-   intel_meta_draw_poly(intel, 4, xy, z, color, tex);
-}
 
 
 

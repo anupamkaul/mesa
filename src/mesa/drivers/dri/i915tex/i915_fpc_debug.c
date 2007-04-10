@@ -25,10 +25,12 @@
  * 
  **************************************************************************/
 
-#include "i915_reg.h"
-#include "i915_context.h"
 #include <stdio.h>
 
+#include "i915_reg.h"
+#include "i915_fpc.h"
+#include "shader/program.h"
+#include "shader/prog_instruction.h"
 
 static const char *opcodes[0x20] = {
    "NOP",
@@ -120,27 +122,27 @@ print_reg_type_nr(GLuint type, GLuint nr)
    case REG_TYPE_T:
       switch (nr) {
       case T_DIFFUSE:
-         fprintf(stderr, "T_DIFFUSE");
+         _mesa_printf("T_DIFFUSE");
          return;
       case T_SPECULAR:
-         fprintf(stderr, "T_SPECULAR");
+         _mesa_printf("T_SPECULAR");
          return;
       case T_FOG_W:
-         fprintf(stderr, "T_FOG_W");
+         _mesa_printf("T_FOG_W");
          return;
       default:
-         fprintf(stderr, "T_TEX%d", nr);
+         _mesa_printf("T_TEX%d", nr);
          return;
       }
    case REG_TYPE_OC:
       if (nr == 0) {
-         fprintf(stderr, "oC");
+         _mesa_printf("oC");
          return;
       }
       break;
    case REG_TYPE_OD:
       if (nr == 0) {
-         fprintf(stderr, "oD");
+         _mesa_printf("oD");
          return;
       }
       break;
@@ -148,7 +150,7 @@ print_reg_type_nr(GLuint type, GLuint nr)
       break;
    }
 
-   fprintf(stderr, "%s[%d]", regname[type], nr);
+   _mesa_printf("%s[%d]", regname[type], nr);
 }
 
 #define REG_SWIZZLE_MASK 0x7777
@@ -169,33 +171,33 @@ print_reg_neg_swizzle(GLuint reg)
        (reg & REG_NEGATE_MASK) == 0)
       return;
 
-   fprintf(stderr, ".");
+   _mesa_printf(".");
 
    for (i = 3; i >= 0; i--) {
       if (reg & (1 << ((i * 4) + 3)))
-         fprintf(stderr, "-");
+         _mesa_printf("-");
 
       switch ((reg >> (i * 4)) & 0x7) {
       case 0:
-         fprintf(stderr, "x");
+         _mesa_printf("x");
          break;
       case 1:
-         fprintf(stderr, "y");
+         _mesa_printf("y");
          break;
       case 2:
-         fprintf(stderr, "z");
+         _mesa_printf("z");
          break;
       case 3:
-         fprintf(stderr, "w");
+         _mesa_printf("w");
          break;
       case 4:
-         fprintf(stderr, "0");
+         _mesa_printf("0");
          break;
       case 5:
-         fprintf(stderr, "1");
+         _mesa_printf("1");
          break;
       default:
-         fprintf(stderr, "?");
+         _mesa_printf("?");
          break;
       }
    }
@@ -211,13 +213,6 @@ print_src_reg(GLuint dword)
    print_reg_neg_swizzle(dword);
 }
 
-void
-i915_print_ureg(const char *msg, GLuint ureg)
-{
-   fprintf(stderr, "%s: ", msg);
-   print_src_reg(ureg >> 8);
-   fprintf(stderr, "\n");
-}
 
 static void
 print_dest_reg(GLuint dword)
@@ -227,15 +222,15 @@ print_dest_reg(GLuint dword)
    print_reg_type_nr(type, nr);
    if ((dword & A0_DEST_CHANNEL_ALL) == A0_DEST_CHANNEL_ALL)
       return;
-   fprintf(stderr, ".");
+   _mesa_printf(".");
    if (dword & A0_DEST_CHANNEL_X)
-      fprintf(stderr, "x");
+      _mesa_printf("x");
    if (dword & A0_DEST_CHANNEL_Y)
-      fprintf(stderr, "y");
+      _mesa_printf("y");
    if (dword & A0_DEST_CHANNEL_Z)
-      fprintf(stderr, "z");
+      _mesa_printf("z");
    if (dword & A0_DEST_CHANNEL_W)
-      fprintf(stderr, "w");
+      _mesa_printf("w");
 }
 
 
@@ -250,29 +245,29 @@ print_arith_op(GLuint opcode, const GLuint * program)
    if (opcode != A0_NOP) {
       print_dest_reg(program[0]);
       if (program[0] & A0_DEST_SATURATE)
-         fprintf(stderr, " = SATURATE ");
+         _mesa_printf(" = SATURATE ");
       else
-         fprintf(stderr, " = ");
+         _mesa_printf(" = ");
    }
 
-   fprintf(stderr, "%s ", opcodes[opcode]);
+   _mesa_printf("%s ", opcodes[opcode]);
 
    print_src_reg(GET_SRC0_REG(program[0], program[1]));
    if (args[opcode] == 1) {
-      fprintf(stderr, "\n");
+      _mesa_printf("\n");
       return;
    }
 
-   fprintf(stderr, ", ");
+   _mesa_printf(", ");
    print_src_reg(GET_SRC1_REG(program[1], program[2]));
    if (args[opcode] == 2) {
-      fprintf(stderr, "\n");
+      _mesa_printf("\n");
       return;
    }
 
-   fprintf(stderr, ", ");
+   _mesa_printf(", ");
    print_src_reg(GET_SRC2_REG(program[2]));
-   fprintf(stderr, "\n");
+   _mesa_printf("\n");
    return;
 }
 
@@ -281,24 +276,24 @@ static void
 print_tex_op(GLuint opcode, const GLuint * program)
 {
    print_dest_reg(program[0] | A0_DEST_CHANNEL_ALL);
-   fprintf(stderr, " = ");
+   _mesa_printf(" = ");
 
-   fprintf(stderr, "%s ", opcodes[opcode]);
+   _mesa_printf("%s ", opcodes[opcode]);
 
-   fprintf(stderr, "S[%d],", program[0] & T0_SAMPLER_NR_MASK);
+   _mesa_printf("S[%d],", program[0] & T0_SAMPLER_NR_MASK);
 
    print_reg_type_nr((program[1] >> T1_ADDRESS_REG_TYPE_SHIFT) &
                      REG_TYPE_MASK,
                      (program[1] >> T1_ADDRESS_REG_NR_SHIFT) & REG_NR_MASK);
-   fprintf(stderr, "\n");
+   _mesa_printf("\n");
 }
 
 static void
 print_dcl_op(GLuint opcode, const GLuint * program)
 {
-   fprintf(stderr, "%s ", opcodes[opcode]);
+   _mesa_printf("%s ", opcodes[opcode]);
    print_dest_reg(program[0] | A0_DEST_CHANNEL_ALL);
-   fprintf(stderr, "\n");
+   _mesa_printf("\n");
 }
 
 
@@ -308,17 +303,15 @@ i915_disassemble_program(const GLuint * program, GLuint sz)
    GLuint size = program[0] & 0x1ff;
    GLint i;
 
-   fprintf(stderr, "BEGIN\n");
+   _mesa_printf("\t\tBEGIN\n");
 
-   if (size + 2 != sz) {
-      fprintf(stderr, "%s: program size mismatch %d/%d\n", __FUNCTION__,
-              size + 2, sz);
-      exit(1);
-   }
+   assert(size + 2 == sz);
 
    program++;
    for (i = 1; i < sz; i += 3, program += 3) {
       GLuint opcode = program[0] & (0x1f << 24);
+
+      _mesa_printf("\t\t");
 
       if ((GLint) opcode >= A0_NOP && opcode <= A0_SLT)
          print_arith_op(opcode >> 24, program);
@@ -327,8 +320,19 @@ i915_disassemble_program(const GLuint * program, GLuint sz)
       else if (opcode == D0_DCL)
          print_dcl_op(opcode >> 24, program);
       else
-         fprintf(stderr, "Unknown opcode 0x%x\n", opcode);
+         _mesa_printf("Unknown opcode 0x%x\n", opcode);
    }
 
-   fprintf(stderr, "END\n\n");
+   _mesa_printf("\t\tEND\n\n");
+}
+
+
+void i915_print_mesa_instructions( const struct prog_instruction *insn,
+				   GLuint nr )
+{
+   GLuint i;
+   for (i = 0; i < nr; i++, insn++) {
+      _mesa_printf("%3d: ", i);
+      _mesa_print_instruction(insn);
+   }
 }

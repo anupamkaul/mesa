@@ -35,6 +35,7 @@
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
 #include "intel_reg.h"
+#include "intel_metaops.h"
 #include "context.h"
 #include "utils.h"
 #include "drirenderbuffer.h"
@@ -349,14 +350,9 @@ intelWindowMoved(struct intel_context *intel)
 
    /* Update Mesa's notion of window size */
    driUpdateFramebufferSize(ctx, dPriv);
-   intel_fb->Base.Initialized = GL_TRUE; /* XXX remove someday */
 
-   /* Update hardware scissor */
-   ctx->Driver.Scissor(ctx, ctx->Scissor.X, ctx->Scissor.Y,
-                       ctx->Scissor.Width, ctx->Scissor.Height);
-
-   /* Re-calculate viewport related state */
-   ctx->Driver.DepthRange( ctx, ctx->Viewport.Near, ctx->Viewport.Far );
+   /* Raise a state flag */
+   intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
 }
 
 
@@ -381,7 +377,7 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
       GLint cx, cy, cw, ch;
       GLuint buf;
 
-      intel->vtbl.install_meta_state(intel);
+      intel_install_meta_state(intel);
 
       /* Get clear bounds after locking */
       cx = fb->_Xmin;
@@ -407,29 +403,30 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
          const GLuint clearColor = (backRegion && backRegion->cpp == 4)
             ? intel->ClearColor8888 : intel->ClearColor565;
 
-         intel->vtbl.meta_draw_region(intel, backRegion, depthRegion);
+         intel_meta_draw_region(intel, backRegion, depthRegion);
 
          if (mask & BUFFER_BIT_BACK_LEFT)
-            intel->vtbl.meta_color_mask(intel, GL_TRUE);
+            intel_meta_color_mask(intel, GL_TRUE);
          else
-            intel->vtbl.meta_color_mask(intel, GL_FALSE);
+            intel_meta_color_mask(intel, GL_FALSE);
 
          if (mask & BUFFER_BIT_STENCIL)
-            intel->vtbl.meta_stencil_replace(intel,
+            intel_meta_stencil_replace(intel,
                                              intel->ctx.Stencil.WriteMask[0],
                                              intel->ctx.Stencil.Clear);
          else
-            intel->vtbl.meta_no_stencil_write(intel);
+            intel_meta_no_stencil_write(intel);
 
          if (mask & BUFFER_BIT_DEPTH)
-            intel->vtbl.meta_depth_replace(intel);
+            intel_meta_depth_replace(intel);
          else
-            intel->vtbl.meta_no_depth_write(intel);
+            intel_meta_no_depth_write(intel);
 
-         /* XXX: Using INTEL_BATCH_NO_CLIPRECTS here is dangerous as the
-          * drawing origin may not be correctly emitted.
-          */
-         intel_meta_draw_quad(intel, clear.x1, clear.x2, clear.y1, clear.y2, intel->ctx.Depth.Clear, clearColor, 0, 0, 0, 0);   /* texcoords */
+         intel_meta_draw_quad(intel, 
+			      clear.x1, clear.x2, 
+			      clear.y1, clear.y2, 
+			      intel->ctx.Depth.Clear, 
+			      clearColor, 0, 0, 0, 0);   /* texcoords */
 
          mask &=
             ~(BUFFER_BIT_BACK_LEFT | BUFFER_BIT_STENCIL | BUFFER_BIT_DEPTH);
@@ -446,22 +443,21 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
 
             ASSERT(irbColor);
 
-            intel->vtbl.meta_no_depth_write(intel);
-            intel->vtbl.meta_no_stencil_write(intel);
-            intel->vtbl.meta_color_mask(intel, GL_TRUE);
-            intel->vtbl.meta_draw_region(intel, irbColor->region, NULL);
+            intel_meta_no_depth_write(intel);
+            intel_meta_no_stencil_write(intel);
+            intel_meta_color_mask(intel, GL_TRUE);
+            intel_meta_draw_region(intel, irbColor->region, NULL);
 
-            /* XXX: Using INTEL_BATCH_NO_CLIPRECTS here is dangerous as the
-             * drawing origin may not be correctly emitted.
-             */
-            intel_meta_draw_quad(intel, clear.x1, clear.x2, clear.y1, clear.y2, 0,      /* depth clear val */
+            intel_meta_draw_quad(intel, 
+				 clear.x1, clear.x2, 
+				 clear.y1, clear.y2, 0,      /* depth clear val */
                                  color, 0, 0, 0, 0);    /* texcoords */
 
             mask &= ~bufBit;
          }
       }
 
-      intel->vtbl.leave_meta_state(intel);
+      intel_leave_meta_state(intel);
       intel_batchbuffer_flush(intel->batch);
    }
    UNLOCK_HARDWARE(intel);
@@ -504,11 +500,11 @@ intelRotateWindow(struct intel_context *intel,
       return;
    }
 
-   intel->vtbl.install_meta_state(intel);
+   intel_install_meta_state(intel);
 
-   intel->vtbl.meta_no_depth_write(intel);
-   intel->vtbl.meta_no_stencil_write(intel);
-   intel->vtbl.meta_color_mask(intel, GL_FALSE);
+   intel_meta_no_depth_write(intel);
+   intel_meta_no_stencil_write(intel);
+   intel_meta_color_mask(intel, GL_FALSE);
 
 
    /* save current drawing origin and cliprects (restored at end) */
@@ -529,7 +525,7 @@ intelRotateWindow(struct intel_context *intel,
    intel->numClipRects = 1;
    intel->pClipRects = &fullRect;
 
-   intel->vtbl.meta_draw_region(intel, screen->rotated_region, NULL);    /* ? */
+   intel_meta_draw_region(intel, screen->rotated_region, NULL);    /* ? */
 
    intel_fb = dPriv->driverPrivate;
 
@@ -554,12 +550,12 @@ intelRotateWindow(struct intel_context *intel,
    }
 
    /* set the whole screen up as a texture to avoid alignment issues */
-   intel->vtbl.meta_tex_rect_source(intel,
+   intel_meta_tex_rect_source(intel,
                                     src->buffer,
                                     screen->width,
                                     screen->height, src->pitch, format, type);
 
-   intel->vtbl.meta_texture_blend_replace(intel);
+   intel_meta_texture_blend_replace(intel);
 
    /*
     * loop over the source window's cliprects
@@ -604,7 +600,7 @@ intelRotateWindow(struct intel_context *intel,
 
    }                            /* cliprect loop */
 
-   intel->vtbl.leave_meta_state(intel);
+   intel_leave_meta_state(intel);
    intel_batchbuffer_flush(intel->batch);
 
    /* restore original drawing origin and cliprects */
@@ -685,6 +681,20 @@ intelClear(GLcontext *ctx, GLbitfield mask)
       }
    }
 
+   {
+      const GLfloat *color = intel->ctx.Color.ClearColor;
+      GLubyte clear[4];
+      
+      CLAMPED_FLOAT_TO_UBYTE(clear[0], color[0]);
+      CLAMPED_FLOAT_TO_UBYTE(clear[1], color[1]);
+      CLAMPED_FLOAT_TO_UBYTE(clear[2], color[2]);
+      CLAMPED_FLOAT_TO_UBYTE(clear[3], color[3]);
+      
+      /* compute both 32 and 16-bit clear values */
+      intel->ClearColor8888 = INTEL_PACKCOLOR8888(clear[0], clear[1],
+						  clear[2], clear[3]);
+      intel->ClearColor565 = INTEL_PACKCOLOR565(clear[0], clear[1], clear[2]);
+   }
 
    intelFlush(ctx);             /* XXX intelClearWithBlit also does this */
 
@@ -977,6 +987,8 @@ intelCopySubBuffer(__DRIdrawablePrivate * dPriv, int x, int y, int w, int h)
  * Basically, this needs to be called any time the current framebuffer
  * changes, the renderbuffers change, or we need to draw into different
  * color buffers.
+ *
+ * XXX: Make this into a tracked state atom...
  */
 void
 intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb)
@@ -1015,12 +1027,7 @@ intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb)
    /*
     * How many color buffers are we drawing into?
     */
-   if (fb->_NumColorDrawBuffers[0] != 1
-#if 0
-       /* XXX FBO temporary - always use software rendering */
-       || 1
-#endif
-      ) {
+   if (fb->_NumColorDrawBuffers[0] != 1) {
       /* writing to 0 or 2 or 4 color buffers */
       /*_mesa_debug(ctx, "Software rendering\n");*/
       FALLBACK(intel, INTEL_FALLBACK_DRAW_BUFFER, GL_TRUE);
@@ -1058,20 +1065,6 @@ intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb)
       colorRegion = (irb && irb->region) ? irb->region : NULL;
    }
 
-   /* Update culling direction which changes depending on the
-    * orientation of the buffer:
-    */
-   if (ctx->Driver.FrontFace)
-      ctx->Driver.FrontFace(ctx, ctx->Polygon.FrontFace);
-   else
-      ctx->NewState |= _NEW_POLYGON;
-
-   if (!colorRegion) {
-      FALLBACK(intel, INTEL_FALLBACK_DRAW_BUFFER, GL_TRUE);
-   }
-   else {
-      FALLBACK(intel, INTEL_FALLBACK_DRAW_BUFFER, GL_FALSE);
-   }
 
    /***
     *** Get depth buffer region and check if we need a software fallback.
@@ -1104,8 +1097,7 @@ intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb)
       if (irbStencil && irbStencil->region) {
          ASSERT(irbStencil->Base._ActualFormat == GL_DEPTH24_STENCIL8_EXT);
          FALLBACK(intel, INTEL_FALLBACK_STENCIL_BUFFER, GL_FALSE);
-         /* need to re-compute stencil hw state */
-         ctx->Driver.Enable(ctx, GL_STENCIL_TEST, ctx->Stencil.Enabled);
+
          if (!depthRegion)
             depthRegion = irbStencil->region;
       }
@@ -1116,34 +1108,27 @@ intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb)
    else {
       /* XXX FBO: instead of FALSE, pass ctx->Stencil.Enabled ??? */
       FALLBACK(intel, INTEL_FALLBACK_STENCIL_BUFFER, GL_FALSE);
-      /* need to re-compute stencil hw state */
-      ctx->Driver.Enable(ctx, GL_STENCIL_TEST, ctx->Stencil.Enabled);
    }
 
 
-   /**
-    ** Release old regions, reference new regions
-    **/
-#if 0                           /* XXX FBO: this seems to be redundant with i915_state_draw_region() */
-   if (intel->draw_region != colorRegion) {
-      intel_region_release(&intel->draw_region);
-      intel_region_reference(&intel->draw_region, colorRegion);
+   if (intel->state.draw_region != colorRegion) {
+      intel_region_release(&intel->state.draw_region);
+      intel_region_reference(&intel->state.draw_region, colorRegion);
+
+      /* Raise a state flag to ensure viewport, scissor get recalculated.
+       */
+      intel->state.dirty.intel |= INTEL_NEW_CBUF;
    }
-   if (intel->intelScreen->depth_region != depthRegion) {
-      intel_region_release(&intel->intelScreen->depth_region);
-      intel_region_reference(&intel->intelScreen->depth_region, depthRegion);
+
+   if (intel->state.depth_region != depthRegion) {
+      intel_region_release(&intel->state.depth_region);
+      intel_region_reference(&intel->state.depth_region, depthRegion);
+
+      /* Raise a state flag to ensure viewport, scissor get recalculated.
+       */
+      intel->state.dirty.intel |= INTEL_NEW_ZBUF;
    }
-#endif
 
-   intel->vtbl.set_draw_region(intel, colorRegion, depthRegion);
-
-   /* update viewport since it depends on window size */
-   ctx->Driver.Viewport(ctx, ctx->Viewport.X, ctx->Viewport.Y,
-                        ctx->Viewport.Width, ctx->Viewport.Height);
-
-   /* Update hardware scissor */
-   ctx->Driver.Scissor(ctx, ctx->Scissor.X, ctx->Scissor.Y,
-                       ctx->Scissor.Width, ctx->Scissor.Height);
 }
 
 

@@ -43,6 +43,7 @@
 #include "intel_pixel.h"
 #include "intel_buffer_objects.h"
 #include "intel_tris.h"
+#include "intel_metaops.h"
 
 
 
@@ -64,8 +65,7 @@ do_texture_drawpixels(GLcontext * ctx,
       fprintf(stderr, "%s\n", __FUNCTION__);
 
    intelFlush(&intel->ctx);
-   intel->vtbl.render_start(intel);
-   intel->vtbl.emit_state(intel);
+   assert(!intel->ctx.NewState);
 
    if (!dst)
       return GL_FALSE;
@@ -101,20 +101,20 @@ do_texture_drawpixels(GLcontext * ctx,
       return GL_FALSE;
    }
 
-   intel->vtbl.install_meta_state(intel);
+   intel_install_meta_state(intel);
 
 
    /* Is this true?  Also will need to turn depth testing on according
     * to state:
     */
-   intel->vtbl.meta_no_stencil_write(intel);
-   intel->vtbl.meta_no_depth_write(intel);
+   intel_meta_no_stencil_write(intel);
+   intel_meta_no_depth_write(intel);
 
    /* Set the 3d engine to draw into the destination region:
     */
-   intel->vtbl.meta_draw_region(intel, dst, intel->intelScreen->depth_region);
+   intel_meta_draw_region(intel, dst, intel->intelScreen->depth_region);
 
-   intel->vtbl.meta_import_pixel_state(intel);
+   intel_meta_import_pixel_state(intel);
 
    src_offset = (GLuint) _mesa_image_address(2, unpack, pixels, width, height,
                                              format, type, 0, 0, 0);
@@ -127,13 +127,13 @@ do_texture_drawpixels(GLcontext * ctx,
     * The major exception is any 24bit texture, like RGB888, for which
     * there is no hardware support.  
     */
-   if (!intel->vtbl.meta_tex_rect_source(intel, src->buffer, src_offset,
+   if (!intel_meta_tex_rect_source(intel, src->buffer, src_offset,
                                          rowLength, height, format, type)) {
-      intel->vtbl.leave_meta_state(intel);
+      intel_leave_meta_state(intel);
       return GL_FALSE;
    }
 
-   intel->vtbl.meta_texture_blend_replace(intel);
+   intel_meta_texture_blend_replace(intel);
 
 
    LOCK_HARDWARE(intel);
@@ -178,7 +178,7 @@ do_texture_drawpixels(GLcontext * ctx,
                            0x00ff00ff,
                            srcx, srcx + width, srcy + height, srcy);
     out:
-      intel->vtbl.leave_meta_state(intel);
+      intel_leave_meta_state(intel);
       intel_batchbuffer_flush(intel->batch);
    }
    UNLOCK_HARDWARE(intel);

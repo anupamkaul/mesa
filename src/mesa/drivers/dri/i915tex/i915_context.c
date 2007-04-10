@@ -39,6 +39,8 @@
 
 #include "utils.h"
 #include "i915_reg.h"
+#include "i915_state.h"
+#include "i915_cache.h"
 
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
@@ -52,6 +54,7 @@ static const struct dri_extension i915_extensions[] = {
    {"GL_ARB_fragment_program", NULL},
    {"GL_ARB_shadow", NULL},
    {"GL_ARB_texture_env_crossbar", NULL},
+   {"GL_EXT_stencil_two_side", NULL},
    {"GL_ARB_texture_non_power_of_two", NULL},
    {"GL_EXT_shadow_funcs", NULL},
    /* ARB extn won't work if not enabled */
@@ -59,73 +62,17 @@ static const struct dri_extension i915_extensions[] = {
    {NULL, NULL}
 };
 
-/* Override intel default.
- */
-static void
-i915InvalidateState(GLcontext * ctx, GLuint new_state)
-{
-   _swrast_InvalidateState(ctx, new_state);
-   _swsetup_InvalidateState(ctx, new_state);
-   _vbo_InvalidateState(ctx, new_state);
-   _tnl_InvalidateState(ctx, new_state);
-   _tnl_invalidate_vertex_state(ctx, new_state);
-   intel_context(ctx)->NewGLState |= new_state;
-
-   /* Todo: gather state values under which tracked parameters become
-    * invalidated, add callbacks for things like
-    * ProgramLocalParameters, etc.
-    */
-   {
-      struct i915_fragment_program *p =
-         (struct i915_fragment_program *) ctx->FragmentProgram._Current;
-      if (p && p->nr_params)
-         p->params_uptodate = 0;
-   }
-
-   if (new_state & (_NEW_FOG | _NEW_HINT | _NEW_PROGRAM))
-      i915_update_fog(ctx);
-}
-
 
 static void
 i915InitDriverFunctions(struct dd_function_table *functions)
 {
    intelInitDriverFunctions(functions);
-   i915InitStateFunctions(functions);
-   i915InitTextureFuncs(functions);
    i915InitFragProgFuncs(functions);
-   functions->UpdateState = i915InvalidateState;
 }
 
-
-
-GLboolean
-i915CreateContext(const __GLcontextModes * mesaVis,
-                  __DRIcontextPrivate * driContextPriv,
-                  void *sharedContextPrivate)
+static void i915_init_gl_constants( struct i915_context *i915 )
 {
-   struct dd_function_table functions;
-   struct i915_context *i915 =
-      (struct i915_context *) CALLOC_STRUCT(i915_context);
-   struct intel_context *intel = &i915->intel;
-   GLcontext *ctx = &intel->ctx;
-
-   if (!i915)
-      return GL_FALSE;
-
-   if (0)
-      _mesa_printf("\ntexmem-0-3 branch\n\n");
-
-   i915InitVtbl(i915);
-   i915InitMetaFuncs(i915);
-
-   i915InitDriverFunctions(&functions);
-
-   if (!intelInitContext(intel, mesaVis, driContextPriv,
-                         sharedContextPrivate, &functions)) {
-      FREE(i915);
-      return GL_FALSE;
-   }
+   GLcontext *ctx = &i915->intel.ctx;
 
    ctx->Const.MaxTextureUnits = I915_TEX_UNITS;
    ctx->Const.MaxTextureImageUnits = I915_TEX_UNITS;
@@ -153,22 +100,59 @@ i915CreateContext(const __GLcontextModes * mesaVis,
    ctx->Const.FragmentProgram.MaxNativeTexInstructions = I915_MAX_TEX_INSN;
    ctx->Const.FragmentProgram.MaxNativeInstructions = (I915_MAX_ALU_INSN +
                                                        I915_MAX_TEX_INSN);
-   ctx->Const.FragmentProgram.MaxNativeTexIndirections =
-      I915_MAX_TEX_INDIRECT;
+   ctx->Const.FragmentProgram.MaxNativeTexIndirections = I915_MAX_TEX_INDIRECT;
    ctx->Const.FragmentProgram.MaxNativeAddressRegs = 0; /* I don't think we have one */
+}
+
+
+GLboolean
+i915CreateContext(const __GLcontextModes *mesaVis,
+                  __DRIcontextPrivate *driContextPriv,
+                  void *sharedContextPrivate)
+{
+   struct dd_function_table functions;
+   struct i915_context *i915 = CALLOC_STRUCT(i915_context);
+   struct intel_context *intel = &i915->intel;
+   GLcontext *ctx = &intel->ctx;
+
+   if (!i915)
+      goto bad;
+
+   i915InitVtbl(i915);
+   i915InitDriverFunctions(&functions);
+   i915_init_state(i915);
+
+   i915->cctx = i915_create_caches( i915 );
+   if (!i915->cctx)
+      goto bad;
+
+   if (!intelInitContext(intel, mesaVis, driContextPriv,
+                         sharedContextPrivate, &functions)) 
+      goto bad;
+
+   i915_init_gl_constants( i915 );
 
    ctx->FragmentProgram._MaintainTexEnvProgram = GL_TRUE;
    ctx->FragmentProgram._UseTexEnvProgram = GL_TRUE;
 
    driInitExtensions(ctx, i915_extensions, GL_FALSE);
 
+   _tnl_allow_vertex_fog( ctx, 0 );
+   _tnl_allow_pixel_fog( ctx, 1 );
 
    _tnl_init_vertices(ctx, ctx->Const.MaxArrayLockSize + 12,
                       36 * sizeof(GLfloat));
 
    intel->verts = TNL_CONTEXT(ctx)->clipspace.vertex_buf;
 
-   i915InitState(i915);
-
    return GL_TRUE;
+
+ bad:
+   if (i915->cctx) 
+      i915_destroy_caches( i915->cctx );
+
+   if (i915) 
+      FREE(i915);
+
+   return GL_FALSE;
 }

@@ -25,20 +25,12 @@
  * 
  **************************************************************************/
 
-#ifndef INTELTRIS_INC
-#define INTELTRIS_INC
+#ifndef INTEL_IDX_H
+#define INTEL_IDX_H
 
-#include "mtypes.h"
+#include "intel_context.h"
 
-extern void intelInitTriFuncs(GLcontext * ctx);
-
-/* dwords parameter is a minimum reservation amount.  If in doubt,
- * just use zero.
- */
-extern void intelStartInlinePrimitive( struct intel_context *intel, 
-				       GLuint prim, 
-				       GLuint dwords );
-
-GLuint *intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords);
+void intel_idx_init( struct intel_context *intel );
+void intel_idx_destroy( struct intel_context *intel );
 
 #endif

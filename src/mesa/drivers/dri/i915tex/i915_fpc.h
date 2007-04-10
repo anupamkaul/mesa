@@ -32,6 +32,52 @@
 #include "i915_context.h"
 #include "i915_reg.h"
 
+/***********************************************************************
+ * Public interface for the compiler
+ */
+
+void i915_compile_fragment_program( struct i915_context *i915,
+				    struct i915_fragment_program *fp );
+
+
+/***********************************************************************
+ * Private details of the compiler
+ */
+
+struct i915_fp_compile {
+   struct i915_fragment_program *fp;
+
+   GLuint declarations[I915_PROGRAM_SIZE];
+   GLuint program[I915_PROGRAM_SIZE];
+
+   GLuint constant_flags[I915_MAX_CONSTANT];
+
+
+   GLuint *csr;                 /* Cursor, points into program.
+                                 */
+
+   GLuint *decl;                /* Cursor, points into declarations.
+                                 */
+
+   GLuint decl_s;               /* flags for which s regs need to be decl'd */
+   GLuint decl_t;               /* flags for which t regs need to be decl'd */
+
+   GLuint temp_flag;            /* Tracks temporary regs which are in
+                                 * use.
+                                 */
+
+   GLuint utemp_flag;           /* Tracks TYPE_U temporary regs which are in
+                                 * use.
+                                 */
+
+   GLuint nr_tex_indirect;
+   GLuint nr_tex_insn;
+   GLuint nr_alu_insn;
+   GLuint nr_decl_insn;
+
+
+   GLfloat (*env_param)[4];
+};
 
 
 /* Having zero and one in here makes the definition of swizzle a lot
@@ -106,54 +152,65 @@ negate(int reg, int x, int y, int z, int w)
 }
 
 
-extern GLuint i915_get_temp(struct i915_fragment_program *p);
-extern GLuint i915_get_utemp(struct i915_fragment_program *p);
-extern void i915_release_utemps(struct i915_fragment_program *p);
+extern GLuint i915_get_temp(struct i915_fp_compile *p);
+extern GLuint i915_get_utemp(struct i915_fp_compile *p);
+extern void i915_release_utemps(struct i915_fp_compile *p);
 
 
-extern GLuint i915_emit_texld(struct i915_fragment_program *p,
+extern GLuint i915_emit_texld(struct i915_fp_compile *p,
                               GLuint dest,
                               GLuint destmask,
                               GLuint sampler, GLuint coord, GLuint op);
 
-extern GLuint i915_emit_arith(struct i915_fragment_program *p,
+extern GLuint i915_emit_arith(struct i915_fp_compile *p,
                               GLuint op,
                               GLuint dest,
                               GLuint mask,
                               GLuint saturate,
                               GLuint src0, GLuint src1, GLuint src2);
 
-extern GLuint i915_emit_decl(struct i915_fragment_program *p,
+extern GLuint i915_emit_decl(struct i915_fp_compile *p,
                              GLuint type, GLuint nr, GLuint d0_flags);
 
 
-extern GLuint i915_emit_const1f(struct i915_fragment_program *p, GLfloat c0);
+extern GLuint i915_emit_const1f(struct i915_fp_compile *p, GLfloat c0);
 
-extern GLuint i915_emit_const2f(struct i915_fragment_program *p,
+extern GLuint i915_emit_const2f(struct i915_fp_compile *p,
                                 GLfloat c0, GLfloat c1);
 
-extern GLuint i915_emit_const4fv(struct i915_fragment_program *p,
+extern GLuint i915_emit_const4fv(struct i915_fp_compile *p,
                                  const GLfloat * c);
 
-extern GLuint i915_emit_const4f(struct i915_fragment_program *p,
+extern GLuint i915_emit_const4f(struct i915_fp_compile *p,
                                 GLfloat c0, GLfloat c1,
                                 GLfloat c2, GLfloat c3);
 
 
-extern GLuint i915_emit_param4fv(struct i915_fragment_program *p,
+extern GLuint i915_emit_param4fv(struct i915_fp_compile *p,
                                  const GLfloat * values);
 
-extern void i915_program_error(struct i915_fragment_program *p,
+
+
+/*======================================================================
+ * i915_fpc_debug.c
+ */
+extern void i915_program_error(struct i915_fp_compile *p,
                                const char *msg);
 
-extern void i915_init_program(struct i915_context *i915,
-                              struct i915_fragment_program *p);
 
-extern void i915_upload_program(struct i915_context *i915,
-                                struct i915_fragment_program *p);
+/*======================================================================
+ * i915_fpc_debug.c
+ */
+extern void i915_disassemble_program(const GLuint * program, GLuint sz);
 
-extern void i915_fini_program(struct i915_fragment_program *p);
+extern void i915_print_mesa_instructions( const struct prog_instruction *insn,
+					  GLuint nr );
 
+/*======================================================================
+ * i915_fpc_translate.c
+ */
+void i915_fixup_depth_write(struct i915_fp_compile *p);
+void i915_translate_program(struct i915_fp_compile *p);
 
 
 

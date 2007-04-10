@@ -940,6 +940,7 @@ static void
 update_program(GLcontext *ctx)
 {
    const struct gl_shader_program *shProg = ctx->Shader.CurrentProgram;
+   const struct gl_fragment_program *prev = ctx->FragmentProgram._Current;
 
    /* These _Enabled flags indicate if the program is enabled AND valid. */
    ctx->VertexProgram._Enabled = ctx->VertexProgram.Enabled
@@ -1009,6 +1010,11 @@ update_program(GLcontext *ctx)
        !ctx->FragmentProgram._Enabled) {
       if (ctx->FragmentProgram._UseTexEnvProgram)
 	 ctx->FragmentProgram._Active = GL_TRUE;
+   } 
+
+   if (ctx->FragmentProgram._Current != prev && ctx->Driver.BindProgram) {
+       ctx->Driver.BindProgram(ctx, GL_FRAGMENT_PROGRAM_ARB,
+			       (struct gl_program *) ctx->FragmentProgram._Current);
    }
 }
 

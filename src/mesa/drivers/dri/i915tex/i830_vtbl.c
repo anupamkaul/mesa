@@ -426,7 +426,7 @@ i830_emit_state(struct intel_context *intel)
     * scheduling is allowed, rather than assume that it is whenever a
     * batchbuffer fills up.
     */
-   intel_batchbuffer_require_space(intel->batch, get_state_size(state), 0);
+   intel_batchbuffer_require_space(intel->batch, 0, get_state_size(state), 0);
 
    /* Do this here as we may have flushed the batchbuffer above,
     * causing more state to be dirty!
@@ -646,7 +646,6 @@ i830_assert_not_dirty( struct intel_context *intel )
 void
 i830InitVtbl(struct i830_context *i830)
 {
-   i830->intel.vtbl.check_vertex_size = i830_check_vertex_size;
    i830->intel.vtbl.destroy = i830_destroy_context;
    i830->intel.vtbl.emit_state = i830_emit_state;
    i830->intel.vtbl.lost_hardware = i830_lost_hardware;
@@ -655,5 +654,5 @@ i830InitVtbl(struct i830_context *i830)
    i830->intel.vtbl.update_texture_state = i830UpdateTextureState;
    i830->intel.vtbl.flush_cmd = i830_flush_cmd;
    i830->intel.vtbl.render_start = i830_render_start;
-   i830->intel.vtbl.assert_not_dirty = i830_assert_not_dirty;
+/*    i830->intel.vtbl.assert_not_dirty = i830_assert_not_dirty; */
 }

@@ -54,7 +54,6 @@ typedef struct
    intelRegion third;
    intelRegion rotated;
    intelRegion depth;
-   intelRegion tex;
 
    struct intel_region *front_region;
    struct intel_region *back_region;
@@ -68,10 +67,7 @@ typedef struct
    int mem;                     /* unused */
 
    int cpp;                     /* for front and back buffers */
-/*    int bitsPerPixel;   */
    int fbFormat;                /* XXX FBO: this is obsolete - remove after i830 updates */
-
-   int logTextureGranularity;
 
    __DRIscreenPrivate *driScrnPriv;
    unsigned int sarea_priv_offset;
@@ -79,7 +75,6 @@ typedef struct
    int drmMinor;
 
    int irq_active;
-   int allow_batchbuffer;
 
    struct matrix23 rotMatrix;
 

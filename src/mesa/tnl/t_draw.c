@@ -344,7 +344,7 @@ void _tnl_draw_prims( GLcontext *ctx,
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    const GLuint TEST_SPLIT = 0;
-   const GLint max = TEST_SPLIT ? 8 : tnl->vb.Size - MAX_CLIPPED_VERTICES;
+   const GLint max = TEST_SPLIT ? 8 : (tnl->vb.Size - MAX_CLIPPED_VERTICES) * .8;
 
    if (0)
    {

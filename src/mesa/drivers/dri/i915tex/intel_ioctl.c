@@ -134,5 +134,5 @@ intel_batch_ioctl(struct intel_context *intel,
    /* FIXME: use hardware contexts to avoid 'losing' hardware after
     * each buffer flush.
     */
-   intel->vtbl.lost_hardware(intel);
+   intel_lost_hardware(intel);
 }

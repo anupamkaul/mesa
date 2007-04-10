@@ -7,19 +7,33 @@ LIBNAME = i915tex_dri.so
 MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
-	i830_context.c \
-	i830_metaops.c \
-	i830_state.c \
-	i830_texblend.c \
-	i830_tex.c \
-	i830_texstate.c \
-	i830_vtbl.c \
+	i915_cache.c \
+	i915_context.c \
+	i915_differencer.c \
+	i915_fpc.c \
+	i915_fpc_debug.c \
+	i915_fpc_emit.c \
+	i915_fpc_translate.c \
+	i915_program.c \
+	i915_state.c \
+	i915_state_constants.c \
+	i915_state_dynamic.c \
+	i915_state_fallback.c \
+	i915_state_immediate.c \
+	i915_state_map.c \
+	i915_state_program.c \
+	i915_state_sampler.c \
+	i915_state_static.c \
+	i915_state_vertex.c \
+	i915_tex_layout.c \
+	i915_vtbl.c \
 	intel_render.c \
+	intel_vb.c \
+	intel_idx_render.c \
 	intel_regions.c \
 	intel_buffer_objects.c \
 	intel_batchbuffer.c \
 	intel_mipmap_tree.c \
-	i915_tex_layout.c \
 	intel_tex_layout.c \
 	intel_tex_image.c \
 	intel_tex_subimage.c \
@@ -27,27 +41,20 @@ DRIVER_SOURCES = \
 	intel_tex_validate.c \
 	intel_tex_format.c \
 	intel_tex.c \
+	intel_metaops.c \
 	intel_pixel.c \
 	intel_pixel_copy.c \
 	intel_pixel_read.c \
 	intel_pixel_draw.c \
 	intel_buffers.c \
 	intel_blit.c \
-	i915_tex.c \
-	i915_texstate.c \
-	i915_context.c \
-	i915_debug.c \
-	i915_fragprog.c \
-	i915_metaops.c \
-	i915_program.c \
-	i915_state.c \
-	i915_vtbl.c \
 	intel_context.c \
 	intel_ioctl.c \
 	intel_rotate.c \
 	intel_screen.c \
 	intel_span.c \
 	intel_state.c \
+	intel_state_callbacks.c \
 	intel_tris.c \
 	intel_fbo.c \
 	intel_depthstencil.c \

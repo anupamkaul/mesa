@@ -120,21 +120,11 @@ intelMapScreenRegions(__DRIscreenPrivate * sPriv)
       return GL_FALSE;
    }
 
-#if 0
-   _mesa_printf("TEX 0x%08x ", intelScreen->tex.handle);
-   if (drmMap(sPriv->fd,
-              intelScreen->tex.handle,
-              intelScreen->tex.size,
-              (drmAddress *) & intelScreen->tex.map) != 0) {
-      intelUnmapScreenRegions(intelScreen);
-      return GL_FALSE;
-   }
-#endif
    if (0)
-      printf("Mappings:  front: %p  back: %p  third: %p  depth: %p  tex: %p\n",
+      printf("Mappings:  front: %p  back: %p  third: %p  depth: %p\n",
              intelScreen->front.map,
              intelScreen->back.map, intelScreen->third.map,
-             intelScreen->depth.map, intelScreen->tex.map);
+             intelScreen->depth.map);
    return GL_TRUE;
 }
 
@@ -277,12 +267,6 @@ intelUnmapScreenRegions(intelScreenPrivate * intelScreen)
       intelScreen->depth.map = NULL;
 #endif
    }
-   if (intelScreen->tex.map) {
-#if REALLY_UNMAP
-      drmUnmap(intelScreen->tex.map, intelScreen->tex.size);
-      intelScreen->tex.map = NULL;
-#endif
-   }
 }
 
 
@@ -302,8 +286,6 @@ intelPrintDRIInfo(intelScreenPrivate * intelScreen,
    fprintf(stderr, "*** Rotated size: 0x%x  offset: 0x%x  pitch: %d\n",
            intelScreen->rotated.size, intelScreen->rotated.offset,
            intelScreen->rotated.pitch);
-   fprintf(stderr, "*** Texture size: 0x%x  offset: 0x%x\n",
-           intelScreen->tex.size, intelScreen->tex.offset);
    fprintf(stderr, "*** Memory : 0x%x\n", gDRIPriv->mem);
 }
 
@@ -367,11 +349,6 @@ intelUpdateScreenFromSAREA(intelScreenPrivate * intelScreen,
    intelScreen->depth.pitch = sarea->pitch * intelScreen->cpp;
    intelScreen->depth.handle = sarea->depth_handle;
    intelScreen->depth.size = sarea->depth_size;
-
-   intelScreen->tex.offset = sarea->tex_offset;
-   intelScreen->logTextureGranularity = sarea->log_tex_granularity;
-   intelScreen->tex.handle = sarea->tex_handle;
-   intelScreen->tex.size = sarea->tex_size;
 
    intelScreen->rotated.offset = sarea->rotated_offset;
    intelScreen->rotated.pitch = sarea->rotated_pitch * intelScreen->cpp;
@@ -439,7 +416,7 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
       intelScreen->fbFormat = DV_PF_8888;
       break;
    default:
-      exit(1);
+      assert(0);
       break;
    }
 
@@ -451,24 +428,6 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
       sPriv->private = NULL;
       return GL_FALSE;
    }
-
-#if 0
-
-   /*
-    * FIXME: Remove this code and its references.
-    */
-
-   intelScreen->tex.offset = gDRIPriv->textureOffset;
-   intelScreen->logTextureGranularity = gDRIPriv->logTextureGranularity;
-   intelScreen->tex.handle = gDRIPriv->textures;
-   intelScreen->tex.size = gDRIPriv->textureSize;
-
-#else
-   intelScreen->tex.offset = 0;
-   intelScreen->logTextureGranularity = 0;
-   intelScreen->tex.handle = 0;
-   intelScreen->tex.size = 0;
-#endif
 
    intelScreen->sarea_priv_offset = gDRIPriv->sarea_priv_offset;
 
@@ -489,22 +448,6 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
                                 &gp, sizeof(gp));
       if (ret) {
          fprintf(stderr, "drmI830GetParam: %d\n", ret);
-         return GL_FALSE;
-      }
-   }
-
-   /* Determine if batchbuffers are allowed */
-   {
-      int ret;
-      drmI830GetParam gp;
-
-      gp.param = I830_PARAM_ALLOW_BATCHBUFFER;
-      gp.value = &intelScreen->allow_batchbuffer;
-
-      ret = drmCommandWriteRead(sPriv->fd, DRM_I830_GETPARAM,
-                                &gp, sizeof(gp));
-      if (ret) {
-         fprintf(stderr, "drmI830GetParam: (%d) %d\n", gp.param, ret);
          return GL_FALSE;
       }
    }
@@ -732,7 +675,8 @@ intelCreateContext(const __GLcontextModes * mesaVis,
    case PCI_CHIP_I830_M:
    case PCI_CHIP_I855_GM:
    case PCI_CHIP_I865_G:
-      return i830CreateContext(mesaVis, driContextPriv, sharedContextPrivate);
+/*       return i830CreateContext(mesaVis, driContextPriv, sharedContextPrivate); */
+      return GL_FALSE;
 
    case PCI_CHIP_I915_G:
    case PCI_CHIP_I915_GM:

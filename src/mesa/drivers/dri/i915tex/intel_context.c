@@ -44,10 +44,12 @@
 
 #include "drivers/common/driverfuncs.h"
 
-#include "intel_screen.h"
 
 #include "i830_dri.h"
 
+#include "intel_screen.h"
+#include "intel_idx_render.h"
+#include "intel_vb.h"
 #include "intel_buffers.h"
 #include "intel_tex.h"
 #include "intel_span.h"
@@ -59,6 +61,8 @@
 #include "intel_regions.h"
 #include "intel_buffer_objects.h"
 #include "intel_fbo.h"
+#include "intel_metaops.h"
+#include "intel_state.h"
 
 #include "drirenderbuffer.h"
 #include "vblank.h"
@@ -87,7 +91,7 @@ int INTEL_DEBUG = (0);
 #include "extension_helper.h"
 
 
-#define DRIVER_DATE                     "20061102"
+#define DRIVER_DATE                     "20070213 (mm)"
 
 _glthread_Mutex lockMutex;
 static GLboolean lockMutexInit = GL_FALSE;
@@ -199,6 +203,7 @@ const struct dri_extension card_extensions[] = {
 };
 
 extern const struct tnl_pipeline_stage _intel_render_stage;
+extern const struct tnl_pipeline_stage _intel_check_frag_attrib_sizes;
 
 static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_vertex_transform_stage,
@@ -210,10 +215,10 @@ static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_texture_transform_stage,
    &_tnl_point_attenuation_stage,
    &_tnl_arb_vertex_program_stage,
-   &_tnl_vertex_program_stage,
-#if 1
-   &_intel_render_stage,        /* ADD: unclipped rastersetup-to-dma */
-#endif
+   &_tnl_vertex_program_stage,   
+   &_intel_check_frag_attrib_sizes,
+   &_intel_render_stage,       /* ADD: unclipped rastersetup-to-dma */
+   &_tnl_indexed_render_stage, /* ADD: rastersetup-to-dma, indexed prims */
    &_tnl_render_stage,
    0,
 };
@@ -233,6 +238,10 @@ static const struct dri_debug_control debug_control[] = {
    {"reg", DEBUG_REGION},
    {"fbo", DEBUG_FBO},
    {"lock", DEBUG_LOCK},
+   {"idx", DEBUG_IDX},
+   {"tri", DEBUG_TRI},
+   {"sync", DEBUG_ALWAYS_SYNC},
+   {"vbo", DEBUG_VBO},
    {NULL, 0}
 };
 
@@ -240,12 +249,26 @@ static const struct dri_debug_control debug_control[] = {
 static void
 intelInvalidateState(GLcontext * ctx, GLuint new_state)
 {
+   struct intel_context *intel = intel_context(ctx);
+
    _swrast_InvalidateState(ctx, new_state);
    _swsetup_InvalidateState(ctx, new_state);
    _vbo_InvalidateState(ctx, new_state);
    _tnl_InvalidateState(ctx, new_state);
    _tnl_invalidate_vertex_state(ctx, new_state);
-   intel_context(ctx)->NewGLState |= new_state;
+
+   assert(!intel->metaops.active);
+
+   intel->state.dirty.mesa |= new_state;
+   intel->state.dirty.intel |= INTEL_NEW_MESA;
+}
+
+/* This is usually called because of a batchbuffer flush.
+ */
+void intel_lost_hardware( struct intel_context *intel )
+{
+   intel->state.dirty.intel |= INTEL_NEW_FENCE;
+   intel->vtbl.lost_hardware( intel );
 }
 
 
@@ -259,7 +282,7 @@ intelFlush(GLcontext * ctx)
 
    INTEL_FIREVERTICES(intel);
 
-   if (intel->batch->map != intel->batch->ptr)
+   if (intel->batch->segment_finish_offset[0] != 0)
       intel_batchbuffer_flush(intel->batch);
 
    /* XXX: Need to do an MI_FLUSH here.
@@ -328,9 +351,9 @@ intelInitDriverFunctions(struct dd_function_table *functions)
 
    intelInitTextureFuncs(functions);
    intelInitPixelFuncs(functions);
-   intelInitStateFuncs(functions);
    intelInitBufferFuncs(functions);
 }
+
 
 
 GLboolean
@@ -419,7 +442,7 @@ intelInitContext(struct intel_context *intel,
 
    intel->hw_stipple = 1;
 
-   /* XXX FBO: this doesn't seem to be used anywhere */
+   /* XXX FBO: recalculate on bind */
    switch (mesaVis->depthBits) {
    case 0:                     /* what to do in this case? */
    case 16:
@@ -447,8 +470,6 @@ intelInitContext(struct intel_context *intel,
    intel->do_irqs = (intel->intelScreen->irq_active &&
                      fthrottle_mode == DRI_CONF_FTHROTTLE_IRQS);
 
-   intel->do_usleeps = (fthrottle_mode == DRI_CONF_FTHROTTLE_USLEEPS);
-
    _math_matrix_ctr(&intel->ViewportMatrix);
 
    /* Disable imaging extension until convolution is working in
@@ -465,6 +486,17 @@ intelInitContext(struct intel_context *intel,
 
    intel_bufferobj_init(intel);
    intel_fbo_init(intel);
+
+   intel_state_init(intel);
+   intel_metaops_init(intel);
+   intel_idx_init(intel);
+
+
+   intel->vb = intel_vb_init(intel);
+
+   intel->state.dirty.mesa = ~0;
+   intel->state.dirty.intel = ~0;
+
 
    if (intel->ctx.Mesa_DXTn) {
       _mesa_enable_extension(ctx, "GL_EXT_texture_compression_s3tc");
@@ -497,44 +529,34 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
 
    assert(intel);               /* should never be null */
    if (intel) {
-      GLboolean release_texture_heaps;
-
       INTEL_FIREVERTICES(intel);
 
-      intel->vtbl.destroy(intel);
+      intel_idx_destroy(intel);
 
-      release_texture_heaps = (intel->ctx.Shared->RefCount == 1);
       _swsetup_DestroyContext(&intel->ctx);
       _tnl_DestroyContext(&intel->ctx);
       _vbo_DestroyContext(&intel->ctx);
-
       _swrast_DestroyContext(&intel->ctx);
-      intel->Fallback = 0;      /* don't call _swrast_Flush later */
 
-      intel_batchbuffer_free(intel->batch);
+      intel_batchbuffer_free( intel->batch );
+      intel_vb_destroy( intel->vb );
 
       if (intel->last_swap_fence) {
 	 driFenceFinish(intel->last_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);
 	 driFenceUnReference(intel->last_swap_fence);
 	 intel->last_swap_fence = NULL;
       }
+
       if (intel->first_swap_fence) {
 	 driFenceFinish(intel->first_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);
 	 driFenceUnReference(intel->first_swap_fence);
 	 intel->first_swap_fence = NULL;
       }
 
-
-      if (release_texture_heaps) {
-         /* This share group is about to go away, free our private
-          * texture object data.
-          */
-         if (INTEL_DEBUG & DEBUG_TEXTURE)
-            fprintf(stderr, "do something to free texture heaps\n");
-      }
-
       /* free the Mesa context */
       _mesa_free_context_data(&intel->ctx);
+
+      intel->vtbl.destroy(intel);
    }
 }
 
@@ -681,7 +703,7 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
       intel->prim.flush = 0;
 
       /* re-emit all state */
-      intel->vtbl.lost_hardware(intel);
+      intel_lost_hardware(intel);
 
       /* force window update */
       intel->lastStamp = 0;
