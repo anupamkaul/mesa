@@ -31,6 +31,7 @@
 #include "i915_fpc.h"
 #include "shader/program.h"
 #include "shader/prog_instruction.h"
+#include "shader/prog_print.h"
 
 static const char *opcodes[0x20] = {
    "NOP",

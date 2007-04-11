@@ -29,6 +29,7 @@
 #include "macros.h"
 #include "enums.h"
 #include "program.h"
+#include "prog_statevars.h"
 
 #include "intel_batchbuffer.h"
 #include "i915_context.h"

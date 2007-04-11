@@ -133,6 +133,7 @@ static void emit_dynamic_indirect( struct intel_context *intel,
    else {
       /* Otherwise, compare the two states 
        */
+      size = 0;
       CHECK( I915_DYNAMIC_MODES4, 1 ); 
       CHECK( I915_DYNAMIC_DEPTHSCALE_0, 2 ); 
       CHECK( I915_DYNAMIC_IAB, 1 ); 
