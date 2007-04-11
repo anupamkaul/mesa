@@ -131,6 +131,7 @@ struct intel_context_state {
    struct intel_region *draw_region; /* INTEL_NEW_CBUF */
    struct intel_region *depth_region; /* INTEL_NEW_ZBUF */
 
+   GLboolean clearparams;
 
    struct gl_fragment_program *fp;
 

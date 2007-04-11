@@ -34,8 +34,12 @@
 #include "intel_tris.h"
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
+#include "i915_context.h"
+#include "i915_reg.h"
+#include "i915_cache.h"
 #include "intel_reg.h"
 #include "intel_metaops.h"
+#include "intel_state.h"
 #include "context.h"
 #include "utils.h"
 #include "drirenderbuffer.h"
@@ -355,7 +359,52 @@ intelWindowMoved(struct intel_context *intel)
    intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
 }
 
+static void
+intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
+{
+   GLcontext *ctx = &intel->ctx;
+   union fi x1, x2, y1, y2;
 
+   if (INTEL_DEBUG & DEBUG_BLIT)
+      _mesa_printf("%s 0x%x\n", __FUNCTION__, mask);
+
+   //LOCK_HARDWARE(intel);
+
+   /* XXX FBO: was: intel->driDrawable->numClipRects */
+   //if (intel->numClipRects) {
+      BATCH_LOCALS;
+
+      INTEL_FIREVERTICES(intel);
+
+      /* Get clear bounds after locking */
+      x1.f = ctx->DrawBuffer->_Xmin;
+      y1.f = ctx->DrawBuffer->_Ymin;
+      x2.f = ctx->DrawBuffer->_Xmax;
+      y2.f = ctx->DrawBuffer->_Ymax;
+
+      /* XXX mixed mode
+       */
+      intel->state.clearparams = mask &
+	 (ctx->DrawBuffer->_ColorDrawBufferMask[0] | BUFFER_BIT_STENCIL |
+	  BUFFER_BIT_DEPTH);
+
+      intel_emit_hardware_state(intel, 7);
+
+      BEGIN_BATCH(7, INTEL_BATCH_CLIPRECTS);
+      OUT_BATCH(_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
+      OUT_BATCH(x2.i);
+      OUT_BATCH(y2.i);
+      OUT_BATCH(x1.i);
+      OUT_BATCH(y2.i);
+      OUT_BATCH(x1.i);
+      OUT_BATCH(y1.i);
+      ADVANCE_BATCH();
+
+      //i915_state_draw_region(intel, state, savedraw, savedepth);
+      //intel_batchbuffer_flush(intel->batch, GL_FALSE);
+      //}
+   //UNLOCK_HARDWARE(intel);
+}
 
 /* A true meta version of this would be very simple and additionally
  * machine independent.  Maybe we'll get there one day.
@@ -621,6 +670,7 @@ intelClear(GLcontext *ctx, GLbitfield mask)
 {
    struct intel_context *intel = intel_context(ctx);
    const GLuint colorMask = *((GLuint *) & ctx->Color.ColorMask);
+   GLbitfield rect_mask = 0;
    GLbitfield tri_mask = 0;
    GLbitfield blit_mask = 0;
    GLbitfield swrast_mask = 0;
@@ -634,7 +684,16 @@ intelClear(GLcontext *ctx, GLbitfield mask)
    if (colorMask == ~0) {
       /* clear all R,G,B,A */
       /* XXX FBO: need to check if colorbuffers are software RBOs! */
-      blit_mask |= (mask & BUFFER_BITS_COLOR);
+      if (1 /* Not Almador family? */) {
+         rect_mask = mask & (fb->_ColorDrawBufferMask[0] | BUFFER_BIT_DEPTH);
+
+	 if (mask & BUFFER_BIT_STENCIL &&
+	     STENCIL_WRITE_MASK(intel->ctx.Stencil.WriteMask[0]) == 0xff)
+	    rect_mask |= BUFFER_BIT_STENCIL;
+
+	 mask &= ~rect_mask;
+      } else
+	 blit_mask |= (mask & BUFFER_BITS_COLOR);
    }
    else {
       /* glColorMask in effect */
@@ -706,6 +765,9 @@ intelClear(GLcontext *ctx, GLbitfield mask)
 
    if (swrast_mask)
       _swrast_Clear(ctx, swrast_mask);
+
+   if (rect_mask)
+      intelClearWithClearRects(intel, rect_mask);
 }
 
 

@@ -1070,12 +1070,6 @@ intelFallback(struct intel_context *intel, GLuint bit, GLboolean mode)
    }
 }
 
-union fi
-{
-   GLfloat f;
-   GLint i;
-};
-
 
 /**********************************************************************/
 /*             Used only with the metaops callbacks.                  */

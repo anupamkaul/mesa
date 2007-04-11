@@ -171,6 +171,8 @@ static GLuint i915_debug_packet(const GLuint *stream)
 	    return debug(stream, "3DSTATE_DEFAULT_DIFFUSE", (cmd & 0xffff) + 2);
 	 case 0x9a:
 	    return debug(stream, "3DSTATE_DEFAULT_SPECULAR", (cmd & 0xffff) + 2);
+	 case 0x9c:
+	    return debug(stream, "3DSTATE_CLEAR_PARAMETERS", (cmd & 0xffff) + 2);
 	 default:
 	    return 0;
 	 }
