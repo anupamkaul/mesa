@@ -348,6 +348,22 @@ intelWindowMoved(struct intel_context *intel)
 	       intel_fb->color_rb[i]->vbl_pending = intel_fb->vbl_waited;
 	 }
       }
+
+      /* Attempt to allocate HWZ context */
+      if (intel->intelScreen->driScrnPriv->drmMinor >= 10) {
+	 drm_i915_hwz_t hwz;
+
+	 hwz.op = DRM_I915_HWZ_ALLOC;
+	 hwz.arg.alloc.num_buffers = intel_fb->pf_num_pages;
+	 hwz.arg.alloc.x1 = dPriv->x;
+	 hwz.arg.alloc.x2 = dPriv->x + dPriv->w;
+	 hwz.arg.alloc.pitch = intel->sarea->pitch;
+	 hwz.arg.alloc.y1 = dPriv->y;
+	 hwz.arg.alloc.y2 = dPriv->y + dPriv->h;
+
+	 intel_fb->hwz = !drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz,
+					  sizeof(hwz));
+      }
    } else {
       intel_fb->vblank_flags &= ~VBLANK_FLAG_SECONDARY;
    }

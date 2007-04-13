@@ -40,6 +40,33 @@
 #include "i830_common.h"
 #include "tnl/t_vertex.h"
 
+#ifndef DRM_I915_HWZ
+
+#define DRM_I915_HWZ		0x11
+
+#define DRM_I915_HWZ_ALLOC	2
+#define DRM_I915_HWZ_RENDER	3
+
+typedef struct drm_i915_hwz {
+	unsigned int op;
+	union foo {
+		struct drm_i915_hwz_alloc {
+			unsigned int num_buffers;
+			unsigned short x1;
+			unsigned short x2;
+			unsigned short pitch;
+			unsigned short y1;
+			unsigned short y2;
+		} alloc;
+		struct drm_i915_hwz_render {
+			unsigned int bpl_num;
+			unsigned int batch_start;
+		} render;
+	} arg;
+} drm_i915_hwz_t;
+
+#endif
+
 #define TAG(x) intel##x
 #include "tnl_dd/t_dd_vertex.h"
 #undef TAG

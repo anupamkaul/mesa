@@ -39,6 +39,7 @@
 #include "intel_ioctl.h"
 #include "intel_batchbuffer.h"
 #include "intel_blit.h"
+#include "intel_fbo.h"
 #include "intel_regions.h"
 #include "drm.h"
 
@@ -95,7 +96,8 @@ intel_batch_ioctl(struct intel_context *intel,
                   GLuint used,
                   GLboolean ignore_cliprects, GLboolean allow_unlock)
 {
-   drmI830BatchBuffer batch;
+   struct intel_framebuffer *intel_fb =
+      (struct intel_framebuffer*)intel->ctx.DrawBuffer;
 
    assert(intel->locked);
    assert(used);
@@ -109,26 +111,36 @@ intel_batch_ioctl(struct intel_context *intel,
     * single buffer.
     */
 
+   if (!ignore_cliprects && intel_fb->hwz) {
+      drm_i915_hwz_t hwz;
 
+      hwz.op = DRM_I915_HWZ_RENDER;
+      hwz.arg.render.bpl_num = intel_fb->pf_current_page;
+      hwz.arg.render.batch_start = start_offset;
 
-   batch.start = start_offset;
-   batch.used = used;
-   batch.cliprects = intel->pClipRects;
-   batch.num_cliprects = ignore_cliprects ? 0 : intel->numClipRects;
-   batch.DR1 = 0;
-   batch.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
-                (((GLuint) intel->drawY) << 16));
+      drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz, sizeof(hwz));
+   } else {
+      drmI830BatchBuffer batch;
 
-   DBG("%s: 0x%x..0x%x DR4: %x cliprects: %d\n",
-       __FUNCTION__,
-       batch.start,
-       batch.start + batch.used * 4, batch.DR4, batch.num_cliprects);
+      batch.start = start_offset;
+      batch.used = used;
+      batch.cliprects = intel->pClipRects;
+      batch.num_cliprects = ignore_cliprects ? 0 : intel->numClipRects;
+      batch.DR1 = 0;
+      batch.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
+		   (((GLuint) intel->drawY) << 16));
 
-   if (drmCommandWrite(intel->driFd, DRM_I830_BATCHBUFFER, &batch,
-                       sizeof(batch))) {
-      fprintf(stderr, "DRM_I830_BATCHBUFFER: %d\n", -errno);
-      UNLOCK_HARDWARE(intel);
-      exit(1);
+      DBG("%s: 0x%x..0x%x DR4: %x cliprects: %d\n",
+	  __FUNCTION__,
+	  batch.start,
+	  batch.start + batch.used * 4, batch.DR4, batch.num_cliprects);
+
+      if (drmCommandWrite(intel->driFd, DRM_I830_BATCHBUFFER, &batch,
+			  sizeof(batch))) {
+	 fprintf(stderr, "DRM_I830_BATCHBUFFER: %d\n", -errno);
+	 UNLOCK_HARDWARE(intel);
+	 exit(1);
+      }
    }
 
    /* FIXME: use hardware contexts to avoid 'losing' hardware after

@@ -59,6 +59,9 @@ struct intel_framebuffer
 
    GLuint swap_count;
    GLuint swap_missed_count;
+
+   /* HWZ */
+   GLboolean hwz;
 };
 
 
