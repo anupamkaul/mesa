@@ -46,15 +46,15 @@
 const struct intel_tracked_state *atoms[] =
 {
    &i915_check_fallback,
+   &i915_choose_render,
 
    &intel_update_viewport,
-   &intel_update_render_index,
 
    /* Get compiled version of the fragment program.
     */
    &i915_upload_program,
    
-   /* Calculate vertex format, program t_vertex.c, etc: 
+   /* Calculate vertex format: 
     */
    &i915_vertex_format,
 

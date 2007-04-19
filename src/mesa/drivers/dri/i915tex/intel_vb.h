@@ -29,23 +29,83 @@
 #define INTEL_VB_H
 
 
-struct intel_vb;
+struct intel_context;
+struct intel_buffer_object;
+struct tnl_attr_map;
+
+#include "tnl/t_context.h"
+
+
+#define MAX_VBO 32		/* XXX: make dynamic */
+
+#define VB_LOCAL_VERTS 0x1
+#define VB_HW_VERTS    0x2
+
+
+struct intel_vb {
+   struct intel_context *intel;
+   TNLcontext *tnl;
+
+   /* State for hardware vertex emit: 
+    */
+   struct {
+      struct intel_buffer_object *vbo[MAX_VBO];
+      GLuint idx;
+
+      struct intel_buffer_object *current;
+      GLuint current_size;
+      GLuint current_used;
+      void *current_ptr;
+      GLuint wrap_vbo;
+      GLboolean dirty;
+
+      GLuint offset;
+   } vbo;
+      
+   /* The currently built software vertex list:
+    */
+   struct {
+      GLubyte *verts;              /* points to tnl->clipspace.vertex_buf */
+      GLboolean dirty;
+   } local;
+
+   GLuint vertex_size_bytes;
+/*    GLuint vertex_stride_bytes; */
+   GLuint nr_verts;
+};
+
+
+static INLINE void *intel_vb_get_vertex( struct intel_vb *vb, GLuint i )
+{
+   return (void *) vb->local.verts + i * vb->vertex_size_bytes;
+}
+
 
 struct intel_vb *intel_vb_init( struct intel_context *intel );
 void intel_vb_destroy( struct intel_vb *vb );
 
 void intel_vb_flush( struct intel_vb *vb );
 
-void *intel_vb_alloc( struct intel_vb *vb, GLuint space );
+void intel_vb_set_inputs( struct intel_vb *vb,
+			  const struct tnl_attr_map *attrs,
+			  GLuint count );
 
-/* If successful, guarantees you can later allocate upto
- * min_free_space bytes without needing to flush.  
+void intel_vb_new_vertices( struct intel_vb *vb );
+void intel_vb_release_vertices( struct intel_vb *vb );
+
+GLboolean intel_vb_validate_vertices( struct intel_vb *vb,
+				      GLuint flags );
+
+GLuint intel_vb_get_vbo_index_offset( struct intel_vb *vb );
+
+
+/* Internal functions
  */
-GLboolean intel_vb_begin_dynamic_alloc( struct intel_vb *vb,
-					GLuint min_free_space );
+GLboolean intel_vb_copy_hw_vertices( struct intel_vb *vb );
+GLboolean intel_vb_emit_hw_vertices( struct intel_vb *vb );
+void intel_vb_unmap_current_vbo( struct intel_vb *vb );
 
-void *intel_vb_extend_dynamic_alloc( struct intel_vb *vb, GLuint space );
-GLuint intel_vb_end_dynamic_alloc( struct intel_vb *vb );
+
 
 
 #endif

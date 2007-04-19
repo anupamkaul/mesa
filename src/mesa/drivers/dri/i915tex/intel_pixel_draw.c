@@ -42,7 +42,6 @@
 #include "intel_regions.h"
 #include "intel_pixel.h"
 #include "intel_buffer_objects.h"
-#include "intel_tris.h"
 #include "intel_metaops.h"
 
 

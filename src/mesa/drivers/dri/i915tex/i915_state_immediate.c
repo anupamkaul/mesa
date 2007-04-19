@@ -33,6 +33,7 @@
 #include "intel_batchbuffer.h"
 #include "intel_regions.h"
 #include "intel_state_inlines.h"
+#include "intel_vb.h"
 
 #include "macros.h"
 
@@ -66,8 +67,12 @@ static void upload_S0S1( struct intel_context *intel )
 
    /* INTEL_NEW_VERTEX_SIZE -- do this where the vertex size is calculated! 
     */
-   S1 = ((intel->vertex_size << 24) |
-	 (intel->vertex_size << 16));
+   {
+      GLuint vertex_size = intel->vb->vertex_size_bytes / 4;
+
+      S1 = ((vertex_size << 24) |
+	    (vertex_size << 16));
+   }
 
    /* INTEL_NEW_VBO */
    if (i915->current.vbo != intel->state.vbo ||

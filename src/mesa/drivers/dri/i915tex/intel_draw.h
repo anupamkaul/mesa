@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,20 +25,20 @@
  * 
  **************************************************************************/
 
-#ifndef INTELTRIS_INC
-#define INTELTRIS_INC
+#ifndef INTEL_DRAW_H
+#define INTEL_DRAW_H
 
 #include "mtypes.h"
+#include "tnl/t_context.h"
 
-extern void intelInitTriFuncs(GLcontext * ctx);
+void intelRunPipeline(GLcontext * ctx);
 
-/* dwords parameter is a minimum reservation amount.  If in doubt,
- * just use zero.
- */
-extern void intelStartInlinePrimitive( struct intel_context *intel, 
-				       GLuint prim, 
-				       GLuint dwords );
+extern const struct tnl_pipeline_stage _intel_render_stage;
+extern const struct tnl_pipeline_stage _intel_check_frag_attrib_sizes;
 
-GLuint *intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords);
+
+struct intel_render *intel_create_classic_render( struct intel_context *intel );
+struct intel_render *intel_create_swrast_render( struct intel_context *intel );
+
 
 #endif

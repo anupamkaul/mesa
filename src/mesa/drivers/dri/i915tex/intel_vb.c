@@ -25,8 +25,8 @@
  * 
  **************************************************************************/
 
-/*
- * Render vertex buffers by emitting vertices directly to dma buffers.
+/* Manage hardware format vertices.  In part this is a wrapper around
+ * the tnl/t_vertex.[ch] functionality.
  */
 #include "glheader.h"
 #include "mtypes.h"
@@ -38,194 +38,96 @@
 
 #define FILE_DEBUG_FLAG DEBUG_VBO
 
+#define MAX_VERTEX_SIZE (36 * sizeof(GLfloat))
 
-
-#define MAX_VBO 32		/* XXX: make dynamic */
-#define VBO_SIZE (128*1024)
-
-
-
-
-struct intel_vb {
-   struct intel_context *intel;
-
-   struct intel_buffer_object *vbo[MAX_VBO];
-   GLuint vbo_idx;
-
-   struct intel_buffer_object *current_vbo;
-
-   GLuint current_vbo_size;
-   GLuint current_vbo_used;
-   void *current_vbo_ptr;
-
-   GLuint wrap_vbo;
-   GLuint dynamic_start;
-};
-
-
-
-static void
-unmap_current_vbo( struct intel_vb *vb )
+static void intel_vb_build_local_verts( struct intel_vb *vb )
 {
-   GLcontext *ctx = &vb->intel->ctx;
-
-   DBG("%s\n", __FUNCTION__);
-
-   assert(vb->current_vbo_ptr);
-
-   ctx->Driver.UnmapBuffer( ctx, 
-			    GL_ARRAY_BUFFER_ARB,
-			    &vb->current_vbo->Base );
-
-   vb->current_vbo_ptr = NULL;
+   /* Build window space vertex buffer in local memory.
+    */   
+   _tnl_emit_vertices_to_buffer( &vb->intel->ctx, 
+				 0, 
+				 vb->nr_verts, 
+				 vb->local.verts );
+   
+   vb->local.dirty = 0;
 }
 
 
-
-
-
-static GLboolean 
-get_next_vbo( struct intel_vb *vb, GLuint size )
+GLboolean intel_vb_validate_vertices( struct intel_vb *vb,
+				      GLuint flags )
 {
-   GLcontext *ctx = &vb->intel->ctx;
-   GLuint next_vbo;
+   GLboolean success = GL_TRUE;
 
-   DBG("%s\n", __FUNCTION__);
-
-   /* Unmap current vbo:
-    */
-   if (vb->current_vbo_ptr) 
-      unmap_current_vbo( vb );
-
-   if (size < VBO_SIZE) 
-      size = VBO_SIZE;
-
-   next_vbo = (vb->vbo_idx + 1) % MAX_VBO;
-
-   if (next_vbo == vb->wrap_vbo)
-      return GL_FALSE;
-   
-   vb->vbo_idx = next_vbo;
-   vb->current_vbo = vb->vbo[vb->vbo_idx];
-   vb->current_vbo_size = size;
-   vb->current_vbo_used = 0;
-
-   /* Clear out buffer contents and break any hardware dependency on
-    * the old memory:
-    */
-   ctx->Driver.BufferData( ctx,
-			   GL_ARRAY_BUFFER_ARB,
-			   size,
-			   NULL,
-			   GL_DYNAMIC_DRAW_ARB,
-			   &vb->current_vbo->Base );
-
-   
-   return GL_TRUE;
-}
-      
-void *intel_vb_alloc( struct intel_vb *vb, GLuint space )
-{
-   GLcontext *ctx = &vb->intel->ctx;
-   void *ptr;
-
-   DBG("%s %d, vbo %d\n", __FUNCTION__, space, vb->vbo_idx);
-
-   assert(vb->dynamic_start == ~0);
-
-   if (vb->current_vbo_used + space > vb->current_vbo_size) {
-      if (!get_next_vbo( vb, space ))
-	 return NULL;
-   }
-      
-   assert(vb->current_vbo_used + space <= vb->current_vbo_size);
-
-   if (!vb->current_vbo_ptr) {
-      DBG("%s map vbo %d\n", __FUNCTION__, vb->vbo_idx);
-
-      /* Map the vbo now, will be unmapped in unmap_current_vbo, above.
-       */
-      vb->current_vbo_ptr = ctx->Driver.MapBuffer( ctx,
-						   GL_ARRAY_BUFFER_ARB,
-						   GL_WRITE_ONLY,
-						   &vb->current_vbo->Base );
+   if (flags & VB_LOCAL_VERTS) {
+      if (vb->local.dirty)
+	 intel_vb_build_local_verts( vb );
    }
 
-   if (!vb->current_vbo_ptr) 
-      return NULL;
-
-
-   {
-      struct intel_context *intel = vb->intel;
-      intel->state.vbo = vb->current_vbo->buffer;
-      intel->state.vbo_offset = vb->current_vbo_used;
-      intel->state.dirty.intel |= INTEL_NEW_VBO;
+   if (flags & VB_HW_VERTS) {
+      if (vb->vbo.dirty) {
+	 if (!vb->local.dirty) 
+	    success = intel_vb_copy_hw_vertices( vb );
+	 else 
+	    success = intel_vb_emit_hw_vertices( vb );
+      }
    }
 
-
-   ptr = vb->current_vbo_ptr + vb->current_vbo_used;
-   vb->current_vbo_used += space;
-   return ptr;
-}
-
-#define MIN_DYNAMIC_FREE_SPACE (1024)
-
-
-GLboolean intel_vb_begin_dynamic_alloc( struct intel_vb *vb, 
-					GLuint min_free_space )
-{
-   /* Just make sure there is a certain amount of free space left in
-    * this buffer:
-    */
-   void *ptr = intel_vb_alloc( vb,  min_free_space );
-   if (ptr == NULL)
-      return GL_FALSE;
-   
-   vb->current_vbo_used -= min_free_space;
-   vb->dynamic_start = vb->current_vbo_used;
-   return GL_TRUE;
+   return success;
 }
 
 
 
-
-void *intel_vb_extend_dynamic_alloc( struct intel_vb *vb, GLuint space )
+void intel_vb_set_inputs( struct intel_vb *vb,
+			  const struct tnl_attr_map *attrs,
+			  GLuint count )
 {
-   if (vb->current_vbo_used + space > vb->current_vbo_size)
-      return NULL;
-   else {
-      void *ptr = vb->current_vbo_ptr + vb->current_vbo_used;
-      vb->current_vbo_used += space;
-      return ptr;
+   struct intel_context *intel = vb->intel;
+
+   GLuint vertex_size = _tnl_install_attrs( &intel->ctx, 
+					    attrs, 
+					    count,
+					    intel->ViewportMatrix.m, 0 ); 
+
+   if (vertex_size != vb->vertex_size_bytes) {
+      vb->vertex_size_bytes = vertex_size;
+      vb->intel->state.dirty.intel |= INTEL_NEW_VERTEX_SIZE;
    }
 }
 
 
-GLuint intel_vb_end_dynamic_alloc( struct intel_vb *vb )
-{
-   GLuint start = vb->dynamic_start;
-
-   assert(start <= vb->current_vbo_used);
-   
-   vb->dynamic_start = ~0;
-   return vb->current_vbo_used - start;
-}
 
 
-
-/* Callback from (eventually) intel_batchbuffer_flush().  Prepare for
- * submit to hardware.
+/* Don't emit or build yet as we don't know what sort of vertices the
+ * renderer wants.
  */
-void intel_vb_flush( struct intel_vb *vb )
+void intel_vb_new_vertices( struct intel_vb *vb )
 {
-   DBG("%s\n", __FUNCTION__);
+   /* Always have to do this:
+    */
+   vb->tnl->clipspace.new_inputs |= VERT_BIT_POS;
+   vb->tnl->vb.AttribPtr[VERT_ATTRIB_POS] = vb->tnl->vb.NdcPtr;
 
-   if (vb->current_vbo_ptr) 
-      unmap_current_vbo( vb );
-
-   vb->current_vbo_used = vb->current_vbo_size;
-   vb->wrap_vbo = vb->vbo_idx;
+   vb->local.dirty = 1;
+   vb->vbo.dirty = 1;
+   vb->nr_verts = vb->tnl->vb.Count;
 }
+
+
+void intel_vb_release_vertices( struct intel_vb *vb )
+{
+   vb->local.dirty = 1;
+   vb->vbo.dirty = 1;
+   vb->nr_verts = 0;
+
+#if 0
+   if (intel->state.vbo) {      
+      intel->state.vbo = 0;
+      intel->state.vbo_offset = 0;
+   }
+#endif
+
+}
+
 
 struct intel_vb *intel_vb_init( struct intel_context *intel )
 {
@@ -234,12 +136,30 @@ struct intel_vb *intel_vb_init( struct intel_context *intel )
    GLuint i;
 
    vb->intel = intel;
-   vb->dynamic_start = ~0;
 
    for (i = 0; i < MAX_VBO; i++) {
-      vb->vbo[i] = (struct intel_buffer_object *) 
+      vb->vbo.vbo[i] = (struct intel_buffer_object *) 
 	 ctx->Driver.NewBufferObject(ctx, 1, GL_ARRAY_BUFFER_ARB);
+
+      /* We get a segfault if we try and delete buffer objects without
+       * supplying some data for them, even if it is null.
+       */
+      ctx->Driver.BufferData( ctx,
+			      GL_ARRAY_BUFFER_ARB,
+			      128*1024,
+			      NULL,
+			      GL_DYNAMIC_DRAW_ARB,
+			      &vb->vbo.vbo[i]->Base );
+
+
    }
+
+   vb->tnl = TNL_CONTEXT(ctx);
+
+   _tnl_init_vertices(ctx, vb->tnl->vb.Size, MAX_VERTEX_SIZE );
+
+   vb->local.verts = vb->tnl->clipspace.vertex_buf;
+
 
    return vb;
 }
@@ -250,14 +170,14 @@ void intel_vb_destroy( struct intel_vb *vb )
    GLuint i;
 
    if (vb) {
-      if (vb->current_vbo_ptr)
-	 unmap_current_vbo( vb );
+      if (vb->vbo.current_ptr)
+	 intel_vb_unmap_current_vbo( vb );
 
       /* Destroy the vbo: 
        */
       for (i = 0; i < MAX_VBO; i++)
-	 if (vb->vbo[i])
-	    ctx->Driver.DeleteBuffer( ctx, &vb->vbo[i]->Base );
+	 if (vb->vbo.vbo[i])
+	    ctx->Driver.DeleteBuffer( ctx, &vb->vbo.vbo[i]->Base );
       
       FREE( vb );
    }

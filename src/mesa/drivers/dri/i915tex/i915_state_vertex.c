@@ -33,8 +33,8 @@
 #include "intel_batchbuffer.h"
 #include "i915_context.h"
 #include "i915_reg.h"
-#include "tnl/t_context.h"
-#include "tnl/t_vertex.h"
+//#include "tnl/t_context.h"
+#include "intel_vb.h"
 
 
 
@@ -45,22 +45,22 @@
 
 #define SZ_TO_HW(sz)  ((sz-2)&0x3)
 #define EMIT_SZ(sz)   (EMIT_1F + (sz) - 1)
-#define EMIT_ATTR( ATTR, STYLE, S4, SZ )				\
-do {									\
-   intel->vertex_attrs[intel->vertex_attr_count].attrib = (ATTR);	\
-   intel->vertex_attrs[intel->vertex_attr_count].format = (STYLE);	\
-   s4 |= S4;								\
-   intel->vertex_attr_count++;						\
-   offset += (SZ);							\
+#define EMIT_ATTR( ATTR, STYLE, S4, SZ )		\
+do {							\
+   vertex_attrs[vertex_attr_count].attrib = (ATTR);	\
+   vertex_attrs[vertex_attr_count].format = (STYLE);	\
+   vertex_attr_count++;					\
+   s4 |= S4;						\
+   offset += (SZ);					\
 } while (0)
 
-#define EMIT_PAD( N )							\
-do {									\
-   intel->vertex_attrs[intel->vertex_attr_count].attrib = 0;		\
-   intel->vertex_attrs[intel->vertex_attr_count].format = EMIT_PAD;	\
-   intel->vertex_attrs[intel->vertex_attr_count].offset = (N);		\
-   intel->vertex_attr_count++;						\
-   offset += (N);							\
+#define EMIT_PAD( N )					\
+do {							\
+   vertex_attrs[vertex_attr_count].attrib = 0;		\
+   vertex_attrs[vertex_attr_count].format = EMIT_PAD;	\
+   vertex_attrs[vertex_attr_count].offset = (N);	\
+   vertex_attr_count++;					\
+   offset += (N);					\
 } while (0)
 
 /***********************************************************************
@@ -74,10 +74,19 @@ static inline GLuint attr_size(GLuint sizes, GLuint attr)
 static void i915_calculate_vertex_format( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
+
+   /* INTEL_NEW_FRAGMENT_PROGRAM
+    */
    struct i915_fragment_program *fp = 
       i915_fragment_program(intel->state.FragmentProgram->_Current);
    const GLuint inputsRead = fp->Base.Base.InputsRead;
+
+   /* INTEL_NEW_FRAG_ATTRIB_SIZES
+    */
    const GLuint sizes = intel->frag_attrib_sizes;
+
+   struct tnl_attr_map vertex_attrs[FRAG_ATTRIB_MAX];
+   GLuint vertex_attr_count = 0;
    GLuint s2 = S2_TEXCOORD_NONE;
    GLuint s4 = 0;
    GLuint offset = 0;
@@ -85,13 +94,6 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
    GLboolean need_w = (inputsRead & FRAG_BITS_TEX_ANY);
    GLboolean have_w = (attr_size(sizes, FRAG_ATTRIB_WPOS) == 4);
    GLboolean have_z = (attr_size(sizes, FRAG_ATTRIB_WPOS) >= 3);
-
-   intel->vertex_attr_count = 0;
-   intel->wpos_offset = 0;
-   intel->wpos_size = 0;
-   intel->coloroffset = 0;
-   intel->specoffset = 0;
-
 
    if (have_w && need_w) {
       EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_4F_VIEWPORT, S4_VFMT_XYZW, 16);
@@ -109,12 +111,10 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
    
 
    if (inputsRead & FRAG_BIT_COL0) {
-      intel->coloroffset = offset / 4;
       EMIT_ATTR(_TNL_ATTRIB_COLOR0, EMIT_4UB_4F_BGRA, S4_VFMT_COLOR, 4);
    }
 
    if (inputsRead & FRAG_BIT_COL1) {
-      intel->specoffset = offset / 4;
       EMIT_ATTR(_TNL_ATTRIB_COLOR1, EMIT_3UB_3F_BGR, S4_VFMT_SPEC_FOG, 3);
       EMIT_PAD(1);
    }
@@ -150,30 +150,19 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
          /* If WPOS is required, duplicate the XYZ position data in an
           * unused texture coordinate:
           */
-         s2 &= ~S2_TEXCOORD_FMT(i, S2_TEXCOORD_FMT0_MASK);
-         s2 |= S2_TEXCOORD_FMT(i, SZ_TO_HW(3));
-
-         intel->wpos_offset = offset;
-         intel->wpos_size = 3 * sizeof(GLuint);
-
-         EMIT_PAD(intel->wpos_size);
+	 /* Do another emit viewport */
       }
    }
 
    if (s2 != i915->vertex_format.LIS2 || 
        s4 != i915->vertex_format.LIS4) {
 
-      GLuint vs = _tnl_install_attrs(&intel->ctx,
-				     intel->vertex_attrs,
-				     intel->vertex_attr_count,
-				     intel->ViewportMatrix.m, 0);
+      /* Can raise INTEL_NEW_VERTEX_SIZE:
+       */
+      intel_vb_set_inputs( intel->vb, 
+			   vertex_attrs, 
+			   vertex_attr_count );
 
-      intel->vertex_size = vs >> 2;
-
-      if (0)
-	 _mesa_printf("inputs %x vertex size %d\n", 
-		      inputsRead,
-		      intel->vertex_size);
 
       i915->vertex_format.LIS2 = s2;
       i915->vertex_format.LIS4 = s4;
@@ -188,9 +177,8 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
 const struct intel_tracked_state i915_vertex_format = {
    .dirty = {
       .mesa  = 0,
-      .intel   = (INTEL_NEW_FRAGMENT_PROGRAM 
-/* 		 | INTEL_NEW_VB_OUTPUT_SIZES */
-	 ), 
+      .intel   = (INTEL_NEW_FRAGMENT_PROGRAM | 
+		  INTEL_NEW_FRAG_ATTRIB_SIZES), 
       .extra = 0
    },
    .update = i915_calculate_vertex_format

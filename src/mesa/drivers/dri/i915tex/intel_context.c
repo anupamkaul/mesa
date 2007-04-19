@@ -48,12 +48,10 @@
 #include "i830_dri.h"
 
 #include "intel_screen.h"
-#include "intel_idx_render.h"
 #include "intel_vb.h"
 #include "intel_buffers.h"
 #include "intel_tex.h"
 #include "intel_span.h"
-#include "intel_tris.h"
 #include "intel_ioctl.h"
 #include "intel_batchbuffer.h"
 #include "intel_blit.h"
@@ -63,6 +61,7 @@
 #include "intel_fbo.h"
 #include "intel_metaops.h"
 #include "intel_state.h"
+#include "intel_draw.h"
 
 #include "drirenderbuffer.h"
 #include "vblank.h"
@@ -202,8 +201,6 @@ const struct dri_extension card_extensions[] = {
    {NULL, NULL}
 };
 
-extern const struct tnl_pipeline_stage _intel_render_stage;
-extern const struct tnl_pipeline_stage _intel_check_frag_attrib_sizes;
 
 static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_vertex_transform_stage,
@@ -216,10 +213,14 @@ static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_point_attenuation_stage,
    &_tnl_arb_vertex_program_stage,
    &_tnl_vertex_program_stage,   
+
+   /* Check for state changes:
+    */
    &_intel_check_frag_attrib_sizes,
-   &_intel_render_stage,       /* ADD: unclipped rastersetup-to-dma */
-   &_tnl_indexed_render_stage, /* ADD: rastersetup-to-dma, indexed prims */
-   &_tnl_render_stage,
+
+   /* Do all rendering through this stage: 
+    */
+   &_intel_render_stage, 
    0,
 };
 
@@ -252,7 +253,6 @@ intelInvalidateState(GLcontext * ctx, GLuint new_state)
    struct intel_context *intel = intel_context(ctx);
 
    _swrast_InvalidateState(ctx, new_state);
-   _swsetup_InvalidateState(ctx, new_state);
    _vbo_InvalidateState(ctx, new_state);
    _tnl_InvalidateState(ctx, new_state);
    _tnl_invalidate_vertex_state(ctx, new_state);
@@ -275,18 +275,8 @@ void intel_lost_hardware( struct intel_context *intel )
 void
 intelFlush(GLcontext * ctx)
 {
-   struct intel_context *intel = intel_context(ctx);
-
-   if (intel->Fallback)
-      _swrast_flush(ctx);
-
-   INTEL_FIREVERTICES(intel);
-
-   if (intel->batch->segment_finish_offset[0] != 0)
-      intel_batchbuffer_flush(intel->batch);
-
-   /* XXX: Need to do an MI_FLUSH here.
-    */
+   struct intel_context *intel = intel_context( ctx );
+   intel->render->flush( intel->render, GL_TRUE ); 
 }
 
 
@@ -425,11 +415,11 @@ intelInitContext(struct intel_context *intel,
    _swrast_CreateContext(ctx);
    _vbo_CreateContext(ctx);
    _tnl_CreateContext(ctx);
-   _swsetup_CreateContext(ctx);
 
    /* Install the customized pipeline: */
    _tnl_destroy_pipeline(ctx);
    _tnl_install_pipeline(ctx, intel_pipeline);
+   TNL_CONTEXT(ctx)->Driver.RunPipeline = intelRunPipeline;
 
    /* Configure swrast to match hardware characteristics: */
    _swrast_allow_pixel_fog(ctx, GL_FALSE);
@@ -458,17 +448,9 @@ intelInitContext(struct intel_context *intel,
 
    /* Initialize swrast, tnl driver tables: */
    intelInitSpanFuncs(ctx);
-   intelInitTriFuncs(ctx);
-
-
-   intel->RenderIndex = ~0;
 
    fthrottle_mode = driQueryOptioni(&intel->optionCache, "fthrottle_mode");
    intel->iw.irq_seq = -1;
-   intel->irqsEmitted = 0;
-
-   intel->do_irqs = (intel->intelScreen->irq_active &&
-                     fthrottle_mode == DRI_CONF_FTHROTTLE_IRQS);
 
    _math_matrix_ctr(&intel->ViewportMatrix);
 
@@ -489,10 +471,13 @@ intelInitContext(struct intel_context *intel,
 
    intel_state_init(intel);
    intel_metaops_init(intel);
-   intel_idx_init(intel);
-
 
    intel->vb = intel_vb_init(intel);
+
+   intel->classic = intel_create_classic_render( intel );
+   intel->swrender = intel_create_swrast_render( intel );
+   intel->render = intel->classic;
+   
 
    intel->state.dirty.mesa = ~0;
    intel->state.dirty.intel = ~0;
@@ -505,9 +490,6 @@ intelInitContext(struct intel_context *intel,
    else if (driQueryOptionb(&intel->optionCache, "force_s3tc_enable")) {
       _mesa_enable_extension(ctx, "GL_EXT_texture_compression_s3tc");
    }
-
-   intel->prim.primitive = ~0;
-
 
 #if DO_DEBUG
    INTEL_DEBUG = driParseDebugString(getenv("INTEL_DEBUG"), debug_control);
@@ -529,17 +511,17 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
 
    assert(intel);               /* should never be null */
    if (intel) {
-      INTEL_FIREVERTICES(intel);
+      intel->render->abandon_frame( intel->render );
 
-      intel_idx_destroy(intel);
-
-      _swsetup_DestroyContext(&intel->ctx);
       _tnl_DestroyContext(&intel->ctx);
       _vbo_DestroyContext(&intel->ctx);
       _swrast_DestroyContext(&intel->ctx);
 
       intel_batchbuffer_free( intel->batch );
       intel_vb_destroy( intel->vb );
+
+      intel->classic->destroy_context( intel->classic );
+      intel->swrender->destroy_context( intel->swrender );
 
       if (intel->last_swap_fence) {
 	 driFenceFinish(intel->last_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);
@@ -685,6 +667,8 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
        * This will drop the outstanding batchbuffer on the floor
        */
 
+      intel->render->abandon_frame( intel->render );
+
       if (batchMap != NULL) {
 	 driBOUnmap(intel->batch->buffer);
 	 intel->batch->map = NULL;
@@ -697,10 +681,6 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
 	 intel->batch->map = NULL;
       }
 
-      /* lose all primitives */
-      intel->prim.primitive = ~0;
-      intel->prim.start_ptr = 0;
-      intel->prim.flush = 0;
 
       /* re-emit all state */
       intel_lost_hardware(intel);
@@ -785,3 +765,21 @@ void UNLOCK_HARDWARE( struct intel_context *intel )
       _mesa_printf("%s - unlocked\n", __progname);
 } 
 
+
+
+
+void intelFallback( struct intel_context *intel,
+		    GLuint bit,
+		    GLboolean mode )
+{
+   GLuint old = (intel->Fallback == 0);
+
+   if (mode)
+      intel->Fallback |= bit;
+   else
+      intel->Fallback &= ~bit;
+
+   if (old != (intel->Fallback == 0)) {
+      intel->state.dirty.intel |= INTEL_NEW_FALLBACK;
+   }
+}

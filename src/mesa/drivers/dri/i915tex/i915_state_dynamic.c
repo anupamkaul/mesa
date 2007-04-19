@@ -357,7 +357,7 @@ static void upload_STIPPLE( struct intel_context *intel )
    /* _NEW_POLYGON, INTEL_NEW_REDUCED_PRIMITIVE 
     */
    if (intel->state.Polygon->StippleFlag &&
-       intel->reduced_primitive == GL_TRIANGLES) {
+       intel->draw.reduced_primitive == GL_TRIANGLES) {
 
       /* _NEW_POLYGONSTIPPLE
        */

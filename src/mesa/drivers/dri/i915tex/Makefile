@@ -27,9 +27,11 @@ DRIVER_SOURCES = \
 	i915_state_vertex.c \
 	i915_tex_layout.c \
 	i915_vtbl.c \
-	intel_render.c \
+	intel_draw.c \
+	intel_classic.c \
+	intel_swrast.c \
 	intel_vb.c \
-	intel_idx_render.c \
+	intel_vb_vbo.c \
 	intel_regions.c \
 	intel_buffer_objects.c \
 	intel_batchbuffer.c \
@@ -55,7 +57,7 @@ DRIVER_SOURCES = \
 	intel_span.c \
 	intel_state.c \
 	intel_state_callbacks.c \
-	intel_tris.c \
+	intel_state_pipeline.c \
 	intel_fbo.c \
 	intel_depthstencil.c \
 	intel_batchpool.c

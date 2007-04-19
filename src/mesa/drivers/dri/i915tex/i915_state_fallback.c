@@ -91,6 +91,23 @@ static GLboolean do_check_fallback(struct intel_context *intel)
 	 return GL_TRUE;
    }
 
+   /* Primitive-dependent fallbacks.  Could optimize.
+    */
+   switch (intel->draw.reduced_primitive) {
+   case GL_POINTS:
+      if (intel->state.Point->_Attenuated)
+	 return GL_TRUE;
+      break;
+   case GL_LINES:
+      if (intel->state.Line->StippleFlag)
+	 return GL_TRUE;
+      break;
+   case GL_TRIANGLES:
+      if (intel->state.Polygon->StippleFlag /* && !intel->hw_stipple */)
+	 return GL_TRUE;
+      break;
+   }
+
 
    return GL_FALSE;
 }
@@ -106,10 +123,73 @@ static void check_fallback( struct intel_context *intel )
 
 const struct intel_tracked_state i915_check_fallback = {
    .dirty = {
-      .mesa = _NEW_BUFFERS | _NEW_RENDERMODE | _NEW_TEXTURE | _NEW_STENCIL,
-      .intel  = INTEL_NEW_METAOPS,
+      .mesa = (_NEW_BUFFERS | 
+	       _NEW_RENDERMODE | 
+	       _NEW_TEXTURE | 
+	       _NEW_STENCIL |
+	       _NEW_LINE |
+	       _NEW_POINT |
+	       _NEW_POLYGON),
+
+      .intel  = (INTEL_NEW_METAOPS | 
+		 INTEL_NEW_REDUCED_PRIMITIVE),
+
       .extra = 0
    },
    .update = check_fallback
 };
+
+
+/* Not sure if this is really a good thing to have as a state atom or
+ * not...
+ */
+static void choose_render( struct intel_context *intel )
+{
+   struct intel_render *new_render = NULL;
+
+#if 0
+   if (check_swz( intel ))
+      new_render = i915->swz;
+#endif
+
+   if (intel->Fallback == 0)
+      new_render = intel->classic;
+   else
+      new_render = intel->swrender;
+
+   if (new_render != intel->render) {
+
+      /* Shut down the old renderer:
+       */
+      intel->render->flush(intel->render, !intel->draw.in_frame );
+/*       intel->render->end_render(intel->render); */
+
+      /* Install the new one: 
+       */
+      intel->render = new_render;
+      intel->render->start_render( intel->render );
+
+      /* Update any state:
+       */
+      intel->render->set_prim( intel->render, intel->draw.hw_prim );
+
+      if (intel->draw.in_draw)
+	 intel->render->new_vertices( intel->render );
+   }
+}
+
+
+
+
+const struct intel_tracked_state i915_choose_render = {
+   .dirty = {
+      .mesa = 0,
+      .intel  = INTEL_NEW_FALLBACK,
+      .extra = 0
+   },
+   .update = choose_render
+};
+
+
+
 

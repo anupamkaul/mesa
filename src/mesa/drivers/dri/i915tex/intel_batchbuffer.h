@@ -145,7 +145,6 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 /* Hack for indirect emit:
  */
 #define BEGIN_BATCH_SEGMENT(seg, n, flags) do {				\
-   assert(!intel->prim.flush);					\
    intel_batchbuffer_require_space(intel->batch, seg, (n)*4, flags);	\
    if (0) _mesa_printf("BEGIN_BATCH(%d,%d,%d) in %s\n", seg, n, flags, __FUNCTION__); \
 } while (0)
