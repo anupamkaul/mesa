@@ -82,9 +82,14 @@ static void emit_immediates( struct intel_context *intel,
 		(nr - 1));
 	 
       if (dirty & (1<<0)) {
+	 
+	 /* Prelocate with the NO_MOVE flag:
+	  */
+	 GLuint no_move = 0; // DRM_BO_FLAG_NO_MOVE;
+
 	 OUT_RELOC(to->vbo,
-		   DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
-		   DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
+		   DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | no_move,
+		   DRM_BO_MASK_MEM | DRM_BO_FLAG_READ | no_move,
 		   to->immediate[0]);
       }
 

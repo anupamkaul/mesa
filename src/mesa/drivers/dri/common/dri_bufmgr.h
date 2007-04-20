@@ -86,6 +86,12 @@ extern void driBOAddListItem(drmBOList * list, struct _DriBufferObject *buf,
                              unsigned flags, unsigned mask);
 extern void driBOValidateList(int fd, drmBOList * list);
 
+extern unsigned long driBOValidate(int fd, 
+				   struct _DriBufferObject *buf,
+				   unsigned flags, 
+				   unsigned mask,
+				   unsigned hint);
+
 extern void driBOFence(struct _DriBufferObject *buf,
                        struct _DriFenceObject *fence);
 
