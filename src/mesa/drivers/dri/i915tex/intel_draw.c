@@ -185,25 +185,49 @@ static void intel_draw_indexed_prim( struct intel_context *intel,
 
 
    case GL_QUAD_STRIP:
-      if (1) {
-	 intel_check_prim_state( intel, GL_QUAD_STRIP, PRIM3D_TRISTRIP );
-	 intel->render->draw_indexed_prim( intel->render, 
-					   indices + start, 
-					   length );
+      if (intel->state.Light->ShadeModel != GL_FLAT) {
+	 intel_check_prim_state( intel, mode, PRIM3D_TRISTRIP );
+	 intel->render->draw_prim( intel->render, start, length );
       }
       else {
-	 /* Need to create an index list to render as triangles:
-	  */
-	 assert(0);
+	 GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 2 * 6) );
+	 GLuint i, j;
+
+	 for (j = i = 0; i + 3 < length; i += 2, j += 6) {
+	    tmp[j+0] = indices[i+0];
+	    tmp[j+1] = indices[i+1]; /* this is wrong! */
+	    tmp[j+2] = indices[i+3];
+
+	    tmp[j+3] = indices[i+1];
+	    tmp[j+4] = indices[i+2]; /* this is wrong! */
+	    tmp[j+5] = indices[i+3];
+	 }
+
+	 intel_check_prim_state( intel, mode, PRIM3D_TRILIST );
+	 intel->render->draw_indexed_prim( intel->render, tmp, j );
+	 _mesa_free(tmp);
       }
       break;
 
-   case GL_QUADS:
-      /* Need to create an index list to render as triangles:
-       */
-      assert(0);
-      break;
+   case GL_QUADS: {
+      GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 4 * 6) );
+      GLuint i, j;
 
+      for (j = i = 0; i + 3 < length; i += 4, j += 6) {
+	 tmp[j+0] = indices[i+0];
+	 tmp[j+1] = indices[i+1];
+	 tmp[j+2] = indices[i+3];
+
+	 tmp[j+3] = indices[i+1];
+	 tmp[j+4] = indices[i+2];
+	 tmp[j+5] = indices[i+3];
+      }
+
+      intel_check_prim_state( intel, mode, PRIM3D_TRILIST );
+      intel->render->draw_indexed_prim( intel->render, tmp, j );
+      _mesa_free(tmp);
+      break;
+   }
 
    default:
       assert(0);
@@ -239,9 +263,9 @@ static void intel_draw_prim( struct intel_context *intel,
 
 
    case GL_LINE_LOOP: {
-      GLuint indices[2] = { start + length, start };
+      GLuint indices[2] = { start + length - 1, start };
 
-      intel_check_prim_state( intel, GL_LINE_LOOP, PRIM3D_LINESTRIP );
+      intel_check_prim_state( intel, mode, PRIM3D_LINESTRIP );
 
       if (!prim->begin) {
 	 /* Maybe need to adjust the start and length if this is not a
@@ -264,23 +288,49 @@ static void intel_draw_prim( struct intel_context *intel,
 
 
    case GL_QUAD_STRIP:
-      if (1) {
-	 intel_check_prim_state( intel, GL_QUAD_STRIP, PRIM3D_TRISTRIP );
+      if (intel->state.Light->ShadeModel != GL_FLAT) {
+	 intel_check_prim_state( intel, mode, PRIM3D_TRISTRIP );
 	 intel->render->draw_prim( intel->render, start, length );
       }
       else {
-	 /* Need to create an index list to render as triangles:
-	  */
-	 assert(0);
+	 GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 2 * 6) );
+	 GLuint i,j;
+
+	 for (j = i = 0; i + 3 < length; i += 2, j += 6) {
+	    tmp[j+0] = start+i+0;
+	    tmp[j+1] = start+i+1; /* this is wrong! */
+	    tmp[j+2] = start+i+3;
+
+	    tmp[j+3] = start+i+1;
+	    tmp[j+4] = start+i+2; /* this is wrong! */
+	    tmp[j+5] = start+i+3;
+	 }
+
+	 intel_check_prim_state( intel, mode, PRIM3D_TRILIST );
+	 intel->render->draw_indexed_prim( intel->render, tmp, j );
+	 _mesa_free(tmp);
       }
       break;
 
-   case GL_QUADS:
-      /* Need to create an index list to render as triangles:
-       */
-      assert(0);
-      break;
+   case GL_QUADS: {
+      GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 4 * 6) );
+      GLuint i,j;
 
+      for (j = i = 0; i + 3 < length; i += 4, j += 6) {
+	 tmp[j+0] = start+i+0;
+	 tmp[j+1] = start+i+1;
+	 tmp[j+2] = start+i+3;
+
+	 tmp[j+3] = start+i+1;
+	 tmp[j+4] = start+i+2;
+	 tmp[j+5] = start+i+3;
+      }
+
+      intel_check_prim_state( intel, mode, PRIM3D_TRILIST );
+      intel->render->draw_indexed_prim( intel->render, tmp, j );
+      _mesa_free(tmp);
+      break;
+   }
 
    default:
       assert(0);

@@ -81,6 +81,8 @@ static void classic_draw_prim_indexed( struct intel_render *render,
    const GLuint offset = crc->offset;
    GLuint j;
 
+   assert(nr>0);
+
    /* The 'dwords' usage below ensures that both the state and the
     * primitive command below end up in the same batchbuffer,
     * otherwise there is a risk that another context might
@@ -102,7 +104,7 @@ static void classic_draw_prim_indexed( struct intel_render *render,
       
    /* Pack indices into 16bits 
     */
-   for (j = 0; j < nr-1; j += 2) {
+   for (j = 0; j+1 < nr; j += 2) {
       OUT_BATCH( (offset + indices[j]) | ((offset + indices[j+1])<<16) );
    }
 
