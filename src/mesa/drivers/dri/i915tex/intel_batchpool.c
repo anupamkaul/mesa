@@ -142,6 +142,8 @@ pool_checkFree(BPool * p, int wait)
 
    list = p->delayed.next;
 
+   /* Only examine the oldest 1/3 of delayed buffers:
+    */
    if (p->numDelayed > 3) {
       for (i = 0; i < p->numDelayed; i += 3) {
          list = list->next;
