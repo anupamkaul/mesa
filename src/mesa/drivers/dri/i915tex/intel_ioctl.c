@@ -35,6 +35,8 @@
 #include "context.h"
 #include "swrast/swrast.h"
 
+#include "i915_context.h"
+
 #include "intel_context.h"
 #include "intel_ioctl.h"
 #include "intel_batchbuffer.h"
@@ -98,6 +100,7 @@ intel_batch_ioctl(struct intel_context *intel,
 {
    struct intel_framebuffer *intel_fb =
       (struct intel_framebuffer*)intel->ctx.DrawBuffer;
+   drmI830BatchBuffer batch;
 
    assert(intel->locked);
    assert(used);
@@ -111,24 +114,31 @@ intel_batch_ioctl(struct intel_context *intel,
     * single buffer.
     */
 
+   batch.DR1 = 0;
+   batch.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
+		(((GLuint) intel->drawY) << 16));
+
    if (!ignore_cliprects && intel_fb->hwz) {
       drm_i915_hwz_t hwz;
+      int ret;
+      struct i915_state *state = &i915_context( &intel->ctx )->current;
 
       hwz.op = DRM_I915_HWZ_RENDER;
       hwz.arg.render.bpl_num = intel_fb->pf_current_page;
       hwz.arg.render.batch_start = start_offset;
+      hwz.arg.render.DR1 = batch.DR1;
+      hwz.arg.render.DR1 = batch.DR4;
+      hwz.arg.render.static_state_offset = state->offsets[0];
+      hwz.arg.render.static_state_size = state->sizes[0];
 
-      drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz, sizeof(hwz));
+      do {
+	 ret = drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz, sizeof(hwz));
+      } while (ret == -EBUSY);
    } else {
-      drmI830BatchBuffer batch;
-
       batch.start = start_offset;
       batch.used = used;
       batch.cliprects = intel->pClipRects;
       batch.num_cliprects = ignore_cliprects ? 0 : intel->numClipRects;
-      batch.DR1 = 0;
-      batch.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
-		   (((GLuint) intel->drawY) << 16));
 
       DBG("%s: 0x%x..0x%x DR4: %x cliprects: %d\n",
 	  __FUNCTION__,

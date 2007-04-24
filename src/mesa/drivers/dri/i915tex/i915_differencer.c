@@ -34,6 +34,7 @@
 #include "i915_state.h"
 #include "i915_reg.h"
 #include "intel_batchbuffer.h"
+#include "intel_fbo.h"
 
 
 static GLuint count_bits( GLuint mask )
@@ -200,6 +201,8 @@ static void emit_cached_indirect( struct intel_context *intel,
    GLuint flag = 0;
    GLuint dirty = 0;
    GLuint i;
+   struct intel_framebuffer *intel_fb =
+      (struct intel_framebuffer*)intel->ctx.DrawBuffer;
 
    if (from->id != to->id) {
       dirty = (1<<I915_MAX_CACHE) - 1;
@@ -232,6 +235,12 @@ static void emit_cached_indirect( struct intel_context *intel,
    if (dirty) {
       GLuint nr = count_bits(dirty);
       GLuint size = nr * 2 + 1;
+
+      if ((dirty & (1<<0)) && intel_fb->hwz) {
+	 dirty &= ~(1<<0);
+	 size -= 2;
+      }
+
       BEGIN_BATCH(size,0);
       OUT_BATCH( _3DSTATE_LOAD_INDIRECT | (dirty<<8) | (1<<14) | (size - 2));
 
