@@ -389,7 +389,7 @@ intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
    //if (intel->numClipRects) {
       BATCH_LOCALS;
 
-      //intel->render->flush( intel->render );
+      //intel_draw_flush( intel->render );
 
       /* Get clear bounds after locking */
       x1.f = ctx->DrawBuffer->_Xmin;

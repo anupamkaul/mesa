@@ -37,7 +37,6 @@
 #include "enums.h"
 
 #include "tnl/t_context.h"
-#include "tnl/t_vertex.h"
 
 #include "intel_screen.h"
 #include "intel_context.h"

@@ -29,29 +29,139 @@
   * Authors:
   *   Keith Whitwell <keith@tungstengraphics.com>
   */
+#include "colormac.h"
 
-#include "swrast_setup/swrast_setup.h"
 #include "swrast/swrast.h"
       
 #include "intel_context.h"
+#include "intel_batchbuffer.h"
+#include "intel_buffers.h"
 #include "intel_draw.h"
 #include "intel_reg.h"
 #include "intel_span.h"
 #include "intel_vb.h"
 #include "intel_state.h"
-#include "intel_buffers.h"
-#include "intel_batchbuffer.h"
 
 
 struct swrast_render {
    struct intel_render render;
    struct intel_context *intel;
-   GLuint prim;
+
+   struct vertex_fetch *vf;
+
+   GLubyte *hw_verts;
+   GLuint hw_vert_buffer_size;
+   GLuint hw_vert_size;
+
+   GLenum prim;
 };
 
 static INLINE struct swrast_render *swrast_render( struct intel_render *render )
 {
    return (struct swrast_render *)render;
+}
+
+
+static const GLubyte *get_vertex( struct swrast_render *swrender,
+				  GLuint i )
+{
+   return swrender->hw_verts + i * swrender->hw_vert_size;
+}
+
+
+static void swrender_set_hw_vertex_format( struct intel_render *render, 
+					 const struct vf_attr_map *attrs,
+					 GLuint attr_count,
+					 GLuint vertex_size )
+{
+   struct swrast_render *swrender = swrast_render( render );
+
+   swrender->hw_vert_size = vertex_size;
+
+   /* Major hack, but no other choice:
+    */
+   vf_set_vertex_attributes( swrender->vf,
+			     attrs,
+			     attr_count,
+			     vertex_size );
+}
+
+static void *swrender_allocate_vertices( struct intel_render *render,
+					GLuint nr_vertices )
+{
+   struct swrast_render *swrender = swrast_render( render );
+   GLuint size = nr_vertices * swrender->hw_vert_size;
+
+   if (size > swrender->hw_vert_buffer_size) {
+      FREE(swrender->hw_verts);
+      swrender->hw_vert_buffer_size = MAX2(size, swrender->hw_vert_buffer_size * 2);
+      swrender->hw_verts = MALLOC(swrender->hw_vert_buffer_size);
+   }
+
+   return swrender->hw_verts;
+}
+
+
+
+/**
+ * Populate a swrast SWvertex from an attrib-style vertex.
+ */
+static void translate( struct swrast_render *swrender,
+		       const void *vertex, 
+		       SWvertex *dest )
+{
+   struct vertex_fetch *vf = swrender->vf;
+   struct intel_context *intel = swrender->intel;
+   GLcontext *ctx = &intel->ctx;
+   const GLfloat *m = ctx->Viewport._WindowMap.m;
+   GLfloat tmp[4];
+   GLuint i;
+
+   vf_get_attr( vf, vertex, VF_ATTRIB_POS, NULL, tmp );
+
+   dest->win[0] = m[0]  * tmp[0] + m[12];
+   dest->win[1] = m[5]  * tmp[1] + m[13];
+   dest->win[2] = m[10] * tmp[2] + m[14];
+   dest->win[3] =         tmp[3];
+
+
+   for (i = 0 ; i < ctx->Const.MaxTextureCoordUnits ; i++)
+      vf_get_attr( vf, vertex, VF_ATTRIB_TEX0+i,
+		ctx->Current.Attrib[VERT_ATTRIB_TEX0+i],
+		dest->attrib[FRAG_ATTRIB_TEX0 + i] );
+
+#if 0
+   for (i = 0 ; i < ctx->Const.MaxVarying ; i++)
+      vf_get_attr( vf, vertex, VF_ATTRIB_GENERIC0+i,
+		dest->attrib[FRAG_ATTRIB_VAR0 + i] );
+#endif
+
+
+   vf_get_attr( vf, vertex, VF_ATTRIB_COLOR0,
+	     ctx->Current.Attrib[VERT_ATTRIB_COLOR0],
+	     tmp );
+   UNCLAMPED_FLOAT_TO_RGBA_CHAN( dest->color, tmp );
+
+   vf_get_attr( vf, vertex, VF_ATTRIB_COLOR1,
+	     ctx->Current.Attrib[VERT_ATTRIB_COLOR1],
+	     tmp );
+   UNCLAMPED_FLOAT_TO_RGBA_CHAN( dest->specular, tmp );
+
+   vf_get_attr( vf, vertex, VF_ATTRIB_FOG,
+	     ctx->Current.Attrib[VERT_ATTRIB_FOG],
+	     tmp );
+   dest->fog = tmp[0];
+
+   vf_get_attr( vf, vertex, VF_ATTRIB_COLOR_INDEX,
+	     ctx->Current.Attrib[VERT_ATTRIB_COLOR_INDEX],
+	     tmp );
+   dest->index = tmp[0];
+
+   /* XXX: default here is bogus.  But if it isn't in the hardware
+    * vertex, swrast shouldn't need it either.
+    */
+   vf_get_attr( vf, vertex, VF_ATTRIB_POINTSIZE, tmp, tmp);
+   dest->pointSize = tmp[0];
 }
 
 
@@ -64,12 +174,12 @@ static void tri( struct swrast_render *swrender,
    GLcontext *ctx = &swrender->intel->ctx;
    SWvertex v[3];
 
-   /* Note: _swsetup_Translate() is a utility function and does not
+   /* Note: translate() is a utility function and does not
     * actually require a swsetup context to be created.
     */
-   _swsetup_Translate(ctx, v0, &v[0]);
-   _swsetup_Translate(ctx, v1, &v[1]);
-   _swsetup_Translate(ctx, v2, &v[2]);
+   translate(swrender, v0, &v[0]);
+   translate(swrender, v1, &v[1]);
+   translate(swrender, v2, &v[2]);
    _swrast_Triangle(ctx, &v[0], &v[1], &v[2]);
 }
 
@@ -81,8 +191,8 @@ static void line( struct swrast_render *swrender,
    GLcontext *ctx = &swrender->intel->ctx;
    SWvertex v[2];
 
-   _swsetup_Translate(ctx, v0, &v[0]);
-   _swsetup_Translate(ctx, v1, &v[1]);
+   translate(swrender, v0, &v[0]);
+   translate(swrender, v1, &v[1]);
    _swrast_Line(ctx, &v[0], &v[1]);
 }
 
@@ -92,7 +202,7 @@ static void point( struct swrast_render *swrender,
    GLcontext *ctx = &swrender->intel->ctx;
    SWvertex v[1];
 
-   _swsetup_Translate(ctx, v0, &v[0]);
+   translate(swrender, v0, &v[0]);
    _swrast_Point(ctx, &v[0]);
 }
 
@@ -104,68 +214,67 @@ static void swrender_draw_prim( struct intel_render *render,
 {
    struct swrast_render *swrender = swrast_render( render );
    GLcontext *ctx = &swrender->intel->ctx;
-   struct intel_vb *vb = swrender->intel->vb;
    GLuint i;
 
    intelSpanRenderStart(ctx);
 
    switch (swrender->prim) {
-   case PRIM3D_POINTLIST:
+   case GL_POINTS:
       for (i = 0; i < nr; i++) {
 	 point( swrender, 
-		intel_vb_get_vertex(vb, i) );
+		get_vertex(swrender, i) );
       }
       break;
 
-   case PRIM3D_LINELIST:
+   case GL_LINES:
       for (i = 0; i+1 < nr; i += 2) {
 	 line( swrender, 
-	       intel_vb_get_vertex(vb, i),
-	       intel_vb_get_vertex(vb, i+1) );
+	       get_vertex(swrender, i),
+	       get_vertex(swrender, i+1) );
       }
       break;
 
-   case PRIM3D_LINESTRIP:
+   case GL_LINE_STRIP:
       for (i = 0; i+1 < nr; i++) {
 	 line( swrender, 
-	       intel_vb_get_vertex(vb, i),
-	       intel_vb_get_vertex(vb, i+1) );
+	       get_vertex(swrender, i),
+	       get_vertex(swrender, i+1) );
       }
       break;
 
-   case PRIM3D_TRILIST:
+   case GL_TRIANGLES:
       for (i = 0; i+2 < nr; i += 3) {
 	 tri( swrender, 
-	      intel_vb_get_vertex(vb, i),
-	      intel_vb_get_vertex(vb, i+1),
-	      intel_vb_get_vertex(vb, i+2) );
+	      get_vertex(swrender, i),
+	      get_vertex(swrender, i+1),
+	      get_vertex(swrender, i+2) );
       }
       break;
 
-   case PRIM3D_TRISTRIP:
+   case GL_TRIANGLE_STRIP:
       for (i = 0; i+2 < nr; i++) {
 	 tri( swrender, 
-	      intel_vb_get_vertex(vb, i),
-	      intel_vb_get_vertex(vb, i+1),
-	      intel_vb_get_vertex(vb, i+2) );
+	      get_vertex(swrender, i),
+	      get_vertex(swrender, i+1),
+	      get_vertex(swrender, i+2) );
       }
       break;
 
-   case PRIM3D_TRIFAN:
+   case GL_TRIANGLE_FAN:
       for (i = 0; i+2 < nr; i++) {
 	 tri( swrender, 
-	      intel_vb_get_vertex(vb, 0),
-	      intel_vb_get_vertex(vb, i+1),
-	      intel_vb_get_vertex(vb, i+2) );
+	      get_vertex(swrender, 0),
+	      get_vertex(swrender, i+1),
+	      get_vertex(swrender, i+2) );
       }
       break;
 
-   case PRIM3D_POLY:
+   case GL_POLYGON:
       for (i = 0; i+2 < nr; i++) {
 	 tri( swrender, 
-	      intel_vb_get_vertex(vb, i+1),
-	      intel_vb_get_vertex(vb, i+2),
-	      intel_vb_get_vertex(vb, 0) );
+	      get_vertex(swrender, i+1),
+	      get_vertex(swrender, i+2),
+	      get_vertex(swrender, 0) );
       }
       break;
 
@@ -183,70 +292,69 @@ static void swrender_draw_indexed_prim( struct intel_render *render,
 {
    struct swrast_render *swrender = swrast_render( render );
    GLcontext *ctx = &swrender->intel->ctx;
-   struct intel_vb *vb = swrender->intel->vb;
    GLuint i;
 
    intelSpanRenderStart(ctx);
 
    switch (swrender->prim) {
-   case PRIM3D_POINTLIST:
+   case GL_POINTS:
       for (i = 0; i < nr; i++) {
 	 point( swrender, 
-		intel_vb_get_vertex(vb, indices[i]) );
+		get_vertex(swrender, indices[i]) );
       }
       break;
 
-   case PRIM3D_LINELIST:
+   case GL_LINES:
       for (i = 0; i+1 < nr; i += 2) {
 	 line( swrender, 
-	       intel_vb_get_vertex(vb, indices[i]),
-	       intel_vb_get_vertex(vb, indices[i+1]) );
-/* 	 _swrast_ResetLineStipple( ctx ); */
+	       get_vertex(swrender, indices[i]),
+	       get_vertex(swrender, indices[i+1]) );
+ 	 _swrast_ResetLineStipple( ctx );
       }
       break;
 
-   case PRIM3D_LINESTRIP:
+   case GL_LINE_STRIP:
       for (i = 0; i+1 < nr; i++) {
 	 line( swrender, 
-	       intel_vb_get_vertex(vb, indices[i]),
-	       intel_vb_get_vertex(vb, indices[i+1]) );
+	       get_vertex(swrender, indices[i]),
+	       get_vertex(swrender, indices[i+1]) );
       }
-/*       _swrast_ResetLineStipple( ctx ); */
+      _swrast_ResetLineStipple( ctx ); 
       break;
 
-   case PRIM3D_TRILIST:
+   case GL_TRIANGLES:
       for (i = 0; i+2 < nr; i += 3) {
 	 tri( swrender, 
-	      intel_vb_get_vertex(vb, indices[i]),
-	      intel_vb_get_vertex(vb, indices[i+1]),
-	      intel_vb_get_vertex(vb, indices[i+2]) );
+	      get_vertex(swrender, indices[i]),
+	      get_vertex(swrender, indices[i+1]),
+	      get_vertex(swrender, indices[i+2]) );
       }
       break;
 
-   case PRIM3D_TRISTRIP:
+   case GL_TRIANGLE_STRIP:
       for (i = 0; i+2 < nr; i++) {
 	 tri( swrender, 
-	      intel_vb_get_vertex(vb, indices[i]),
-	      intel_vb_get_vertex(vb, indices[i+1]),
-	      intel_vb_get_vertex(vb, indices[i+2]) );
+	      get_vertex(swrender, indices[i]),
+	      get_vertex(swrender, indices[i+1]),
+	      get_vertex(swrender, indices[i+2]) );
       }
       break;
 
-   case PRIM3D_TRIFAN:
+   case GL_TRIANGLE_FAN:
       for (i = 0; i+2 < nr; i++) {
 	 tri( swrender, 
-	      intel_vb_get_vertex(vb, indices[0]),
-	      intel_vb_get_vertex(vb, indices[i+1]),
-	      intel_vb_get_vertex(vb, indices[i+2]) );
+	      get_vertex(swrender, indices[0]),
+	      get_vertex(swrender, indices[i+1]),
+	      get_vertex(swrender, indices[i+2]) );
       }
       break;
 
-   case PRIM3D_POLY:
+   case GL_POLYGON:
       for (i = 0; i+2 < nr; i++) {
 	 tri( swrender, 
-	      intel_vb_get_vertex(vb, indices[i+1]),
-	      intel_vb_get_vertex(vb, indices[i+2]),
-	      intel_vb_get_vertex(vb, indices[0]) );
+	      get_vertex(swrender, indices[i+1]),
+	      get_vertex(swrender, indices[i+2]),
+	      get_vertex(swrender, indices[0]) );
       }
       break;
 
@@ -258,12 +366,6 @@ static void swrender_draw_indexed_prim( struct intel_render *render,
    intelSpanRenderFinish(ctx);
 }
 
-static void swrender_new_vertices( struct intel_render *render )
-{
-   struct swrast_render *swrender = swrast_render( render );
-   intel_vb_validate_vertices( swrender->intel->vb,
-			       VB_LOCAL_VERTS );
-}
 
 
 static void swrender_set_prim( struct intel_render *render,
@@ -274,7 +376,8 @@ static void swrender_set_prim( struct intel_render *render,
 }
 
 
-static void swrender_start_render( struct intel_render *render )
+static void swrender_start_render( struct intel_render *render,
+				   GLboolean start_of_frame)
 {
    struct swrast_render *swrender = swrast_render( render );
    struct intel_context *intel = swrender->intel;
@@ -284,7 +387,8 @@ static void swrender_start_render( struct intel_render *render )
 
    /* Start a new batchbuffer, emit wait for pending flip.
     */
-   intel_wait_flips(intel, 0);
+   if (start_of_frame)
+      intel_wait_flips(intel, 0);
 
    /* Emit some other synchronization stuff if necessary 
     */
@@ -294,10 +398,9 @@ static void swrender_start_render( struct intel_render *render )
     */
    if (intel->batch->segment_finish_offset[0] != 0)
       intel_batchbuffer_flush(intel->batch);
-}
 
-static void swrender_clear( struct intel_render *render )
-{
+   /* Have to wait on command stream??
+    */
 }
 
 static void swrender_flush( struct intel_render *render,
@@ -310,18 +413,13 @@ static void swrender_flush( struct intel_render *render,
    _swrast_flush( &swrender->intel->ctx );
 }
 
-static void swrender_abandon_frame( struct intel_render *render )
-{
-/*    struct swrast_render *swrender = swrast_render( render ); */
-
-   _mesa_printf("%s\n", __FUNCTION__);
-}
 
 static void swrender_destroy_context( struct intel_render *render )
 {
    struct swrast_render *swrender = swrast_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
 
+   vf_destroy(swrender->vf);
    _mesa_free(swrender);
 }
 
@@ -329,20 +427,20 @@ struct intel_render *intel_create_swrast_render( struct intel_context *intel )
 {
    struct swrast_render *swrender = CALLOC_STRUCT(swrast_render);
 
-   /* XXX: Add casts here to avoid the compiler messages:
-    */
-   swrender->render.destroy_context = swrender_destroy_context;
    swrender->render.start_render = swrender_start_render;
-   swrender->render.flush = swrender_flush;
-   swrender->render.abandon_frame = swrender_abandon_frame;
-   swrender->render.clear = swrender_clear;
+   swrender->render.set_hw_vertex_format = swrender_set_hw_vertex_format;
+   swrender->render.get_vertex_format = NULL;
+   swrender->render.allocate_vertices = swrender_allocate_vertices;
    swrender->render.set_prim = swrender_set_prim;
-   swrender->render.new_vertices = swrender_new_vertices;
    swrender->render.draw_prim = swrender_draw_prim;
    swrender->render.draw_indexed_prim = swrender_draw_indexed_prim;
+   swrender->render.flush = swrender_flush;
+   swrender->render.destroy = swrender_destroy_context;
 
    swrender->intel = intel;
    swrender->prim = 0;
+
+   swrender->vf = vf_create( GL_TRUE );
 
    return &swrender->render;
 }

@@ -34,13 +34,14 @@
 #include "framebuffer.h"
 #include "imports.h"
 #include "points.h"
+#include "texobj.h"
+#include "state.h"
 
 #include "swrast/swrast.h"
-#include "swrast_setup/swrast_setup.h"
-#include "tnl/tnl.h"
 
+#include "tnl/tnl.h"
 #include "tnl/t_pipeline.h"
-#include "tnl/t_vertex.h"
+
 
 #include "drivers/common/driverfuncs.h"
 
@@ -201,6 +202,9 @@ const struct dri_extension card_extensions[] = {
    {NULL, NULL}
 };
 
+extern const struct tnl_pipeline_stage _intel_render_stage;
+extern const struct tnl_pipeline_stage _intel_check_frag_attrib_sizes;
+
 
 static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_vertex_transform_stage,
@@ -255,7 +259,6 @@ intelInvalidateState(GLcontext * ctx, GLuint new_state)
    _swrast_InvalidateState(ctx, new_state);
    _vbo_InvalidateState(ctx, new_state);
    _tnl_InvalidateState(ctx, new_state);
-   _tnl_invalidate_vertex_state(ctx, new_state);
 
    assert(!intel->metaops.active);
 
@@ -276,7 +279,7 @@ void
 intelFlush(GLcontext * ctx)
 {
    struct intel_context *intel = intel_context( ctx );
-   intel->render->flush( intel->render, GL_TRUE ); 
+   intel_draw_flush( intel->draw ); 
 }
 
 
@@ -325,6 +328,25 @@ intelFinish(GLcontext * ctx)
 }
 
 
+
+static void intelRunPipeline(GLcontext * ctx)
+{
+   struct intel_context *intel = intel_context(ctx);
+
+   _mesa_lock_context_textures(ctx);
+   
+   if (ctx->NewState)
+      _mesa_update_state_locked(ctx);
+
+   intel_update_software_state( intel );
+
+   _tnl_run_pipeline(ctx);
+
+   _mesa_unlock_context_textures(ctx);
+}
+
+
+
 void
 intelInitDriverFunctions(struct dd_function_table *functions)
 {
@@ -344,6 +366,18 @@ intelInitDriverFunctions(struct dd_function_table *functions)
    intelInitBufferFuncs(functions);
 }
 
+
+static void intel_cb_validate_state( void *driver, GLuint active_prims )
+{
+   struct intel_context *intel = driver;
+
+   if (intel->active_prims != active_prims) {
+      intel->active_prims = active_prims;
+      intel->state.dirty.intel |= INTEL_NEW_ACTIVE_PRIMS;
+   }
+   
+   intel_update_software_state( intel );
+}
 
 
 GLboolean
@@ -430,8 +464,6 @@ intelInitContext(struct intel_context *intel,
    intel->driFd = sPriv->fd;
    intel->driHwLock = (drmLock *) & sPriv->pSAREA->lock;
 
-   intel->hw_stipple = 1;
-
    /* XXX FBO: recalculate on bind */
    switch (mesaVis->depthBits) {
    case 0:                     /* what to do in this case? */
@@ -451,8 +483,6 @@ intelInitContext(struct intel_context *intel,
 
    fthrottle_mode = driQueryOptioni(&intel->optionCache, "fthrottle_mode");
    intel->iw.irq_seq = -1;
-
-   _math_matrix_ctr(&intel->ViewportMatrix);
 
    /* Disable imaging extension until convolution is working in
     * teximage paths:
@@ -474,10 +504,17 @@ intelInitContext(struct intel_context *intel,
 
    intel->vb = intel_vb_init(intel);
 
-   intel->classic = intel_create_classic_render( intel );
+   intel->classic = 0; // intel_create_classic_render( intel );
    intel->swrender = intel_create_swrast_render( intel );
-   intel->render = intel->classic;
-   
+
+   {
+      struct intel_draw_callbacks cb;
+      
+      cb.driver = (void *)intel;
+      cb.validate_state = intel_cb_validate_state;
+
+      intel->draw = intel_draw_create( &cb );
+   }
 
    intel->state.dirty.mesa = ~0;
    intel->state.dirty.intel = ~0;
@@ -511,7 +548,7 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
 
    assert(intel);               /* should never be null */
    if (intel) {
-      intel->render->abandon_frame( intel->render );
+      intel_draw_flush( intel->draw );
 
       _tnl_DestroyContext(&intel->ctx);
       _vbo_DestroyContext(&intel->ctx);
@@ -520,8 +557,8 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
       intel_batchbuffer_free( intel->batch );
       intel_vb_destroy( intel->vb );
 
-      intel->classic->destroy_context( intel->classic );
-      intel->swrender->destroy_context( intel->swrender );
+//      intel->classic->destroy( intel->classic );
+      intel->swrender->destroy( intel->swrender );
 
       if (intel->last_swap_fence) {
 	 driFenceFinish(intel->last_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);
@@ -667,7 +704,7 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
        * This will drop the outstanding batchbuffer on the floor
        */
 
-      intel->render->abandon_frame( intel->render );
+      intel_draw_flush( intel->draw );
 
       if (batchMap != NULL) {
 	 driBOUnmap(intel->batch->buffer);

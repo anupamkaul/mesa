@@ -31,78 +31,64 @@
 
 struct intel_context;
 struct intel_buffer_object;
-struct tnl_attr_map;
 
-#include "tnl/t_context.h"
+struct intel_vb *intel_vb_init( struct intel_context *intel );
+void intel_vb_destroy( struct intel_vb *vb );
 
+/* Need to talk about allocations in terms of vertices of a particular
+ * size so that we can manage the index-offset state correctly and
+ * also know when to rebase the vbo even if we haven't run out of
+ * space (ie on a vertex size change).
+ */
+void intel_vb_set_vertex_size( struct intel_vb *vb,
+			       GLuint vertex_size );
 
-#define MAX_VBO 32		/* XXX: make dynamic */
+/* Returns the vertex offset from the programmed vbo starting
+ * position.  Returns the pointer to the allocated region in the
+ * ptr_return argument.
+ */
+void *intel_vb_alloc_vertices( struct intel_vb *vb,
+			       GLuint count,
+			       GLuint *offset_return );
 
-#define VB_LOCAL_VERTS 0x1
-#define VB_HW_VERTS    0x2
+void intel_vb_flush( struct intel_vb *vb );
 
+/***********************************************************************
+ * Internal functions
+ */
+
+#define MAX_VBO 32
 
 struct intel_vb {
    struct intel_context *intel;
-   TNLcontext *tnl;
 
-   /* State for hardware vertex emit: 
-    */
    struct {
       struct intel_buffer_object *vbo[MAX_VBO];
       GLuint idx;
 
       struct intel_buffer_object *current;
+
       GLuint current_size;
       GLuint current_used;
       void *current_ptr;
+
       GLuint wrap_vbo;
-      GLboolean dirty;
-
-      GLuint offset;
    } vbo;
-      
-   /* The currently built software vertex list:
-    */
-   struct {
-      GLubyte *verts;              /* points to tnl->clipspace.vertex_buf */
-      GLboolean dirty;
-   } local;
 
+   /* State for hardware vertex emit: 
+    */
+   struct intel_buffer_object *buffer;
+   GLuint offset;
+   GLboolean dirty;
+      
    GLuint vertex_size_bytes;
-/*    GLuint vertex_stride_bytes; */
+
    GLuint nr_verts;
+   GLuint space;
 };
 
 
-static INLINE void *intel_vb_get_vertex( struct intel_vb *vb, GLuint i )
-{
-   return (void *) vb->local.verts + i * vb->vertex_size_bytes;
-}
 
-
-struct intel_vb *intel_vb_init( struct intel_context *intel );
-void intel_vb_destroy( struct intel_vb *vb );
-
-void intel_vb_flush( struct intel_vb *vb );
-
-void intel_vb_set_inputs( struct intel_vb *vb,
-			  const struct tnl_attr_map *attrs,
-			  GLuint count );
-
-void intel_vb_new_vertices( struct intel_vb *vb );
-void intel_vb_release_vertices( struct intel_vb *vb );
-
-GLboolean intel_vb_validate_vertices( struct intel_vb *vb,
-				      GLuint flags );
-
-GLuint intel_vb_get_vbo_index_offset( struct intel_vb *vb );
-
-
-/* Internal functions
- */
-GLboolean intel_vb_copy_hw_vertices( struct intel_vb *vb );
-GLboolean intel_vb_emit_hw_vertices( struct intel_vb *vb );
 void intel_vb_unmap_current_vbo( struct intel_vb *vb );
 
 

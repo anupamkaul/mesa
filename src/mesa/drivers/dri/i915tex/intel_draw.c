@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,47 +25,196 @@
  * 
  **************************************************************************/
 
-/* TNL pipeline stage which submits drawing commands to the render
- * backends.  Will (eventually) take care of all the
- * unfilled/twoside/clipping/etc business so that the backends never
- * see that stuff.
- *
- * This is a replacement for intel_tris.[ch], intel_render.c and
- * intel_idx_render.c.
+/* Author:
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
-#include "glheader.h"
-#include "context.h"
-#include "macros.h"
+
 #include "imports.h"
-#include "mtypes.h"
-#include "enums.h"
-#include "texobj.h"
-#include "state.h"
+
+//#include "intel_prim.h"
+
+#define INTEL_DRAW_PRIVATE
+#include "intel_draw.h"
+
+
+
+/* Called from swapbuffers:
+ */
+void intel_draw_finish_frame( struct intel_draw *draw )
+{
+   assert(!draw->in_vb);
+   assert(draw->in_frame);
+   draw->in_frame = GL_FALSE;
+   draw->render->flush( draw->render, !draw->in_frame );
+}
+
+
+/* Called from glFlush, and other places:
+ */
+void intel_draw_flush( struct intel_draw *draw )
+{
+   assert(!draw->in_vb);
+   draw->render->flush( draw->render, !draw->in_frame );
+}
+
+
+/* Called when driver state tracker notices changes to the viewport
+ * matrix:
+ */
+void intel_draw_set_viewport( struct intel_draw *draw,
+			      const GLfloat *scale,
+			      const GLfloat *trans )
+{
+   assert(!draw->in_vb);
+   vf_set_vp_scale_translate( draw->vb.vf, scale, trans );
+}
+
+
+void intel_draw_set_state( struct intel_draw *draw,
+			   const struct intel_draw_state *state )
+{
+   memcpy( &draw->state, state, sizeof(*state) );
+   /* Need to validate state.
+    */
+}
+
+
+/* Called when driver state tracker notices changes to the hardware
+ * vertex format:
+ */
+void intel_draw_set_hw_vertex_format( struct intel_draw *draw,
+				      const struct vf_attr_map *attr,
+				      GLuint count,
+				      GLuint vertex_size )
+{
+   /* This is not allowed during the processing of a vertex buffer, ie
+    * vertex format must be constant throughout a whole VB and cannot
+    * change per-primitive.  This implies that the swrast fallback
+    * code must be able to translate the hardware vertices into swrast
+    * vertices on the fly.
+    */
+   assert(!draw->in_vb);
+
+   /* Pass this through to the hardware renderer:  
+    * XXX: just the size info???
+    */
+   draw->hw->set_hw_vertex_format( draw->hw,
+				   attr, 
+				   count,
+				   vertex_size );
+
+   /* Notify the cs pipe and allow it to update its vf instance also:
+    */
+#if 0
+   draw->prim->set_hw_vertex_format( draw->prim,
+				     attr,
+				     count,
+				     vertex_size );
+#endif
+}
+
+
+/* Called when the driver state tracker notices a fallback condition
+ * or other reason to change the renderer.  Note that per-primitive
+ * fallbacks cannot be handled this way - use a multiplexing render
+ * module instead.
+ */
+void intel_draw_set_render( struct intel_draw *draw,
+			    struct intel_render *hw )
+{
+   /* This is not allowed during the processing of a vertex buffer.
+    */
+   assert( !draw->in_vb );
+
+   /* Shut down the old rasterizerer:
+    */
+   draw->hw->flush(draw->hw, !draw->in_frame );
+
+   /* Install the new one - potentially updating draw->render as well.
+    */
+   if (draw->render == draw->hw)
+      draw->render = hw;
+
+   draw->hw = hw;
+}
+
+static void draw_validate_state( struct intel_draw *draw )
+{
+   draw->render = draw->hw;
+}
+
+static void draw_begin_vb( struct intel_draw *draw, 
+			   GLvector4f * const sources[],
+			   GLuint count )
+{
+   draw->in_vb = 1;
+
+   draw->vb.verts = draw->render->allocate_vertices( draw->render,
+						     /* draw->vb.vertex_stride_bytes, */
+						     count );
+
+   if (!draw->vb.verts) {
+      assert(0);
+   }
+
+   /* Bind the vb outputs:
+    */
+   vf_set_sources( draw->vb.vf, sources, 0 );
+
+   /* Build the hardware or prim-pipe vertices: 
+    */
+   vf_emit_vertices( draw->vb.vf,
+		     count,
+		     draw->vb.verts );
+}
+
+
+
+
+struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbacks )
+{
+   struct intel_draw *draw = CALLOC_STRUCT(intel_draw);
+
+   memcpy( &draw->callbacks, callbacks, sizeof(*callbacks) );
+
+#if 0
+   draw->prim = intel_create_prim_render( draw );
+#endif
+
+   draw->vb.vf = vf_create( GL_TRUE );
+
+
+   return draw;
+}
+
+
+void intel_draw_destroy( struct intel_draw *draw )
+{
+   if (draw->header.storage)
+      ALIGN_FREE( draw->header.storage );
+
+#if 0
+   draw->prim->destroy( draw->prim );
+#endif
+
+   vf_destroy( draw->vb.vf );
+
+   FREE( draw );
+}
+
+
+
+
+
+/***********************************************************************
+ * TNL stage to glue the above onto the end of the pipeline.
+ */
 
 #include "tnl/t_context.h"
 #include "tnl/t_pipeline.h"
-
 #include "intel_context.h"
-#include "intel_batchbuffer.h"
-#include "intel_reg.h"
-#include "intel_state.h"
-#include "intel_vb.h"
-#include "intel_draw.h"
 
-static GLuint hw_prim[GL_POLYGON+1] = {
-   PRIM3D_POINTLIST,
-   PRIM3D_LINELIST,
-   PRIM3D_LINESTRIP,
-   PRIM3D_LINESTRIP,
-   PRIM3D_TRILIST,
-   PRIM3D_TRISTRIP,
-   PRIM3D_TRIFAN,
-   0,
-   0,
-   PRIM3D_POLY
-};
-
-static const GLenum reduced_prim[GL_POLYGON+1] = {  
+static const GLenum reduced_prim[GL_POLYGON+1] = {
    GL_POINTS,
    GL_LINES,
    GL_LINES,
@@ -78,385 +227,148 @@ static const GLenum reduced_prim[GL_POLYGON+1] = {
    GL_TRIANGLES
 };
 
-
-/* All the per-primitive fallback stuff now ends up in here:
- *
- *    - polygon stipple
- *    - line stipple
- *    - point attenuation ???
- *    -  
- */
-static void intel_check_reduced_prim_state( struct intel_context *intel,
-					    GLenum reduced_prim ) 
+static void 
+build_vertex_headers( struct intel_draw *draw,
+		      struct vertex_buffer *VB )
 {
-#if 0
-   /* XXX: shortcircuit this statechange to only those cases where we
-    * know that the driver cares.  This is a bit naughty, but the
-    * gains are probably worth the single special case.
+   if (draw->header.storage == NULL) {
+      draw->header.stride = sizeof(GLfloat);
+      draw->header.size = 1;
+      draw->header.storage = ALIGN_MALLOC( VB->Size * sizeof(GLfloat), 32 );
+      draw->header.data = draw->header.storage;
+      draw->header.count = 0;
+      draw->header.flags = VEC_SIZE_1 | VEC_MALLOC;
+   }
+
+   /* Build vertex header attribute.
+    * 
     */
-   if (intel->state.Polygon->StippleFlag ||
-       intel->state.Line->StippleFlag ||
-       intel->state.Point->Atten) {
 
-      intel->state.dirty.intel |= INTEL_NEW_REDUCED_PRIMITIVE;
-   }
-#else
-   intel->state.dirty.intel |= INTEL_NEW_REDUCED_PRIMITIVE;
-#endif
+   {
+      GLuint i;
+      GLuint *id = (GLuint *)draw->header.storage;
 
-   /* Where does the state get validated/emitted?
-    */
-   intel_update_software_state( intel );
-}
+      draw->header.count = VB->Count;
 
-static void intel_check_prim_state( struct intel_context *intel,
-				    GLenum prim,
-				    GLuint hw_prim )
-{
-   GLenum rprim = reduced_prim[prim];
-
-   if (rprim != intel->draw.reduced_primitive) {
-      intel->draw.reduced_primitive = rprim;
-      intel_check_reduced_prim_state( intel, rprim );
-   }
-
-   if (hw_prim != intel->draw.hw_prim) {
-      intel->draw.hw_prim = hw_prim;
-      intel->render->set_prim( intel->render, hw_prim );
-   }
-}
-
-static void intel_draw_indexed_prim( struct intel_context *intel,
-				     const struct _mesa_prim *prim,
-				     const GLuint *indices )
-{
-   GLenum mode = prim->mode;
-   GLuint start = prim->start;
-   GLuint length = prim->count;
-
-   if (!length)
-      return;
-
-   switch (mode) {
-   case GL_POINTS:
-   case GL_LINES:
-   case GL_LINE_STRIP:
-   case GL_TRIANGLES:
-   case GL_TRIANGLE_STRIP:
-   case GL_TRIANGLE_FAN:
-   case GL_POLYGON:
-      intel_check_prim_state( intel, mode, hw_prim[mode] );
-
-      intel->render->draw_indexed_prim( intel->render, 
-					indices + start, 
-					length );
-      break;
-
-
-
-   case GL_LINE_LOOP: {
-      GLuint tmp_indices[2] = { indices[start + length],
-				indices[start] };
-
-      intel_check_prim_state( intel, GL_LINE_LOOP, PRIM3D_LINESTRIP );
-
-      if (!prim->begin) {
-	 /* Maybe need to adjust the start and length if this is not a
-	  * BEGIN primitive, to avoid spokes from the loop start:
-	  */
-	 start++;
-	 length--;
+      if (draw->state.fill_cw != FILL_TRI ||
+	  draw->state.fill_ccw != FILL_TRI) {
+	 for (i = 0; i < VB->Count; i++) {
+	    GLuint flag = VB->EdgeFlag[i] ? (1<<15) : 0;
+	    id[i] = VB->ClipMask[i] | flag; 
+	 }
       }
-
-      intel->render->draw_indexed_prim( intel->render, 
-					indices + start, 
-					length );
-
-      /* Probably wont work as stipple would get reset.  Need to
-       * build a single indexed linestrip to cover the whole
-       * primitive:
-       */
-      if (prim->end) 
-	 intel->render->draw_indexed_prim( intel->render, 
-					   tmp_indices, 
-					   2 );
-      break;
-   }
-
-
-   case GL_QUAD_STRIP:
-      if (intel->state.Light->ShadeModel != GL_FLAT) {
-	 intel_check_prim_state( intel, mode, PRIM3D_TRISTRIP );
-	 intel->render->draw_prim( intel->render, start, length );
+      else if (VB->ClipOrMask) {
+	 for (i = 0; i < VB->Count; i++)
+	    id[i] = VB->ClipMask[i];
       }
       else {
-	 GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 2 * 6) );
-	 GLuint i, j;
-
-	 for (j = i = 0; i + 3 < length; i += 2, j += 6) {
-	    tmp[j+0] = indices[i+0];
-	    tmp[j+1] = indices[i+1]; /* this is wrong! */
-	    tmp[j+2] = indices[i+3];
-
-	    tmp[j+3] = indices[i+1];
-	    tmp[j+4] = indices[i+2]; /* this is wrong! */
-	    tmp[j+5] = indices[i+3];
-	 }
-
-	 intel_check_prim_state( intel, mode, PRIM3D_TRILIST );
-	 intel->render->draw_indexed_prim( intel->render, tmp, j );
-	 _mesa_free(tmp);
+	 for (i = 0; i < VB->Count; i++)
+	    id[i] = 0;
       }
-      break;
-
-   case GL_QUADS: {
-      GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 4 * 6) );
-      GLuint i, j;
-
-      for (j = i = 0; i + 3 < length; i += 4, j += 6) {
-	 tmp[j+0] = indices[i+0];
-	 tmp[j+1] = indices[i+1];
-	 tmp[j+2] = indices[i+3];
-
-	 tmp[j+3] = indices[i+1];
-	 tmp[j+4] = indices[i+2];
-	 tmp[j+5] = indices[i+3];
-      }
-
-      intel_check_prim_state( intel, mode, PRIM3D_TRILIST );
-      intel->render->draw_indexed_prim( intel->render, tmp, j );
-      _mesa_free(tmp);
-      break;
    }
-
-   default:
-      assert(0);
-      break;
-   }
+   VB->AttribPtr[VF_ATTRIB_VERTEX_HEADER] = &draw->header;
 }
-
-
-
-static void intel_draw_prim( struct intel_context *intel,
-			     const struct _mesa_prim *prim )
-{
-   GLenum mode = prim->mode;
-   GLuint start = prim->start;
-   GLuint length = prim->count;
-
-   if (!length)
-      return;
-
-   switch (mode) {
-   case GL_POINTS:
-   case GL_LINES:
-   case GL_LINE_STRIP:
-   case GL_TRIANGLES:
-   case GL_TRIANGLE_STRIP:
-   case GL_TRIANGLE_FAN:
-   case GL_POLYGON:
-      intel_check_prim_state( intel, mode, hw_prim[mode] );
-
-      intel->render->draw_prim( intel->render, start, length );
-      break;
-
-
-
-   case GL_LINE_LOOP: {
-      GLuint indices[2] = { start + length - 1, start };
-
-      intel_check_prim_state( intel, mode, PRIM3D_LINESTRIP );
-
-      if (!prim->begin) {
-	 /* Maybe need to adjust the start and length if this is not a
-	  * BEGIN primitive, to avoid spokes from the loop start:
-	  */
-	 start++;
-	 length--;
-      }
-
-      intel->render->draw_prim( intel->render, start, length );
-
-      /* Probably wont work as stipple would get reset.  Need to
-       * build a single indexed linestrip to cover the whole
-       * primitive:
-       */
-      if (prim->end) 
-	 intel->render->draw_indexed_prim( intel->render, indices, 2 );
-      break;
-   }
-
-
-   case GL_QUAD_STRIP:
-      if (intel->state.Light->ShadeModel != GL_FLAT) {
-	 intel_check_prim_state( intel, mode, PRIM3D_TRISTRIP );
-	 intel->render->draw_prim( intel->render, start, length );
-      }
-      else {
-	 GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 2 * 6) );
-	 GLuint i,j;
-
-	 for (j = i = 0; i + 3 < length; i += 2, j += 6) {
-	    tmp[j+0] = start+i+0;
-	    tmp[j+1] = start+i+1; /* this is wrong! */
-	    tmp[j+2] = start+i+3;
-
-	    tmp[j+3] = start+i+1;
-	    tmp[j+4] = start+i+2; /* this is wrong! */
-	    tmp[j+5] = start+i+3;
-	 }
-
-	 intel_check_prim_state( intel, mode, PRIM3D_TRILIST );
-	 intel->render->draw_indexed_prim( intel->render, tmp, j );
-	 _mesa_free(tmp);
-      }
-      break;
-
-   case GL_QUADS: {
-      GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 4 * 6) );
-      GLuint i,j;
-
-      for (j = i = 0; i + 3 < length; i += 4, j += 6) {
-	 tmp[j+0] = start+i+0;
-	 tmp[j+1] = start+i+1;
-	 tmp[j+2] = start+i+3;
-
-	 tmp[j+3] = start+i+1;
-	 tmp[j+4] = start+i+2;
-	 tmp[j+5] = start+i+3;
-      }
-
-      intel_check_prim_state( intel, mode, PRIM3D_TRILIST );
-      intel->render->draw_indexed_prim( intel->render, tmp, j );
-      _mesa_free(tmp);
-      break;
-   }
-
-   default:
-      assert(0);
-      break;
-   }
-}
-
-
 
 
 
 static GLboolean
-intel_run_render(GLcontext *ctx, struct tnl_pipeline_stage *stage)
+run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
 {
    struct intel_context *intel = intel_context(ctx);
+   struct intel_draw *draw = intel->draw;
+
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
-   GLuint i;
+   GLuint i, prim_mask;
 
 
-#if 0
-   /* Build window space vertex buffer in local memory.  Everything
-    * required from here down is in the vertex buffer.
+   /* Build a bitmask of all the primitives in this vb:
     */
+   for (prim_mask = i = 0; i < VB->PrimitiveCount; i++)
+      prim_mask |= 1 << reduced_prim[VB->Primitive[i].mode];
 
-   /* Clip window-space vertex buffer if necessary.  This involves
-    * nasty unprojection operations.  Fix later.
+
+   /* Tell driver about active primitives, let it update render before
+    * starting the vb.
     */
+   draw->callbacks.validate_state( draw->callbacks.driver,
+				   prim_mask );
 
-   /* Do twosided stuff, using secondary color stored in vertex
-    * buffer, create a new vertex buffer as the result.  
+   /* Validate our render pipeline: 
     */
+   draw_validate_state( draw );
 
-   /* Do unfilled + offset stuff, creating new vertexbuffer +
-    * primitive list as a result.
-    *
-    * OR: Do unfilled stuff, just creating new primitive lists as a
-    * result.
+
+   /* Delay this so that we don't start a frame on a renderer that
+    * gets swapped out in the validation above.
     */
-
-   /* Finally, copy vertex buffer to graphics buffer object.  Use
-    * pointers to the original version for swz, but index information
-    * refers to the copied buffer.
-    *
-    * Can optimize:
-    *     - classic render or hwz, no clipping/twiddling: emit direct to hw
-    *     - swz, no clipping:  viewport transform locally, emit direct to hw.
-    */
-
-   /* Note: change of primitive is a statechange and may result in the
-    * render pointer changing (eg to swrast/fallback).
-    */
-
-   /* ____OR____ */
+   if (!draw->in_frame) {
+      draw->render->start_render( draw->render, GL_TRUE );
+      draw->in_frame = 1;
+   }
    
-   /* Do the above, but in a deep, per-triangle fashion, rather than a
-    * wide, per-vertex-buffer approach.  Would probably still want to
-    * have the option of creating a vertex buffer at the end.  The
-    * below would be a fastpath in that case.
-    */
 
-#else
-   /* These will need some work...
+   /* Always have to do this:
     */
-   assert(VB->ClipOrMask == 0);
+   VB->AttribPtr[VF_ATTRIB_POS] = VB->NdcPtr;
+   VB->AttribPtr[VF_ATTRIB_BFC0] = VB->ColorPtr[1];
+   VB->AttribPtr[VF_ATTRIB_BFC1] = VB->SecondaryColorPtr[1];
+   VB->AttribPtr[VF_ATTRIB_CLIP_POS] = VB->ClipPtr;
+
+   /* Maybe build vertex headers: 
+    */
+#if 0
+   if (draw->render == draw->prim) 
+      build_vertex_headers( draw, VB );
 #endif
 
-   intel_update_software_state(intel);
-   intel->draw.in_draw = 1;
-   if (!intel->draw.in_frame) {
-      intel->render->start_render( intel->render );
-      intel->draw.in_frame = 1;
-   }
-
-   /* Currently this is hardwired to know about the tnl VB, etc.  Just
-    * need to prod it to note there is new data available.  The
-    * renderer will then pull either local or vbo vertices from it, or
-    * perhaps both.
+   /* Build the vertices, set in_vb flag:
     */
-   intel_vb_new_vertices( intel->vb );
-   intel->render->new_vertices( intel->render );
+   draw_begin_vb( draw, VB->AttribPtr, VB->Count );
 
-   if (VB->Elts) {
-      for (i = 0; i < VB->PrimitiveCount; i++) {
-	 intel_draw_indexed_prim( intel, 
-				  &VB->Primitive[i],
-				  VB->Elts );
+
+   for (i = 0; i < VB->PrimitiveCount; i++) {
+
+      GLenum mode = VB->Primitive[i].mode;
+      GLuint start = VB->Primitive[i].start;
+      GLuint length = VB->Primitive[i].count;
+
+      if (!length)
+	 continue;
+
+      if (draw->render_prim != mode) {
+	 draw->render_prim = mode;
+	 draw->render->set_prim( draw->render, mode );
       }
-   }
-   else {
-      for (i = 0; i < VB->PrimitiveCount; i++) {
-	 intel_draw_prim( intel, &VB->Primitive[i] );
+
+      if (VB->Elts) {
+	 draw->render->draw_indexed_prim( draw->render, 
+					  VB->Elts + start,
+					  length );
       }
-	 
+      else {
+	 draw->render->draw_prim( draw->render, 
+				  start,
+				  length );
+      }	 
    }
 
-   intel_vb_release_vertices( intel->vb );
-   intel->draw.in_draw = 0;
+   draw->render->release_vertices( draw->render, draw->vb.verts );
+   draw->vb.verts = NULL;
+   draw->in_vb = 0;
 
    return GL_FALSE;             /* finished the pipe */
 }
 
-const struct tnl_pipeline_stage _intel_render_stage = {
-   "intel render",
-   NULL,
-   NULL,
-   NULL,
-   NULL,
-   intel_run_render             /* run */
-};
 
 
 
-void intelRunPipeline(GLcontext * ctx)
+const struct tnl_pipeline_stage _intel_render_stage =
 {
-   struct intel_context *intel = intel_context(ctx);
-
-   _mesa_lock_context_textures(ctx);
-   
-   if (ctx->NewState)
-      _mesa_update_state_locked(ctx);
-
-   intel_update_software_state( intel );
-
-   _tnl_run_pipeline(ctx);
-
-   _mesa_unlock_context_textures(ctx);
-}
-
+   "intel draw",
+   NULL,
+   NULL,
+   NULL,
+   NULL,
+   run_draw
+};

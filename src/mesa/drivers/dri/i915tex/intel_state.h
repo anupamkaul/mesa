@@ -43,6 +43,6 @@ void intel_emit_hardware_state( struct intel_context *intel, GLuint dwords );
 
 
 const struct intel_tracked_state intel_update_viewport;
-const struct intel_tracked_state intel_update_render_index;
+const struct intel_tracked_state intel_update_draw_state;
 
 #endif

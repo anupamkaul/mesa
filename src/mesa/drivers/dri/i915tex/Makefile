@@ -7,6 +7,7 @@ LIBNAME = i915tex_dri.so
 MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
+	intel_draw.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \
@@ -22,16 +23,15 @@ DRIVER_SOURCES = \
 	i915_state_immediate.c \
 	i915_state_map.c \
 	i915_state_program.c \
+	i915_state_rasterizer.c \
 	i915_state_sampler.c \
 	i915_state_static.c \
 	i915_state_vertex.c \
 	i915_tex_layout.c \
 	i915_vtbl.c \
-	intel_draw.c \
 	intel_classic.c \
 	intel_swrast.c \
 	intel_vb.c \
-	intel_vb_vbo.c \
 	intel_regions.c \
 	intel_buffer_objects.c \
 	intel_batchbuffer.c \
@@ -56,11 +56,13 @@ DRIVER_SOURCES = \
 	intel_screen.c \
 	intel_span.c \
 	intel_state.c \
-	intel_state_callbacks.c \
+	intel_state_draw.c \
 	intel_state_pipeline.c \
+	intel_state_viewport.c \
 	intel_fbo.c \
 	intel_depthstencil.c \
 	intel_batchpool.c
+
 
 C_SOURCES = \
 	$(COMMON_SOURCES) \

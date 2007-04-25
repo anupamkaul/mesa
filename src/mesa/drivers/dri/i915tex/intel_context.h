@@ -34,9 +34,10 @@
 #include "drm.h"
 #include "mm.h"
 #include "texmem.h"
-#include "tnl/t_vertex.h"
 
 #include "intel_screen.h"
+#include "intel_draw.h"
+
 #include "i915_drm.h"
 #include "i830_common.h"
 
@@ -104,7 +105,7 @@ extern void intelFallback(struct intel_context *intel, GLuint bit,
 #define INTEL_NEW_VERTEX_SIZE             0x4
 #define INTEL_NEW_FRAG_ATTRIB_SIZES       0x8
 #define INTEL_NEW_CONTEXT                 0x10 /* Lost hardware? */
-#define INTEL_NEW_REDUCED_PRIMITIVE       0x20 /* polygon stipple on/off */
+
 #define INTEL_NEW_FALLBACK                0x40
 #define INTEL_NEW_METAOPS                 0x80 /* not needed? */
 #define INTEL_NEW_VBO                     0x100
@@ -112,6 +113,8 @@ extern void intelFallback(struct intel_context *intel, GLuint bit,
 #define INTEL_NEW_CBUF                    0x400
 #define INTEL_NEW_ZBUF                    0x800
 #define INTEL_NEW_WINDOW_DIMENSIONS       0x1000
+#define INTEL_NEW_ACTIVE_PRIMS            0x2000 
+#define INTEL_NEW_REDUCED_PRIMITIVE       0x4000 /* still needed to turn stipple on/off */
 
 #define INTEL_NEW_DRIVER0                 0x10000
 
@@ -175,47 +178,7 @@ struct intel_driver_state {
 };
 
 
-struct intel_render {
-   void (*destroy_context)( struct intel_render * );
-
-   /* Initialize state for the frame
-    */
-   void (*start_render)( struct intel_render * );
-
-   /* Execute glFlush(), flag to state whether this is the end of the
-    * frame or not, to help choose renderers.
-    */
-   void (*flush)( struct intel_render *, GLboolean finished );
-
-   /* This may happen in dire circumstances.  Eg, rotations???
-    */
-   void (*abandon_frame)( struct intel_render * );
-
-   /* Haven't figured out how to integrate clears yet:
-    */
-   void (*clear)( struct intel_render * );
-
-   /* Notifiy the renderer there is new vertex data:
-    */
-   void (*new_vertices)( struct intel_render * );
-
-   /* Notify the renderer of the current primitive when it changes:
-    */
-   void (*set_prim)( struct intel_render *, GLuint prim );
-
-   /* DrawArrays:
-    */
-   void (*draw_prim)( struct intel_render *,
-		      GLuint start,
-		      GLuint nr );
-
-   /* DrawElements:
-    */
-   void (*draw_indexed_prim)( struct intel_render *,
-			      const GLuint *indices,
-			      GLuint nr );
-};
-
+struct intel_render;
 
 
 struct intel_context
@@ -265,23 +228,27 @@ struct intel_context
       struct gl_buffer_object *vbo;      
       GLboolean active;
    } metaops;
-   
-   struct {
-      GLenum reduced_primitive;	
-      GLuint hw_prim;
-      GLboolean in_frame;
-      GLboolean in_draw;
-   } draw;
 
 
-   GLmatrix ViewportMatrix;
-
-
-   struct intel_render *render;
-
+   /* All the known rasterizers:
+    */
    struct intel_render *classic;
    struct intel_render *swrender;
-   
+   struct intel_render *mixed;
+   struct intel_render *swz;
+   struct intel_render *hwz;
+   struct intel_render *current;
+
+   /* The drawing engine: 
+    */
+   struct intel_draw *draw;
+
+   /* State to keep it fed: 
+    */
+   struct intel_draw_state draw_state;
+
+   GLuint active_prims;
+   GLenum hw_reduced_prim;
 
    GLuint Fallback;
 
@@ -292,7 +259,6 @@ struct intel_context
    struct intel_vb *vb;
 
 
-   GLboolean locked;
 
    GLuint ClearColor565;
    GLuint ClearColor8888;
@@ -300,7 +266,7 @@ struct intel_context
 
    GLfloat polygon_offset_scale;        /* dependent on depth_scale, bpp */
 
-   GLboolean hw_stipple;
+   GLboolean locked;
    GLboolean hw_stencil;
 
    GLboolean strict_conformance;
@@ -470,6 +436,20 @@ extern void intelFlush(GLcontext * ctx);
 extern void intelInitDriverFunctions(struct dd_function_table *functions);
 
 void intel_lost_hardware( struct intel_context *intel );
+
+
+/*======================================================================
+ * intel_swrast.c 
+ */
+struct intel_render *intel_create_swrast_render( struct intel_context *intel );
+
+
+/*======================================================================
+ * intel_classic.c 
+ */
+struct intel_render *intel_create_classic_render( struct intel_context *intel );
+
+
 
 
 /*======================================================================

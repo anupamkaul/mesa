@@ -40,54 +40,15 @@
 
 #define MAX_VERTEX_SIZE (36 * sizeof(GLfloat))
 
-static void intel_vb_build_local_verts( struct intel_vb *vb )
+#define VBO_SIZE (128*1024)
+
+
+
+
+
+void intel_vb_set_vertex_size( struct intel_vb *vb,
+			       GLuint vertex_size )
 {
-   /* Build window space vertex buffer in local memory.
-    */   
-   _tnl_emit_vertices_to_buffer( &vb->intel->ctx, 
-				 0, 
-				 vb->nr_verts, 
-				 vb->local.verts );
-   
-   vb->local.dirty = 0;
-}
-
-
-GLboolean intel_vb_validate_vertices( struct intel_vb *vb,
-				      GLuint flags )
-{
-   GLboolean success = GL_TRUE;
-
-   if (flags & VB_LOCAL_VERTS) {
-      if (vb->local.dirty)
-	 intel_vb_build_local_verts( vb );
-   }
-
-   if (flags & VB_HW_VERTS) {
-      if (vb->vbo.dirty) {
-	 if (!vb->local.dirty) 
-	    success = intel_vb_copy_hw_vertices( vb );
-	 else 
-	    success = intel_vb_emit_hw_vertices( vb );
-      }
-   }
-
-   return success;
-}
-
-
-
-void intel_vb_set_inputs( struct intel_vb *vb,
-			  const struct tnl_attr_map *attrs,
-			  GLuint count )
-{
-   struct intel_context *intel = vb->intel;
-
-   GLuint vertex_size = _tnl_install_attrs( &intel->ctx, 
-					    attrs, 
-					    count,
-					    intel->ViewportMatrix.m, 0 ); 
-
    if (vertex_size != vb->vertex_size_bytes) {
       vb->vertex_size_bytes = vertex_size;
       vb->intel->state.dirty.intel |= INTEL_NEW_VERTEX_SIZE;
@@ -97,36 +58,134 @@ void intel_vb_set_inputs( struct intel_vb *vb,
 
 
 
-/* Don't emit or build yet as we don't know what sort of vertices the
- * renderer wants.
+/* Callback from (eventually) intel_batchbuffer_flush().  Prepare for
+ * submit to hardware.
  */
-void intel_vb_new_vertices( struct intel_vb *vb )
+void intel_vb_flush( struct intel_vb *vb )
 {
-   /* Always have to do this:
+   DBG("%s\n", __FUNCTION__);
+
+   if (vb->vbo.current_ptr) 
+      intel_vb_unmap_current_vbo( vb );
+
+   vb->vbo.current_used = vb->vbo.current_size;
+   vb->vbo.wrap_vbo = vb->vbo.idx;
+}
+
+
+
+
+
+void
+intel_vb_unmap_current_vbo( struct intel_vb *vb )
+{
+   GLcontext *ctx = &vb->intel->ctx;
+
+   DBG("%s\n", __FUNCTION__);
+
+   assert(vb->vbo.current_ptr);
+
+   ctx->Driver.UnmapBuffer( ctx, 
+			    GL_ARRAY_BUFFER_ARB,
+			    &vb->vbo.current->Base );
+
+   vb->vbo.current_ptr = NULL;
+}
+
+
+
+
+
+static GLboolean 
+get_next_vbo( struct intel_vb *vb, GLuint size )
+{
+   GLcontext *ctx = &vb->intel->ctx;
+   GLuint next_vbo;
+
+   DBG("%s\n", __FUNCTION__);
+
+   /* Unmap current vbo:
     */
-   vb->tnl->clipspace.new_inputs |= VERT_BIT_POS;
-   vb->tnl->vb.AttribPtr[VERT_ATTRIB_POS] = vb->tnl->vb.NdcPtr;
+   if (vb->vbo.current_ptr) 
+      intel_vb_unmap_current_vbo( vb );
 
-   vb->local.dirty = 1;
-   vb->vbo.dirty = 1;
-   vb->nr_verts = vb->tnl->vb.Count;
+   if (size < VBO_SIZE) 
+      size = VBO_SIZE;
+
+   next_vbo = (vb->vbo.idx + 1) % MAX_VBO;
+
+   if (next_vbo == vb->vbo.wrap_vbo)
+      return GL_FALSE;
+   
+   vb->vbo.idx = next_vbo;
+   vb->vbo.current = vb->vbo.vbo[vb->vbo.idx];
+   vb->vbo.current_size = size;
+   vb->vbo.current_used = 0;
+
+   /* Clear out buffer contents and break any hardware dependency on
+    * the old memory:
+    */
+   ctx->Driver.BufferData( ctx,
+			   GL_ARRAY_BUFFER_ARB,
+			   size,
+			   NULL,
+			   GL_DYNAMIC_DRAW_ARB,
+			   &vb->vbo.current->Base );
+
+   
+   return GL_TRUE;
 }
+      
 
-
-void intel_vb_release_vertices( struct intel_vb *vb )
+void *intel_vb_alloc_vertices( struct intel_vb *vb, 
+			       GLuint nr_vertices,
+			       GLuint *offset_return )
 {
-   vb->local.dirty = 1;
-   vb->vbo.dirty = 1;
-   vb->nr_verts = 0;
+   GLuint space = nr_vertices * vb->vertex_size_bytes;
 
-#if 0
-   if (intel->state.vbo) {      
-      intel->state.vbo = 0;
-      intel->state.vbo_offset = 0;
+   GLcontext *ctx = &vb->intel->ctx;
+   void *ptr;
+
+   DBG("%s %d, vbo %d\n", __FUNCTION__, space, vb->vbo.idx);
+
+   if (vb->vbo.current_used + space > vb->vbo.current_size) {
+      if (!get_next_vbo( vb, space ))
+	 return NULL;
    }
-#endif
+      
+   assert(vb->vbo.current_used + space <= vb->vbo.current_size);
 
+   if (!vb->vbo.current_ptr) {
+      DBG("%s map vbo %d\n", __FUNCTION__, vb->vbo.idx);
+
+      /* Map the vbo now, will be unmapped in unmap_current_vbo, above.
+       */
+      vb->vbo.current_ptr = ctx->Driver.MapBuffer( ctx,
+						   GL_ARRAY_BUFFER_ARB,
+						   GL_WRITE_ONLY,
+						   &vb->vbo.current->Base );
+   }
+
+   if (!vb->vbo.current_ptr) 
+      return NULL;
+
+
+   {
+      struct intel_context *intel = vb->intel;
+      intel->state.vbo = vb->vbo.current->buffer;
+      intel->state.vbo_offset = vb->vbo.current_used;
+      intel->state.dirty.intel |= INTEL_NEW_VBO;
+   }
+
+   *offset_return = 0;
+
+   ptr = vb->vbo.current_ptr + vb->vbo.current_used;
+   vb->vbo.current_used += space;   
+   return ptr;
 }
+
+
+
 
 
 struct intel_vb *intel_vb_init( struct intel_context *intel )
@@ -154,13 +213,6 @@ struct intel_vb *intel_vb_init( struct intel_context *intel )
 
    }
 
-   vb->tnl = TNL_CONTEXT(ctx);
-
-   _tnl_init_vertices(ctx, vb->tnl->vb.Size, MAX_VERTEX_SIZE );
-
-   vb->local.verts = vb->tnl->clipspace.vertex_buf;
-
-
    return vb;
 }
 
@@ -182,3 +234,6 @@ void intel_vb_destroy( struct intel_vb *vb )
       FREE( vb );
    }
 }
+
+
+

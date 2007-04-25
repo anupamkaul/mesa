@@ -348,16 +348,16 @@ const struct intel_tracked_state i915_upload_DEPTHSCALE = {
 
 static void upload_STIPPLE( struct intel_context *intel )
 {
-   GLboolean hw_stipple_fallback = 0;
+   struct i915_context *i915 = i915_context(&intel->ctx);
+   GLboolean fallback_on_poly_stipple = 0;
    GLuint st[2];
 
    st[0] = _3DSTATE_STIPPLE;
    st[1] = 0;
    
-   /* _NEW_POLYGON, INTEL_NEW_REDUCED_PRIMITIVE 
+   /* _NEW_POLYGON 
     */
-   if (intel->state.Polygon->StippleFlag &&
-       intel->draw.reduced_primitive == GL_TRIANGLES) {
+   if (intel->state.Polygon->StippleFlag) {
 
       /* _NEW_POLYGONSTIPPLE
        */
@@ -384,7 +384,7 @@ static void upload_STIPPLE( struct intel_context *intel )
 	 for (j = 3; j >= 0; j--) {
 	    for (i = 0; i < 4; i++, mask++) {
 	       if (*mask != p[j]) {
-		  hw_stipple_fallback = 1;
+		  fallback_on_poly_stipple = 1;
 		  st[1] = 0;
 	       }
 	    }
@@ -392,19 +392,24 @@ static void upload_STIPPLE( struct intel_context *intel )
       }      
    }
 
-   assert(!hw_stipple_fallback); /* TODO */
+   if (fallback_on_poly_stipple != i915->fallback_on_poly_stipple) {
+      intel->state.dirty.intel |= I915_NEW_POLY_STIPPLE_FALLBACK;
+      i915->fallback_on_poly_stipple = fallback_on_poly_stipple;
+   }
 
-   set_dynamic_indirect( intel, 
-			 I915_DYNAMIC_STP_0,
-			 &st[0],
-			 2 );
+   if (!fallback_on_poly_stipple) {
+      set_dynamic_indirect( intel, 
+			    I915_DYNAMIC_STP_0,
+			    &st[0],
+			    2 );
+   }
 }
 
 
 const struct intel_tracked_state i915_upload_STIPPLE = {
    .dirty = {
       .mesa = _NEW_POLYGONSTIPPLE, _NEW_POLYGON,
-      .intel = INTEL_NEW_REDUCED_PRIMITIVE,
+      .intel = 0,
       .extra = 0
    },
    .update = upload_STIPPLE

@@ -30,11 +30,12 @@
 #include "enums.h"
 #include "program.h"
 
-#include "intel_batchbuffer.h"
+#include "intel_draw.h"
 #include "i915_context.h"
 #include "i915_reg.h"
-//#include "tnl/t_context.h"
+
 #include "intel_vb.h"
+#include "vf/vf.h"
 
 
 
@@ -85,7 +86,7 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
     */
    const GLuint sizes = intel->frag_attrib_sizes;
 
-   struct tnl_attr_map vertex_attrs[FRAG_ATTRIB_MAX];
+   struct vf_attr_map vertex_attrs[FRAG_ATTRIB_MAX];
    GLuint vertex_attr_count = 0;
    GLuint s2 = S2_TEXCOORD_NONE;
    GLuint s4 = 0;
@@ -96,31 +97,34 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
    GLboolean have_z = (attr_size(sizes, FRAG_ATTRIB_WPOS) >= 3);
 
    if (have_w && need_w) {
-      EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_4F_VIEWPORT, S4_VFMT_XYZW, 16);
+      EMIT_ATTR(VF_ATTRIB_POS, EMIT_4F_VIEWPORT, S4_VFMT_XYZW, 16);
    }
    else if (1 || have_z) {
-      EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_3F_VIEWPORT, S4_VFMT_XYZ, 12);
+      EMIT_ATTR(VF_ATTRIB_POS, EMIT_3F_VIEWPORT, S4_VFMT_XYZ, 12);
    }
    else {
       /* Need to update default z values to whatever zero maps to in
        * the current viewport.  Or figure out that we don't need z in
        * the current state.
        */
-      EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_2F_VIEWPORT, S4_VFMT_XY, 8);
+      EMIT_ATTR(VF_ATTRIB_POS, EMIT_2F_VIEWPORT, S4_VFMT_XY, 8);
    }
    
 
    if (inputsRead & FRAG_BIT_COL0) {
-      EMIT_ATTR(_TNL_ATTRIB_COLOR0, EMIT_4UB_4F_BGRA, S4_VFMT_COLOR, 4);
+      EMIT_ATTR(VF_ATTRIB_COLOR0, EMIT_4UB_4F_BGRA, S4_VFMT_COLOR, 4);
    }
 
    if (inputsRead & FRAG_BIT_COL1) {
-      EMIT_ATTR(_TNL_ATTRIB_COLOR1, EMIT_3UB_3F_BGR, S4_VFMT_SPEC_FOG, 3);
+      EMIT_ATTR(VF_ATTRIB_COLOR1, EMIT_3UB_3F_BGR, S4_VFMT_SPEC_FOG, 3);
       EMIT_PAD(1);
    }
 
    if (inputsRead & FRAG_BIT_FOGC) {
-      EMIT_ATTR(_TNL_ATTRIB_FOG, EMIT_1F, S4_VFMT_FOG_PARAM, 4);
+      /* Note that the hardware gives precedence to this over the
+       * byte-sized fog parameter in specular alpha.
+       */
+      EMIT_ATTR(VF_ATTRIB_FOG, EMIT_1F, S4_VFMT_FOG_PARAM, 4);
    }
 
    for (i = 0; i < I915_TEX_UNITS; i++) {
@@ -143,7 +147,7 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
          s2 &= ~S2_TEXCOORD_FMT(i, S2_TEXCOORD_FMT0_MASK);
          s2 |= S2_TEXCOORD_FMT(i, SZ_TO_HW(sz));
 
-         EMIT_ATTR(_TNL_ATTRIB_TEX0 + i, EMIT_SZ(sz), 0, sz * 4);
+         EMIT_ATTR(VF_ATTRIB_TEX0 + i, EMIT_SZ(sz), 0, sz * 4);
       }
       else if (i == fp->wpos_tex) {
 
@@ -154,16 +158,19 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
       }
    }
 
+
    if (s2 != i915->vertex_format.LIS2 || 
        s4 != i915->vertex_format.LIS4) {
 
-      /* Can raise INTEL_NEW_VERTEX_SIZE:
+      intel_draw_set_hw_vertex_format( intel->draw, 
+				       vertex_attrs, 
+				       vertex_attr_count,
+				       offset );
+
+      /* Needed?  This does raise the INTEL_NEW_VERTEX_SIZE flag:
        */
-      intel_vb_set_inputs( intel->vb, 
-			   vertex_attrs, 
-			   vertex_attr_count );
-
-
+      intel_vb_set_vertex_size( intel->vb, offset );
+      
       i915->vertex_format.LIS2 = s2;
       i915->vertex_format.LIS4 = s4;
       intel->state.dirty.intel |= I915_NEW_VERTEX_FORMAT;

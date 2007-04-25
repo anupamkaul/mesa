@@ -29,8 +29,6 @@
 #include "imports.h"
 #include "intel_tex.h"
 #include "tnl/t_context.h"
-#include "tnl/t_pipeline.h"
-#include "tnl/t_vertex.h"
 
 #include "swrast/swrast.h"
 #include "swrast_setup/swrast_setup.h"

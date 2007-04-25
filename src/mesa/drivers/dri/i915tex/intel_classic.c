@@ -51,26 +51,43 @@ static INLINE struct classic_render *classic_render( struct intel_render *render
    return (struct classic_render *)render;
 }
 
+static void classic_set_vertex_format( struct intel_render *render, 
+				       const struct vf_attr_map *attrs,
+				       GLuint attr_count,
+				       GLuint vertex_size )
+{
+   /* Nothing to do?  intel_vb_set_vertex_size() already called
+    */
+}
 
-static void classic_new_vertices( struct intel_render *render )
+
+static void *classic_allocate_vertices( struct intel_render *render,
+					GLuint nr_vertices )
 {
    struct classic_render *crc = classic_render( render );
    struct intel_context *intel = crc->intel;
+   void *ptr;
 
-   GLboolean ok = intel_vb_validate_vertices( intel->vb, VB_HW_VERTS );
+   ptr = intel_vb_alloc_vertices( intel->vb, nr_vertices, &crc->offset );
 
-   if (!ok) {
-      intel->render->flush( intel->render, GL_FALSE );
+   if (!ptr) {
+      render->flush( render, GL_FALSE );
 
       /* Not really sure how this could fail: 
        */
-      ok = intel_vb_validate_vertices( intel->vb, VB_HW_VERTS );
-      assert(ok);
+      ptr = intel_vb_alloc_vertices( intel->vb, nr_vertices, &crc->offset );
+      assert(ptr);
    }
 
-   crc->offset = intel_vb_get_vbo_index_offset( intel->vb );
+   return ptr;
 }
 
+static void classic_release_vertices( struct intel_render *render,
+				      void *vertices )
+{
+   /* Nothing to do.   
+    */
+}
 
 static void classic_draw_prim_indexed( struct intel_render *render,
 				       const GLuint *indices,
@@ -136,24 +153,83 @@ static void classic_draw_prim( struct intel_render *render,
    ADVANCE_BATCH();
 }
 
+
+static GLuint hw_prim[GL_POLYGON+1] = {
+   PRIM3D_POINTLIST,
+   PRIM3D_LINELIST,
+   PRIM3D_LINESTRIP,
+   0,
+   PRIM3D_TRILIST,
+   PRIM3D_TRISTRIP,
+   PRIM3D_TRIFAN,
+   0,
+   0,
+   PRIM3D_POLY
+};
+
+
+static const GLenum reduced_prim[GL_POLYGON+1] = {
+   GL_POINTS,
+   GL_LINES,
+   GL_LINES,
+   GL_LINES,
+   GL_TRIANGLES,
+   GL_TRIANGLES,
+   GL_TRIANGLES,
+   GL_TRIANGLES,
+   GL_TRIANGLES,
+   GL_TRIANGLES
+};
+
+/* XXX: this is where we need to set the reduced primitive from: 
+ */
 static void classic_set_prim( struct intel_render *render,
-			      GLuint hw_prim )
+			      GLenum mode )
 {
    struct classic_render *crc = classic_render( render );
 
-   _mesa_printf( "%s %x\n", __FUNCTION__, hw_prim);
-   crc->hw_prim = hw_prim;
+   switch (mode) {
+   case GL_POINTS:
+   case GL_LINES:
+   case GL_LINE_STRIP:
+   case GL_TRIANGLES:
+   case GL_TRIANGLE_STRIP:
+   case GL_TRIANGLE_FAN:
+   case GL_POLYGON:
+      render->draw_prim = classic_draw_prim;
+      crc->hw_prim = hw_prim[mode];
+      break;
+
+   case GL_LINE_LOOP:
+   case GL_QUADS:
+   case GL_QUAD_STRIP:
+   default:
+      /* Not supported by the hardware rasterizers. 
+       */
+      assert(0);
+      break;
+   }
+
+   if (crc->intel->hw_reduced_prim != reduced_prim[mode]) {
+      crc->intel->hw_reduced_prim = reduced_prim[mode];
+      crc->intel->state.dirty.intel |= INTEL_NEW_REDUCED_PRIMITIVE;
+   }
+
+
+   assert(!crc->intel->Fallback);
 }
 
 
-static void classic_start_render( struct intel_render *render )
+static void classic_start_render( struct intel_render *render,
+				  GLboolean start_of_frame )
 {
    struct classic_render *crc = classic_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
 
    /* Start a new batchbuffer, emit wait for pending flip.
     */
-   intel_wait_flips(crc->intel, 0);
+   if (start_of_frame)
+      intel_wait_flips(crc->intel, 0);
 }
 
 
@@ -167,21 +243,6 @@ static void classic_flush( struct intel_render *render,
 
    if (intel->batch->segment_finish_offset[0] != 0)
       intel_batchbuffer_flush(intel->batch);
-}
-
-static void classic_abandon_frame( struct intel_render *render )
-{
-   /* struct classic_render *crc = classic_render( render ); */
-   _mesa_printf("%s\n", __FUNCTION__);
-}
-
-static void classic_clear( struct intel_render *render )
-{
-   /* Not really sure how this will work yet. 
-    */
-   /* struct classic_render *crc = classic_render( render ); */
-   _mesa_printf("%s\n", __FUNCTION__);
-   assert(0);
 }
 
 
@@ -200,15 +261,16 @@ struct intel_render *intel_create_classic_render( struct intel_context *intel )
 
    /* XXX: Add casts here to avoid the compiler messages:
     */
-   crc->render.destroy_context = classic_destroy_context;
+   crc->render.destroy = classic_destroy_context;
    crc->render.start_render = classic_start_render;
-   crc->render.abandon_frame = classic_abandon_frame;
-   crc->render.flush = classic_flush;
-   crc->render.clear = classic_clear;
+   crc->render.set_hw_vertex_format = classic_set_vertex_format;
+   crc->render.get_vertex_format = NULL;
+   crc->render.allocate_vertices = classic_allocate_vertices;
    crc->render.set_prim = classic_set_prim;
-   crc->render.new_vertices = classic_new_vertices;
    crc->render.draw_prim = classic_draw_prim;
    crc->render.draw_indexed_prim = classic_draw_prim_indexed;
+   crc->render.release_vertices = classic_release_vertices;
+   crc->render.flush = classic_flush;
 
    crc->intel = intel;
    crc->hw_prim = 0;
