@@ -152,6 +152,11 @@ VBO_SOURCES = \
 	vbo/vbo_save_draw.c \
 	vbo/vbo_save_loopback.c 
 
+VF_SOURCES = \
+	vf/vf.c \
+	vf/vf_generic.c \
+	vf/vf_sse.c 
+
 
 SHADER_SOURCES = \
 	shader/arbprogparse.c \
@@ -295,6 +300,7 @@ SOLO_SOURCES = \
 	$(MAIN_SOURCES)		\
 	$(MATH_SOURCES)		\
 	$(VBO_SOURCES)		\
+	$(VF_SOURCES)		\
 	$(TNL_SOURCES)		\
 	$(SHADER_SOURCES)	\
 	$(SWRAST_SOURCES)	\
