@@ -32,6 +32,7 @@
 #include "imports.h"
 
 //#include "intel_prim.h"
+#include "intel_draw_quads.h"
 
 #define INTEL_DRAW_PRIVATE
 #include "intel_draw.h"
@@ -136,6 +137,8 @@ void intel_draw_set_render( struct intel_draw *draw,
       draw->render = hw;
 
    draw->hw = hw;
+
+   intel_quads_set_hw_render( draw->quads, draw->hw );
 }
 
 static void draw_validate_state( struct intel_draw *draw )
@@ -183,6 +186,7 @@ struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbac
 
    draw->vb.vf = vf_create( GL_TRUE );
 
+   draw->quads = intel_create_quads_render( draw );
 
    return draw;
 }
@@ -196,6 +200,8 @@ void intel_draw_destroy( struct intel_draw *draw )
 #if 0
    draw->prim->destroy( draw->prim );
 #endif
+
+   draw->quads->destroy( draw->quads );
 
    vf_destroy( draw->vb.vf );
 
@@ -227,6 +233,7 @@ static const GLenum reduced_prim[GL_POLYGON+1] = {
    GL_TRIANGLES
 };
 
+#if 0
 static void 
 build_vertex_headers( struct intel_draw *draw,
 		      struct vertex_buffer *VB )
@@ -268,6 +275,7 @@ build_vertex_headers( struct intel_draw *draw,
    }
    VB->AttribPtr[VF_ATTRIB_VERTEX_HEADER] = &draw->header;
 }
+#endif
 
 
 
@@ -326,7 +334,6 @@ run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
     */
    draw_begin_vb( draw, VB->AttribPtr, VB->Count );
 
-
    for (i = 0; i < VB->PrimitiveCount; i++) {
 
       GLenum mode = VB->Primitive[i].mode;
@@ -338,18 +345,18 @@ run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
 
       if (draw->render_prim != mode) {
 	 draw->render_prim = mode;
-	 draw->render->set_prim( draw->render, mode );
+	 draw->quads->set_prim( draw->quads, mode );
       }
 
       if (VB->Elts) {
-	 draw->render->draw_indexed_prim( draw->render, 
-					  VB->Elts + start,
-					  length );
+	 draw->quads->draw_indexed_prim( draw->quads, 
+					 VB->Elts + start,
+					 length );
       }
       else {
-	 draw->render->draw_prim( draw->render, 
-				  start,
-				  length );
+	 draw->quads->draw_prim( draw->quads, 
+				 start,
+				 length );
       }	 
    }
 

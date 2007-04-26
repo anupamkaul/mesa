@@ -219,6 +219,11 @@ struct intel_draw {
    /* Helper for tnl:
     */
    GLvector4f header;
+
+   /* Helper for quads (when prim pipe not active??)
+    */
+   struct intel_render *quads;
+   
 };
 
 

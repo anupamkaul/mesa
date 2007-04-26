@@ -29,20 +29,21 @@
   * Authors:
   *   Keith Whitwell <keith@tungstengraphics.com>
   */
-      
-#include "intel_context.h"
-#include "intel_vb.h"
-#include "intel_batchbuffer.h"
-#include "intel_reg.h"
-#include "intel_buffers.h"
-#include "intel_state.h"
+
+#include "imports.h"      
+
+#include "intel_draw_quads.h"
+
+#define INTEL_DRAW_PRIVATE
 #include "intel_draw.h"
 
 
 struct quads_render {
    struct intel_render render;
-   struct intel_render hw;
+   struct intel_render *hw;
+   struct intel_draw *draw;
    GLenum hw_prim;
+   GLenum gl_prim;
 };
 
 static INLINE struct quads_render *quads_render( struct intel_render *render )
@@ -51,10 +52,6 @@ static INLINE struct quads_render *quads_render( struct intel_render *render )
 }
 
 
-static void *quads_new_vertices( struct intel_render *render )
-{
-   return quads->hw->new_vertices( quads->hw );
-}
 
 static void quads_set_hw_prim( struct quads_render *quads,
 			       GLenum prim )
@@ -65,17 +62,22 @@ static void quads_set_hw_prim( struct quads_render *quads,
    }
 }
 
-static void quads_draw_indexed_prim( struct intel_render *render )
+
+static void quads_draw_indexed_prim( struct intel_render *render,
+				     const GLuint *indices,
+				     GLuint length )
 {
-   switch (mode) {
+   struct quads_render *quads = quads_render( render );
+
+   switch (quads->gl_prim) {
    case GL_LINE_LOOP: {
-      GLuint tmp_indices[2] = { indices[start + length],
-				indices[start] };
+      GLuint tmp_indices[2] = { indices[length],
+				indices[0] };
 
       quads_set_hw_prim( quads, GL_LINE_STRIP );
 
       quads->hw->draw_indexed_prim( quads->hw, 
-				    indices + start, 
+				    indices, 
 				    length );
 
       quads->hw->draw_indexed_prim( quads->hw,
@@ -86,10 +88,10 @@ static void quads_draw_indexed_prim( struct intel_render *render )
 
 
    case GL_QUAD_STRIP:
-      if (intel->state.Light->ShadeModel != GL_FLAT) {
+      if (!quads->draw->state.flatshade) {
 	 length -= length % 2;
 	 quads_set_hw_prim( quads, GL_TRIANGLE_STRIP );
-	 quads->hw->draw_prim( quads->hw, start, length );
+	 quads->hw->draw_indexed_prim( quads->hw, indices, length );
       }
       else {
 	 GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 2 * 6) );
@@ -106,7 +108,7 @@ static void quads_draw_indexed_prim( struct intel_render *render )
 	 }
 
 	 quads_set_hw_prim( quads, GL_TRIANGLES );
-	 quads->draw_indexed_prim( quads, tmp, j );
+	 quads->hw->draw_indexed_prim( quads->hw, tmp, j );
 	 _mesa_free(tmp);
       }
       break;
@@ -126,7 +128,7 @@ static void quads_draw_indexed_prim( struct intel_render *render )
       }
 
       quads_set_hw_prim( quads, GL_TRIANGLES );
-      quads->draw_indexed_prim( quads, tmp, j );
+      quads->hw->draw_indexed_prim( quads->hw, tmp, j );
       _mesa_free(tmp);
       break;
    }
@@ -145,7 +147,9 @@ static void quads_draw_prim( struct intel_render *render,
 			     GLuint start,
 			     GLuint length )
 {
-   switch (mode) {
+   struct quads_render *quads = quads_render( render );
+
+   switch (quads->gl_prim) {
 
       /* Lineloop just doesn't work as a concept.  Should get
        * translated away by the vbo module and never disgrace the rest
@@ -221,6 +225,8 @@ static void quads_set_prim( struct intel_render *render,
 {
    struct quads_render *quads = quads_render( render );
 
+   quads->gl_prim = mode;
+
    switch (mode) {
    case GL_LINE_LOOP:
    case GL_QUADS:
@@ -243,40 +249,38 @@ static void quads_destroy_context( struct intel_render *render )
    _mesa_free(quads);
 }
 
-struct intel_render *intel_create_quads_render( struct intel_context *intel )
+struct intel_render *intel_create_quads_render( struct intel_draw *draw )
 {
    struct quads_render *quads = CALLOC_STRUCT(quads_render);
 
    /* XXX: Add casts here to avoid the compiler messages:
     */
-   quads->render.destroy_context = quads_destroy_context;
+   quads->render.destroy = quads_destroy_context;
    quads->render.start_render = 0;
-   quads->render.abandon_frame = 0;
-   quads->render.flush = 0;
-   quads->render.clear = 0;
-   quads->render.new_vertices = 0;
+   quads->render.set_hw_vertex_format = 0;
+   quads->render.get_vertex_format = 0;
+   quads->render.allocate_vertices = 0;
    quads->render.set_prim = quads_set_prim;
    quads->render.draw_prim = quads_draw_prim;
-   quads->render.draw_indexed_prim = quads_draw_prim_indexed;
+   quads->render.draw_indexed_prim = quads_draw_indexed_prim;
+   quads->render.release_vertices = 0;
+   quads->render.flush = 0;
 
-   quads->intel = intel;
-   quads->hw_prim = ~0;
+   quads->draw = draw;
+   quads->hw_prim = GL_TRIANGLES;
+   quads->gl_prim = GL_TRIANGLES;
 
    return &quads->render;
 }
 
-
-void intel_quads_set_hw_render( struct intel_render *quads_render,
+/* Or, could just peer into the draw struct and update these values on
+ * allocate vertices.
+ */
+void intel_quads_set_hw_render( struct intel_render *render,
 				struct intel_render *hw )
 {
    struct quads_render *quads = quads_render( render );
 
    quads->hw = hw;
-   quads->render.start_render = hw->start_render;
-   quads->render.abandon_frame = hw->abandon_frame;
-   quads->render.flush = hw->flush;
-   quads->render.clear = hw->clear;
-   quads->render.new_vertices = hw->new_vertices;
-
    quads->hw->set_prim( quads->hw, quads->hw_prim );
 }
