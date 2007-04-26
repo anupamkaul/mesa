@@ -143,6 +143,8 @@ typedef void (*vf_emit_func)( struct vertex_fetch *vf,
  */
 struct vf_attr
 {
+   struct vertex_fetch *vf;
+
    GLuint format;
    GLuint inputsize;
    GLuint inputstride;
@@ -155,8 +157,6 @@ struct vf_attr
    const vf_insert_func *insert;
    vf_insert_func do_insert;
    vf_extract_func extract;
-
-   const GLfloat *vp; 
 };
 
 struct vertex_fetch

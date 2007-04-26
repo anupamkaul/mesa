@@ -32,8 +32,6 @@
 #include "vf/vf.h"
 
 struct intel_render {
-   void (*destroy)( struct intel_render * );
-
    /* Initialize state for the frame.  EG. emit dma to wait for
     * pending flips.
     */
@@ -49,11 +47,6 @@ struct intel_render {
 				 const struct vf_attr_map *attrs,
 				 GLuint attr_count,
 				 GLuint vertex_size );
-
-   /* Maybe different:
-    */
-   GLuint (*get_vertex_format)( struct intel_render *,
-				struct vf_attr *attrs );
 
 
    /* Request a destination for incoming vertices in the format above.
@@ -92,6 +85,8 @@ struct intel_render {
     */
    void (*flush)( struct intel_render *, 
 		  GLboolean finished_frame );
+
+   void (*destroy)( struct intel_render * );
 };
 
 
@@ -166,6 +161,9 @@ void intel_draw_set_render( struct intel_draw *draw,
 			    struct intel_render *render );
 
 
+
+struct vertex_fetch *intel_draw_get_vf( struct intel_draw *draw );
+
 struct tnl_pipeline_stage *intel_draw_tnl_stage( struct intel_draw *draw );
 
 /***********************************************************************
@@ -183,12 +181,16 @@ struct intel_draw {
    /* The hardware backend (or swrast)
     */
    struct intel_render *hw;
+   struct vf_attr_map hw_attrs[VF_ATTRIB_MAX];
+   GLuint hw_attr_count;
 
 #if 0	 
    /* The software clipper/setup engine.  Feeds primitives into the
     * above as necessary:
     */
    struct intel_render *prim;	 
+   struct vf_attr_map prim_attrs[VF_ATTRIB_MAX];
+   GLuint prim_attr_count;
 #endif
 
    /* The active renderer:
@@ -200,7 +202,7 @@ struct intel_draw {
       /* This is the only way vertices get fetched from tnl: 
        */
       struct vertex_fetch *vf;
-      struct vf_attr_map attrs[VF_ATTRIB_MAX];
+      struct vf_attr_map *attrs;
       GLuint attr_count;
       GLuint vertex_stride_bytes;
 

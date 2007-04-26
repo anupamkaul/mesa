@@ -293,43 +293,6 @@ static void pipe_validate_state( struct prim_pipeline *pipe )
    struct prim_pipeline_stage *next = pipe->emit;
    
 
-   {
-      /* Vertex header:
-       *    index:16
-       *    edgeflag:1;
-       *    clipmask:12;
-       *
-       * XXX: this is only needed if we are using the software primitive
-       * pipeline (clipping, offset, unfilled, etc).
-       */
-      EMIT_ATTR(_TNL_ATTRIB_VERTEX_HEADER, EMIT_1F, 0, 4);
-
-      if (prim->draw_state.clipped_prims) {
-	 EMIT_ATTR(_TNL_ATTRIB_POS, EMIT_4F, 0, 16);
-      }
-
-      if (prim->state.twoside) {
-	 if (inputsRead & FRAG_BIT_COL0) {
-	    EMIT_ATTR(_TNL_ATTRIB_BFC0, EMIT_4UB_4F_BGRA, 0, 4);
-	 }
-	    
-	 if (inputsRead & FRAG_BIT_COL1) {
-	    EMIT_ATTR(_TNL_ATTRIB_BFC1, EMIT_3UB_3F_BGR, 0, 3);
-	    EMIT_PAD(1);
-	 }
-      }
-
-      /* Now append the hardware vertex:
-       */
-
-
-      /* Tell the drawing engine about it: 
-       */
-      intel_draw_set_cs_vertex_format( pipe->draw,
-				       cs_attrs,
-				       cs_attr_count );
-   }
-   
 
    if (prim->draw_state.active_prims & (1 << FILL_TRI)) 
    {   

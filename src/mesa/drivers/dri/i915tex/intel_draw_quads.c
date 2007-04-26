@@ -258,7 +258,6 @@ struct intel_render *intel_create_quads_render( struct intel_draw *draw )
    quads->render.destroy = quads_destroy_context;
    quads->render.start_render = 0;
    quads->render.set_hw_vertex_format = 0;
-   quads->render.get_vertex_format = 0;
    quads->render.allocate_vertices = 0;
    quads->render.set_prim = quads_set_prim;
    quads->render.draw_prim = quads_draw_prim;

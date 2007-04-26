@@ -97,11 +97,46 @@ static GLboolean do_check_fallback(struct intel_context *intel)
 
 static void check_fallback( struct intel_context *intel )
 {
-   GLboolean flag = do_check_fallback( intel );
+   {
+      GLboolean flag = do_check_fallback( intel );
 
-   /* May raise INTEL_NEW_FALLBACK
-    */
-   FALLBACK(intel, INTEL_FALLBACK_OTHER, flag );
+      /* May raise INTEL_NEW_FALLBACK
+       */
+      FALLBACK(intel, INTEL_FALLBACK_OTHER, flag );
+   }
+
+   
+   {
+      struct i915_context *i915 = i915_context( &intel->ctx );
+      GLuint fallback_prims = 0;
+
+      /* _NEW_POINT 
+       */
+      if (intel->state.Point->_Attenuated)
+	 fallback_prims |= (1 << GL_POINTS);
+      
+      /* _NEW_LINE 
+       */
+      if (intel->state.Line->StippleFlag)
+	 fallback_prims |= ((1 << GL_LINES) |
+			    (1 << GL_LINE_STRIP) |
+			    (1 << GL_LINE_LOOP));
+
+      /* I915_NEW_POLY_STIPPLE_FALLBACK 
+       */
+      if (i915->fallback_on_poly_stipple)
+	 fallback_prims |= ((1 << GL_TRIANGLES) |
+			    (1 << GL_TRIANGLE_FAN) |
+			    (1 << GL_TRIANGLE_STRIP) |
+			    (1 << GL_QUADS) |
+			    (1 << GL_QUAD_STRIP) |
+			    (1 << GL_POLYGON));
+
+      if (fallback_prims != intel->fallback_prims) {
+	 intel->state.dirty.intel |= INTEL_NEW_FALLBACK_PRIMS;
+	 intel->fallback_prims = fallback_prims;
+      }
+   }
 }
 
 const struct intel_tracked_state i915_check_fallback = {

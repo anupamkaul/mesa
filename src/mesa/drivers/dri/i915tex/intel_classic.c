@@ -51,10 +51,10 @@ static INLINE struct classic_render *classic_render( struct intel_render *render
    return (struct classic_render *)render;
 }
 
-static void classic_set_vertex_format( struct intel_render *render, 
-				       const struct vf_attr_map *attrs,
-				       GLuint attr_count,
-				       GLuint vertex_size )
+static void classic_set_hw_vertex_format( struct intel_render *render, 
+					  const struct vf_attr_map *attrs,
+					  GLuint attr_count,
+					  GLuint vertex_size )
 {
    /* Nothing to do?  intel_vb_set_vertex_size() already called
     */
@@ -263,8 +263,7 @@ struct intel_render *intel_create_classic_render( struct intel_context *intel )
     */
    crc->render.destroy = classic_destroy_context;
    crc->render.start_render = classic_start_render;
-   crc->render.set_hw_vertex_format = classic_set_vertex_format;
-   crc->render.get_vertex_format = NULL;
+   crc->render.set_hw_vertex_format = classic_set_hw_vertex_format;
    crc->render.allocate_vertices = classic_allocate_vertices;
    crc->render.set_prim = classic_set_prim;
    crc->render.draw_prim = classic_draw_prim;

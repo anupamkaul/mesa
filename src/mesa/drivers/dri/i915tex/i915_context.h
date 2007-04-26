@@ -149,6 +149,12 @@ struct i915_context
    struct intel_context intel;
    struct i915_cache_context *cctx;
 
+   /* Current hardware vertex format:
+    */
+   struct vf_attr_map vertex_attrs[FRAG_ATTRIB_MAX];
+   GLuint vertex_attr_count;
+
+
    struct {
       /* Regions aren't actually that appropriate here as the memory may
        * be from a PBO or FBO.  Just use the buffer id.  Will have to do

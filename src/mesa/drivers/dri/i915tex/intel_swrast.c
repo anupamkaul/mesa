@@ -77,31 +77,32 @@ static void swrender_set_hw_vertex_format( struct intel_render *render,
    struct swrast_render *swrender = swrast_render( render );
 
    swrender->hw_vert_size = vertex_size;
-
-   /* Major hack, but no other choice:
-    */
-   vf_set_vertex_attributes( swrender->vf,
-			     attrs,
-			     attr_count,
-			     vertex_size );
 }
 
 static void *swrender_allocate_vertices( struct intel_render *render,
 					GLuint nr_vertices )
 {
    struct swrast_render *swrender = swrast_render( render );
-   GLuint size = nr_vertices * swrender->hw_vert_size;
 
-   if (size > swrender->hw_vert_buffer_size) {
-      FREE(swrender->hw_verts);
-      swrender->hw_vert_buffer_size = MAX2(size, swrender->hw_vert_buffer_size * 2);
-      swrender->hw_verts = MALLOC(swrender->hw_vert_buffer_size);
-   }
+   swrender->vf = intel_draw_get_vf( swrender->intel->draw );
+   swrender->hw_verts = MALLOC( nr_vertices * swrender->hw_vert_size );
 
    return swrender->hw_verts;
 }
 
 
+static void swrender_release_vertices( struct intel_render *render, 
+				       void *hw_verts)
+{
+   struct swrast_render *swrender = swrast_render( render );
+
+   swrender->vf = NULL;
+
+   if (swrender->hw_verts) {
+      FREE( swrender->hw_verts );
+      swrender->hw_verts = NULL;
+   }
+}
 
 /**
  * Populate a swrast SWvertex from an attrib-style vertex.
@@ -173,6 +174,8 @@ static void tri( struct swrast_render *swrender,
 {
    GLcontext *ctx = &swrender->intel->ctx;
    SWvertex v[3];
+
+   _mesa_printf( "%s\n", __FUNCTION__ );
 
    /* Note: translate() is a utility function and does not
     * actually require a swsetup context to be created.
@@ -419,7 +422,6 @@ static void swrender_destroy_context( struct intel_render *render )
    struct swrast_render *swrender = swrast_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
 
-   vf_destroy(swrender->vf);
    _mesa_free(swrender);
 }
 
@@ -429,18 +431,16 @@ struct intel_render *intel_create_swrast_render( struct intel_context *intel )
 
    swrender->render.start_render = swrender_start_render;
    swrender->render.set_hw_vertex_format = swrender_set_hw_vertex_format;
-   swrender->render.get_vertex_format = NULL;
    swrender->render.allocate_vertices = swrender_allocate_vertices;
    swrender->render.set_prim = swrender_set_prim;
    swrender->render.draw_prim = swrender_draw_prim;
    swrender->render.draw_indexed_prim = swrender_draw_indexed_prim;
    swrender->render.flush = swrender_flush;
+   swrender->render.release_vertices = swrender_release_vertices;
    swrender->render.destroy = swrender_destroy_context;
 
    swrender->intel = intel;
    swrender->prim = 0;
-
-   swrender->vf = vf_create( GL_TRUE );
 
    return &swrender->render;
 }

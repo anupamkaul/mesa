@@ -31,19 +31,21 @@
   */
       
 #include "intel_context.h"
-#include "intel_vb.h"
-#include "intel_batchbuffer.h"
-#include "intel_reg.h"
-#include "intel_buffers.h"
-#include "intel_state.h"
 #include "intel_draw.h"
 
+#define ELT_TABLE_SIZE 16
 
 struct mixed_render {
    struct intel_render render;
    struct intel_context *intel;
 
-   GLuint sw_prims;
+   GLuint vertex_size;
+
+
+   struct { 
+      GLuint in;
+      GLuint out;
+   } vert_cache[ELT_TABLE_SIZE];
 
    struct intel_render *hw;
    struct intel_render *sw;
@@ -54,44 +56,50 @@ static INLINE struct mixed_render *mixed_render( struct intel_render *render )
    return (struct mixed_render *)render;
 }
 
+/* Clear the vertex cache:
+ */
+static void reset_vertex_cache( struct mixed_render *mixed )
+{
+   GLuint i;
+   for (i = 0; i < ELT_TABLE_SIZE; i++)
+      copy->vert_cache[i].in = ~0;
+}
 
-static void mixed_allocate_vertices( struct intel_render *render,
-				     GLuint )
+static void mixed_start_render( struct intel_render *render )
+{
+   struct mixed_render *mixed = mixed_render( render );
+   mixed->active = NULL;
+}
+
+
+static void mixed_set_hw_vertex_format( struct intel_render *render, 
+					  const struct vf_attr_map *attrs,
+					  GLuint attr_count,
+					  GLuint vertex_size )
+{
+   struct mixed_render *mixed = mixed_render( render );
+   mixed->sw->set_hw_vertex_format( mixed->sw, attrs, attr_count, vertex_size );
+   mixed->hw->set_hw_vertex_format( mixed->hw, attrs, attr_count, vertex_size );
+   mixed->vertex_size = vertex_size;
+}
+
+
+/* Really want to allocate vertices from the intel vertex buffer, but
+ * mapped read/write rather than write-combined.  That way there is no
+ * need to copy the vertices on the classic path, or do anything crazy
+ * like a vertex cache on the indexed path to reduce copying.  
+ * 
+ * The swrast path would have to wait when it remaps the vertices
+ * after switching from classic, but it will have to wait to access
+ * the screen maps anyway, so that's a non-issue.
+ */
+static void *mixed_allocate_vertices( struct intel_render *render,
+				      GLuint nr_verts )
 {
    /* Always build vertices in a local memory buffer.
     */
 }
    
-
-static void mixed_new_vertices( struct intel_render *render )
-{
-   struct mixed_render *mixed = mixed_render( render );
-   struct intel_context *intel = mixed->intel;
-
-   GLboolean ok = intel_vb_validate_vertices( intel->vb, VB_HW_VERTS );
-
-   if (!ok) {
-      mixed_flush( render, GL_FALSE );
-
-      /* Not really sure how this could fail: 
-       */
-      ok = intel_vb_validate_vertices( intel->vb, VB_HW_VERTS );
-      assert(ok);
-   }
-
-   mixed->offset = intel_vb_get_vbo_index_offset( intel->vb );
-}
-
-
-static void mixed_set_prim( struct intel_render *render,
-			    const GLuint *indices,
-				       GLuint nr )
-{
-   struct mixed_render *crc = mixed_render( render );
-
-   if (mixmixed->prim
-}
-
 
 static void mixed_draw_prim( struct intel_render *render,
 			     GLuint start,
@@ -99,6 +107,8 @@ static void mixed_draw_prim( struct intel_render *render,
 {
    /* Emit vertices to active renderer at this point. 
     */
+
+   mixed->active->draw_prim( mixed->active, start, nr );
 }
 
 static void mixed_draw_indexed_prim( struct intel_render *render,
@@ -108,6 +118,8 @@ static void mixed_draw_indexed_prim( struct intel_render *render,
    /* Emit vertices to active renderer.  Use a vertex cache to
     * minimize duplication.
     */
+
+   mixed->active->draw_indexed_prim( mixed->active, out, out_nr );
 }
 
 
@@ -117,14 +129,20 @@ static void mixed_set_prim( struct intel_render *render,
    struct mixed_render *mixed = mixed_render( render );
    struct intel_render *active;
 
-   if (mixed->sw_prims & (1<<mode)) 
+   if (mixed->intel->fallback_prims & (1<<mode)) 
       active = mixed->sw;
    else
       active = mixed->hw;
 
    if (active != mixed->active) {
-      mixed->active->flush( mixed->active, GL_FALSE );
-      mixed->active = active;
+      if (mixed->active) {
+	 mixed->active->flush( mixed->active, GL_FALSE );
+      }
+      else {
+	 active->start_render( active );
+      }
+
+      mixed->active = active;      
       reset_vertex_cache( mixed );
    }
   
@@ -132,40 +150,21 @@ static void mixed_set_prim( struct intel_render *render,
 }
 
 
-static void mixed_start_render( struct intel_render *render )
-{
-   struct mixed_render *mixed = mixed_render( render );
-   _mesa_printf("%s\n", __FUNCTION__);
-
-   /* Start a new batchbuffer, emit wait for pending flip.
-    */
-   intel_wait_flips(mixed->intel, 0);
-}
-
 
 static void mixed_flush( struct intel_render *render, 
 			   GLboolean finished_frame )
 {
-}
+   if (mixed->active)
+      mixed->active->flush( render, finished_frame );
 
-static void mixed_abandon_frame( struct intel_render *render )
-{
-   /* struct mixed_render *mixed = mixed_render( render ); */
-   _mesa_printf("%s\n", __FUNCTION__);
-}
-
-static void mixed_clear( struct intel_render *render )
-{
-   /* Not really sure how this will work yet. 
-    */
-   /* struct mixed_render *mixed = mixed_render( render ); */
-   _mesa_printf("%s\n", __FUNCTION__);
-   assert(0);
+   if (finished_frame) 
+      mixed->active = NULL;	/* redundant, see start render. */
 }
 
 
 
-static void mixed_destroy_context( struct intel_render *render )
+
+static void mixed_destroy( struct intel_render *render )
 {
    struct mixed_render *mixed = mixed_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
@@ -173,23 +172,27 @@ static void mixed_destroy_context( struct intel_render *render )
    _mesa_free(mixed);
 }
 
+
 struct intel_render *intel_create_mixed_render( struct intel_context *intel )
 {
    struct mixed_render *mixed = CALLOC_STRUCT(mixed_render);
 
    /* XXX: Add casts here to avoid the compiler messages:
     */
-   mixed->render.destroy_context = mixed_destroy_context;
    mixed->render.start_render = mixed_start_render;
-   mixed->render.abandon_frame = mixed_abandon_frame;
-   mixed->render.flush = mixed_flush;
-   mixed->render.clear = mixed_clear;
+   mixed->render.set_hw_vertex_format = mixed_set_hw_vertex_format;
+   mixed->render.allocate_vertices = mixed_allocate_vertices;
    mixed->render.set_prim = mixed_set_prim;
-   mixed->render.new_vertices = mixed_new_vertices;
    mixed->render.draw_prim = mixed_draw_prim;
    mixed->render.draw_indexed_prim = mixed_draw_prim_indexed;
+   mixed->render.release_vertices = mixed_release_vertices;
+   mixed->render.flush = mixed_flush;
+   mixed->render.destroy = mixed_destroy;
 
    mixed->intel = intel;
+   mixed->hw = intel->classic;
+   mixed->sw = intel->swrast;
+   mixed->active = NULL;
    mixed->hw_prim = 0;
 
    return &mixed->render;

@@ -43,8 +43,8 @@ static INLINE void insert_4f_viewport_4( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] = scale[1] * in[1] + trans[1];
@@ -56,8 +56,8 @@ static INLINE void insert_4f_viewport_3( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] = scale[1] * in[1] + trans[1];
@@ -69,8 +69,8 @@ static INLINE void insert_4f_viewport_2( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] = scale[1] * in[1] + trans[1];
@@ -82,8 +82,8 @@ static INLINE void insert_4f_viewport_1( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] =                    trans[1];
@@ -95,8 +95,8 @@ static INLINE void insert_3f_viewport_3( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] = scale[1] * in[1] + trans[1];
@@ -107,8 +107,8 @@ static INLINE void insert_3f_viewport_2( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] = scale[1] * in[1] + trans[1];
@@ -119,8 +119,8 @@ static INLINE void insert_3f_viewport_1( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] =                    trans[1];
@@ -131,8 +131,8 @@ static INLINE void insert_2f_viewport_2( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] = scale[1] * in[1] + trans[1];
@@ -142,8 +142,8 @@ static INLINE void insert_2f_viewport_1( const struct vf_attr *a, GLubyte *v,
 					 const GLfloat *in )
 {
    GLfloat *out = (GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = scale[0] * in[0] + trans[0];
    out[1] = trans[1];
@@ -554,8 +554,8 @@ static void extract_4f_viewport( const struct vf_attr *a, GLfloat *out,
 				 const GLubyte *v )
 {
    const GLfloat *in = (const GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    /* Although included for completeness, the position coordinate is
     * usually handled differently during clipping.
@@ -570,8 +570,8 @@ static void extract_3f_viewport( const struct vf_attr *a, GLfloat *out,
 				 const GLubyte *v )
 {
    const GLfloat *in = (const GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = (in[0] - trans[0]) / scale[0];
    out[1] = (in[1] - trans[1]) / scale[1];
@@ -584,8 +584,8 @@ static void extract_2f_viewport( const struct vf_attr *a, GLfloat *out,
 				 const GLubyte *v )
 {
    const GLfloat *in = (const GLfloat *)v;
-   const GLfloat *scale = a->vp;
-   const GLfloat *trans = a->vp + 4;
+   const GLfloat *scale = a->vf->vp;
+   const GLfloat *trans = a->vf->vp + 4;
    
    out[0] = (in[0] - trans[0]) / scale[0];
    out[1] = (in[1] - trans[1]) / scale[1];

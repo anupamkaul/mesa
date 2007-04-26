@@ -105,8 +105,8 @@ extern void intelFallback(struct intel_context *intel, GLuint bit,
 #define INTEL_NEW_VERTEX_SIZE             0x4
 #define INTEL_NEW_FRAG_ATTRIB_SIZES       0x8
 #define INTEL_NEW_CONTEXT                 0x10 /* Lost hardware? */
-
-#define INTEL_NEW_FALLBACK                0x40
+#define INTEL_NEW_FALLBACK                0x20
+#define INTEL_NEW_FALLBACK_PRIMS          0x40
 #define INTEL_NEW_METAOPS                 0x80 /* not needed? */
 #define INTEL_NEW_VBO                     0x100
 #define INTEL_NEW_FENCE                   0x200	/* whatever invalidates RELOC's */
@@ -251,6 +251,7 @@ struct intel_context
    GLenum hw_reduced_prim;
 
    GLuint Fallback;
+   GLuint fallback_prims;
 
    struct _DriFenceObject *last_swap_fence;
    struct _DriFenceObject *first_swap_fence;

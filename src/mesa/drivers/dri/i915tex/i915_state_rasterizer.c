@@ -39,32 +39,15 @@
 
 static void choose_rasterizer( struct intel_context *intel )
 {
-   struct i915_context *i915 = i915_context( &intel->ctx );
-   GLuint fallback_prims = 0;
    struct intel_render *render = NULL;
-
-   /* _NEW_POINT 
-    */
-   if (intel->state.Point->_Attenuated)
-      fallback_prims |= (1 << GL_POINTS);
-
-   /* _NEW_LINE 
-    */
-   if (intel->state.Line->StippleFlag)
-      fallback_prims |= (1 << GL_LINES);
-
-   /* I915_NEW_POLY_STIPPLE_FALLBACK 
-    */
-   if (i915->fallback_on_poly_stipple)
-      fallback_prims |= (1 << GL_TRIANGLES);
 
    /* INTEL_NEW_FALLBACK, INTEL_NEW_ACTIVE_PRIMS
     */
    if (1 || intel->Fallback) {
       render = intel->swrender;
    }
-   else if (intel->active_prims & fallback_prims) {
-      if (intel->active_prims & ~fallback_prims) {
+   else if (intel->active_prims & intel->fallback_prims) {
+      if (intel->active_prims & ~intel->fallback_prims) {
 	 render = intel->mixed; /* classic + swrast */
       }
       else {
@@ -92,7 +75,7 @@ static void choose_rasterizer( struct intel_context *intel )
 const struct intel_tracked_state i915_choose_rasterizer = {
    .dirty = {
       .mesa = (_NEW_LINE | _NEW_POINT),
-      .intel  = (I915_NEW_POLY_STIPPLE_FALLBACK |
+      .intel  = (INTEL_NEW_FALLBACK_PRIMS |
 		 INTEL_NEW_FALLBACK |
 		 INTEL_NEW_ACTIVE_PRIMS),
       .extra = 0

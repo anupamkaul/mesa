@@ -641,7 +641,7 @@ _swrast_validate_derived( GLcontext *ctx )
    }
 }
 
-#define SWRAST_DEBUG 0
+#define SWRAST_DEBUG 1
 
 /* Public entrypoints:  See also s_accum.c, s_bitmap.c, etc.
  */
@@ -880,7 +880,7 @@ _swrast_render_finish( GLcontext *ctx )
 }
 
 
-#define SWRAST_DEBUG_VERTICES 0
+#define SWRAST_DEBUG_VERTICES 1
 
 void
 _swrast_print_vertex( GLcontext *ctx, const SWvertex *v )

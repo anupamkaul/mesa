@@ -46,7 +46,6 @@ void intel_draw_finish_frame( struct intel_draw *draw )
    assert(!draw->in_vb);
    assert(draw->in_frame);
    draw->in_frame = GL_FALSE;
-   draw->render->flush( draw->render, !draw->in_frame );
 }
 
 
@@ -55,7 +54,13 @@ void intel_draw_finish_frame( struct intel_draw *draw )
 void intel_draw_flush( struct intel_draw *draw )
 {
    assert(!draw->in_vb);
-   draw->render->flush( draw->render, !draw->in_frame );
+
+   if (draw->render
+/*        && draw->need_flush */
+      )
+      draw->render->flush( draw->render, !draw->in_frame );
+
+/*    draw->need_flush = GL_FALSE; */
 }
 
 
@@ -111,7 +116,14 @@ void intel_draw_set_hw_vertex_format( struct intel_draw *draw,
 				     attr,
 				     count,
 				     vertex_size );
+#else
+
+   vf_set_vertex_attributes( draw->vb.vf,
+			     attr,
+			     count,
+			     vertex_size );
 #endif
+
 }
 
 
@@ -129,7 +141,8 @@ void intel_draw_set_render( struct intel_draw *draw,
 
    /* Shut down the old rasterizerer:
     */
-   draw->hw->flush(draw->hw, !draw->in_frame );
+   if (draw->hw)
+      draw->hw->flush(draw->hw, !draw->in_frame );
 
    /* Install the new one - potentially updating draw->render as well.
     */
@@ -164,14 +177,47 @@ static void draw_begin_vb( struct intel_draw *draw,
     */
    vf_set_sources( draw->vb.vf, sources, 0 );
 
+   {
+      union { float f; int i; } *fi = sources[0]->data;
+      int i;
+
+      for (i = 0; i < count; i++) 
+	 _mesa_printf("%d: %f %f %f\n",
+		      i,
+		      fi[i*4+0].f,
+		      fi[i*4+1].f,
+		      fi[i*4+2].f);
+   }
+      
+
+
    /* Build the hardware or prim-pipe vertices: 
     */
    vf_emit_vertices( draw->vb.vf,
 		     count,
 		     draw->vb.verts );
+
+   {
+      union { float f; int i; } *fi = draw->vb.verts;
+      int i;
+
+      for (i = 0; i < count; i++) 
+	 _mesa_printf("%d: %f %f %f %x\n",
+		      i,
+		      fi[i*4+0].f,
+		      fi[i*4+1].f,
+		      fi[i*4+2].f,
+		      fi[i*4+3].i);
+   }
+      
+
 }
 
 
+struct vertex_fetch *intel_draw_get_vf( struct intel_draw *draw )
+{
+   return draw->vb.vf;
+}
 
 
 struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbacks )

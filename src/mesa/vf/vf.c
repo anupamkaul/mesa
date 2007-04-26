@@ -31,7 +31,7 @@
 
 #include "vf.h"
 
-#define DBG 0
+#define DBG 1
 
 
 
@@ -167,15 +167,12 @@ GLuint vf_set_vertex_attributes( struct vertex_fetch *vf,
 
       }
       else {
-	 GLuint tmpoffset = vertex_stride ? map[i].offset : offset;
-
 	 vf->attr[j].attrib = map[i].attrib;
 	 vf->attr[j].format = format;
-	 vf->attr[j].vp = vf->vp;
 	 vf->attr[j].insert = vf_format_info[format].insert;
 	 vf->attr[j].extract = vf_format_info[format].extract;
 	 vf->attr[j].vertattrsize = vf_format_info[format].attrsize;
-	 vf->attr[j].vertoffset = tmpoffset;
+	 vf->attr[j].vertoffset = offset;
 	 
 	 if (DBG)
 	    _mesa_printf("%d: %s, offset %d\n", i,  
@@ -301,6 +298,10 @@ void vf_get_attr( struct vertex_fetch *vf,
 struct vertex_fetch *vf_create( GLboolean allow_viewport_emits )
 {
    struct vertex_fetch *vf = CALLOC_STRUCT(vertex_fetch);
+   GLuint i;
+
+   for (i = 0; i < VF_ATTRIB_MAX; i++)
+      vf->attr[i].vf = vf;
 
    vf->allow_viewport_emits = allow_viewport_emits;
 

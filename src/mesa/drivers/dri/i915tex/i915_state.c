@@ -58,6 +58,7 @@ const struct intel_tracked_state *atoms[] =
    /* Calculate vertex format: 
     */
    &i915_vertex_format,
+   &i915_setup_vertex_format,
 
    /* Immediate state.  
     */
