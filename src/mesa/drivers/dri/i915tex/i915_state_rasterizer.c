@@ -43,10 +43,10 @@ static void choose_rasterizer( struct intel_context *intel )
 
    /* INTEL_NEW_FALLBACK, INTEL_NEW_ACTIVE_PRIMS
     */
-   if (1 || intel->Fallback) {
+   if (intel->Fallback) {
       render = intel->swrender;
    }
-   else if (intel->active_prims & intel->fallback_prims) {
+   else if (0 & intel->active_prims & intel->fallback_prims) {
       if (intel->active_prims & ~intel->fallback_prims) {
 	 render = intel->mixed; /* classic + swrast */
       }

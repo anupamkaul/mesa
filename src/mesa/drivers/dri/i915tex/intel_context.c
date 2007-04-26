@@ -504,7 +504,7 @@ intelInitContext(struct intel_context *intel,
 
    intel->vb = intel_vb_init(intel);
 
-   intel->classic = 0; // intel_create_classic_render( intel );
+   intel->classic = intel_create_classic_render( intel );
    intel->swrender = intel_create_swrast_render( intel );
 
    {
@@ -557,7 +557,7 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
       intel_batchbuffer_free( intel->batch );
       intel_vb_destroy( intel->vb );
 
-//      intel->classic->destroy( intel->classic );
+      intel->classic->destroy( intel->classic );
       intel->swrender->destroy( intel->swrender );
 
       if (intel->last_swap_fence) {
