@@ -65,6 +65,15 @@ static INLINE struct quads_render *quads_render( struct intel_render *render )
 
 
 
+static void *quads_allocate_vertices( struct intel_render *render,
+				      GLuint vertex_size,
+				      GLuint nr_vertices )
+{
+   struct quads_render *quads = quads_render( render );
+   return quads->hw->allocate_vertices( quads->hw, vertex_size, nr_vertices );
+}
+
+
 static void quads_set_hw_prim( struct quads_render *quads,
 			       GLenum prim )
 {
@@ -73,6 +82,26 @@ static void quads_set_hw_prim( struct quads_render *quads,
       quads->hw->set_prim( quads->hw, prim );
    }
 }
+
+static void quads_set_prim( struct intel_render *render,
+			      GLenum mode )
+{
+   struct quads_render *quads = quads_render( render );
+
+   quads->gl_prim = mode;
+
+   switch (mode) {
+   case GL_LINE_LOOP:
+   case GL_QUADS:
+   case GL_QUAD_STRIP:
+      break;
+   default:
+      quads_set_hw_prim( quads, mode );
+      break;
+   }
+}
+
+
 
 
 static void quads_draw_indexed_prim( struct intel_render *render,
@@ -240,25 +269,12 @@ static void quads_draw_prim( struct intel_render *render,
 }
 
 
-static void quads_set_prim( struct intel_render *render,
-			      GLenum mode )
+static void quads_release_vertices( struct intel_render *render, 
+				    void *hw_verts)
 {
    struct quads_render *quads = quads_render( render );
-
-   quads->gl_prim = mode;
-
-   switch (mode) {
-   case GL_LINE_LOOP:
-   case GL_QUADS:
-   case GL_QUAD_STRIP:
-      break;
-   default:
-      quads_set_hw_prim( quads, mode );
-      break;
-   }
+   quads->hw->release_vertices( quads->hw, hw_verts );
 }
-
-
 
 
 static void quads_destroy_context( struct intel_render *render )
@@ -273,17 +289,14 @@ struct intel_render *intel_create_quads_render( struct intel_draw *draw )
 {
    struct quads_render *quads = CALLOC_STRUCT(quads_render);
 
-   /* XXX: Add casts here to avoid the compiler messages:
-    */
    quads->render.destroy = quads_destroy_context;
-   quads->render.start_render = 0;
-   quads->render.set_hw_vertex_format = 0;
-   quads->render.allocate_vertices = 0;
+   quads->render.start_render = NULL;
+   quads->render.allocate_vertices = quads_allocate_vertices;
    quads->render.set_prim = quads_set_prim;
    quads->render.draw_prim = quads_draw_prim;
    quads->render.draw_indexed_prim = quads_draw_indexed_prim;
-   quads->render.release_vertices = 0;
-   quads->render.flush = 0;
+   quads->render.release_vertices = quads_release_vertices;
+   quads->render.flush = NULL;
 
 #if QUADSTRIP_OPT
    quads->draw = draw;

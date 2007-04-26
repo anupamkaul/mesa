@@ -69,22 +69,14 @@ static const GLubyte *get_vertex( struct swrast_render *swrender,
 }
 
 
-static void swrender_set_hw_vertex_format( struct intel_render *render, 
-					 const struct vf_attr_map *attrs,
-					 GLuint attr_count,
-					 GLuint vertex_size )
-{
-   struct swrast_render *swrender = swrast_render( render );
-
-   swrender->hw_vert_size = vertex_size;
-}
-
 static void *swrender_allocate_vertices( struct intel_render *render,
-					GLuint nr_vertices )
+					 GLuint vertex_size,
+					 GLuint nr_vertices )
 {
    struct swrast_render *swrender = swrast_render( render );
 
    swrender->vf = intel_draw_get_vf( swrender->intel->draw );
+   swrender->hw_vert_size = vertex_size;
    swrender->hw_verts = MALLOC( nr_vertices * swrender->hw_vert_size );
 
    return swrender->hw_verts;
@@ -428,7 +420,6 @@ struct intel_render *intel_create_swrast_render( struct intel_context *intel )
    struct swrast_render *swrender = CALLOC_STRUCT(swrast_render);
 
    swrender->render.start_render = swrender_start_render;
-   swrender->render.set_hw_vertex_format = swrender_set_hw_vertex_format;
    swrender->render.allocate_vertices = swrender_allocate_vertices;
    swrender->render.set_prim = swrender_set_prim;
    swrender->render.draw_prim = swrender_draw_prim;

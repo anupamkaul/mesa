@@ -39,14 +39,6 @@ struct intel_render {
 			 GLboolean start_of_frame );
 
 
-   /* The clip/setup pipe uses the format information, swrast needs
-    * some info for vertex translation.  Regular renderers probably
-    * don't care too much, but do need the vertex size.
-    */
-   void (*set_hw_vertex_format)( struct intel_render *,
-				 const struct vf_attr_map *attrs,
-				 GLuint attr_count,
-				 GLuint vertex_size );
 
 
    /* Request a destination for incoming vertices in the format above.
@@ -55,7 +47,8 @@ struct intel_render {
     * (draw itself, or the prim pipe).
     */
    void *(*allocate_vertices)( struct intel_render *,
-			    GLuint max_vertices );
+			       GLuint vertex_size,
+			       GLuint nr_vertices );
 
    /* Notify the renderer of the current primitive when it changes:
     */
@@ -137,6 +130,7 @@ struct intel_draw_state {
 };
 
 
+
 struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbacks );
 				      
 void intel_draw_destroy( struct intel_draw * );
@@ -157,9 +151,17 @@ void intel_draw_set_hw_vertex_format( struct intel_draw *draw,
 				      GLuint count,
 				      GLuint vertex_size );
 
+
+void intel_draw_set_prim_vertex_format( struct intel_draw *draw,
+					const struct vf_attr_map *attr,
+					GLuint count,
+					GLuint vertex_size );
+
 void intel_draw_set_render( struct intel_draw *draw,
 			    struct intel_render *render );
 
+void intel_draw_set_prim_pipe_active( struct intel_draw *draw,
+				      GLboolean active );
 
 
 struct vertex_fetch *intel_draw_get_vf( struct intel_draw *draw );
@@ -177,64 +179,64 @@ struct intel_draw {
    /* The most recent drawing state as set by the driver:
     */
    struct intel_draw_state state;
+
+   struct {
+      GLuint clipped_prims:1;
+      GLuint pad:15;
+      GLuint active_prims:16;
+   } vb_state;
    
    /* The hardware backend (or swrast)
     */
    struct intel_render *hw;
    struct vf_attr_map hw_attrs[VF_ATTRIB_MAX];
    GLuint hw_attr_count;
+   GLuint hw_vertex_size;
 
-#if 0	 
+   /* Helper for quads (when prim pipe not active??)
+    */
+   struct intel_render *quads;
+
+
    /* The software clipper/setup engine.  Feeds primitives into the
     * above as necessary:
     */
    struct intel_render *prim;	 
    struct vf_attr_map prim_attrs[VF_ATTRIB_MAX];
    GLuint prim_attr_count;
-#endif
+   GLuint prim_vertex_size;
+   GLboolean prim_pipe_active;
 
-   /* The active renderer:
-    */
-   struct intel_render *render;
-   GLenum render_prim;
+   struct vertex_fetch *vf;
 
    struct {
-      /* This is the only way vertices get fetched from tnl: 
+      /* The active renderer - either quads or prim, depending on gl
+       * state and clipped prims.
        */
-      struct vertex_fetch *vf;
+      struct intel_render *render;
+      GLenum render_prim;
+
+      /* These are the attributes installed in vf:
+       */
       struct vf_attr_map *attrs;
       GLuint attr_count;
-      GLuint vertex_stride_bytes;
+      GLuint vertex_size;
 
-      /* Destination for vertices, allocated by render, we don't own
-       * this:
+      /* Destination for vertices, allocated by render:
        */
       GLubyte *verts;
-      GLuint nr_verts;
    } vb;
 
    /* State
     */
    GLboolean in_frame;
    GLboolean in_vb;
+   GLboolean revalidate;
 
    /* Helper for tnl:
     */
-   GLvector4f header;
-
-   /* Helper for quads (when prim pipe not active??)
-    */
-   struct intel_render *quads;
-   
+   GLvector4f header;   
 };
-
-
-
-static INLINE void *draw_get_vertex( struct intel_draw *draw, 
-				     GLuint i )
-{
-   return (void *) (draw->vb.verts + i * draw->vb.vertex_stride_bytes);
-}
 
 
 #endif

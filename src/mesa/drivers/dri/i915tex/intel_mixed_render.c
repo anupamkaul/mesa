@@ -72,16 +72,6 @@ static void mixed_start_render( struct intel_render *render )
 }
 
 
-static void mixed_set_hw_vertex_format( struct intel_render *render, 
-					  const struct vf_attr_map *attrs,
-					  GLuint attr_count,
-					  GLuint vertex_size )
-{
-   struct mixed_render *mixed = mixed_render( render );
-   mixed->sw->set_hw_vertex_format( mixed->sw, attrs, attr_count, vertex_size );
-   mixed->hw->set_hw_vertex_format( mixed->hw, attrs, attr_count, vertex_size );
-   mixed->vertex_size = vertex_size;
-}
 
 
 /* Really want to allocate vertices from the intel vertex buffer, but
@@ -94,10 +84,13 @@ static void mixed_set_hw_vertex_format( struct intel_render *render,
  * the screen maps anyway, so that's a non-issue.
  */
 static void *mixed_allocate_vertices( struct intel_render *render,
+				      GLuint vertex_size,
 				      GLuint nr_verts )
 {
    /* Always build vertices in a local memory buffer.
     */
+
+   mixed->vertex_size = vertex_size;
 }
    
 
@@ -180,7 +173,6 @@ struct intel_render *intel_create_mixed_render( struct intel_context *intel )
    /* XXX: Add casts here to avoid the compiler messages:
     */
    mixed->render.start_render = mixed_start_render;
-   mixed->render.set_hw_vertex_format = mixed_set_hw_vertex_format;
    mixed->render.allocate_vertices = mixed_allocate_vertices;
    mixed->render.set_prim = mixed_set_prim;
    mixed->render.draw_prim = mixed_draw_prim;

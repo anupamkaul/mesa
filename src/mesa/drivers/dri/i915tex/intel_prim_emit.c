@@ -1,89 +1,134 @@
+/**************************************************************************
+ * 
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sub license, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial portions
+ * of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+ * IN NO EVENT SHALL TUNGSTEN GRAPHICS AND/OR ITS SUPPLIERS BE LIABLE FOR
+ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ **************************************************************************/
 
-struct intel_prim_emit_stage {
-   struct prim_pipeline_stage base;
+/* Authors:  Keith Whitwell <keith@tungstengraphics.com>
+ */
+#include "imports.h"
 
-   struct intel_vb *vb;
-   GLuint vert_space;
+#define INTEL_DRAW_PRIVATE
+#include "intel_draw.h"
+
+#define INTEL_PRIM_PRIVATE
+#include "intel_prim.h"
+
+/* Don't want these too large as there is no mechanism to "give back"
+ * unused space.  FIXME.
+ */
+#define EMIT_MAX_ELTS  1024
+#define EMIT_MAX_VERTS 256
+
+struct emit_stage {
+   struct prim_stage stage;
 
    struct {
-      GLuint *elts;
+      GLubyte *buf;
+      GLuint count;
+      GLuint space;
+   } verts;
+
+   struct {
+      GLuint elts[EMIT_MAX_ELTS];
       GLuint count;
       GLuint space;
    } elts;
          
-   GLuint prim;
+   struct intel_render *hw;
+   GLuint hw_vertex_size;
+   GLuint hw_data_offset;
+   GLuint hw_prim;
 };
    
 
-static void set_primitive( struct prim_pipeline_stage *stage,
-			   GLenum primitive )
+static INLINE struct emit_stage *emit_stage( struct prim_stage *stage )
 {
-   struct prim_emit_stage *emit = prim_emit_stage( stage );
-
-
-   if (primitive != emit->prim) {
-      struct intel_render *render = stage->pipe->draw.render;
-
-      render->set_prim( render, primitive, GL_FALSE );
-      emit->prim = primitive;
-   }
+   return (struct emit_stage *)stage;
 }
 
-static void flush( struct prim_pipeline_stage *stage )
+
+static void set_primitive( struct emit_stage *emit,
+			   GLenum primitive )
 {
-   struct prim_emit_stage *emit = prim_emit_stage( stage );
-   struct intel_render *rasterizer = stage->pipe->draw->hw;
+   struct intel_render *hw = emit->hw;
+   hw->set_prim( hw, primitive );
+   emit->hw_prim = primitive;
+}
+
+static void flush( struct emit_stage *emit, 
+		   GLboolean allocate_new_vertices )
+{
+   struct intel_render *hw = emit->hw;
+   GLboolean flush_hw = (emit->verts.buf != NULL);
    
-   /* XXX: Tweak destination vb's dirty flags so that it doesn't try
-    * and go to tnl to load these vertices.  Need to break the link
-    * between vb's and tnl somehow (perhaps by getting rid of tnl).
-    */
-   {
-      emit->vb->hw.dirty = 1;
-      emit->vb->local.dirty = 0;
+   if (flush_hw) {
+      hw->draw_indexed_prim( hw, emit->elts.elts, emit->elts.count );
+      hw->release_vertices( hw, emit->verts.buf );
+      
+      emit->elts.space = 0;
+      emit->elts.count = 0;
+      emit->verts.buf = NULL;
+      emit->verts.count = 0;
+      emit->verts.space = 0;
    }
 
-   rasterizer->set_verts( rasterizer, emit->vb );
-   rasterizer->draw_indexed_prim( rasterizer, emit->elts.elts, emit->elts.count );
-   
-   emit->elts.space += emit->elts.count;
-   emit->elts.count = 0;
-
-   emit->vert_space = 1024;
    
    /* Clear index value on all cached vertices in the prim pipeline
     * itself.
     */
+   if (allocate_new_vertices)
    {
-      struct intel_vb *vb = emit->base.pipe->input.vb;
-      GLuint i;
-
-      for (i = 0; i < vb->nr_verts; i++) {
-	 struct vertex_header *vert = intel_vb_get_vertex( vb, i );
-	 vert->index = ~0;
-      }
+      emit->elts.space = EMIT_MAX_ELTS;
+      emit->elts.count = 0;
+      emit->verts.buf = hw->allocate_vertices( hw, emit->hw_vertex_size, EMIT_MAX_VERTS );
+      emit->verts.space = EMIT_MAX_VERTS;
+      emit->verts.count = 0;
    }
+
+   if (flush_hw && allocate_new_vertices)
+      intel_prim_clear_vertex_indices( emit->stage.pipe );
 }
 
 /* Check for sufficient vertex and index space.  Return pointer to
  * index list.  
  */
-static GLuint *check_space( struct prim_pipeline_stage *stage,
+static GLuint *check_space( struct emit_stage *emit,
 			    GLenum primitive,
 			    GLuint nr_verts,
 			    GLuint nr_elts )
 {
-   struct prim_emit_stage *emit = prim_emit_stage( stage );
    GLuint *ptr;
 
-   if (primitive != emit->primitive) 
+   if (primitive != emit->hw_prim) 
       set_primitive( emit, primitive );
 
-   if (nr_verts >= emit->vert.space ||
+   if (nr_verts >= emit->verts.space ||
        nr_elts >= emit->elts.space)
-      flush( emit );
+      flush( emit, GL_TRUE );
 
-   ptr = emit->elts.ptr + emit->elts.count;
+   ptr = emit->elts.elts + emit->elts.count;
    emit->elts.count += nr_elts;
    emit->elts.space -= nr_elts;
 
@@ -94,54 +139,107 @@ static GLuint *check_space( struct prim_pipeline_stage *stage,
 /* Check for vertex in buffer and emit if necessary.  Return index.
  * No need to check space this has already been done.
  */
-static GLuint emit_vert( struct prim_pipeline_stage *stage,
+static GLuint emit_vert( struct emit_stage *emit,
 			 struct vertex_header *vert )
 {
-   if (vert->index == ~0) {
-      vert->index = draw->max_index++;
-      memcpy( get_vert(draw->vb, vert->index), 
-	      vert->data, 
-	      stage->vertex_size );
+   if (vert->index == 0xffff) {
+      GLuint idx = emit->verts.count++;
+
+      vert->index = idx;
+
+      memcpy( emit->verts.buf + idx * emit->hw_vertex_size, 
+	      vert->data + emit->hw_data_offset, 
+	      emit->hw_vertex_size );
    }
 
    return vert->index;   
 }
 
 
-
-static void emit_tri( struct prim_pipeline_stage *stage,
-		      struct vertex_header *v0,
-		      struct vertex_header *v1,
-		      struct vertex_header *v2 )
+static void emit_begin( struct prim_stage *stage )
 {
-   GLuint *elts = check_space( stage, GL_TRIANGLES, 3, 3 );
+   struct emit_stage *emit = emit_stage( stage );
 
-   elts[0] = emit_vert( stage, v0 );
-   elts[1] = emit_vert( stage, v1 );
-   elts[2] = emit_vert( stage, v2 );
+   /* Validate hw_vertex_size, hw_data_offset, etc:
+    */
+   emit->hw = stage->pipe->draw->hw;
+   emit->hw_vertex_size = stage->pipe->draw->hw_vertex_size;
+   emit->hw_data_offset = 0;
+   emit->hw->set_prim( emit->hw, emit->hw_prim );
+
+   flush( emit, GL_TRUE );
 }
 
 
-static void emit_line( struct prim_pipeline_stage *stage,
-		       struct vertex_header *v0,
-		       struct vertex_header *v1 )
+static void emit_quad( struct prim_stage *stage,
+		       struct prim_header *header )
 {
-   GLuint *elts = check_space( stage, GL_LINES, 2, 2 );
+   struct emit_stage *emit = emit_stage( stage );
+   GLuint *elts = check_space( emit, GL_TRIANGLES, 4, 6 );
 
-   elts[0] = emit_vert( stage, v0 );
-   elts[1] = emit_vert( stage, v1 );
-}
+   elts[0] = emit_vert( emit, header->v[0] );
+   elts[1] = emit_vert( emit, header->v[1] );
+   elts[2] = emit_vert( emit, header->v[3] );
 
-static void emit_point( struct prim_pipeline_stage *stage,
-			struct vertex_header *v0 )
-{
-   GLuint *elts = check_space( stage, GL_POINTS, 1, 1 );
-
-   elts[0] = emit_vert( stage, v0 );
+   elts[3] = emit_vert( emit, header->v[1] );
+   elts[4] = emit_vert( emit, header->v[2] );
+   elts[5] = emit_vert( emit, header->v[3] );
 }
 
 
-struct intel_prim_stage *intel_prim_emit_create( struct intel_prim_pipeline *pipe )
+static void emit_tri( struct prim_stage *stage,
+		      struct prim_header *header )
 {
-   
+   struct emit_stage *emit = emit_stage( stage );
+   GLuint *elts = check_space( emit, GL_TRIANGLES, 3, 3 );
+
+   elts[0] = emit_vert( emit, header->v[0] );
+   elts[1] = emit_vert( emit, header->v[1] );
+   elts[2] = emit_vert( emit, header->v[2] );
+}
+
+
+static void emit_line( struct prim_stage *stage,
+		       struct prim_header *header )
+{
+   struct emit_stage *emit = emit_stage( stage );
+   GLuint *elts = check_space( emit, GL_LINES, 2, 2 );
+
+   elts[0] = emit_vert( emit, header->v[0] );
+   elts[1] = emit_vert( emit, header->v[1] );
+}
+
+
+static void emit_point( struct prim_stage *stage,
+			struct prim_header *header )
+{
+   struct emit_stage *emit = emit_stage( stage );
+   GLuint *elts = check_space( emit, GL_POINTS, 1, 1 );
+
+   elts[0] = emit_vert( emit, header->v[0] );
+}
+
+static void emit_end( struct prim_stage *stage )
+{
+   struct emit_stage *emit = emit_stage( stage );
+
+   flush( emit, GL_FALSE );
+   emit->hw = NULL;
+}
+
+struct prim_stage *intel_prim_emit( struct prim_pipeline *pipe )
+{
+   struct emit_stage *emit = CALLOC_STRUCT(emit_stage);
+
+   emit->stage.pipe = pipe;
+   emit->stage.next = NULL;
+   emit->stage.tmp = NULL;
+   emit->stage.begin = emit_begin;
+   emit->stage.point = emit_point;
+   emit->stage.line = emit_line;
+   emit->stage.tri = emit_tri;
+   emit->stage.quad = emit_quad;
+   emit->stage.end = emit_end;
+
+   return &emit->stage;
 }

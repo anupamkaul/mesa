@@ -31,6 +31,8 @@
 #ifndef INTEL_PRIM_H
 #define INTEL_PRIM_H
 
+#include "glheader.h"
+
 /* The prim pipeline probably needs to know about the internals of the
  * intel_draw struct.  Need to figure that out shortly.
  */
@@ -39,10 +41,6 @@ struct intel_draw;
 struct intel_draw_state;
 struct intel_render;
 struct prim_pipeline;
-
-#define PRIM_POINT 0x0
-#define PRIM_LINE  0x1
-#define PRIM_TRI   0x2
 
 
 struct prim_draw_state {
@@ -56,12 +54,11 @@ struct prim_draw_state {
 
 struct intel_render *intel_create_prim_render( struct intel_draw *draw );
 
-GLboolean prim_set_state( struct intel_render *pipe,
-			  struct intel_draw_state *draw );
 
+GLboolean intel_prim_validate_state( struct intel_render *render );
 
-void prim_set_hw_render( struct intel_render *pipe,
-			 struct intel_render *render );
+void intel_prim_set_hw_render( struct intel_render *render,
+			       struct intel_render *hw );
 
 
 
@@ -70,29 +67,26 @@ void prim_set_hw_render( struct intel_render *pipe,
  */
 #ifdef INTEL_PRIM_PRIVATE
 
-struct prim_pipeline_stage;
+struct prim_stage;
 
 struct prim_pipeline {
    struct intel_render render;
    struct intel_draw *draw;
 
-   GLuint vertex_copy_size;
-   
-   struct prim_pipeline_stage *emit;
-   struct prim_pipeline_stage *unfilled;
-   struct prim_pipeline_stage *twoside;
-   struct prim_pipeline_stage *clip;
-   struct prim_pipeline_stage *flatshade;
-   struct prim_pipeline_stage *cull;
+   struct prim_stage *emit;
+   struct prim_stage *unfilled;
+   struct prim_stage *twoside;
+   struct prim_stage *clip;
+   struct prim_stage *flatshade;
+   struct prim_stage *cull;
 
+   struct prim_stage *first;
 
-   struct {
-      struct prim_pipeline_stage *first;
-      GLuint prim;
+   GLubyte *verts;
+   GLuint nr_vertices;
+   GLuint vertex_size;
 
-      struct intel_vb *vb;
-      
-   } input;
+   GLenum prim;
 };
 
 
@@ -114,79 +108,83 @@ struct vertex_header {
    GLubyte data[];
 };
 
+#define PRIM_POINT 1
+#define PRIM_LINE  2
+#define PRIM_TRI   3
+#define PRIM_QUAD  4
+
 /* Not used yet, maybe later:
  */
 struct prim_header {
+   GLuint clipmask:16;
+   GLuint edgeflags:4;		
+   GLuint prim:3;		/* also == number of vertices */
+   GLuint pad:9;
+
    GLfloat det;
 
-   GLuint clipormask:16;
-   GLuint edgeflags:3;
-   GLuint pad:13;
-
-   struct vertex_header *v0;
-   struct vertex_header *v1;
-   struct vertex_header *v2;
+   struct vertex_header *v[4];
 };
 
 
 /* Internal structs and helpers for the primitive clip/setup pipeline:
  */
-struct prim_pipeline_stage {
-   struct prim_pipeline *pipeline;
-   struct prim_pipeline_stage *next;
+struct prim_stage {
+   struct prim_pipeline *pipe;
+   struct prim_stage *next;
    struct vertex_header **tmp;
 
-   void (*point)( struct prim_pipeline_stage *,
-		  struct vertex_header * );
+   void (*begin)( struct prim_stage * );
 
-   void (*line)(  struct prim_pipeline_stage *,
-		  struct vertex_header *,
-		  struct vertex_header * );
+   void (*point)( struct prim_stage *,
+		  struct prim_header * );
 
-   void (*tri)(   struct prim_pipeline_stage *,
-		  struct vertex_header *,
-		  struct vertex_header *,
-		  struct vertex_header *); 
+   void (*line)( struct prim_stage *,
+		 struct prim_header * );
+
+   void (*tri)( struct prim_stage *,
+		struct prim_header * );
+
+   void (*quad)( struct prim_stage *,
+		 struct prim_header * );
+
+   void (*end)( struct prim_stage * );
 };
 
 
-struct prim_pipeline_stage *intel_prim_emit( struct prim_pipeline *pipe );
-struct prim_pipeline_stage *intel_prim_unfilled( struct prim_pipeline *pipe );
-struct prim_pipeline_stage *intel_prim_twoside( struct prim_pipeline *pipe );
-struct prim_pipeline_stage *intel_prim_clip( struct prim_pipeline *pipe );
-struct prim_pipeline_stage *intel_prim_flatshade( struct prim_pipeline *pipe );
-struct prim_pipeline_stage *intel_prim_cull( struct prim_pipeline *pipe );
+struct prim_stage *intel_prim_emit( struct prim_pipeline *pipe );
+struct prim_stage *intel_prim_unfilled( struct prim_pipeline *pipe );
+struct prim_stage *intel_prim_twoside( struct prim_pipeline *pipe );
+struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe );
+struct prim_stage *intel_prim_flatshade( struct prim_pipeline *pipe );
+struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe );
 
 
-
+void intel_prim_clear_vertex_indices( struct prim_pipeline *pipe );
 
 /* Helpers
  */
-static INLINE GLfloat 
-calc_det( struct vertex_header *v0,
-	  struct vertex_header *v1,
-	  struct vertex_header *v2 )
+static INLINE void calc_det( struct prim_header *prim )
 {
-   GLfloat ex = v0->data[0] - v2->data[0];
-   GLfloat ey = v0->data[1] - v2->data[1];
-   GLfloat fx = v1->data[0] - v2->data[0];
-   GLfloat fy = v1->data[1] - v2->data[1];
-   GLfloat cc = ex*fy - ey*fx;
+   GLfloat ex = prim->v[0]->data[0] - prim->v[2]->data[0];
+   GLfloat ey = prim->v[0]->data[1] - prim->v[2]->data[1];
+   GLfloat fx = prim->v[1]->data[0] - prim->v[2]->data[0];
+   GLfloat fy = prim->v[1]->data[1] - prim->v[2]->data[1];
    
-   return cc;
+   prim->det = ex * fy - ey * fx;
 }
 
 
 
 /* Get a writeable copy of a vertex:
  */
-static struct vertex_header *
-dup_vert( struct prim_pipeline_stage *stage,
+static INLINE struct vertex_header *
+dup_vert( struct prim_stage *stage,
 	  struct vertex_header *vert,
 	  GLuint idx )
 {   
    struct vertex_header *tmp = stage->tmp[idx];
-   memcpy(tmp, vert, stage->pipeline->vertex_copy_size );
+   memcpy(tmp, vert, stage->pipe->vertex_size );
    tmp->index = ~0;
    return tmp;
 }

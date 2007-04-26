@@ -31,7 +31,7 @@
 
 #include "imports.h"
 
-//#include "intel_prim.h"
+#include "intel_prim.h"
 #include "intel_draw_quads.h"
 
 #define INTEL_DRAW_PRIVATE
@@ -55,12 +55,8 @@ void intel_draw_flush( struct intel_draw *draw )
 {
    assert(!draw->in_vb);
 
-   if (draw->render
-/*        && draw->need_flush */
-      )
-      draw->render->flush( draw->render, !draw->in_frame );
-
-/*    draw->need_flush = GL_FALSE; */
+   if (draw->vb.render)
+      draw->vb.render->flush( draw->vb.render, !draw->in_frame );
 }
 
 
@@ -72,7 +68,7 @@ void intel_draw_set_viewport( struct intel_draw *draw,
 			      const GLfloat *trans )
 {
    assert(!draw->in_vb);
-   vf_set_vp_scale_translate( draw->vb.vf, scale, trans );
+   vf_set_vp_scale_translate( draw->vf, scale, trans );
 }
 
 
@@ -83,6 +79,7 @@ void intel_draw_set_state( struct intel_draw *draw,
 
    /* Need to validate state.
     */
+   draw->revalidate = 1;
 }
 
 
@@ -102,29 +99,27 @@ void intel_draw_set_hw_vertex_format( struct intel_draw *draw,
     */
    assert(!draw->in_vb);
 
-   /* Pass this through to the hardware renderer:  
-    * XXX: just the size info???
-    */
-   draw->hw->set_hw_vertex_format( draw->hw,
-				   attr, 
-				   count,
-				   vertex_size );
+   
+   memcpy(draw->hw_attrs, attr, count * sizeof(*attr));
+   draw->hw_attr_count = count;
+   draw->hw_vertex_size = vertex_size;
 
-   /* Notify the cs pipe and allow it to update its vf instance also:
-    */
-#if 0
-   draw->prim->set_hw_vertex_format( draw->prim,
-				     attr,
-				     count,
-				     vertex_size );
-#else
+   draw->revalidate = 1;
+}
 
-   vf_set_vertex_attributes( draw->vb.vf,
-			     attr,
-			     count,
-			     vertex_size );
-#endif
 
+void intel_draw_set_prim_vertex_format( struct intel_draw *draw,
+					const struct vf_attr_map *attr,
+					GLuint count,
+					GLuint vertex_size )
+{
+   assert(!draw->in_vb);
+   
+   memcpy(draw->prim_attrs, attr, count * sizeof(*attr));
+   draw->prim_attr_count = count;
+   draw->prim_vertex_size = vertex_size;
+
+   draw->revalidate = 1;
 }
 
 
@@ -147,64 +142,46 @@ void intel_draw_set_render( struct intel_draw *draw,
 
    /* Install the new one - potentially updating draw->render as well.
     */
-   if (draw->render == draw->hw)
-      draw->render = hw;
+   if (draw->vb.render == draw->hw)
+      draw->vb.render = hw;
 
    draw->hw = hw;
 
    intel_quads_set_hw_render( draw->quads, draw->hw );
+   intel_prim_set_hw_render( draw->prim, draw->hw );
 }
 
 static void draw_validate_state( struct intel_draw *draw )
 {
-   draw->render = draw->hw;
-}
-
-static void draw_begin_vb( struct intel_draw *draw, 
-			   GLvector4f * const sources[],
-			   GLuint count )
-{
-   draw->in_vb = 1;
-
-   draw->vb.verts = draw->render->allocate_vertices( draw->render,
-						     /* draw->vb.vertex_stride_bytes, */
-						     count );
-
-   if (!draw->vb.verts) {
-      assert(0);
+   /* Choose between simple and complex (quads vs. prim) pipelines.
+    */
+   draw->prim_pipe_active = intel_prim_validate_state( draw->prim );
+   
+   if (draw->prim_pipe_active) {
+      draw->vb.render = draw->prim;
+      draw->vb.attrs = draw->prim_attrs;
+      draw->vb.attr_count = draw->prim_attr_count;
+      draw->vb.vertex_size = draw->prim_vertex_size;
+   }
+   else {
+      draw->vb.render = draw->quads;
+      draw->vb.attrs = draw->hw_attrs;
+      draw->vb.attr_count = draw->hw_attr_count;
+      draw->vb.vertex_size = draw->hw_vertex_size;
    }
 
-   /* Bind the vb outputs:
-    */
-   vf_set_sources( draw->vb.vf, sources, 0 );
+   vf_set_vertex_attributes( draw->vf,
+			     draw->vb.attrs,
+			     draw->vb.attr_count,
+			     draw->vb.vertex_size );
 
-   /* Build the hardware or prim-pipe vertices: 
-    */
-   vf_emit_vertices( draw->vb.vf,
-		     count,
-		     draw->vb.verts );
-
-   if (0) 
-   {
-      union { float f; int i; } *fi = draw->vb.verts;
-      int i;
-
-      for (i = 0; i < count; i++) 
-	 _mesa_printf("%d: %f %f %f %x\n",
-		      i,
-		      fi[i*4+0].f,
-		      fi[i*4+1].f,
-		      fi[i*4+2].f,
-		      fi[i*4+3].i);
-   }
-      
-
+   draw->revalidate = 0;
 }
 
 
 struct vertex_fetch *intel_draw_get_vf( struct intel_draw *draw )
 {
-   return draw->vb.vf;
+   return draw->vf;
 }
 
 
@@ -214,13 +191,11 @@ struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbac
 
    memcpy( &draw->callbacks, callbacks, sizeof(*callbacks) );
 
-#if 0
    draw->prim = intel_create_prim_render( draw );
-#endif
-
-   draw->vb.vf = vf_create( GL_TRUE );
-
    draw->quads = intel_create_quads_render( draw );
+
+   draw->vf = vf_create( GL_TRUE );
+
 
    return draw;
 }
@@ -231,13 +206,10 @@ void intel_draw_destroy( struct intel_draw *draw )
    if (draw->header.storage)
       ALIGN_FREE( draw->header.storage );
 
-#if 0
    draw->prim->destroy( draw->prim );
-#endif
-
    draw->quads->destroy( draw->quads );
 
-   vf_destroy( draw->vb.vf );
+   vf_destroy( draw->vf );
 
    FREE( draw );
 }
@@ -267,7 +239,7 @@ static const GLenum reduced_prim[GL_POLYGON+1] = {
    GL_TRIANGLES
 };
 
-#if 0
+
 static void 
 build_vertex_headers( struct intel_draw *draw,
 		      struct vertex_buffer *VB )
@@ -309,7 +281,6 @@ build_vertex_headers( struct intel_draw *draw,
    }
    VB->AttribPtr[VF_ATTRIB_VERTEX_HEADER] = &draw->header;
 }
-#endif
 
 
 
@@ -338,35 +309,51 @@ run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
 
    /* Validate our render pipeline: 
     */
-   draw_validate_state( draw );
-
+   {
+      draw->vb_state.active_prims = prim_mask;
+      draw->vb_state.clipped_prims = (VB->ClipOrMask != 0);
+      draw_validate_state( draw );
+   }
 
    /* Delay this so that we don't start a frame on a renderer that
     * gets swapped out in the validation above.
     */
    if (!draw->in_frame) {
-      draw->render->start_render( draw->render, GL_TRUE );
+      draw->hw->start_render( draw->hw, GL_TRUE );
       draw->in_frame = 1;
    }
    
-
    /* Always have to do this:
     */
    VB->AttribPtr[VF_ATTRIB_POS] = VB->NdcPtr;
-   VB->AttribPtr[VF_ATTRIB_BFC0] = VB->ColorPtr[1];
-   VB->AttribPtr[VF_ATTRIB_BFC1] = VB->SecondaryColorPtr[1];
-   VB->AttribPtr[VF_ATTRIB_CLIP_POS] = VB->ClipPtr;
 
    /* Maybe build vertex headers: 
     */
-#if 0
-   if (draw->render == draw->prim) 
-      build_vertex_headers( draw, VB );
-#endif
+   if (draw->prim_pipe_active) {
+      VB->AttribPtr[VF_ATTRIB_BFC0] = VB->ColorPtr[1];
+      VB->AttribPtr[VF_ATTRIB_BFC1] = VB->SecondaryColorPtr[1];
+      VB->AttribPtr[VF_ATTRIB_CLIP_POS] = VB->ClipPtr;
 
-   /* Build the vertices, set in_vb flag:
+      build_vertex_headers( draw, VB );
+   }
+
+   draw->in_vb = 1;
+
+   /* Allocate the vertices:
     */
-   draw_begin_vb( draw, VB->AttribPtr, VB->Count );
+   draw->vb.verts = draw->vb.render->allocate_vertices( draw->vb.render,
+							draw->vb.vertex_size,
+							VB->Count );
+
+   /* Bind the vb outputs:
+    */
+   vf_set_sources( draw->vf, VB->AttribPtr, 0 );
+
+   /* Build the hardware or prim-pipe vertices: 
+    */
+   vf_emit_vertices( draw->vf,
+		     VB->Count,
+		     draw->vb.verts );
 
    for (i = 0; i < VB->PrimitiveCount; i++) {
 
@@ -377,24 +364,24 @@ run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
       if (!length)
 	 continue;
 
-      if (draw->render_prim != mode) {
-	 draw->render_prim = mode;
-	 draw->quads->set_prim( draw->quads, mode );
+      if (draw->vb.render_prim != mode) {
+	 draw->vb.render_prim = mode;
+	 draw->vb.render->set_prim( draw->vb.render, mode );
       }
 
       if (VB->Elts) {
-	 draw->quads->draw_indexed_prim( draw->quads, 
-					 VB->Elts + start,
-					 length );
+	 draw->vb.render->draw_indexed_prim( draw->vb.render, 
+					     VB->Elts + start,
+					     length );
       }
       else {
-	 draw->quads->draw_prim( draw->quads, 
-				 start,
-				 length );
+	 draw->vb.render->draw_prim( draw->vb.render, 
+				     start,
+				     length );
       }	 
    }
 
-   draw->render->release_vertices( draw->render, draw->vb.verts );
+   draw->vb.render->release_vertices( draw->vb.render, draw->vb.verts );
    draw->vb.verts = NULL;
    draw->in_vb = 0;
 

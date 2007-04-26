@@ -7,6 +7,8 @@ LIBNAME = i915tex_dri.so
 MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
+	intel_prim.c \
+	intel_prim_emit.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \
@@ -64,6 +66,13 @@ DRIVER_SOURCES = \
 	intel_depthstencil.c \
 	intel_batchpool.c
 
+FOO = \
+	intel_prim_clip.c \
+	intel_prim_flatshade.c \
+	intel_prim_offset.c \
+	intel_prim_stage.c \
+	intel_prim_twoside.c \
+	intel_prim_unfilled.c 
 
 C_SOURCES = \
 	$(COMMON_SOURCES) \

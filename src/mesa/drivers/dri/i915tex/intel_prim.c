@@ -30,13 +30,13 @@
   *   Keith Whitwell <keith@tungstengraphics.com>
   */
 
-#include "intel_context.h"
-#include "intel_draw.h"
-#include "intel_prim.h"
-#include "intel_reg.h"
-#include "intel_vb.h"
-#include "intel_state.h"
+#include "imports.h"
 
+#define INTEL_DRAW_PRIVATE
+#include "intel_draw.h"
+
+#define INTEL_PRIM_PRIVATE
+#include "intel_prim.h"
 
 
 static INLINE struct prim_pipeline *prim_pipeline( struct intel_render *render )
@@ -45,99 +45,191 @@ static INLINE struct prim_pipeline *prim_pipeline( struct intel_render *render )
 }
 
 
+static struct vertex_header *get_vertex( struct prim_pipeline *pipe,
+					       GLuint i )
+{
+   return (struct vertex_header *)(pipe->verts + i * pipe->vertex_size);
+}
+
+
+
+static void *pipe_allocate_vertices( struct intel_render *render,
+				     GLuint vertex_size,
+				     GLuint nr_vertices )
+{
+   struct prim_pipeline *pipe = prim_pipeline( render );
+
+   pipe->vertex_size = vertex_size;
+   pipe->nr_vertices = nr_vertices;
+   pipe->verts = MALLOC( nr_vertices * pipe->vertex_size );
+
+   return pipe->verts;
+}
+
+static void pipe_set_prim( struct intel_render *render,
+			   GLenum prim )
+{
+   struct prim_pipeline *pipe = prim_pipeline( render );
+
+   pipe->prim = prim;
+}
+			  
+
+static const GLuint pipe_prim[GL_POLYGON+1] = {
+   PRIM_POINT,
+   PRIM_LINE,
+   PRIM_LINE,
+   PRIM_LINE,
+   PRIM_TRI,
+   PRIM_TRI,
+   PRIM_TRI,
+   PRIM_QUAD,
+   PRIM_QUAD,
+   PRIM_TRI
+};
+
 
 static void pipe_draw_indexed_prim( struct intel_render *render,
 				    const GLuint *elts,
 				    GLuint count )
 {
    struct prim_pipeline *pipe = prim_pipeline( render );
-   struct prim_pipeline_stage * const first = pipe->input.first;
-   struct intel_vb *vb = pipe->input.vb;
+   struct prim_stage * const first = pipe->first;
+   struct prim_header prim;
    GLuint i;
 
-   switch (pipe->input.prim) {
+   prim.prim = pipe_prim[pipe->prim];
+   prim.clipmask = 0;
+   prim.edgeflags = ~0;		/* valid in unfilled stage only */
+   prim.pad = 0;
+   prim.det = 0;		/* valid from cull stage onwards */
+   prim.v[0] = 0;
+   prim.v[1] = 0;
+   prim.v[2] = 0;
+   prim.v[3] = 0;
+
+   switch (pipe->prim) {
    case GL_POINTS:
       for (i = 0; i < count; i ++) {
-	 struct vertex_header *v0 = pipe_get_vertex( pipe, elts[i] );
-	 first->point( first, v0 );
+	 prim.v[0] = get_vertex( pipe, elts[i] );
+
+	 first->point( first, &prim );
       }
       break;
 
    case GL_LINES:
       for (i = 0; i+1 < count; i += 2) {
-	 struct vertex_header *v0 = pipe_get_vertex( vb, elts[i + 0] );
-	 struct vertex_header *v1 = pipe_get_vertex( vb, elts[i + 1] );
+	 prim.v[0] = get_vertex( pipe, elts[i + 0] );
+	 prim.v[1] = get_vertex( pipe, elts[i + 1] );
       
-	 first->line( first, v0, v1 );
+	 first->line( first, &prim );
       }
       break;
 
+   case GL_LINE_LOOP:    /* Just punt on loops for now. */
    case GL_LINE_STRIP:
+      /* I'm guessing it will be necessary to have something like a
+       * render->reset_line_stipple() method to properly support
+       * splitting strips into primitives like this.  Alternately we
+       * could just scan ahead to find individual clipped lines and
+       * otherwise leave the strip intact - that might be better, but
+       * require more complex code here.
+       */
       if (count >= 2) {
-	 struct vertex_header *v0 = 0;
-	 struct vertex_header *v1 = intel_vb_get_vertex( vb, elts[0] );
+	 prim.v[0] = 0;
+	 prim.v[1] = get_vertex( pipe, elts[0] );
 	 
 	 for (i = 1; i < count; i++) {
-	    v0 = v1;
-	    v1 = intel_vb_get_vertex( vb, elts[i] );
+	    prim.v[0] = prim.v[1];
+	    prim.v[1] = get_vertex( pipe, elts[i] );
 	    
-	    first->line( first, v0, v1 );
+	    first->line( first, &prim );
 	 }
       }
       break;
 
    case GL_TRIANGLES:
       for (i = 0; i+2 < count; i += 3) {
-	 struct vertex_header *v0 = intel_vb_get_vertex( vb, elts[i + 0] );
-	 struct vertex_header *v1 = intel_vb_get_vertex( vb, elts[i + 1] );
-	 struct vertex_header *v2 = intel_vb_get_vertex( vb, elts[i + 2] );
+	 prim.v[0] = get_vertex( pipe, elts[i + 0] );
+	 prim.v[1] = get_vertex( pipe, elts[i + 1] );
+	 prim.v[2] = get_vertex( pipe, elts[i + 2] );
       
-	 first->tri( first, v0, v1, v2 );
+	 first->tri( first, &prim );
       }
       break;
 
    case GL_TRIANGLE_STRIP:
       if (count >= 3) {
-	 struct vertex_header *v0 = 0;
-	 struct vertex_header *v1 = intel_vb_get_vertex( vb, elts[0] );
-	 struct vertex_header *v2 = intel_vb_get_vertex( vb, elts[1] );
+	 prim.v[0] = 0;
+	 prim.v[1] = get_vertex( pipe, elts[0] );
+	 prim.v[2] = get_vertex( pipe, elts[1] );
 	 
 	 for (i = 0; i+2 < count; i++) {
-	    v0 = v1;
-	    v1 = v2;
-	    v2 = intel_vb_get_vertex( vb, elts[i+2] );
+	    prim.v[0] = prim.v[1];
+	    prim.v[1] = prim.v[2];
+	    prim.v[2] = get_vertex( pipe, elts[i+2] );
 
-	    first->tri( first, v0, v1, v2 );
+	    first->tri( first, &prim );
 	 }
       }
       break;
 
    case GL_TRIANGLE_FAN:
       if (count >= 3) {
-	 struct vertex_header *v0 = intel_vb_get_vertex( vb, elts[0] );
-	 struct vertex_header *v1 = 0;
-	 struct vertex_header *v2 = intel_vb_get_vertex( vb, elts[1] );
+	 prim.v[0] = get_vertex( pipe, elts[0] );
+	 prim.v[1] = 0;
+	 prim.v[2] = get_vertex( pipe, elts[1] );
 	 
 	 for (i = 0; i+2 < count; i++) {
-	    v1 = v2;
-	    v2 = intel_vb_get_vertex( vb, elts[i+2] );
+	    prim.v[1] = prim.v[2];
+	    prim.v[2] = get_vertex( pipe, elts[i+2] );
       
-	    first->tri( first, v0, v1, v2 );
+	    first->tri( first, &prim );
 	 }
       }
       break;
 
+   case GL_QUADS:
+      for (i = 0; i+3 < count; i += 4) {
+	 prim.v[0] = get_vertex( pipe, elts[i + 0] );
+	 prim.v[1] = get_vertex( pipe, elts[i + 1] );
+	 prim.v[2] = get_vertex( pipe, elts[i + 2] );
+	 prim.v[3] = get_vertex( pipe, elts[i + 3] );
+      
+	 first->quad( first, &prim );
+      }
+      break;
+
+   case GL_QUAD_STRIP:
+      if (count >= 4) {
+	 prim.v[0] = 0;
+	 prim.v[1] = 0;
+	 prim.v[2] = get_vertex( pipe, elts[0] );
+	 prim.v[3] = get_vertex( pipe, elts[1] );
+	 
+	 for (i = 0; i+3 < count; i++) {
+	    prim.v[0] = prim.v[2];
+	    prim.v[1] = prim.v[3];
+	    prim.v[2] = get_vertex( pipe, elts[i+2] );
+	    prim.v[3] = get_vertex( pipe, elts[i+3] );
+
+	    first->quad( first, &prim );
+	 }
+      }
+      break;
+
+
    case GL_POLYGON:
       if (count >= 3) {
-	 struct vertex_header *v0 = intel_vb_get_vertex( vb, elts[0] );
-	 struct vertex_header *v1 = 0;
-	 struct vertex_header *v2 = intel_vb_get_vertex( vb, elts[1] );
+	 prim.v[0] = 0;
+	 prim.v[1] = get_vertex( pipe, elts[1] );
+	 prim.v[2] = get_vertex( pipe, elts[0] );
 	 
 	 for (i = 0; i+2 < count; i++) {
-	    v1 = v2;
-	    v2 = intel_vb_get_vertex( vb, elts[i+2] );
+	    prim.v[0] = prim.v[1];
+	    prim.v[1] = get_vertex( pipe, elts[i+2] );
       
-	    first->tri( first, v1, v2, v0 );
+	    first->tri( first, &prim );
 	 }
       }
       break;
@@ -153,93 +245,132 @@ static void pipe_draw_prim( struct intel_render *render,
 			    GLuint count )
 {
    struct prim_pipeline *pipe = prim_pipeline( render );
-   struct prim_pipeline_stage * const first = pipe->input.first;
-   struct intel_vb *vb = pipe->input.vb;
+   struct prim_stage * const first = pipe->first;
+   struct prim_header prim;
    GLuint i;
 
-   switch (pipe->input.prim) {
+   prim.prim = pipe_prim[pipe->prim];
+   prim.clipmask = 0;
+   prim.edgeflags = ~0;		/* valid in unfilled stage only */
+   prim.pad = 0;
+   prim.det = 0;		/* valid from cull stage onwards */
+   prim.v[0] = 0;
+   prim.v[1] = 0;
+   prim.v[2] = 0;
+   prim.v[3] = 0;
+
+   switch (pipe->prim) {
    case GL_POINTS:
       for (i = 0; i < count; i ++) {
-	 struct vertex_header *v0 = intel_vb_get_vertex( vb, start + i );
-	 first->point( first, v0 );
+	 prim.v[0] = get_vertex( pipe, start + i );
+	 first->point( first, &prim );
       }
       break;
 
    case GL_LINES:
       for (i = 0; i+1 < count; i += 2) {
-	 struct vertex_header *v0 = intel_vb_get_vertex( vb, start + i + 0 );
-	 struct vertex_header *v1 = intel_vb_get_vertex( vb, start + i + 1 );
+	 prim.v[0] = get_vertex( pipe, start + i + 0 );
+	 prim.v[1] = get_vertex( pipe, start + i + 1 );
       
-	 first->line( first, v0, v1 );
+	 first->line( first, &prim );
       }
       break;
 
    case GL_LINE_STRIP:
       if (count >= 2) {
-	 struct vertex_header *v0 = 0;
-	 struct vertex_header *v1 = intel_vb_get_vertex( vb, start + 0 );
+	 prim.v[0] = 0;
+	 prim.v[1] = get_vertex( pipe, start + 0 );
 	 
 	 for (i = 1; i < count; i++) {
-	    v0 = v1;
-	    v1 = intel_vb_get_vertex( vb, start + i );
+	    prim.v[0] = prim.v[1];
+	    prim.v[1] = get_vertex( pipe, start + i );
 	    
-	    first->line( first, v0, v1 );
+	    first->line( first, &prim );
 	 }
       }
       break;
 
    case GL_TRIANGLES:
       for (i = 0; i+2 < count; i += 3) {
-	 struct vertex_header *v0 = intel_vb_get_vertex( vb, start + i + 0 );
-	 struct vertex_header *v1 = intel_vb_get_vertex( vb, start + i + 1 );
-	 struct vertex_header *v2 = intel_vb_get_vertex( vb, start + i + 2 );
+	 prim.v[0] = get_vertex( pipe, start + i + 0 );
+	 prim.v[1] = get_vertex( pipe, start + i + 1 );
+	 prim.v[2] = get_vertex( pipe, start + i + 2 );
       
-	 first->tri( first, v0, v1, v2 );
+	 first->tri( first, &prim );
       }
       break;
 
    case GL_TRIANGLE_STRIP:
       if (count >= 3) {
-	 struct vertex_header *v0 = 0;
-	 struct vertex_header *v1 = intel_vb_get_vertex( vb, start + 0 );
-	 struct vertex_header *v2 = intel_vb_get_vertex( vb, start + 1 );
+	 prim.v[0] = 0;
+	 prim.v[1] = get_vertex( pipe, start + 0 );
+	 prim.v[2] = get_vertex( pipe, start + 1 );
 	 
 	 for (i = 0; i+2 < count; i++) {
-	    v0 = v1;
-	    v1 = v2;
-	    v2 = intel_vb_get_vertex( vb, start + i + 2 );
+	    prim.v[0] = prim.v[1];
+	    prim.v[1] = prim.v[2];
+	    prim.v[2] = get_vertex( pipe, start + i + 2 );
 
-	    first->tri( first, v0, v1, v2 );
+	    first->tri( first, &prim );
 	 }
       }
       break;
 
    case GL_TRIANGLE_FAN:
       if (count >= 3) {
-	 struct vertex_header *v0 = intel_vb_get_vertex( vb, start + 0 );
-	 struct vertex_header *v1 = 0;
-	 struct vertex_header *v2 = intel_vb_get_vertex( vb, start + 1 );
+	 prim.v[0] = get_vertex( pipe, start + 0 );
+	 prim.v[1] = 0;
+	 prim.v[2] = get_vertex( pipe, start + 1 );
 	 
 	 for (i = 0; i+2 < count; i++) {
-	    v1 = v2;
-	    v2 = intel_vb_get_vertex( vb, start + i + 2 );
+	    prim.v[1] = prim.v[2];
+	    prim.v[2] = get_vertex( pipe, start + i + 2 );
       
-	    first->tri( first, v0, v1, v2 );
+	    first->tri( first, &prim );
+	 }
+      }
+      break;
+
+   case GL_QUADS:
+      for (i = 0; i+3 < count; i += 4) {
+	 prim.v[0] = get_vertex( pipe, start + i + 0 );
+	 prim.v[1] = get_vertex( pipe, start + i + 1 );
+	 prim.v[2] = get_vertex( pipe, start + i + 2 );
+	 prim.v[3] = get_vertex( pipe, start + i + 3 );
+      
+	 first->quad( first, &prim );
+      }
+      break;
+
+   case GL_QUAD_STRIP:
+      if (count >= 4) {
+	 prim.v[0] = 0;
+	 prim.v[1] = 0;
+	 prim.v[2] = get_vertex( pipe, start + 0 );
+	 prim.v[3] = get_vertex( pipe, start + 1 );
+	 
+	 for (i = 0; i+3 < count; i++) {
+	    prim.v[0] = prim.v[2];
+	    prim.v[1] = prim.v[3];
+	    prim.v[2] = get_vertex( pipe, start + i + 2 );
+	    prim.v[3] = get_vertex( pipe, start + i + 3 );
+
+	    first->quad( first, &prim );
 	 }
       }
       break;
 
    case GL_POLYGON:
       if (count >= 3) {
-	 struct vertex_header *v0 = intel_vb_get_vertex( vb, start + 0 );
-	 struct vertex_header *v1 = 0;
-	 struct vertex_header *v2 = intel_vb_get_vertex( vb, start + 1 );
+	 prim.v[0] = 0;
+	 prim.v[1] = get_vertex( pipe, start + 1 );
+	 prim.v[2] = get_vertex( pipe, start + 0 );
 	 
 	 for (i = 0; i+2 < count; i++) {
-	    v1 = v2;
-	    v2 = intel_vb_get_vertex( vb, start + i + 2 );
+	    prim.v[0] = prim.v[1];
+	    prim.v[1] = get_vertex( pipe, start + i + 2 );
       
-	    first->tri( first, v1, v2, v0 );
+	    first->tri( first, &prim );
 	 }
       }
       break;
@@ -251,137 +382,15 @@ static void pipe_draw_prim( struct intel_render *render,
 }
 
 
-static void *pipe_get_vertex_space( struct intel_render *render,
-				    GLuint nr )
+static void pipe_release_vertices( struct intel_render *render,
+				   void *vertices )
 {
    struct prim_pipeline *pipe = prim_pipeline( render );
-
-   
+   FREE(pipe->verts);
+   pipe->verts = NULL;
 }
 
-static void pipe_set_hw_vertex_format( struct prim_pipeline *pipe,
-				       const struct vf_attr *attr,
-				       GLuint count )
-{
-   /* ... */
-}
-
-
-
-
-static void pipe_set_hw_render( struct prim_pipeline *pipe,
-				struct intel_render *render )
-{
-   pipe->emit.render = render;
-}
-
-static void pipe_set_gl_state( struct prim_pipeline *pipe,
-			       const struct prim_gl_state *state )
-{
-}
-
-static void pipe_set_draw_state( struct prim_pipeline *pipe,
-				 const struct prim_draw_state *state )
-{
-}
-
-
-static void pipe_validate_state( struct prim_pipeline *pipe )
-{
-   /* Dependent on driver state and primitive:
-    */
-   struct prim_pipeline_stage *next = pipe->emit;
-   
-
-
-   if (prim->draw_state.active_prims & (1 << FILL_TRI)) 
-   {   
-      if (prim->state.front_fill != FILL_TRI ||
-	  prim->state.back_fill != FILL_TRI) {
-
-	 output_prims &= ~(1<<FILL_TRI);
-	 output_prims |= (1 << prim->state.front_fill);
-	 output_prims |= (1 << prim->state.back_fill);
-
-	 pipe->unfilled.base.next = next;
-	 next = &pipe->unfilled.base;
-	 
-	 if (prim->state.offset_point ||
-	     prim->state.offset_line) {
-	    pipe->offset.base.next = next;
-	    next = &pipe->offset.base;
-	 }
-      }
-
-      if (prim->state.light_twoside) {
-	 pipe->twoside.base.next = next;
-	 next = &pipe->twoside.base;
-      }
-
-#if 0
-      if (prim->state.front_cull ||
-	  prim->state.back_cull) {
-	 pipe->cull.base.next = next;
-	 next = &pipe->cull.base;
-      }
-#endif
-   }
-
-
-   if (prim->clipped_prims) {
-      pipe->clipper.base.next = next;
-      next = &pipe->clipper.base;
-
-      /* 
-       */
-      if (prim->state.flatshade) {
-	 pipe->flatshade.base.next = next;
-	 next = &pipe->flatshade.base;
-      }
-   }
-
-   /* Copy the hardware vertex payload here:
-    */
-   if (next != &pipe->emit) {
-      pipe->first_stage = next;
-      intel_draw_cs_active( pipe->draw, GL_TRUE );
-   }
-   else {
-      /* Empty pipeline, nothing for us to do...
-       */
-      intel_draw_cs_active( pipe->draw, GL_FALSE );
-   }
-}
-
-
-static void pipe_start_render( struct intel_render *render )
-{
-   /* Pass through:
-    */
-   struct prim_pipeline *pipe = prim_pipeline( render );
-   pipe->draw->start_render( pipe->draw );
-}
-
-
-static void pipe_flush( struct intel_render *render,
-			    GLboolean finished_frame )
-{
-   /* Pass through:
-    */
-   struct prim_pipeline *pipe = prim_pipeline( render );
-   pipe->draw->flush( pipe->draw, finished_frame );
-}
-
-
-static void pipe_abandon_frame( struct intel_render *render )
-{
-   /* Pass through:
-    */
-   struct prim_pipeline *pipe = prim_pipeline( render );
-   pipe->draw->abandon_frame( pipe->draw );
-}
-
-static void pipe_destroy_context( struct intel_render *render )
+static void pipe_destroy( struct intel_render *render )
 {
    struct prim_pipeline *pipe = prim_pipeline( render );
    _mesa_printf("%s\n", __FUNCTION__);
@@ -395,18 +404,109 @@ struct intel_render *intel_create_prim_render( struct intel_draw *draw )
 
    /* XXX: Add casts here to avoid the compiler messages:
     */
-   pipe->render.destroy_context = pipe_destroy_context;
-   pipe->render.start_render = pipe_start_render;
-   pipe->render.flush = pipe_flush;
-   pipe->render.abandon_frame = pipe_abandon_frame;
-   pipe->render.clear = pipe_clear;
+   pipe->render.start_render = NULL;
+   pipe->render.allocate_vertices = pipe_allocate_vertices;
    pipe->render.set_prim = pipe_set_prim;
-   pipe->render.new_vertices = pipe_new_vertices;
    pipe->render.draw_prim = pipe_draw_prim;
    pipe->render.draw_indexed_prim = pipe_draw_indexed_prim;
+   pipe->render.release_vertices = pipe_release_vertices;
+   pipe->render.flush = NULL;
+   pipe->render.destroy = pipe_destroy;
 
    pipe->draw = draw;
    pipe->prim = 0;
 
    return &pipe->render;
+}
+
+
+
+GLboolean intel_prim_validate_state( struct intel_render *render )
+{
+   struct prim_pipeline *pipe = prim_pipeline( render );
+   
+   /* Dependent on driver state and primitive:
+    */
+   struct prim_stage *next = pipe->emit;
+   
+
+#if 0
+   if (pipe->draw->vb_state.active_prims & (1 << GL_TRIANGLES)) 
+   {   
+      if (pipe->draw->state.fill_cw != FILL_TRI ||
+	  pipe->draw->state.fill_ccw != FILL_TRI) {
+
+	 output_prims &= ~(1<<FILL_TRI);
+	 output_prims |= (1 << pipe->draw->state.front_fill);
+	 output_prims |= (1 << pipe->draw->state.back_fill);
+
+	 pipe->unfilled.base.next = next;
+	 next = &pipe->unfilled.base;
+	 
+	 if (pipe->draw->state.offset_point ||
+	     pipe->draw->state.offset_line) {
+	    pipe->offset.base.next = next;
+	    next = &pipe->offset.base;
+	 }
+      }
+
+      if (pipe->draw->state.light_twoside) {
+	 pipe->twoside.base.next = next;
+	 next = &pipe->twoside.base;
+      }
+
+#if 0
+      if (pipe->draw->state.front_cull ||
+	  pipe->draw->state.back_cull) {
+	 pipe->cull.base.next = next;
+	 next = &pipe->cull.base;
+      }
+#endif
+   }
+#endif
+
+#if 0
+   if (pipe->draw->vb_state.clipped_prims) {
+      pipe->clipper.base.next = next;
+      next = &pipe->clipper.base;
+
+      /* 
+       */
+      if (pipe->draw->state.flatshade) {
+	 pipe->flatshade.base.next = next;
+	 next = &pipe->flatshade.base;
+      }
+   }
+#endif
+
+   /* Copy the hardware vertex payload here:
+    */
+   if (1 || next != pipe->emit) {
+      pipe->first = next;
+      return GL_TRUE;
+   }
+
+   
+   /* Empty pipeline, nothing for us to do...
+    */
+   return GL_FALSE;
+}
+
+
+void intel_prim_set_hw_render( struct intel_render *render,
+			       struct intel_render *hw )
+{
+/*    struct prim_pipeline *prim = prim_pipeline( render ); */
+/*    prim->hw = hw; */
+}
+
+
+void intel_prim_clear_vertex_indices( struct prim_pipeline *prim )
+{
+   GLuint i;
+
+   for (i = 0; i < prim->nr_vertices; i++) {
+      struct vertex_header *v0 = get_vertex( prim, i );
+      v0->index = ~0;
+   }
 }

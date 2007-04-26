@@ -229,7 +229,8 @@ static void calculate_setup_vertex_format( struct intel_context *intel )
 
    EMIT_ATTR(VF_ATTRIB_VERTEX_HEADER, EMIT_1F, 0, 4);
    
-   /* Always??
+   /* Always??  Otherwise need a callback from draw to signal clipped
+    * vs. unclipped rendering.
     */
    if (1) {
       EMIT_ATTR(VF_ATTRIB_CLIP_POS, EMIT_4F, 0, 16);
@@ -253,14 +254,14 @@ static void calculate_setup_vertex_format( struct intel_context *intel )
    memcpy( prim_attrs + prim_attr_count, 
 	   i915->vertex_attrs, 
 	   i915->vertex_attr_count * sizeof(struct vf_attr_map));
+
    offset += i915->intel.vb->vertex_size_bytes;
+   prim_attr_count += i915->vertex_attr_count;
    
-#if 0
    intel_draw_set_prim_vertex_format( intel->draw, 
 				      prim_attrs, 
 				      prim_attr_count,
 				      offset );
-#endif
 }
 
 const struct intel_tracked_state i915_setup_vertex_format = {
