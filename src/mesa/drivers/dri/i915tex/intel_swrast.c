@@ -175,8 +175,6 @@ static void tri( struct swrast_render *swrender,
    GLcontext *ctx = &swrender->intel->ctx;
    SWvertex v[3];
 
-   _mesa_printf( "%s\n", __FUNCTION__ );
-
    /* Note: translate() is a utility function and does not
     * actually require a swsetup context to be created.
     */

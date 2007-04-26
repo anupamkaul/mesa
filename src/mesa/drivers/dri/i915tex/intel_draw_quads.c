@@ -88,7 +88,7 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 
 
    case GL_QUAD_STRIP:
-      if (!quads->draw->state.flatshade) {
+      if (0 && !quads->draw->state.flatshade) {
 	 length -= length % 2;
 	 quads_set_hw_prim( quads, GL_TRIANGLE_STRIP );
 	 quads->hw->draw_indexed_prim( quads->hw, indices, length );
@@ -99,12 +99,12 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 
 	 for (j = i = 0; i + 3 < length; i += 2, j += 6) {
 	    tmp[j+0] = indices[i+0];
-	    tmp[j+1] = indices[i+1]; /* this is wrong! */
+	    tmp[j+1] = indices[i+1];
 	    tmp[j+2] = indices[i+3];
 
-	    tmp[j+3] = indices[i+1];
-	    tmp[j+4] = indices[i+2]; /* this is wrong! */
-	    tmp[j+5] = indices[i+3];
+	    tmp[j+3] = indices[i+0];
+	    tmp[j+4] = indices[i+3];
+	    tmp[j+5] = indices[i+2];
 	 }
 
 	 quads_set_hw_prim( quads, GL_TRIANGLES );
@@ -168,7 +168,7 @@ static void quads_draw_prim( struct intel_render *render,
 
 
    case GL_QUAD_STRIP:
-      if (!quads->draw->state.flatshade) {
+      if (0 && !quads->draw->state.flatshade) {
 	 length -= length % 2;
 	 quads_set_hw_prim( quads, GL_TRIANGLE_STRIP );
 	 quads->hw->draw_prim( quads->hw, start, length );
@@ -179,12 +179,12 @@ static void quads_draw_prim( struct intel_render *render,
 
 	 for (j = i = 0; i + 3 < length; i += 2, j += 6) {
 	    tmp[j+0] = start+i+0;
-	    tmp[j+1] = start+i+1; /* this is wrong! */
+	    tmp[j+1] = start+i+1;
 	    tmp[j+2] = start+i+3;
 
-	    tmp[j+3] = start+i+1;
-	    tmp[j+4] = start+i+2; /* this is wrong! */
-	    tmp[j+5] = start+i+3;
+	    tmp[j+3] = start+i+0;
+	    tmp[j+4] = start+i+3;
+	    tmp[j+5] = start+i+2;
 	 }
 
 	 quads_set_hw_prim( quads, GL_TRIANGLES );

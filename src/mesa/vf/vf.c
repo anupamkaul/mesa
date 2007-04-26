@@ -31,7 +31,7 @@
 
 #include "vf.h"
 
-#define DBG 1
+#define DBG 0
 
 
 

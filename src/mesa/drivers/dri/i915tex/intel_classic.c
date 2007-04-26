@@ -98,6 +98,9 @@ static void classic_draw_prim_indexed( struct intel_render *render,
    const GLuint offset = crc->offset;
    GLuint j;
 
+   if (nr == 0)
+      return; 
+
    assert(nr>0);
 
    /* The 'dwords' usage below ensures that both the state and the
@@ -140,6 +143,9 @@ static void classic_draw_prim( struct intel_render *render,
    struct classic_render *crc = classic_render( render );
    struct intel_context *intel = crc->intel;
    GLuint dwords = 2;
+
+   if (nr == 0)
+      return; 
 
    intel_emit_hardware_state(intel, dwords);
 
@@ -237,7 +243,6 @@ static void classic_flush( struct intel_render *render,
 			   GLboolean finished_frame )
 {
    struct classic_render *crc = classic_render( render );
-   _mesa_printf("%s\n", __FUNCTION__);
 
    struct intel_context *intel = crc->intel;
 

@@ -699,7 +699,7 @@ intelClear(GLcontext *ctx, GLbitfield mask)
    if (colorMask == ~0) {
       /* clear all R,G,B,A */
       /* XXX FBO: need to check if colorbuffers are software RBOs! */
-      if (1 /* Not Almador family? */) {
+      if (0 /* Not Almador family? */) {
          rect_mask = mask & (fb->_ColorDrawBufferMask[0] | BUFFER_BIT_DEPTH);
 
 	 if ((mask & BUFFER_BIT_STENCIL) &&

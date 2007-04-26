@@ -177,26 +177,13 @@ static void draw_begin_vb( struct intel_draw *draw,
     */
    vf_set_sources( draw->vb.vf, sources, 0 );
 
-   {
-      union { float f; int i; } *fi = sources[0]->data;
-      int i;
-
-      for (i = 0; i < count; i++) 
-	 _mesa_printf("%d: %f %f %f\n",
-		      i,
-		      fi[i*4+0].f,
-		      fi[i*4+1].f,
-		      fi[i*4+2].f);
-   }
-      
-
-
    /* Build the hardware or prim-pipe vertices: 
     */
    vf_emit_vertices( draw->vb.vf,
 		     count,
 		     draw->vb.verts );
 
+   if (0) 
    {
       union { float f; int i; } *fi = draw->vb.verts;
       int i;
