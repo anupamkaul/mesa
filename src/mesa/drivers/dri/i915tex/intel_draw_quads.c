@@ -34,16 +34,28 @@
 
 #include "intel_draw_quads.h"
 
+/* Optimize quadstrip->tristrip where possible.  Needs a hook
+ * somewhere to find out if flatshading is active.  Currently disabled
+ * as it doesn't seem to speed things up.
+ */
+#define QUADSTRIP_OPT 0
+
+#if QUADSTRIP_OPT
 #define INTEL_DRAW_PRIVATE
+#endif
+
 #include "intel_draw.h"
 
 
 struct quads_render {
    struct intel_render render;
    struct intel_render *hw;
-   struct intel_draw *draw;
    GLenum hw_prim;
    GLenum gl_prim;
+
+#if QUADSTRIP_OPT
+   struct intel_draw *draw;
+#endif
 };
 
 static INLINE struct quads_render *quads_render( struct intel_render *render )
@@ -88,12 +100,15 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 
 
    case GL_QUAD_STRIP:
-      if (0 && !quads->draw->state.flatshade) {
+#if QUADSTRIP_OPT
+      if (!quads->draw->state.flatshade) {
 	 length -= length % 2;
 	 quads_set_hw_prim( quads, GL_TRIANGLE_STRIP );
 	 quads->hw->draw_indexed_prim( quads->hw, indices, length );
       }
-      else {
+      else 
+#endif
+      {
 	 GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 2 * 6) );
 	 GLuint i, j;
 
@@ -168,12 +183,17 @@ static void quads_draw_prim( struct intel_render *render,
 
 
    case GL_QUAD_STRIP:
-      if (0 && !quads->draw->state.flatshade) {
+#if QUADSTRIP_OPT
+      /* Not really any faster:
+       */
+      if (!quads->draw->state.flatshade) {
 	 length -= length % 2;
 	 quads_set_hw_prim( quads, GL_TRIANGLE_STRIP );
 	 quads->hw->draw_prim( quads->hw, start, length );
       }
-      else {
+      else 
+#endif
+      {
 	 GLuint *tmp = _mesa_malloc( sizeof(GLuint) * (length / 2 * 6) );
 	 GLuint i,j;
 
@@ -265,7 +285,10 @@ struct intel_render *intel_create_quads_render( struct intel_draw *draw )
    quads->render.release_vertices = 0;
    quads->render.flush = 0;
 
+#if QUADSTRIP_OPT
    quads->draw = draw;
+#endif
+
    quads->hw_prim = GL_TRIANGLES;
    quads->gl_prim = GL_TRIANGLES;
 

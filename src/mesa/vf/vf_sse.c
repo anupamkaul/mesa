@@ -26,7 +26,6 @@
  */
 
 #include "glheader.h"
-#include "context.h"
 #include "colormac.h"
 #include "simple_list.h"
 #include "enums.h"
@@ -48,7 +47,7 @@
 struct x86_program {
    struct x86_function func;
 
-   GLcontext *ctx;
+   struct vertex_fetch *vf;
    GLboolean inputs_safe;
    GLboolean outputs_safe;
    GLboolean have_sse2;
@@ -594,7 +593,7 @@ static GLboolean build_vertex_emit( struct x86_program *p )
 
    /* Next vertex:
     */
-   x86_lea(&p->func, vertexEAX, x86_make_disp(vertexEAX, vf->vertex_size));
+   x86_lea(&p->func, vertexEAX, x86_make_disp(vertexEAX, vf->vertex_stride));
 
    /* decr count, loop if not zero
     */

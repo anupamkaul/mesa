@@ -80,6 +80,7 @@ void intel_draw_set_state( struct intel_draw *draw,
 			   const struct intel_draw_state *state )
 {
    memcpy( &draw->state, state, sizeof(*state) );
+
    /* Need to validate state.
     */
 }
