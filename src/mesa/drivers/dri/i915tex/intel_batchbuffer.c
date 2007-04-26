@@ -26,6 +26,7 @@
  **************************************************************************/
 
 #include "intel_batchbuffer.h"
+#include "intel_fbo.h"
 #include "intel_ioctl.h"
 #include "intel_vb.h"
 #include "intel_reg.h"
@@ -321,6 +322,8 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
    GLuint used = batch->segment_finish_offset[0] - batch->segment_start_offset[0];
    GLboolean was_locked = intel->locked;
    GLint *ptr = (GLint *)(batch->map + batch->segment_finish_offset[0]);
+   struct intel_framebuffer *intel_fb =
+      (struct intel_framebuffer*)intel->ctx.DrawBuffer;
 
    if (used == 0)
       return batch->last_fence;
@@ -331,7 +334,14 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
    /* Add the MI_BATCH_BUFFER_END.  Always add an MI_FLUSH - this is a
     * performance drain that we would like to avoid.
     */
-   if (used & 4) {
+   if (intel_fb->hwz) {
+      *ptr++ = MI_BATCH_BUFFER_END;
+      used += 4;
+      if (used & 4) {
+	 *ptr++ = 0;
+	 used += 4;
+      }
+   } else if (used & 4) {
       ptr[0] = intel->vtbl.flush_cmd();
       ptr[1] = 0;
       ptr[2] = MI_BATCH_BUFFER_END;
