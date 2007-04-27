@@ -438,12 +438,10 @@ struct intel_render *intel_create_prim_render( struct intel_draw *draw )
    pipe->prim = 0;
 
    pipe->emit = intel_prim_emit( pipe );
-#if 0
-   pipe->unfilled = intel_prim_unfilled( pipe );
-   pipe->twoside = intel_prim_twoside( pipe );
+//   pipe->unfilled = intel_prim_unfilled( pipe );
+//   pipe->twoside = intel_prim_twoside( pipe );
    pipe->clip = intel_prim_clip( pipe );
-   pipe->flatshade = intel_prim_flatshade( pipe );
-#endif
+//   pipe->flatshade = intel_prim_flatshade( pipe );
    pipe->cull = intel_prim_cull( pipe );
 
    return &pipe->render;
@@ -458,6 +456,7 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
    /* Dependent on driver state and primitive:
     */
    struct prim_stage *next = pipe->emit;
+   GLboolean install = GL_FALSE;
 
    pipe->need_validate = 0;
    
@@ -498,12 +497,6 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
 #endif
 
 
-   {
-      pipe->cull->next = next;
-      next = pipe->cull;
-   }
-
-
 #if 0
    if (pipe->draw->vb_state.clipped_prims) {
       pipe->clipper.base.next = next;
@@ -517,10 +510,23 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
       }
    }
 #endif
+   
+   {
+      pipe->clip->next = next;
+      next = pipe->clip;
+      install = GL_TRUE;
+   }
+
+
+   {
+      pipe->cull->next = next;
+      next = pipe->cull;
+   }
+
 
    /* Copy the hardware vertex payload here:
     */
-   if (1 || next != pipe->emit) {
+   if (install) {
       pipe->first = next;
       return GL_TRUE;
    }
@@ -562,5 +568,30 @@ void intel_prim_clear_vertex_indices( struct prim_pipeline *prim )
    for (i = 0; i < prim->nr_vertices; i++) {
       struct vertex_header *v0 = get_vertex( prim, i );
       v0->index = ~0;
+   }
+}
+
+
+
+#define MAX_VERTEX_SIZE ((2 + FRAG_ATTRIB_MAX) * 4 * sizeof(GLfloat))
+
+void intel_prim_alloc_tmps( struct prim_stage *stage, GLuint nr )
+{
+   if (nr) {
+      GLubyte *store = MALLOC(MAX_VERTEX_SIZE * nr);
+      GLuint i;
+
+      stage->tmp = MALLOC(sizeof(struct vertex_header *) * nr);
+      
+      for (i = 0; i < MAX_CLIPPED_VERTICES; i++)
+	 stage->tmp[i] = (struct vertex_header *)(store + i * MAX_VERTEX_SIZE);
+   }
+}
+
+void intel_prim_free_tmps( struct prim_stage *stage, GLuint nr )
+{
+   if (stage->tmp) {
+      FREE(stage->tmp[0]);
+      FREE(stage->tmp);
    }
 }

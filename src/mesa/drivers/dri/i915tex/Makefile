@@ -10,6 +10,7 @@ DRIVER_SOURCES = \
 	intel_prim.c \
 	intel_prim_emit.c \
 	intel_prim_cull.c \
+	intel_prim_clip.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \
@@ -68,7 +69,6 @@ DRIVER_SOURCES = \
 	intel_batchpool.c
 
 FOO = \
-	intel_prim_clip.c \
 	intel_prim_flatshade.c \
 	intel_prim_offset.c \
 	intel_prim_stage.c \

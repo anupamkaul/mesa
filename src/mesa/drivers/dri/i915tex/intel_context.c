@@ -372,7 +372,7 @@ static void intel_cb_set_vb_state( void *driver,
 {
    struct intel_context *intel = driver;
 
-   memcpy(&intel->vb_state, &vb_state, sizeof(*vb_state));
+   intel->vb_state = *vb_state;
    intel->state.dirty.intel |= INTEL_NEW_VB_STATE;
 }
 

@@ -106,7 +106,6 @@ static void cull_point( struct prim_stage *stage,
 }
 
 
-
 static void cull_end( struct prim_stage *stage )
 {
    stage->next->end( stage->next );

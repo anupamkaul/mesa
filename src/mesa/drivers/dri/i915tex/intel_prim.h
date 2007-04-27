@@ -117,6 +117,7 @@ struct prim_stage {
    struct prim_pipeline *pipe;
    struct prim_stage *next;
    struct vertex_header **tmp;
+   GLuint nr_tmp_vertices;
 
    void (*begin)( struct prim_stage * );
 
@@ -140,6 +141,9 @@ struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe );
 struct prim_stage *intel_prim_flatshade( struct prim_pipeline *pipe );
 struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe );
 
+
+void intel_prim_alloc_tmps( struct prim_stage *stage, GLuint nr );
+void intel_prim_free_tmps( struct prim_stage *stage, GLuint nr );
 
 void intel_prim_clear_vertex_indices( struct prim_pipeline *pipe );
 
