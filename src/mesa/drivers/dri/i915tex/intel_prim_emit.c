@@ -73,8 +73,16 @@ static void set_primitive( struct emit_stage *emit,
 			   GLenum primitive )
 {
    struct intel_render *hw = emit->hw;
+
+   if (emit->elts.count) {
+      hw->draw_indexed_prim( hw, emit->elts.elts, emit->elts.count );
+      emit->elts.space = EMIT_MAX_ELTS;
+      emit->elts.count = 0;
+   }
+
    hw->set_prim( hw, primitive );
    emit->hw_prim = primitive;
+
 }
 
 static void flush( struct emit_stage *emit, 
@@ -84,11 +92,14 @@ static void flush( struct emit_stage *emit,
    GLboolean flush_hw = (emit->verts.buf != NULL);
    
    if (flush_hw) {
-      hw->draw_indexed_prim( hw, emit->elts.elts, emit->elts.count );
+      if (emit->elts.count) {
+	 hw->draw_indexed_prim( hw, emit->elts.elts, emit->elts.count );
+	 emit->elts.space = EMIT_MAX_ELTS;
+	 emit->elts.count = 0;
+      }
+
       hw->release_vertices( hw, emit->verts.buf );
       
-      emit->elts.space = 0;
-      emit->elts.count = 0;
       emit->verts.buf = NULL;
       emit->verts.count = 0;
       emit->verts.space = 0;
@@ -100,8 +111,6 @@ static void flush( struct emit_stage *emit,
     */
    if (allocate_new_vertices)
    {
-      emit->elts.space = EMIT_MAX_ELTS;
-      emit->elts.count = 0;
       emit->verts.buf = hw->allocate_vertices( hw, emit->hw_vertex_size, EMIT_MAX_VERTS );
       emit->verts.space = EMIT_MAX_VERTS;
       emit->verts.count = 0;
@@ -125,7 +134,7 @@ static GLuint *check_space( struct emit_stage *emit,
       set_primitive( emit, primitive );
 
    if (nr_verts >= emit->verts.space ||
-       nr_elts >= emit->elts.space)
+       nr_elts >= emit->elts.space) 
       flush( emit, GL_TRUE );
 
    ptr = emit->elts.elts + emit->elts.count;
