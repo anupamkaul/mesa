@@ -98,8 +98,7 @@ static void flush( struct emit_stage *emit,
 	 emit->elts.count = 0;
       }
 
-      hw->release_vertices( hw, emit->verts.buf );
-      
+      hw->release_vertices( hw, emit->verts.buf );    
       emit->verts.buf = NULL;
       emit->verts.count = 0;
       emit->verts.space = 0;
@@ -152,8 +151,12 @@ static GLuint emit_vert( struct emit_stage *emit,
 			 struct vertex_header *vert )
 {
    if (vert->index == 0xffff) {
-      GLuint idx = emit->verts.count++;
+      GLuint idx = emit->verts.count;
 
+      emit->verts.count++;
+      emit->verts.space--;
+
+      assert(idx < EMIT_MAX_VERTS);
       vert->index = idx;
 
       memcpy( emit->verts.buf + idx * emit->hw_vertex_size, 
