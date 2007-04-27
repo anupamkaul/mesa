@@ -115,14 +115,14 @@ static void do_quad( struct prim_stage *first,
 {
 
    {
-      GLubyte tmp = v1->edgeflag;
+      GLuint tmp = v1->edgeflag;
       v1->edgeflag = 0;
       do_tri( first, v0, v1, v3 );
       v1->edgeflag = tmp;
    }
 
    {
-      GLubyte tmp = v3->edgeflag;
+      GLuint tmp = v3->edgeflag;
       v3->edgeflag = 0;
       do_tri( first, v1, v2, v3 );
       v3->edgeflag = tmp;
@@ -242,10 +242,10 @@ static void pipe_draw_indexed_prim( struct intel_render *render,
    case GL_QUAD_STRIP:
       for (i = 0; i+3 < count; i += 2) {
 	 do_quad( first,
+		  get_vertex( pipe, elts[i + 2] ),
 		  get_vertex( pipe, elts[i + 0] ),
 		  get_vertex( pipe, elts[i + 1] ),
-		  get_vertex( pipe, elts[i + 3] ),
-		  get_vertex( pipe, elts[i + 2] ));
+		  get_vertex( pipe, elts[i + 3] ));
       }
       break;
 
@@ -371,10 +371,10 @@ static void pipe_draw_prim( struct intel_render *render,
    case GL_QUAD_STRIP:
       for (i = 0; i+3 < count; i += 2) {
 	 do_quad( first,
+		  get_vertex( pipe, start + i + 2 ),
 		  get_vertex( pipe, start + i + 0 ),
 		  get_vertex( pipe, start + i + 1 ),
-		  get_vertex( pipe, start + i + 3 ),
-		  get_vertex( pipe, start + i + 2 ));
+		  get_vertex( pipe, start + i + 3 ));
       }
       break;
 
@@ -438,7 +438,7 @@ struct intel_render *intel_create_prim_render( struct intel_draw *draw )
    pipe->prim = 0;
 
    pipe->emit = intel_prim_emit( pipe );
-//   pipe->unfilled = intel_prim_unfilled( pipe );
+   pipe->unfilled = intel_prim_unfilled( pipe );
 //   pipe->twoside = intel_prim_twoside( pipe );
    pipe->clip = intel_prim_clip( pipe );
 //   pipe->flatshade = intel_prim_flatshade( pipe );
@@ -461,66 +461,57 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
    pipe->need_validate = 0;
    
 
-#if 0
    if (pipe->draw->vb_state.active_prims & (1 << GL_TRIANGLES)) 
    {   
       if (pipe->draw->state.fill_cw != FILL_TRI ||
 	  pipe->draw->state.fill_ccw != FILL_TRI) {
 
-	 output_prims &= ~(1<<FILL_TRI);
-	 output_prims |= (1 << pipe->draw->state.front_fill);
-	 output_prims |= (1 << pipe->draw->state.back_fill);
+//	 output_prims &= ~(1<<FILL_TRI);
+//	 output_prims |= (1 << pipe->draw->state.front_fill);
+//	 output_prims |= (1 << pipe->draw->state.back_fill);
 
-	 pipe->unfilled.base.next = next;
-	 next = &pipe->unfilled.base;
+	 pipe->unfilled->next = next;
+	 next = pipe->unfilled;
+	 install = GL_TRUE;
 	 
+#if 0
 	 if (pipe->draw->state.offset_point ||
 	     pipe->draw->state.offset_line) {
 	    pipe->offset.base.next = next;
 	    next = &pipe->offset.base;
 	 }
+#endif
       }
 
+#if 0
       if (pipe->draw->state.light_twoside) {
 	 pipe->twoside.base.next = next;
 	 next = &pipe->twoside.base;
       }
-
-#if 0
-      if (pipe->draw->state.front_cull ||
-	  pipe->draw->state.back_cull) {
-	 pipe->cull.base.next = next;
-	 next = &pipe->cull.base;
-      }
 #endif
    }
-#endif
 
 
-#if 0
    if (pipe->draw->vb_state.clipped_prims) {
-      pipe->clipper.base.next = next;
-      next = &pipe->clipper.base;
+      pipe->clip->next = next;
+      next = pipe->clip;
+      install = GL_TRUE;
 
       /* 
        */
+#if 0
       if (pipe->draw->state.flatshade) {
 	 pipe->flatshade.base.next = next;
 	 next = &pipe->flatshade.base;
       }
-   }
 #endif
-   
-   {
-      pipe->clip->next = next;
-      next = pipe->clip;
-      install = GL_TRUE;
    }
-
+   
 
    {
       pipe->cull->next = next;
       next = pipe->cull;
+//      install = GL_TRUE;
    }
 
 

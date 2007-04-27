@@ -146,9 +146,9 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 	    tmp[j+1] = indices[i+1];
 	    tmp[j+2] = indices[i+3];
 
-	    tmp[j+3] = indices[i+0];
-	    tmp[j+4] = indices[i+3];
-	    tmp[j+5] = indices[i+2];
+	    tmp[j+3] = indices[i+2];
+	    tmp[j+4] = indices[i+0];
+	    tmp[j+5] = indices[i+3];
 	 }
 
 	 quads_set_hw_prim( quads, GL_TRIANGLES );
@@ -231,9 +231,9 @@ static void quads_draw_prim( struct intel_render *render,
 	    tmp[j+1] = start+i+1;
 	    tmp[j+2] = start+i+3;
 
-	    tmp[j+3] = start+i+0;
-	    tmp[j+4] = start+i+3;
-	    tmp[j+5] = start+i+2;
+	    tmp[j+3] = start+i+2;
+	    tmp[j+4] = start+i+0;
+	    tmp[j+5] = start+i+3;
 	 }
 
 	 quads_set_hw_prim( quads, GL_TRIANGLES );
