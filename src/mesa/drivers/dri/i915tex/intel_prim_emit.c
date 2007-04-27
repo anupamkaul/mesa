@@ -164,27 +164,18 @@ static void emit_begin( struct prim_stage *stage )
     */
    emit->hw = stage->pipe->draw->hw;
    emit->hw_vertex_size = stage->pipe->draw->hw_vertex_size;
-   emit->hw_data_offset = 0;	/* XXX - fix for clipping, twoside */
+
+   if (stage->pipe->draw->vb_state.clipped_prims)
+      emit->hw_data_offset = 16;
+   else
+      emit->hw_data_offset = 0;	
+
    emit->hw->set_prim( emit->hw, emit->hw_prim );
 
    flush( emit, GL_TRUE );
 }
 
 
-static void emit_quad( struct prim_stage *stage,
-		       struct prim_header *header )
-{
-   struct emit_stage *emit = emit_stage( stage );
-   GLuint *elts = check_space( emit, GL_TRIANGLES, 4, 6 );
-
-   elts[0] = emit_vert( emit, header->v[0] );
-   elts[1] = emit_vert( emit, header->v[1] );
-   elts[2] = emit_vert( emit, header->v[3] );
-
-   elts[3] = emit_vert( emit, header->v[1] );
-   elts[4] = emit_vert( emit, header->v[2] );
-   elts[5] = emit_vert( emit, header->v[3] );
-}
 
 
 static void emit_tri( struct prim_stage *stage,
@@ -238,7 +229,6 @@ struct prim_stage *intel_prim_emit( struct prim_pipeline *pipe )
    emit->stage.point = emit_point;
    emit->stage.line = emit_line;
    emit->stage.tri = emit_tri;
-   emit->stage.quad = emit_quad;
    emit->stage.end = emit_end;
 
    return &emit->stage;

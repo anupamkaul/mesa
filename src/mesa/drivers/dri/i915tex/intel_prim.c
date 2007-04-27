@@ -87,10 +87,51 @@ static const GLuint pipe_prim[GL_POLYGON+1] = {
    PRIM_TRI,
    PRIM_TRI,
    PRIM_TRI,
-   PRIM_QUAD,
-   PRIM_QUAD,
+   PRIM_TRI,
+   PRIM_TRI,
    PRIM_TRI
 };
+
+
+static void do_tri( struct prim_stage *first,
+		    struct vertex_header *v0,
+		    struct vertex_header *v1,
+		    struct vertex_header *v2 )
+{
+   struct prim_header prim;
+   prim.det = 0;
+   prim.v[0] = v0;
+   prim.v[1] = v1;
+   prim.v[2] = v2;
+   first->tri( first, &prim );
+}
+
+
+static void do_quad( struct prim_stage *first,
+		     struct vertex_header *v0,
+		     struct vertex_header *v1,
+		     struct vertex_header *v2,
+		     struct vertex_header *v3 )
+{
+
+   {
+      GLubyte tmp = v1->edgeflag;
+      v1->edgeflag = 0;
+      do_tri( first, v0, v1, v3 );
+      v1->edgeflag = tmp;
+   }
+
+   {
+      GLubyte tmp = v3->edgeflag;
+      v3->edgeflag = 0;
+      do_tri( first, v1, v2, v3 );
+      v3->edgeflag = tmp;
+   }
+}
+
+
+
+
 
 
 static void pipe_draw_indexed_prim( struct intel_render *render,
@@ -102,10 +143,6 @@ static void pipe_draw_indexed_prim( struct intel_render *render,
    struct prim_header prim;
    GLuint i;
 
-   prim.prim = pipe_prim[pipe->prim];
-   prim.clipmask = 0;
-   prim.edgeflags = ~0;		/* valid in unfilled stage only */
-   prim.pad = 0;
    prim.det = 0;		/* valid from cull stage onwards */
    prim.v[0] = 0;
    prim.v[1] = 0;
@@ -195,30 +232,21 @@ static void pipe_draw_indexed_prim( struct intel_render *render,
 
    case GL_QUADS:
       for (i = 0; i+3 < count; i += 4) {
-	 prim.v[0] = get_vertex( pipe, elts[i + 0] );
-	 prim.v[1] = get_vertex( pipe, elts[i + 1] );
-	 prim.v[2] = get_vertex( pipe, elts[i + 2] );
-	 prim.v[3] = get_vertex( pipe, elts[i + 3] );
-      
-	 first->quad( first, &prim );
+	 do_quad( first,
+		  get_vertex( pipe, elts[i + 0] ),
+		  get_vertex( pipe, elts[i + 1] ),
+		  get_vertex( pipe, elts[i + 2] ),
+		  get_vertex( pipe, elts[i + 3] ));
       }
       break;
 
    case GL_QUAD_STRIP:
-      if (count >= 4) {
-	 prim.v[0] = 0;
-	 prim.v[1] = 0;
-	 prim.v[2] = get_vertex( pipe, elts[1] );
-	 prim.v[3] = get_vertex( pipe, elts[0] );
-	 
-	 for (i = 0; i+3 < count; i += 2) {
-	    prim.v[0] = prim.v[3];
-	    prim.v[1] = prim.v[2];
-	    prim.v[2] = get_vertex( pipe, elts[i+3] );
-	    prim.v[3] = get_vertex( pipe, elts[i+2] );
-
-	    first->quad( first, &prim );
-	 }
+      for (i = 0; i+3 < count; i += 2) {
+	 do_quad( first,
+		  get_vertex( pipe, elts[i + 0] ),
+		  get_vertex( pipe, elts[i + 1] ),
+		  get_vertex( pipe, elts[i + 3] ),
+		  get_vertex( pipe, elts[i + 2] ));
       }
       break;
 
@@ -253,10 +281,6 @@ static void pipe_draw_prim( struct intel_render *render,
    struct prim_header prim;
    GLuint i;
 
-   prim.prim = pipe_prim[pipe->prim];
-   prim.clipmask = 0;
-   prim.edgeflags = ~0;		/* valid in unfilled stage only */
-   prim.pad = 0;
    prim.det = 0;		/* valid from cull stage onwards */
    prim.v[0] = 0;
    prim.v[1] = 0;
@@ -335,32 +359,24 @@ static void pipe_draw_prim( struct intel_render *render,
       }
       break;
 
+
    case GL_QUADS:
       for (i = 0; i+3 < count; i += 4) {
-	 prim.v[0] = get_vertex( pipe, start + i + 0 );
-	 prim.v[1] = get_vertex( pipe, start + i + 1 );
-	 prim.v[2] = get_vertex( pipe, start + i + 2 );
-	 prim.v[3] = get_vertex( pipe, start + i + 3 );
-      
-	 first->quad( first, &prim );
+	 do_quad( first,
+		  get_vertex( pipe, start + i + 0 ),
+		  get_vertex( pipe, start + i + 1 ),
+		  get_vertex( pipe, start + i + 2 ),
+		  get_vertex( pipe, start + i + 3 ));
       }
       break;
 
    case GL_QUAD_STRIP:
-      if (count >= 4) {
-	 prim.v[0] = 0;
-	 prim.v[1] = 0;
-	 prim.v[2] = get_vertex( pipe, start + 1 );
-	 prim.v[3] = get_vertex( pipe, start + 0 );
-	 
-	 for (i = 0; i+3 < count; i += 2) {
-	    prim.v[0] = prim.v[3];
-	    prim.v[1] = prim.v[2];
-	    prim.v[2] = get_vertex( pipe, start + i + 3 );
-	    prim.v[3] = get_vertex( pipe, start + i + 2 );
-
-	    first->quad( first, &prim );
-	 }
+      for (i = 0; i+3 < count; i += 2) {
+	 do_quad( first,
+		  get_vertex( pipe, start + i + 0 ),
+		  get_vertex( pipe, start + i + 1 ),
+		  get_vertex( pipe, start + i + 3 ),
+		  get_vertex( pipe, start + i + 2 ));
       }
       break;
 

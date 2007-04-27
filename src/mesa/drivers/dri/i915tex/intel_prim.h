@@ -105,14 +105,7 @@ struct prim_pipeline {
 #define PRIM_TRI   3
 #define PRIM_QUAD  4
 
-/* Not used yet, maybe later:
- */
 struct prim_header {
-   GLuint clipmask:16;
-   GLuint edgeflags:4;		
-   GLuint prim:3;		/* also == number of vertices */
-   GLuint pad:9;
-
    GLfloat det;
 
    struct vertex_header *v[4];
@@ -136,9 +129,6 @@ struct prim_stage {
 
    void (*tri)( struct prim_stage *,
 		struct prim_header * );
-
-   void (*quad)( struct prim_stage *,
-		 struct prim_header * );
 
    void (*end)( struct prim_stage * );
 };

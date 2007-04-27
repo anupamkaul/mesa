@@ -227,6 +227,15 @@ static void calculate_setup_vertex_format( struct intel_context *intel )
    GLuint prim_attr_count = 0;
    GLuint offset = 0;
 
+   /* This should really be set up by the draw engine itself.
+    * 
+    * As it stands, it requires:
+    *   - vertex_header
+    *   - clip coordinates (if and only if clipped_prims is set)
+    *   - [the hardware vertex]
+    *   - backface colors in the same layouts as frontface colors.
+    */
+
    EMIT_ATTR(VF_ATTRIB_VERTEX_HEADER, EMIT_1F, 0, 4);
    
    /* INTEL_NEW_VB_STATE
@@ -234,6 +243,15 @@ static void calculate_setup_vertex_format( struct intel_context *intel )
    if (intel->vb_state.clipped_prims) {
       EMIT_ATTR(VF_ATTRIB_CLIP_POS, EMIT_4F, 0, 16);
    }
+
+   /* I915_NEW_VERTEX_FORMAT 
+    */
+   memcpy( prim_attrs + prim_attr_count, 
+	   i915->vertex_attrs, 
+	   i915->vertex_attr_count * sizeof(struct vf_attr_map));
+
+   offset += i915->intel.vb->vertex_size_bytes;
+   prim_attr_count += i915->vertex_attr_count;
 
    /* _NEW_LIGHT
     */
@@ -248,14 +266,6 @@ static void calculate_setup_vertex_format( struct intel_context *intel )
       }
    }
 
-   /* I915_NEW_VERTEX_FORMAT 
-    */
-   memcpy( prim_attrs + prim_attr_count, 
-	   i915->vertex_attrs, 
-	   i915->vertex_attr_count * sizeof(struct vf_attr_map));
-
-   offset += i915->intel.vb->vertex_size_bytes;
-   prim_attr_count += i915->vertex_attr_count;
    
    intel_draw_set_prim_vertex_format( intel->draw, 
 				      prim_attrs, 

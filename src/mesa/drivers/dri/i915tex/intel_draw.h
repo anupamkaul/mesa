@@ -139,6 +139,10 @@ struct intel_draw_state {
    GLfloat offset_scale;
 };
 
+struct intel_draw_clipplanes {
+   GLuint nr;
+   GLfloat user_clip_planes[6][4];
+};
 
 struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbacks );
 				      

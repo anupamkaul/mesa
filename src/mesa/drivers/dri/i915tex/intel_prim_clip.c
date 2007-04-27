@@ -1,28 +1,55 @@
+/**************************************************************************
+ * 
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sub license, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial portions
+ * of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+ * IN NO EVENT SHALL TUNGSTEN GRAPHICS AND/OR ITS SUPPLIERS BE LIABLE FOR
+ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ **************************************************************************/
+
+/* Authors:  Keith Whitwell <keith@tungstengraphics.com>
+ */
+
+#include "imports.h"
+#include "intel_draw.h"
+
+#define INTEL_PRIM_PRIVATE
+#include "intel_prim.h"
+
+
 struct prim_clip_stage {
-   struct prim_pipeline_stage base;
+   struct prim_stage base;
 
    GLfloat plane[12][4];
 };
 
-
-struct prim_pipeline_stage *intel_prim_clip( struct prim_pipeline *pipe )
+static INLINE struct clip_stage *clip_stage( struct prim_stage *stage )
 {
-   struct clip_stage *clip = MALLOC(sizeof(*clip));
-   GLuint i;
-
-   if (clip) {
-      prim_init_stage( pipe, 
-		       &clip->base, 
-		       MAX_CLIPPED_VERTICES );
-
-      clip->base.point = clip_point;
-      clip->base.line = clip_line;
-      clip->base.tri = clip_tri;
-   }
-   
-   return clip;
+   return (struct clip_stage *)stage;
 }
 
+
+static void clip_begin( struct prim_stage *stage )
+{
+}
 
 
 static void interp_attr( const struct vf_attr *a,
@@ -62,32 +89,35 @@ static void interp( struct vertex_fetch *vf,
    const struct vertex_fetch_attr *a = vf->attr;
    const GLuint attr_count = vf->attr_count;
    GLuint j;
+   GLfloat out[4];
 
    /* Vertex header - leave undefined.
     */
    assert(a[0].attrib == VF_ATTRIB_VERTEX_HEADER);
 
+      
    /* Clip coordinates:  interpolate normally
     */
    assert(a[1].format = EMIT_4F);
    interp_attr(&a[1], vin, vout, vdst);
 
-   /* Projected/viewport coordinates:
+   /* We do the projective divide:
     */
    {
-      GLfloat out[4];
+      const GLfloat *clip = &vdst[4];
 
-      /* We do the projective divide:
-       */
       out[3] = 1.0 / clip[3];
       out[0] = clip[0] * out[3];
       out[1] = clip[1] * out[3];
       out[2] = clip[2] * out[3];
 
-      /* vf module handles the viewport application:
+      /* vf module handles the viewport application.  XXX fix this
+       * - vf should take (only) clip coordinates, and do the
+       * projection/viewport in one go.
        */
-      a[2].insert[4-1]( &a[2], vdst + a[2].vertoffset, out );
+      a[2].insert[4-1]( a[2], vdst + a[2].vertoffset, out );
    }
+
    
    /* Other attributes
     */
@@ -102,7 +132,7 @@ static void interp( struct vertex_fetch *vf,
 /* Clip a triangle against the viewport and user clip planes.
  */
 static void
-do_clip_tri( struct prim_pipeline_stage *stage, 
+do_clip_tri( struct prim_stage *stage, 
 	     struct vertex_header *v0,
 	     struct vertex_header *v1,
 	     struct vertex_header *v2,
@@ -122,8 +152,12 @@ do_clip_tri( struct prim_pipeline_stage *stage,
    /* XXX: Note stupid hack to deal with tnl's 8-bit clipmask.  Remove
     * this once we correctly use 16bit masks for userclip planes.
     */
+#if 0
    if (clipmask & CLIP_USER_BIT) 
       clipmask |= clip->active_user_planes;
+#else
+   clipmask &= ~CLIP_USER_BIT;
+#endif
 
    while (clipmask && n >= 3) {
       GLuint plane_idx = ffs(clipmask)+1;
@@ -199,7 +233,7 @@ do_clip_tri( struct prim_pipeline_stage *stage,
 /* Clip a line against the viewport and user clip planes.
  */
 static void
-do_clip_line( struct prim_pipeline_stage *stage, 
+do_clip_line( struct prim_stage *stage, 
 	      struct vertex_header *v0,
 	      struct vertex_header *v1,
 	      GLuint clipmask )
@@ -249,7 +283,7 @@ do_clip_line( struct prim_pipeline_stage *stage,
 
 
 static void
-clip_tri( struct prim_pipeline_stage *stage, 
+clip_tri( struct prim_stage *stage, 
 	  struct vertex_header *v0,
 	  struct vertex_header *v1,
 	  struct vertex_header *v2 )
@@ -264,7 +298,7 @@ clip_tri( struct prim_pipeline_stage *stage,
 
       
 static void
-clip_line( struct prim_pipeline_stage *stage, 
+clip_line( struct prim_stage *stage, 
 	   struct vertex_header *v0,
 	   struct vertex_header *v1 )
 {
@@ -277,9 +311,30 @@ clip_line( struct prim_pipeline_stage *stage,
 }
 
 static void
-clip_point( struct prim_pipeline_stage *stage, 
+clip_point( struct prim_stage *stage, 
 	    struct vertex_header *v0 )
 {
    if (v0->clipmask == 0) 
       stage->next->point( stage->next, v0 );
+}
+
+
+
+struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe )
+{
+   struct clip_stage *clip = MALLOC(sizeof(*clip));
+   GLuint i;
+
+   prim_init_stage( pipe, 
+		    &clip->base, 
+		    MAX_CLIPPED_VERTICES );
+
+
+   
+
+   clip->base.point = clip_point;
+   clip->base.line = clip_line;
+   clip->base.tri = clip_tri;
+   
+   return clip;
 }
