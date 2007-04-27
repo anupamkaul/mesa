@@ -9,6 +9,7 @@ MINIGLX_SOURCES = server/intel_dri.c
 DRIVER_SOURCES = \
 	intel_prim.c \
 	intel_prim_emit.c \
+	intel_prim_cull.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \

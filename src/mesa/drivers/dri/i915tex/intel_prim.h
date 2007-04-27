@@ -103,12 +103,11 @@ struct prim_pipeline {
 #define PRIM_POINT 1
 #define PRIM_LINE  2
 #define PRIM_TRI   3
-#define PRIM_QUAD  4
 
 struct prim_header {
    GLfloat det;
 
-   struct vertex_header *v[4];
+   struct vertex_header *v[3];
 };
 
 
@@ -143,19 +142,6 @@ struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe );
 
 
 void intel_prim_clear_vertex_indices( struct prim_pipeline *pipe );
-
-/* Helpers
- */
-static INLINE void calc_det( struct prim_header *prim )
-{
-   GLfloat ex = prim->v[0]->data[0] - prim->v[2]->data[0];
-   GLfloat ey = prim->v[0]->data[1] - prim->v[2]->data[1];
-   GLfloat fx = prim->v[1]->data[0] - prim->v[2]->data[0];
-   GLfloat fy = prim->v[1]->data[1] - prim->v[2]->data[1];
-   
-   prim->det = ex * fy - ey * fx;
-}
-
 
 
 /* Get a writeable copy of a vertex:

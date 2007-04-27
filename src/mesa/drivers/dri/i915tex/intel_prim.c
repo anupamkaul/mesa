@@ -147,7 +147,6 @@ static void pipe_draw_indexed_prim( struct intel_render *render,
    prim.v[0] = 0;
    prim.v[1] = 0;
    prim.v[2] = 0;
-   prim.v[3] = 0;
 
    switch (pipe->prim) {
    case GL_POINTS:
@@ -285,7 +284,6 @@ static void pipe_draw_prim( struct intel_render *render,
    prim.v[0] = 0;
    prim.v[1] = 0;
    prim.v[2] = 0;
-   prim.v[3] = 0;
 
    switch (pipe->prim) {
    case GL_POINTS:
@@ -445,8 +443,8 @@ struct intel_render *intel_create_prim_render( struct intel_draw *draw )
    pipe->twoside = intel_prim_twoside( pipe );
    pipe->clip = intel_prim_clip( pipe );
    pipe->flatshade = intel_prim_flatshade( pipe );
-   pipe->cull = intel_prim_cull( pipe );
 #endif
+   pipe->cull = intel_prim_cull( pipe );
 
    return &pipe->render;
 }
@@ -498,6 +496,13 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
 #endif
    }
 #endif
+
+
+   {
+      pipe->cull->next = next;
+      next = pipe->cull;
+   }
+
 
 #if 0
    if (pipe->draw->vb_state.clipped_prims) {
