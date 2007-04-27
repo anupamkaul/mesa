@@ -164,7 +164,7 @@ static void emit_begin( struct prim_stage *stage )
     */
    emit->hw = stage->pipe->draw->hw;
    emit->hw_vertex_size = stage->pipe->draw->hw_vertex_size;
-   emit->hw_data_offset = 0;
+   emit->hw_data_offset = 0;	/* XXX - fix for clipping, twoside */
    emit->hw->set_prim( emit->hw, emit->hw_prim );
 
    flush( emit, GL_TRUE );

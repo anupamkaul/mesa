@@ -46,8 +46,8 @@ static void choose_rasterizer( struct intel_context *intel )
    if (intel->Fallback) {
       render = intel->swrender;
    }
-   else if (intel->active_prims & intel->fallback_prims) {
-      if (0 & intel->active_prims & ~intel->fallback_prims) {
+   else if (intel->vb_state.active_prims & intel->fallback_prims) {
+      if (0 & intel->vb_state.active_prims & ~intel->fallback_prims) {
 	 /* classic + swrast - not done yet */
 	 render = intel->mixed; 
       }
@@ -78,7 +78,7 @@ const struct intel_tracked_state i915_choose_rasterizer = {
       .mesa = (_NEW_LINE | _NEW_POINT),
       .intel  = (INTEL_NEW_FALLBACK_PRIMS |
 		 INTEL_NEW_FALLBACK |
-		 INTEL_NEW_ACTIVE_PRIMS),
+		 INTEL_NEW_VB_STATE),
       .extra = 0
    },
    .update = choose_rasterizer

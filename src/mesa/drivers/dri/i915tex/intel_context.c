@@ -367,15 +367,19 @@ intelInitDriverFunctions(struct dd_function_table *functions)
 }
 
 
-static void intel_cb_validate_state( void *driver, GLuint active_prims )
+static void intel_cb_set_vb_state( void *driver, 
+				   const struct intel_draw_vb_state *vb_state )
 {
    struct intel_context *intel = driver;
 
-   if (intel->active_prims != active_prims) {
-      intel->active_prims = active_prims;
-      intel->state.dirty.intel |= INTEL_NEW_ACTIVE_PRIMS;
-   }
-   
+   memcpy(&intel->vb_state, &vb_state, sizeof(*vb_state));
+   intel->state.dirty.intel |= INTEL_NEW_VB_STATE;
+}
+
+static void intel_cb_validate_state( void *driver )
+{
+   struct intel_context *intel = driver;
+
    intel_update_software_state( intel );
 }
 
@@ -512,6 +516,7 @@ intelInitContext(struct intel_context *intel,
       
       cb.driver = (void *)intel;
       cb.validate_state = intel_cb_validate_state;
+      cb.set_vb_state = intel_cb_set_vb_state;
 
       intel->draw = intel_draw_create( &cb );
    }

@@ -63,6 +63,10 @@ static void *pipe_allocate_vertices( struct intel_render *render,
    pipe->nr_vertices = nr_vertices;
    pipe->verts = MALLOC( nr_vertices * pipe->vertex_size );
 
+   assert(pipe->need_validate == 0);
+
+   pipe->first->begin( pipe->first );
+
    return pipe->verts;
 }
 
@@ -204,14 +208,14 @@ static void pipe_draw_indexed_prim( struct intel_render *render,
       if (count >= 4) {
 	 prim.v[0] = 0;
 	 prim.v[1] = 0;
-	 prim.v[2] = get_vertex( pipe, elts[0] );
-	 prim.v[3] = get_vertex( pipe, elts[1] );
+	 prim.v[2] = get_vertex( pipe, elts[1] );
+	 prim.v[3] = get_vertex( pipe, elts[0] );
 	 
-	 for (i = 0; i+3 < count; i++) {
-	    prim.v[0] = prim.v[2];
-	    prim.v[1] = prim.v[3];
-	    prim.v[2] = get_vertex( pipe, elts[i+2] );
-	    prim.v[3] = get_vertex( pipe, elts[i+3] );
+	 for (i = 0; i+3 < count; i += 2) {
+	    prim.v[0] = prim.v[3];
+	    prim.v[1] = prim.v[2];
+	    prim.v[2] = get_vertex( pipe, elts[i+3] );
+	    prim.v[3] = get_vertex( pipe, elts[i+2] );
 
 	    first->quad( first, &prim );
 	 }
@@ -346,14 +350,14 @@ static void pipe_draw_prim( struct intel_render *render,
       if (count >= 4) {
 	 prim.v[0] = 0;
 	 prim.v[1] = 0;
-	 prim.v[2] = get_vertex( pipe, start + 0 );
-	 prim.v[3] = get_vertex( pipe, start + 1 );
+	 prim.v[2] = get_vertex( pipe, start + 1 );
+	 prim.v[3] = get_vertex( pipe, start + 0 );
 	 
-	 for (i = 0; i+3 < count; i++) {
-	    prim.v[0] = prim.v[2];
-	    prim.v[1] = prim.v[3];
-	    prim.v[2] = get_vertex( pipe, start + i + 2 );
-	    prim.v[3] = get_vertex( pipe, start + i + 3 );
+	 for (i = 0; i+3 < count; i += 2) {
+	    prim.v[0] = prim.v[3];
+	    prim.v[1] = prim.v[2];
+	    prim.v[2] = get_vertex( pipe, start + i + 3 );
+	    prim.v[3] = get_vertex( pipe, start + i + 2 );
 
 	    first->quad( first, &prim );
 	 }
@@ -386,6 +390,9 @@ static void pipe_release_vertices( struct intel_render *render,
 				   void *vertices )
 {
    struct prim_pipeline *pipe = prim_pipeline( render );
+
+   pipe->first->end( pipe->first );
+
    FREE(pipe->verts);
    pipe->verts = NULL;
 }
@@ -416,6 +423,15 @@ struct intel_render *intel_create_prim_render( struct intel_draw *draw )
    pipe->draw = draw;
    pipe->prim = 0;
 
+   pipe->emit = intel_prim_emit( pipe );
+#if 0
+   pipe->unfilled = intel_prim_unfilled( pipe );
+   pipe->twoside = intel_prim_twoside( pipe );
+   pipe->clip = intel_prim_clip( pipe );
+   pipe->flatshade = intel_prim_flatshade( pipe );
+   pipe->cull = intel_prim_cull( pipe );
+#endif
+
    return &pipe->render;
 }
 
@@ -428,6 +444,8 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
    /* Dependent on driver state and primitive:
     */
    struct prim_stage *next = pipe->emit;
+
+   pipe->need_validate = 0;
    
 
 #if 0
@@ -496,8 +514,23 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
 void intel_prim_set_hw_render( struct intel_render *render,
 			       struct intel_render *hw )
 {
-/*    struct prim_pipeline *prim = prim_pipeline( render ); */
-/*    prim->hw = hw; */
+   struct prim_pipeline *pipe = prim_pipeline( render ); 
+   pipe->need_validate = 1;
+}
+
+
+void intel_prim_set_draw_state( struct intel_render *render,
+				struct intel_draw_state *state )
+{
+   struct prim_pipeline *pipe = prim_pipeline( render ); 
+   pipe->need_validate = 1;
+}
+
+void intel_prim_set_vb_state( struct intel_render *render,
+			      struct intel_draw_vb_state *state )
+{
+   struct prim_pipeline *pipe = prim_pipeline( render ); 
+   pipe->need_validate = 1;
 }
 
 

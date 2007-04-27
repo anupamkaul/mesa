@@ -39,27 +39,36 @@
 
 struct intel_draw;
 struct intel_draw_state;
+struct intel_draw_vb_state;
 struct intel_render;
 struct prim_pipeline;
 
-
-struct prim_draw_state {
-
-   /* Draw state:
-    */
-   GLuint reduced_primitive:2;
-   GLuint clipped_prims:1;
-};
-
-
 struct intel_render *intel_create_prim_render( struct intel_draw *draw );
-
 
 GLboolean intel_prim_validate_state( struct intel_render *render );
 
 void intel_prim_set_hw_render( struct intel_render *render,
 			       struct intel_render *hw );
 
+void intel_prim_set_vb_state( struct intel_render *render,
+			      struct intel_draw_vb_state *state );
+
+void intel_prim_set_draw_state( struct intel_render *render,
+				struct intel_draw_state *state );
+
+
+
+
+/* Carry some useful information around with the vertices in the prim
+ * pipe.  
+ */
+struct vertex_header {
+   GLuint clipmask:12;
+   GLuint edgeflag:1;
+   GLuint pad:3;
+   GLuint index:16;
+   GLubyte data[];
+};
 
 
 /***********************************************************************
@@ -87,26 +96,9 @@ struct prim_pipeline {
    GLuint vertex_size;
 
    GLenum prim;
+   GLboolean need_validate;
 };
 
-
-/* Carry a tiny bit of useful information around with the vertices.
- * This will end up getting sent to hardware in most cases, unless we
- * make data a pointer into a hardware-only vb.  That would compilcate
- * things on this end.  Upload is pretty cheap on the integrated
- * chipsets, so possibly not yet worth the effort.
- *
- * Would like to store a bit more, eg. unprojected clip-space
- * coordinates for clipping without the nasty unproject/unviewport
- * operations.  
- */
-struct vertex_header {
-   GLuint clipmask:12;
-   GLuint edgeflag:1;
-   GLuint pad:3;
-   GLuint index:16;
-   GLubyte data[];
-};
 
 #define PRIM_POINT 1
 #define PRIM_LINE  2

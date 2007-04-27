@@ -117,7 +117,7 @@ extern void intelFallback(struct intel_context *intel, GLuint bit,
 #define INTEL_NEW_CBUF                    0x400
 #define INTEL_NEW_ZBUF                    0x800
 #define INTEL_NEW_WINDOW_DIMENSIONS       0x1000
-#define INTEL_NEW_ACTIVE_PRIMS            0x2000 
+#define INTEL_NEW_VB_STATE                0x2000 
 #define INTEL_NEW_REDUCED_PRIMITIVE       0x4000 /* still needed to turn stipple on/off */
 
 #define INTEL_NEW_DRIVER0                 0x10000
@@ -224,6 +224,7 @@ struct intel_context
    struct intel_context_state state;
    
    struct intel_driver_state driver_state;
+   
 
    struct {
       /* Will be allocated on demand if needed.   
@@ -251,11 +252,14 @@ struct intel_context
     */
    struct intel_draw_state draw_state;
 
-   GLuint active_prims;
-   GLenum hw_reduced_prim;
+   /* State we get back from it:
+    */
+   struct intel_draw_vb_state vb_state;
+   GLuint fallback_prims:16;
 
+   GLenum hw_reduced_prim;
    GLuint Fallback;
-   GLuint fallback_prims;
+
 
    struct _DriFenceObject *last_swap_fence;
    struct _DriFenceObject *first_swap_fence;

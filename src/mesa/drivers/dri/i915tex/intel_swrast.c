@@ -75,7 +75,7 @@ static void *swrender_allocate_vertices( struct intel_render *render,
 {
    struct swrast_render *swrender = swrast_render( render );
 
-   swrender->vf = intel_draw_get_vf( swrender->intel->draw );
+   swrender->vf = intel_draw_get_hw_vf( swrender->intel->draw );
    swrender->hw_vert_size = vertex_size;
    swrender->hw_verts = MALLOC( nr_vertices * swrender->hw_vert_size );
 
@@ -96,6 +96,11 @@ static void swrender_release_vertices( struct intel_render *render,
    }
 }
 
+
+
+
+
+
 /**
  * Populate a swrast SWvertex from an attrib-style vertex.
  */
@@ -110,6 +115,10 @@ static void translate( struct swrast_render *swrender,
    GLfloat tmp[4];
    GLuint i;
 
+
+   /* Need to use the hardware vertex attributes to pluck apart this
+    * vertex, also need the hardware viewport matrix installed.
+    */
    vf_get_attr( vf, vertex, VF_ATTRIB_POS, NULL, tmp );
 
    dest->win[0] = m[0]  * tmp[0] + m[12];

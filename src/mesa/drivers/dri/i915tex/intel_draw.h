@@ -31,14 +31,19 @@
 #include "mtypes.h"
 #include "vf/vf.h"
 
+
+struct intel_draw_vb_state {
+   GLuint clipped_prims:1;
+   GLuint pad:15;
+   GLuint active_prims:16;
+};
+
 struct intel_render {
    /* Initialize state for the frame.  EG. emit dma to wait for
     * pending flips.
     */
    void (*start_render)( struct intel_render *,
 			 GLboolean start_of_frame );
-
-
 
 
    /* Request a destination for incoming vertices in the format above.
@@ -88,12 +93,17 @@ struct intel_draw_callbacks {
     */
    void *driver;
 
-
-   /* Called at the start of a vb.  May result in subsequent calls to
-    * the intel_draw_set_* functions below.
+   /* Called when the primitives or clipping mode of the vb changes.
+    * Driver may want to set a new hardware renderer.
     */
-   void (*validate_state)( void *driver,
-			   GLuint active_prims  );
+   void (*set_vb_state)( void *driver, 
+			 const struct intel_draw_vb_state *vb_state  );
+
+
+   /* Ask driver to validate state at the head of a vb.  May result in
+    * calls back into draw to set hw renderer, viewport, etc.
+    */
+   void (*validate_state)( void *driver  );
 };
 
 
@@ -130,7 +140,6 @@ struct intel_draw_state {
 };
 
 
-
 struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbacks );
 				      
 void intel_draw_destroy( struct intel_draw * );
@@ -164,7 +173,7 @@ void intel_draw_set_prim_pipe_active( struct intel_draw *draw,
 				      GLboolean active );
 
 
-struct vertex_fetch *intel_draw_get_vf( struct intel_draw *draw );
+struct vertex_fetch *intel_draw_get_hw_vf( struct intel_draw *draw );
 
 struct tnl_pipeline_stage *intel_draw_tnl_stage( struct intel_draw *draw );
 
@@ -180,11 +189,10 @@ struct intel_draw {
     */
    struct intel_draw_state state;
 
-   struct {
-      GLuint clipped_prims:1;
-      GLuint pad:15;
-      GLuint active_prims:16;
-   } vb_state;
+   /* Primitive/VB state that we send to the driver (and to the prim
+    * pipeline).
+    */
+   struct intel_draw_vb_state vb_state;
    
    /* The hardware backend (or swrast)
     */
@@ -192,6 +200,7 @@ struct intel_draw {
    struct vf_attr_map hw_attrs[VF_ATTRIB_MAX];
    GLuint hw_attr_count;
    GLuint hw_vertex_size;
+   struct vertex_fetch *hw_vf;
 
    /* Helper for quads (when prim pipe not active??)
     */
@@ -206,8 +215,8 @@ struct intel_draw {
    GLuint prim_attr_count;
    GLuint prim_vertex_size;
    GLboolean prim_pipe_active;
+   struct vertex_fetch *prim_vf;
 
-   struct vertex_fetch *vf;
 
    struct {
       /* The active renderer - either quads or prim, depending on gl
@@ -216,8 +225,9 @@ struct intel_draw {
       struct intel_render *render;
       GLenum render_prim;
 
-      /* These are the attributes installed in vf:
+      /* The active vf and the attributes installed in vf:
        */
+      struct vertex_fetch *vf;
       struct vf_attr_map *attrs;
       GLuint attr_count;
       GLuint vertex_size;

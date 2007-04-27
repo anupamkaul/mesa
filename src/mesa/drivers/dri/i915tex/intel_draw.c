@@ -55,8 +55,8 @@ void intel_draw_flush( struct intel_draw *draw )
 {
    assert(!draw->in_vb);
 
-   if (draw->vb.render)
-      draw->vb.render->flush( draw->vb.render, !draw->in_frame );
+   if (draw->hw)
+      draw->hw->flush( draw->hw, !draw->in_frame );
 }
 
 
@@ -68,7 +68,8 @@ void intel_draw_set_viewport( struct intel_draw *draw,
 			      const GLfloat *trans )
 {
    assert(!draw->in_vb);
-   vf_set_vp_scale_translate( draw->vf, scale, trans );
+   vf_set_vp_scale_translate( draw->hw_vf, scale, trans );
+   vf_set_vp_scale_translate( draw->prim_vf, scale, trans );
 }
 
 
@@ -104,6 +105,12 @@ void intel_draw_set_hw_vertex_format( struct intel_draw *draw,
    draw->hw_attr_count = count;
    draw->hw_vertex_size = vertex_size;
 
+   vf_set_vertex_attributes( draw->hw_vf,
+			     draw->hw_attrs,
+			     draw->hw_attr_count,
+			     draw->hw_vertex_size );
+
+
    draw->revalidate = 1;
 }
 
@@ -118,6 +125,12 @@ void intel_draw_set_prim_vertex_format( struct intel_draw *draw,
    memcpy(draw->prim_attrs, attr, count * sizeof(*attr));
    draw->prim_attr_count = count;
    draw->prim_vertex_size = vertex_size;
+
+   vf_set_vertex_attributes( draw->prim_vf,
+			     draw->prim_attrs,
+			     draw->prim_attr_count,
+			     draw->prim_vertex_size );
+
 
    draw->revalidate = 1;
 }
@@ -162,26 +175,23 @@ static void draw_validate_state( struct intel_draw *draw )
       draw->vb.attrs = draw->prim_attrs;
       draw->vb.attr_count = draw->prim_attr_count;
       draw->vb.vertex_size = draw->prim_vertex_size;
+      draw->vb.vf = draw->prim_vf;
    }
    else {
       draw->vb.render = draw->quads;
       draw->vb.attrs = draw->hw_attrs;
       draw->vb.attr_count = draw->hw_attr_count;
       draw->vb.vertex_size = draw->hw_vertex_size;
+      draw->vb.vf = draw->hw_vf;
    }
-
-   vf_set_vertex_attributes( draw->vf,
-			     draw->vb.attrs,
-			     draw->vb.attr_count,
-			     draw->vb.vertex_size );
 
    draw->revalidate = 0;
 }
 
 
-struct vertex_fetch *intel_draw_get_vf( struct intel_draw *draw )
+struct vertex_fetch *intel_draw_get_hw_vf( struct intel_draw *draw )
 {
-   return draw->vf;
+   return draw->hw_vf;
 }
 
 
@@ -194,7 +204,8 @@ struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbac
    draw->prim = intel_create_prim_render( draw );
    draw->quads = intel_create_quads_render( draw );
 
-   draw->vf = vf_create( GL_TRUE );
+   draw->hw_vf = vf_create( GL_TRUE );
+   draw->prim_vf = vf_create( GL_TRUE );
 
 
    return draw;
@@ -209,7 +220,8 @@ void intel_draw_destroy( struct intel_draw *draw )
    draw->prim->destroy( draw->prim );
    draw->quads->destroy( draw->quads );
 
-   vf_destroy( draw->vf );
+   vf_destroy( draw->hw_vf );
+   vf_destroy( draw->prim_vf );
 
    FREE( draw );
 }
@@ -259,27 +271,73 @@ build_vertex_headers( struct intel_draw *draw,
 
    {
       GLuint i;
-      GLuint *id = (GLuint *)draw->header.storage;
+      struct vertex_header *header = (struct vertex_header *)draw->header.storage;
+
+      /* yes its a hack
+       */
+      assert(sizeof(*header) == sizeof(GLfloat));
 
       draw->header.count = VB->Count;
 
       if (draw->state.fill_cw != FILL_TRI ||
 	  draw->state.fill_ccw != FILL_TRI) {
 	 for (i = 0; i < VB->Count; i++) {
-	    GLuint flag = VB->EdgeFlag[i] ? (1<<15) : 0;
-	    id[i] = VB->ClipMask[i] | flag; 
+	    header[i].clipmask = VB->ClipMask[i];
+	    header[i].edgeflag = VB->EdgeFlag[i]; 
+	    header[i].pad = 0;
+	    header[i].index = 0xffff;
 	 }
       }
       else if (VB->ClipOrMask) {
-	 for (i = 0; i < VB->Count; i++)
-	    id[i] = VB->ClipMask[i];
+	 for (i = 0; i < VB->Count; i++) {
+	    header[i].clipmask = VB->ClipMask[i];
+	    header[i].edgeflag = 0; 
+	    header[i].pad = 0;
+	    header[i].index = 0xffff;
+	 }
       }
       else {
-	 for (i = 0; i < VB->Count; i++)
-	    id[i] = 0;
+	 for (i = 0; i < VB->Count; i++) {
+	    header[i].clipmask = 0;
+	    header[i].edgeflag = 0; 
+	    header[i].pad = 0;
+	    header[i].index = 0xffff;
+	 }
       }
    }
+
    VB->AttribPtr[VF_ATTRIB_VERTEX_HEADER] = &draw->header;
+}
+
+static void 
+update_vb_state( struct intel_draw *draw,
+		 struct vertex_buffer *VB )
+{
+   struct intel_draw_vb_state vb_state;
+   GLuint i;
+
+   vb_state.clipped_prims = (VB->ClipOrMask != 0);
+   vb_state.pad = 0;
+   vb_state.active_prims = 0;
+
+   /* Build a bitmask of the reduced primitives in this vb:
+    */
+   for (i = 0; i < VB->PrimitiveCount; i++)
+      vb_state.active_prims |= 1 << reduced_prim[VB->Primitive[i].mode];
+
+   if (memcmp(&vb_state, &draw->vb_state, sizeof(vb_state)) != 0) {
+      
+      memcpy(&draw->vb_state, &vb_state, sizeof(vb_state));
+
+
+      /* Tell driver about active primitives, let it update render before
+       * starting the vb.
+       */
+      draw->callbacks.set_vb_state( draw->callbacks.driver,
+				    &vb_state );
+
+      intel_prim_set_vb_state( draw->prim, &vb_state );
+   }
 }
 
 
@@ -292,28 +350,17 @@ run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
 
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;
-   GLuint i, prim_mask;
+   GLuint i;
 
+   update_vb_state( draw, VB );
 
-   /* Build a bitmask of all the primitives in this vb:
-    */
-   for (prim_mask = i = 0; i < VB->PrimitiveCount; i++)
-      prim_mask |= 1 << reduced_prim[VB->Primitive[i].mode];
-
-
-   /* Tell driver about active primitives, let it update render before
-    * starting the vb.
-    */
-   draw->callbacks.validate_state( draw->callbacks.driver,
-				   prim_mask );
-
+   draw->callbacks.validate_state( draw->callbacks.driver );
+   
    /* Validate our render pipeline: 
     */
-   {
-      draw->vb_state.active_prims = prim_mask;
-      draw->vb_state.clipped_prims = (VB->ClipOrMask != 0);
+   if (draw->revalidate)
       draw_validate_state( draw );
-   }
+
 
    /* Delay this so that we don't start a frame on a renderer that
     * gets swapped out in the validation above.
@@ -347,13 +394,29 @@ run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
 
    /* Bind the vb outputs:
     */
-   vf_set_sources( draw->vf, VB->AttribPtr, 0 );
+   vf_set_sources( draw->vb.vf, VB->AttribPtr, 0 );
 
    /* Build the hardware or prim-pipe vertices: 
     */
-   vf_emit_vertices( draw->vf,
+   vf_emit_vertices( draw->vb.vf,
 		     VB->Count,
 		     draw->vb.verts );
+
+#if 0
+   {
+      union { GLfloat f; GLuint u; GLint i;} *fi = draw->vb.verts;
+
+      for (i = 0; i < VB->Count; i++) {
+	 _mesa_printf("%d: %x %f %f %f %x\n", 
+		      i,
+		      fi[i*5 + 0].u,
+		      fi[i*5 + 1].f,
+		      fi[i*5 + 2].f,
+		      fi[i*5 + 3].f,
+		      fi[i*5 + 4].u);
+      }
+   }
+#endif 
 
    for (i = 0; i < VB->PrimitiveCount; i++) {
 
