@@ -81,6 +81,44 @@ static void classic_release_vertices( struct intel_render *render,
     */
 }
 
+
+static GLboolean validate_vertices( GLuint hw_prim, GLuint nr )
+{
+   GLboolean ok = GL_FALSE;
+   switch (hw_prim) {
+   case PRIM3D_POINTLIST:
+      ok = (nr >= 1);
+      assert(ok);
+      break;
+   case PRIM3D_LINELIST:
+      ok = (nr >= 2) && (nr % 2) == 0;
+      assert(ok);
+      break;
+   case PRIM3D_LINESTRIP:
+      ok = (nr >= 2);
+      assert(ok);
+      break;
+   case PRIM3D_TRILIST:
+      ok = (nr >= 3) && (nr % 3) == 0;
+      assert(ok);
+      break;
+   case PRIM3D_TRISTRIP:
+      ok = (nr >= 3);
+      assert(ok);
+      break;
+   case PRIM3D_TRIFAN:
+      ok = (nr >= 3);
+      assert(ok);
+      break;
+   case PRIM3D_POLY:
+      ok = (nr >= 3);
+      assert(ok);
+      break;
+   }
+
+   return ok;
+}
+
 static void classic_draw_prim_indexed( struct intel_render *render,
 				       const GLuint *indices,
 				       GLuint nr )
@@ -90,7 +128,7 @@ static void classic_draw_prim_indexed( struct intel_render *render,
    const GLuint offset = crc->offset;
    GLuint j;
 
-   if (nr == 0)
+   if (nr == 0 || !validate_vertices(crc->hw_prim, nr))
       return; 
 
    assert(nr>0);
@@ -136,7 +174,7 @@ static void classic_draw_prim( struct intel_render *render,
    struct intel_context *intel = crc->intel;
    GLuint dwords = 2;
 
-   if (nr == 0)
+   if (nr == 0 || !validate_vertices(crc->hw_prim, nr))
       return; 
 
    intel_emit_hardware_state(intel, dwords);
