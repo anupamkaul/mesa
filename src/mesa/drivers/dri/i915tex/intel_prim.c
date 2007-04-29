@@ -546,8 +546,8 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
       }
 	 
       if (install && 
-	  pipe->draw->state.offset_cw ||
-	  pipe->draw->state.offset_ccw) {
+	  (pipe->draw->state.offset_cw ||
+	   pipe->draw->state.offset_ccw)) {
 	 pipe->offset->next = next;
 	 next = pipe->offset;
       }
@@ -586,19 +586,8 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
 
 //   install = GL_TRUE;
 
-   /* Copy the hardware vertex payload here:
-    */
-   if (install) {
-//      _mesa_printf("Installing clip/setup prim pipeline\n");
-      pipe->first = next;
-      return GL_TRUE;
-   }
-
-   
-   /* Empty pipeline, nothing for us to do...
-    */
-//   _mesa_printf("Using quads pipeline\n");
-   return GL_FALSE;
+   pipe->first = next;
+   return install;
 }
 
 
