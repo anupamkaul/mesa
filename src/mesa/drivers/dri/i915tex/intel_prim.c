@@ -75,6 +75,9 @@ static void pipe_set_prim( struct intel_render *render,
 {
    struct prim_pipeline *pipe = prim_pipeline( render );
 
+//   _mesa_printf("%s (%d) \n", __FUNCTION__, prim );
+
+
    pipe->prim = prim;
 
    /* Not done yet - need to force edgeflags to 1 in strip/fan
@@ -336,6 +339,8 @@ static void pipe_draw_prim( struct intel_render *render,
    struct prim_stage * const first = pipe->first;
    struct prim_header prim;
    GLuint i;
+
+//   _mesa_printf("%s (%d) %d/%d\n", __FUNCTION__, pipe->prim, start, count );
 
    prim.det = 0;		/* valid from cull stage onwards */
    prim.v[0] = 0;
@@ -603,8 +608,6 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
 void intel_prim_set_hw_render( struct intel_render *render,
 			       struct intel_render *hw )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render ); 
-   pipe->need_validate = 1;
 }
 
 

@@ -153,24 +153,23 @@ void intel_draw_set_render( struct intel_draw *draw,
    if (draw->hw)
       draw->hw->flush(draw->hw, !draw->in_frame );
 
-   /* Install the new one - potentially updating draw->render as well.
+   /* Install the new one.
     */
-   if (draw->vb.render == draw->hw)
-      draw->vb.render = hw;
-
    draw->hw = hw;
-
-   intel_quads_set_hw_render( draw->quads, draw->hw );
-   intel_prim_set_hw_render( draw->prim, draw->hw );
+   draw->revalidate = 1;
 }
+
+
 
 static void draw_validate_state( struct intel_draw *draw )
 {
    /* Choose between simple and complex (quads vs. prim) pipelines.
     */
    draw->prim_pipe_active = intel_prim_validate_state( draw->prim );
-   
+
    if (draw->prim_pipe_active) {
+      intel_prim_set_hw_render( draw->prim, draw->hw );
+
       draw->vb.render = draw->prim;
       draw->vb.attrs = draw->prim_attrs;
       draw->vb.attr_count = draw->prim_attr_count;
@@ -178,12 +177,17 @@ static void draw_validate_state( struct intel_draw *draw )
       draw->vb.vf = draw->prim_vf;
    }
    else {
+      intel_quads_set_hw_render( draw->quads, draw->hw );
+
       draw->vb.render = draw->quads;
       draw->vb.attrs = draw->hw_attrs;
       draw->vb.attr_count = draw->hw_attr_count;
       draw->vb.vertex_size = draw->hw_vertex_size;
       draw->vb.vf = draw->hw_vf;
    }
+
+   draw->vb.render->set_prim( draw->vb.render, 
+			      draw->vb.render_prim );
 
    draw->revalidate = 0;
 }

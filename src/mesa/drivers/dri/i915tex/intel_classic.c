@@ -114,12 +114,16 @@ static GLboolean validate_vertices( GLuint hw_prim, GLuint nr )
       ok = (nr >= 3);
       assert(ok);
       break;
+   default:
+      assert(0);
+      ok = 0;
+      break;
    }
 
    return ok;
 }
 
-static void classic_draw_prim_indexed( struct intel_render *render,
+static void classic_draw_indexed_prim( struct intel_render *render,
 				       const GLuint *indices,
 				       GLuint nr )
 {
@@ -174,6 +178,8 @@ static void classic_draw_prim( struct intel_render *render,
    struct intel_context *intel = crc->intel;
    GLuint dwords = 2;
 
+//   _mesa_printf("%s (%d) %d/%d\n", __FUNCTION__, crc->hw_prim, start, nr );
+
    if (nr == 0 || !validate_vertices(crc->hw_prim, nr))
       return; 
 
@@ -194,12 +200,12 @@ static GLuint hw_prim[GL_POLYGON+1] = {
    PRIM3D_POINTLIST,
    PRIM3D_LINELIST,
    PRIM3D_LINESTRIP,
-   0,
+   PRIM3D_POINTLIST,
    PRIM3D_TRILIST,
    PRIM3D_TRISTRIP,
    PRIM3D_TRIFAN,
-   0,
-   0,
+   PRIM3D_POINTLIST,
+   PRIM3D_POINTLIST,
    PRIM3D_POLY
 };
 
@@ -232,7 +238,6 @@ static void classic_set_prim( struct intel_render *render,
    case GL_TRIANGLE_STRIP:
    case GL_TRIANGLE_FAN:
    case GL_POLYGON:
-      render->draw_prim = classic_draw_prim;
       crc->hw_prim = hw_prim[mode];
       break;
 
@@ -245,6 +250,8 @@ static void classic_set_prim( struct intel_render *render,
       assert(0);
       break;
    }
+
+//   _mesa_printf("%s %d -> %x\n", __FUNCTION__, mode, crc->hw_prim );
 
    if (crc->intel->hw_reduced_prim != reduced_prim[mode]) {
       crc->intel->hw_reduced_prim = reduced_prim[mode];
@@ -301,7 +308,7 @@ struct intel_render *intel_create_classic_render( struct intel_context *intel )
    crc->render.allocate_vertices = classic_allocate_vertices;
    crc->render.set_prim = classic_set_prim;
    crc->render.draw_prim = classic_draw_prim;
-   crc->render.draw_indexed_prim = classic_draw_prim_indexed;
+   crc->render.draw_indexed_prim = classic_draw_indexed_prim;
    crc->render.release_vertices = classic_release_vertices;
    crc->render.flush = classic_flush;
 

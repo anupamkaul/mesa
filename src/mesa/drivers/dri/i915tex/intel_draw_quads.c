@@ -31,31 +31,14 @@
   */
 
 #include "imports.h"      
-
 #include "intel_draw_quads.h"
-
-/* Optimize quadstrip->tristrip where possible.  Needs a hook
- * somewhere to find out if flatshading is active.  Currently disabled
- * as it doesn't seem to speed things up.
- */
-#define QUADSTRIP_OPT 0
-
-#if QUADSTRIP_OPT
-#define INTEL_DRAW_PRIVATE
-#endif
-
 #include "intel_draw.h"
 
 
 struct quads_render {
    struct intel_render render;
    struct intel_render *hw;
-   GLenum hw_prim;
    GLenum gl_prim;
-
-#if QUADSTRIP_OPT
-   struct intel_draw *draw;
-#endif
 };
 
 static INLINE struct quads_render *quads_render( struct intel_render *render )
@@ -74,34 +57,67 @@ static void *quads_allocate_vertices( struct intel_render *render,
 }
 
 
-static void quads_set_hw_prim( struct quads_render *quads,
-			       GLenum prim )
-{
-   if (prim != quads->hw_prim) {
-      quads->hw_prim = prim;
-      quads->hw->set_prim( quads->hw, prim );
-   }
-}
 
 static void quads_set_prim( struct intel_render *render,
 			      GLenum mode )
 {
    struct quads_render *quads = quads_render( render );
 
+//   _mesa_printf("%s: %d\n", __FUNCTION__, mode);
+
    quads->gl_prim = mode;
 
    switch (mode) {
    case GL_LINE_LOOP:
+      quads->hw->set_prim( quads->hw, GL_LINE_STRIP );
+      break;
    case GL_QUADS:
    case GL_QUAD_STRIP:
+      quads->hw->set_prim( quads->hw, GL_TRIANGLES );
       break;
    default:
-      quads_set_hw_prim( quads, mode );
+      quads->hw->set_prim( quads->hw, mode );
       break;
    }
 }
 
+/* XXX: do this in the VBO layer.
+ */
+static GLuint trim( GLenum prim, GLuint nr )
+{
+   switch (prim) {
+   case GL_POINTS:
+      break;
+   case GL_LINES:
+      nr -= nr % 2;
+      break;
+   case GL_LINE_STRIP:
+   case GL_LINE_LOOP:
+      if (nr < 2) nr = 0;
+      break;
+   case GL_TRIANGLES:
+      nr -= nr % 3;
+      break;
+   case GL_TRIANGLE_STRIP:
+   case GL_TRIANGLE_FAN:
+   case GL_POLYGON:
+      if (nr < 3) nr = 0;
+      break;
+   case GL_QUADS:
+      nr -= nr % 4;
+      break;
+   case GL_QUAD_STRIP:
+      nr -= nr % 2;
+      if (nr < 4) nr = 0;
+      break;
+   default:
+      assert(0);
+      nr = 0;
+      break;
+   }
 
+   return nr;
+}
 
 
 static void quads_draw_indexed_prim( struct intel_render *render,
@@ -110,12 +126,12 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 {
    struct quads_render *quads = quads_render( render );
 
+   length = trim(quads->gl_prim, length);
+
    switch (quads->gl_prim) {
    case GL_LINE_LOOP: {
       GLuint tmp_indices[2] = { indices[length],
 				indices[0] };
-
-      quads_set_hw_prim( quads, GL_LINE_STRIP );
 
       quads->hw->draw_indexed_prim( quads->hw, 
 				    indices, 
@@ -129,14 +145,6 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 
 
    case GL_QUAD_STRIP:
-#if QUADSTRIP_OPT
-      if (!quads->draw->state.flatshade) {
-	 length -= length % 2;
-	 quads_set_hw_prim( quads, GL_TRIANGLE_STRIP );
-	 quads->hw->draw_indexed_prim( quads->hw, indices, length );
-      }
-      else 
-#endif
       {
 	 GLuint *tmp = _mesa_malloc( sizeof(int) * (length / 2 * 6) );
 	 GLuint i, j;
@@ -151,7 +159,6 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 	    tmp[j+5] = indices[i+3];
 	 }
 
-	 quads_set_hw_prim( quads, GL_TRIANGLES );
 	 quads->hw->draw_indexed_prim( quads->hw, tmp, j );
 	 _mesa_free(tmp);
       }
@@ -171,7 +178,6 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 	 tmp[j+5] = indices[i+3];
       }
 
-      quads_set_hw_prim( quads, GL_TRIANGLES );
       quads->hw->draw_indexed_prim( quads->hw, tmp, j );
       _mesa_free(tmp);
       break;
@@ -193,6 +199,10 @@ static void quads_draw_prim( struct intel_render *render,
 {
    struct quads_render *quads = quads_render( render );
 
+   length = trim(quads->gl_prim, length);
+
+//   _mesa_printf("%s (%d) %d/%d\n", __FUNCTION__, quads->gl_prim, start, length );
+
    switch (quads->gl_prim) {
 
       /* Lineloop just doesn't work as a concept.  Should get
@@ -204,7 +214,6 @@ static void quads_draw_prim( struct intel_render *render,
    case GL_LINE_LOOP: {
       GLuint indices[2] = { start + length - 1, start };
 
-      quads_set_hw_prim( quads, GL_LINE_STRIP );
       quads->hw->draw_prim( quads->hw, start, length );
       quads->hw->draw_indexed_prim( quads->hw, indices, 2 );
       break;
@@ -212,16 +221,6 @@ static void quads_draw_prim( struct intel_render *render,
 
 
    case GL_QUAD_STRIP:
-#if QUADSTRIP_OPT
-      /* Not really any faster:
-       */
-      if (!quads->draw->state.flatshade) {
-	 length -= length % 2;
-	 quads_set_hw_prim( quads, GL_TRIANGLE_STRIP );
-	 quads->hw->draw_prim( quads->hw, start, length );
-      }
-      else 
-#endif
       {
 	 GLuint *tmp = _mesa_malloc( sizeof(GLuint) * (length / 2 * 6) );
 	 GLuint i,j;
@@ -236,7 +235,6 @@ static void quads_draw_prim( struct intel_render *render,
 	    tmp[j+5] = start+i+3;
 	 }
 
-	 quads_set_hw_prim( quads, GL_TRIANGLES );
 	 quads->hw->draw_indexed_prim( quads->hw, tmp, j );
 	 _mesa_free(tmp);
       }
@@ -256,7 +254,6 @@ static void quads_draw_prim( struct intel_render *render,
 	 tmp[j+5] = start+i+3;
       }
 
-      quads_set_hw_prim( quads, GL_TRIANGLES );
       quads->hw->draw_indexed_prim( quads->hw, tmp, j );
       _mesa_free(tmp);
       break;
@@ -297,14 +294,7 @@ struct intel_render *intel_create_quads_render( struct intel_draw *draw )
    quads->render.draw_indexed_prim = quads_draw_indexed_prim;
    quads->render.release_vertices = quads_release_vertices;
    quads->render.flush = NULL;
-
-#if QUADSTRIP_OPT
-   quads->draw = draw;
-#endif
-
-   quads->hw_prim = GL_TRIANGLES;
-   quads->gl_prim = GL_TRIANGLES;
-
+   quads->gl_prim = GL_POINTS;
    return &quads->render;
 }
 
@@ -315,7 +305,5 @@ void intel_quads_set_hw_render( struct intel_render *render,
 				struct intel_render *hw )
 {
    struct quads_render *quads = quads_render( render );
-
    quads->hw = hw;
-   quads->hw->set_prim( quads->hw, quads->hw_prim );
 }
