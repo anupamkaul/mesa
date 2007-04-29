@@ -225,7 +225,20 @@ static void pipe_draw_indexed_prim( struct intel_render *render,
       }
       break;
 
-   case GL_LINE_LOOP:    /* Just punt on loops for now. */
+   case GL_LINE_LOOP:  
+      if (count >= 2) {
+	 for (i = 1; i < count; i++) {
+	    prim.v[0] = get_vertex( pipe, elts[i-1] );
+	    prim.v[1] = get_vertex( pipe, elts[i] );	    
+	    first->line( first, &prim );
+	 }
+
+	 prim.v[0] = get_vertex( pipe, elts[count-1] );
+	 prim.v[1] = get_vertex( pipe, elts[0] );	    
+	 first->line( first, &prim );
+      }
+      break;
+
    case GL_LINE_STRIP:
       /* I'm guessing it will be necessary to have something like a
        * render->reset_line_stipple() method to properly support
@@ -364,7 +377,20 @@ static void pipe_draw_prim( struct intel_render *render,
       }
       break;
 
-   case GL_LINE_LOOP:    /* Just punt on loops for now. */
+   case GL_LINE_LOOP:  
+      if (count >= 2) {
+	 for (i = 1; i < count; i++) {
+	    prim.v[0] = get_vertex( pipe, start + i - 1 );
+	    prim.v[1] = get_vertex( pipe, start + i );	    
+	    first->line( first, &prim );
+	 }
+
+	 prim.v[0] = get_vertex( pipe, start + count - 1 );
+	 prim.v[1] = get_vertex( pipe, start + 0 );	    
+	 first->line( first, &prim );
+      }
+      break;
+
    case GL_LINE_STRIP:
       if (count >= 2) {
 	 prim.v[0] = 0;
