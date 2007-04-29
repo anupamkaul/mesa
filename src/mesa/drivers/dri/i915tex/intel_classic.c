@@ -200,7 +200,7 @@ static GLuint hw_prim[GL_POLYGON+1] = {
    PRIM3D_POINTLIST,
    PRIM3D_LINELIST,
    PRIM3D_LINESTRIP,
-   PRIM3D_POINTLIST,
+   PRIM3D_LINESTRIP,
    PRIM3D_TRILIST,
    PRIM3D_TRISTRIP,
    PRIM3D_TRIFAN,
@@ -251,7 +251,7 @@ static void classic_set_prim( struct intel_render *render,
       break;
    }
 
-//   _mesa_printf("%s %d -> %x\n", __FUNCTION__, mode, crc->hw_prim );
+   _mesa_printf("%s %d -> %x\n", __FUNCTION__, mode, crc->hw_prim );
 
    if (crc->intel->hw_reduced_prim != reduced_prim[mode]) {
       crc->intel->hw_reduced_prim = reduced_prim[mode];
