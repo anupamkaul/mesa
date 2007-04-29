@@ -224,32 +224,33 @@ static void swrender_draw_prim( struct intel_render *render,
    case GL_POINTS:
       for (i = 0; i < nr; i++) {
 	 point( swrender, 
-		get_vertex(swrender, i) );
+		get_vertex(swrender, start+i) );
       }
       break;
 
    case GL_LINES:
       for (i = 0; i+1 < nr; i += 2) {
 	 line( swrender, 
-	       get_vertex(swrender, i),
-	       get_vertex(swrender, i+1) );
+	       get_vertex(swrender, start+i),
+	       get_vertex(swrender, start+i+1) );
       }
       break;
 
    case GL_LINE_STRIP:
       for (i = 0; i+1 < nr; i++) {
+	 _mesa_printf("line %d %d\n", i, i+1);
 	 line( swrender, 
-	       get_vertex(swrender, i),
-	       get_vertex(swrender, i+1) );
+	       get_vertex(swrender, start+i),
+	       get_vertex(swrender, start+i+1) );
       }
       break;
 
    case GL_TRIANGLES:
       for (i = 0; i+2 < nr; i += 3) {
 	 tri( swrender, 
-	      get_vertex(swrender, i),
-	      get_vertex(swrender, i+1),
-	      get_vertex(swrender, i+2) );
+	      get_vertex(swrender, start+i),
+	      get_vertex(swrender, start+i+1),
+	      get_vertex(swrender, start+i+2) );
       }
       break;
 
@@ -257,32 +258,32 @@ static void swrender_draw_prim( struct intel_render *render,
       for (i = 0; i+2 < nr; i++) {
 	 if (i & 1) 
 	    tri( swrender, 
-		 get_vertex(swrender, i+1),
-		 get_vertex(swrender, i+0),
-		 get_vertex(swrender, i+2) );
+		 get_vertex(swrender, start+i+1),
+		 get_vertex(swrender, start+i+0),
+		 get_vertex(swrender, start+i+2) );
 	 else
 	    tri( swrender, 
-		 get_vertex(swrender, i+0),
-		 get_vertex(swrender, i+1),
-		 get_vertex(swrender, i+2) );
+		 get_vertex(swrender, start+i+0),
+		 get_vertex(swrender, start+i+1),
+		 get_vertex(swrender, start+i+2) );
       }
       break;
 
    case GL_TRIANGLE_FAN:
       for (i = 0; i+2 < nr; i++) {
 	 tri( swrender, 
-	      get_vertex(swrender, 0),
-	      get_vertex(swrender, i+1),
-	      get_vertex(swrender, i+2) );
+	      get_vertex(swrender, start+0),
+	      get_vertex(swrender, start+i+1),
+	      get_vertex(swrender, start+i+2) );
       }
       break;
 
    case GL_POLYGON:
       for (i = 0; i+2 < nr; i++) {
 	 tri( swrender, 
-	      get_vertex(swrender, i+1),
-	      get_vertex(swrender, i+2),
-	      get_vertex(swrender, 0) );
+	      get_vertex(swrender, start+i+1),
+	      get_vertex(swrender, start+i+2),
+	      get_vertex(swrender, start+0) );
       }
       break;
 
