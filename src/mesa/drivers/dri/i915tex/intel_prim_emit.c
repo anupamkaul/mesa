@@ -93,6 +93,10 @@ static void flush( struct emit_stage *emit,
    
    if (flush_hw) {
       if (emit->elts.count) {
+	 GLuint i;
+	 for (i = 0; i < emit->elts.count; i++)
+	    assert(emit->elts.elts[i] < emit->verts.count);
+
 	 hw->draw_indexed_prim( hw, emit->elts.elts, emit->elts.count );
 	 emit->elts.space = EMIT_MAX_ELTS;
 	 emit->elts.count = 0;
@@ -116,7 +120,7 @@ static void flush( struct emit_stage *emit,
    }
 
    if (flush_hw && allocate_new_vertices)
-      intel_prim_clear_vertex_indices( emit->stage.pipe );
+      intel_prim_reset_vertex_indices( emit->stage.pipe );
 }
 
 /* Check for sufficient vertex and index space.  Return pointer to
@@ -132,6 +136,9 @@ static GLuint *check_space( struct emit_stage *emit,
    if (primitive != emit->hw_prim) 
       set_primitive( emit, primitive );
 
+   /* XXX: No need to discard the vertex buffer when we run out of
+    * element space.
+    */
    if (nr_verts >= emit->verts.space ||
        nr_elts >= emit->elts.space) 
       flush( emit, GL_TRUE );
@@ -155,7 +162,7 @@ static GLuint emit_vert( struct emit_stage *emit,
 
       emit->verts.count++;
       emit->verts.space--;
-
+      
       assert(idx < EMIT_MAX_VERTS);
       vert->index = idx;
 
@@ -222,6 +229,10 @@ static void emit_point( struct prim_stage *stage,
    elts[0] = emit_vert( emit, header->v[0] );
 }
 
+static void emit_reset_tmps( struct prim_stage *stage )
+{
+}
+
 static void emit_end( struct prim_stage *stage )
 {
    struct emit_stage *emit = emit_stage( stage );
@@ -234,13 +245,15 @@ struct prim_stage *intel_prim_emit( struct prim_pipeline *pipe )
 {
    struct emit_stage *emit = CALLOC_STRUCT(emit_stage);
 
+   intel_prim_alloc_tmps( &emit->stage, 0 );
+
    emit->stage.pipe = pipe;
    emit->stage.next = NULL;
-   emit->stage.tmp = NULL;
    emit->stage.begin = emit_begin;
    emit->stage.point = emit_point;
    emit->stage.line = emit_line;
    emit->stage.tri = emit_tri;
+   emit->stage.reset_tmps = emit_reset_tmps;
    emit->stage.end = emit_end;
 
    return &emit->stage;

@@ -158,6 +158,67 @@ static INLINE GLfloat dot4( const GLfloat *a,
 }
 
 
+#if 0   
+static INLINE void do_tri( struct prim_stage *next,
+			   struct prim_header *header )
+{
+   GLuint i;
+   for (i = 0; i < 3; i++) {
+      GLfloat *ndc = (GLfloat *)(&header->v[i]->data[16]);
+      _mesa_printf("ndc %f %f %f\n", ndc[0], ndc[1], ndc[2]);
+      assert(ndc[0] >= -1 && ndc[0] <= 641);
+      assert(ndc[1] >= 30 && ndc[1] <= 481);
+   }
+   _mesa_printf("\n");
+   next->tri(next, header);
+}
+#endif
+
+
+static void emit_poly( struct prim_stage *stage,
+		       struct vertex_header **inlist,
+		       GLuint n )
+{
+   struct prim_header header;
+   GLuint i;
+
+   for (i = 2; i < n; i++) {
+      header.v[0] = inlist[0];
+      header.v[1] = inlist[i-1];
+      header.v[2] = inlist[i];
+	
+      {
+	 GLuint tmp0 = header.v[0]->edgeflag;
+	 GLuint tmp2 = header.v[2]->edgeflag;
+
+	 if (i != 2)   header.v[0]->edgeflag = 0;
+	 if (i != n-1) header.v[2]->edgeflag = 0;
+
+	 stage->next->tri( stage->next, &header );
+
+	 header.v[0]->edgeflag = tmp0;
+	 header.v[2]->edgeflag = tmp2;
+      }
+   }
+}
+
+
+#if 0
+static void emit_poly( struct prim_stage *stage )
+{
+   GLuint i;
+
+   for (i = 2; i < n; i++) {
+      header->v[0] = inlist[0];
+      header->v[1] = inlist[i-1];
+      header->v[2] = inlist[i];
+	 
+      stage->next->tri( stage->next, header );
+   }
+}
+#endif
+
+
 /* Clip a triangle against the viewport and user clip planes.
  */
 static void
@@ -248,13 +309,8 @@ do_clip_tri( struct prim_stage *stage,
 
    /* Emit the polygon as triangles to the setup stage:
     */
-   for (i = 2; i < n; i++) {
-      header->v[0] = inlist[0];
-      header->v[1] = inlist[i-1];
-      header->v[2] = inlist[i];
-
-      stage->next->tri( stage->next, header );
-   }
+   if (n >= 3)
+      emit_poly( stage, inlist, n );
 }
 
 
@@ -383,8 +439,6 @@ static void clip_end( struct prim_stage *stage )
 }
 
 
-
-
 struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe )
 {
    struct clip_stage *clip = CALLOC_STRUCT(clip_stage);
@@ -396,6 +450,7 @@ struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe )
    clip->stage.point = clip_point;
    clip->stage.line = clip_line;
    clip->stage.tri = clip_tri;
+   clip->stage.reset_tmps = intel_prim_reset_tmps;
    clip->stage.end = clip_end;
 
    ASSIGN_4V( clip->plane[0], -1,  0,  0, 1 );
@@ -405,5 +460,5 @@ struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe )
    ASSIGN_4V( clip->plane[4],  0,  0, -1, 1 );
    ASSIGN_4V( clip->plane[5],  0,  0,  1, 1 );
    
-   return clip;
+   return &clip->stage;
 }

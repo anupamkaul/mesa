@@ -153,6 +153,8 @@ struct prim_stage *intel_prim_unfilled( struct prim_pipeline *pipe )
 {
    struct unfilled_stage *unfilled = CALLOC_STRUCT(unfilled_stage);
 
+   intel_prim_alloc_tmps( &unfilled->stage, 0 );
+
    unfilled->stage.pipe = pipe;
    unfilled->stage.next = NULL;
    unfilled->stage.tmp = NULL;
@@ -160,6 +162,7 @@ struct prim_stage *intel_prim_unfilled( struct prim_pipeline *pipe )
    unfilled->stage.point = unfilled_point;
    unfilled->stage.line = unfilled_line;
    unfilled->stage.tri = unfilled_tri;
+   unfilled->stage.reset_tmps = intel_prim_reset_tmps;
    unfilled->stage.end = unfilled_end;
 
    return &unfilled->stage;

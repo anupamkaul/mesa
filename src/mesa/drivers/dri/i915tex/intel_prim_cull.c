@@ -105,7 +105,6 @@ static void cull_point( struct prim_stage *stage,
    stage->next->point( stage->next, header );
 }
 
-
 static void cull_end( struct prim_stage *stage )
 {
    stage->next->end( stage->next );
@@ -115,13 +114,15 @@ struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe )
 {
    struct cull_stage *cull = CALLOC_STRUCT(cull_stage);
 
+   intel_prim_alloc_tmps( &cull->stage, 0 );
+
    cull->stage.pipe = pipe;
    cull->stage.next = NULL;
-   cull->stage.tmp = NULL;
    cull->stage.begin = cull_begin;
    cull->stage.point = cull_point;
    cull->stage.line = cull_line;
    cull->stage.tri = cull_tri;
+   cull->stage.reset_tmps = intel_prim_reset_tmps;
    cull->stage.end = cull_end;
 
    return &cull->stage;

@@ -255,10 +255,16 @@ static void swrender_draw_prim( struct intel_render *render,
 
    case GL_TRIANGLE_STRIP:
       for (i = 0; i+2 < nr; i++) {
-	 tri( swrender, 
-	      get_vertex(swrender, i),
-	      get_vertex(swrender, i+1),
-	      get_vertex(swrender, i+2) );
+	 if (i & 1) 
+	    tri( swrender, 
+		 get_vertex(swrender, i+1),
+		 get_vertex(swrender, i+0),
+		 get_vertex(swrender, i+2) );
+	 else
+	    tri( swrender, 
+		 get_vertex(swrender, i+0),
+		 get_vertex(swrender, i+1),
+		 get_vertex(swrender, i+2) );
       }
       break;
 
@@ -335,10 +341,16 @@ static void swrender_draw_indexed_prim( struct intel_render *render,
 
    case GL_TRIANGLE_STRIP:
       for (i = 0; i+2 < nr; i++) {
-	 tri( swrender, 
-	      get_vertex(swrender, indices[i]),
-	      get_vertex(swrender, indices[i+1]),
-	      get_vertex(swrender, indices[i+2]) );
+	 if (i & 1) 
+	    tri( swrender, 
+		 get_vertex(swrender, indices[i+1]),
+		 get_vertex(swrender, indices[i+0]),
+		 get_vertex(swrender, indices[i+2]) );
+	 else
+	    tri( swrender, 
+		 get_vertex(swrender, indices[i+0]),
+		 get_vertex(swrender, indices[i+1]),
+		 get_vertex(swrender, indices[i+2]) );
       }
       break;
 

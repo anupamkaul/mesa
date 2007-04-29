@@ -117,7 +117,7 @@ struct prim_stage {
    struct prim_pipeline *pipe;
    struct prim_stage *next;
    struct vertex_header **tmp;
-   GLuint nr_tmp_vertices;
+   GLuint nr_tmps;
 
    void (*begin)( struct prim_stage * );
 
@@ -129,6 +129,10 @@ struct prim_stage {
 
    void (*tri)( struct prim_stage *,
 		struct prim_header * );
+
+   /* Can occur at any time, even within a call to tri() or end().
+    */
+   void (*reset_tmps)( struct prim_stage * );
 
    void (*end)( struct prim_stage * );
 };
@@ -143,9 +147,13 @@ struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe );
 
 
 void intel_prim_alloc_tmps( struct prim_stage *stage, GLuint nr );
-void intel_prim_free_tmps( struct prim_stage *stage, GLuint nr );
+void intel_prim_free_tmps( struct prim_stage *stage );
+void intel_prim_reset_tmps( struct prim_stage *stage );
 
-void intel_prim_clear_vertex_indices( struct prim_pipeline *pipe );
+/* Reset vertex indices for the incoming vertices and all temporary
+ * vertices within the pipeline.
+ */
+void intel_prim_reset_vertex_indices( struct prim_pipeline *pipe );
 
 
 /* Get a writeable copy of a vertex:

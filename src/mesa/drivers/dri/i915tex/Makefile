@@ -72,7 +72,6 @@ DRIVER_SOURCES = \
 FOO = \
 	intel_prim_flatshade.c \
 	intel_prim_offset.c \
-	intel_prim_stage.c \
 	intel_prim_twoside.c 
 
 C_SOURCES = \
