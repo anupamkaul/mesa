@@ -256,11 +256,11 @@ static void calculate_setup_vertex_format( struct intel_context *intel )
    /* _NEW_LIGHT
     */
    if (intel->state.Light->Model.TwoSide) {
-      if (inputsRead & FRAG_ATTRIB_COL0) {
+      if (inputsRead & FRAG_BIT_COL0) {
 	 EMIT_ATTR(VF_ATTRIB_BFC0, EMIT_4UB_4F_BGRA, 0, 4);
       }
 	    
-      if (inputsRead & FRAG_ATTRIB_COL1) {
+      if (inputsRead & FRAG_BIT_COL1) {
 	 EMIT_ATTR(VF_ATTRIB_BFC1, EMIT_3UB_3F_BGR, 0, 3);
 	 EMIT_PAD(1);
       }

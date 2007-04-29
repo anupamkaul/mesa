@@ -501,12 +501,13 @@ struct intel_render *intel_create_prim_render( struct intel_draw *draw )
    pipe->draw = draw;
    pipe->prim = 0;
 
-   pipe->emit = intel_prim_emit( pipe );
-   pipe->unfilled = intel_prim_unfilled( pipe );
-//   pipe->twoside = intel_prim_twoside( pipe );
-   pipe->clip = intel_prim_clip( pipe );
-//   pipe->flatshade = intel_prim_flatshade( pipe );
-   pipe->cull = intel_prim_cull( pipe );
+   pipe->emit      = intel_prim_emit( pipe );
+   pipe->unfilled  = intel_prim_unfilled( pipe );
+   pipe->twoside   = intel_prim_twoside( pipe );
+   pipe->offset    = intel_prim_offset( pipe );
+   pipe->clip      = intel_prim_clip( pipe );
+   pipe->flatshade = intel_prim_flatshade( pipe );
+   pipe->cull      = intel_prim_cull( pipe );
 
    return &pipe->render;
 }
@@ -542,22 +543,20 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
 	 pipe->unfilled->next = next;
 	 next = pipe->unfilled;
 	 install = GL_TRUE;
+      }
 	 
-#if 0
-	 if (pipe->draw->state.offset_point ||
-	     pipe->draw->state.offset_line) {
-	    pipe->offset.base.next = next;
-	    next = &pipe->offset.base;
-	 }
-#endif
+      if (install && 
+	  pipe->draw->state.offset_cw ||
+	  pipe->draw->state.offset_ccw) {
+	 pipe->offset->next = next;
+	 next = pipe->offset;
       }
 
-#if 0
       if (pipe->draw->state.light_twoside) {
-	 pipe->twoside.base.next = next;
-	 next = &pipe->twoside.base;
+	 pipe->twoside->next = next;
+	 next = pipe->twoside;
+	 install = GL_TRUE;
       }
-#endif
 
       /* All the above require the determinant which is calculated
        * below.  Can't cull before clipping as we don't have ndc
@@ -576,14 +575,12 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
       next = pipe->clip;
       install = GL_TRUE;
 
-      /* 
+      /* Do software flatshading prior to clipping.
        */
-#if 0
       if (pipe->draw->state.flatshade) {
-	 pipe->flatshade.base.next = next;
-	 next = &pipe->flatshade.base;
+	 pipe->flatshade->next = next;
+	 next = pipe->flatshade;
       }
-#endif
    }
    
 
@@ -651,7 +648,7 @@ void intel_prim_alloc_tmps( struct prim_stage *stage, GLuint nr )
 
       stage->tmp = MALLOC(sizeof(struct vertex_header *) * nr);
       
-      for (i = 0; i < MAX_CLIPPED_VERTICES; i++)
+      for (i = 0; i < nr; i++)
 	 stage->tmp[i] = (struct vertex_header *)(store + i * MAX_VERTEX_SIZE);
    }
 }

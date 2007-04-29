@@ -66,13 +66,13 @@ static void update_draw_state( struct intel_context *intel )
    /* _NEW_POLYGON, _NEW_BUFFERS
     */
    {
-      front_winding = WINDING_CW;
+      state.front_winding = WINDING_CW;
 	
       if (intel->state.DrawBuffer && intel->state.DrawBuffer->Name != 0)
-	 front_winding ^= WINDING_BOTH;
+	 state.front_winding ^= WINDING_BOTH;
 
       if (intel->state.Polygon->FrontFace != GL_CCW)
-	 front_winding ^= WINDING_BOTH;
+	 state.front_winding ^= WINDING_BOTH;
    }
 
    /* _NEW_LIGHT
@@ -98,10 +98,10 @@ static void update_draw_state( struct intel_context *intel )
 	 state.cull_mode = WINDING_BOTH;
       }
       else if (intel->state.Polygon->CullFaceMode == GL_FRONT) {
-	 state.cull_mode = front_winding;
+	 state.cull_mode = state.front_winding;
       }
       else {
-	 state.cull_mode = front_winding ^ WINDING_BOTH;
+	 state.cull_mode = state.front_winding ^ WINDING_BOTH;
       }
    }
 
@@ -140,6 +140,16 @@ static void update_draw_state( struct intel_context *intel )
       state.offset_ccw = get_offset_flag( state.fill_ccw, 
 					  intel->state.Polygon );
 
+   }
+
+
+   /* _NEW_BUFFERS, _NEW_POLYGON
+    */
+   {
+      GLfloat mrd = intel->state.DrawBuffer->_MRD;
+      state.offset_units = intel->state.Polygon->OffsetFactor * mrd;
+      state.offset_scale = (intel->state.Polygon->OffsetUnits * mrd *
+			    intel->polygon_offset_scale);
    }
       
 

@@ -40,11 +40,7 @@
 struct flatshade_stage {
    struct prim_stage stage;
 
-   GLuint col0_offset;
-   GLuint col0_size;
-
-   GLuint col1_offset;
-   GLuint col1_size;
+   struct vertex_fetch *vf;
 };
 
 
@@ -59,38 +55,34 @@ static void flatshade_begin( struct prim_stage *stage )
 {
    struct flatshade_stage *flatshade = flatshade_stage(stage);
 
-/*    if (stage->pipe->draw->vb_state.clipped_prims) */
-/*       offset->hw_data_offset = 16; */
-/*    else */
-/*       offset->hw_data_offset = 0;	 */
-
-/*    flatshade->mode = stage->pipe->draw->state.offset_mode; */
-
+   flatshade->vf = stage->pipe->draw->vb.vf;
    stage->next->begin( stage->next );
 }
 
 
 
-#define COLOR_BITS ((1 << VF_BIT_COLOR0) |	\
-		    (1 << VF_BIT_COLOR1) |	\
-		    (1 << VF_BIT_BFC0) |	\
-		    (1 << VF_BIT_BFC1))
-
-static void copy_colors( struct vertex_fetch *vf, 
-			 GLubyte *vdst, 
-			 const GLubyte *vsrc )
+static INLINE void copy_color( const struct vf_attr *attr,
+			       GLubyte *dst,
+			       const GLubyte *src )
 {
-   const struct vertex_fetch_attr *a = vf->attr;
-   const GLuint attr_count = vf->attr_count;
-   GLuint j;
-
-   for (j = 0; j < attr_count; j++) {
-      if ((1 << a[j].attrib) & COLOR_BITS) {
-	 memcpy( vdst + a[j].vertoffset,
-		 vsrc + a[j].vertoffset,
-		 a[j].vertattrsize );
-      }
+   if (attr) {
+      memcpy( dst + attr->vertoffset,
+	      src + attr->vertoffset,
+	      attr->vertattrsize );
    }
+}
+
+static void copy_colors( const struct vertex_fetch *vf, 
+			 struct vertex_header *vdst, 
+			 const struct vertex_header *vsrc )
+{
+   GLubyte *dst = (GLubyte *)vdst;
+   const GLubyte *src = (const GLubyte *)vsrc;
+
+   copy_color( vf->lookup[VF_ATTRIB_COLOR0], dst, src );
+   copy_color( vf->lookup[VF_ATTRIB_COLOR1], dst, src );
+   copy_color( vf->lookup[VF_ATTRIB_BFC0], dst, src );
+   copy_color( vf->lookup[VF_ATTRIB_BFC1], dst, src );
 }
 
 
@@ -98,33 +90,38 @@ static void copy_colors( struct vertex_fetch *vf,
 /* Flatshade tri.  Required for clipping and when unfilled tris are
  * active, otherwise handled by hardware.
  */
-static void flatshade_tri( struct prim_pipeline_stage *stage,
+static void flatshade_tri( struct prim_stage *stage,
 			   struct prim_header *header )
 {
-   struct vertex_shader *vf = flatshade_stage(stage)->vf;
+   struct prim_header tmp;
+   struct vertex_fetch *vf = flatshade_stage(stage)->vf;
 
-   header->v[0] = dup_vert(stage, header->v[0]);
-   header->v[1] = dup_vert(stage, header->v[1]);
+   tmp.det = header->det;
+   tmp.v[0] = dup_vert(stage, header->v[0], 0);
+   tmp.v[1] = dup_vert(stage, header->v[1], 1);
+   tmp.v[2] = header->v[2];
 
-   copy_colors(vf, header->v[0], header->v[2]);
-   copy_colors(vf, header->v[1], header->v[2]);
+   copy_colors(vf, tmp.v[0], tmp.v[2]);
+   copy_colors(vf, tmp.v[1], tmp.v[2]);
    
-   stage->next->tri( stage->next, header );
+   stage->next->tri( stage->next, &tmp );
 }
 
 
 /* Flatshade line.  Required for clipping.
  */
-static void flatshade_line( struct prim_pipeline_stage *stage,
-			   struct prim_header *prim )
+static void flatshade_line( struct prim_stage *stage,
+			    struct prim_header *header )
 {
-   struct vertex_shader *vf = flatshade_stage(stage)->vf;
+   struct prim_header tmp;
+   struct vertex_fetch *vf = flatshade_stage(stage)->vf;
 
-   header->v[0] = dup_vert(stage, header->v[0]);
+   tmp.v[0] = dup_vert(stage, header->v[0], 0);
+   tmp.v[1] = header->v[1];
 
-   copy_colors(vf, header->v[0], header->v[1]);
+   copy_colors(vf, tmp.v[0], tmp.v[1]);
    
-   stage->next->line( stage->next, header );
+   stage->next->line( stage->next, &tmp );
 }
 
 
@@ -136,6 +133,9 @@ static void flatshade_point( struct prim_stage *stage,
 
 static void flatshade_end( struct prim_stage *stage )
 {
+   struct flatshade_stage *flatshade = flatshade_stage(stage);
+
+   flatshade->vf = NULL;
    stage->next->end( stage->next );
 }
 
@@ -143,7 +143,7 @@ struct prim_stage *intel_prim_flatshade( struct prim_pipeline *pipe )
 {
    struct flatshade_stage *flatshade = CALLOC_STRUCT(flatshade_stage);
 
-   intel_prim_alloc_tmps( &clip->stage, 0 );
+   intel_prim_alloc_tmps( &flatshade->stage, 2 );
 
    flatshade->stage.pipe = pipe;
    flatshade->stage.next = NULL;
@@ -153,6 +153,7 @@ struct prim_stage *intel_prim_flatshade( struct prim_pipeline *pipe )
    flatshade->stage.tri = flatshade_tri;
    flatshade->stage.reset_tmps = intel_prim_reset_tmps;
    flatshade->stage.end = flatshade_end;
+   flatshade->vf = NULL;
 
    return &flatshade->stage;
 }

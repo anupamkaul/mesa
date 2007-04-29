@@ -87,6 +87,7 @@ struct prim_pipeline {
    struct prim_stage *twoside;
    struct prim_stage *clip;
    struct prim_stage *flatshade;
+   struct prim_stage *offset;
    struct prim_stage *cull;
 
    struct prim_stage *first;
@@ -129,7 +130,7 @@ struct prim_stage {
 
    void (*tri)( struct prim_stage *,
 		struct prim_header * );
-
+   
    /* Can occur at any time, even within a call to tri() or end().
     */
    void (*reset_tmps)( struct prim_stage * );
@@ -141,6 +142,7 @@ struct prim_stage {
 struct prim_stage *intel_prim_emit( struct prim_pipeline *pipe );
 struct prim_stage *intel_prim_unfilled( struct prim_pipeline *pipe );
 struct prim_stage *intel_prim_twoside( struct prim_pipeline *pipe );
+struct prim_stage *intel_prim_offset( struct prim_pipeline *pipe );
 struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe );
 struct prim_stage *intel_prim_flatshade( struct prim_pipeline *pipe );
 struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe );
@@ -160,7 +162,7 @@ void intel_prim_reset_vertex_indices( struct prim_pipeline *pipe );
  */
 static INLINE struct vertex_header *
 dup_vert( struct prim_stage *stage,
-	  struct vertex_header *vert,
+	  const struct vertex_header *vert,
 	  GLuint idx )
 {   
    struct vertex_header *tmp = stage->tmp[idx];

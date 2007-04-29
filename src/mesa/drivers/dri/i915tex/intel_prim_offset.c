@@ -28,6 +28,7 @@
 /* Authors:  Keith Whitwell <keith@tungstengraphics.com>
  */
 #include "imports.h"
+#include "macros.h"
 
 #define INTEL_DRAW_PRIVATE
 #include "intel_draw.h"
@@ -41,7 +42,9 @@ struct offset_stage {
    struct prim_stage stage;
 
    GLuint hw_data_offset;
-   GLuint mode;
+
+   GLfloat scale;
+   GLfloat units;
 };
 
 
@@ -61,7 +64,8 @@ static void offset_begin( struct prim_stage *stage )
    else
       offset->hw_data_offset = 0;	
 
-   offset->mode = stage->pipe->draw->state.offset_mode;
+   offset->units = stage->pipe->draw->state.offset_units;
+   offset->scale = stage->pipe->draw->state.offset_scale;
 
    stage->next->begin( stage->next );
 }
@@ -70,46 +74,56 @@ static void offset_begin( struct prim_stage *stage )
 /* Offset tri.  i915 can handle this, but not i830, and neither when
  * unfilled rendering.
  */
-static void offset_tri( struct prim_pipeline_stage *stage,
-			struct vertex_header *v0,
-			struct vertex_header *v1,
-			struct vertex_header *v2 )
+static void do_offset_tri( struct prim_stage *stage,
+			   struct prim_header *header )
 {
-   GLfloat det = calc_det(v0, v1, v2);
+   struct offset_stage *offset = offset_stage(stage);
+   GLuint hw_data_offset = offset->hw_data_offset;
+   
+   GLfloat inv_det = 1.0 / header->det;
 
-   /* Should have been detected in a offset stage??
-    */
-   if (FABSF(det) > 1e-8) {
-      GLfloat offset = ctx->Polygon.OffsetUnits * DEPTH_SCALE;
-      GLfloat inv_det = 1.0 / det;
+   GLfloat *v0 = (GLfloat *)&(header->v[0]->data[hw_data_offset]);
+   GLfloat *v1 = (GLfloat *)&(header->v[1]->data[hw_data_offset]);
+   GLfloat *v2 = (GLfloat *)&(header->v[2]->data[hw_data_offset]);
+   
+   GLfloat ex = v0[0] - v2[2];
+   GLfloat fx = v1[0] - v2[2];
+   GLfloat ey = v0[1] - v2[2];
+   GLfloat fy = v1[1] - v2[2];
+   GLfloat ez = v0[2] - v2[2];
+   GLfloat fz = v1[2] - v2[2];
 
-      GLfloat z0 = v0->data[2].f;
-      GLfloat z1 = v1->data[2].f;
-      GLfloat z2 = v2->data[2].f;
+   GLfloat a = ey*fz - ez*fy;
+   GLfloat b = ez*fx - ex*fz;
 
-      GLfloat ez = z0 - z2;
-      GLfloat fz = z1 - z2;
-      GLfloat a	= ey*fz - ez*fy;
-      GLfloat b	= ez*fx - ex*fz;
-      GLfloat ac = a * inv_det;
-      GLfloat bc = b * inv_det;
+   GLfloat ac = a * inv_det;
+   GLfloat bc = b * inv_det;
+   GLfloat zoffset;
 
-      if ( ac < 0.0f ) ac = -ac;
-      if ( bc < 0.0f ) bc = -bc;
+   if ( ac < 0.0f ) ac = -ac;
+   if ( bc < 0.0f ) bc = -bc;
 
-      offset += MAX2( ac, bc ) * ctx->Polygon.OffsetFactor;
-      offset *= ctx->DrawBuffer->_MRD;
+   zoffset = offset->units + MAX2( ac, bc ) * offset->scale;
 
-      v0 = dup_vert(stage, v0);
-      v1 = dup_vert(stage, v1);
-      v2 = dup_vert(stage, v2);
+   v0[2] += zoffset;
+   v1[2] += zoffset;
+   v2[2] += zoffset;
 
-      v0->data[2] += offset;
-      v1->data[2] += offset;
-      v2->data[2] += offset;
+   stage->next->tri( stage->next, header );
+}
 
-      stage->next->tri( stage->next, v0, v1, v2 );
-   }
+
+static void offset_tri( struct prim_stage *stage,
+			struct prim_header *header )
+{
+   struct prim_header tmp;
+
+   tmp.det = header->det;
+   tmp.v[0] = dup_vert(stage, header->v[0], 0);
+   tmp.v[1] = dup_vert(stage, header->v[1], 1);
+   tmp.v[2] = dup_vert(stage, header->v[2], 2);
+
+   do_offset_tri( stage->next, &tmp );
 }
 
 
@@ -137,7 +151,7 @@ struct prim_stage *intel_prim_offset( struct prim_pipeline *pipe )
 {
    struct offset_stage *offset = CALLOC_STRUCT(offset_stage);
 
-   intel_prim_alloc_tmps( &clip->stage, 3 );
+   intel_prim_alloc_tmps( &offset->stage, 3 );
 
    offset->stage.pipe = pipe;
    offset->stage.next = NULL;

@@ -127,6 +127,8 @@ struct intel_draw_state {
    GLuint flatshade:1;
    GLuint light_twoside:1;
 
+   GLuint front_winding:2;
+
    GLuint cull_mode:2;
 
    GLuint fill_cw:2;

@@ -37,66 +37,85 @@
 
 
 struct twoside_stage {
-   struct prim_pipeline_stage base;
+   struct prim_stage stage;
    
-   GLboolean facing_flag;
+   GLfloat facing;
 
-   GLuint col0_offset;
-   GLuint bfc0_offset;
-
-   GLuint col1_offset;
-   GLuint bfc1_offset;
+   struct vertex_fetch *vf;
 };
 
-struct prim_pipeline_stage *intel_prim_twoside( struct prim_pipeline *pipe )
+
+static INLINE struct twoside_stage *twoside_stage( struct prim_stage *stage )
 {
-   struct twoside_stage *twoside = MALLOC(sizeof(*twoside));
-
-   if (stage) {
-      prim_init_stage( pipe, &twoside->base, 2 );
-
-      twoside->base.tri = twoside_tri;
-   }
-
-   return stage;
+   return (struct twoside_stage *)stage;
 }
 
 
-static void copy_bfc( struct twoside_stage *twoside, 
-		      struct vertex_header *v )
+static void twoside_begin( struct prim_stage *stage )
 {
-   memcpy( v->data + twoside->col0_offset, 
-	   v->data + twoside->bfc0_offset, 
-	   sizeof(GLuint) );
+   struct twoside_stage *twoside = twoside_stage(stage);
 
-   if (twoside->col1_offset) 
-      memcpy( v->data + twoside->col1_offset, 
-	      v->data + twoside->bfc1_offset, 
-	      sizeof(GLuint) );
+   twoside->vf = stage->pipe->draw->vb.vf;
+   twoside->facing = (stage->pipe->draw->state.front_winding == WINDING_CW) ? -1 : 1;
+
+   stage->next->begin( stage->next );
+}
+
+
+static INLINE void copy_color( const struct vf_attr *attr_dst,
+			       const struct vf_attr *attr_src,
+			       GLubyte *v )
+{
+   if (attr_dst && attr_src) {
+      ASSERT(attr_dst->vertattrsize == 
+	     attr_src->vertattrsize);
+
+      memcpy( v + attr_dst->vertoffset,
+	      v + attr_src->vertoffset,
+	      attr_dst->vertattrsize );
+   }
+}
+
+
+static struct vertex_header *copy_bfc( struct twoside_stage *twoside, 
+				       const struct vertex_header *v,
+				       GLuint idx )
+{   
+   struct vertex_fetch *vf = twoside->vf;
+   struct vertex_header *tmp = dup_vert( &twoside->stage, v, idx );
+   
+   copy_color( vf->lookup[VF_ATTRIB_COLOR0], 
+	       vf->lookup[VF_ATTRIB_BFC0],
+	       (GLubyte *)tmp );
+
+   copy_color( vf->lookup[VF_ATTRIB_COLOR1], 
+	       vf->lookup[VF_ATTRIB_BFC1],
+	       (GLubyte *)tmp );
+
+   return tmp;
 }
 
 
 /* Twoside tri:
  */
-static void twoside_tri( struct prim_pipeline_stage *stage,
-			  struct vertex_header *v0,
-			  struct vertex_header *v1,
-			  struct vertex_header *v2 )
+static void twoside_tri( struct prim_stage *stage,
+			 struct prim_header *header )
 {
-   GLuint det = calc_det(v0, v1, v2);
-   GLbooean backface = (det < 0) ^ twoside->facing_flag;
-  
-   if (backface) {
-      v0 = dup_vert(stage, 0, v0);
-      v1 = dup_vert(stage, 1, v1);
-      v2 = dup_vert(stage, 2, v2);
-      
-      copy_bfc(stage, v0);
-      copy_bfc(stage, v1);
-      copy_bfc(stage, v2);
-   }
+   struct twoside_stage *twoside = twoside_stage(stage);
 
-   stage->next->tri( stage->next, v0, v1, v2 );
+   if (header->det * twoside->facing < 0) {
+      struct prim_header tmp;
+
+      tmp.det = header->det;
+      tmp.v[0] = copy_bfc(twoside, header->v[0], 0);
+      tmp.v[1] = copy_bfc(twoside, header->v[1], 1);
+      tmp.v[2] = copy_bfc(twoside, header->v[2], 2);
+
+      stage->next->tri( stage->next, &tmp );
+   }
+   else {
+      stage->next->tri( stage->next, header );
+   }
 }
 
 
@@ -124,7 +143,7 @@ struct prim_stage *intel_prim_twoside( struct prim_pipeline *pipe )
 {
    struct twoside_stage *twoside = CALLOC_STRUCT(twoside_stage);
 
-   intel_prim_alloc_tmps( &clip->stage, 3 );
+   intel_prim_alloc_tmps( &twoside->stage, 3 );
 
    twoside->stage.pipe = pipe;
    twoside->stage.next = NULL;
