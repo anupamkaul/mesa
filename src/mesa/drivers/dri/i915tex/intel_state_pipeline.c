@@ -100,7 +100,7 @@ static GLboolean frag_attrib_size_check( GLcontext * ctx,
       intel->frag_attrib_varying = varying;
       intel->frag_attrib_sizes = sizes;
 
-      _mesa_printf("sizes: %x varying: %x\n", sizes, varying);
+      //_mesa_printf("sizes: %x varying: %x\n", sizes, varying);
    }
 
 

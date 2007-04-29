@@ -199,9 +199,11 @@ static void quads_draw_prim( struct intel_render *render,
 {
    struct quads_render *quads = quads_render( render );
 
-   length = trim(quads->gl_prim, length);
+//   _mesa_printf("%s (%s) %d/%d\n", __FUNCTION__, 
+//		_mesa_lookup_enum_by_nr(quads->gl_prim),
+//		start, length );
 
-//   _mesa_printf("%s (%d) %d/%d\n", __FUNCTION__, quads->gl_prim, start, length );
+   length = trim(quads->gl_prim, length);
 
    switch (quads->gl_prim) {
 

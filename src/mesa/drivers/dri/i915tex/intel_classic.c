@@ -251,7 +251,7 @@ static void classic_set_prim( struct intel_render *render,
       break;
    }
 
-   _mesa_printf("%s %d -> %x\n", __FUNCTION__, mode, crc->hw_prim );
+//   _mesa_printf("%s %d -> %x\n", __FUNCTION__, mode, crc->hw_prim );
 
    if (crc->intel->hw_reduced_prim != reduced_prim[mode]) {
       crc->intel->hw_reduced_prim = reduced_prim[mode];
