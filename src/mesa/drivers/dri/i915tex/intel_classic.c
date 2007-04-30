@@ -36,7 +36,7 @@
 #include "intel_reg.h"
 #include "intel_buffers.h"
 #include "intel_state.h"
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 
 
 struct classic_render {

@@ -7,14 +7,16 @@ LIBNAME = i915tex_dri.so
 MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
-	intel_prim.c \
-	intel_prim_emit.c \
-	intel_prim_flatshade.c \
-	intel_prim_twoside.c \
-	intel_prim_offset.c \
-	intel_prim_cull.c \
-	intel_prim_clip.c \
-	intel_prim_unfilled.c \
+	draw/intel_draw.c \
+	draw/intel_draw_quads.c \
+	draw/intel_prim.c \
+	draw/intel_prim_emit.c \
+	draw/intel_prim_flatshade.c \
+	draw/intel_prim_twoside.c \
+	draw/intel_prim_offset.c \
+	draw/intel_prim_cull.c \
+	draw/intel_prim_clip.c \
+	draw/intel_prim_unfilled.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \
@@ -36,8 +38,6 @@ DRIVER_SOURCES = \
 	i915_state_vertex.c \
 	i915_tex_layout.c \
 	i915_vtbl.c \
-	intel_draw.c \
-	intel_draw_quads.c \
 	intel_classic.c \
 	intel_swrast.c \
 	intel_vb.c \

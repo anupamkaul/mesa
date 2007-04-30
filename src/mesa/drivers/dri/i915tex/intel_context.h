@@ -36,7 +36,7 @@
 #include "texmem.h"
 
 #include "intel_screen.h"
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 
 #include "i915_drm.h"
 #include "i830_common.h"

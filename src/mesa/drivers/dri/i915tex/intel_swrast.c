@@ -36,7 +36,7 @@
 #include "intel_context.h"
 #include "intel_batchbuffer.h"
 #include "intel_buffers.h"
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 #include "intel_reg.h"
 #include "intel_span.h"
 #include "intel_vb.h"

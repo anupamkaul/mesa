@@ -70,6 +70,7 @@ static void Key(unsigned char key, int x, int y)
 static void Draw(void)
 {
    glClear(GL_COLOR_BUFFER_BIT); 
+   glEnable(GL_CULL_FACE);
 
    glBegin(GL_TRIANGLE_STRIP);
    glColor3f(1,0,0); 

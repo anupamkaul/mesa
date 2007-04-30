@@ -565,6 +565,11 @@ typedef struct
    GLubyte *block[VERT_ATTRIB_MAX];
    GLuint nr_blocks;
 
+   /* How many indices in a single index buffer.  May be a hardware
+    * limitation.
+    */
+   GLuint max_indices;
+
    /* Cache of fixed-function-replacing vertex programs:
     */
    struct tnl_cache *vp_cache;

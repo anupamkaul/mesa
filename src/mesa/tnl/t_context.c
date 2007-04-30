@@ -79,6 +79,7 @@ _tnl_CreateContext( GLcontext *ctx )
    tnl->Driver.NotifyMaterialChange = _mesa_validate_all_lighting_tables;
 
    tnl->nr_blocks = 0;
+   tnl->max_indices = ~0;
 
    return GL_TRUE;
 }

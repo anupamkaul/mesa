@@ -30,10 +30,10 @@
 #include "imports.h"
 
 #define INTEL_DRAW_PRIVATE
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 
 #define INTEL_PRIM_PRIVATE
-#include "intel_prim.h"
+#include "draw/intel_prim.h"
 
 /* Don't want these too large as there is no mechanism to "give back"
  * unused space.  FIXME.

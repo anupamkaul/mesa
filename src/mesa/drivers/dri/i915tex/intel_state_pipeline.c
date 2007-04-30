@@ -40,9 +40,9 @@
 
 #include "intel_screen.h"
 #include "intel_context.h"
-#include "intel_batchbuffer.h"
-#include "intel_reg.h"
 #include "intel_state.h"
+
+#include "draw/intel_draw.h"
 
 static GLuint frag_attr_to_VB( GLuint attr )
 {
@@ -64,26 +64,16 @@ static GLuint frag_attr_to_VB( GLuint attr )
 }
 
 
-/* A mini stage just to update our state regarding the pipeline:
- */
-static GLboolean frag_attrib_size_check( GLcontext * ctx, 
-					 struct tnl_pipeline_stage *stage )
+static void frag_attrib_size_check( struct intel_context *intel,
+				    struct vertex_buffer *VB )
 {
-   struct intel_context *intel = intel_context(ctx);
-   TNLcontext *tnl = TNL_CONTEXT(ctx);
-   struct vertex_buffer *VB = &tnl->vb;
-   GLuint i;
-
 
    /* Look at the size of each attribute coming out, and raise a
     * statechange if different. 
     */
    GLuint sizes = 0;
    GLuint varying = 0;
-
-   /* We need to do this first:
-    */
-   VB->AttribPtr[VERT_ATTRIB_POS] = VB->NdcPtr;
+   GLuint i;
 
    for (i = 0; i < FRAG_ATTRIB_VAR0; i++) {
       GLvector4f *attrib = VB->AttribPtr[frag_attr_to_VB(i)];
@@ -99,23 +89,34 @@ static GLboolean frag_attrib_size_check( GLcontext * ctx,
       intel->state.dirty.intel |= INTEL_NEW_FRAG_ATTRIB_SIZES;
       intel->frag_attrib_varying = varying;
       intel->frag_attrib_sizes = sizes;
-
-      //_mesa_printf("sizes: %x varying: %x\n", sizes, varying);
    }
-
-
-   /* Catch any changes from the pipeline...
-    */
-   intel_update_software_state(intel);
-
-   return GL_TRUE;
 }
 
-const struct tnl_pipeline_stage _intel_check_frag_attrib_sizes = {
-   "intel check frag attrib sizes",
+/* Update our state and draw all primitives
+ */
+static GLboolean draw( GLcontext * ctx, struct tnl_pipeline_stage *stage )
+{
+   struct intel_context *intel = intel_context(ctx);
+   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
+
+   /* Update internal state which depends on vertex buffer contents: 
+    */
+   frag_attrib_size_check( intel, VB );
+
+   /* Call into the new draw code to handle the VB:
+    */
+   intel_draw_vb( intel->draw, VB );
+   
+   /* Finished 
+    */
+   return GL_FALSE;
+}
+
+const struct tnl_pipeline_stage _intel_check_state_and_draw = {
+   "check state and draw",
    NULL,
    NULL,
    NULL,
    NULL,
-   frag_attrib_size_check
+   draw
 };

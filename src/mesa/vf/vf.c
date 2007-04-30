@@ -156,6 +156,8 @@ GLuint vf_set_vertex_attributes( struct vertex_fetch *vf,
 
    assert(nr < VF_ATTRIB_MAX);
 
+   memset(vf->lookup, 0, sizeof(vf->lookup));
+
    for (j = 0, i = 0; i < nr; i++) {
       const GLuint format = map[i].format;
       if (format == EMIT_PAD) {
@@ -167,6 +169,9 @@ GLuint vf_set_vertex_attributes( struct vertex_fetch *vf,
 
       }
       else {
+	 assert(vf->lookup[map[i].attrib] == 0);
+	 vf->lookup[map[i].attrib] = &vf->attr[j];
+
 	 vf->attr[j].attrib = map[i].attrib;
 	 vf->attr[j].format = format;
 	 vf->attr[j].insert = vf_format_info[format].insert;
@@ -186,6 +191,7 @@ GLuint vf_set_vertex_attributes( struct vertex_fetch *vf,
 
    vf->attr_count = j;
    vf->vertex_stride = vertex_stride ? vertex_stride : offset;
+
 
    return vf->vertex_stride;
 }

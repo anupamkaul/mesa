@@ -30,7 +30,7 @@
 #include "enums.h"
 #include "program.h"
 
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 #include "i915_context.h"
 #include "i915_reg.h"
 

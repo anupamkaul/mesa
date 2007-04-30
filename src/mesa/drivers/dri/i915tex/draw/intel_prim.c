@@ -33,10 +33,10 @@
 #include "imports.h"
 
 #define INTEL_DRAW_PRIVATE
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 
 #define INTEL_PRIM_PRIVATE
-#include "intel_prim.h"
+#include "draw/intel_prim.h"
 
 
 static INLINE struct prim_pipeline *prim_pipeline( struct intel_render *render )

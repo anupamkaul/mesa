@@ -29,6 +29,7 @@ SOURCES = \
 	poly-unfilled.c \
 	poly.c \
 	quad-clip.c \
+	quad-clip-cull.c \
 	quad-clip-all-vertices.c \
 	quad-clip-nearplane.c \
 	quad-degenerate.c \
@@ -44,6 +45,8 @@ SOURCES = \
 	quads.c \
 	quadstrip.c \
 	quadstrip-flat.c \
+	quadstrip-cull.c \
+	quadstrip-clip-cull.c \
 	dlist-edgeflag.c \
 	dlist-dangling.c \
 	dlist-edgeflag-dangling.c \

@@ -32,7 +32,7 @@
  
 
 #include "intel_context.h"
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 
 static GLuint translate_fill( GLenum mode )
 {

@@ -31,12 +31,14 @@
 
 #include "imports.h"
 
-#include "intel_prim.h"
-#include "intel_draw_quads.h"
+#include "tnl/t_context.h"
+#include "vf/vf.h"
 
 #define INTEL_DRAW_PRIVATE
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 
+#include "draw/intel_prim.h"
+#include "draw/intel_draw_quads.h"
 
 
 /* Called from swapbuffers:
@@ -234,13 +236,7 @@ void intel_draw_destroy( struct intel_draw *draw )
 
 
 
-/***********************************************************************
- * TNL stage to glue the above onto the end of the pipeline.
- */
 
-#include "tnl/t_context.h"
-#include "tnl/t_pipeline.h"
-#include "intel_context.h"
 
 static const GLenum reduced_prim[GL_POLYGON+1] = {
    GL_POINTS,
@@ -346,14 +342,10 @@ update_vb_state( struct intel_draw *draw,
 
 
 
-static GLboolean
-run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
-{
-   struct intel_context *intel = intel_context(ctx);
-   struct intel_draw *draw = intel->draw;
 
-   TNLcontext *tnl = TNL_CONTEXT(ctx);
-   struct vertex_buffer *VB = &tnl->vb;
+void intel_draw_vb(struct intel_draw *draw,
+		   struct vertex_buffer *VB )
+{
    GLuint i;
 
    update_vb_state( draw, VB );
@@ -406,21 +398,6 @@ run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
 		     VB->Count,
 		     draw->vb.verts );
 
-#if 0
-   {
-      union { GLfloat f; GLuint u; GLint i;} *fi = draw->vb.verts;
-
-      for (i = 0; i < VB->Count; i++) {
-	 _mesa_printf("%d: %x %f %f %f %x\n", 
-		      i,
-		      fi[i*5 + 0].u,
-		      fi[i*5 + 1].f,
-		      fi[i*5 + 2].f,
-		      fi[i*5 + 3].f,
-		      fi[i*5 + 4].u);
-      }
-   }
-#endif 
 
    for (i = 0; i < VB->PrimitiveCount; i++) {
 
@@ -451,19 +428,6 @@ run_draw(GLcontext *ctx, struct tnl_pipeline_stage *stage)
    draw->vb.render->release_vertices( draw->vb.render, draw->vb.verts );
    draw->vb.verts = NULL;
    draw->in_vb = 0;
-
-   return GL_FALSE;             /* finished the pipe */
 }
 
 
-
-
-const struct tnl_pipeline_stage _intel_render_stage =
-{
-   "intel draw",
-   NULL,
-   NULL,
-   NULL,
-   NULL,
-   run_draw
-};

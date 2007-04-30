@@ -181,7 +181,9 @@ void intel_draw_set_prim_pipe_active( struct intel_draw *draw,
 
 struct vertex_fetch *intel_draw_get_hw_vf( struct intel_draw *draw );
 
-struct tnl_pipeline_stage *intel_draw_tnl_stage( struct intel_draw *draw );
+struct vertex_buffer;
+void intel_draw_vb(struct intel_draw *draw,
+		   struct vertex_buffer *VB );
 
 /***********************************************************************
  * Private structs and functions:

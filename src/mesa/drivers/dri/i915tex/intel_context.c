@@ -62,7 +62,7 @@
 #include "intel_fbo.h"
 #include "intel_metaops.h"
 #include "intel_state.h"
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 
 #include "drirenderbuffer.h"
 #include "vblank.h"
@@ -202,8 +202,7 @@ const struct dri_extension card_extensions[] = {
    {NULL, NULL}
 };
 
-extern const struct tnl_pipeline_stage _intel_render_stage;
-extern const struct tnl_pipeline_stage _intel_check_frag_attrib_sizes;
+extern const struct tnl_pipeline_stage _intel_check_state_and_draw;
 
 
 static const struct tnl_pipeline_stage *intel_pipeline[] = {
@@ -218,13 +217,10 @@ static const struct tnl_pipeline_stage *intel_pipeline[] = {
    &_tnl_arb_vertex_program_stage,
    &_tnl_vertex_program_stage,   
 
-   /* Check for state changes:
+   /* Check for state changes and then do all rendering through this
+    * stage:
     */
-   &_intel_check_frag_attrib_sizes,
-
-   /* Do all rendering through this stage: 
-    */
-   &_intel_render_stage, 
+   &_intel_check_state_and_draw, 
    0,
 };
 
@@ -458,6 +454,9 @@ intelInitContext(struct intel_context *intel,
    _tnl_destroy_pipeline(ctx);
    _tnl_install_pipeline(ctx, intel_pipeline);
    TNL_CONTEXT(ctx)->Driver.RunPipeline = intelRunPipeline;
+
+   TNL_CONTEXT(ctx)->max_indices = (SEGMENT_SZ - 1024) / 2;
+   TNL_CONTEXT(ctx)->max_indices = 20;
 
    /* Configure swrast to match hardware characteristics: */
    _swrast_allow_pixel_fog(ctx, GL_FALSE);

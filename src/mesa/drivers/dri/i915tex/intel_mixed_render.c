@@ -31,7 +31,7 @@
   */
       
 #include "intel_context.h"
-#include "intel_draw.h"
+#include "draw/intel_draw.h"
 
 #define ELT_TABLE_SIZE 16
 

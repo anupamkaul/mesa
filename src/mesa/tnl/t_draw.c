@@ -365,7 +365,8 @@ void _tnl_draw_prims( GLcontext *ctx,
 			_tnl_draw_prims );
       return;
    }
-   else if (max_index >= max) {
+   else if (max_index >= max ||
+	    (ib && ib->count > tnl->max_indices)) {
       /* The software TNL pipeline has a fixed amount of storage for
        * vertices and it is necessary to split incoming drawing commands
        * if they exceed that limit.
@@ -373,7 +374,7 @@ void _tnl_draw_prims( GLcontext *ctx,
       struct split_limits limits;
       limits.max_verts = max;
       limits.max_vb_size = ~0;
-      limits.max_indices = ~0;
+      limits.max_indices = tnl->max_indices;
 
       /* This will split the buffers one way or another and
        * recursively call back into this function.

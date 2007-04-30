@@ -31,8 +31,8 @@
   */
 
 #include "imports.h"      
-#include "intel_draw_quads.h"
-#include "intel_draw.h"
+#include "draw/intel_draw_quads.h"
+#include "draw/intel_draw.h"
 
 
 struct quads_render {

@@ -53,7 +53,7 @@ enum {
    VF_ATTRIB_BFC1 = 18,
    VF_ATTRIB_CLIP_POS = 19,
    VF_ATTRIB_VERTEX_HEADER = 20,
-   VF_ATTRIB_MAX = 20
+   VF_ATTRIB_MAX = 21
 };
 
 
@@ -165,6 +165,8 @@ struct vertex_fetch
    GLuint attr_count;
    GLuint vertex_stride;
 
+   struct vf_attr *lookup[VF_ATTRIB_MAX];
+   
    vf_emit_func emit;
 
    /* Parameters and constants for codegen:
