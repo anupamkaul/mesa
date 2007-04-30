@@ -141,10 +141,6 @@ struct intel_draw_state {
    GLfloat offset_scale;
 };
 
-struct intel_draw_clipplanes {
-   GLuint nr;
-   GLfloat user_clip_planes[6][4];
-};
 
 struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbacks );
 				      
@@ -160,6 +156,11 @@ void intel_draw_set_viewport( struct intel_draw *draw,
 
 void intel_draw_set_state( struct intel_draw *draw,
 			   const struct intel_draw_state *state );
+
+
+void intel_draw_set_userclip( struct intel_draw *draw,
+			      const GLfloat (*ucp)[4],
+			      GLuint nr );
 
 void intel_draw_set_hw_vertex_format( struct intel_draw *draw,
 				      const struct vf_attr_map *attr,
@@ -201,6 +202,11 @@ struct intel_draw {
     * pipeline).
     */
    struct intel_draw_vb_state vb_state;
+
+   
+   GLfloat plane[12][4];
+   GLuint nr_planes;
+   
    
    /* The hardware backend (or swrast)
     */
