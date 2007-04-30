@@ -675,6 +675,7 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
        sarea->rotation != intel->current_rotation) {
       
       void *batchMap = intel->batch->map;
+      void *stateMap = intel->batch->state_map;
       
       /*
        * FIXME: Really only need to do this when drawing to a
@@ -685,17 +686,23 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
        * This will drop the outstanding batchbuffer on the floor
        */
 
+      if (stateMap != NULL && stateMap != batchMap) {
+	 driBOUnmap(intel->batch->state_buffer);
+      }
       if (batchMap != NULL) {
 	 driBOUnmap(intel->batch->buffer);
-	 intel->batch->map = NULL;
       }
+      intel->batch->state_map = intel->batch->map = NULL;
 
       intel_batchbuffer_reset(intel->batch);
 
+      if (stateMap != NULL && stateMap != batchMap) {
+	 driBOUnmap(intel->batch->state_buffer);
+      }
       if (batchMap == NULL) {
 	 driBOUnmap(intel->batch->buffer);
-	 intel->batch->map = NULL;
       }
+      intel->batch->state_map = intel->batch->map = NULL;
 
       /* lose all primitives */
       intel->prim.primitive = ~0;

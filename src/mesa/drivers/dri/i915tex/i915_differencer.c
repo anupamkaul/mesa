@@ -155,7 +155,7 @@ static void emit_dynamic_indirect( struct intel_context *intel,
    {
       dirty = (1<<I915_MAX_DYNAMIC)-1;
       size = I915_MAX_DYNAMIC;
-      memset(intel->batch->map + offset, 0, pagetop - offset);
+      memset(intel->batch->state_map + offset, 0, pagetop - offset);
       offset = pagetop;
    } 
 
@@ -168,9 +168,9 @@ static void emit_dynamic_indirect( struct intel_context *intel,
       /* Emit the "load state" command,  
        */
       BEGIN_BATCH(2,0);
-      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | LI0_STATE_DYNAMIC_INDIRECT | (1<<14) | 0);
-      OUT_RELOC( intel->batch->buffer, 
-		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
+      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | LI0_STATE_DYNAMIC_INDIRECT |
+		 intel->batch->state_memtype | 0);
+      OUT_RELOC( intel->batch->state_buffer, intel->batch->state_memflags,
 		 DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
 		 ((offset + size*4 - 4) | DIS0_BUFFER_VALID | flag) );
       ADVANCE_BATCH();
@@ -180,7 +180,7 @@ static void emit_dynamic_indirect( struct intel_context *intel,
       assert( offset + size*4 < intel->batch->segment_max_offset[segment]);
       intel->batch->segment_finish_offset[segment] += size*4;
 
-      ptr = (GLuint *)(intel->batch->map + offset);
+      ptr = (GLuint *)(intel->batch->state_map + offset);
       
       /* Finally emit the state: 
        */
@@ -242,12 +242,12 @@ static void emit_cached_indirect( struct intel_context *intel,
       }
 
       BEGIN_BATCH(size,0);
-      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | (dirty<<8) | (1<<14) | (size - 2));
+      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | (dirty<<8) |
+		 intel->batch->state_memtype | (size - 2));
 
       for (i = 0; i < I915_MAX_CACHE; i++) {
 	 if (dirty & (1<<i)) {
-	    OUT_RELOC( intel->batch->buffer, 
-		       DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
+	    OUT_RELOC( intel->batch->state_buffer, intel->batch->state_memflags,
 		       DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
 		       ( to->offsets[i] | flag | SIS0_BUFFER_VALID ) );
 	    OUT_BATCH( to->sizes[i]-1 );

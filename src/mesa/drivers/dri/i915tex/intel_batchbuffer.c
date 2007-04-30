@@ -91,28 +91,30 @@ static void dump(struct intel_context *intel,
 
 
 static void
-intel_dump_batchbuffer(struct intel_batchbuffer *batch, GLubyte *map)
+intel_dump_batchbuffer(struct intel_batchbuffer *batch, GLubyte *map,
+		       GLubyte *state_map)
 {
    GLuint *ptr = (GLuint *)map;
    GLuint count = batch->segment_finish_offset[0];
    GLuint buf0 = driBOOffset(batch->buffer);
-   GLuint buf = buf0;;
+   GLuint buf1 = driBOOffset(batch->state_buffer);
+   GLuint buf = buf0;
 
    fprintf(stderr, "\n\nBATCH: (%d)\n", count / 4);
    dump( batch->intel, buf, ptr, count/4 );
    fprintf(stderr, "END-BATCH\n\n\n");
 
    count = batch->segment_finish_offset[1] - batch->segment_start_offset[1];
-   ptr = (GLuint *)(map + batch->segment_start_offset[1]);
-   buf = buf0 + batch->segment_start_offset[1];
+   ptr = (GLuint *)(state_map + batch->segment_start_offset[1]);
+   buf = buf1 + batch->segment_start_offset[1];
 
    fprintf(stderr, "\n\nDYNAMIC: (%d)\n", count / 4);
    dump( batch->intel, buf, ptr, count/4 );
    fprintf(stderr, "END-DYNAMIC\n\n\n");
 
    count = batch->segment_finish_offset[2] - batch->segment_start_offset[2];
-   ptr = (GLuint *)(map + batch->segment_start_offset[2]);
-   buf = buf0 + batch->segment_start_offset[2];
+   ptr = (GLuint *)(state_map + batch->segment_start_offset[2]);
+   buf = buf1 + batch->segment_start_offset[2];
 
    fprintf(stderr, "\n\nINDIRECT: (%d)\n", count / 4);
    dump( batch->intel, buf, ptr, count/4 );
@@ -132,6 +134,10 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
    batch->size =  batch->intel->intelScreen->maxBatchSize;
    driBOData(batch->buffer, batch->size, NULL, 0);
 
+   if (batch->state_buffer != batch->buffer) {
+      driBOData(batch->state_buffer, 8192, NULL, 0);
+   }
+
    driBOResetList(&batch->list);
 
    /*
@@ -140,7 +146,7 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
 
    for (i = 0; i < batch->nr_relocs; i++) {
       struct buffer_reloc *r = &batch->reloc[i];
-      if (r->buf != batch->buffer)
+      if (r->buf != batch->buffer && r->buf != batch->state_buffer)
 	 driBOUnReference(r->buf);
    }
 
@@ -159,7 +165,15 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
                     DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE);
 
 
-   batch->map = driBOMap(batch->buffer, DRM_BO_FLAG_WRITE, 0);
+   batch->state_map = batch->map = driBOMap(batch->buffer, DRM_BO_FLAG_WRITE, 0);
+
+   if (batch->state_buffer != batch->buffer) {
+      driBOAddListItem(&batch->list, batch->state_buffer,
+		       batch->state_memflags,
+		       DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE);
+
+      batch->state_map = driBOMap(batch->state_buffer, DRM_BO_FLAG_WRITE, 0);
+   }
 
    batch->segment_finish_offset[0] = batch->segment_start_offset[0];
    batch->segment_finish_offset[1] = batch->segment_start_offset[1];
@@ -182,17 +196,41 @@ intel_batchbuffer_alloc(struct intel_context *intel)
    batch->last_fence = NULL;
    driBOCreateList(20, &batch->list);
 
-   batch->segment_start_offset[0] = 0 * SEGMENT_SZ;
-   batch->segment_start_offset[1] = 1 * SEGMENT_SZ;
-   batch->segment_start_offset[2] = 2 * SEGMENT_SZ;
+   if (intel->intelScreen->statePool /*drmMinor >= 10*/) {
+      batch->state_memtype = 0 << 14;
+      batch->state_memflags = DRM_BO_FLAG_MEM_PRIV1 | DRM_BO_FLAG_EXE;
 
-   batch->segment_finish_offset[0] = 0 * SEGMENT_SZ;
-   batch->segment_finish_offset[1] = 1 * SEGMENT_SZ;
-   batch->segment_finish_offset[2] = 2 * SEGMENT_SZ;
+      driGenBuffers(intel->intelScreen->statePool, "state", 1,
+		    &batch->state_buffer, 4096, batch->state_memflags, 0);
 
-   batch->segment_max_offset[0] = 1 * SEGMENT_SZ - BATCH_RESERVED;
-   batch->segment_max_offset[1] = 2 * SEGMENT_SZ;
-   batch->segment_max_offset[2] = 3 * SEGMENT_SZ;
+      batch->segment_start_offset[0] = 0;
+      batch->segment_start_offset[1] = 0;
+      batch->segment_start_offset[2] = 4096;
+
+      batch->segment_finish_offset[0] = batch->segment_start_offset[0];
+      batch->segment_finish_offset[1] = batch->segment_start_offset[1];
+      batch->segment_finish_offset[2] = batch->segment_start_offset[2];
+
+      batch->segment_max_offset[0] = 1 * SEGMENT_SZ - BATCH_RESERVED;
+      batch->segment_max_offset[1] = 4096;
+      batch->segment_max_offset[2] = 8192;
+   } else {
+      batch->state_buffer = batch->buffer;
+      batch->state_memtype = 1 << 14;
+      batch->state_memflags = DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE;
+
+      batch->segment_start_offset[0] = 0 * SEGMENT_SZ;
+      batch->segment_start_offset[1] = 1 * SEGMENT_SZ;
+      batch->segment_start_offset[2] = 2 * SEGMENT_SZ;
+
+      batch->segment_finish_offset[0] = 0 * SEGMENT_SZ;
+      batch->segment_finish_offset[1] = 1 * SEGMENT_SZ;
+      batch->segment_finish_offset[2] = 2 * SEGMENT_SZ;
+
+      batch->segment_max_offset[0] = 1 * SEGMENT_SZ - BATCH_RESERVED;
+      batch->segment_max_offset[1] = 2 * SEGMENT_SZ;
+      batch->segment_max_offset[2] = 3 * SEGMENT_SZ;
+   }
 
    intel_batchbuffer_reset(batch);
    return batch;
@@ -207,12 +245,18 @@ intel_batchbuffer_free(struct intel_batchbuffer *batch)
       driFenceUnReference(batch->last_fence);
       batch->last_fence = NULL;
    }
+   if (batch->state_map && batch->state_map != batch->map) {
+      driBOUnmap(batch->state_buffer);
+   }
    if (batch->map) {
       driBOUnmap(batch->buffer);
-      batch->map = NULL;
+   }
+   batch->state_map = batch->map = NULL;
+   if (batch->state_buffer != batch->buffer) {
+      driBOUnReference(batch->state_buffer);
    }
    driBOUnReference(batch->buffer);
-   batch->buffer = NULL;
+   batch->state_buffer = batch->buffer = NULL;
    free(batch);
 }
 
@@ -223,7 +267,7 @@ do_flush_locked(struct intel_batchbuffer *batch,
                 GLuint used,
                 GLboolean ignore_cliprects, GLboolean allow_unlock)
 {
-   GLuint *ptr;
+   GLuint *ptr, *batch_ptr, *state_ptr;
    GLuint i;
    struct intel_context *intel = batch->intel;
    unsigned fenceFlags;
@@ -235,26 +279,36 @@ do_flush_locked(struct intel_batchbuffer *batch,
     * whole task should be done internally by the memory manager, and
     * that dma buffers probably need to be pinned within agp space.
     */
-   ptr = (GLuint *) driBOMap(batch->buffer, DRM_BO_FLAG_WRITE,
-                             DRM_BO_HINT_ALLOW_UNFENCED_MAP);
+   state_ptr = batch_ptr = (GLuint *) driBOMap(batch->buffer, DRM_BO_FLAG_WRITE,
+					       DRM_BO_HINT_ALLOW_UNFENCED_MAP);
 
+   if (batch->state_buffer != batch->buffer) {
+	 state_ptr = (GLuint *) driBOMap(batch->state_buffer, DRM_BO_FLAG_WRITE,
+					 DRM_BO_HINT_ALLOW_UNFENCED_MAP);
+   }
 
    for (i = 0; i < batch->nr_relocs; i++) {
       struct buffer_reloc *r = &batch->reloc[i];
 
+      ptr = r->segment ? state_ptr : batch_ptr;
+
       ptr[r->offset / 4] = driBOOffset(r->buf) + r->delta;
       
-      if (INTEL_DEBUG & DEBUG_BATCH) 
-	 _mesa_printf("reloc offset %x value 0x%x + 0x%x\n",
-		      r->offset, driBOOffset(r->buf), r->delta);
+      if (1 /*INTEL_DEBUG & DEBUG_BATCH*/) 
+	 _mesa_printf("reloc in buffer %p offset %x value 0x%x + 0x%x\n",
+		      ptr, r->offset, driBOOffset(r->buf), r->delta);
    }
 
-   if (INTEL_DEBUG & DEBUG_BATCH)
-      intel_dump_batchbuffer(batch, (GLubyte *)ptr);
+   if (1 /*INTEL_DEBUG & DEBUG_BATCH*/) {
+      intel_dump_batchbuffer(batch, (GLubyte *)batch_ptr, (GLubyte *)state_ptr);
 
+   }
 
+   if (batch->state_buffer != batch->buffer) {
+     driBOUnmap(batch->state_buffer);
+   }
    driBOUnmap(batch->buffer);
-   batch->map = NULL;
+   batch->state_map = batch->map = NULL;
 
 
    /* Throw away non-effective packets.  Won't work once we have
@@ -290,11 +344,13 @@ do_flush_locked(struct intel_batchbuffer *batch,
       * Oops. We only validated a batch buffer. This means we
       * didn't do any proper rendering. Discard this fence object.
       */
-
       driFenceUnReference(fo);
    } else {
       driFenceUnReference(batch->last_fence);
       batch->last_fence = fo;
+      if (batch->state_buffer != batch->buffer) {
+	driBOFence(batch->state_buffer, fo);
+      }
       for (i = 0; i < batch->nr_relocs; i++) {
 	struct buffer_reloc *r = &batch->reloc[i];
 	driBOFence(r->buf, fo);
@@ -353,8 +409,11 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
       used += 8;
    }
 
+   if (batch->state_buffer != batch->buffer) {
+      driBOUnmap(batch->state_buffer);
+   }
    driBOUnmap(batch->buffer);
-   batch->map = NULL;
+   batch->state_map = batch->map = NULL;
 
    /* TODO: Just pass the relocation list and dma buffer up to the
     * kernel.
@@ -398,7 +457,7 @@ intel_batchbuffer_finish(struct intel_batchbuffer *batch)
  */
 GLboolean
 intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
-			    GLuint offset,
+			    GLuint segment, GLuint offset,
 			    struct _DriBufferObject *buffer,
 			    GLuint flags, GLuint mask, GLuint delta)
 {
@@ -411,12 +470,13 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
    {
       struct buffer_reloc *r = &batch->reloc[batch->nr_relocs++];
 
-      if (buffer != batch->buffer)
+      if (buffer != batch->buffer && buffer != batch->state_buffer)
 	 driBOReference(buffer);
 
       r->buf = buffer;
       r->offset = offset;
       r->delta = delta;
+      r->segment = segment;
    }
 
    return GL_TRUE;
@@ -429,7 +489,7 @@ intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
                              struct _DriBufferObject *buffer,
                              GLuint flags, GLuint mask, GLuint delta)
 {
-   intel_batchbuffer_set_reloc( batch,
+   intel_batchbuffer_set_reloc( batch, segment,
 				batch->segment_finish_offset[segment],
 				buffer, flags, mask, delta );
 

@@ -483,6 +483,14 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
       return GL_FALSE;
    }
 
+   if (intelScreen->drmMinor >= 10) {
+      intelScreen->statePool = driBatchPoolInit(sPriv->fd,
+						DRM_BO_FLAG_EXE |
+						DRM_BO_FLAG_MEM_PRIV1,
+						8192, batchPoolSize, 5);
+
+   }
+
    intel_recreate_static_regions(intelScreen);
 
    return GL_TRUE;
@@ -498,6 +506,7 @@ intelDestroyScreen(__DRIscreenPrivate * sPriv)
 
    driPoolTakeDown(intelScreen->regionPool);
    driPoolTakeDown(intelScreen->staticPool);
+   driPoolTakeDown(intelScreen->statePool);
    driPoolTakeDown(intelScreen->batchPool);
    FREE(intelScreen);
    sPriv->private = NULL;

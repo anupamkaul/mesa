@@ -80,12 +80,12 @@ static GLuint emit_packet( struct intel_context *intel,
 
    intel->batch->segment_finish_offset[segment] += size;
    
-   memcpy(intel->batch->map + offset, 
+   memcpy(intel->batch->state_map + offset, 
 	  &packet->dword[0], 
 	  size );
 
    for (i = 0; i < packet->nr_relocs; i++) {
-      intel_batchbuffer_set_reloc( intel->batch,
+      intel_batchbuffer_set_reloc( intel->batch, segment,
 				   offset + packet->reloc[i].dword * sizeof(GLuint),
 				   packet->reloc[i].buffer,
 				   packet->reloc[i].flags,
@@ -213,7 +213,7 @@ void i915_cache_emit(struct i915_cache_context *cctx,
 
    BEGIN_BATCH(packet->nr_dwords, 0);
    for (i = 0; i < packet->nr_relocs; i++) 
-      intel_batchbuffer_set_reloc( intel->batch,
+      intel_batchbuffer_set_reloc( intel->batch, packet->reloc[i].segment,
 				   ( intel->batch->segment_finish_offset[0] + 
 				     packet->reloc[i].dword * sizeof(GLuint) ),
 				   packet->reloc[i].buffer,

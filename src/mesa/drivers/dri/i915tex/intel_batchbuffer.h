@@ -23,6 +23,7 @@ struct buffer_reloc
    struct _DriBufferObject *buf;
    GLuint offset;
    GLuint delta;                /* not needed? */
+   GLuint segment;
 };
 
 enum {
@@ -38,12 +39,16 @@ struct intel_batchbuffer
    struct intel_context *intel;
 
    struct _DriBufferObject *buffer;
+   struct _DriBufferObject *state_buffer;
    struct _DriFenceObject *last_fence;
    GLuint flags;
+   GLuint state_memtype;
+   GLuint state_memflags;
 
    drmBOList list;
    GLuint list_count;
    GLubyte *map;
+   GLubyte *state_map;
 
    struct buffer_reloc reloc[MAX_RELOCS];
    GLuint nr_relocs;
@@ -86,7 +91,7 @@ void intel_batchbuffer_release_space(struct intel_batchbuffer *batch,
 
 GLboolean
 intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
-			    GLuint offset,
+			    GLuint segment, GLuint offset,
 			    struct _DriBufferObject *buffer,
 			    GLuint flags, GLuint mask, GLuint delta);
 

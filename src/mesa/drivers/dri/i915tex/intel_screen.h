@@ -86,6 +86,7 @@ typedef struct
    */
    driOptionCache optionCache;
    struct _DriBufferPool *batchPool;
+   struct _DriBufferPool *statePool;
    struct _DriBufferPool *texPool;
    struct _DriBufferPool *regionPool;
    struct _DriBufferPool *staticPool;
