@@ -287,9 +287,10 @@ driBOData(struct _DriBufferObject *buf,
                   "driBOData called on invalid buffer\n");
       BM_CKFATAL(-EINVAL);
    }
-   newBuffer = !buf->private || (pool->size(pool, buf->private) < size) ||
-      pool->map(pool, buf->private, DRM_BO_FLAG_WRITE,
-                DRM_BO_HINT_DONT_BLOCK, &virtual);
+   newBuffer = (!buf->private || 
+		pool->size(pool, buf->private) < size ||
+		pool->map(pool, buf->private, DRM_BO_FLAG_WRITE,
+			  DRM_BO_HINT_DONT_BLOCK, &virtual));
 
    if (newBuffer) {
       if (buf->private)
@@ -484,6 +485,33 @@ driBOValidateList(int fd, drmBOList * list)
    BM_CKFATAL(drmBOValidateList(fd, list));
    _glthread_UNLOCK_MUTEX(bmMutex);
 }
+
+unsigned long 
+driBOValidate(int fd, 
+	      struct _DriBufferObject *buf,
+	      unsigned flags, 
+	      unsigned mask,
+	      unsigned hint)
+{
+   unsigned long ret;
+
+   _glthread_LOCK_MUTEX(buf->mutex);
+
+   /* XXX: grab bmMutex also?
+    */
+   drmBOValidate(fd, driBOKernel(buf), flags, mask, hint);
+
+   if (buf->pool->validate) {
+      BM_CKFATAL(buf->pool->validate(buf->pool, buf->private));
+   }
+
+   assert(buf->private != NULL);
+   ret = buf->pool->offset(buf->pool, buf->private);
+
+   _glthread_UNLOCK_MUTEX(buf->mutex);
+   return ret;
+}
+
 
 void
 driPoolTakeDown(struct _DriBufferPool *pool)

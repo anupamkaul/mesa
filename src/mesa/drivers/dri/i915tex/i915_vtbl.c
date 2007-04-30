@@ -33,9 +33,6 @@
 #include "macros.h"
 #include "colormac.h"
 
-#include "tnl/t_context.h"
-#include "tnl/t_vertex.h"
-
 #include "intel_batchbuffer.h"
 #include "intel_tex.h"
 #include "intel_regions.h"

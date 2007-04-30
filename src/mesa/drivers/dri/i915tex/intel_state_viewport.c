@@ -84,19 +84,23 @@ static void update_viewport( struct intel_context *intel )
        */
       const GLfloat *v = intel->state.Viewport->_WindowMap.m;
       const GLfloat depthScale = 1.0F / DrawBuffer->_DepthMaxF;
-      GLfloat *m = intel->ViewportMatrix.m;
-
-      m[MAT_SX] = v[MAT_SX];
-      m[MAT_TX] = v[MAT_TX] + SUBPIXEL_X;
+      GLfloat scale[4];
+      GLfloat trans[4];
       
-      m[MAT_SY] = v[MAT_SY] * yScale;
-      m[MAT_TY] = v[MAT_TY] * yScale + yBias + SUBPIXEL_Y;
 
-      m[MAT_SZ] = v[MAT_SZ] * depthScale;
-      m[MAT_TZ] = v[MAT_TZ] * depthScale;
+      scale[0] = v[MAT_SX];      
+      scale[1] = v[MAT_SY] * yScale;
+      scale[2] = v[MAT_SZ] * depthScale;
+      scale[3] = 1;
 
-      /* Raise a flag like INTEL_NEW_VIEWPORT?
+      trans[0] = v[MAT_TX] + SUBPIXEL_X;
+      trans[1] = v[MAT_TY] * yScale + yBias + SUBPIXEL_Y;
+      trans[2] = v[MAT_TZ] * depthScale;
+      trans[3] = 0;
+
+      /* Update both hw and clip-setup viewports:
        */
+      intel_draw_set_viewport( intel->draw, scale, trans );
    }
 }
 

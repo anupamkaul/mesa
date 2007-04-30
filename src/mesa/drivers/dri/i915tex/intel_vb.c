@@ -25,8 +25,8 @@
  * 
  **************************************************************************/
 
-/*
- * Render vertex buffers by emitting vertices directly to dma buffers.
+/* Manage hardware format vertices.  In part this is a wrapper around
+ * the tnl/t_vertex.[ch] functionality.
  */
 #include "glheader.h"
 #include "mtypes.h"
@@ -38,46 +38,58 @@
 
 #define FILE_DEBUG_FLAG DEBUG_VBO
 
+#define MAX_VERTEX_SIZE (36 * sizeof(GLfloat))
 
-
-#define MAX_VBO 32		/* XXX: make dynamic */
 #define VBO_SIZE (128*1024)
 
 
 
 
-struct intel_vb {
-   struct intel_context *intel;
 
-   struct intel_buffer_object *vbo[MAX_VBO];
-   GLuint vbo_idx;
-
-   struct intel_buffer_object *current_vbo;
-
-   GLuint current_vbo_size;
-   GLuint current_vbo_used;
-   void *current_vbo_ptr;
-
-   GLuint wrap_vbo;
-   GLuint dynamic_start;
-};
+void intel_vb_set_vertex_size( struct intel_vb *vb,
+			       GLuint vertex_size )
+{
+   if (vertex_size != vb->vertex_size_bytes) {
+      vb->vertex_size_bytes = vertex_size;
+      vb->intel->state.dirty.intel |= INTEL_NEW_VERTEX_SIZE;
+   }
+}
 
 
 
-static void
-unmap_current_vbo( struct intel_vb *vb )
+
+/* Callback from (eventually) intel_batchbuffer_flush().  Prepare for
+ * submit to hardware.
+ */
+void intel_vb_flush( struct intel_vb *vb )
+{
+   DBG("%s\n", __FUNCTION__);
+
+   if (vb->vbo.current_ptr) 
+      intel_vb_unmap_current_vbo( vb );
+
+   vb->vbo.current_used = vb->vbo.current_size;
+   vb->vbo.wrap_vbo = vb->vbo.idx;
+}
+
+
+
+
+
+void
+intel_vb_unmap_current_vbo( struct intel_vb *vb )
 {
    GLcontext *ctx = &vb->intel->ctx;
 
    DBG("%s\n", __FUNCTION__);
 
-   assert(vb->current_vbo_ptr);
+   assert(vb->vbo.current_ptr);
 
    ctx->Driver.UnmapBuffer( ctx, 
 			    GL_ARRAY_BUFFER_ARB,
-			    &vb->current_vbo->Base );
+			    &vb->vbo.current->Base );
 
-   vb->current_vbo_ptr = NULL;
+   vb->vbo.current_ptr = NULL;
 }
 
 
@@ -94,21 +106,21 @@ get_next_vbo( struct intel_vb *vb, GLuint size )
 
    /* Unmap current vbo:
     */
-   if (vb->current_vbo_ptr) 
-      unmap_current_vbo( vb );
+   if (vb->vbo.current_ptr) 
+      intel_vb_unmap_current_vbo( vb );
 
    if (size < VBO_SIZE) 
       size = VBO_SIZE;
 
-   next_vbo = (vb->vbo_idx + 1) % MAX_VBO;
+   next_vbo = (vb->vbo.idx + 1) % MAX_VBO;
 
-   if (next_vbo == vb->wrap_vbo)
+   if (next_vbo == vb->vbo.wrap_vbo)
       return GL_FALSE;
    
-   vb->vbo_idx = next_vbo;
-   vb->current_vbo = vb->vbo[vb->vbo_idx];
-   vb->current_vbo_size = size;
-   vb->current_vbo_used = 0;
+   vb->vbo.idx = next_vbo;
+   vb->vbo.current = vb->vbo.vbo[vb->vbo.idx];
+   vb->vbo.current_size = size;
+   vb->vbo.current_used = 0;
 
    /* Clear out buffer contents and break any hardware dependency on
     * the old memory:
@@ -118,114 +130,63 @@ get_next_vbo( struct intel_vb *vb, GLuint size )
 			   size,
 			   NULL,
 			   GL_DYNAMIC_DRAW_ARB,
-			   &vb->current_vbo->Base );
+			   &vb->vbo.current->Base );
 
    
    return GL_TRUE;
 }
       
-void *intel_vb_alloc( struct intel_vb *vb, GLuint space )
+
+void *intel_vb_alloc_vertices( struct intel_vb *vb, 
+			       GLuint nr_vertices,
+			       GLuint *offset_return )
 {
+   GLuint space = nr_vertices * vb->vertex_size_bytes;
+
    GLcontext *ctx = &vb->intel->ctx;
    void *ptr;
 
-   DBG("%s %d, vbo %d\n", __FUNCTION__, space, vb->vbo_idx);
+   DBG("%s %d, vbo %d\n", __FUNCTION__, space, vb->vbo.idx);
 
-   assert(vb->dynamic_start == ~0);
-
-   if (vb->current_vbo_used + space > vb->current_vbo_size) {
+   if (vb->vbo.current_used + space > vb->vbo.current_size) {
       if (!get_next_vbo( vb, space ))
 	 return NULL;
    }
       
-   assert(vb->current_vbo_used + space <= vb->current_vbo_size);
+   assert(vb->vbo.current_used + space <= vb->vbo.current_size);
 
-   if (!vb->current_vbo_ptr) {
-      DBG("%s map vbo %d\n", __FUNCTION__, vb->vbo_idx);
+   if (!vb->vbo.current_ptr) {
+      DBG("%s map vbo %d\n", __FUNCTION__, vb->vbo.idx);
 
       /* Map the vbo now, will be unmapped in unmap_current_vbo, above.
        */
-      vb->current_vbo_ptr = ctx->Driver.MapBuffer( ctx,
+      vb->vbo.current_ptr = ctx->Driver.MapBuffer( ctx,
 						   GL_ARRAY_BUFFER_ARB,
 						   GL_WRITE_ONLY,
-						   &vb->current_vbo->Base );
+						   &vb->vbo.current->Base );
    }
 
-   if (!vb->current_vbo_ptr) 
+   if (!vb->vbo.current_ptr) 
       return NULL;
 
 
    {
       struct intel_context *intel = vb->intel;
-      intel->state.vbo = vb->current_vbo->buffer;
-      intel->state.vbo_offset = vb->current_vbo_used;
+      intel->state.vbo = vb->vbo.current->buffer;
+      intel->state.vbo_offset = vb->vbo.current_used;
       intel->state.dirty.intel |= INTEL_NEW_VBO;
    }
 
+   *offset_return = 0;
 
-   ptr = vb->current_vbo_ptr + vb->current_vbo_used;
-   vb->current_vbo_used += space;
+   ptr = vb->vbo.current_ptr + vb->vbo.current_used;
+   vb->vbo.current_used += space;   
    return ptr;
 }
 
-#define MIN_DYNAMIC_FREE_SPACE (1024)
-
-
-GLboolean intel_vb_begin_dynamic_alloc( struct intel_vb *vb, 
-					GLuint min_free_space )
-{
-   /* Just make sure there is a certain amount of free space left in
-    * this buffer:
-    */
-   void *ptr = intel_vb_alloc( vb,  min_free_space );
-   if (ptr == NULL)
-      return GL_FALSE;
-   
-   vb->current_vbo_used -= min_free_space;
-   vb->dynamic_start = vb->current_vbo_used;
-   return GL_TRUE;
-}
 
 
 
-
-void *intel_vb_extend_dynamic_alloc( struct intel_vb *vb, GLuint space )
-{
-   if (vb->current_vbo_used + space > vb->current_vbo_size)
-      return NULL;
-   else {
-      void *ptr = vb->current_vbo_ptr + vb->current_vbo_used;
-      vb->current_vbo_used += space;
-      return ptr;
-   }
-}
-
-
-GLuint intel_vb_end_dynamic_alloc( struct intel_vb *vb )
-{
-   GLuint start = vb->dynamic_start;
-
-   assert(start <= vb->current_vbo_used);
-   
-   vb->dynamic_start = ~0;
-   return vb->current_vbo_used - start;
-}
-
-
-
-/* Callback from (eventually) intel_batchbuffer_flush().  Prepare for
- * submit to hardware.
- */
-void intel_vb_flush( struct intel_vb *vb )
-{
-   DBG("%s\n", __FUNCTION__);
-
-   if (vb->current_vbo_ptr) 
-      unmap_current_vbo( vb );
-
-   vb->current_vbo_used = vb->current_vbo_size;
-   vb->wrap_vbo = vb->vbo_idx;
-}
 
 struct intel_vb *intel_vb_init( struct intel_context *intel )
 {
@@ -234,11 +195,22 @@ struct intel_vb *intel_vb_init( struct intel_context *intel )
    GLuint i;
 
    vb->intel = intel;
-   vb->dynamic_start = ~0;
 
    for (i = 0; i < MAX_VBO; i++) {
-      vb->vbo[i] = (struct intel_buffer_object *) 
+      vb->vbo.vbo[i] = (struct intel_buffer_object *) 
 	 ctx->Driver.NewBufferObject(ctx, 1, GL_ARRAY_BUFFER_ARB);
+
+      /* We get a segfault if we try and delete buffer objects without
+       * supplying some data for them, even if it is null.
+       */
+      ctx->Driver.BufferData( ctx,
+			      GL_ARRAY_BUFFER_ARB,
+			      128*1024,
+			      NULL,
+			      GL_DYNAMIC_DRAW_ARB,
+			      &vb->vbo.vbo[i]->Base );
+
+
    }
 
    return vb;
@@ -250,15 +222,18 @@ void intel_vb_destroy( struct intel_vb *vb )
    GLuint i;
 
    if (vb) {
-      if (vb->current_vbo_ptr)
-	 unmap_current_vbo( vb );
+      if (vb->vbo.current_ptr)
+	 intel_vb_unmap_current_vbo( vb );
 
       /* Destroy the vbo: 
        */
       for (i = 0; i < MAX_VBO; i++)
-	 if (vb->vbo[i])
-	    ctx->Driver.DeleteBuffer( ctx, &vb->vbo[i]->Base );
+	 if (vb->vbo.vbo[i])
+	    ctx->Driver.DeleteBuffer( ctx, &vb->vbo.vbo[i]->Base );
       
       FREE( vb );
    }
 }
+
+
+

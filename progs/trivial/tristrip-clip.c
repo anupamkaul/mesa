@@ -70,16 +70,23 @@ static void Key(unsigned char key, int x, int y)
 static void Draw(void)
 {
    glClear(GL_COLOR_BUFFER_BIT); 
+   glEnable(GL_CULL_FACE);
 
    glBegin(GL_TRIANGLE_STRIP);
    glColor3f(1,0,0); 
    glVertex3f( 0.9, -0.9, -30.0);
-   glColor3f(1,1,0); 
+   glColor3f(1,0,0); 
    glVertex3f( 0.9,  0.9, -30.0);
-   glColor3f(0,1,1); 
+   glColor3f(0,1,0); 
    glVertex3f(-0.9,  -0.9, -30.0);
-   glColor3f(1,0,1); 
+   glColor3f(0,1,0); 
+   glVertex3f(-0.9,  0.9, -30.0);
+
+   glColor3f(0,0,1); 
+   glVertex3f(-1.9,  -0.9, -30.0);
+   glColor3f(0,0,1); 
    glVertex3f(-1.9,  0.9, -30.0);
+
    glEnd();
 
    glFlush();

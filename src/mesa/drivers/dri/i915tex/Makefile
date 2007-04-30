@@ -7,6 +7,16 @@ LIBNAME = i915tex_dri.so
 MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
+	draw/intel_draw.c \
+	draw/intel_draw_quads.c \
+	draw/intel_prim.c \
+	draw/intel_prim_emit.c \
+	draw/intel_prim_flatshade.c \
+	draw/intel_prim_twoside.c \
+	draw/intel_prim_offset.c \
+	draw/intel_prim_cull.c \
+	draw/intel_prim_clip.c \
+	draw/intel_prim_unfilled.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \
@@ -22,14 +32,15 @@ DRIVER_SOURCES = \
 	i915_state_immediate.c \
 	i915_state_map.c \
 	i915_state_program.c \
+	i915_state_rasterizer.c \
 	i915_state_sampler.c \
 	i915_state_static.c \
 	i915_state_vertex.c \
 	i915_tex_layout.c \
 	i915_vtbl.c \
-	intel_render.c \
+	intel_classic.c \
+	intel_swrast.c \
 	intel_vb.c \
-	intel_idx_render.c \
 	intel_regions.c \
 	intel_buffer_objects.c \
 	intel_batchbuffer.c \
@@ -54,11 +65,13 @@ DRIVER_SOURCES = \
 	intel_screen.c \
 	intel_span.c \
 	intel_state.c \
-	intel_state_callbacks.c \
-	intel_tris.c \
+	intel_state_draw.c \
+	intel_state_pipeline.c \
+	intel_state_viewport.c \
 	intel_fbo.c \
 	intel_depthstencil.c \
 	intel_batchpool.c
+
 
 C_SOURCES = \
 	$(COMMON_SOURCES) \

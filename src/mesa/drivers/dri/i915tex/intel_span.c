@@ -313,7 +313,12 @@ intelSpanRenderStart(GLcontext * ctx)
    struct intel_context *intel = intel_context(ctx);
    GLuint i;
 
-   intelFinish(&intel->ctx);
+   /* XXX FIX ME XXX
+    */
+#if 0
+   intelFinish(&intel->ctx); 
+#endif
+
    LOCK_HARDWARE(intel);
 
 #if 0

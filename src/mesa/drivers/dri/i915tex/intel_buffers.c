@@ -31,7 +31,6 @@
 #include "intel_buffers.h"
 #include "intel_depthstencil.h"
 #include "intel_fbo.h"
-#include "intel_tris.h"
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
 #include "i915_context.h"
@@ -390,7 +389,7 @@ intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
    //if (intel->numClipRects) {
       BATCH_LOCALS;
 
-      INTEL_FIREVERTICES(intel);
+      //intel_draw_flush( intel->render );
 
       /* Get clear bounds after locking */
       x1.f = ctx->DrawBuffer->_Xmin;
@@ -700,10 +699,10 @@ intelClear(GLcontext *ctx, GLbitfield mask)
    if (colorMask == ~0) {
       /* clear all R,G,B,A */
       /* XXX FBO: need to check if colorbuffers are software RBOs! */
-      if (1 /* Not Almador family? */) {
+      if (0 /* Not Almador family? */) {
          rect_mask = mask & (fb->_ColorDrawBufferMask[0] | BUFFER_BIT_DEPTH);
 
-	 if (mask & BUFFER_BIT_STENCIL &&
+	 if ((mask & BUFFER_BIT_STENCIL) &&
 	     STENCIL_WRITE_MASK(intel->ctx.Stencil.WriteMask[0]) == 0xff)
 	    rect_mask |= BUFFER_BIT_STENCIL;
 
@@ -875,35 +874,6 @@ intelPageFlip(const __DRIdrawablePrivate * dPriv)
    return GL_TRUE;
 }
 
-#if 0
-void
-intelSwapBuffers(__DRIdrawablePrivate * dPriv)
-{
-   if (dPriv->driverPrivate) {
-      const struct gl_framebuffer *fb
-         = (struct gl_framebuffer *) dPriv->driverPrivate;
-      if (fb->Visual.doubleBufferMode) {
-         GET_CURRENT_CONTEXT(ctx);
-         if (ctx && ctx->DrawBuffer == fb) {
-            _mesa_notifySwapBuffers(ctx);       /* flush pending rendering */
-         }
-         if (intel->doPageFlip) {
-            intelPageFlip(dPriv);
-         }
-         else {
-            intelCopyBuffer(dPriv);
-         }
-      }
-   }
-   else {
-      _mesa_problem(NULL,
-                    "dPriv has no gl_framebuffer pointer in intelSwapBuffers");
-   }
-}
-#else
-/* Trunk version:
- */
-
 static GLboolean
 intelScheduleSwap(const __DRIdrawablePrivate * dPriv, GLboolean *missed_target)
 {
@@ -1029,7 +999,6 @@ intelSwapBuffers(__DRIdrawablePrivate * dPriv)
       fprintf(stderr, "%s: drawable has no context!\n", __FUNCTION__);
    }
 }
-#endif
 
 void
 intelCopySubBuffer(__DRIdrawablePrivate * dPriv, int x, int y, int w, int h)

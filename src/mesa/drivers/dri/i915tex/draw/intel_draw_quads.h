@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2006 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,20 +25,15 @@
  * 
  **************************************************************************/
 
-#ifndef INTELTRIS_INC
-#define INTELTRIS_INC
+#ifndef INTEL_QUADS_H
+#define INTEL_QUADS_H
 
-#include "mtypes.h"
+struct intel_render;
+struct intel_draw;
 
-extern void intelInitTriFuncs(GLcontext * ctx);
+struct intel_render *intel_create_quads_render( struct intel_draw *draw );
 
-/* dwords parameter is a minimum reservation amount.  If in doubt,
- * just use zero.
- */
-extern void intelStartInlinePrimitive( struct intel_context *intel, 
-				       GLuint prim, 
-				       GLuint dwords );
-
-GLuint *intelExtendInlinePrimitive(struct intel_context *intel, GLuint dwords);
+void intel_quads_set_hw_render( struct intel_render *quads_render,
+				struct intel_render *hw );
 
 #endif

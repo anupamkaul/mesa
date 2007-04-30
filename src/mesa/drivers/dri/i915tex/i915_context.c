@@ -28,10 +28,7 @@
 #include "i915_context.h"
 #include "imports.h"
 #include "intel_tex.h"
-#include "intel_tris.h"
 #include "tnl/t_context.h"
-#include "tnl/t_pipeline.h"
-#include "tnl/t_vertex.h"
 
 #include "swrast/swrast.h"
 #include "swrast_setup/swrast_setup.h"
@@ -139,11 +136,6 @@ i915CreateContext(const __GLcontextModes *mesaVis,
 
    _tnl_allow_vertex_fog( ctx, 0 );
    _tnl_allow_pixel_fog( ctx, 1 );
-
-   _tnl_init_vertices(ctx, ctx->Const.MaxArrayLockSize + 12,
-                      36 * sizeof(GLfloat));
-
-   intel->verts = TNL_CONTEXT(ctx)->clipspace.vertex_buf;
 
    return GL_TRUE;
 

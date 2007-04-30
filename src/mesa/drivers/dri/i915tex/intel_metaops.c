@@ -49,6 +49,7 @@
 #include "intel_metaops.h"
 #include "intel_reg.h"
 #include "intel_state.h"
+#include "intel_vb.h"
 
 
 #define DUP(i915, STRUCT, ATTRIB) 		\
@@ -410,7 +411,8 @@ intel_meta_draw_poly(struct intel_context *intel,
    {
       /* Must be after call to intel_update_software_state():
        */
-      GLuint dwords = 2+n*intel->vertex_size;
+      GLuint vertex_dwords = intel->vb->vertex_size_bytes / 4;
+      GLuint dwords = 2+n*vertex_dwords;
       intel_emit_hardware_state( intel, dwords );
 
       /* All 3d primitives should be emitted with INTEL_BATCH_CLIPRECTS,
@@ -422,7 +424,7 @@ intel_meta_draw_poly(struct intel_context *intel,
 
       OUT_BATCH( _3DPRIMITIVE |
 		 PRIM3D_TRIFAN | 
-		 (n * intel->vertex_size - 1 ));
+		 (n * vertex_dwords - 1 ));
 
 
       for (i = 0; i < n; i++) {
@@ -430,12 +432,12 @@ intel_meta_draw_poly(struct intel_context *intel,
 	 OUT_BATCH_F( xy[i][1] );
 	 OUT_BATCH_F( z );
 	 OUT_BATCH( color );
-	 if (intel->vertex_size == 6) {
+	 if (intel->vb->vertex_size_bytes == 6*4) {
 	    OUT_BATCH_F( tex[i][0] );
 	    OUT_BATCH_F( tex[i][1] );
 	 }
 	 else {
-	    assert(intel->vertex_size == 4);
+	    assert(intel->vb->vertex_size_bytes == 4*4);
 	 }
       }
       ADVANCE_BATCH();

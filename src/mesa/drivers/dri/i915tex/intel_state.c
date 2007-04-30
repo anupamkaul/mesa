@@ -68,6 +68,8 @@ void intel_update_software_state( struct intel_context *intel )
    struct intel_state_flags *state = &intel->state.dirty;
    GLuint i;
 
+   assert(intel->ctx.NewState == 0);
+
    if (state->intel == 0) {
       assert(state->mesa == 0);
       assert(state->extra == 0);

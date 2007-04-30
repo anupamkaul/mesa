@@ -36,9 +36,10 @@
 #include "texmem.h"
 
 #include "intel_screen.h"
+#include "draw/intel_draw.h"
+
 #include "i915_drm.h"
 #include "i830_common.h"
-#include "tnl/t_vertex.h"
 
 #ifndef DRM_I915_HWZ
 
@@ -71,10 +72,6 @@ typedef struct drm_i915_hwz {
 
 #endif
 
-#define TAG(x) intel##x
-#include "tnl_dd/t_dd_vertex.h"
-#undef TAG
-
 #define DV_PF_555  (1<<8)
 #define DV_PF_565  (2<<8)
 #define DV_PF_8888 (3<<8)
@@ -88,11 +85,6 @@ struct intel_texture_object;
 struct intel_texture_image;
 
 
-typedef void (*intel_tri_func) (struct intel_context *, intelVertex *,
-                                intelVertex *, intelVertex *);
-typedef void (*intel_line_func) (struct intel_context *, intelVertex *,
-                                 intelVertex *);
-typedef void (*intel_point_func) (struct intel_context *, intelVertex *);
 
 #define INTEL_FALLBACK_DRAW_BUFFER	 0x1
 #define INTEL_FALLBACK_READ_BUFFER	 0x2
@@ -117,14 +109,16 @@ extern void intelFallback(struct intel_context *intel, GLuint bit,
 #define INTEL_NEW_VERTEX_SIZE             0x4
 #define INTEL_NEW_FRAG_ATTRIB_SIZES       0x8
 #define INTEL_NEW_CONTEXT                 0x10 /* Lost hardware? */
-#define INTEL_NEW_REDUCED_PRIMITIVE       0x20
-#define INTEL_NEW_FALLBACK                0x40
+#define INTEL_NEW_FALLBACK                0x20
+#define INTEL_NEW_FALLBACK_PRIMS          0x40
 #define INTEL_NEW_METAOPS                 0x80 /* not needed? */
 #define INTEL_NEW_VBO                     0x100
 #define INTEL_NEW_FENCE                   0x200	/* whatever invalidates RELOC's */
 #define INTEL_NEW_CBUF                    0x400
 #define INTEL_NEW_ZBUF                    0x800
 #define INTEL_NEW_WINDOW_DIMENSIONS       0x1000
+#define INTEL_NEW_VB_STATE                0x2000 
+#define INTEL_NEW_REDUCED_PRIMITIVE       0x4000 /* still needed to turn stipple on/off */
 
 #define INTEL_NEW_DRIVER0                 0x10000
 
@@ -188,8 +182,8 @@ struct intel_driver_state {
 };
 
 
+struct intel_render;
 
-#define INTEL_MAX_FIXUP 64
 
 struct intel_context
 {
@@ -223,8 +217,6 @@ struct intel_context
 
       GLboolean (*check_indirect_space) (struct intel_context *intel);
 
-      
-
    } vtbl;
 
    GLint refcount;
@@ -232,6 +224,7 @@ struct intel_context
    struct intel_context_state state;
    
    struct intel_driver_state driver_state;
+   
 
    struct {
       /* Will be allocated on demand if needed.   
@@ -241,8 +234,32 @@ struct intel_context
       GLboolean active;
    } metaops;
 
-   
+
+   /* All the known rasterizers:
+    */
+   struct intel_render *classic;
+   struct intel_render *swrender;
+   struct intel_render *mixed;
+   struct intel_render *swz;
+   struct intel_render *hwz;
+   struct intel_render *current;
+
+   /* The drawing engine: 
+    */
+   struct intel_draw *draw;
+
+   /* State to keep it fed: 
+    */
+   struct intel_draw_state draw_state;
+
+   /* State we get back from it:
+    */
+   struct intel_draw_vb_state vb_state;
+   GLuint fallback_prims:16;
+
+   GLenum hw_reduced_prim;
    GLuint Fallback;
+
 
    struct _DriFenceObject *last_swap_fence;
    struct _DriFenceObject *first_swap_fence;
@@ -250,26 +267,15 @@ struct intel_context
    struct intel_batchbuffer *batch;
    struct intel_vb *vb;
 
-   struct
-   {
-      GLuint id;
-      GLuint primitive;
-      GLubyte *start_ptr;
-      void (*flush) (struct intel_context *);
-   } prim;
 
-   GLboolean locked;
 
    GLuint ClearColor565;
    GLuint ClearColor8888;
 
 
-   struct tnl_attr_map vertex_attrs[VERT_ATTRIB_MAX];
-   GLuint vertex_attr_count;
-
    GLfloat polygon_offset_scale;        /* dependent on depth_scale, bpp */
 
-   GLboolean hw_stipple;
+   GLboolean locked;
    GLboolean hw_stencil;
 
    GLboolean strict_conformance;
@@ -287,26 +293,6 @@ struct intel_context
    GLuint frag_attrib_sizes;
    GLuint frag_attrib_varying;
 
-   /* State for intelvb.c and inteltris.c.
-    */
-   GLuint coloroffset;
-   GLuint specoffset;
-   GLuint wpos_offset;
-   GLuint wpos_size;
-   GLuint RenderIndex;
-   GLmatrix ViewportMatrix;
-   GLenum render_primitive;
-   GLenum reduced_primitive;
-   GLuint vertex_size;
-   GLubyte *verts;              /* points to tnl->clipspace.vertex_buf */
-
-
-   /* Fallback rasterization functions 
-    */
-   intel_point_func draw_point;
-   intel_line_func draw_line;
-   intel_tri_func draw_tri;
-
    /* These refer to the current drawing buffer:
     */
    int drawX, drawY;            /**< origin of drawing area within region */
@@ -314,8 +300,6 @@ struct intel_context
    drm_clip_rect_t *pClipRects;
    drm_clip_rect_t fboRect;     /**< cliprect for FBO rendering */
 
-   int do_irqs;
-   GLuint irqsEmitted;
    drm_i915_irq_wait_t iw;
 
    drm_context_t hHWContext;
@@ -354,11 +338,7 @@ extern char *__progname;
 #define SUBPIXEL_X 0.125
 #define SUBPIXEL_Y 0.125
 
-#define INTEL_FIREVERTICES(intel)		\
-do {						\
-   if ((intel)->prim.flush)			\
-      (intel)->prim.flush(intel);		\
-} while (0)
+#define INTEL_FIREVERTICES(intel) intel->render->flush( intel->render )	
 
 /* ================================================================
  * Color packing:
@@ -465,6 +445,20 @@ extern void intelFlush(GLcontext * ctx);
 extern void intelInitDriverFunctions(struct dd_function_table *functions);
 
 void intel_lost_hardware( struct intel_context *intel );
+
+
+/*======================================================================
+ * intel_swrast.c 
+ */
+struct intel_render *intel_create_swrast_render( struct intel_context *intel );
+
+
+/*======================================================================
+ * intel_classic.c 
+ */
+struct intel_render *intel_create_classic_render( struct intel_context *intel );
+
+
 
 
 /*======================================================================

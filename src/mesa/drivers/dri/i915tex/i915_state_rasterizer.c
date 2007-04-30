@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,12 +25,66 @@
  * 
  **************************************************************************/
 
-#ifndef INTEL_IDX_H
-#define INTEL_IDX_H
+ /*
+  * Authors:
+  *   Keith Whitwell <keith@tungstengraphics.com>
+  */
+ 
 
 #include "intel_context.h"
+#include "draw/intel_draw.h"
+#include "i915_context.h"
 
-void intel_idx_init( struct intel_context *intel );
-void intel_idx_destroy( struct intel_context *intel );
 
+
+static void choose_rasterizer( struct intel_context *intel )
+{
+   struct intel_render *render = NULL;
+
+   /* INTEL_NEW_FALLBACK, INTEL_NEW_ACTIVE_PRIMS
+    */
+   if (intel->Fallback) {
+      render = intel->swrender;
+   }
+   else if (intel->vb_state.active_prims & intel->fallback_prims) {
+      if (0 & intel->vb_state.active_prims & ~intel->fallback_prims) {
+	 /* classic + swrast - not done yet */
+	 render = intel->mixed; 
+      }
+      else {
+	 render = intel->swrender;
+      }
+   }
+#if 0
+   else if (check_hwz( intel )) {
+      render = intel->hwz;
+   }
+   else if (check_swz( intel )) {
+      render = intel->swz;
+   }
 #endif
+   else {
+      render = intel->classic;
+   }
+
+   if (render != intel->current) {
+      intel_draw_set_render( intel->draw, render );
+      intel->current = render;
+   }
+}
+
+const struct intel_tracked_state i915_choose_rasterizer = {
+   .dirty = {
+      .mesa = (_NEW_LINE | _NEW_POINT),
+      .intel  = (INTEL_NEW_FALLBACK_PRIMS |
+		 INTEL_NEW_FALLBACK |
+		 INTEL_NEW_VB_STATE),
+      .extra = 0
+   },
+   .update = choose_rasterizer
+};
+
+
+
+
+

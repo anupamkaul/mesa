@@ -483,18 +483,74 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
 }
 
 
+static GLboolean 
+intel_batchbuffer_preloc(struct intel_batchbuffer *batch,
+			 GLuint segment, GLuint offset,
+			 struct _DriBufferObject *buffer,
+			 GLuint flags,
+			 GLuint mask,
+			 GLuint delta)
+{
+   unsigned result;
+
+//   assert( mask & flags & DRM_BO_FLAG_MEM_TT );
+   assert( mask & flags & DRM_BO_FLAG_NO_MOVE );
+	
+   /* This is a bit of a pain:
+    */
+   LOCK_HARDWARE(batch->intel);
+
+   /* Will this work if buffer == batch->buffer?
+    */
+   result = driBOValidate(batch->intel->driFd,
+			  buffer, 
+			  flags,
+			  mask,
+			  DRM_BO_HINT_DONT_FENCE);
+
+   
+
+   if (buffer != batch->buffer && buffer != batch->state_buffer) {
+      driBOAddListItem(&batch->list, 
+		       buffer, 
+		       flags & ~DRM_BO_FLAG_NO_MOVE, 
+		       mask );
+   }
+
+   *(unsigned *)((segment ? batch->state_map : batch->map) + offset) = result;
+
+   _mesa_printf("%s %x\n", __FUNCTION__, result);
+
+   UNLOCK_HARDWARE(batch->intel);
+
+
+   return result != 0;
+}
+
+
 GLboolean
 intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
 			     GLuint segment,
                              struct _DriBufferObject *buffer,
                              GLuint flags, GLuint mask, GLuint delta)
 {
-   intel_batchbuffer_set_reloc( batch, segment,
-				batch->segment_finish_offset[segment],
-				buffer, flags, mask, delta );
+   GLboolean success;
 
+   if (mask & flags & DRM_BO_FLAG_NO_MOVE) {
+      success = intel_batchbuffer_preloc( batch, segment,
+					  batch->segment_finish_offset[segment],
+					  buffer, flags, mask, delta );
+   }
+   else {
+      success = intel_batchbuffer_set_reloc( batch, segment,
+					     batch->segment_finish_offset[segment],
+					     buffer, flags, mask, delta );
+   }
+
+   assert(success);
    batch->segment_finish_offset[segment] += 4;
-   return GL_TRUE;
+
+   return success;
 }
 
 

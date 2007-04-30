@@ -36,9 +36,10 @@
 
 /* Dirty flags for software state update:
  */
-#define I915_NEW_INPUT_SIZES       (INTEL_NEW_DRIVER0<<0)
-#define I915_NEW_VERTEX_FORMAT     (INTEL_NEW_DRIVER0<<1)
-#define I915_NEW_LOST_CACHE        (INTEL_NEW_DRIVER0<<5)
+#define I915_NEW_INPUT_SIZES               (INTEL_NEW_DRIVER0<<0)
+#define I915_NEW_VERTEX_FORMAT             (INTEL_NEW_DRIVER0<<1)
+#define I915_NEW_POLY_STIPPLE_FALLBACK     (INTEL_NEW_DRIVER0<<2)
+#define I915_NEW_LOST_CACHE                (INTEL_NEW_DRIVER0<<3)
 
 /* Dirty flags for hardware emit
  */
@@ -148,6 +149,12 @@ struct i915_context
    struct intel_context intel;
    struct i915_cache_context *cctx;
 
+   /* Current hardware vertex format:
+    */
+   struct vf_attr_map vertex_attrs[FRAG_ATTRIB_MAX];
+   GLuint vertex_attr_count;
+
+
    struct {
       /* Regions aren't actually that appropriate here as the memory may
        * be from a PBO or FBO.  Just use the buffer id.  Will have to do
@@ -166,6 +173,7 @@ struct i915_context
        */
       GLuint LIS2;
       GLuint LIS4;
+      GLuint attrs;
    } vertex_format;
    
    /* Used for short-circuiting state updates.  Won't work for packets
@@ -176,6 +184,10 @@ struct i915_context
    struct i915_state current;
    struct i915_state hardware;
    GLuint hardware_dirty;
+
+   /* Misc flags: 
+    */
+   GLboolean fallback_on_poly_stipple;
 };
 
 
