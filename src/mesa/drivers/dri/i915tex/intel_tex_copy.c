@@ -148,7 +148,7 @@ do_copy_texsubimage(struct intel_context *intel,
                            x, y + height, dstx, dsty, width, height,
 			   GL_COPY); /* ? */
 
-         intel_batchbuffer_flush(intel->batch);
+         intel_batchbuffer_flush(intel->batch, GL_TRUE);
       }
    }
 

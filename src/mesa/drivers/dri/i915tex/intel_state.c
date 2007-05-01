@@ -84,7 +84,7 @@ void intel_update_software_state( struct intel_context *intel )
    }
 
    if (!intel->vtbl.check_indirect_space( intel ))
-      intel_batchbuffer_flush( intel->batch );
+      intel_batchbuffer_flush( intel->batch, GL_FALSE );
 
    if (INTEL_DEBUG) {
       /* Debug version which enforces various sanity checks on the
@@ -145,7 +145,7 @@ void intel_emit_hardware_state( struct intel_context *intel,
 	  intel->vtbl.get_hardware_state_size( intel ) +  dwords * sizeof(GLuint))
       {
 	 assert(i == 0);
-	 intel_batchbuffer_flush( intel->batch );
+	 intel_batchbuffer_flush( intel->batch, GL_FALSE );
       }
       else 
       {

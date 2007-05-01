@@ -114,5 +114,9 @@ extern struct intel_region *intel_get_rb_region(struct gl_framebuffer *fb,
 
 
 
+void intel_resize_framebuffer(GLcontext *ctx, 
+			      struct gl_framebuffer *fb,
+			      GLuint width, 
+			      GLuint height);
 
 #endif /* INTEL_FBO_H */

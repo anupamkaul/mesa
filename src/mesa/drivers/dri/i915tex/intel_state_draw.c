@@ -89,7 +89,6 @@ static void update_draw_state( struct intel_context *intel )
       state.light_twoside = 1;
 
 
-
    /* _NEW_POLYGON
     */
    if (intel->state.Polygon->CullFlag) {
@@ -165,6 +164,36 @@ const struct intel_tracked_state intel_update_draw_state = {
       .extra = 0
    },
    .update = update_draw_state
+};
+
+
+/* Second state atom for user clip planes:
+ */
+static void update_draw_userclip( struct intel_context *intel )
+{
+   GLuint nr = 0;
+   GLfloat plane[6][4];
+   GLuint i;
+
+   for (i = 0; i < 6; i++) {
+      if (intel->state.Transform->ClipPlanesEnabled & (1 << i)) {
+	 memcpy(plane[nr], intel->state.Transform->_ClipUserPlane[i], 
+		sizeof(plane[nr]));
+	 nr++;
+      }
+   }
+      
+   intel_draw_set_userclip(intel->draw, plane, nr);
+}
+
+
+const struct intel_tracked_state intel_update_draw_userclip = {
+   .dirty = {
+      .mesa = (_NEW_TRANSFORM),
+      .intel  = 0,
+      .extra = 0
+   },
+   .update = update_draw_userclip
 };
 
 

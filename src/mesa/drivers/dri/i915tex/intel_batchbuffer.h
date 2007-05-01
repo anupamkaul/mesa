@@ -71,8 +71,9 @@ void intel_batchbuffer_free(struct intel_batchbuffer *batch);
 
 void intel_batchbuffer_finish(struct intel_batchbuffer *batch);
 
-struct _DriFenceObject *intel_batchbuffer_flush(struct intel_batchbuffer
-                                                *batch);
+struct _DriFenceObject *
+intel_batchbuffer_flush( struct intel_batchbuffer *batch,
+			 GLboolean forced );
 
 void intel_batchbuffer_reset(struct intel_batchbuffer *batch);
 
@@ -137,7 +138,7 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 
    if (intel_batchbuffer_space(batch, segment) < sz ||
        (batch->flags != 0 && flags != 0 && batch->flags != flags))
-      intel_batchbuffer_flush(batch);
+      intel_batchbuffer_flush(batch, GL_FALSE);
 
    batch->flags |= flags;
 }
@@ -155,20 +156,20 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 } while (0)
 
 #define OUT_BATCH_SEGMENT(seg, d) do {				\
-      if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x)\n", seg, d);  		\
+      if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x) %s\n", seg, d, __FUNCTION__);  		\
       intel_batchbuffer_emit_dword(intel->batch, seg, d);	\
 } while (0)
 
 #define OUT_BATCH_F_SEGMENT(seg, fl) do {			\
    fi_type fi;					\
    fi.f = fl;					\
-   if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x)\n", seg, fi.i);  \
+   if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x) %s\n", seg, fi.i, __FUNCTION__);  \
    intel_batchbuffer_emit_dword(intel->batch, seg, fi.i);	\
 } while (0)
 
 #define OUT_RELOC_SEGMENT(seg, buf,flags,mask,delta) do {				\
    assert((delta) >= 0);						\
-   if (0) _mesa_printf("OUT_RELOC( seg %d buf %p offset %x )\n", seg, buf, delta);		\
+   if (0) _mesa_printf("OUT_RELOC( seg %d buf %p offset %x ) %s\n", seg, buf, delta, __FUNCTION__);		\
    intel_batchbuffer_emit_reloc(intel->batch, seg, buf, flags, mask, delta);	\
 } while (0)
 

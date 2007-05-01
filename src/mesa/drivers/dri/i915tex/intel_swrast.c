@@ -412,11 +412,20 @@ static void swrender_start_render( struct intel_render *render,
     * ensure we wait for completion.
     */
    if (intel->batch->segment_finish_offset[0] != 0)
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
 
    /* Have to wait on command stream??
     */
 }
+
+static void swrender_clear_rect( struct intel_render *render,
+				 GLuint x1, GLuint y1, 
+				 GLuint x2, GLuint y2 )
+{
+   assert(0);			/* not done */
+}
+
+
 
 static void swrender_flush( struct intel_render *render,
 			    GLboolean finished_frame )
@@ -449,6 +458,7 @@ struct intel_render *intel_create_swrast_render( struct intel_context *intel )
    swrender->render.flush = swrender_flush;
    swrender->render.release_vertices = swrender_release_vertices;
    swrender->render.destroy = swrender_destroy_context;
+   swrender->render.clear_rect = swrender_clear_rect;
 
    swrender->intel = intel;
    swrender->prim = 0;

@@ -115,6 +115,7 @@ static GLuint invarient_state[] = {
 
 
 
+
 /* 
  */
 static void upload_static(struct intel_context *intel)
@@ -247,26 +248,32 @@ static void upload_static(struct intel_context *intel)
       packet_dword( &packet,_3DSTATE_SCISSOR_ENABLE_CMD | DISABLE_SCISSOR_RECT);
    }
 
+
+   /* INTEL_NEW_CLEAR_PARAMS
+    */
    if (clearparams) {
       unsigned statemask = CLEARPARAM_CLEAR_RECT;
       GLuint clearColor = 0;
       GLuint clearDepth = 0;
       GLuint clearStencil = 0;
 
-      if (color_region && clearparams & (BUFFER_BIT_BACK_LEFT |
-					 BUFFER_BIT_FRONT_LEFT)) {
+      if (color_region && (clearparams & (BUFFER_BIT_BACK_LEFT |
+					  BUFFER_BIT_FRONT_LEFT))) {
 	 statemask |= CLEARPARAM_WRITE_COLOR;
-	 clearColor = color_region->cpp == 4 ? intel->ClearColor8888 :
-	    intel->ClearColor565 << 16 | intel->ClearColor565;
+	 if (color_region->cpp == 4) 
+	    clearColor = intel->ClearColor8888;
+	 else
+	    clearColor = (intel->ClearColor565 << 16) | intel->ClearColor565;
       }
 
-      if (depth_region && clearparams & (BUFFER_BIT_STENCIL | BUFFER_BIT_DEPTH)) {
+      if (depth_region && (clearparams & (BUFFER_BIT_STENCIL | 
+					  BUFFER_BIT_DEPTH))) {
 	 if (clearparams & BUFFER_BIT_DEPTH) {
 	    statemask |= CLEARPARAM_WRITE_DEPTH;
-	    clearDepth = intel->ctx.Depth.Clear;
+	    clearDepth = intel->ctx.Depth.Clear * 0xffffffff;
 	 }
 
-	 if (depth_region->cpp == 4 && clearparams & BUFFER_BIT_STENCIL) {
+	 if (depth_region->cpp == 4 && (clearparams & BUFFER_BIT_STENCIL)) {
 	    statemask |= CLEARPARAM_WRITE_STENCIL;
 	    clearStencil = STENCIL_WRITE_MASK(intel->ctx.Stencil.Clear);
 	    clearDepth &= 0xffffff00;
@@ -280,10 +287,8 @@ static void upload_static(struct intel_context *intel)
       packet_dword( &packet, clearColor );
       packet_dword( &packet, clearDepth );
       packet_dword( &packet, intel->ClearColor8888 );
-      packet_dword( &packet, intel->ctx.Depth.Clear );
+      packet_float( &packet, intel->ctx.Depth.Clear );
       packet_dword( &packet, clearStencil );
-
-      intel->state.clearparams = 0;
    }
 
    i915_cache_emit( i915->cctx, &packet );
@@ -293,7 +298,7 @@ static void upload_static(struct intel_context *intel)
 const struct intel_tracked_state i915_upload_static = {
    .dirty = {
       .mesa = _NEW_SCISSOR | _NEW_BUFFERS | _NEW_COLOR | _NEW_DEPTH | _NEW_STENCIL,
-      .intel = INTEL_NEW_CBUF | INTEL_NEW_ZBUF | INTEL_NEW_FENCE,
+      .intel = INTEL_NEW_CBUF | INTEL_NEW_ZBUF | INTEL_NEW_FENCE | INTEL_NEW_CLEAR_PARAMS,
       .extra = 0
    },
    .update = upload_static

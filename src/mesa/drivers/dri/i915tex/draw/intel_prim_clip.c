@@ -43,8 +43,9 @@
 struct clip_stage {
    struct prim_stage stage;
    struct vertex_fetch *vf;
-   
-   GLfloat plane[6][4];
+
+   GLuint active_user_planes;
+   GLfloat (*plane)[4];
 };
 
 static INLINE struct clip_stage *clip_stage( struct prim_stage *stage )
@@ -239,15 +240,14 @@ do_clip_tri( struct prim_stage *stage,
    inlist[1] = header->v[1];
    inlist[2] = header->v[2];
 
-#if 0
    /* XXX: Note stupid hack to deal with tnl's 8-bit clipmask.  Remove
     * this once we correctly use 16bit masks for userclip planes.
     */
-   if (clipmask & CLIP_USER_BIT) 
+   clipmask &= ~CLIP_CULL_BIT;
+   if (clipmask & CLIP_USER_BIT) {
+      clipmask &= ~CLIP_USER_BIT;
       clipmask |= clip->active_user_planes;
-#else
-   clipmask &= ~(CLIP_USER_BIT | CLIP_CULL_BIT);
-#endif
+   }
 
    while (clipmask && n >= 3) {
       GLuint plane_idx = ffs(clipmask)-1;
@@ -329,15 +329,14 @@ do_clip_line( struct prim_stage *stage,
    GLfloat t0 = 0;
    GLfloat t1 = 0;
 
-#if 0
    /* XXX: Note stupid hack to deal with tnl's 8-bit clipmask.  Remove
     * this once we correctly use 16bit masks for userclip planes.
     */
-   if (clipmask & CLIP_USER_BIT) 
+   clipmask &= ~CLIP_CULL_BIT;
+   if (clipmask & CLIP_USER_BIT) {
+      clipmask &= ~CLIP_USER_BIT;
       clipmask |= clip->active_user_planes;
-#else
-   clipmask &= ~(CLIP_USER_BIT | CLIP_CULL_BIT);
-#endif
+   }
 
    while (clipmask) {
       GLuint plane_idx = ffs(clipmask)-1;
@@ -380,9 +379,14 @@ do_clip_line( struct prim_stage *stage,
 static void clip_begin( struct prim_stage *stage )
 {
    struct clip_stage *clip = clip_stage(stage);
-   
+   GLuint nr = stage->pipe->draw->nr_planes;
+
    clip->vf = stage->pipe->draw->vb.vf;
    
+   /* Hacky bitmask to use when we hit CLIP_USER_BIT:
+    */   
+   clip->active_user_planes = ((1<<nr)-1) & ~((1<<6)-1);
+
    stage->next->begin( stage->next );
 }
      
@@ -453,12 +457,7 @@ struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe )
    clip->stage.reset_tmps = intel_prim_reset_tmps;
    clip->stage.end = clip_end;
 
-   ASSIGN_4V( clip->plane[0], -1,  0,  0, 1 );
-   ASSIGN_4V( clip->plane[1],  1,  0,  0, 1 );
-   ASSIGN_4V( clip->plane[2],  0, -1,  0, 1 );
-   ASSIGN_4V( clip->plane[3],  0,  1,  0, 1 );
-   ASSIGN_4V( clip->plane[4],  0,  0, -1, 1 );
-   ASSIGN_4V( clip->plane[5],  0,  0,  1, 1 );
-   
+   clip->plane = pipe->draw->plane;
+
    return &clip->stage;
 }

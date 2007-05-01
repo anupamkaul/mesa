@@ -123,6 +123,13 @@ struct intel_mipmap_tree *intel_miptree_create(struct intel_context *intel,
                                                GLuint cpp,
                                                GLuint compress_byte);
 
+
+
+struct intel_mipmap_tree * intel_miptree_from_region(struct intel_region *region,
+						     GLenum target,
+						     GLenum internal_format );
+
+
 void intel_miptree_reference(struct intel_mipmap_tree **dst,
                              struct intel_mipmap_tree *src);
 

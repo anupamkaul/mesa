@@ -41,6 +41,7 @@
 #include "intel_screen.h"
 #include "intel_context.h"
 #include "intel_state.h"
+#include "intel_frame_tracker.h"
 
 #include "draw/intel_draw.h"
 
@@ -102,6 +103,10 @@ static GLboolean draw( GLcontext * ctx, struct tnl_pipeline_stage *stage )
    /* Update internal state which depends on vertex buffer contents: 
     */
    frag_attrib_size_check( intel, VB );
+
+   /* One of many places to note that we are drawing:
+    */
+   intel_frame_note_draw( intel->ft );
 
    /* Call into the new draw code to handle the VB:
     */

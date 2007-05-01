@@ -83,6 +83,7 @@ struct _DriBufferObject;
 
 struct intel_texture_object;
 struct intel_texture_image;
+struct intel_frame_tracker;
 
 
 
@@ -119,6 +120,7 @@ extern void intelFallback(struct intel_context *intel, GLuint bit,
 #define INTEL_NEW_WINDOW_DIMENSIONS       0x1000
 #define INTEL_NEW_VB_STATE                0x2000 
 #define INTEL_NEW_REDUCED_PRIMITIVE       0x4000 /* still needed to turn stipple on/off */
+#define INTEL_NEW_CLEAR_PARAMS            0x8000
 
 #define INTEL_NEW_DRIVER0                 0x10000
 
@@ -156,7 +158,7 @@ struct intel_context_state {
    struct intel_region *draw_region; /* INTEL_NEW_CBUF */
    struct intel_region *depth_region; /* INTEL_NEW_ZBUF */
 
-   GLboolean clearparams;
+   GLuint clearparams;
 
    struct gl_fragment_program *fp;
 
@@ -230,7 +232,16 @@ struct intel_context
       /* Will be allocated on demand if needed.   
        */
       struct intel_context_state state;
-      struct gl_buffer_object *vbo;      
+      struct gl_fragment_program *fp, *fp_tex;
+
+      struct intel_region *saved_draw_region;
+      struct intel_region *saved_depth_region;
+
+      GLuint restore_draw_mask;
+      struct gl_fragment_program *restore_fp;
+
+      struct gl_texture_object *texobj;
+
       GLboolean active;
    } metaops;
 
@@ -242,7 +253,14 @@ struct intel_context
    struct intel_render *mixed;
    struct intel_render *swz;
    struct intel_render *hwz;
-   struct intel_render *current;
+
+   /* Current active rasterizer: 
+    */
+   struct intel_render *render;
+
+   /* Track frame events to help decide which renderer to use:
+    */
+   struct intel_frame_tracker *ft;
 
    /* The drawing engine: 
     */
@@ -359,31 +377,6 @@ extern char *__progname;
 
 
 
-/* ================================================================
- * From linux kernel i386 header files, copes with odd sizes better
- * than COPY_DWORDS would:
- * XXX Put this in src/mesa/main/imports.h ???
- */
-#if defined(i386) || defined(__i386__)
-static INLINE void *
-__memcpy(void *to, const void *from, size_t n)
-{
-   int d0, d1, d2;
-   __asm__ __volatile__("rep ; movsl\n\t"
-                        "testb $2,%b4\n\t"
-                        "je 1f\n\t"
-                        "movsw\n"
-                        "1:\ttestb $1,%b4\n\t"
-                        "je 2f\n\t"
-                        "movsb\n" "2:":"=&c"(d0), "=&D"(d1), "=&S"(d2)
-                        :"0"(n / 4), "q"(n), "1"((long) to), "2"((long) from)
-                        :"memory");
-   return (to);
-}
-#else
-#define __memcpy(a,b,c) memcpy(a,b,c)
-#endif
-
 
 
 /* ================================================================
@@ -458,6 +451,11 @@ struct intel_render *intel_create_swrast_render( struct intel_context *intel );
  */
 struct intel_render *intel_create_classic_render( struct intel_context *intel );
 
+/*======================================================================
+ * intel_clears.c 
+ */
+void intelClear(GLcontext *ctx, GLbitfield mask);
+void intelClearColor(GLcontext * ctx, const GLfloat color[4]);
 
 
 

@@ -30,6 +30,7 @@
  */
 
 #include "imports.h"
+#include "macros.h"
 
 #include "tnl/t_context.h"
 #include "vf/vf.h"
@@ -161,6 +162,13 @@ void intel_draw_set_render( struct intel_draw *draw,
    draw->revalidate = 1;
 }
 
+void intel_draw_set_userclip( struct intel_draw *draw,
+			      const GLfloat (*ucp)[4],
+			      GLuint nr )
+{
+   memcpy(&draw->plane[6], ucp, nr * sizeof(ucp[0]));
+   draw->nr_planes = 6 + nr;
+}
 
 
 static void draw_validate_state( struct intel_draw *draw )
@@ -213,6 +221,13 @@ struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbac
    draw->hw_vf = vf_create( GL_TRUE );
    draw->prim_vf = vf_create( GL_TRUE );
 
+   ASSIGN_4V( draw->plane[0], -1,  0,  0, 1 );
+   ASSIGN_4V( draw->plane[1],  1,  0,  0, 1 );
+   ASSIGN_4V( draw->plane[2],  0, -1,  0, 1 );
+   ASSIGN_4V( draw->plane[3],  0,  1,  0, 1 );
+   ASSIGN_4V( draw->plane[4],  0,  0, -1, 1 );
+   ASSIGN_4V( draw->plane[5],  0,  0,  1, 1 );
+   draw->nr_planes = 6;
 
    return draw;
 }

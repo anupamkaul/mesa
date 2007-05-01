@@ -275,7 +275,7 @@ do_blit_readpixels(GLcontext * ctx,
 			   GL_COPY);
       }
 
-      fence = intel_batchbuffer_flush(intel->batch);
+      fence = intel_batchbuffer_flush(intel->batch, GL_TRUE);
       driFenceReference(fence);
 
    }

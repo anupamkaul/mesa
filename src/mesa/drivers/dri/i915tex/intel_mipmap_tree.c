@@ -28,6 +28,7 @@
 #include "intel_context.h"
 #include "intel_mipmap_tree.h"
 #include "intel_regions.h"
+#include "intel_utils.h"
 #include "enums.h"
 
 #define FILE_DEBUG_FLAG DEBUG_MIPTREE
@@ -104,6 +105,57 @@ intel_miptree_create(struct intel_context *intel,
 
    return mt;
 }
+
+
+
+struct intel_mipmap_tree *
+intel_miptree_from_region(struct intel_region *region,
+			  GLenum target,
+			  GLenum internal_format )
+{
+   struct intel_mipmap_tree *mt = calloc(sizeof(*mt), 1);
+
+   assert( target == GL_TEXTURE_RECTANGLE_NV );
+
+   DBG("%s target %s format %s level %d..%d\n", __FUNCTION__,
+       _mesa_lookup_enum_by_nr(target),
+       _mesa_lookup_enum_by_nr(internal_format), 0, 0);
+
+
+   mt->target = target_to_target(target);
+   mt->internal_format = internal_format;
+   mt->first_level = 0;
+   mt->last_level = 0;
+   mt->width0 = region->pitch;
+   mt->height0 = region->height;
+   mt->depth0 = 1;
+   mt->cpp = region->cpp;
+   mt->compressed = 0;
+   mt->refcount = 1; 
+
+   /* Set the single mip level:
+    */
+   mt->total_height = region->height;
+   mt->pitch = align(region->pitch * region->cpp, 4) / region->cpp;
+
+   if (mt->pitch != region->pitch) {
+      assert(0);
+      FREE(mt);
+      return NULL;
+   }
+
+   intel_miptree_set_level_info(mt, 
+				0, 1, /* level, nr_images */
+				0, 0, /* x, y */
+				region->pitch, region->height, 
+				1);
+
+   intel_region_reference( &mt->region, region );
+   return mt;
+}
+
+
+
 
 
 void

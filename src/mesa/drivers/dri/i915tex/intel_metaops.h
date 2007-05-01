@@ -34,10 +34,26 @@ struct intel_context;
 struct intel_region;
 struct _DriBufferObject;
 
-void intel_meta_draw_poly(struct intel_context *intel,
-			  GLuint n,
-			  GLfloat xy[][2],
-			  GLfloat z, GLuint color, GLfloat tex[][2]);
+struct intel_metaops_tex_vertex {
+   GLfloat xyz[3];
+   GLfloat st[2];
+};
+
+struct intel_metaops_color_vertex {
+   GLfloat xyz[3];
+   union {
+      GLubyte ub[4];
+      GLuint ui;
+   } color;
+};
+  
+
+void intel_meta_draw_textured_quad(struct intel_context *intel,
+				   struct intel_metaops_tex_vertex *verts );
+
+void intel_meta_draw_color_quad(struct intel_context *intel,
+				struct intel_metaops_color_vertex *verts );
+
 
 void intel_meta_draw_quad(struct intel_context *intel,
 			  GLfloat x0, GLfloat x1,
@@ -46,14 +62,14 @@ void intel_meta_draw_quad(struct intel_context *intel,
 			  GLuint color,
 			  GLfloat s0, GLfloat s1, GLfloat t0, GLfloat t1);
 
+
 void intel_meta_draw_region( struct intel_context *intel,
 			     struct intel_region *draw_region,
 			     struct intel_region *depth_region );
 
 GLboolean intel_meta_tex_rect_source(struct intel_context *intel,
-				     struct _DriBufferObject *buffer,
+				     struct intel_region *region,
 				     GLuint offset,
-				     GLuint pitch, GLuint height, 
 				     GLenum format, GLenum type);
 
 void intel_meta_import_pixel_state(struct intel_context *intel);
