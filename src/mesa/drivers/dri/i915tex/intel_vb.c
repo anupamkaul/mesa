@@ -44,6 +44,18 @@
 
 
 
+static void 
+start_new_block( struct intel_vb *vb )
+{
+   struct intel_context *intel = vb->intel;
+   
+   vb->vbo.current_block_start = vb->vbo.current_used;
+
+   intel->state.vbo = vb->vbo.current->buffer;   
+   intel->state.vbo_offset = vb->vbo.current_block_start;
+   intel->state.dirty.intel |= INTEL_NEW_VBO;
+}
+
 
 
 void intel_vb_set_vertex_size( struct intel_vb *vb,
@@ -52,6 +64,9 @@ void intel_vb_set_vertex_size( struct intel_vb *vb,
    if (vertex_size != vb->vertex_size_bytes) {
       vb->vertex_size_bytes = vertex_size;
       vb->intel->state.dirty.intel |= INTEL_NEW_VERTEX_SIZE;
+
+      if (vb->vbo.current_used < vb->vbo.current_size)
+	 start_new_block( vb );
    }
 }
 
@@ -94,8 +109,6 @@ intel_vb_unmap_current_vbo( struct intel_vb *vb )
 
 
 
-
-
 static GLboolean 
 get_next_vbo( struct intel_vb *vb, GLuint size )
 {
@@ -120,7 +133,10 @@ get_next_vbo( struct intel_vb *vb, GLuint size )
    vb->vbo.idx = next_vbo;
    vb->vbo.current = vb->vbo.vbo[vb->vbo.idx];
    vb->vbo.current_size = size;
+   vb->vbo.current_block_start = 0;
    vb->vbo.current_used = 0;
+
+   start_new_block( vb );
 
    /* Clear out buffer contents and break any hardware dependency on
     * the old memory:
@@ -170,14 +186,7 @@ void *intel_vb_alloc_vertices( struct intel_vb *vb,
       return NULL;
 
 
-   {
-      struct intel_context *intel = vb->intel;
-      intel->state.vbo = vb->vbo.current->buffer;
-      intel->state.vbo_offset = vb->vbo.current_used;
-      intel->state.dirty.intel |= INTEL_NEW_VBO;
-   }
-
-   *offset_return = 0;
+   *offset_return = (vb->vbo.current_used - vb->vbo.current_block_start) / vb->vertex_size_bytes;
 
    ptr = vb->vbo.current_ptr + vb->vbo.current_used;
    vb->vbo.current_used += space;   

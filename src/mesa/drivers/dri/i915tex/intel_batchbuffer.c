@@ -296,12 +296,12 @@ do_flush_locked(struct intel_batchbuffer *batch,
 
       ptr[r->offset / 4] = driBOOffset(r->buf) + r->delta;
       
-      if (1 /*INTEL_DEBUG & DEBUG_BATCH*/) 
+      if (INTEL_DEBUG & DEBUG_BATCH) 
 	 _mesa_printf("reloc in buffer %p offset %x value 0x%x + 0x%x\n",
 		      ptr, r->offset, driBOOffset(r->buf), r->delta);
    }
 
-   if (1 /*INTEL_DEBUG & DEBUG_BATCH*/) {
+   if (INTEL_DEBUG & DEBUG_BATCH) {
       intel_dump_batchbuffer(batch, (GLubyte *)batch_ptr, (GLubyte *)state_ptr);
 
    }
