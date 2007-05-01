@@ -395,7 +395,7 @@ intelCreatePools(intelScreenPrivate *intelScreen)
       return GL_FALSE;
    }
    
-   if (intelScreen->drmMinor >= 10) {
+   if (0 /*intelScreen->drmMinor >= 10*/) {
       intelScreen->statePool = driBatchPoolInit(sPriv->fd,
 						DRM_BO_FLAG_EXE |
 						DRM_BO_FLAG_MEM_PRIV1,
@@ -519,7 +519,9 @@ intelDestroyScreen(__DRIscreenPrivate * sPriv)
       driPoolTakeDown(intelScreen->regionPool);
       driPoolTakeDown(intelScreen->staticPool);
       driPoolTakeDown(intelScreen->batchPool);
-      driPoolTakeDown(intelScreen->statePool);
+      if (intelScreen->statePool) {
+	 driPoolTakeDown(intelScreen->statePool);
+      }
    }
    FREE(intelScreen);
    sPriv->private = NULL;

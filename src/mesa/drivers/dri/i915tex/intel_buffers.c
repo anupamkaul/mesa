@@ -350,7 +350,7 @@ intelWindowMoved(struct intel_context *intel)
       }
 
       /* Attempt to allocate HWZ context */
-      if (intel->intelScreen->driScrnPriv->drmMinor >= 10) {
+      if (0 /*intel->intelScreen->driScrnPriv->drmMinor >= 10*/) {
 	 drm_i915_hwz_t hwz;
 
 	 hwz.op = DRM_I915_HWZ_ALLOC;
