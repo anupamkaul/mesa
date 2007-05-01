@@ -25,66 +25,31 @@
  * 
  **************************************************************************/
 
- /*
-  * Authors:
-  *   Keith Whitwell <keith@tungstengraphics.com>
-  */
- 
+#ifndef INTEL_FRAME_TRACKER_H
+#define INTEL_FRAME_TRACKER_H
 
-#include "intel_context.h"
-#include "draw/intel_draw.h"
-#include "i915_context.h"
+#include "imports.h"
+
+struct intel_context;
+struct intel_frame_tracker;
+
+struct intel_frame_tracker *intel_frame_tracker_create( struct intel_context * );
+void intel_frame_tracker_destroy( struct intel_frame_tracker * );
 
 
+GLboolean intel_frame_is_in_frame( struct intel_frame_tracker *ft );
+GLboolean intel_frame_predict_forced_flush( struct intel_frame_tracker *ft );
+GLboolean intel_frame_predict_window_rebind( struct intel_frame_tracker *ft );
+GLboolean intel_frame_predict_window_resize( struct intel_frame_tracker *ft );
 
-static void choose_rasterizer( struct intel_context *intel )
-{
-   struct intel_render *render = NULL;
 
-   /* INTEL_NEW_FALLBACK, INTEL_NEW_ACTIVE_PRIMS
-    */
-   if (intel->Fallback) {
-      render = intel->swrender;
-   }
-   else if (intel->vb_state.active_prims & intel->fallback_prims) {
-      if (0 & intel->vb_state.active_prims & ~intel->fallback_prims) {
-	 /* classic + swrast - not done yet */
-	 render = intel->mixed; 
-      }
-      else {
-	 render = intel->swrender;
-      }
-   }
-#if 0
-   else if (check_hwz( intel )) {
-      render = intel->hwz;
-   }
-   else if (check_swz( intel )) {
-      render = intel->swz;
-   }
+void intel_frame_note_flush( struct intel_frame_tracker *ft,
+			     GLboolean forced );
+void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft );
+void intel_frame_note_window_resize( struct intel_frame_tracker *ft );
+void intel_frame_note_window_rebind( struct intel_frame_tracker *ft );
+void intel_frame_note_clear( struct intel_frame_tracker *ft );
+void intel_frame_note_draw( struct intel_frame_tracker *ft );
+
+
 #endif
-   else {
-      render = intel->classic;
-   }
-
-   if (render != intel->render) {
-      intel_draw_set_render( intel->draw, render );
-      intel->render = render;
-   }
-}
-
-const struct intel_tracked_state i915_choose_rasterizer = {
-   .dirty = {
-      .mesa = (_NEW_LINE | _NEW_POINT),
-      .intel  = (INTEL_NEW_FALLBACK_PRIMS |
-		 INTEL_NEW_FALLBACK |
-		 INTEL_NEW_VB_STATE),
-      .extra = 0
-   },
-   .update = choose_rasterizer
-};
-
-
-
-
-

@@ -32,13 +32,10 @@
 
 #include "intel_mipmap_tree.h"
 #include "intel_tex_layout.h"
+#include "intel_utils.h"
 #include "macros.h"
 
 
-static int align(int value, int alignment)
-{
-   return (value + alignment - 1) & ~(alignment - 1);
-}
 
 void i945_miptree_layout_2d( struct intel_mipmap_tree *mt )
 {

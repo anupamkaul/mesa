@@ -318,9 +318,11 @@ intel_alloc_window_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
    return GL_TRUE;
 }
 
-static void
-intel_resize_buffers(GLcontext *ctx, struct gl_framebuffer *fb,
-		     GLuint width, GLuint height)
+void
+intel_resize_framebuffer(GLcontext *ctx, 
+			 struct gl_framebuffer *fb,
+			 GLuint width, 
+			 GLuint height)
 {
    struct intel_framebuffer *intel_fb = (struct intel_framebuffer*)fb;
    int i;
@@ -329,17 +331,16 @@ intel_resize_buffers(GLcontext *ctx, struct gl_framebuffer *fb,
 
    fb->Initialized = GL_TRUE; /* XXX remove someday */
 
-   if (fb->Name != 0) {
-      return;
-   }
+   /* Make sure all window system renderbuffers are up to date 
+    */
+   if (fb->Name == 0) {
+      for (i = 0; i < 3; i++) {
+	 struct gl_renderbuffer *rb = &intel_fb->color_rb[i]->Base;
 
-   /* Make sure all window system renderbuffers are up to date */
-   for (i = 0; i < 3; i++) {
-      struct gl_renderbuffer *rb = &intel_fb->color_rb[i]->Base;
-
-      /* only resize if size is changing */
-      if (rb && (rb->Width != width || rb->Height != height)) {
-	 rb->AllocStorage(ctx, rb, rb->InternalFormat, width, height);
+	 /* only resize if size is changing */
+	 if (rb && (rb->Width != width || rb->Height != height)) {
+	    rb->AllocStorage(ctx, rb, rb->InternalFormat, width, height);
+	 }
       }
    }
 }
@@ -678,5 +679,5 @@ intel_fbo_init(struct intel_context *intel)
    intel->ctx.Driver.FramebufferRenderbuffer = intel_framebuffer_renderbuffer;
    intel->ctx.Driver.RenderTexture = intel_render_texture;
    intel->ctx.Driver.FinishRenderTexture = intel_finish_render_texture;
-   intel->ctx.Driver.ResizeBuffers = intel_resize_buffers;
+   intel->ctx.Driver.ResizeBuffers = intel_resize_framebuffer;
 }

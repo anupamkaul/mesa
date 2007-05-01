@@ -65,18 +65,7 @@ static void update_viewport( struct intel_context *intel )
    else {
       /* window buffer, y=0=top */
       yScale = -1.0;
-
-      /* INTEL_NEW_WINDOW_DIMENSIONS
-       *
-       * XXX: Note: this is only really valid while the lock is held.
-       * However, it is only invalidated when the window size changes,
-       * and when that happens we don't improve matters by noticing
-       * and adjusting the viewport halfway through a frame - it would
-       * actually be preferable to finish the frame with the same
-       * viewport origin as it started with.  As it stands this does
-       * no real harm.
-       */
-      yBias = (intel->driDrawable) ? intel->driDrawable->h : 0.0F;
+      yBias = DrawBuffer->Height;
    }
 
    {

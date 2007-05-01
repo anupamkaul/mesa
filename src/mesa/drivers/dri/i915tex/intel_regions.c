@@ -425,9 +425,14 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
    /* Now blit from the texture buffer to the new buffer: 
     */
 
-   intel_batchbuffer_flush(intel->batch);
+   /* XXX: forced is appropriate if either buffer is on the validate
+    * list, otherwise this is overkill.
+    */
+   intel_batchbuffer_flush(intel->batch, GL_TRUE);
 
    if (!intel->locked) {
+      /* Why do we need the lock for this? 
+       */
       LOCK_HARDWARE(intel);
       intelEmitCopyBlit(intel,
 			region->cpp,
@@ -439,7 +444,7 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
 			region->pitch, region->height,
 			GL_COPY);
       
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
       UNLOCK_HARDWARE(intel);
    }
    else {
@@ -453,7 +458,7 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
 			region->pitch, region->height,
 			GL_COPY);
       
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
    }
 }
 

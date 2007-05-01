@@ -33,6 +33,8 @@
 #include "intel_fbo.h"
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
+#include "intel_frame_tracker.h"
+
 #include "i915_context.h"
 #include "i915_reg.h"
 #include "i915_cache.h"
@@ -208,7 +210,6 @@ intelSetBackClipRects(struct intel_context *intel)
 void
 intelWindowMoved(struct intel_context *intel)
 {
-   GLcontext *ctx = &intel->ctx;
    __DRIdrawablePrivate *dPriv = intel->driDrawable;
    struct intel_framebuffer *intel_fb = dPriv->driverPrivate;
 
@@ -367,164 +368,10 @@ intelWindowMoved(struct intel_context *intel)
       intel_fb->vblank_flags &= ~VBLANK_FLAG_SECONDARY;
    }
 
-   /* Update Mesa's notion of window size */
-   driUpdateFramebufferSize(ctx, dPriv);
-
-   /* Raise a state flag */
-   intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
-}
-
-static void
-intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
-{
-   GLcontext *ctx = &intel->ctx;
-   union fi x1, x2, y1, y2;
-
-   if (INTEL_DEBUG & DEBUG_BLIT)
-      _mesa_printf("%s 0x%x\n", __FUNCTION__, mask);
-
-   //LOCK_HARDWARE(intel);
-
-   /* XXX FBO: was: intel->driDrawable->numClipRects */
-   //if (intel->numClipRects) {
-      BATCH_LOCALS;
-
-      //intel_draw_flush( intel->render );
-
-      /* Get clear bounds after locking */
-      x1.f = ctx->DrawBuffer->_Xmin;
-      y1.f = ctx->DrawBuffer->_Ymin;
-      x2.f = ctx->DrawBuffer->_Xmax;
-      y2.f = ctx->DrawBuffer->_Ymax;
-
-      /* XXX mixed mode
-       */
-      intel->state.clearparams = mask &
-	 (ctx->DrawBuffer->_ColorDrawBufferMask[0] | BUFFER_BIT_STENCIL |
-	  BUFFER_BIT_DEPTH);
-
-      intel_emit_hardware_state(intel, 7);
-
-      BEGIN_BATCH(7, INTEL_BATCH_CLIPRECTS);
-      OUT_BATCH(_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
-      OUT_BATCH(x2.i);
-      OUT_BATCH(y2.i);
-      OUT_BATCH(x1.i);
-      OUT_BATCH(y2.i);
-      OUT_BATCH(x1.i);
-      OUT_BATCH(y1.i);
-      ADVANCE_BATCH();
-
-      //i915_state_draw_region(intel, state, savedraw, savedepth);
-      //intel_batchbuffer_flush(intel->batch, GL_FALSE);
-      //}
-   //UNLOCK_HARDWARE(intel);
-}
-
-/* A true meta version of this would be very simple and additionally
- * machine independent.  Maybe we'll get there one day.
- */
-static void
-intelClearWithTris(struct intel_context *intel, GLbitfield mask)
-{
-   GLcontext *ctx = &intel->ctx;
-   struct gl_framebuffer *fb = ctx->DrawBuffer;
-   drm_clip_rect_t clear;
-
-   if (INTEL_DEBUG & DEBUG_BLIT)
-      _mesa_printf("%s 0x%x\n", __FUNCTION__, mask);
-
-   LOCK_HARDWARE(intel);
-
-   /* XXX FBO: was: intel->driDrawable->numClipRects */
-   if (intel->numClipRects) {
-      GLint cx, cy, cw, ch;
-      GLuint buf;
-
-      intel_install_meta_state(intel);
-
-      /* Get clear bounds after locking */
-      cx = fb->_Xmin;
-      cy = fb->_Ymin;
-      ch = fb->_Ymax - cx;
-      cw = fb->_Xmax - cy;
-
-      /* note: regardless of 'all', cx, cy, cw, ch are now correct */
-      clear.x1 = cx;
-      clear.y1 = cy;
-      clear.x2 = cx + cw;
-      clear.y2 = cy + ch;
-
-      /* Back and stencil cliprects are the same.  Try and do both
-       * buffers at once:
-       */
-      if (mask &
-          (BUFFER_BIT_BACK_LEFT | BUFFER_BIT_STENCIL | BUFFER_BIT_DEPTH)) {
-         struct intel_region *backRegion =
-            intel_get_rb_region(fb, BUFFER_BACK_LEFT);
-         struct intel_region *depthRegion =
-            intel_get_rb_region(fb, BUFFER_DEPTH);
-         const GLuint clearColor = (backRegion && backRegion->cpp == 4)
-            ? intel->ClearColor8888 : intel->ClearColor565;
-
-         intel_meta_draw_region(intel, backRegion, depthRegion);
-
-         if (mask & BUFFER_BIT_BACK_LEFT)
-            intel_meta_color_mask(intel, GL_TRUE);
-         else
-            intel_meta_color_mask(intel, GL_FALSE);
-
-         if (mask & BUFFER_BIT_STENCIL)
-            intel_meta_stencil_replace(intel,
-                                             intel->ctx.Stencil.WriteMask[0],
-                                             intel->ctx.Stencil.Clear);
-         else
-            intel_meta_no_stencil_write(intel);
-
-         if (mask & BUFFER_BIT_DEPTH)
-            intel_meta_depth_replace(intel);
-         else
-            intel_meta_no_depth_write(intel);
-
-         intel_meta_draw_quad(intel, 
-			      clear.x1, clear.x2, 
-			      clear.y1, clear.y2, 
-			      intel->ctx.Depth.Clear, 
-			      clearColor, 0, 0, 0, 0);   /* texcoords */
-
-         mask &=
-            ~(BUFFER_BIT_BACK_LEFT | BUFFER_BIT_STENCIL | BUFFER_BIT_DEPTH);
-      }
-
-      /* clear the remaining (color) renderbuffers */
-      for (buf = 0; buf < BUFFER_COUNT && mask; buf++) {
-         const GLuint bufBit = 1 << buf;
-         if (mask & bufBit) {
-            struct intel_renderbuffer *irbColor =
-               intel_renderbuffer(fb->Attachment[buf].Renderbuffer);
-            GLuint color = (irbColor->region->cpp == 4)
-               ? intel->ClearColor8888 : intel->ClearColor565;
-
-            ASSERT(irbColor);
-
-            intel_meta_no_depth_write(intel);
-            intel_meta_no_stencil_write(intel);
-            intel_meta_color_mask(intel, GL_TRUE);
-            intel_meta_draw_region(intel, irbColor->region, NULL);
-
-            intel_meta_draw_quad(intel, 
-				 clear.x1, clear.x2, 
-				 clear.y1, clear.y2, 0,      /* depth clear val */
-                                 color, 0, 0, 0, 0);    /* texcoords */
-
-            mask &= ~bufBit;
-         }
-      }
-
-      intel_leave_meta_state(intel);
-      intel_batchbuffer_flush(intel->batch);
-   }
-   UNLOCK_HARDWARE(intel);
+   /* Delay resize notification until after the next flush or
+    * swapbuffers.
+    */
+   intel_frame_note_window_resize( intel->ft );
 }
 
 
@@ -615,9 +462,8 @@ intelRotateWindow(struct intel_context *intel,
 
    /* set the whole screen up as a texture to avoid alignment issues */
    intel_meta_tex_rect_source(intel,
-                                    src->buffer,
-                                    screen->width,
-                                    screen->height, src->pitch, format, type);
+			      src, 0,
+			      format, type);
 
    intel_meta_texture_blend_replace(intel);
 
@@ -629,43 +475,50 @@ intelRotateWindow(struct intel_context *intel,
       int srcY0 = clipRects[i].y1;
       int srcX1 = clipRects[i].x2;
       int srcY1 = clipRects[i].y2;
-      GLfloat verts[4][2], tex[4][2];
       int j;
 
-      /* build vertices for four corners of clip rect */
-      verts[0][0] = srcX0;
-      verts[0][1] = srcY0;
-      verts[1][0] = srcX1;
-      verts[1][1] = srcY0;
-      verts[2][0] = srcX1;
-      verts[2][1] = srcY1;
-      verts[3][0] = srcX0;
-      verts[3][1] = srcY1;
+      struct intel_metaops_tex_vertex vertex[4];
 
-      /* .. and texcoords */
-      tex[0][0] = srcX0;
-      tex[0][1] = srcY0;
-      tex[1][0] = srcX1;
-      tex[1][1] = srcY0;
-      tex[2][0] = srcX1;
-      tex[2][1] = srcY1;
-      tex[3][0] = srcX0;
-      tex[3][1] = srcY1;
+      /* build vertices for four corners of clip rect */
+      vertex[0].xyz[0] = srcX0;
+      vertex[0].xyz[1] = srcY0;
+      vertex[0].xyz[2] = 0;
+      vertex[0].st[0]  = srcX0;
+      vertex[0].st[1]  = srcY0;
+
+      vertex[1].xyz[0] = srcX1;
+      vertex[1].xyz[1] = srcY0;
+      vertex[1].xyz[2] = 0;
+      vertex[1].st[0]  = srcX1;
+      vertex[1].st[1]  = srcY0;
+
+      vertex[2].xyz[0] = srcX1;
+      vertex[2].xyz[1] = srcY1;
+      vertex[2].xyz[2] = 0;
+      vertex[2].st[0]  = srcX1;
+      vertex[2].st[1]  = srcY1;
+
+      vertex[3].xyz[0] = srcX0;
+      vertex[3].xyz[1] = srcY1;
+      vertex[3].xyz[2] = 0;
+      vertex[3].st[0]  = srcX0;
+      vertex[3].st[1]  = srcY1;
 
       /* transform coords to rotated screen coords */
-
       for (j = 0; j < 4; j++) {
          matrix23TransformCoordf(&screen->rotMatrix,
-                                 &verts[j][0], &verts[j][1]);
+                                 &vertex[j].xyz[0], 
+				 &vertex[j].xyz[1]);
       }
 
+
       /* draw polygon to map source image to dest region */
-      intel_meta_draw_poly(intel, 4, verts, 0, 0, tex);
+      intel_meta_draw_textured_quad(intel, vertex);
 
    }                            /* cliprect loop */
 
    intel_leave_meta_state(intel);
-   intel_batchbuffer_flush(intel->batch);
+   intel_batchbuffer_flush(intel->batch, GL_TRUE);
 
    /* restore original drawing origin and cliprects */
    intel->drawX = xOrig;
@@ -677,113 +530,6 @@ intelRotateWindow(struct intel_context *intel,
 }
 
 
-/**
- * Called by ctx->Driver.Clear.
- */
-static void
-intelClear(GLcontext *ctx, GLbitfield mask)
-{
-   struct intel_context *intel = intel_context(ctx);
-   const GLuint colorMask = *((GLuint *) & ctx->Color.ColorMask);
-   GLbitfield rect_mask = 0;
-   GLbitfield tri_mask = 0;
-   GLbitfield blit_mask = 0;
-   GLbitfield swrast_mask = 0;
-   struct gl_framebuffer *fb = ctx->DrawBuffer;
-   GLuint i;
-
-   if (0)
-      fprintf(stderr, "%s\n", __FUNCTION__);
-
-   /* HW color buffers (front, back, aux, generic FBO, etc) */
-   if (colorMask == ~0) {
-      /* clear all R,G,B,A */
-      /* XXX FBO: need to check if colorbuffers are software RBOs! */
-      if (0 /* Not Almador family? */) {
-         rect_mask = mask & (fb->_ColorDrawBufferMask[0] | BUFFER_BIT_DEPTH);
-
-	 if ((mask & BUFFER_BIT_STENCIL) &&
-	     STENCIL_WRITE_MASK(intel->ctx.Stencil.WriteMask[0]) == 0xff)
-	    rect_mask |= BUFFER_BIT_STENCIL;
-
-	 mask &= ~rect_mask;
-      } else
-	 blit_mask |= (mask & BUFFER_BITS_COLOR);
-   }
-   else {
-      /* glColorMask in effect */
-      tri_mask |= (mask & BUFFER_BITS_COLOR);
-   }
-
-   /* HW stencil */
-   if (mask & BUFFER_BIT_STENCIL) {
-      const struct intel_region *stencilRegion
-         = intel_get_rb_region(fb, BUFFER_STENCIL);
-      if (stencilRegion) {
-         /* have hw stencil */
-         if ((ctx->Stencil.WriteMask[0] & 0xff) != 0xff) {
-            /* not clearing all stencil bits, so use triangle clearing */
-            tri_mask |= BUFFER_BIT_STENCIL;
-         }
-         else {
-            /* clearing all stencil bits, use blitting */
-            blit_mask |= BUFFER_BIT_STENCIL;
-         }
-      }
-   }
-
-   /* HW depth */
-   if (mask & BUFFER_BIT_DEPTH) {
-      /* clear depth with whatever method is used for stencil (see above) */
-      if (tri_mask & BUFFER_BIT_STENCIL)
-         tri_mask |= BUFFER_BIT_DEPTH;
-      else
-         blit_mask |= BUFFER_BIT_DEPTH;
-   }
-
-   /* SW fallback clearing */
-   swrast_mask = mask & ~tri_mask & ~blit_mask;
-
-   for (i = 0; i < BUFFER_COUNT; i++) {
-      GLuint bufBit = 1 << i;
-      if ((blit_mask | tri_mask) & bufBit) {
-         if (!fb->Attachment[i].Renderbuffer->ClassID) {
-            blit_mask &= ~bufBit;
-            tri_mask &= ~bufBit;
-            swrast_mask |= bufBit;
-         }
-      }
-   }
-
-   {
-      const GLfloat *color = intel->ctx.Color.ClearColor;
-      GLubyte clear[4];
-      
-      CLAMPED_FLOAT_TO_UBYTE(clear[0], color[0]);
-      CLAMPED_FLOAT_TO_UBYTE(clear[1], color[1]);
-      CLAMPED_FLOAT_TO_UBYTE(clear[2], color[2]);
-      CLAMPED_FLOAT_TO_UBYTE(clear[3], color[3]);
-      
-      /* compute both 32 and 16-bit clear values */
-      intel->ClearColor8888 = INTEL_PACKCOLOR8888(clear[0], clear[1],
-						  clear[2], clear[3]);
-      intel->ClearColor565 = INTEL_PACKCOLOR565(clear[0], clear[1], clear[2]);
-   }
-
-   intelFlush(ctx);             /* XXX intelClearWithBlit also does this */
-
-   if (blit_mask)
-      intelClearWithBlit(ctx, blit_mask);
-
-   if (tri_mask)
-      intelClearWithTris(intel, tri_mask);
-
-   if (swrast_mask)
-      _swrast_Clear(ctx, swrast_mask);
-
-   if (rect_mask)
-      intelClearWithClearRects(intel, rect_mask);
-}
 
 
 /* Emit wait for pending flips */
@@ -798,7 +544,10 @@ intel_wait_flips(struct intel_context *intel, GLuint batch_flags)
 			     BUFFER_BIT_FRONT_LEFT ? BUFFER_FRONT_LEFT :
 			     BUFFER_BACK_LEFT);
 
-   if (intel_fb->Base.Name == 0 && intel_rb->pf_pending == intel_fb->pf_seq) {
+   if (intel_fb->Base.Name == 0 && 
+       intel_rb->pf_pending == intel_fb->pf_seq &&
+       intel_fb->pf_pipes) 
+   {
       GLint pf_pipes = intel_fb->pf_pipes;
       BATCH_LOCALS;
 
@@ -908,7 +657,7 @@ intelScheduleSwap(const __DRIdrawablePrivate * dPriv, GLboolean *missed_target)
 
    LOCK_HARDWARE(intel);
 
-   intel_batchbuffer_flush(intel->batch);
+   intel_batchbuffer_flush(intel->batch, GL_TRUE);
 
    if ( intel_fb->pf_active ) {
       swap.seqtype |= DRM_VBLANK_FLIP;
@@ -967,8 +716,9 @@ intelSwapBuffers(__DRIdrawablePrivate * dPriv)
 	 GLboolean missed_target;
 	 struct intel_framebuffer *intel_fb = dPriv->driverPrivate;
 	 int64_t ust;
-         
-	 _mesa_notifySwapBuffers(ctx);  /* flush pending rendering comands */
+
+	 _mesa_notifySwapBuffers(ctx);  /* flush pending tnl vertices */
+         intel_frame_note_swapbuffers( intel->ft );
 
          if (screen->current_rotation != 0 ||
 	     !intelScheduleSwap(dPriv, &missed_target)) {
@@ -1206,7 +956,6 @@ intelReadBuffer(GLcontext * ctx, GLenum mode)
 void
 intelInitBufferFuncs(struct dd_function_table *functions)
 {
-   functions->Clear = intelClear;
    functions->DrawBuffer = intelDrawBuffer;
    functions->ReadBuffer = intelReadBuffer;
 }

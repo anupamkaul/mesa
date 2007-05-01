@@ -62,6 +62,8 @@
 #include "intel_fbo.h"
 #include "intel_metaops.h"
 #include "intel_state.h"
+#include "intel_frame_tracker.h"
+
 #include "draw/intel_draw.h"
 
 #include "drirenderbuffer.h"
@@ -350,6 +352,8 @@ intelInitDriverFunctions(struct dd_function_table *functions)
 
    functions->Flush = intelglFlush;
    functions->Finish = intelFinish;
+   functions->Clear = intelClear;
+   functions->ClearColor = intelClearColor;
    functions->GetString = intelGetString;
    functions->UpdateState = intelInvalidateState;
    functions->CopyColorTable = _swrast_CopyColorTable;
@@ -506,7 +510,7 @@ intelInitContext(struct intel_context *intel,
    intel_metaops_init(intel);
 
    intel->vb = intel_vb_init(intel);
-
+   intel->ft = intel_frame_tracker_create( intel );
    intel->classic = intel_create_classic_render( intel );
    intel->swrender = intel_create_swrast_render( intel );
 

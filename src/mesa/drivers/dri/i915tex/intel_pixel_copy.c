@@ -179,9 +179,8 @@ do_texture_copypixels(GLcontext * ctx,
 
    /* Set the frontbuffer up as a large rectangular texture.
     */
-   if (!intel_meta_tex_rect_source(intel, src->buffer, 0,
-                                         src->pitch,
-                                         src->height, src_format, src_type)) {
+   if (!intel_meta_tex_rect_source(intel, src, 0,
+				   src_format, src_type)) {
       intel_leave_meta_state(intel);
       return GL_FALSE;
    }
@@ -230,7 +229,7 @@ do_texture_copypixels(GLcontext * ctx,
 
     out:
       intel_leave_meta_state(intel);
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
    }
    UNLOCK_HARDWARE(intel);
 
@@ -353,7 +352,7 @@ do_blit_copypixels(GLcontext * ctx,
       }
 
     out:
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
    }
    UNLOCK_HARDWARE(intel);
 

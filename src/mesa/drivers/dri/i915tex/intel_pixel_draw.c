@@ -54,9 +54,10 @@ do_texture_drawpixels(GLcontext * ctx,
                       const struct gl_pixelstore_attrib *unpack,
                       const GLvoid * pixels)
 {
+#if 0
    struct intel_context *intel = intel_context(ctx);
    struct intel_region *dst = intel_drawbuf_region(intel);
-   struct intel_buffer_object *src = intel_buffer_object(unpack->BufferObj);
+   struct intel_buffer_object *src_buf = intel_buffer_object(unpack->BufferObj);
    GLuint rowLength = unpack->RowLength ? unpack->RowLength : width;
    GLuint src_offset;
 
@@ -178,10 +179,12 @@ do_texture_drawpixels(GLcontext * ctx,
                            srcx, srcx + width, srcy + height, srcy);
     out:
       intel_leave_meta_state(intel);
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
    }
    UNLOCK_HARDWARE(intel);
    return GL_TRUE;
+#endif
+   return GL_FALSE;
 }
 
 
@@ -323,7 +326,7 @@ do_blit_drawpixels(GLcontext * ctx,
 			   ctx->Color.ColorLogicOpEnabled ?
 			   ctx->Color.LogicOp : GL_COPY);
       }
-      fence = intel_batchbuffer_flush(intel->batch);
+      fence = intel_batchbuffer_flush(intel->batch, GL_TRUE);
       driFenceReference(fence);
    }
    UNLOCK_HARDWARE(intel);

@@ -17,6 +17,8 @@ DRIVER_SOURCES = \
 	draw/intel_prim_cull.c \
 	draw/intel_prim_clip.c \
 	draw/intel_prim_unfilled.c \
+	intel_clears.c \
+	intel_frame_tracker.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \

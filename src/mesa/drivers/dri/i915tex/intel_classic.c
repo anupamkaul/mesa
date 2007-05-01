@@ -284,7 +284,33 @@ static void classic_flush( struct intel_render *render,
    struct intel_context *intel = crc->intel;
 
    if (intel->batch->segment_finish_offset[0] != 0)
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, !finished_frame);
+}
+
+
+static void classic_clear_rect( struct intel_render *render,
+				GLuint x1, GLuint y1, 
+				GLuint x2, GLuint y2 )
+{
+   struct classic_render *crc = classic_render( render );
+   struct intel_context *intel = crc->intel;
+
+   /* XXX: i915 only
+    */
+#define PRIM3D_CLEAR_RECT	(0xa<<18)
+
+   intel_emit_hardware_state(intel, 7);
+
+   BATCH_LOCALS;
+   BEGIN_BATCH(7, INTEL_BATCH_CLIPRECTS);
+   OUT_BATCH(_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
+   OUT_BATCH_F(x2);
+   OUT_BATCH_F(y2);
+   OUT_BATCH_F(x1);
+   OUT_BATCH_F(y2);
+   OUT_BATCH_F(x1);
+   OUT_BATCH_F(y1);
+   ADVANCE_BATCH();
 }
 
 
@@ -311,6 +337,7 @@ struct intel_render *intel_create_classic_render( struct intel_context *intel )
    crc->render.draw_indexed_prim = classic_draw_indexed_prim;
    crc->render.release_vertices = classic_release_vertices;
    crc->render.flush = classic_flush;
+   crc->render.clear_rect = classic_clear_rect;
 
    crc->intel = intel;
    crc->hw_prim = 0;

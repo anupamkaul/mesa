@@ -26,10 +26,12 @@
  **************************************************************************/
 
 #include "intel_batchbuffer.h"
+#include "intel_frame_tracker.h"
 #include "intel_fbo.h"
 #include "intel_ioctl.h"
 #include "intel_vb.h"
 #include "intel_reg.h"
+#include "intel_utils.h"
 
 /* Relocations in kernel space:
  *    - pass dma buffer seperately
@@ -316,7 +318,8 @@ do_flush_locked(struct intel_batchbuffer *batch,
 
 
 struct _DriFenceObject *
-intel_batchbuffer_flush(struct intel_batchbuffer *batch)
+intel_batchbuffer_flush(struct intel_batchbuffer *batch, 
+			GLboolean forced )
 {
    struct intel_context *intel = batch->intel;
    GLuint used = batch->segment_finish_offset[0] - batch->segment_start_offset[0];
@@ -328,7 +331,7 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
    if (used == 0)
       return batch->last_fence;
 
-
+   intel_frame_note_flush( intel->ft, forced );
    intel_vb_flush( intel->vb );
 
    /* Add the MI_BATCH_BUFFER_END.  Always add an MI_FLUSH - this is a
@@ -387,7 +390,7 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch)
 void
 intel_batchbuffer_finish(struct intel_batchbuffer *batch)
 {
-   struct _DriFenceObject *fence = intel_batchbuffer_flush(batch);
+   struct _DriFenceObject *fence = intel_batchbuffer_flush(batch, GL_TRUE);
    driFenceReference(fence);
    driFenceFinish(fence, 3, GL_FALSE);
    driFenceUnReference(fence);

@@ -235,7 +235,7 @@ try_pbo_upload(struct intel_context *intel,
                         0, 0, 0, 0, width, height,
 			GL_COPY);
 
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
    }
    UNLOCK_HARDWARE(intel);
 

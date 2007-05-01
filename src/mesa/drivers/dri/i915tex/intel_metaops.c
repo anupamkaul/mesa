@@ -38,6 +38,7 @@
 #include "context.h"
 #include "macros.h"
 #include "enums.h"
+#include "teximage.h"
 #include "dd.h"
 
 #include "shader/arbprogparse.h"
@@ -46,10 +47,12 @@
 #include "intel_batchbuffer.h"
 #include "intel_regions.h"
 #include "intel_context.h"
+#include "intel_mipmap_tree.h"
 #include "intel_metaops.h"
 #include "intel_reg.h"
 #include "intel_state.h"
 #include "intel_vb.h"
+#include "intel_tex.h"
 
 
 #define DUP(i915, STRUCT, ATTRIB) 		\
@@ -130,23 +133,9 @@ static void restore_state( struct intel_context *intel )
    RESTORE(intel, FragmentProgram, _NEW_PROGRAM);
 }
 
-/* It would certainly be preferably to skip the vertex program step
- * and go straight to post-transform draw.  We can probably do that
- * with the indexed-render code and after noting that fallbacks are
- * never active during metaops.
- */
-static const char *vp_prog_tex =
-      "!!ARBvp1.0\n"
-      "MOV  result.texcoord[0], vertex.texcoord[0];\n"
-      "MOV  result.color, vertex.color;\n"
-      "MOV  result.position, vertex.position;\n"
-      "END\n";
 
 
-/* Because the texenv program is calculated from ctx derived state,
- * and bypasses our intel->state attribute pointer mechanism, it won't
- * be correctly calculated in metaops.  So, we have to supply our own
- * fragment programs to do the right thing:
+/* Using fragment programs like this is pretty i915 specific...
  */
 static const char *fp_prog =
       "!!ARBfp1.0\n"
@@ -155,7 +144,7 @@ static const char *fp_prog =
 
 static const char *fp_tex_prog =
       "!!ARBfp1.0\n"
-      "TEX result.color, fragment.texcoord[0], texture[0], 2D;\n"
+      "TEX result.color, fragment.texcoord[0], texture[0], RECT;\n"
       "END\n";
 
 
@@ -227,6 +216,8 @@ void intel_meta_color_mask( struct intel_context *intel, GLboolean state )
 
 void intel_meta_no_texture( struct intel_context *intel )
 {
+   intel->metaops.state.FragmentProgram->_Current = intel->metaops.fp;
+
    intel->metaops.state.Texture->CurrentUnit = 0;
    intel->metaops.state.Texture->_EnabledUnits = 0;
    intel->metaops.state.Texture->_EnabledCoordUnits = 0;
@@ -238,15 +229,17 @@ void intel_meta_no_texture( struct intel_context *intel )
 
 void intel_meta_texture_blend_replace(struct intel_context *intel)
 {
+   intel->metaops.state.FragmentProgram->_Current = intel->metaops.fp_tex;
+
    intel->metaops.state.Texture->CurrentUnit = 0;
    intel->metaops.state.Texture->_EnabledUnits = 1;
    intel->metaops.state.Texture->_EnabledCoordUnits = 1;
-   intel->metaops.state.Texture->Unit[ 0 ].Enabled = TEXTURE_2D_BIT;
-   intel->metaops.state.Texture->Unit[ 0 ]._ReallyEnabled = TEXTURE_2D_BIT;
-/*    intel->metaops.state.Texture->Unit[ 0 ].Current2D = */
-/*       intel->frame_buffer_texobj; */
-/*    intel->metaops.state.Texture->Unit[ 0 ]._Current = */
-/*       intel->frame_buffer_texobj; */
+   intel->metaops.state.Texture->Unit[ 0 ].Enabled = TEXTURE_RECT_BIT;
+   intel->metaops.state.Texture->Unit[ 0 ]._ReallyEnabled = TEXTURE_RECT_BIT;
+/*    intel->metaops.state.Texture->Unit[ 0 ].CurrentRect = */
+/*       intel->metaops.texobj; */
+/*    intel->metaops.state.Texture->Unit[ 0 ]._Current =  */
+/*       intel->metaops.texobj;  */
 
    intel->state.dirty.mesa |= _NEW_TEXTURE | _NEW_PROGRAM;
 }
@@ -268,109 +261,53 @@ void intel_meta_import_pixel_state(struct intel_context *intel)
  * (including the front or back buffer).
  */
 GLboolean intel_meta_tex_rect_source(struct intel_context *intel,
-				     struct _DriBufferObject *buffer,
+				     struct intel_region *region,
 				     GLuint offset,
-				     GLuint pitch, GLuint height, 
 				     GLenum format, GLenum type)
 {
-   assert(0);
-#if 0
-   GLuint unit = 0;
-   GLint numLevels = 1;
-   GLuint *state = intel->meta.Tex[0];
-   GLuint textureFormat;
-   GLuint cpp;
+   GLcontext *ctx = &intel->ctx;
+   struct gl_texture_image *texImage;
+   struct gl_texture_object *texObj;
 
-   /* A full implementation of this would do the upload through
-    * glTexImage2d, and get all the conversion operations at that
-    * point.  We are restricted, but still at least have access to the
-    * fragment program swizzle.
-    */
-   switch (format) {
-   case GL_BGRA:
-      switch (type) {
-      case GL_UNSIGNED_INT_8_8_8_8_REV:
-      case GL_UNSIGNED_BYTE:
-         textureFormat = (MAPSURF_32BIT | MT_32BIT_ARGB8888);
-         cpp = 4;
-         break;
-      default:
-         return GL_FALSE;
-      }
-      break;
-   case GL_RGBA:
-      switch (type) {
-      case GL_UNSIGNED_INT_8_8_8_8_REV:
-      case GL_UNSIGNED_BYTE:
-         textureFormat = (MAPSURF_32BIT | MT_32BIT_ABGR8888);
-         cpp = 4;
-         break;
-      default:
-         return GL_FALSE;
-      }
-      break;
-   case GL_BGR:
-      switch (type) {
-      case GL_UNSIGNED_SHORT_5_6_5_REV:
-         textureFormat = (MAPSURF_16BIT | MT_16BIT_RGB565);
-         cpp = 2;
-         break;
-      default:
-         return GL_FALSE;
-      }
-      break;
-   case GL_RGB:
-      switch (type) {
-      case GL_UNSIGNED_SHORT_5_6_5:
-         textureFormat = (MAPSURF_16BIT | MT_16BIT_RGB565);
-         cpp = 2;
-         break;
-      default:
-         return GL_FALSE;
-      }
-      break;
+   assert(offset == 0);		/* for now */
 
-   default:
-      return GL_FALSE;
-   }
-
-
-   if ((pitch * cpp) & 3) {
+   if ((region->pitch * region->cpp) & 3) {
       _mesa_printf("%s: texture is not dword pitch\n", __FUNCTION__);
       return GL_FALSE;
    }
 
-/*    intel_region_release(&intel->meta.tex_region[0]); */
-/*    intel_region_reference(&intel->meta.tex_region[0], region); */
-   intel->meta.tex_buffer[0] = buffer;
-   intel->meta.tex_offset[0] = offset;
-#endif
 
-   /* Don't do this, fill in the state objects as appropriate instead. 
-    */
-#if 0
-   state[I915_TEXREG_MS3] = (((height - 1) << MS3_HEIGHT_SHIFT) |
-                             ((pitch - 1) << MS3_WIDTH_SHIFT) |
-                             textureFormat | MS3_USE_FENCE_REGS);
+   texObj = ctx->Driver.NewTextureObject( ctx, (GLuint) -1, GL_TEXTURE_RECTANGLE_NV );
+   texImage = ctx->Driver.NewTextureImage( ctx );
 
-   state[I915_TEXREG_MS4] = (((((pitch * cpp) / 4) - 1) << MS4_PITCH_SHIFT) |
-                             MS4_CUBE_FACE_ENA_MASK |
-                             ((((numLevels - 1) * 4)) << MS4_MAX_LOD_SHIFT));
+   texObj->MinFilter = GL_NEAREST;
+   texObj->MagFilter = GL_NEAREST;
 
-   state[I915_TEXREG_SS2] = ((FILTER_NEAREST << SS2_MIN_FILTER_SHIFT) |
-                             (MIPFILTER_NONE << SS2_MIP_FILTER_SHIFT) |
-                             (FILTER_NEAREST << SS2_MAG_FILTER_SHIFT));
+   _mesa_init_teximage_fields( ctx, GL_TEXTURE_RECTANGLE_NV, 
+			       texImage,
+			       region->pitch, region->height, 
+			       1, 0,
+			       format );
+   
+   _mesa_set_tex_image( texObj, GL_TEXTURE_RECTANGLE_NV, 0, texImage );
 
-   state[I915_TEXREG_SS3] = ((TEXCOORDMODE_WRAP << SS3_TCX_ADDR_MODE_SHIFT) |
-                             (TEXCOORDMODE_WRAP << SS3_TCY_ADDR_MODE_SHIFT) |
-                             (TEXCOORDMODE_WRAP << SS3_TCZ_ADDR_MODE_SHIFT) |
-                             (unit << SS3_TEXTUREMAP_INDEX_SHIFT));
 
-   state[I915_TEXREG_SS4] = 0;
+   {
+      struct intel_texture_image *intelImage = intel_texture_image( texImage );
+      struct intel_texture_object *intelObj = intel_texture_object( texObj );
+      
+      struct intel_mipmap_tree *mt = 
+	 intel_miptree_from_region( region,
+				    GL_TEXTURE_RECTANGLE_NV,
+				    format );
 
-   i915->meta.emitted &= ~I915_UPLOAD_TEX(0);
-#endif
-
+      intelObj->mt = mt;
+      intelImage->mt = mt;
+   }
+   
+   intel->metaops.texobj = texObj;
+   intel->metaops.state.Texture->Unit[0].CurrentRect = texObj;
+   intel->metaops.state.Texture->Unit[0]._Current = texObj;
    return GL_TRUE;
 }
 
@@ -380,7 +317,6 @@ void intel_meta_draw_region( struct intel_context *intel,
 			     struct intel_region *draw_region,
 			     struct intel_region *depth_region )
 {
-#if 0
    if (!intel->metaops.saved_draw_region) {
       intel->metaops.saved_draw_region = intel->state.draw_region;
       intel->metaops.saved_depth_region = intel->state.depth_region;
@@ -390,109 +326,108 @@ void intel_meta_draw_region( struct intel_context *intel,
    intel->state.depth_region = depth_region;
 
    intel->state.dirty.mesa |= _NEW_BUFFERS;
-#endif
 }
 
 
-/* Big problem is that tnl doesn't know about our internal
- * state-swaping mechanism so wouldn't respect it if we passed this
- * here.  That *should* get fixed by pushing the state mechanism
- * higher into mesa, but I haven't got there yet.  In the meantime, 
- */
 void
-intel_meta_draw_poly(struct intel_context *intel,
-                     GLuint n,
-                     GLfloat xy[][2],
-                     GLfloat z, GLuint color, GLfloat tex[][2])
+intel_meta_draw_color_quad(struct intel_context *intel,
+		      struct intel_metaops_color_vertex *vertex )
 {
-   GLint i;
    intel_update_software_state( intel );
 
+   assert(sizeof(*vertex) == intel->vb->vertex_size_bytes);
+
    {
-      /* Must be after call to intel_update_software_state():
-       */
-      GLuint vertex_dwords = intel->vb->vertex_size_bytes / 4;
-      GLuint dwords = 2+n*vertex_dwords;
-      intel_emit_hardware_state( intel, dwords );
+      struct intel_render *render = intel->render;
+      void *vb = render->allocate_vertices( render,
+					    intel->vb->vertex_size_bytes,
+					    4 );
+      
+      memcpy(vb, vertex, 4 * sizeof(*vertex));
 
-      /* All 3d primitives should be emitted with INTEL_BATCH_CLIPRECTS,
-       * otherwise the drawing origin (DR4) might not be set correctly.
-       *
-       * XXX: use the vb for vertices!
-       */
-      BEGIN_BATCH(dwords, INTEL_BATCH_CLIPRECTS);
-
-      OUT_BATCH( _3DPRIMITIVE |
-		 PRIM3D_TRIFAN | 
-		 (n * vertex_dwords - 1 ));
-
-
-      for (i = 0; i < n; i++) {
-	 OUT_BATCH_F( xy[i][0] );
-	 OUT_BATCH_F( xy[i][1] );
-	 OUT_BATCH_F( z );
-	 OUT_BATCH( color );
-	 if (intel->vb->vertex_size_bytes == 6*4) {
-	    OUT_BATCH_F( tex[i][0] );
-	    OUT_BATCH_F( tex[i][1] );
-	 }
-	 else {
-	    assert(intel->vb->vertex_size_bytes == 4*4);
-	 }
-      }
-      ADVANCE_BATCH();
+      render->set_prim( render, GL_TRIANGLE_FAN );
+      render->draw_prim( render, 0, 4 );
+      render->release_vertices( render, vb );
    }
 }
 
 void
-intel_meta_draw_quad(struct intel_context *intel,
-                     GLfloat x0, GLfloat x1,
-                     GLfloat y0, GLfloat y1,
-                     GLfloat z,
-                     GLuint color,
-                     GLfloat s0, GLfloat s1, GLfloat t0, GLfloat t1)
+intel_meta_draw_textured_quad(struct intel_context *intel,
+			      struct intel_metaops_tex_vertex *vertex )
 {
-   GLfloat xy[4][2];
-   GLfloat tex[4][2];
+   intel_update_software_state( intel );
 
-   xy[0][0] = x0;
-   xy[0][1] = y0;
-   xy[1][0] = x1;
-   xy[1][1] = y0;
-   xy[2][0] = x1;
-   xy[2][1] = y1;
-   xy[3][0] = x0;
-   xy[3][1] = y1;
+   assert(sizeof(*vertex) == intel->vb->vertex_size_bytes);
 
-   tex[0][0] = s0;
-   tex[0][1] = t0;
-   tex[1][0] = s1;
-   tex[1][1] = t0;
-   tex[2][0] = s1;
-   tex[2][1] = t1;
-   tex[3][0] = s0;
-   tex[3][1] = t1;
-
-   intel_meta_draw_poly(intel, 4, xy, z, color, tex);
+   {
+      struct intel_render *render = intel->render;
+      void *vb = render->allocate_vertices( render, 
+					    intel->vb->vertex_size_bytes,
+					    4 );
+      
+      memcpy(vb, vertex, 4 * sizeof(*vertex));
+      
+      render->set_prim( render, GL_TRIANGLE_FAN );
+      render->draw_prim( render, 0, 4 );
+      render->release_vertices( render, vb );
+   }
 }
 
 
+
+
+void intel_meta_draw_quad(struct intel_context *intel,
+			  GLfloat x0, GLfloat x1,
+			  GLfloat y0, GLfloat y1,
+			  GLfloat z,
+			  GLuint color,
+			  GLfloat s0, GLfloat s1, GLfloat t0, GLfloat t1)
+{
+   struct intel_metaops_tex_vertex vertex[4];
+
+   vertex[0].xyz[0] = x0;
+   vertex[0].xyz[1] = y0;
+   vertex[0].xyz[2] = z;
+   vertex[0].st[0]  = s0;
+   vertex[0].st[1]  = t0;
+
+   vertex[1].xyz[0] = x1;
+   vertex[1].xyz[1] = y0;
+   vertex[1].xyz[2] = z;
+   vertex[1].st[0]  = s1;
+   vertex[1].st[1]  = t0;
+
+   vertex[2].xyz[0] = x1;
+   vertex[2].xyz[1] = y1;
+   vertex[2].xyz[2] = z;
+   vertex[2].st[0]  = s1;
+   vertex[2].st[1]  = t1;
+
+   vertex[3].xyz[0] = x0;
+   vertex[3].xyz[1] = y1;
+   vertex[3].xyz[2] = z;
+   vertex[3].st[0]  = s0;
+   vertex[3].st[1]  = t1;
+
+   intel_meta_draw_textured_quad( intel, vertex );
+}
+
 void intel_install_meta_state( struct intel_context *intel )
 {
-   assert(0);
+   GLcontext *ctx = &intel->ctx;
 
    install_state(intel);
    
    intel_meta_no_texture(intel);
    intel_meta_flat_shade(intel);
 
-/*    intel->metaops.restore_draw_mask = ctx->DrawBuffer->_ColorDrawBufferMask[0]; */
-/*    intel->metaops.restore_fp = ctx->FragmentProgram.Current; */
+   intel->metaops.restore_draw_mask = ctx->DrawBuffer->_ColorDrawBufferMask[0]; 
+   intel->metaops.restore_fp = ctx->FragmentProgram.Current; 
 
    /* This works without adjusting refcounts.  Fix later? 
     */
-/*    intel->metaops.saved_draw_region = intel->state.draw_region; */
-/*    intel->metaops.saved_depth_region = intel->state.depth_region; */
+   intel->metaops.saved_draw_region = intel->state.draw_region; 
+   intel->metaops.saved_depth_region = intel->state.depth_region; 
    intel->metaops.active = 1;
    
    intel->state.dirty.intel |= INTEL_NEW_METAOPS;
@@ -500,16 +435,24 @@ void intel_install_meta_state( struct intel_context *intel )
 
 void intel_leave_meta_state( struct intel_context *intel )
 {
+   GLcontext *ctx = &intel->ctx;
    restore_state(intel);
 
-/*    ctx->DrawBuffer->_ColorDrawBufferMask[0] = intel->metaops.restore_draw_mask; */
-/*    ctx->FragmentProgram.Current = intel->metaops.restore_fp; */
+   ctx->DrawBuffer->_ColorDrawBufferMask[0] = intel->metaops.restore_draw_mask; 
+   ctx->FragmentProgram.Current = intel->metaops.restore_fp; 
 
-/*    intel->state.draw_region = intel->metaops.saved_draw_region; */
-/*    intel->state.depth_region = intel->metaops.saved_depth_region; */
-/*    intel->metaops.saved_draw_region = NULL; */
-/*    intel->metaops.saved_depth_region = NULL; */
+   intel->state.draw_region = intel->metaops.saved_draw_region; 
+   intel->state.depth_region = intel->metaops.saved_depth_region; 
+   intel->metaops.saved_draw_region = NULL;
+   intel->metaops.saved_depth_region = NULL; 
    intel->metaops.active = 0;
+
+   if (intel->metaops.texobj) {
+      ctx->Driver.DeleteTexture( ctx, intel->metaops.texobj );
+      intel->metaops.state.Texture->Unit[ 0 ].CurrentRect = NULL;
+      intel->metaops.state.Texture->Unit[ 0 ]._Current = NULL;
+      intel->metaops.texobj = 0;
+   }
 
    intel->state.dirty.mesa |= _NEW_BUFFERS;
    intel->state.dirty.intel |= INTEL_NEW_METAOPS;
@@ -519,11 +462,10 @@ void intel_leave_meta_state( struct intel_context *intel )
 
 void intel_metaops_init( struct intel_context *intel )
 {
-/*    GLcontext *ctx = &intel->ctx; */
+   GLcontext *ctx = &intel->ctx;
 
    init_state(intel);
 
-#if 0
    intel->metaops.fp = (struct gl_fragment_program *)
       ctx->Driver.NewProgram(ctx, GL_FRAGMENT_PROGRAM_ARB, 1 );
 
@@ -537,18 +479,14 @@ void intel_metaops_init( struct intel_context *intel )
    _mesa_parse_arb_fragment_program(ctx, GL_FRAGMENT_PROGRAM_ARB, 
 				    fp_tex_prog, strlen(fp_tex_prog),
 				    intel->metaops.fp_tex);
-#endif
 
-/*    intel->metaops.state.VertexProgram->Current = intel->metaops.vp; */
-/*    intel->metaops.state.VertexProgram->_Enabled = GL_TRUE; */
+   intel->metaops.state.FragmentProgram->_Current = intel->metaops.fp;
 }
 
 void intel_metaops_destroy( struct intel_context *intel )
 {
    GLcontext *ctx = &intel->ctx;
 
-   if (intel->metaops.vbo)
-      ctx->Driver.DeleteBuffer( ctx, intel->metaops.vbo );
-
-/*    ctx->Driver.DeleteProgram( ctx, intel->metaops.vp ); */
+   ctx->Driver.DeleteProgram( ctx, &intel->metaops.fp->Base );
+   ctx->Driver.DeleteProgram( ctx, &intel->metaops.fp_tex->Base );
 }

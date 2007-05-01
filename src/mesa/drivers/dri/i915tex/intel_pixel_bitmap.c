@@ -91,10 +91,6 @@ static void set_bit( GLubyte *dest,
    dest[bit/8] |= 1 << (bit % 8);
 }
 
-static int align(int x, int align)
-{
-   return (x + align - 1) & ~(align - 1);
-}
 
 /* Extract a rectangle's worth of data from the bitmap.  Called
  * per-cliprect.

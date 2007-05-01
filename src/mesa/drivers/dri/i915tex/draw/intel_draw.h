@@ -72,6 +72,12 @@ struct intel_render {
 			      GLuint nr );
 
 
+   /* Special primitive: 
+    */
+   void (*clear_rect)( struct intel_render *,
+		       GLuint x1, GLuint y1, 
+		       GLuint x2, GLuint y2 );
+
    /* Hardware drivers will flush/unmap the ttm:
     */
    void (*release_vertices)( struct intel_render *,

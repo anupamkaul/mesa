@@ -178,6 +178,7 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
       
       if (firstImage->base.IsCompressed)
 	 comp_byte = intel_compressed_num_bytes(firstImage->base.TexFormat->MesaFormat);
+
       intelObj->mt = intel_miptree_create(intel,
                                           intelObj->base.Target,
                                           firstImage->base.InternalFormat,
@@ -186,8 +187,7 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
                                           firstImage->base.Width,
                                           firstImage->base.Height,
                                           firstImage->base.Depth,
-                                          firstImage->base.TexFormat->
-                                          TexelBytes,
+                                          firstImage->base.TexFormat->TexelBytes,
                                           comp_byte);
    }
 
@@ -209,7 +209,7 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
    }
 
    if (need_flush)
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
 
    return GL_TRUE;
 }
