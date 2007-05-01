@@ -245,6 +245,7 @@ static const struct dri_debug_control debug_control[] = {
    {"tri", DEBUG_TRI},
    {"sync", DEBUG_ALWAYS_SYNC},
    {"vbo", DEBUG_VBO},
+   {"fram", DEBUG_FRAME},
    {NULL, 0}
 };
 
@@ -307,8 +308,15 @@ intelCheckFrontRotate(GLcontext * ctx)
 static void
 intelglFlush(GLcontext * ctx)
 {
-   intelFlush(ctx);
-   intelCheckFrontRotate(ctx);
+   /* XXX: don't do anything on glFlushes that would have no effect.
+    * This is important for zone rendering, as flushes are bad.  This
+    * means that we need to pre-emptively flush when switching away
+    * from frontbuffer rendering.
+    */
+   if (ctx->DrawBuffer->_ColorDrawBufferMask[0] == BUFFER_BIT_FRONT_LEFT) {
+      intelFlush(ctx);
+      intelCheckFrontRotate(ctx);
+   }
 }
 
 void
@@ -468,7 +476,7 @@ intelInitContext(struct intel_context *intel,
    TNL_CONTEXT(ctx)->Driver.RunPipeline = intelRunPipeline;
 
    TNL_CONTEXT(ctx)->max_indices = (SEGMENT_SZ - 1024) / 2;
-   TNL_CONTEXT(ctx)->max_indices = 20;
+//   TNL_CONTEXT(ctx)->max_indices = 20;
 
    /* Configure swrast to match hardware characteristics: */
    _swrast_allow_pixel_fog(ctx, GL_FALSE);

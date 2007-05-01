@@ -30,6 +30,7 @@
 #include "intel_fbo.h"
 #include "intel_frame_tracker.h"
 
+#define FILE_DEBUG_FLAG DEBUG_FRAME
 
 /* Track events over the last few frames and use these to predict
  * future behaviour.
@@ -79,6 +80,8 @@ static void emit_resize( struct intel_frame_tracker *ft )
    __DRIdrawablePrivate *dPriv = intel->driDrawable;
    struct gl_framebuffer *fb = (struct gl_framebuffer *) dPriv->driverPrivate;
 
+   DBG("%s %dx%d\n", __FUNCTION__, dPriv->w, dPriv->h);
+
    intel_resize_framebuffer(&intel->ctx, fb, dPriv->w, dPriv->h);
 
    ft->resize_flag = GL_FALSE;
@@ -112,6 +115,7 @@ static void finish_frame( struct intel_frame_tracker *ft )
 void intel_frame_note_flush( struct intel_frame_tracker *ft,
 			     GLboolean forced)
 {
+   DBG("%s forced %d in_frame %d\n", __FUNCTION__, forced, ft->in_frame);
    if (ft->in_frame && forced) {
       finish_frame( ft );
       ft->flush_prediction |= (1<<8);
@@ -120,6 +124,7 @@ void intel_frame_note_flush( struct intel_frame_tracker *ft,
 
 void intel_frame_note_clear( struct intel_frame_tracker *ft )
 {
+   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
    ft->in_frame = GL_TRUE;
 }
 
@@ -127,6 +132,7 @@ void intel_frame_note_clear( struct intel_frame_tracker *ft )
 
 void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft )
 {
+   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
    if (ft->in_frame) {
       finish_frame( ft );
    }
@@ -137,6 +143,7 @@ void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft )
 
 void intel_frame_note_window_resize( struct intel_frame_tracker *ft )
 {
+   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
    ft->resize_flag = GL_TRUE;
    if (!ft->in_frame) 
       emit_resize(ft);
@@ -145,12 +152,14 @@ void intel_frame_note_window_resize( struct intel_frame_tracker *ft )
 
 void intel_frame_note_window_rebind( struct intel_frame_tracker *ft )
 {
+   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
    assert (!ft->in_frame);
    emit_resize(ft);
 }
 
 void intel_frame_note_draw( struct intel_frame_tracker *ft )
 {
+   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
    if (!ft->in_frame) {
       ft->draw_without_clears |= (1<<31);
       ft->in_frame = 1;
