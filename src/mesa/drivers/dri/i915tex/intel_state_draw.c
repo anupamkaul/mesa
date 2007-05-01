@@ -58,7 +58,6 @@ static GLboolean get_offset_flag( GLuint fill_mode,
 
 static void update_draw_state( struct intel_context *intel )
 {
-   GLuint front_winding;
    struct intel_draw_state state;
 
    memset(&state, 0, sizeof(state));
@@ -111,7 +110,7 @@ static void update_draw_state( struct intel_context *intel )
       GLuint fill_front = translate_fill( intel->state.Polygon->FrontMode );
       GLuint fill_back = translate_fill( intel->state.Polygon->BackMode );
       
-      if (front_winding == WINDING_CW) {
+      if (state.front_winding == WINDING_CW) {
 	 state.fill_cw = fill_front;
 	 state.fill_ccw = fill_back;
       }
