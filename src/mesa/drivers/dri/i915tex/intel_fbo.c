@@ -327,6 +327,10 @@ intel_resize_framebuffer(GLcontext *ctx,
    struct intel_framebuffer *intel_fb = (struct intel_framebuffer*)fb;
    int i;
 
+   if (fb->Width == width &&
+       fb->Height == height)
+      return;
+
    _mesa_resize_framebuffer(ctx, fb, width, height);
 
    fb->Initialized = GL_TRUE; /* XXX remove someday */
