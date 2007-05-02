@@ -137,6 +137,7 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
    assert(sz < SEGMENT_SZ);
 
    if (intel_batchbuffer_space(batch, segment) < sz ||
+       batch->nr_relocs + 10 > MAX_RELOCS || 
        (batch->flags != 0 && flags != 0 && batch->flags != flags))
       intel_batchbuffer_flush(batch, GL_FALSE);
 
