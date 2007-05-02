@@ -438,36 +438,17 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
     */
    intel_batchbuffer_flush(intel->batch, GL_TRUE);
 
-   if (!intel->locked) {
-      /* Why do we need the lock for this? 
-       */
-      LOCK_HARDWARE(intel);
-      intelEmitCopyBlit(intel,
-			region->cpp,
-			region->pitch,
-			region->buffer, 0,
-			region->pitch,
-			pbo->buffer, 0,
-			0, 0, 0, 0, 
-			region->pitch, region->height,
-			GL_COPY);
+   intelEmitCopyBlit(intel,
+		     region->cpp,
+		     region->pitch,
+		     region->buffer, 0,
+		     region->pitch,
+		     pbo->buffer, 0,
+		     0, 0, 0, 0, 
+		     region->pitch, region->height,
+		     GL_COPY);
       
-      intel_batchbuffer_flush(intel->batch, GL_TRUE);
-      UNLOCK_HARDWARE(intel);
-   }
-   else {
-      intelEmitCopyBlit(intel,
-			region->cpp,
-			region->pitch,
-			region->buffer, 0,
-			region->pitch,
-			pbo->buffer, 0,
-			0, 0, 0, 0, 
-			region->pitch, region->height,
-			GL_COPY);
-      
-      intel_batchbuffer_flush(intel->batch, GL_TRUE);
-   }
+   intel_batchbuffer_flush(intel->batch, GL_TRUE);
 }
 
 struct _DriBufferObject *

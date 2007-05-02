@@ -1,237 +1,201 @@
+/**************************************************************************
+ * 
+ * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * All Rights Reserved.
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sub license, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ * 
+ * The above copyright notice and this permission notice (including the
+ * next paragraph) shall be included in all copies or substantial portions
+ * of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+ * IN NO EVENT SHALL TUNGSTEN GRAPHICS AND/OR ITS SUPPLIERS BE LIABLE FOR
+ * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * 
+ **************************************************************************/
 
-/**
- * Routines for simple 2D->2D transformations for rotated, flipped screens.
- *
- * XXX This code is not intel-specific.  Move it into a common/utility
- * someday.
- */
+#include "intel_screen.h"
+#include "intel_context.h"
+#include "intel_blit.h"
+#include "intel_buffers.h"
+#include "intel_depthstencil.h"
+#include "intel_fbo.h"
+#include "intel_regions.h"
+#include "intel_batchbuffer.h"
+#include "intel_frame_tracker.h"
 
-#include "intel_rotate.h"
+#include "i915_context.h"
+#include "i915_reg.h"
+#include "i915_cache.h"
+#include "intel_reg.h"
+#include "intel_metaops.h"
+#include "intel_state.h"
+#include "context.h"
+#include "utils.h"
+#include "drirenderbuffer.h"
+#include "framebuffer.h"
+#include "swrast/swrast.h"
+#include "vblank.h"
 
-#define MIN2(A, B)   ( ((A) < (B)) ? (A) : (B) )
-
-#define ABS(A)  ( ((A) < 0) ? -(A) : (A) )
-
-
-void
-matrix23Set(struct matrix23 *m,
-            int m00, int m01, int m02, int m10, int m11, int m12)
-{
-   m->m00 = m00;
-   m->m01 = m01;
-   m->m02 = m02;
-   m->m10 = m10;
-   m->m11 = m11;
-   m->m12 = m12;
-}
-
-
-/*
- * Transform (x,y) coordinate by the given matrix.
- */
-void
-matrix23TransformCoordf(const struct matrix23 *m, float *x, float *y)
-{
-   const float x0 = *x;
-   const float y0 = *y;
-
-   *x = m->m00 * x0 + m->m01 * y0 + m->m02;
-   *y = m->m10 * x0 + m->m11 * y0 + m->m12;
-}
-
-
-void
-matrix23TransformCoordi(const struct matrix23 *m, int *x, int *y)
-{
-   const int x0 = *x;
-   const int y0 = *y;
-
-   *x = m->m00 * x0 + m->m01 * y0 + m->m02;
-   *y = m->m10 * x0 + m->m11 * y0 + m->m12;
-}
-
-
-/*
- * Transform a width and height by the given matrix.
- * XXX this could be optimized quite a bit.
- */
-void
-matrix23TransformDistance(const struct matrix23 *m, int *xDist, int *yDist)
-{
-   int x0 = 0, y0 = 0;
-   int x1 = *xDist, y1 = 0;
-   int x2 = 0, y2 = *yDist;
-   matrix23TransformCoordi(m, &x0, &y0);
-   matrix23TransformCoordi(m, &x1, &y1);
-   matrix23TransformCoordi(m, &x2, &y2);
-
-   *xDist = (x1 - x0) + (x2 - x0);
-   *yDist = (y1 - y0) + (y2 - y0);
-
-   if (*xDist < 0)
-      *xDist = -*xDist;
-   if (*yDist < 0)
-      *yDist = -*yDist;
-}
 
 
 /**
- * Transform the rect defined by (x, y, w, h) by m.
+ * Copy the window contents named by dPriv to the rotated (or reflected)
+ * color buffer.
+ * srcBuf is BUFFER_BIT_FRONT_LEFT or BUFFER_BIT_BACK_LEFT to indicate the source.
  */
 void
-matrix23TransformRect(const struct matrix23 *m, int *x, int *y, int *w,
-                      int *h)
+intelRotateWindow(struct intel_context *intel,
+                  __DRIdrawablePrivate * dPriv, GLuint srcBuf)
 {
-   int x0 = *x, y0 = *y;
-   int x1 = *x + *w, y1 = *y;
-   int x2 = *x + *w, y2 = *y + *h;
-   int x3 = *x, y3 = *y + *h;
-   matrix23TransformCoordi(m, &x0, &y0);
-   matrix23TransformCoordi(m, &x1, &y1);
-   matrix23TransformCoordi(m, &x2, &y2);
-   matrix23TransformCoordi(m, &x3, &y3);
-   *w = ABS(x1 - x0) + ABS(x2 - x1);
-   /**w = ABS(*w);*/
-   *h = ABS(y1 - y0) + ABS(y2 - y1);
-   /**h = ABS(*h);*/
-   *x = MIN2(x0, x1);
-   *x = MIN2(*x, x2);
-   *y = MIN2(y0, y1);
-   *y = MIN2(*y, y2);
-}
+   intelScreenPrivate *screen = intel->intelScreen;
+   drm_clip_rect_t fullRect;
+   struct intel_framebuffer *intel_fb;
+   struct intel_region *src;
+   const drm_clip_rect_t *clipRects;
+   int numClipRects;
+   int i;
+   GLenum format, type;
 
+   int xOrig, yOrig;
+   int origNumClipRects;
+   drm_clip_rect_t *origRects;
 
-/*
- * Make rotation matrix for width X height screen.
- */
-void
-matrix23Rotate(struct matrix23 *m, int width, int height, int angle)
-{
-   switch (angle) {
-   case 0:
-      matrix23Set(m, 1, 0, 0, 0, 1, 0);
-      break;
-   case 90:
-      matrix23Set(m, 0, 1, 0, -1, 0, width);
-      break;
-   case 180:
-      matrix23Set(m, -1, 0, width, 0, -1, height);
-      break;
-   case 270:
-      matrix23Set(m, 0, -1, height, 1, 0, 0);
-      break;
-   default:
-      /*abort() */ ;
+   /*
+    * set up hardware state
+    */
+   intelFlush(&intel->ctx);
+
+   LOCK_HARDWARE(intel);
+
+   if (!intel->numClipRects) {
+      UNLOCK_HARDWARE(intel);
+      return;
    }
-}
+
+   intel_install_meta_state(intel);
+
+   intel_meta_no_depth_write(intel);
+   intel_meta_no_stencil_write(intel);
+   intel_meta_color_mask(intel, GL_FALSE);
 
 
-/*
- * Make flip/reflection matrix for width X height screen.
- */
-void
-matrix23Flip(struct matrix23 *m, int width, int height, int xflip, int yflip)
-{
-   if (xflip) {
-      m->m00 = -1;
-      m->m01 = 0;
-      m->m02 = width - 1;
+   /* save current drawing origin and cliprects (restored at end) */
+   xOrig = intel->drawX;
+   yOrig = intel->drawY;
+   origNumClipRects = dPriv->numClipRects;
+   origRects = dPriv->pClipRects;
+
+   /*
+    * set drawing origin, cliprects for full-screen access to rotated screen
+    */
+   fullRect.x1 = 0;
+   fullRect.y1 = 0;
+   fullRect.x2 = screen->rotatedWidth;
+   fullRect.y2 = screen->rotatedHeight;
+   intel->drawX = 0;
+   intel->drawY = 0;
+   intel->numClipRects = 1;
+   intel->pClipRects = &fullRect;
+
+   intel_meta_draw_region(intel, screen->rotated_region, NULL);    /* ? */
+
+   intel_fb = dPriv->driverPrivate;
+
+   if ((srcBuf == BUFFER_BIT_BACK_LEFT && !intel_fb->pf_active)) {
+      src = intel_get_rb_region(&intel_fb->Base, BUFFER_BACK_LEFT);
    }
    else {
-      m->m00 = 1;
-      m->m01 = 0;
-      m->m02 = 0;
+      src = intel_get_rb_region(&intel_fb->Base, BUFFER_FRONT_LEFT);
    }
-   if (yflip) {
-      m->m10 = 0;
-      m->m11 = -1;
-      m->m12 = height - 1;
+      clipRects = dPriv->pClipRects;
+      numClipRects = dPriv->numClipRects;
+
+   if (src->cpp == 4) {
+      format = GL_BGRA;
+      type = GL_UNSIGNED_BYTE;
    }
    else {
-      m->m10 = 0;
-      m->m11 = 1;
-      m->m12 = 0;
-   }
-}
-
-
-/*
- * result = a * b
- */
-void
-matrix23Multiply(struct matrix23 *result,
-                 const struct matrix23 *a, const struct matrix23 *b)
-{
-   result->m00 = a->m00 * b->m00 + a->m01 * b->m10;
-   result->m01 = a->m00 * b->m01 + a->m01 * b->m11;
-   result->m02 = a->m00 * b->m02 + a->m01 * b->m12 + a->m02;
-
-   result->m10 = a->m10 * b->m00 + a->m11 * b->m10;
-   result->m11 = a->m10 * b->m01 + a->m11 * b->m11;
-   result->m12 = a->m10 * b->m02 + a->m11 * b->m12 + a->m12;
-}
-
-
-#if 000
-
-#include <stdio.h>
-
-int
-main(int argc, char *argv[])
-{
-   int width = 500, height = 400;
-   int rot;
-   int fx = 0, fy = 0;          /* flip x and/or y ? */
-   int coords[4][2];
-
-   /* four corner coords to test with */
-   coords[0][0] = 0;
-   coords[0][1] = 0;
-   coords[1][0] = width - 1;
-   coords[1][1] = 0;
-   coords[2][0] = width - 1;
-   coords[2][1] = height - 1;
-   coords[3][0] = 0;
-   coords[3][1] = height - 1;
-
-
-   for (rot = 0; rot < 360; rot += 90) {
-      struct matrix23 rotate, flip, m;
-      int i;
-
-      printf("Rot %d, xFlip %d, yFlip %d:\n", rot, fx, fy);
-
-      /* make transformation matrix 'm' */
-      matrix23Rotate(&rotate, width, height, rot);
-      matrix23Flip(&flip, width, height, fx, fy);
-      matrix23Multiply(&m, &rotate, &flip);
-
-      /* xform four coords */
-      for (i = 0; i < 4; i++) {
-         int x = coords[i][0];
-         int y = coords[i][1];
-         matrix23TransformCoordi(&m, &x, &y);
-         printf("  %d, %d  -> %d %d\n", coords[i][0], coords[i][1], x, y);
-      }
-
-      /* xform width, height */
-      {
-         int x = width;
-         int y = height;
-         matrix23TransformDistance(&m, &x, &y);
-         printf("  %d x %d -> %d x %d\n", width, height, x, y);
-      }
-
-      /* xform rect */
-      {
-         int x = 50, y = 10, w = 200, h = 100;
-         matrix23TransformRect(&m, &x, &y, &w, &h);
-         printf("  %d,%d %d x %d -> %d, %d %d x %d\n", 50, 10, 200, 100,
-                x, y, w, h);
-      }
-
+      format = GL_BGR;
+      type = GL_UNSIGNED_SHORT_5_6_5_REV;
    }
 
-   return 0;
+   /* set the whole screen up as a texture to avoid alignment issues */
+   intel_meta_tex_rect_source(intel,
+			      src, 0,
+			      format, type);
+
+   intel_meta_texture_blend_replace(intel);
+
+   /*
+    * loop over the source window's cliprects
+    */
+   for (i = 0; i < numClipRects; i++) {
+      int srcX0 = clipRects[i].x1;
+      int srcY0 = clipRects[i].y1;
+      int srcX1 = clipRects[i].x2;
+      int srcY1 = clipRects[i].y2;
+      int j;
+
+      struct intel_metaops_tex_vertex vertex[4];
+
+      /* build vertices for four corners of clip rect */
+      vertex[0].xyz[0] = srcX0;
+      vertex[0].xyz[1] = srcY0;
+      vertex[0].xyz[2] = 0;
+      vertex[0].st[0]  = srcX0;
+      vertex[0].st[1]  = srcY0;
+
+      vertex[1].xyz[0] = srcX1;
+      vertex[1].xyz[1] = srcY0;
+      vertex[1].xyz[2] = 0;
+      vertex[1].st[0]  = srcX1;
+      vertex[1].st[1]  = srcY0;
+
+      vertex[2].xyz[0] = srcX1;
+      vertex[2].xyz[1] = srcY1;
+      vertex[2].xyz[2] = 0;
+      vertex[2].st[0]  = srcX1;
+      vertex[2].st[1]  = srcY1;
+
+      vertex[3].xyz[0] = srcX0;
+      vertex[3].xyz[1] = srcY1;
+      vertex[3].xyz[2] = 0;
+      vertex[3].st[0]  = srcX0;
+      vertex[3].st[1]  = srcY1;
+
+      /* transform coords to rotated screen coords */
+      for (j = 0; j < 4; j++) {
+         matrix23TransformCoordf(&screen->rotMatrix,
+                                 &vertex[j].xyz[0], 
+				 &vertex[j].xyz[1]);
+      }
+
+
+      /* draw polygon to map source image to dest region */
+      intel_meta_draw_textured_quad(intel, vertex);
+
+   }                            /* cliprect loop */
+
+   intel_leave_meta_state(intel);
+   intel_batchbuffer_flush(intel->batch, GL_TRUE);
+
+   /* restore original drawing origin and cliprects */
+   intel->drawX = xOrig;
+   intel->drawY = yOrig;
+   intel->numClipRects = origNumClipRects;
+   intel->pClipRects = origRects;
+
+   UNLOCK_HARDWARE(intel);
 }
-#endif

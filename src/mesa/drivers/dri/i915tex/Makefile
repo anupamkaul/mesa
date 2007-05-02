@@ -18,7 +18,10 @@ DRIVER_SOURCES = \
 	draw/intel_prim_clip.c \
 	draw/intel_prim_unfilled.c \
 	intel_clears.c \
+	intel_swapbuffers.c \
 	intel_frame_tracker.c \
+	intel_rotate_utils.c \
+	intel_rotate.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \
@@ -63,7 +66,6 @@ DRIVER_SOURCES = \
 	intel_blit.c \
 	intel_context.c \
 	intel_ioctl.c \
-	intel_rotate.c \
 	intel_screen.c \
 	intel_span.c \
 	intel_state.c \

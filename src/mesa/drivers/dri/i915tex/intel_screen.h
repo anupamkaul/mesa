@@ -30,7 +30,7 @@
 
 #include <sys/time.h>
 #include "dri_util.h"
-#include "intel_rotate.h"
+#include "intel_rotate_utils.h"
 #include "i830_common.h"
 #include "xmlconfig.h"
 #include "dri_bufpool.h"
