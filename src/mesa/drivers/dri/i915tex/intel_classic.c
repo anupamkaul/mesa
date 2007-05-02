@@ -65,7 +65,7 @@ static void *classic_allocate_vertices( struct intel_render *render,
    if (!ptr) {
       render->flush( render, GL_FALSE );
 
-      /* Not really sure how this could fail: 
+      /* Not really sure how this could fail after the flush:
        */
       ptr = intel_vb_alloc_vertices( intel->vb, nr_vertices, &crc->offset );
       assert(ptr);
@@ -289,6 +289,7 @@ static void classic_flush( struct intel_render *render,
 
 
 static void classic_clear_rect( struct intel_render *render,
+				GLuint unused_mask,
 				GLuint x1, GLuint y1, 
 				GLuint x2, GLuint y2 )
 {

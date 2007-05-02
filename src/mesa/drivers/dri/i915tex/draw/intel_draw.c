@@ -381,10 +381,6 @@ void intel_draw_vb(struct intel_draw *draw,
       draw->in_frame = 1;
    }
    
-   /* Always have to do this:
-    */
-   VB->AttribPtr[VF_ATTRIB_POS] = VB->NdcPtr;
-
    /* Maybe build vertex headers: 
     */
    if (draw->prim_pipe_active) {

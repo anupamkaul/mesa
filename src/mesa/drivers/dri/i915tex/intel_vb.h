@@ -70,6 +70,7 @@ struct intel_vb {
 
       GLuint current_size;
       GLuint current_used;
+      GLuint current_block_start;
       void *current_ptr;
 
       GLuint wrap_vbo;
