@@ -289,6 +289,7 @@ static void classic_flush( struct intel_render *render,
 
 
 static void classic_clear_rect( struct intel_render *render,
+				GLuint unused_mask,
 				GLuint x1, GLuint y1, 
 				GLuint x2, GLuint y2 )
 {

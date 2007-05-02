@@ -89,6 +89,7 @@ intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
 
    intel_frame_note_clear( intel->ft );
    intel->render->clear_rect( intel->render, 
+			      mask,
 			      fb->_Xmin, fb->_Ymin,
 			      fb->_Xmax, fb->_Ymax );
 }

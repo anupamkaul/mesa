@@ -100,13 +100,15 @@ static GLboolean draw( GLcontext * ctx, struct tnl_pipeline_stage *stage )
    struct intel_context *intel = intel_context(ctx);
    struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
 
-   /* Update internal state which depends on vertex buffer contents: 
+   /* Always have to do this:
+    */
+   VB->AttribPtr[VF_ATTRIB_POS] = VB->NdcPtr;
+
+   /* Update internal state which depends on vertex buffer contents.
+    * XXX: will not catch any updates to VB->AttribPtr made in
+    * intel_draw_vb().
     */
    frag_attrib_size_check( intel, VB );
-
-   /* One of many places to note that we are drawing:
-    */
-   intel_frame_note_draw( intel->ft );
 
    /* Call into the new draw code to handle the VB:
     */

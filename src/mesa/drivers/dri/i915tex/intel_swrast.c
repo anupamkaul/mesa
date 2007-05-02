@@ -419,10 +419,11 @@ static void swrender_start_render( struct intel_render *render,
 }
 
 static void swrender_clear_rect( struct intel_render *render,
+				 GLuint mask,
 				 GLuint x1, GLuint y1, 
 				 GLuint x2, GLuint y2 )
 {
-   assert(0);			/* not done */
+   _swrast_Clear( &swrast_render(render)->intel->ctx, mask );
 }
 
 

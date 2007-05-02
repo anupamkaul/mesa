@@ -75,6 +75,7 @@ struct intel_render {
    /* Special primitive: 
     */
    void (*clear_rect)( struct intel_render *,
+		       GLuint mask,
 		       GLuint x1, GLuint y1, 
 		       GLuint x2, GLuint y2 );
 

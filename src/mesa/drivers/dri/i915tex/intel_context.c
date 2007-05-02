@@ -339,6 +339,10 @@ static void intelRunPipeline(GLcontext * ctx)
 {
    struct intel_context *intel = intel_context(ctx);
 
+   /* One of many places to note that we are drawing:
+    */
+   intel_frame_note_draw( intel->ft );
+
    _mesa_lock_context_textures(ctx);
    
    if (ctx->NewState)
