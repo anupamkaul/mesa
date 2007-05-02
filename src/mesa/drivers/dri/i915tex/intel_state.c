@@ -103,12 +103,11 @@ void intel_update_software_state( struct intel_context *intel )
 		atom->dirty.intel ||
 		atom->dirty.extra);
 	 assert(atom->update);
+	 assert(!intel->ctx.NewState);
 
 	 if (check_state(state, &atom->dirty)) {
 	    intel->driver_state.atoms[i]->update( intel );
 	 }
-
-	 accumulate_state(&examined, &atom->dirty);
 
 	 /* generated = (prev ^ state)
 	  * if (examined & generated)
@@ -117,6 +116,10 @@ void intel_update_software_state( struct intel_context *intel )
 	 xor_states(&generated, &prev, state);
 	 assert(!check_state(&examined, &generated));
 	 prev = *state;
+
+	 accumulate_state(&examined, &atom->dirty);
+
+	 assert(!intel->ctx.NewState);
       }
    }
    else {
