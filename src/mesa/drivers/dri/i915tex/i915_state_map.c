@@ -107,11 +107,6 @@ upload_maps( struct intel_context *intel )
 	 struct intel_texture_object *intelObj = intel_texture_object(tObj);
 	 struct gl_texture_image *firstImage;
 
-	 if (!intel_finalize_mipmap_tree(intel, i)) {
-	    /* XXX: TODO */
-/* 	    return GL_FALSE; */
-	    assert(0);
-	 }
 	    
 	 /* Reference new buffers
 	  */

@@ -74,6 +74,9 @@ static GLboolean do_check_fallback(struct intel_context *intel)
 	 struct gl_texture_image *texImage = intelObj->base.Image[0][intelObj->firstLevel];
 	 if (texImage->Border)
 	    return GL_TRUE;
+
+	 if (!intel_finalize_mipmap_tree(intel, i)) 
+	    return GL_TRUE;
       }
    }
    
