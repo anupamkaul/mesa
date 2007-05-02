@@ -51,6 +51,8 @@ typedef struct _DriBufferPool
                  struct _DriFenceObject * fence);
    drmBO *(*kernel) (struct _DriBufferPool * pool, void *private);
    int (*validate) (struct _DriBufferPool * pool, void *private);
+   int (*validateBuffer) (struct _DriBufferPool *pool, void *private, unsigned long flags,
+			  unsigned long mask, unsigned long hint);
    void *(*setstatic) (struct _DriBufferPool * pool, unsigned long offset,
                        unsigned long size, void *virtual, unsigned flags);
    int (*waitIdle) (struct _DriBufferPool *pool, void *private,
@@ -67,9 +69,6 @@ extern void bmError(int val, const char *file, const char *function,
     if (tstVal) 					       \
       bmError(tstVal, __FILE__, __FUNCTION__, __LINE__);       \
   } while(0);
-
-
-
 
 
 /*

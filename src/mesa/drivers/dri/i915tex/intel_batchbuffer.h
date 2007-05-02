@@ -30,7 +30,7 @@ struct intel_batchbuffer
    struct _DriFenceObject *last_fence;
    GLuint flags;
 
-   drmBOList list;
+   struct _DriBufferList *list;
    GLuint list_count;
    GLubyte *map;
    GLubyte *ptr;

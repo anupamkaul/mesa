@@ -90,7 +90,7 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
    batch->size =  batch->intel->intelScreen->maxBatchSize;
    driBOData(batch->buffer, batch->size, NULL, 0);
 
-   driBOResetList(&batch->list);
+   driBOResetList(batch->list);
 
    /*
     * Unreference buffers previously on the relocation list.
@@ -111,7 +111,7 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
     */
 
 
-   driBOAddListItem(&batch->list, batch->buffer,
+   driBOAddListItem(batch->list, batch->buffer,
                     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
                     DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE);
 
@@ -134,7 +134,7 @@ intel_batchbuffer_alloc(struct intel_context *intel)
                  &batch->buffer, 4096,
                  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE, 0);
    batch->last_fence = NULL;
-   driBOCreateList(20, &batch->list);
+   batch->list = driBOCreateList(20);
    intel_batchbuffer_reset(batch);
    return batch;
 }
@@ -153,6 +153,7 @@ intel_batchbuffer_free(struct intel_batchbuffer *batch)
       batch->map = NULL;
    }
    driBOUnReference(batch->buffer);
+   driBOFreeList(batch->list);
    batch->buffer = NULL;
    free(batch);
 }
@@ -170,7 +171,7 @@ do_flush_locked(struct intel_batchbuffer *batch,
    unsigned fenceFlags;
    struct _DriFenceObject *fo;
 
-   driBOValidateList(batch->intel->driFd, &batch->list);
+   driBOValidateList(batch->intel->driFd, batch->list);
 
    /* Apply the relocations.  This nasty map indicates to me that the
     * whole task should be done internally by the memory manager, and
@@ -313,7 +314,7 @@ intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
 {
    assert(batch->nr_relocs < MAX_RELOCS);
 
-   driBOAddListItem(&batch->list, buffer, flags, mask);
+   driBOAddListItem(batch->list, buffer, flags, mask);
 
    {
       struct buffer_reloc *r = &batch->reloc[batch->nr_relocs++];

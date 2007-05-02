@@ -96,7 +96,7 @@ createBPool(int fd, unsigned long bufSize, unsigned numBufs, unsigned flags,
    _glthread_INIT_MUTEX(p->mutex);
 
    if (drmBOCreate(fd, 0, numBufs * bufSize, 0, NULL, drm_bo_type_dc,
-                   flags, 0, &p->kernelBO)) {
+                   flags, DRM_BO_HINT_DONT_FENCE, &p->kernelBO)) {
       free(p->bufs);
       free(p);
       return NULL;
@@ -142,6 +142,8 @@ pool_checkFree(BPool * p, int wait)
 
    list = p->delayed.next;
 
+   /* Only examine the oldest 1/3 of delayed buffers:
+    */
    if (p->numDelayed > 3) {
       for (i = 0; i < p->numDelayed; i += 3) {
          list = list->next;
@@ -359,6 +361,34 @@ pool_validate(struct _DriBufferPool *pool, void *private)
    _glthread_UNLOCK_MUTEX(p->mutex);
    return 0;
 }
+
+static int 
+pool_validateBuffer(struct _DriBufferPool *pool, void *private, unsigned long flags,
+		    unsigned long mask, unsigned long hint) 
+{
+    BBuf *buf = (BBuf *) private;
+    BPool *p = buf->parent;
+    unsigned long flagChange;
+    drmBO *kernelBO;
+    int ret = 0;
+
+   _glthread_LOCK_MUTEX(p->mutex);
+    kernelBO = &p->kernelBO;
+    flagChange = (flags ^ kernelBO->flags) & mask;
+
+    if (flagChange & ~DRM_BO_FLAG_NO_MOVE) {
+	fprintf(stderr, "Not allowed to change batchpool flags.\n");
+	ret = -EINVAL;
+    } else if (flagChange & DRM_BO_FLAG_NO_MOVE) {
+	ret = drmBOValidate(pool->fd, kernelBO, flags, mask, hint);
+    }
+
+    buf->unfenced = !(hint & DRM_BO_HINT_DONT_FENCE);
+   _glthread_UNLOCK_MUTEX(p->mutex);
+
+    return ret;
+}
+
 
 static void
 pool_takedown(struct _DriBufferPool *pool)
