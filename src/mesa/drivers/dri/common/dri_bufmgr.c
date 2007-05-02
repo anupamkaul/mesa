@@ -466,6 +466,7 @@ driBOFreeList(struct _DriBufferList * list)
    _glthread_LOCK_MUTEX(bmMutex);
    drmBOFreeList(&list->drmBuffers);
    drmBOFreeList(&list->driBuffers);
+   free(list);
    _glthread_UNLOCK_MUTEX(bmMutex);
 }
 
