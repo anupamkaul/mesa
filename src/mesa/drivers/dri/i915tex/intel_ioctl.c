@@ -128,12 +128,13 @@ intel_batch_ioctl(struct intel_context *intel,
       hwz.arg.render.batch_start = start_offset;
       hwz.arg.render.DR1 = batch.DR1;
       hwz.arg.render.DR1 = batch.DR4;
-      hwz.arg.render.static_state_offset = state->offsets[0];
+      hwz.arg.render.static_state_offset =
+	 driBOOffset(intel->batch->state_buffer) + state->offsets[0];
       hwz.arg.render.static_state_size = state->sizes[0];
 
       do {
 	 ret = drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz, sizeof(hwz));
-      } while (ret == -EBUSY);
+      } while (ret == -EAGAIN);
    } else {
       batch.start = start_offset;
       batch.used = used;
