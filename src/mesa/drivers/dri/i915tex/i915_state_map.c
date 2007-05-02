@@ -155,7 +155,7 @@ upload_maps( struct intel_context *intel )
 
 	    packet_reloc( &packet,
 			  i915->state.tex_buffer[i],
-			  intel->batch->state_memflags,
+			  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_WRITE,
 			  DRM_BO_MASK_MEM | DRM_BO_FLAG_READ,
 			  i915->state.tex_offset[i] );
 

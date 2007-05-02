@@ -162,7 +162,7 @@ static void upload_static(struct intel_context *intel)
 		    BUF_3D_USE_FENCE);
 
       packet_reloc( &packet, color_region->buffer,
-		    intel->batch->state_memflags,
+		    DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_WRITE,
 		    DRM_BO_MASK_MEM | DRM_BO_FLAG_WRITE,
 		    color_region->draw_offset);
    }
@@ -175,7 +175,7 @@ static void upload_static(struct intel_context *intel)
 /* 		    BUF_3D_TILE_WALK_X | */
 		    BUF_3D_USE_FENCE );
       packet_reloc( &packet, depth_region->buffer,
-		    intel->batch->state_memflags,
+		    DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_WRITE,
 		    DRM_BO_MASK_MEM | DRM_BO_FLAG_WRITE,
 		    depth_region->draw_offset);
    }
