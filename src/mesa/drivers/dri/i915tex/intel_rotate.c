@@ -34,6 +34,7 @@
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
 #include "intel_frame_tracker.h"
+#include "intel_lock.h"
 
 #include "i915_context.h"
 #include "i915_reg.h"
@@ -78,6 +79,7 @@ intelRotateWindow(struct intel_context *intel,
    intelFlush(&intel->ctx);
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (!intel->numClipRects) {
       UNLOCK_HARDWARE(intel);

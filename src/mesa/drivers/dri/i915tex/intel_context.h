@@ -296,6 +296,9 @@ struct intel_context
    GLfloat polygon_offset_scale;        /* dependent on depth_scale, bpp */
 
    GLboolean locked;
+   GLboolean contended_lock;
+
+
    GLboolean hw_stencil;
 
    GLboolean strict_conformance;
@@ -347,10 +350,6 @@ struct intel_context
   int current_rotation;
 };
 
-/* These are functions now:
- */
-void LOCK_HARDWARE( struct intel_context *intel );
-void UNLOCK_HARDWARE( struct intel_context *intel );
 
 extern char *__progname;
 

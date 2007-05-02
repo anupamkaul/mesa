@@ -22,6 +22,7 @@ DRIVER_SOURCES = \
 	intel_frame_tracker.c \
 	intel_rotate_utils.c \
 	intel_rotate.c \
+	intel_lock.c \
 	i915_cache.c \
 	i915_context.c \
 	i915_differencer.c \

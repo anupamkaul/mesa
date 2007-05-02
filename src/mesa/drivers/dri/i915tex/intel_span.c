@@ -35,6 +35,7 @@
 #include "intel_span.h"
 #include "intel_regions.h"
 #include "intel_ioctl.h"
+#include "intel_lock.h"
 #include "intel_tex.h"
 
 #include "swrast/swrast.h"
@@ -320,6 +321,7 @@ intelSpanRenderStart(GLcontext * ctx)
 #endif
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
 #if 0
    /* Just map the framebuffer and all textures.  Bufmgr code will

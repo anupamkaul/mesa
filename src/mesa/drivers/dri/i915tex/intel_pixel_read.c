@@ -106,6 +106,7 @@ do_texture_readpixels(GLcontext * ctx,
    }
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (intel->driDrawable->numClipRects) {
       intel_install_meta_state(intel);
@@ -236,6 +237,7 @@ do_blit_readpixels(GLcontext * ctx,
     */
    intelFlush(&intel->ctx);
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (intel->driDrawable->numClipRects) {
       GLboolean all = (width * height * src->cpp == dst->Base.Size &&

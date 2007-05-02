@@ -41,6 +41,7 @@
 #include "intel_reg.h"
 #include "intel_metaops.h"
 #include "intel_state.h"
+#include "intel_lock.h"
 #include "context.h"
 #include "utils.h"
 #include "drirenderbuffer.h"
@@ -94,6 +95,7 @@ intelCopyBuffer(struct intel_context *intel,
     * should work regardless.
     */
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (dPriv->numClipRects) {
       struct intel_framebuffer *intel_fb = dPriv->driverPrivate;
@@ -187,6 +189,7 @@ intelPageFlip(struct intel_context *intel, const __DRIdrawablePrivate * dPriv)
    ret = 0;
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (dPriv->numClipRects && intel_fb->pf_active) {
       drm_i915_flip_t flip;
@@ -253,6 +256,7 @@ intelScheduleSwap(struct intel_context *intel,
    }
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    intel_batchbuffer_flush(intel->batch, GL_TRUE);
 

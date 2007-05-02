@@ -421,8 +421,11 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch,
    /* TODO: Just pass the relocation list and dma buffer up to the
     * kernel.
     */
-   if (!was_locked)
+   if (!was_locked) {
       LOCK_HARDWARE(intel);
+      if (batch->flags & INTEL_BATCH_CLIPRECTS)
+	 UPDATE_CLIPRECTS(intel);
+   }
 
    do_flush_locked(batch, used, !(batch->flags & INTEL_BATCH_CLIPRECTS),
 		   GL_FALSE);

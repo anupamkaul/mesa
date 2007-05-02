@@ -190,6 +190,7 @@ do_blit_bitmap( GLcontext *ctx,
       return GL_FALSE;
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (intel->driDrawable->numClipRects) {
       __DRIdrawablePrivate *dPriv = intel->driDrawable;
@@ -206,7 +207,7 @@ do_blit_bitmap( GLcontext *ctx,
 
       /* Do scissoring in GL coordinates:
        */
-x      if (ctx->Scissor.Enabled)
+      if (ctx->Scissor.Enabled)
       {
 	 GLint x = ctx->Scissor.X;
 	 GLint y = ctx->Scissor.Y;

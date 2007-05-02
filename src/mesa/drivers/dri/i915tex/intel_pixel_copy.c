@@ -189,6 +189,7 @@ do_texture_copypixels(GLcontext * ctx,
    intel_meta_texture_blend_replace(intel);
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (intel->driDrawable->numClipRects) {
       __DRIdrawablePrivate *dPriv = intel->driDrawable;
@@ -269,6 +270,7 @@ do_blit_copypixels(GLcontext * ctx,
    intelFlush(&intel->ctx);
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (intel->driDrawable->numClipRects) {
       __DRIdrawablePrivate *dPriv = intel->driDrawable;

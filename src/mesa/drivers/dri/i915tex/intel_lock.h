@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2006 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,32 +25,16 @@
  * 
  **************************************************************************/
 
-#ifndef INTEL_FRAME_TRACKER_H
-#define INTEL_FRAME_TRACKER_H
+#ifndef INTEL_LOCK_H
+#define INTEL_LOCK_H
 
-#include "imports.h"
+#include "mtypes.h"
 
-struct intel_context;
-struct intel_frame_tracker;
-
-struct intel_frame_tracker *intel_frame_tracker_create( struct intel_context * );
-void intel_frame_tracker_destroy( struct intel_frame_tracker * );
-
-
-GLboolean intel_frame_is_in_frame( struct intel_frame_tracker *ft );
-GLboolean intel_frame_predict_forced_flush( struct intel_frame_tracker *ft );
-GLboolean intel_frame_predict_window_rebind( struct intel_frame_tracker *ft );
-GLboolean intel_frame_predict_window_resize( struct intel_frame_tracker *ft );
-
-
-void intel_frame_note_flush( struct intel_frame_tracker *ft,
-			     GLboolean forced );
-void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft );
-void intel_frame_note_window_resize( struct intel_frame_tracker *ft );
-void intel_frame_note_window_rebind( struct intel_frame_tracker *ft );
-void intel_frame_note_clear( struct intel_frame_tracker *ft );
-void intel_frame_note_draw_start( struct intel_frame_tracker *ft );
-void intel_frame_note_draw_end( struct intel_frame_tracker *ft );
-
+/* These are functions now:
+ */
+void WAIT_VBLANK( struct intel_context *intel );
+void LOCK_HARDWARE( struct intel_context *intel );
+void UPDATE_CLIPRECTS(struct intel_context *intel); /* handle contended lock */
+void UNLOCK_HARDWARE( struct intel_context *intel );
 
 #endif

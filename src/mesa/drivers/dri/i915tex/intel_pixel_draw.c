@@ -137,6 +137,7 @@ do_texture_drawpixels(GLcontext * ctx,
 
 
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (intel->driDrawable->numClipRects) {
       __DRIdrawablePrivate *dPriv = intel->driDrawable;
@@ -293,6 +294,7 @@ do_blit_drawpixels(GLcontext * ctx,
 
    intelFlush(&intel->ctx);
    LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
 
    if (intel->driDrawable->numClipRects) {
       __DRIdrawablePrivate *dPriv = intel->driDrawable;

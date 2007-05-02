@@ -42,6 +42,8 @@ struct intel_frame_tracker
    struct intel_context *intel;
 
    GLboolean in_frame;
+   GLboolean in_draw;
+
    GLboolean single_buffered;
    GLboolean resize_flag;
    
@@ -93,7 +95,7 @@ static void finish_frame( struct intel_frame_tracker *ft )
    ft->in_frame = 0;
    ft->flush_prediction >>= 1;
 
-   if (ft->resize_flag) 
+   if (ft->resize_flag && !ft->in_draw) 
       emit_resize( ft );
 }
 
@@ -157,13 +159,25 @@ void intel_frame_note_window_rebind( struct intel_frame_tracker *ft )
    emit_resize(ft);
 }
 
-void intel_frame_note_draw( struct intel_frame_tracker *ft )
+void intel_frame_note_draw_start( struct intel_frame_tracker *ft )
 {
    DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
+   assert(!ft->in_draw);
+   ft->in_draw = 1;
    if (!ft->in_frame) {
       ft->draw_without_clears |= (1<<31);
       ft->in_frame = 1;
    }
+}
+
+void intel_frame_note_draw_end( struct intel_frame_tracker *ft )
+{
+   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
+   assert(ft->in_draw);
+   ft->in_draw = 0;
+
+   if (ft->resize_flag && !ft->in_frame) 
+      emit_resize( ft );
 }
 
 

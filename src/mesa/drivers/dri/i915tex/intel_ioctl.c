@@ -43,6 +43,7 @@
 #include "intel_blit.h"
 #include "intel_fbo.h"
 #include "intel_regions.h"
+#include "intel_lock.h"
 #include "drm.h"
 
 #define FILE_DEBUG_FLAG DEBUG_IOCTL
