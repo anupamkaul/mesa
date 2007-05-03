@@ -527,6 +527,7 @@ intelInitContext(struct intel_context *intel,
    intel->vb = intel_vb_init(intel);
    intel->ft = intel_frame_tracker_create( intel );
    intel->classic = intel_create_classic_render( intel );
+   intel->hwz = intel_create_hwz_render( intel );
    intel->swrender = intel_create_swrast_render( intel );
 
    {

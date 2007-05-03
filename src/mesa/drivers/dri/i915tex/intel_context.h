@@ -422,6 +422,12 @@ struct intel_render *intel_create_swrast_render( struct intel_context *intel );
  */
 struct intel_render *intel_create_classic_render( struct intel_context *intel );
 
+
+/*======================================================================
+ * intel_hwz.c 
+ */
+struct intel_render *intel_create_hwz_render( struct intel_context *intel );
+
 /*======================================================================
  * intel_clears.c 
  */

@@ -33,6 +33,7 @@
 #include "intel_context.h"
 #include "intel_buffer_objects.h"
 #include "intel_regions.h"
+#include "intel_lock.h"
 #include "dri_bufmgr.h"
 
 /**
