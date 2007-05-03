@@ -84,8 +84,12 @@ static GLuint i915_debug_packet(const GLuint *stream)
       switch ((cmd >> 23) & 0x3f) {
       case 0x0:
 	 return debug(stream, "MI_NOOP", 1);
+      case 0x3:
+	 return debug(stream, "MI_WAIT_FOR_EVENT", 1);
       case 0x4:
 	 return debug(stream, "MI_FLUSH", 1);
+      case 0xA:
+	 return debug(stream, "MI_BATCH_BUFFER_END", 1);
       default:
 	 return 0;
       }
