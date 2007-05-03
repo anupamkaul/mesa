@@ -36,6 +36,7 @@
 #include "intel_reg.h"
 #include "intel_buffers.h"
 #include "intel_state.h"
+#include "intel_state_inlines.h"
 #include "draw/intel_draw.h"
 
 
@@ -82,47 +83,6 @@ static void classic_release_vertices( struct intel_render *render,
 }
 
 
-static GLboolean validate_vertices( GLuint hw_prim, GLuint nr )
-{
-   GLboolean ok = GL_FALSE;
-   switch (hw_prim) {
-   case PRIM3D_POINTLIST:
-      ok = (nr >= 1);
-      assert(ok);
-      break;
-   case PRIM3D_LINELIST:
-      ok = (nr >= 2) && (nr % 2) == 0;
-      assert(ok);
-      break;
-   case PRIM3D_LINESTRIP:
-      ok = (nr >= 2);
-      assert(ok);
-      break;
-   case PRIM3D_TRILIST:
-      ok = (nr >= 3) && (nr % 3) == 0;
-      assert(ok);
-      break;
-   case PRIM3D_TRISTRIP:
-      ok = (nr >= 3);
-      assert(ok);
-      break;
-   case PRIM3D_TRIFAN:
-      ok = (nr >= 3);
-      assert(ok);
-      break;
-   case PRIM3D_POLY:
-      ok = (nr >= 3);
-      assert(ok);
-      break;
-   default:
-      assert(0);
-      ok = 0;
-      break;
-   }
-
-   return ok;
-}
-
 static void classic_draw_indexed_prim( struct intel_render *render,
 				       const GLuint *indices,
 				       GLuint nr )
@@ -132,7 +92,7 @@ static void classic_draw_indexed_prim( struct intel_render *render,
    const GLuint offset = crc->offset;
    GLuint j;
 
-   if (nr == 0 || !validate_vertices(crc->hw_prim, nr))
+   if (nr == 0 || !intel_validate_vertices(crc->hw_prim, nr))
       return; 
 
    assert(nr>0);
@@ -180,7 +140,7 @@ static void classic_draw_prim( struct intel_render *render,
 
 //   _mesa_printf("%s (%d) %d/%d\n", __FUNCTION__, crc->hw_prim, start, nr );
 
-   if (nr == 0 || !validate_vertices(crc->hw_prim, nr))
+   if (nr == 0 || !intel_validate_vertices(crc->hw_prim, nr))
       return; 
 
    intel_emit_hardware_state(intel, dwords);
@@ -328,8 +288,6 @@ struct intel_render *intel_create_classic_render( struct intel_context *intel )
 {
    struct classic_render *crc = CALLOC_STRUCT(classic_render);
 
-   /* XXX: Add casts here to avoid the compiler messages:
-    */
    crc->render.destroy = classic_destroy_context;
    crc->render.start_render = classic_start_render;
    crc->render.allocate_vertices = classic_allocate_vertices;

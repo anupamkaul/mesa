@@ -15,8 +15,9 @@ struct intel_context;
 
 #define MAX_RELOCS 400
 
-#define INTEL_BATCH_NO_CLIPRECTS 0x1
-#define INTEL_BATCH_CLIPRECTS    0x2
+#define INTEL_BATCH_NO_CLIPRECTS     0x1
+#define INTEL_BATCH_CLIPRECTS        0x2
+#define INTEL_BATCH_HWZ              0x4 
 
 struct buffer_reloc
 {

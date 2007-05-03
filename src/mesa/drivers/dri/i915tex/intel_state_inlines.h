@@ -162,4 +162,48 @@ intel_translate_logic_op(GLenum opcode)
    }
 }
 
+
+
+static INLINE GLboolean intel_validate_vertices( GLuint hw_prim, GLuint nr )
+{
+   GLboolean ok;
+
+   switch (hw_prim) {
+   case PRIM3D_POINTLIST:
+      ok = (nr >= 1);
+      assert(ok);
+      break;
+   case PRIM3D_LINELIST:
+      ok = (nr >= 2) && (nr % 2) == 0;
+      assert(ok);
+      break;
+   case PRIM3D_LINESTRIP:
+      ok = (nr >= 2);
+      assert(ok);
+      break;
+   case PRIM3D_TRILIST:
+      ok = (nr >= 3) && (nr % 3) == 0;
+      assert(ok);
+      break;
+   case PRIM3D_TRISTRIP:
+      ok = (nr >= 3);
+      assert(ok);
+      break;
+   case PRIM3D_TRIFAN:
+      ok = (nr >= 3);
+      assert(ok);
+      break;
+   case PRIM3D_POLY:
+      ok = (nr >= 3);
+      assert(ok);
+      break;
+   default:
+      assert(0);
+      ok = 0;
+      break;
+   }
+
+   return ok;
+}
+
 #endif

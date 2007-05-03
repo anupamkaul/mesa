@@ -35,6 +35,18 @@ int intelEmitIrqLocked(struct intel_context *intel);
 
 void intel_batch_ioctl(struct intel_context *intel,
                        GLuint start_offset,
-                       GLuint used,
-                       GLboolean ignore_cliprects, GLboolean allow_unlock);
+                       GLuint used );
+
+void intel_cliprect_batch_ioctl(struct intel_context *intel,
+				GLuint start_offset,
+				GLuint used );
+
+void intel_cliprect_hwz_ioctl(struct intel_context *intel,
+			      GLuint pf_current_page, /* make intel state? */
+			      GLuint start_offset,
+			      GLuint used,		
+			      GLuint static_state_offset,
+			      GLuint static_state_size );
+
+
 #endif

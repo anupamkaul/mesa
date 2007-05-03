@@ -42,6 +42,7 @@
 #include "intel_regions.h"
 #include "intel_pixel.h"
 #include "intel_buffer_objects.h"
+#include "intel_lock.h"
 
 /* For many applications, the new ability to pull the source buffers
  * back out of the GTT and then do the packing/conversion operations

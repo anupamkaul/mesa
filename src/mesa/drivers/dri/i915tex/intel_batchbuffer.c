@@ -32,6 +32,12 @@
 #include "intel_vb.h"
 #include "intel_reg.h"
 #include "intel_utils.h"
+#include "intel_lock.h"
+
+/* needed for hwz:
+ */
+#include "i915_context.h"
+
 
 /* Relocations in kernel space:
  *    - pass dma buffer seperately
@@ -265,9 +271,8 @@ intel_batchbuffer_free(struct intel_batchbuffer *batch)
 /* TODO: Push this whole function into bufmgr.
  */
 static void
-do_flush_locked(struct intel_batchbuffer *batch,
-                GLuint used,
-                GLboolean ignore_cliprects, GLboolean allow_unlock)
+do_flush_locked( struct intel_batchbuffer *batch,
+		 GLuint used )
 {
    GLuint *ptr, *batch_ptr, *state_ptr;
    GLuint i;
@@ -312,17 +317,35 @@ do_flush_locked(struct intel_batchbuffer *batch,
    driBOUnmap(batch->buffer);
    batch->state_map = batch->map = NULL;
 
+   if (batch->flags & INTEL_BATCH_CLIPRECTS) {
+      UPDATE_CLIPRECTS(intel);
 
-   /* Throw away non-effective packets.  Won't work once we have
-    * hardware contexts which would preserve statechanges beyond a
-    * single buffer.
-    */
+      if (intel->numClipRects) {
+	 if (batch->flags & INTEL_BATCH_HWZ) {
+	    struct i915_state *state = &i915_context( &intel->ctx )->current;
+	    struct intel_framebuffer *intel_fb =
+	       (struct intel_framebuffer *) intel->ctx.DrawBuffer;
 
-   if (!(intel->numClipRects == 0 && !ignore_cliprects)) {
+	    intel_cliprect_hwz_ioctl(batch->intel,
+				     intel_fb->pf_current_page,
+				     driBOOffset(batch->buffer),
+				     used,
+				     state->offsets[0],
+				     state->sizes[0]);
+	 }
+	 else {
+	    intel_cliprect_batch_ioctl(batch->intel,
+				       driBOOffset(batch->buffer),
+				       used);
+	 }
+      }
+   }
+   else {
       intel_batch_ioctl(batch->intel,
                         driBOOffset(batch->buffer),
-                        used, ignore_cliprects, allow_unlock);
+                        used);
    }
+
 
 
    /*
@@ -357,18 +380,6 @@ do_flush_locked(struct intel_batchbuffer *batch,
 	struct buffer_reloc *r = &batch->reloc[i];
 	driBOFence(r->buf, fo);
       }
-   }
-
-   if (intel->numClipRects == 0 && !ignore_cliprects) {
-      if (allow_unlock) {
-         UNLOCK_HARDWARE(intel);
-         sched_yield();
-         LOCK_HARDWARE(intel);
-      }
-      /* This sucks: 
-       */
-      intel->state.dirty.intel |= ~0;
-      intel->state.dirty.mesa |= ~0;
    }
 }
 
@@ -427,8 +438,7 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch,
 	 UPDATE_CLIPRECTS(intel);
    }
 
-   do_flush_locked(batch, used, !(batch->flags & INTEL_BATCH_CLIPRECTS),
-		   GL_FALSE);
+   do_flush_locked(batch, used);
 
    if (!was_locked)
       UNLOCK_HARDWARE(intel);

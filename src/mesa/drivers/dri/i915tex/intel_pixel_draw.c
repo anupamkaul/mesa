@@ -43,6 +43,7 @@
 #include "intel_pixel.h"
 #include "intel_buffer_objects.h"
 #include "intel_metaops.h"
+#include "intel_lock.h"
 
 
 

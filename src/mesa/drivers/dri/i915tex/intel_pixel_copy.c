@@ -42,6 +42,7 @@
 #include "intel_regions.h"
 #include "intel_pixel.h"
 #include "intel_metaops.h"
+#include "intel_lock.h"
 
 #define FILE_DEBUG_FLAG DEBUG_PIXEL
 

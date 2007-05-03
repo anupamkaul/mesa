@@ -31,18 +31,15 @@
 #include <errno.h>
 #include <sched.h>
 
-#include "mtypes.h"
-#include "context.h"
-#include "swrast/swrast.h"
-
-#include "i915_context.h"
+//#include "mtypes.h"
+//#include "context.h"
+//#include "swrast/swrast.h"
 
 #include "intel_context.h"
 #include "intel_ioctl.h"
-#include "intel_batchbuffer.h"
-#include "intel_blit.h"
-#include "intel_fbo.h"
-#include "intel_regions.h"
+//#include "intel_blit.h"
+//#include "intel_fbo.h"
+//#include "intel_regions.h"
 #include "intel_lock.h"
 #include "drm.h"
 
@@ -94,13 +91,10 @@ intelWaitIrq(struct intel_context *intel, int seq)
 
 
 void
-intel_batch_ioctl(struct intel_context *intel,
-                  GLuint start_offset,
-                  GLuint used,
-                  GLboolean ignore_cliprects, GLboolean allow_unlock)
+intel_batch_ioctl( struct intel_context *intel,
+		   GLuint start_offset,
+		   GLuint used )
 {
-   struct intel_framebuffer *intel_fb =
-      (struct intel_framebuffer*)intel->ctx.DrawBuffer;
    drmI830BatchBuffer batch;
 
    assert(intel->locked);
@@ -108,52 +102,100 @@ intel_batch_ioctl(struct intel_context *intel,
 
    DBG("%s used %d offset %x..%x ignore_cliprects %d\n",
        __FUNCTION__,
-       used, start_offset, start_offset + used, ignore_cliprects);
+       used, start_offset, start_offset + used);
 
-   /* Throw away non-effective packets.  Won't work once we have
-    * hardware contexts which would preserve statechanges beyond a
-    * single buffer.
+   batch.start = start_offset;
+   batch.used = used;
+   batch.cliprects = 0;
+   batch.num_cliprects = 0;
+   batch.DR1 = 0;
+   batch.DR4 = 0;
+
+   if (drmCommandWrite(intel->driFd, DRM_I830_BATCHBUFFER, &batch,
+		       sizeof(batch))) {
+      fprintf(stderr, "DRM_I830_BATCHBUFFER: %d\n", -errno);
+      UNLOCK_HARDWARE(intel);
+      exit(1);
+   }
+
+   /* FIXME: use hardware contexts to avoid 'losing' hardware after
+    * each buffer flush.
     */
+   intel_lost_hardware(intel);
+}
 
+
+
+
+void
+intel_cliprect_batch_ioctl(struct intel_context *intel,
+			   GLuint start_offset,
+			   GLuint used )
+{
+   drmI830BatchBuffer batch;
+   int ret;
+
+   assert(intel->locked);
+   assert(used);
+
+   DBG("%s used %d offset %x..%x cliprects %d\n",
+       __FUNCTION__,
+       used, start_offset, start_offset + used, intel->numClipRects);
+
+
+   batch.start = start_offset;
+   batch.used = used;
+   batch.cliprects = intel->pClipRects;
+   batch.num_cliprects = intel->numClipRects;
    batch.DR1 = 0;
    batch.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
 		(((GLuint) intel->drawY) << 16));
 
-   if (!ignore_cliprects && intel_fb->hwz) {
-      drm_i915_hwz_t hwz;
-      int ret;
-      struct i915_state *state = &i915_context( &intel->ctx )->current;
 
-      hwz.op = DRM_I915_HWZ_RENDER;
-      hwz.arg.render.bpl_num = intel_fb->pf_current_page;
-      hwz.arg.render.batch_start = start_offset;
-      hwz.arg.render.DR1 = batch.DR1;
-      hwz.arg.render.DR1 = batch.DR4;
-      hwz.arg.render.static_state_offset =
-	 driBOOffset(intel->batch->state_buffer) + state->offsets[0];
-      hwz.arg.render.static_state_size = state->sizes[0];
+   do {
+      ret = drmCommandWrite(intel->driFd, 
+			    DRM_I830_BATCHBUFFER, &batch,
+			    sizeof(batch));
+   } while (ret == -EAGAIN);
 
-      do {
-	 ret = drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz, sizeof(hwz));
-      } while (ret == -EAGAIN);
-   } else {
-      batch.start = start_offset;
-      batch.used = used;
-      batch.cliprects = intel->pClipRects;
-      batch.num_cliprects = ignore_cliprects ? 0 : intel->numClipRects;
+   /* FIXME: use hardware contexts to avoid 'losing' hardware after
+    * each buffer flush.
+    */
+   intel_lost_hardware(intel);
+}
 
-      DBG("%s: 0x%x..0x%x DR4: %x cliprects: %d\n",
-	  __FUNCTION__,
-	  batch.start,
-	  batch.start + batch.used * 4, batch.DR4, batch.num_cliprects);
 
-      if (drmCommandWrite(intel->driFd, DRM_I830_BATCHBUFFER, &batch,
-			  sizeof(batch))) {
-	 fprintf(stderr, "DRM_I830_BATCHBUFFER: %d\n", -errno);
-	 UNLOCK_HARDWARE(intel);
-	 exit(1);
-      }
-   }
+void
+intel_cliprect_hwz_ioctl(struct intel_context *intel,
+			 GLuint pf_current_page, 
+			 GLuint start_offset,
+			 GLuint used,
+			 GLuint state_offset,
+			 GLuint state_size )
+{
+   drm_i915_hwz_t hwz;
+   int ret;
+
+   assert(intel->locked);
+   assert(used);
+
+   DBG("%s used %d offset %x..%x nr_cliprects %d\n",
+       __FUNCTION__,
+       used, start_offset, start_offset + used, intel->numClipRects);
+
+
+   hwz.op = DRM_I915_HWZ_RENDER;
+   hwz.arg.render.bpl_num = pf_current_page;
+   hwz.arg.render.batch_start = start_offset;
+   hwz.arg.render.static_state_offset = state_offset;
+   hwz.arg.render.static_state_size = state_size;
+   hwz.arg.render.DR1 = 0;
+   hwz.arg.render.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
+			 (((GLuint) intel->drawY) << 16));
+
+   do {
+      ret = drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz, sizeof(hwz));
+   } while (ret == -EAGAIN);
 
    /* FIXME: use hardware contexts to avoid 'losing' hardware after
     * each buffer flush.
