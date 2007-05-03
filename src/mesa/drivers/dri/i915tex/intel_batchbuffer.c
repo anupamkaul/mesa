@@ -330,6 +330,7 @@ do_flush_locked( struct intel_batchbuffer *batch,
 				     intel_fb->pf_current_page,
 				     driBOOffset(batch->buffer),
 				     used,
+				     driBOOffset(batch->state_buffer) +
 				     state->offsets[0],
 				     state->sizes[0]);
 	 }
