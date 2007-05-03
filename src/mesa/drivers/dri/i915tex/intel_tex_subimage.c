@@ -34,6 +34,7 @@
 #include "intel_context.h"
 #include "intel_tex.h"
 #include "intel_mipmap_tree.h"
+#include "intel_lock.h"
 
 #define FILE_DEBUG_FLAG DEBUG_TEXTURE
 

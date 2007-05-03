@@ -158,7 +158,7 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 } while (0)
 
 #define OUT_BATCH_SEGMENT(seg, d) do {				\
-      if (0) _mesa_printf("OUT_BATCH(%d, 0x%08x) %s\n", seg, d, __FUNCTION__);  		\
+      if (1) _mesa_printf("OUT_BATCH(%d, 0x%08x) %s\n", seg, d, __FUNCTION__);  		\
       intel_batchbuffer_emit_dword(intel->batch, seg, d);	\
 } while (0)
 

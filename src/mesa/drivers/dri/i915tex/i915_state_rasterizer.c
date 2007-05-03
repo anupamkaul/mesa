@@ -32,21 +32,43 @@
  
 
 #include "intel_context.h"
+#include "intel_frame_tracker.h"
+#include "intel_fbo.h"
+
 #include "draw/intel_draw.h"
+
 #include "i915_context.h"
 
+
+static GLboolean check_hwz( struct intel_context *intel )
+{
+   /* _NEW_BUFFERS ???
+    */
+   struct intel_framebuffer *intel_fb =
+      (struct intel_framebuffer *) intel->state.DrawBuffer;
+
+   if (!intel_fb->hwz)
+      return GL_FALSE;
+
+   /* INTEL_NEW_FRAME
+    */
+/*    if (is_conventional_frame_start(intel->ft)) */
+      return GL_TRUE;
+}
 
 
 static void choose_rasterizer( struct intel_context *intel )
 {
    struct intel_render *render = NULL;
 
-   /* INTEL_NEW_FALLBACK, INTEL_NEW_ACTIVE_PRIMS
-    */
    if (intel->Fallback) {
+      /* INTEL_NEW_FALLBACK
+       */
       render = intel->swrender;
    }
    else if (intel->vb_state.active_prims & intel->fallback_prims) {
+      /* INTEL_NEW_VB_STATE, INTEL_NEW_FALLBACK_PRIMS
+       */
       if (0 & intel->vb_state.active_prims & ~intel->fallback_prims) {
 	 /* classic + swrast - not done yet */
 	 render = intel->mixed; 
@@ -55,10 +77,10 @@ static void choose_rasterizer( struct intel_context *intel )
 	 render = intel->swrender;
       }
    }
-#if 0
    else if (check_hwz( intel )) {
       render = intel->hwz;
    }
+#if 0
    else if (check_swz( intel )) {
       render = intel->swz;
    }
@@ -75,10 +97,12 @@ static void choose_rasterizer( struct intel_context *intel )
 
 const struct intel_tracked_state i915_choose_rasterizer = {
    .dirty = {
-      .mesa = (_NEW_LINE | _NEW_POINT),
+      .mesa = (_NEW_BUFFERS),
       .intel  = (INTEL_NEW_FALLBACK_PRIMS |
 		 INTEL_NEW_FALLBACK |
-		 INTEL_NEW_VB_STATE),
+		 INTEL_NEW_VB_STATE 
+/* 		 | INTEL_NEW_FRAME */
+	 ),
       .extra = 0
    },
    .update = choose_rasterizer
