@@ -382,8 +382,8 @@ static void replay_init( struct copy_context *copy )
       
 	 if (vbo->Name && !vbo->Pointer) 
 	    ctx->Driver.MapBuffer(ctx,
-				  GL_ARRAY_BUFFER_ARB, 
-				  GL_WRITE_ONLY, /* XXX */
+				  GL_ARRAY_BUFFER, 
+				  GL_READ_ONLY,
 				  vbo);
 
 	 copy->varying[j].src_ptr = ADD_POINTERS(vbo->Pointer,
@@ -399,8 +399,8 @@ static void replay_init( struct copy_context *copy )
     */
    if (copy->ib->obj->Name && !copy->ib->obj->Pointer) 
       ctx->Driver.MapBuffer(ctx, 
-			    GL_ARRAY_BUFFER_ARB, /* XXX */
-			    GL_WRITE_ONLY, /* XXX */
+			    GL_ELEMENT_ARRAY_BUFFER,
+			    GL_READ_ONLY,
 			    copy->ib->obj);
 
    srcptr = (const GLubyte *)ADD_POINTERS(copy->ib->obj->Pointer, copy->ib->ptr);

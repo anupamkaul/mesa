@@ -135,7 +135,7 @@ void vbo_rebase_prims( GLcontext *ctx,
       if (map_ib) 
 	 ctx->Driver.MapBuffer(ctx, 
 			       GL_ELEMENT_ARRAY_BUFFER,
-			       GL_READ_ONLY_ARB,
+			       GL_READ_ONLY,
 			       ib->obj);
 
 

@@ -196,10 +196,11 @@ static GLfloat *map_vertex_store( GLcontext *ctx, struct vbo_save_vertex_store *
 {
    assert(vertex_store->bufferobj);
    assert(!vertex_store->buffer);
-   vertex_store->buffer = (GLfloat *)ctx->Driver.MapBuffer(ctx, 
-							   GL_ARRAY_BUFFER_ARB,	/* not used */
-							   GL_WRITE_ONLY, /* not used */
-							   vertex_store->bufferobj); 
+   vertex_store->buffer = 
+      (GLfloat *)ctx->Driver.MapBuffer(ctx, 
+				       GL_ARRAY_BUFFER_ARB,	/* not used */
+				       GL_READ_WRITE,
+				       vertex_store->bufferobj); 
 
    assert(vertex_store->buffer);
    return vertex_store->buffer + vertex_store->used;

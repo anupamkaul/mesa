@@ -151,9 +151,9 @@ static void vbo_save_loopback_vertex_list( GLcontext *ctx,
 					   const struct vbo_save_vertex_list *list )
 {
    const char *buffer = ctx->Driver.MapBuffer(ctx, 
-					      GL_ARRAY_BUFFER_ARB, 
-					      GL_READ_ONLY, /* ? */
-					       list->vertex_store->bufferobj);
+					      GL_ARRAY_BUFFER, 
+					      GL_READ_ONLY,
+					      list->vertex_store->bufferobj);
 
    vbo_loopback_vertex_list( ctx,
 			     (const GLfloat *)(buffer + list->buffer_offset),
