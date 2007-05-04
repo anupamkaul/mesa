@@ -91,10 +91,13 @@ bmError(int val, const char *file, const char *function, int line)
 }
 
 DriFenceObject *
-driFenceBuffers(int fd, char *name, unsigned flags)
+driFenceBuffers(int fd, char *name, unsigned flags, 
+		struct _DriBufferList *list)
 {
    DriFenceObject *fence = (DriFenceObject *) malloc(sizeof(*fence));
    int ret;
+   void *curBuf;
+   struct _DriBufferObject *buf;
 
    if (!fence)
       BM_CKFATAL(-EINVAL);
@@ -105,11 +108,29 @@ driFenceBuffers(int fd, char *name, unsigned flags)
    fence->fd = fd;
    _glthread_INIT_MUTEX(fence->mutex);
    ret = drmFenceBuffers(fd, flags, &fence->fence);
-   _glthread_UNLOCK_MUTEX(bmMutex);
    if (ret) {
       free(fence);
       BM_CKFATAL(ret);
    }
+   _glthread_UNLOCK_MUTEX(bmMutex);
+
+   if (!list)
+       goto out;
+
+   curBuf = drmBOListIterator(&list->driBuffers);
+
+    /*
+     * User pool fencing. 
+     */
+
+   while (curBuf) {
+      buf = (struct _DriBufferObject *) drmBOListBuf(curBuf);
+      _glthread_LOCK_MUTEX(buf->mutex);
+      BM_CKFATAL(buf->pool->fence(buf->pool, buf->private, fence));
+      _glthread_UNLOCK_MUTEX(buf->mutex);
+      curBuf = drmBOListNext(&list->driBuffers, curBuf);
+   }
+ out:
    return fence;
 }
 
@@ -480,8 +501,9 @@ driBOAddListItem(struct _DriBufferList * list, struct _DriBufferObject *buf,
    _glthread_LOCK_MUTEX(bmMutex);
    BM_CKFATAL(drmAddValidateItem(&list->drmBuffers, driBOKernel(buf),
                                  flags, mask, &newItem));
-   BM_CKFATAL(drmAddValidateItem(&list->driBuffers, (drmBO *) buf,
-                                 flags, mask, &newItem));
+   if (buf->pool->validate)
+       BM_CKFATAL(drmAddValidateItem(&list->driBuffers, (drmBO *) buf,
+				     flags, mask, &newItem));
    _glthread_UNLOCK_MUTEX(bmMutex);
    _glthread_UNLOCK_MUTEX(buf->mutex);
 }
@@ -509,16 +531,17 @@ driBOValidateList(int fd, struct _DriBufferList * list)
      * User-space validation callbacks.
      */
 
-    while (!curBuf) {
+    while (curBuf) {
 	buf = (struct _DriBufferObject *) drmBOListBuf(curBuf);
 	if (buf->pool->validate) {
+	    _glthread_LOCK_MUTEX(buf->mutex);
 	    BM_CKFATAL(buf->pool->validate(buf->pool, buf->private));
+	    _glthread_UNLOCK_MUTEX(buf->mutex);
 	}
 	curBuf = drmBOListNext(&list->driBuffers, curBuf);
     }
     _glthread_UNLOCK_MUTEX(bmMutex);
 }
-
 
 int
 driBOValidate(int fd, 

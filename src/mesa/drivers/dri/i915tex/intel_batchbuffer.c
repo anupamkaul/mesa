@@ -212,13 +212,7 @@ do_flush_locked(struct intel_batchbuffer *batch,
    
    fenceFlags = DRM_I915_FENCE_FLAG_FLUSHED;
    fo = driFenceBuffers(batch->intel->driFd,
-			"Batch fence", fenceFlags);
-
-   /*
-    * User space fencing.
-    */
-
-   driBOFence(batch->buffer, fo);
+			"Batch fence", fenceFlags, batch->list);
 
    if (driFenceType(fo) == DRM_FENCE_TYPE_EXE) {
 
@@ -231,10 +225,6 @@ do_flush_locked(struct intel_batchbuffer *batch,
    } else {
       driFenceUnReference(batch->last_fence);
       batch->last_fence = fo;
-      for (i = 0; i < batch->nr_relocs; i++) {
-	struct buffer_reloc *r = &batch->reloc[i];
-	driBOFence(r->buf, fo);
-      }
    }
 
    if (intel->numClipRects == 0 && !ignore_cliprects) {

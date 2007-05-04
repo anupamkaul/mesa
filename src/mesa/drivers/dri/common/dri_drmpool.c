@@ -175,6 +175,7 @@ driDRMPoolInit(int fd)
    pool->setstatic = NULL;
    pool->waitIdle = &pool_waitIdle;
    pool->takeDown = &pool_takedown;
+   pool->validateBuffer = &pool_validateBuffer;
    pool->data = NULL;
    return pool;
 }

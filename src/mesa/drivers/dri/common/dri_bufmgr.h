@@ -41,7 +41,8 @@ struct _DriBufferPool;
 struct _DriBufferList;
 
 extern struct _DriFenceObject *driFenceBuffers(int fd, char *name,
-                                               unsigned flags);
+                                               unsigned flags,
+					       struct _DriBufferList * list);
 
 extern struct _DriFenceObject *driFenceReference(struct _DriFenceObject *fence);
 

@@ -50,6 +50,12 @@ typedef struct _DriBufferPool
    int (*fence) (struct _DriBufferPool * pool, void *private,
                  struct _DriFenceObject * fence);
    drmBO *(*kernel) (struct _DriBufferPool * pool, void *private);
+
+  /* 
+   * The presence of (non-null) this hook indicates that the pool
+   * needs user-space validation and fencing.
+   */
+
    int (*validate) (struct _DriBufferPool * pool, void *private);
    int (*validateBuffer) (struct _DriBufferPool *pool, void *private, unsigned long flags,
 			  unsigned long mask, unsigned long hint);
