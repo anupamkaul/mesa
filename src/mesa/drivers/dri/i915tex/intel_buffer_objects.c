@@ -200,6 +200,9 @@ intel_bufferobj_map(GLcontext * ctx,
    struct intel_context *intel = intel_context(ctx);
    struct intel_buffer_object *intel_obj = intel_buffer_object(obj);
 
+   GLuint flags;
+
+
    /* XXX: Translate access to flags arg below:
     */
    assert(intel_obj);
@@ -207,8 +210,22 @@ intel_bufferobj_map(GLcontext * ctx,
    if (intel_obj->region)
       intel_bufferobj_cow(intel, intel_obj);
 
-   obj->Pointer = driBOMap(intel_obj->buffer,
-                           DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 0);
+   switch (access) {
+   case GL_WRITE_ONLY:
+      flags = DRM_BO_FLAG_WRITE;
+      break;
+
+   case GL_READ_ONLY:
+      flags = DRM_BO_FLAG_READ;
+      break;
+
+   case GL_READ_WRITE:
+   default:
+      flags = DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE;
+      break;      
+   }
+
+   obj->Pointer = driBOMap(intel_obj->buffer, flags, 0);
    return obj->Pointer;
 }
 
