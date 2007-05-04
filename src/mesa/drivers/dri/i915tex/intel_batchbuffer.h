@@ -46,7 +46,7 @@ struct intel_batchbuffer
    GLuint state_memtype;
    GLuint state_memflags;
 
-   drmBOList list;
+   struct _DriBufferList *list;
    GLuint list_count;
    GLubyte *map;
    GLubyte *state_map;

@@ -38,9 +38,11 @@
 struct _DriFenceObject;
 struct _DriBufferObject;
 struct _DriBufferPool;
+struct _DriBufferList;
 
 extern struct _DriFenceObject *driFenceBuffers(int fd, char *name,
-                                               unsigned flags);
+                                               unsigned flags,
+					       struct _DriBufferList * list);
 
 extern struct _DriFenceObject *driFenceReference(struct _DriFenceObject *fence);
 
@@ -80,11 +82,17 @@ extern void driGenBuffers(struct _DriBufferPool *pool,
                           unsigned alignment, unsigned flags, unsigned hint);
 extern void driDeleteBuffers(unsigned n, struct _DriBufferObject *buffers[]);
 extern void driInitBufMgr(int fd);
-extern void driBOCreateList(int target, drmBOList * list);
-extern void driBOResetList(drmBOList * list);
-extern void driBOAddListItem(drmBOList * list, struct _DriBufferObject *buf,
+extern struct _DriBufferList *driBOCreateList(int target);
+extern void driBOResetList(struct _DriBufferList * list);
+extern void driBOAddListItem(struct _DriBufferList * list, 
+			     struct _DriBufferObject *buf,
                              unsigned flags, unsigned mask);
-extern void driBOValidateList(int fd, drmBOList * list);
+extern void driBOValidateList(int fd, struct _DriBufferList * list);
+extern void driBOFreeList(struct _DriBufferList * list);
+
+
+extern int driBOValidate(int fd, struct _DriBufferObject *buf, unsigned flags, 
+			 unsigned mask, unsigned hint);
 
 extern unsigned long driBOValidate(int fd, 
 				   struct _DriBufferObject *buf,

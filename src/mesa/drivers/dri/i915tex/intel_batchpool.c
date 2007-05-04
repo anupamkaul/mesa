@@ -362,6 +362,34 @@ pool_validate(struct _DriBufferPool *pool, void *private)
    return 0;
 }
 
+static int 
+pool_validateBuffer(struct _DriBufferPool *pool, void *private, unsigned long flags,
+		    unsigned long mask, unsigned long hint) 
+{
+    BBuf *buf = (BBuf *) private;
+    BPool *p = buf->parent;
+    unsigned long flagChange;
+    drmBO *kernelBO;
+    int ret = 0;
+
+   _glthread_LOCK_MUTEX(p->mutex);
+    kernelBO = &p->kernelBO;
+    flagChange = (flags ^ kernelBO->flags) & mask;
+
+    if (flagChange & ~DRM_BO_FLAG_NO_MOVE) {
+	fprintf(stderr, "Not allowed to change batchpool flags.\n");
+	ret = -EINVAL;
+    } else if (flagChange & DRM_BO_FLAG_NO_MOVE) {
+	ret = drmBOValidate(pool->fd, kernelBO, flags, mask, hint);
+    }
+
+    buf->unfenced = !(hint & DRM_BO_HINT_DONT_FENCE);
+   _glthread_UNLOCK_MUTEX(p->mutex);
+
+    return ret;
+}
+
+
 static void
 pool_takedown(struct _DriBufferPool *pool)
 {

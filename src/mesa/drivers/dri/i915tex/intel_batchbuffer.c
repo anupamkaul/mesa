@@ -146,7 +146,7 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
       driBOData(batch->state_buffer, 8192, NULL, 0);
    }
 
-   driBOResetList(&batch->list);
+   driBOResetList(batch->list);
 
    /*
     * Unreference buffers previously on the relocation list.
@@ -154,8 +154,7 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
 
    for (i = 0; i < batch->nr_relocs; i++) {
       struct buffer_reloc *r = &batch->reloc[i];
-      if (r->buf != batch->buffer && r->buf != batch->state_buffer)
-	 driBOUnReference(r->buf);
+      driBOUnReference(r->buf);
    }
 
    batch->list_count = 0;
@@ -168,7 +167,7 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
     */
 
 
-   driBOAddListItem(&batch->list, batch->buffer,
+   driBOAddListItem(batch->list, batch->buffer,
                     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
                     DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE);
 
@@ -176,7 +175,7 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
    batch->state_map = batch->map = driBOMap(batch->buffer, DRM_BO_FLAG_WRITE, 0);
 
    if (batch->state_buffer != batch->buffer) {
-      driBOAddListItem(&batch->list, batch->state_buffer,
+      driBOAddListItem(batch->list, batch->state_buffer,
 		       batch->state_memflags,
 		       DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE);
 
@@ -202,7 +201,7 @@ intel_batchbuffer_alloc(struct intel_context *intel)
                  &batch->buffer, 4096,
                  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE, 0);
    batch->last_fence = NULL;
-   driBOCreateList(20, &batch->list);
+   batch->list = driBOCreateList(20);
 
    if (intel->intelScreen->statePool /*drmMinor >= 10*/) {
       batch->state_memtype = 0 << 14;
@@ -255,16 +254,19 @@ intel_batchbuffer_free(struct intel_batchbuffer *batch)
    }
    if (batch->state_map && batch->state_map != batch->map) {
       driBOUnmap(batch->state_buffer);
+      batch->state_map = NULL;
    }
    if (batch->map) {
       driBOUnmap(batch->buffer);
+      batch->map = NULL;
    }
-   batch->state_map = batch->map = NULL;
    if (batch->state_buffer != batch->buffer) {
       driBOUnReference(batch->state_buffer);
    }
    driBOUnReference(batch->buffer);
-   batch->state_buffer = batch->buffer = NULL;
+   driBOFreeList(batch->list);
+   batch->state_buffer = NULL;
+   batch->buffer = NULL;
    free(batch);
 }
 
@@ -280,7 +282,7 @@ do_flush_locked( struct intel_batchbuffer *batch,
    unsigned fenceFlags;
    struct _DriFenceObject *fo;
 
-   driBOValidateList(batch->intel->driFd, &batch->list);
+   driBOValidateList(batch->intel->driFd, batch->list);
 
    /* Apply the relocations.  This nasty map indicates to me that the
     * whole task should be done internally by the memory manager, and
@@ -340,6 +342,9 @@ do_flush_locked( struct intel_batchbuffer *batch,
 				       used);
 	 }
       }
+      else {
+	 intel_lost_hardware( intel );
+      }
    }
    else {
       intel_batch_ioctl(batch->intel,
@@ -356,13 +361,7 @@ do_flush_locked( struct intel_batchbuffer *batch,
    
    fenceFlags = DRM_I915_FENCE_FLAG_FLUSHED;
    fo = driFenceBuffers(batch->intel->driFd,
-			"Batch fence", fenceFlags);
-
-   /*
-    * User space fencing.
-    */
-
-   driBOFence(batch->buffer, fo);
+			"Batch fence", fenceFlags, batch->list);
 
    if (driFenceType(fo) == DRM_FENCE_TYPE_EXE) {
 
@@ -374,13 +373,6 @@ do_flush_locked( struct intel_batchbuffer *batch,
    } else {
       driFenceUnReference(batch->last_fence);
       batch->last_fence = fo;
-      if (batch->state_buffer != batch->buffer) {
-	driBOFence(batch->state_buffer, fo);
-      }
-      for (i = 0; i < batch->nr_relocs; i++) {
-	struct buffer_reloc *r = &batch->reloc[i];
-	driBOFence(r->buf, fo);
-      }
    }
 }
 
@@ -481,15 +473,11 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
    assert(batch->nr_relocs < MAX_RELOCS);
    assert((offset & 3) == 0);
 
-   if (buffer != batch->buffer)
-      driBOAddListItem(&batch->list, buffer, flags, mask);
+   driBOAddListItem(batch->list, buffer, flags, mask);
 
    {
       struct buffer_reloc *r = &batch->reloc[batch->nr_relocs++];
-
-      if (buffer != batch->buffer && buffer != batch->state_buffer)
-	 driBOReference(buffer);
-
+      driBOReference(buffer);
       r->buf = buffer;
       r->offset = offset;
       r->delta = delta;
@@ -497,51 +485,6 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
    }
 
    return GL_TRUE;
-}
-
-
-static GLboolean 
-intel_batchbuffer_preloc(struct intel_batchbuffer *batch,
-			 GLuint segment, GLuint offset,
-			 struct _DriBufferObject *buffer,
-			 GLuint flags,
-			 GLuint mask,
-			 GLuint delta)
-{
-   unsigned result;
-
-//   assert( mask & flags & DRM_BO_FLAG_MEM_TT );
-   assert( mask & flags & DRM_BO_FLAG_NO_MOVE );
-	
-   /* This is a bit of a pain:
-    */
-   LOCK_HARDWARE(batch->intel);
-
-   /* Will this work if buffer == batch->buffer?
-    */
-   result = driBOValidate(batch->intel->driFd,
-			  buffer, 
-			  flags,
-			  mask,
-			  DRM_BO_HINT_DONT_FENCE);
-
-   
-
-   if (buffer != batch->buffer && buffer != batch->state_buffer) {
-      driBOAddListItem(&batch->list, 
-		       buffer, 
-		       flags & ~DRM_BO_FLAG_NO_MOVE, 
-		       mask );
-   }
-
-   *(unsigned *)((segment ? batch->state_map : batch->map) + offset) = result;
-
-   _mesa_printf("%s %x\n", __FUNCTION__, result);
-
-   UNLOCK_HARDWARE(batch->intel);
-
-
-   return result != 0;
 }
 
 
@@ -553,16 +496,9 @@ intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
 {
    GLboolean success;
 
-   if (mask & flags & DRM_BO_FLAG_NO_MOVE) {
-      success = intel_batchbuffer_preloc( batch, segment,
+   success = intel_batchbuffer_set_reloc( batch, segment,
 					  batch->segment_finish_offset[segment],
 					  buffer, flags, mask, delta );
-   }
-   else {
-      success = intel_batchbuffer_set_reloc( batch, segment,
-					     batch->segment_finish_offset[segment],
-					     buffer, flags, mask, delta );
-   }
 
    assert(success);
    batch->segment_finish_offset[segment] += 4;

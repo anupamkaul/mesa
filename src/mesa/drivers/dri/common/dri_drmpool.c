@@ -137,13 +137,19 @@ pool_waitIdle(struct _DriBufferPool *pool, void *private, int lazy)
    return drmBOWaitIdle(pool->fd, buf, (lazy) ? DRM_BO_HINT_WAIT_LAZY:0);
 }
 
-    
+static int 
+pool_validateBuffer(struct _DriBufferPool *pool, void *private, unsigned long flags,
+		    unsigned long mask, unsigned long hint) 
+{
+    drmBO *buf = (drmBO *) private;
+    return drmBOValidate(pool->fd, buf, flags, mask, hint);
+}
+   
 static void
 pool_takedown(struct _DriBufferPool *pool)
 {
    free(pool);
 }
-
 
 struct _DriBufferPool *
 driDRMPoolInit(int fd)
@@ -169,6 +175,7 @@ driDRMPoolInit(int fd)
    pool->setstatic = NULL;
    pool->waitIdle = &pool_waitIdle;
    pool->takeDown = &pool_takedown;
+   pool->validateBuffer = &pool_validateBuffer;
    pool->data = NULL;
    return pool;
 }
@@ -222,6 +229,7 @@ driDRMStaticPoolInit(int fd)
    pool->setstatic = &pool_setstatic;
    pool->waitIdle = &pool_waitIdle;
    pool->takeDown = &pool_takedown;
+   pool->validateBuffer = NULL;
    pool->data = NULL;
    return pool;
 }

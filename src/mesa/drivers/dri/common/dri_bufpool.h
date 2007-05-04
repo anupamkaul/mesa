@@ -50,7 +50,15 @@ typedef struct _DriBufferPool
    int (*fence) (struct _DriBufferPool * pool, void *private,
                  struct _DriFenceObject * fence);
    drmBO *(*kernel) (struct _DriBufferPool * pool, void *private);
+
+  /* 
+   * The presence of (non-null) this hook indicates that the pool
+   * needs user-space validation and fencing.
+   */
+
    int (*validate) (struct _DriBufferPool * pool, void *private);
+   int (*validateBuffer) (struct _DriBufferPool *pool, void *private, unsigned long flags,
+			  unsigned long mask, unsigned long hint);
    void *(*setstatic) (struct _DriBufferPool * pool, unsigned long offset,
                        unsigned long size, void *virtual, unsigned flags);
    int (*waitIdle) (struct _DriBufferPool *pool, void *private,
@@ -67,9 +75,6 @@ extern void bmError(int val, const char *file, const char *function,
     if (tstVal) 					       \
       bmError(tstVal, __FILE__, __FUNCTION__, __LINE__);       \
   } while(0);
-
-
-
 
 
 /*
