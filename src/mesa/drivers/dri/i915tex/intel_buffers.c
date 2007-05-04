@@ -334,7 +334,8 @@ intelWindowMoved(struct intel_context *intel)
       }
 
       /* Attempt to allocate HWZ context */
-      if (intel->intelScreen->statePool) {
+      if (intel->intelScreen->statePool &&
+	  _mesa_getenv("INTEL_HWZ")) {
 	 drm_i915_hwz_t hwz;
 
 	 hwz.op = DRM_I915_HWZ_ALLOC;
