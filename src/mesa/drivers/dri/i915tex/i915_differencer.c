@@ -304,7 +304,8 @@ void i915_emit_hardware_state_ptr( struct intel_context *intel,
 
 
 GLuint *i915_emit_hardware_state( struct intel_context *intel,
-			       GLuint dwords )
+				  GLuint dwords,
+				  GLuint batchflags )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
 
@@ -321,7 +322,7 @@ GLuint *i915_emit_hardware_state( struct intel_context *intel,
    intel_batchbuffer_require_space( intel->batch,
 				    0,
 				    size_bytes, 
-				    0 );
+				    batchflags );
 
    {
       GLuint *ptr = (GLuint *) (intel->batch->map + 

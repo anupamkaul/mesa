@@ -225,7 +225,8 @@ struct intel_context
 				struct intel_hw_dirty flags );
 
       GLuint *(*emit_hardware_state) (struct intel_context *intel,
-				      GLuint dwords);
+				      GLuint dwords, 
+				      GLuint batchflags );
 
       GLboolean (*check_indirect_space) (struct intel_context *intel);
 

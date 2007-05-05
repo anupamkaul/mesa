@@ -106,8 +106,8 @@ static void emit_dynamic_indirect( struct intel_context *intel)
    if (!dirty) 
       return;
 
-   memcpy(i915->dynamic.current, 
-	  i915->dynamic.hardware,
+   memcpy(i915->dynamic.hardware, 
+	  i915->dynamic.current,
 	  sizeof(i915->dynamic.hardware));
 
    /* Check if we cross a 4k boundary and if so allocate a new page
@@ -120,9 +120,6 @@ static void emit_dynamic_indirect( struct intel_context *intel)
       i915_dynamic_next_page( i915 );
    } 
 
-
-   i915->current.offsets[I915_CACHE_DYNAMIC] = intel->batch->segment_finish_offset[SEGMENT_DYNAMIC_INDIRECT];
-   i915->hardware_dirty |= I915_HW_INDIRECT;
 
    /* Finally emit the state: 
     */
@@ -137,6 +134,12 @@ static void emit_dynamic_indirect( struct intel_context *intel)
       i915->dynamic.ptr += j;
       intel->batch->segment_finish_offset[SEGMENT_DYNAMIC_INDIRECT] += j * sizeof(GLuint);
    }
+
+   i915->current.offsets[I915_CACHE_DYNAMIC] = 
+      intel->batch->segment_finish_offset[SEGMENT_DYNAMIC_INDIRECT];
+   i915->current.sizes[I915_CACHE_DYNAMIC] = 1; /* any non-zero value */
+   
+   i915->hardware_dirty |= I915_HW_INDIRECT;
 }
 
 

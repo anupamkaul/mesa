@@ -109,7 +109,7 @@ static void hwz_draw_indexed_prim( struct intel_render *render,
     * commands.
     */
    GLuint dwords = 1 + (nr+1)/2;
-   GLuint *ptr = intel_emit_hardware_state(intel, dwords);
+   GLuint *ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
 
    *ptr++ = ( _3DPRIMITIVE | 
 	      hwz->hw_prim | 
@@ -143,7 +143,7 @@ static void hwz_draw_prim( struct intel_render *render,
    if (nr == 0 || !intel_validate_vertices(hwz->hw_prim, nr))
       return; 
 
-   ptr = intel_emit_hardware_state(intel, dwords);
+   ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
 
    ptr[0] = ( _3DPRIMITIVE | 
 	      hwz->hw_prim | 
@@ -283,7 +283,7 @@ static void hwz_clear_rect( struct intel_render *render,
 #define PRIM3D_CLEAR_RECT	(0xa<<18)
 #define PRIM3D_ZONE_INIT	(0xd<<18)
 
-   union fi *ptr = (union fi *)intel_emit_hardware_state(intel, 7);
+   union fi *ptr = (union fi *)intel_emit_hardware_state(intel, 7, INTEL_BATCH_HWZ);
 
    if (1) {
       ptr[0].i = (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);

@@ -110,7 +110,7 @@ static void classic_draw_indexed_prim( struct intel_render *render,
     * commands.
     */
    GLuint dwords = 1 + (nr+1)/2;
-   GLuint *ptr = intel_emit_hardware_state(intel, dwords);
+   GLuint *ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_CLIPRECTS);
 
    *ptr++ = ( _3DPRIMITIVE | 
 	      crc->hw_prim | 
@@ -144,7 +144,7 @@ static void classic_draw_prim( struct intel_render *render,
    if (nr == 0 || !intel_validate_vertices(crc->hw_prim, nr))
       return; 
 
-   ptr = intel_emit_hardware_state(intel, dwords);
+   ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_CLIPRECTS);
 
    ptr[0] = ( _3DPRIMITIVE | 
 	      crc->hw_prim | 
@@ -234,6 +234,14 @@ static void classic_start_render( struct intel_render *render,
     */
    if (start_of_frame)
       intel_wait_flips(crc->intel, 0);
+
+   /* Flush any non-cliprect batch now:
+    */
+   intel_batchbuffer_require_space( crc->intel->batch, 0, 
+				    SEGMENT_IMMEDIATE,
+				    INTEL_BATCH_CLIPRECTS );
+
+   intel_update_software_state( crc->intel );
 }
 
 
@@ -261,7 +269,8 @@ static void classic_clear_rect( struct intel_render *render,
     */
 #define PRIM3D_CLEAR_RECT	(0xa<<18)
 
-   union fi *ptr = (union fi *)intel_emit_hardware_state(intel, 7);
+   union fi *ptr = (union fi *)intel_emit_hardware_state(intel, 7, 
+							 INTEL_BATCH_CLIPRECTS);
 
    ptr[0].i = (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
    ptr[1].f = x2;

@@ -142,10 +142,11 @@ void intel_update_software_state( struct intel_context *intel )
  * isosurf crash also.
  */
 GLuint *intel_emit_hardware_state( struct intel_context *intel,
-				   GLuint dwords )
+				   GLuint dwords,
+				   GLuint batchflags )
 {
    assert(intel->state.dirty.intel == 0);
-   return intel->vtbl.emit_hardware_state( intel, dwords );
+   return intel->vtbl.emit_hardware_state( intel, dwords, batchflags );
 }
 
 
