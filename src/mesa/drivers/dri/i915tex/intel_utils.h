@@ -34,4 +34,10 @@ __memcpy(void *to, const void *from, size_t n)
 #endif
 
 
+
+static INLINE GLuint page_space( void *ptr )
+{
+   return 4096 - (((unsigned long)ptr) & (4096-1));
+}
+
 #endif

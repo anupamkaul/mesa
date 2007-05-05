@@ -148,35 +148,35 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 /* Here are the crusty old macros, to be removed:
  */
 #define BATCH_LOCALS
-
+#define BATCH_DBG 0
 
 /* Hack for indirect emit:
  */
 #define BEGIN_BATCH_SEGMENT(seg, n, flags) do {				\
    intel_batchbuffer_require_space(intel->batch, seg, (n)*4, flags);	\
-   if (1) _mesa_printf("BEGIN_BATCH(%d,%d,%d) in %s\n", seg, n, flags, __FUNCTION__); \
+   if (BATCH_DBG) _mesa_printf("BEGIN_BATCH(%d,%d,%d) in %s\n", seg, n, flags, __FUNCTION__); \
 } while (0)
 
 #define OUT_BATCH_SEGMENT(seg, d) do {				\
-      if (1) _mesa_printf("OUT_BATCH(%d, 0x%08x) %s\n", seg, d, __FUNCTION__);  		\
+      if (BATCH_DBG) _mesa_printf("OUT_BATCH(%d, 0x%08x) %s\n", seg, d, __FUNCTION__);  		\
       intel_batchbuffer_emit_dword(intel->batch, seg, d);	\
 } while (0)
 
 #define OUT_BATCH_F_SEGMENT(seg, fl) do {			\
    fi_type fi;					\
    fi.f = fl;					\
-   if (1) _mesa_printf("OUT_BATCH_F(%d, %f) %s\n", seg, fi.f, __FUNCTION__);  \
+   if (BATCH_DBG) _mesa_printf("OUT_BATCH_F(%d, %f) %s\n", seg, fi.f, __FUNCTION__);  \
    intel_batchbuffer_emit_dword(intel->batch, seg, fi.i);	\
 } while (0)
 
 #define OUT_RELOC_SEGMENT(seg, buf,flags,mask,delta) do {				\
    assert((delta) >= 0);						\
-   if (1) _mesa_printf("OUT_RELOC( seg %d buf %p offset %x ) %s\n", seg, buf, delta, __FUNCTION__);		\
+   if (BATCH_DBG) _mesa_printf("OUT_RELOC( seg %d buf %p offset %x ) %s\n", seg, buf, delta, __FUNCTION__);		\
    intel_batchbuffer_emit_reloc(intel->batch, seg, buf, flags, mask, delta);	\
 } while (0)
 
 #define ADVANCE_BATCH_SEGMENT(seg) do { \
-   if (1) _mesa_printf("ADVANCE_BATCH()\n");		\
+   if (BATCH_DBG) _mesa_printf("ADVANCE_BATCH()\n");		\
 } while(0)
 
 

@@ -52,33 +52,35 @@ static void emit_immediates( struct intel_context *intel,
 			     const struct i915_state *to,
 			     GLuint dirty )
 {
-   GLuint nr = count_bits(dirty);
-   GLuint i;
+   if (dirty) {
+      GLuint nr = count_bits(dirty);
+      GLuint i;
 
-   BEGIN_BATCH( nr + 1, 0 );
-   OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
-	     (dirty << 4) |
-	     (nr - 1));
+      BEGIN_BATCH( nr + 1, 0 );
+      OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
+		(dirty << 4) |
+		(nr - 1));
 	 
-   if (dirty & (1<<0)) {
+      if (dirty & (1<<0)) {
 	 
-      /* Prelocate with the NO_MOVE flag:
-       */
-      GLuint no_move = 0; // DRM_BO_FLAG_NO_MOVE;
+	 /* Prelocate with the NO_MOVE flag:
+	  */
+	 GLuint no_move = 0; // DRM_BO_FLAG_NO_MOVE;
 
-      OUT_RELOC(to->vbo,
-		DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | no_move,
-		DRM_BO_MASK_MEM | DRM_BO_FLAG_READ | no_move,
-		to->immediate[0]);
-   }
-
-   for (i = 1; i < I915_MAX_IMMEDIATE; i++) {
-      if (dirty & (1<<i)) {
-	 OUT_BATCH( to->immediate[i] );
+	 OUT_RELOC(to->vbo,
+		   DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | no_move,
+		   DRM_BO_MASK_MEM | DRM_BO_FLAG_READ | no_move,
+		   to->immediate[0]);
       }
-   }
+
+      for (i = 1; i < I915_MAX_IMMEDIATE; i++) {
+	 if (dirty & (1<<i)) {
+	    OUT_BATCH( to->immediate[i] );
+	 }
+      }
 	 
-   ADVANCE_BATCH();
+      ADVANCE_BATCH();
+   }
 }
 
 
@@ -92,38 +94,40 @@ static void emit_indirect( struct intel_context *intel,
 			   GLuint dirty,
 			   GLboolean force_load )
 {
-   GLuint nr = count_bits(dirty);
-   GLuint size = nr * 2 + 1;
-   GLuint flag = 0;
-   GLuint i;
+   if (dirty) {
+      GLuint nr = count_bits(dirty);
+      GLuint size = nr * 2 + 1;
+      GLuint flag = 0;
+      GLuint i;
 
-   if (force_load)
-      flag = SIS0_FORCE_LOAD;
+      if (force_load)
+	 flag = SIS0_FORCE_LOAD;
 
-   /* No state size dword for dynamic state:
-    */
-   if (dirty & (1<<I915_CACHE_DYNAMIC))
-      size -= 1;
+      /* No state size dword for dynamic state:
+       */
+      if (dirty & (1<<I915_CACHE_DYNAMIC))
+	 size -= 1;
 
-   BEGIN_BATCH(size,0);
-   OUT_BATCH( _3DSTATE_LOAD_INDIRECT | (dirty<<8) |
-	      intel->batch->state_memtype | (size - 2));
+      BEGIN_BATCH(size,0);
+      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | (dirty<<8) |
+		 intel->batch->state_memtype | (size - 2));
 
-   for (i = 0; i < I915_MAX_CACHE; i++) {
-      if (dirty & (1<<i)) {
-	 OUT_RELOC( intel->batch->state_buffer, 
-		    intel->batch->state_memflags,
-		    DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
-		    ( state->offsets[i] | flag | SIS0_BUFFER_VALID ) );
+      for (i = 0; i < I915_MAX_CACHE; i++) {
+	 if (dirty & (1<<i)) {
+	    OUT_RELOC( intel->batch->state_buffer, 
+		       intel->batch->state_memflags,
+		       DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
+		       ( state->offsets[i] | flag | SIS0_BUFFER_VALID ) );
 
-	 /* No state size dword for dynamic state:
-	  */
-	 if (i != I915_CACHE_DYNAMIC)
-	    OUT_BATCH( state->sizes[i]-1 );
+	    /* No state size dword for dynamic state:
+	     */
+	    if (i != I915_CACHE_DYNAMIC)
+	       OUT_BATCH( state->sizes[i]-1 );
+	 }
       }
-   }
 
-   ADVANCE_BATCH();
+      ADVANCE_BATCH();
+   }
 }
 
 

@@ -34,6 +34,7 @@
 #include "intel_batchbuffer.h"
 #include "intel_regions.h"
 #include "intel_state_inlines.h"
+#include "intel_utils.h"
 
 #include "i915_context.h"
 #include "i915_reg.h"
@@ -76,22 +77,16 @@ static void i915_dynamic_next_page( struct i915_context *i915 )
    /* XXX: FIX ME
     */
    assert(start + 4096 <= intel->batch->segment_max_offset[SEGMENT_DYNAMIC_INDIRECT]);
-   intel->batch->segment_finish_offset[SEGMENT_DYNAMIC_INDIRECT] = start + 4096;
+   intel->batch->segment_finish_offset[SEGMENT_DYNAMIC_INDIRECT] = start;
 
    i915->dynamic.ptr = (GLuint *)(intel->batch->state_map + start);
-   i915->dynamic.offset = start;   
 }
 
-static INLINE GLuint page_space( void *ptr )
-{
-   return 4096 - (((unsigned long)ptr) & (4096-1));
-}
 
 void i915_dynamic_lost_hardware( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context(&intel->ctx);
    i915->dynamic.ptr = (GLuint *)4096-1;
-   i915->dynamic.offset = 0;
 }
 
 static void emit_dynamic_indirect( struct intel_context *intel)
@@ -126,8 +121,7 @@ static void emit_dynamic_indirect( struct intel_context *intel)
    } 
 
 
-   i915->current.offsets[I915_CACHE_DYNAMIC] = i915->dynamic.offset;
-   i915->current.sizes[I915_CACHE_DYNAMIC] = 1;
+   i915->current.offsets[I915_CACHE_DYNAMIC] = intel->batch->segment_finish_offset[SEGMENT_DYNAMIC_INDIRECT];
    i915->hardware_dirty |= I915_HW_INDIRECT;
 
    /* Finally emit the state: 
@@ -141,7 +135,7 @@ static void emit_dynamic_indirect( struct intel_context *intel)
       }
 
       i915->dynamic.ptr += j;
-      i915->dynamic.offset += j * sizeof(GLuint);
+      intel->batch->segment_finish_offset[SEGMENT_DYNAMIC_INDIRECT] += j * sizeof(GLuint);
    }
 }
 

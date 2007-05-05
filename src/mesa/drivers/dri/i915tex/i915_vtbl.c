@@ -36,6 +36,7 @@
 #include "intel_batchbuffer.h"
 #include "intel_tex.h"
 #include "intel_regions.h"
+#include "intel_utils.h"
 
 #include "i915_reg.h"
 #include "i915_context.h"
@@ -246,6 +247,7 @@ static GLboolean i915_check_indirect_space( struct intel_context *intel )
    GLuint dynamic_space = 
       intel_batchbuffer_space( intel->batch, 
 			       SEGMENT_DYNAMIC_INDIRECT);
+
    GLuint cache_space = 
       intel_batchbuffer_space( intel->batch, 
 			       SEGMENT_OTHER_INDIRECT);
