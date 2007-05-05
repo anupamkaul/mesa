@@ -40,12 +40,12 @@
 #define I915_NEW_VERTEX_FORMAT             (INTEL_NEW_DRIVER0<<1)
 #define I915_NEW_POLY_STIPPLE_FALLBACK     (INTEL_NEW_DRIVER0<<2)
 #define I915_NEW_LOST_CACHE                (INTEL_NEW_DRIVER0<<3)
+#define I915_NEW_DYNAMIC_INDIRECT          (INTEL_NEW_DRIVER0<<4)
 
 /* Dirty flags for hardware emit
  */
-#define I915_HW_DYNAMIC_INDIRECT  (1<<0)
-#define I915_HW_CACHED_INDIRECT   (1<<1)
-#define I915_HW_IMMEDIATE         (1<<2)
+#define I915_HW_INDIRECT          (1<<0)
+#define I915_HW_IMMEDIATE         (1<<1)
 
 
 
@@ -115,7 +115,7 @@ struct i915_fragment_program
  * to generate hardware packets:
  */
 #define I915_CACHE_STATIC         0 
-#define I915_CACHE_ZERO           1 /* placeholder */
+#define I915_CACHE_DYNAMIC        1 /* handled specially */
 #define I915_CACHE_SAMPLER        2
 #define I915_CACHE_MAP            3
 #define I915_CACHE_PROGRAM        4
@@ -131,8 +131,6 @@ struct i915_cache_context;
 struct i915_state 
 {
    GLuint immediate[I915_MAX_IMMEDIATE];
-   GLuint dynamic[I915_MAX_DYNAMIC];
-
    GLuint offsets[I915_MAX_CACHE];
    GLuint sizes[I915_MAX_CACHE];
 
@@ -163,6 +161,16 @@ struct i915_context
       struct _DriBufferObject *tex_buffer[I915_TEX_UNITS];
       GLuint tex_offset[I915_TEX_UNITS];
    } state;
+
+
+   struct {
+      GLuint hardware[I915_MAX_DYNAMIC];
+      GLuint current[I915_MAX_DYNAMIC];
+      
+      GLuint *ptr;
+      GLuint offset;
+   } dynamic;
+
 
    struct {
       struct intel_tracked_state tracked_state;

@@ -137,6 +137,8 @@ i915CreateContext(const __GLcontextModes *mesaVis,
    _tnl_allow_vertex_fog( ctx, 0 );
    _tnl_allow_pixel_fog( ctx, 1 );
 
+   i915_dynamic_lost_hardware( &i915->intel );
+
    return GL_TRUE;
 
  bad:

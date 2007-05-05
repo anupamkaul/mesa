@@ -157,6 +157,24 @@ static void hwz_draw_prim( struct intel_render *render,
    ADVANCE_BATCH();
 }
 
+#if 0
+static void hwz_set_state( struct intel_render *render,
+			   void *state )
+{
+   /* Bogus - need to stop hwz at this point */
+   {
+      struct intel_framebuffer *intel_fb =
+	 (struct intel_framebuffer*)intel->ctx.DrawBuffer;
+
+      if ((dirty & (1<<0)) && intel_fb->hwz) {
+	 dirty &= ~(1<<0);
+	 size -= 2;
+      }
+   }
+
+}
+#endif
+
 
 static GLuint hw_prim[GL_POLYGON+1] = {
    PRIM3D_POINTLIST,
@@ -315,6 +333,7 @@ struct intel_render *intel_create_hwz_render( struct intel_context *intel )
    hwz->render.destroy = hwz_destroy_context;
    hwz->render.start_render = hwz_start_render;
    hwz->render.allocate_vertices = hwz_allocate_vertices;
+//   hwz->render.set_state = hwz_set_state;
    hwz->render.set_prim = hwz_set_prim;
    hwz->render.draw_prim = hwz_draw_prim;
    hwz->render.draw_indexed_prim = hwz_draw_indexed_prim;

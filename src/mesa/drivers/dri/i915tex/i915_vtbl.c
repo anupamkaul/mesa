@@ -231,6 +231,8 @@ static void i915_lost_hardware( struct intel_context *intel )
    intel->state.dirty.intel |= I915_NEW_LOST_CACHE;
    i915_clear_caches( i915->cctx );
 
+   i915_dynamic_lost_hardware( intel );
+
    /* Update the batchbuffer id so the context tracker knows there has
     * been a discontinuity.
     */

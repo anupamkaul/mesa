@@ -204,6 +204,9 @@ intel_batchbuffer_alloc(struct intel_context *intel)
    batch->list = driBOCreateList(20);
 
    if (intel->intelScreen->statePool /*drmMinor >= 10*/) {
+
+      _mesa_printf("using statePool for state buffer\n");
+
       batch->state_memtype = 0 << 14;
       batch->state_memflags = DRM_BO_FLAG_MEM_PRIV1 | DRM_BO_FLAG_EXE;
 
@@ -304,7 +307,8 @@ do_flush_locked( struct intel_batchbuffer *batch,
       ptr[r->offset / 4] = driBOOffset(r->buf) + r->delta;
       
       if (INTEL_DEBUG & DEBUG_BATCH) 
-	 _mesa_printf("reloc in buffer %p offset %x value 0x%x + 0x%x\n",
+	 _mesa_printf("reloc in %s buffer %p offset %x value 0x%x + 0x%x\n",
+		      r->segment ? "state" : "batch",
 		      ptr, r->offset, driBOOffset(r->buf), r->delta);
    }
 

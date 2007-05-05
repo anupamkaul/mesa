@@ -59,6 +59,11 @@ struct intel_render {
     */
    void (*set_prim)( struct intel_render *, GLuint prim );
 
+   /* Driver state passed as a void pointer.  
+    */
+   void (*emit_state)( struct intel_render *render,
+		       const void *driver_state );
+
    /* DrawArrays:
     */
    void (*draw_prim)( struct intel_render *,

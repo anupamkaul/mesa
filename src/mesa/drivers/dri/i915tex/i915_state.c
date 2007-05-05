@@ -77,6 +77,7 @@ const struct intel_tracked_state *atoms[] =
    &i915_upload_IAB,
    &i915_upload_MODES4,
    &i915_upload_STIPPLE,
+   &i915_upload_dynamic_indirect,
 
    /* Other indirect state.  Also includes program state, above.
     */

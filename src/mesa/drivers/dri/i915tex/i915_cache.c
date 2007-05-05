@@ -239,7 +239,7 @@ void i915_cache_emit(struct i915_cache_context *cctx,
    cctx->i915->current.offsets[packet->cache_id] = addr;
    cctx->i915->current.sizes[packet->cache_id] = packet->nr_dwords;
 
-   cctx->i915->hardware_dirty |= I915_HW_CACHED_INDIRECT;
+   cctx->i915->hardware_dirty |= I915_HW_INDIRECT;
 #endif
 }
 
