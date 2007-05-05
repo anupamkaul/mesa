@@ -43,6 +43,7 @@
 #include "i915_cache.h"
 #include "i915_fpc.h"
 #include "i915_state.h"
+#include "i915_differencer.h"
 
 static GLuint debug( const GLuint *stream, const char *name, GLuint len )
 {
@@ -263,7 +264,10 @@ i915InitVtbl(struct i915_context *i915)
    i915->intel.vtbl.flush_cmd = i915_flush_cmd;
    i915->intel.vtbl.lost_hardware = i915_lost_hardware;
    i915->intel.vtbl.debug_packet = i915_debug_packet;
-   i915->intel.vtbl.get_hardware_state_size = i915_get_hardware_state_size;
+
+   i915->intel.vtbl.get_state_size = i915_get_state_size;
    i915->intel.vtbl.emit_hardware_state = i915_emit_hardware_state;
+
+
    i915->intel.vtbl.check_indirect_space = i915_check_indirect_space;
 }

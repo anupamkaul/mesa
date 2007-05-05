@@ -33,6 +33,8 @@
 #ifndef I915_CACHE_H
 #define I915_CACHE_H
 
+#include "intel_utils.h"
+
 struct i915_cache_context;
 struct i915_cache_packet;
 struct i915_context;
@@ -66,11 +68,6 @@ struct i915_cache_reloc {
    GLuint dword;
 };
 
-union fi {
-   GLfloat f;
-   GLuint u;
-   GLint i;
-};
 
 struct i915_cache_packet {   
    GLuint nr_dwords;

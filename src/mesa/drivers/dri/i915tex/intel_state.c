@@ -134,29 +134,18 @@ void intel_update_software_state( struct intel_context *intel )
    memset(state, 0, sizeof(*state));
 }
 
-
-void intel_emit_hardware_state( struct intel_context *intel,
-				GLuint dwords )
+/* By the time this gets called, software state should be clean and
+ * there should be sufficient batch to hold things...  How does that
+ * work with big indexed primitives???
+ *
+ * Do we need to be able to split indexed prims?? - yes - would solve
+ * isosurf crash also.
+ */
+GLuint *intel_emit_hardware_state( struct intel_context *intel,
+				   GLuint dwords )
 {
-   GLuint i;
-
-   for (i = 0; i < 2; i++)
-   {
-      intel_update_software_state( intel );
-      
-      if (intel_batchbuffer_space( intel->batch, SEGMENT_IMMEDIATE ) <
-	  intel->vtbl.get_hardware_state_size( intel ) +  dwords * sizeof(GLuint))
-      {
-	 assert(i == 0);
-	 intel_batchbuffer_flush( intel->batch, GL_FALSE );
-      }
-      else 
-      {
-	 break;
-      }
-   } 
-      
-   intel->vtbl.emit_hardware_state( intel );
+   assert(intel->state.dirty.intel == 0);
+   return intel->vtbl.emit_hardware_state( intel, dwords );
 }
 
 

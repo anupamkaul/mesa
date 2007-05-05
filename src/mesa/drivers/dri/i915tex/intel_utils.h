@@ -33,6 +33,22 @@ __memcpy(void *to, const void *from, size_t n)
 #define __memcpy(a,b,c) memcpy(a,b,c)
 #endif
 
+union fi { 
+   GLfloat f;
+   GLuint u; 
+   GLint i;
+};
+
+static INLINE GLuint count_bits( GLuint mask )
+{
+   GLuint i, nr = 0;
+
+   for (i = 1; mask >= i; i <<= 1) 
+      if (mask & i)
+	 nr++;
+
+   return nr;
+}
 
 
 static INLINE GLuint page_space( void *ptr )

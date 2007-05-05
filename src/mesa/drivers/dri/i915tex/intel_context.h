@@ -186,6 +186,12 @@ struct intel_driver_state {
 };
 
 
+struct intel_hw_dirty {
+   GLuint prim:2;
+   GLuint dirty:30;
+};
+
+
 struct intel_render;
 
 
@@ -213,11 +219,13 @@ struct intel_context
 
       GLuint (*debug_packet)(const GLuint *stream);
 
-      /* Can just return an upper bound: 
+      /* Must be exact
        */
-      GLuint (*get_hardware_state_size) (struct intel_context *intel);
+      GLuint (*get_state_size) (struct intel_context *intel,
+				struct intel_hw_dirty flags );
 
-      void (*emit_hardware_state) (struct intel_context *intel);
+      GLuint *(*emit_hardware_state) (struct intel_context *intel,
+				      GLuint dwords);
 
       GLboolean (*check_indirect_space) (struct intel_context *intel);
 

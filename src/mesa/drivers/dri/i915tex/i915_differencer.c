@@ -33,33 +33,62 @@
 #include "i915_context.h"
 #include "i915_state.h"
 #include "i915_reg.h"
+#include "i915_differencer.h"
 #include "intel_batchbuffer.h"
+#include "intel_utils.h"
 #include "intel_fbo.h"
+#include "intel_state.h"
 
 
-static GLuint count_bits( GLuint mask )
+union i915_hw_dirty {
+   struct {
+      GLuint prim:2;
+      GLuint immediate:8;
+      GLuint indirect:6;
+      GLuint pad:16;
+   } i915;
+   struct intel_hw_dirty intel;
+};
+
+
+static INLINE void EMIT_DWORD( GLuint **ptr, GLuint dw )
 {
-   GLuint i, nr = 0;
-
-   for (i = 1; mask >= i; i <<= 1) 
-      if (mask & i)
-	 nr++;
-
-   return nr;
+   **ptr = dw;
+   (*ptr)++;
 }
 
+/* XXX: assumption that ptr points somewhere in the batchbuffer!!
+ */
+static INLINE void EMIT_RELOC( struct intel_context *intel,
+			       GLuint **ptr, 
+			       struct _DriBufferObject *buffer,
+			       GLuint flags,
+			       GLuint mask, GLuint delta)
+{
+   intel_batchbuffer_set_reloc( intel->batch,
+				SEGMENT_IMMEDIATE,
+				((GLubyte *)(*ptr)) - intel->batch->map,
+				buffer,
+				flags, mask, delta );
+   (*ptr)++;
+}
+
+
+
+
 static void emit_immediates( struct intel_context *intel,
-			     const struct i915_state *to,
+			     GLuint **ptr,
+			     const struct i915_state *state,
 			     GLuint dirty )
 {
    if (dirty) {
       GLuint nr = count_bits(dirty);
       GLuint i;
 
-      BEGIN_BATCH( nr + 1, 0 );
-      OUT_BATCH(_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
-		(dirty << 4) |
-		(nr - 1));
+      EMIT_DWORD( ptr,
+		  (_3DSTATE_LOAD_STATE_IMMEDIATE_1 |
+		   (dirty << 4) |
+		   (nr - 1)));
 	 
       if (dirty & (1<<0)) {
 	 
@@ -67,19 +96,20 @@ static void emit_immediates( struct intel_context *intel,
 	  */
 	 GLuint no_move = 0; // DRM_BO_FLAG_NO_MOVE;
 
-	 OUT_RELOC(to->vbo,
-		   DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | no_move,
-		   DRM_BO_MASK_MEM | DRM_BO_FLAG_READ | no_move,
-		   to->immediate[0]);
+	 EMIT_RELOC( intel,
+		     ptr,
+		     state->vbo,
+		     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | no_move,
+		     DRM_BO_MASK_MEM | DRM_BO_FLAG_READ | no_move,
+		     state->immediate[0] );
       }
 
       for (i = 1; i < I915_MAX_IMMEDIATE; i++) {
 	 if (dirty & (1<<i)) {
-	    OUT_BATCH( to->immediate[i] );
+	    EMIT_DWORD( ptr,
+			state->immediate[i] );
 	 }
       }
-	 
-      ADVANCE_BATCH();
    }
 }
 
@@ -90,6 +120,7 @@ static void emit_immediates( struct intel_context *intel,
  * emitted to the caches.
  */
 static void emit_indirect( struct intel_context *intel,
+			   GLuint **ptr,
 			   const struct i915_state *state,
 			   GLuint dirty,
 			   GLboolean force_load )
@@ -108,33 +139,66 @@ static void emit_indirect( struct intel_context *intel,
       if (dirty & (1<<I915_CACHE_DYNAMIC))
 	 size -= 1;
 
-      BEGIN_BATCH(size,0);
-      OUT_BATCH( _3DSTATE_LOAD_INDIRECT | (dirty<<8) |
-		 intel->batch->state_memtype | (size - 2));
-
+      EMIT_DWORD( ptr,  
+		  (_3DSTATE_LOAD_INDIRECT | 
+		   (dirty<<8) |
+		   intel->batch->state_memtype |
+		   (size - 2)));
+      
       for (i = 0; i < I915_MAX_CACHE; i++) {
 	 if (dirty & (1<<i)) {
-	    OUT_RELOC( intel->batch->state_buffer, 
-		       intel->batch->state_memflags,
-		       DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
-		       ( state->offsets[i] | flag | SIS0_BUFFER_VALID ) );
+	    EMIT_RELOC( intel, 
+			ptr,
+			intel->batch->state_buffer, 
+			intel->batch->state_memflags,
+			DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
+			( state->offsets[i] | flag | SIS0_BUFFER_VALID ) );
 
 	    /* No state size dword for dynamic state:
 	     */
 	    if (i != I915_CACHE_DYNAMIC)
-	       OUT_BATCH( state->sizes[i]-1 );
+	       EMIT_DWORD( ptr, 
+			   state->sizes[i]-1 );
 	 }
       }
-
-      ADVANCE_BATCH();
    }
 }
 
-
-
-GLuint i915_get_hardware_state_size( struct intel_context *intel )
+static GLuint size_indirect( GLuint dirty )
 {
-   return (I915_MAX_IMMEDIATE + 1 + I915_MAX_CACHE * 2 + 1);
+   if (dirty) {
+      GLuint nr = count_bits(dirty);
+      GLuint size = nr * 2 + 1;
+      
+      if (dirty & (1<<I915_CACHE_DYNAMIC))
+	 size -= 1;
+   
+      return size * sizeof(GLuint);
+   }
+   else 
+      return 0;
+}
+
+static GLuint size_immediate( GLuint dirty )
+{
+   if (dirty) {
+      GLuint nr = count_bits(dirty);
+      return (nr + 1) * sizeof(GLuint);
+   }
+   else 
+      return 0;
+}
+
+
+GLuint i915_get_state_size( struct intel_context *intel,
+			    struct intel_hw_dirty iflags )
+{
+   union i915_hw_dirty flags;
+
+   flags.intel = iflags;
+
+   return (size_indirect(flags.i915.indirect) +
+	   size_immediate(flags.i915.immediate));
 }
 
 
@@ -197,42 +261,80 @@ static GLuint diff_indirect( const struct i915_state *from,
    return dirty;
 }
 
-static GLuint i915_diff_states( const struct i915_state *from,
-				const struct i915_state *to )
-{
-   GLuint dirty;
-   
-   dirty = (diff_indirect( from, to ) << I915_MAX_IMMEDIATE);
-   dirty |= diff_immediate( from, to );
 
-   return dirty;
-} 
+struct intel_hw_dirty i915_get_hw_dirty( struct intel_context *intel )
+{
+   struct i915_context *i915 = i915_context( &intel->ctx );
+   const struct i915_state *current = &i915->current;
+   struct i915_state *hw = &i915->hardware;
+   union i915_hw_dirty flags;
+
+   flags.i915.prim = 0;
+   flags.i915.immediate = diff_immediate( hw, current );
+   flags.i915.indirect = diff_indirect( hw, current );
+   flags.i915.pad = 0;
+
+   memcpy(hw, current, sizeof(*current));
+
+   return flags.intel;
+}
 
 
 /* Combine packets, diff against hardware state and emit a minimal set
  * of changes.
  */
-static void emit_hardware_state( struct intel_context *intel,
-				 const struct i915_state *new,
-				 GLuint dirty,
-				 GLboolean force_load )
-{
-   emit_immediates( intel, new, dirty & ((1<<I915_MAX_IMMEDIATE)-1) );
-   emit_indirect( intel, new, dirty >> I915_MAX_IMMEDIATE, force_load );
-}
-
-
-void i915_emit_hardware_state( struct intel_context *intel )
+void i915_emit_hardware_state_ptr( struct intel_context *intel,
+				   GLuint **ptr,
+				   struct intel_hw_dirty intel_flags,
+				   GLboolean force_load )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
    const struct i915_state *new = &i915->current;
-   struct i915_state *old = &i915->hardware;
-   GLboolean force_load = (old->id != new->id);
+   union i915_hw_dirty flags;
+   
+   flags.intel = intel_flags;
 
-   GLuint dirty = i915_diff_states( old, new );
-   emit_hardware_state( intel, new, dirty, force_load );
-
-   memcpy(old, new, sizeof(*new));
-   i915->hardware_dirty = 0;
+   emit_immediates( intel, ptr, new, flags.i915.immediate );
+   emit_indirect( intel, ptr, new, flags.i915.indirect, force_load );
 }
 
+
+
+
+
+
+GLuint *i915_emit_hardware_state( struct intel_context *intel,
+			       GLuint dwords )
+{
+   struct i915_context *i915 = i915_context( &intel->ctx );
+
+   /* Fix this:
+    */
+   GLboolean force_load = i915->current.id != i915->hardware.id;
+
+   struct intel_hw_dirty dirty = i915_get_hw_dirty( intel );
+   GLuint state_size = i915_get_state_size( intel, dirty );
+   GLuint size_bytes = state_size + dwords * 4;
+
+   /* Just emit to the batch stream:
+    */
+   intel_batchbuffer_require_space( intel->batch,
+				    0,
+				    size_bytes, 
+				    0 );
+
+   {
+      GLuint *ptr = (GLuint *) (intel->batch->map + 
+				intel->batch->segment_finish_offset[0]);      
+      
+      i915_emit_hardware_state_ptr( intel, &ptr, dirty, force_load );
+      
+      assert( ptr ==  (GLuint *) (intel->batch->map + 
+				  intel->batch->segment_finish_offset[0] + 
+				  state_size) );
+
+      intel->batch->segment_finish_offset[0] += size_bytes;
+
+      return ptr;
+   }
+}

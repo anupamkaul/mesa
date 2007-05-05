@@ -40,9 +40,6 @@
 void i915_init_state( struct i915_context *i915 );
 void i915_destroy_state( struct i915_context *i915 );
 
-void i915_emit_hardware_state( struct intel_context *intel );
-GLuint i915_get_hardware_state_size( struct intel_context *intel );
-
 void i915_dynamic_lost_hardware( struct intel_context *intel );
 
 

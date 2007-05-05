@@ -37,6 +37,7 @@
 #include "intel_buffers.h"
 #include "intel_state.h"
 #include "intel_state_inlines.h"
+#include "intel_utils.h"
 #include "draw/intel_draw.h"
 
 #include "i915_context.h"
@@ -73,6 +74,8 @@ static void *hwz_allocate_vertices( struct intel_render *render,
       assert(ptr);
    }
 
+   intel_update_software_state( intel );
+
    return ptr;
 }
 
@@ -106,13 +109,9 @@ static void hwz_draw_indexed_prim( struct intel_render *render,
     * commands.
     */
    GLuint dwords = 1 + (nr+1)/2;
-   intel_emit_hardware_state(intel, dwords);
+   GLuint *ptr = intel_emit_hardware_state(intel, dwords);
 
-
-   /* XXX: Can emit upto 64k indices, need to split larger prims
-    */
-   BEGIN_BATCH( dwords, INTEL_BATCH_CLIPRECTS | INTEL_BATCH_HWZ );
-   OUT_BATCH( _3DPRIMITIVE | 
+   *ptr++ = ( _3DPRIMITIVE | 
 	      hwz->hw_prim | 
 	      PRIM_INDIRECT | 
 	      PRIM_INDIRECT_ELTS | 
@@ -121,14 +120,12 @@ static void hwz_draw_indexed_prim( struct intel_render *render,
    /* Pack indices into 16bits 
     */
    for (j = 0; j+1 < nr; j += 2) {
-      OUT_BATCH( (offset + indices[j]) | ((offset + indices[j+1])<<16) );
+      *ptr++ = ( (offset + indices[j]) | ((offset + indices[j+1])<<16) );
    }
 
    if (j < nr) {
-      OUT_BATCH( (offset + indices[j]) );
+      *ptr++ = ( (offset + indices[j]) );
    }
- 
-   ADVANCE_BATCH();
 }
 
 
@@ -139,22 +136,21 @@ static void hwz_draw_prim( struct intel_render *render,
    struct hwz_render *hwz = hwz_render( render );
    struct intel_context *intel = hwz->intel;
    GLuint dwords = 2;
+   GLuint *ptr;
 
 //   _mesa_printf("%s (%d) %d/%d\n", __FUNCTION__, hwz->hw_prim, start, nr );
 
    if (nr == 0 || !intel_validate_vertices(hwz->hw_prim, nr))
       return; 
 
-   intel_emit_hardware_state(intel, dwords);
+   ptr = intel_emit_hardware_state(intel, dwords);
 
-   BEGIN_BATCH( dwords, INTEL_BATCH_CLIPRECTS | INTEL_BATCH_HWZ );
-   OUT_BATCH( _3DPRIMITIVE | 
+   ptr[0] = ( _3DPRIMITIVE | 
 	      hwz->hw_prim | 
 	      PRIM_INDIRECT | 
 	      PRIM_INDIRECT_SEQUENTIAL | 
 	      nr );      
-   OUT_BATCH( hwz->offset + start );
-   ADVANCE_BATCH();
+   ptr[1] = ( hwz->offset + start );
 }
 
 #if 0
@@ -236,6 +232,8 @@ static void hwz_set_prim( struct intel_render *render,
    if (hwz->intel->hw_reduced_prim != reduced_prim[mode]) {
       hwz->intel->hw_reduced_prim = reduced_prim[mode];
       hwz->intel->state.dirty.intel |= INTEL_NEW_REDUCED_PRIMITIVE;
+
+      intel_update_software_state( hwz->intel );
    }
 
 
@@ -285,33 +283,25 @@ static void hwz_clear_rect( struct intel_render *render,
 #define PRIM3D_CLEAR_RECT	(0xa<<18)
 #define PRIM3D_ZONE_INIT	(0xd<<18)
 
-   if (1) {
-      intel_emit_hardware_state(intel, 7);
+   union fi *ptr = (union fi *)intel_emit_hardware_state(intel, 7);
 
-      BATCH_LOCALS;
-      BEGIN_BATCH(7, INTEL_BATCH_CLIPRECTS | INTEL_BATCH_HWZ );
-      OUT_BATCH(_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
-      OUT_BATCH_F(x2);
-      OUT_BATCH_F(y2);
-      OUT_BATCH_F(x1);
-      OUT_BATCH_F(y2);
-      OUT_BATCH_F(x1);
-      OUT_BATCH_F(y1);
-      ADVANCE_BATCH();
+   if (1) {
+      ptr[0].i = (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
+      ptr[1].f = x2;
+      ptr[2].f = y2;
+      ptr[3].f = x1;
+      ptr[4].f = y2;
+      ptr[5].f = x1;
+      ptr[6].f = y1;
    }
    else {
-      intel_emit_hardware_state(intel, 7);
-
-      BATCH_LOCALS;
-      BEGIN_BATCH(7, INTEL_BATCH_CLIPRECTS | INTEL_BATCH_HWZ );
-      OUT_BATCH(_3DPRIMITIVE | PRIM3D_ZONE_INIT | 5);
-      OUT_BATCH_F(x2);
-      OUT_BATCH_F(y2);
-      OUT_BATCH_F(x1);
-      OUT_BATCH_F(y2);
-      OUT_BATCH_F(x1);
-      OUT_BATCH_F(y1);
-      ADVANCE_BATCH();
+      ptr[0].i = (_3DPRIMITIVE | PRIM3D_ZONE_INIT | 5);
+      ptr[1].f = x2;
+      ptr[2].f = y2;
+      ptr[3].f = x1;
+      ptr[4].f = y2;
+      ptr[5].f = x1;
+      ptr[6].f = y1;
    }
 }
 
