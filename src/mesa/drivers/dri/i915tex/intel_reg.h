@@ -149,5 +149,7 @@
 
 #define MI_BATCH_BUFFER_END 	(0xA<<23)
 
+#define GFX_OP_DRAWRECT_INFO     ((0x3<<29)|(0x1d<<24)|(0x80<<16)|(0x3))
+
 
 #endif

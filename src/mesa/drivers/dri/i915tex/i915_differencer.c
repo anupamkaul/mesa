@@ -283,10 +283,10 @@ struct intel_hw_dirty i915_get_hw_dirty( struct intel_context *intel )
 /* Combine packets, diff against hardware state and emit a minimal set
  * of changes.
  */
-void i915_emit_hardware_state_ptr( struct intel_context *intel,
-				   GLuint **ptr,
-				   struct intel_hw_dirty intel_flags,
-				   GLboolean force_load )
+void i915_emit_hardware_state( struct intel_context *intel,
+			       GLuint *ptr,
+			       struct intel_hw_dirty intel_flags,
+			       GLboolean force_load )
 {
    struct i915_context *i915 = i915_context( &intel->ctx );
    const struct i915_state *new = &i915->current;
@@ -294,48 +294,8 @@ void i915_emit_hardware_state_ptr( struct intel_context *intel,
    
    flags.intel = intel_flags;
 
-   emit_immediates( intel, ptr, new, flags.i915.immediate );
-   emit_indirect( intel, ptr, new, flags.i915.indirect, force_load );
+   emit_immediates( intel, &ptr, new, flags.i915.immediate );
+   emit_indirect( intel, &ptr, new, flags.i915.indirect, force_load );
 }
 
 
-
-
-
-
-GLuint *i915_emit_hardware_state( struct intel_context *intel,
-				  GLuint dwords,
-				  GLuint batchflags )
-{
-   struct i915_context *i915 = i915_context( &intel->ctx );
-
-   /* Fix this:
-    */
-   GLboolean force_load = i915->current.id != i915->hardware.id;
-
-   struct intel_hw_dirty dirty = i915_get_hw_dirty( intel );
-   GLuint state_size = i915_get_state_size( intel, dirty );
-   GLuint size_bytes = state_size + dwords * 4;
-
-   /* Just emit to the batch stream:
-    */
-   intel_batchbuffer_require_space( intel->batch,
-				    0,
-				    size_bytes, 
-				    batchflags );
-
-   {
-      GLuint *ptr = (GLuint *) (intel->batch->map + 
-				intel->batch->segment_finish_offset[0]);      
-      
-      i915_emit_hardware_state_ptr( intel, &ptr, dirty, force_load );
-      
-      assert( ptr ==  (GLuint *) (intel->batch->map + 
-				  intel->batch->segment_finish_offset[0] + 
-				  state_size) );
-
-      intel->batch->segment_finish_offset[0] += size_bytes;
-
-      return ptr;
-   }
-}

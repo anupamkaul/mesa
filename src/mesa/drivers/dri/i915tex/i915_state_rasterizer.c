@@ -57,6 +57,20 @@ static GLboolean check_hwz( struct intel_context *intel )
 }
 
 
+static GLboolean check_swz( struct intel_context *intel )
+{
+   /* _NEW_BUFFERS ???
+    */
+   if (!intel->cmdstream.size)
+      return GL_FALSE;
+
+   /* INTEL_NEW_FRAME
+    */
+/*    if (is_conventional_frame_start(intel->ft)) */
+      return GL_TRUE;
+}
+
+
 static void choose_rasterizer( struct intel_context *intel )
 {
    struct intel_render *render = NULL;
@@ -80,11 +94,9 @@ static void choose_rasterizer( struct intel_context *intel )
    else if (check_hwz( intel )) {
       render = intel->hwz;
    }
-#if 0
    else if (check_swz( intel )) {
       render = intel->swz;
    }
-#endif
    else {
       render = intel->classic;
    }

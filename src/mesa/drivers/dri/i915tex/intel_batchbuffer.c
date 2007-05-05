@@ -224,6 +224,13 @@ intel_batchbuffer_alloc(struct intel_context *intel)
       batch->segment_max_offset[0] = 1 * SEGMENT_SZ - BATCH_RESERVED;
       batch->segment_max_offset[1] = 4096;
       batch->segment_max_offset[2] = 8192;
+
+      /* Manage a chunk of the much-abused batch buffer as pages for
+       * the swz binner:
+       */
+      intel_cmdstream_use_batch_range( intel, 
+				       1 * SEGMENT_SZ,
+				       3 * SEGMENT_SZ );      
    } else {
       batch->state_buffer = batch->buffer;
       batch->state_memtype = 1 << 14;
@@ -240,6 +247,11 @@ intel_batchbuffer_alloc(struct intel_context *intel)
       batch->segment_max_offset[0] = 1 * SEGMENT_SZ - BATCH_RESERVED;
       batch->segment_max_offset[1] = 2 * SEGMENT_SZ;
       batch->segment_max_offset[2] = 3 * SEGMENT_SZ;
+
+      /* Can't swz bin:
+       */
+      intel_cmdstream_use_batch_range( intel, 0, 0 );      
+
    }
 
    intel_batchbuffer_reset(batch);

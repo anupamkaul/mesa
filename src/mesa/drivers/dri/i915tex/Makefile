@@ -18,6 +18,9 @@ DRIVER_SOURCES = \
 	draw/intel_prim_clip.c \
 	draw/intel_prim_unfilled.c \
 	intel_hwz.c \
+	intel_cmdstream.c \
+	intel_swz.c \
+	intel_swz_prims.c \
 	intel_clears.c \
 	intel_swapbuffers.c \
 	intel_frame_tracker.c \

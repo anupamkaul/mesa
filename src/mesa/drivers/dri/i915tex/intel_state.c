@@ -145,8 +145,36 @@ GLuint *intel_emit_hardware_state( struct intel_context *intel,
 				   GLuint dwords,
 				   GLuint batchflags )
 {
+
+   /* Fix this:
+    */
+   GLboolean force_load = 0; //i915->current.id != i915->hardware.id;
+
+   struct intel_hw_dirty dirty = intel->vtbl.get_hw_dirty( intel );
+   GLuint state_size = intel->vtbl.get_state_size( intel, dirty );
+   GLuint size_bytes = state_size + dwords * 4;
+
+   /* Just emit to the batch stream:
+    */
+   intel_batchbuffer_require_space( intel->batch,
+				    0,
+				    size_bytes, 
+				    batchflags );
+
+   /* What do we do on flushes????
+    */
    assert(intel->state.dirty.intel == 0);
-   return intel->vtbl.emit_hardware_state( intel, dwords, batchflags );
+
+   {
+      GLuint *ptr = (GLuint *) (intel->batch->map + 
+				intel->batch->segment_finish_offset[0]);      
+      
+      intel->vtbl.emit_hardware_state( intel, ptr, dirty, force_load );
+      
+      intel->batch->segment_finish_offset[0] += size_bytes;
+
+      return ptr + state_size/4;
+   }
 }
 
 

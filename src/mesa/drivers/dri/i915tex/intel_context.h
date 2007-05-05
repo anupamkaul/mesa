@@ -219,14 +219,18 @@ struct intel_context
 
       GLuint (*debug_packet)(const GLuint *stream);
 
+      struct intel_hw_dirty (*get_hw_dirty) (struct intel_context *intel );
+
       /* Must be exact
        */
       GLuint (*get_state_size) (struct intel_context *intel,
 				struct intel_hw_dirty flags );
 
-      GLuint *(*emit_hardware_state) (struct intel_context *intel,
-				      GLuint dwords, 
-				      GLuint batchflags );
+
+      void (*emit_hardware_state) (struct intel_context *intel,
+				   GLuint *ptr,
+				   struct intel_hw_dirty flags, 
+				   GLboolean force_load );
 
       GLboolean (*check_indirect_space) (struct intel_context *intel);
 
@@ -256,6 +260,13 @@ struct intel_context
       GLboolean active;
    } metaops;
 
+
+   struct {
+      GLuint offset;
+      GLuint size;
+      GLuint used;
+      GLubyte *map;
+   } cmdstream;
 
    /* All the known rasterizers:
     */
