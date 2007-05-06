@@ -87,6 +87,8 @@ static void do_update_state( struct swz_render *swz,
 				       (GLuint *)zone->ptr,
 				       zone->state,
 				       0 );
+
+      zone->ptr += size;
    }
    else if (intel_cmdstream_space( zone->ptr ) <  space ) 
    {
@@ -149,6 +151,12 @@ static void tri( struct swz_render *swz,
    zone_x1 /= ZONE_WIDTH;
    zone_y0 /= ZONE_HEIGHT;
    zone_y1 /= ZONE_HEIGHT;
+
+
+   _mesa_printf("swz (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
+		x0, x1, y0, y1,
+		zone_x0, zone_x1, zone_y0, zone_y1 );
+
 
    /* Emit to each zone:
     */
