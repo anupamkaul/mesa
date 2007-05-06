@@ -191,12 +191,14 @@ static INLINE void zone_finish_prim( struct swz_zone *zone )
    if (zone->state.prim != ZONE_NONE) 
    {
       zone->state.prim = ZONE_NONE;
-      while ( ((unsigned long)zone->ptr) & 2 ) 
+      do
       {
 	 GLushort *out = zone_get_words( zone, 1 );
 	 out[0] = 0xffff;
       }
+      while ( ((unsigned long)zone->ptr) & 2 ); 
    }
+   assert( (((unsigned long)zone->ptr)&3) == 0);
 }
 
 

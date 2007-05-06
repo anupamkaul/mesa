@@ -112,9 +112,9 @@ static GLboolean debug_variable_length_prim( struct debug_stream *stream )
    for (i = 0; idx[i] != 0xffff; i++)
       ;
 
-   len = 1+(i+1)/2;
+   len = 1+(i+2)/2;
 
-   _mesa_printf("3DPRIM, variable length indexed (%d dwords):\n", len);
+   _mesa_printf("3DPRIM, variable length %d indicies (%d dwords):\n", i, len);
    for (i = 0; i < len; i++)
       _mesa_printf("\t\t0x%08x\n",  ptr[i]);
    _mesa_printf("\n");

@@ -153,7 +153,7 @@ static void tri( struct swz_render *swz,
    zone_y1 /= ZONE_HEIGHT;
 
 
-   _mesa_printf("swz (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
+   _mesa_printf("tri (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
 		x0, x1, y0, y1,
 		zone_x0, zone_x1, zone_y0, zone_y1 );
 
@@ -192,7 +192,7 @@ static void line( struct swz_render *swz,
    if (y0 > v1[1]) y0 = v1[1];
    if (y1 < v1[1]) y1 = v1[1];
 
-   /* Perform viewport transform (duplicate work!) and convert to zones:
+   /* Convert to zones:
     */
    x0 = (x0 - w);
    x1 = (x1 + w);
@@ -213,6 +213,10 @@ static void line( struct swz_render *swz,
    zone_x1 /= ZONE_WIDTH;
    zone_y0 /= ZONE_HEIGHT;
    zone_y1 /= ZONE_HEIGHT;
+
+   _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
+		x0, x1, y0, y1,
+		zone_x0, zone_x1, zone_y0, zone_y1 );
 
    /* Emit to each zone:
     */
@@ -261,6 +265,10 @@ static void point( struct swz_render *swz,
    zone_x1 /= ZONE_WIDTH;
    zone_y0 /= ZONE_HEIGHT;
    zone_y1 /= ZONE_HEIGHT;
+
+   _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
+		x0, x1, y0, y1,
+		zone_x0, zone_x1, zone_y0, zone_y1 );
 
    /* Emit to each zone:
     */
