@@ -9,8 +9,8 @@ struct intel_context;
 /* Must be able to hold at minimum VB->Size * 3 * 2 bytes for
  * intel_idx_render.c indices, which is currently about 20k.
  */
-#define BATCH_SZ (3*32*1024)
-#define SEGMENT_SZ (32*1024)
+#define SEGMENT_SZ (64*1024)
+#define BATCH_SZ (3*SEGMENT_SZ)
 #define BATCH_RESERVED 16
 
 #define MAX_RELOCS 400

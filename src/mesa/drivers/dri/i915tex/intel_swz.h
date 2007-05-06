@@ -109,7 +109,7 @@ static INLINE void *get_vert( struct swz_render *swz,
 #define ZONE_LINES  2
 #define ZONE_TRIS   3
 
-#define I915_BB_CHAIN_SIZE   2	/* potentially */
+#define I915_BB_CHAIN_SIZE   3	/* potentially */
 #define I915_CLEAR_RECT_SIZE 6	/* the largest single primitive */
 
 /* Room for the worst case: full state emit, clear rect, bb chain.
@@ -122,8 +122,10 @@ static INLINE void *get_vert( struct swz_render *swz,
     I915_CLEAR_RECT_SIZE + 			\
     I915_BB_CHAIN_SIZE)
 
-#define ZONE_PRIM_SPACE  ((I915_BB_CHAIN_SIZE + 4) * sizeof(GLuint))
-#define ZONE_CLEAR_SPACE ((I915_BB_CHAIN_SIZE + I915_CLEAR_RECT_SIZE) * sizeof(GLuint))
+#define ZONE_PRIM_SPACE  (5 * sizeof(GLuint)) /* start + 3 indices + ffff + BATCH_BEGIN */
+#define ZONE_END_SPACE   (3 * sizeof(GLuint)) /* NOOP + MI_FLUSH + BATCH_END */
+#define ZONE_DRAWRECT_SPACE   (5 * sizeof(GLuint))
+#define ZONE_CLEAR_SPACE ((I915_CLEAR_RECT_SIZE+1) * sizeof(GLuint)) /* clear + BATCH_BEGIN */
 				 
 static const GLuint hw_prim[4] = {
    0,
@@ -198,7 +200,6 @@ static INLINE void zone_finish_prim( struct swz_zone *zone )
       }
       while ( ((unsigned long)zone->ptr) & 2 ); 
    }
-   assert( (((unsigned long)zone->ptr)&3) == 0);
 }
 
 
@@ -297,6 +298,9 @@ static INLINE void zone_get_space( struct swz_render *swz,
 				   struct swz_zone *zone )
 {
    GLubyte *newptr = intel_cmdstream_alloc_block( swz->intel );
+
+   assert(newptr - zone->ptr > 0);
+
    zone_begin_batch( swz, zone, newptr );
    zone->ptr = newptr;
 }

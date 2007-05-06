@@ -147,6 +147,9 @@ void intel_frame_note_clear( struct intel_frame_tracker *ft )
 void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft )
 {
    DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
+
+   intel_draw_finish_frame( ft->intel->draw );
+   
    if (ft->in_frame) {
       finish_frame( ft );
    }

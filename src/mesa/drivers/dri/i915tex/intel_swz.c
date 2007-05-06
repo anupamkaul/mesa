@@ -103,11 +103,11 @@ static void swz_start_render( struct intel_render *render,
    swz->nr_zones = swz->zone_width * swz->zone_height;
    assert(swz->nr_zones < MAX_ZONES);
    
-   _mesa_printf("swz %dx%d --> %dx%d\n", 
-		intel->driDrawable->w,
-		intel->driDrawable->h,
-		swz->zone_width,
-		swz->zone_height);
+   if (0) _mesa_printf("swz %dx%d --> %dx%d\n", 
+		       intel->driDrawable->w,
+		       intel->driDrawable->h,
+		       swz->zone_width,
+		       swz->zone_height);
 
 
    /* Goes to the main batchbuffer: 
@@ -161,6 +161,8 @@ static void swz_flush( struct intel_render *render,
 
    if (swz->started_binning) 
    {
+      assert(finished);
+
       LOCK_HARDWARE( intel );
       UPDATE_CLIPRECTS( intel );
 
@@ -170,7 +172,12 @@ static void swz_flush( struct intel_render *render,
        */
       for (x = y = i = 0; i < swz->nr_zones - 1; i++)
       {
-	 zone_finish_prim( &swz->zone[i] );
+	 struct swz_zone *zone = &swz->zone[i];
+
+	 zone_finish_prim( zone );
+
+	 if (intel_cmdstream_space( zone->ptr ) < ZONE_DRAWRECT_SPACE + ZONE_END_SPACE )
+	    zone_get_space( swz, zone );
 
 	 if (++x >= swz->zone_width) {
 	    x = 0;
@@ -185,19 +192,13 @@ static void swz_flush( struct intel_render *render,
 	    GLuint zx2 = zx1 + ZONE_WIDTH - 1;
 	    GLuint zy2 = zy1 + ZONE_HEIGHT - 1;
 	 
-	    zone_draw_rect( &swz->zone[i], 
+	    zone_draw_rect( zone, 
 			    intel->drawX, intel->drawY,
 			    zx1, zy1,
 			    zx2, zy2 );
 	 }
 
-#if 1
-	 zone_begin_batch( swz,
-			   &swz->zone[i], 
-			   swz->initial_ptr[i + 1] );
-#else
-	 zone_end_batch( &swz->zone[i], intel->vtbl.flush_cmd() );
-#endif
+	 zone_begin_batch( swz, zone, swz->initial_ptr[i + 1] );
       }
 
 
