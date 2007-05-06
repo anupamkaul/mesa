@@ -28,6 +28,7 @@
 /* Authors:  Keith Whitwell <keith@tungstengraphics.com>
  */
 #include "macros.h"
+#include "intel_state.h"
 
 #define INTEL_SWZ_PRIVATE
 #include "intel_swz.h"
@@ -89,6 +90,7 @@ static void do_update_state( struct swz_render *swz,
 				       0 );
 
       zone->ptr += size;
+      zone->state.dirty = 0;
    }
    else if (intel_cmdstream_space( zone->ptr ) <  space ) 
    {
@@ -153,9 +155,9 @@ static void tri( struct swz_render *swz,
    zone_y1 /= ZONE_HEIGHT;
 
 
-   _mesa_printf("tri (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
-		x0, x1, y0, y1,
-		zone_x0, zone_x1, zone_y0, zone_y1 );
+   if (0) _mesa_printf("tri (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
+		       x0, x1, y0, y1,
+		       zone_x0, zone_x1, zone_y0, zone_y1 );
 
 
    /* Emit to each zone:
@@ -214,9 +216,9 @@ static void line( struct swz_render *swz,
    zone_y0 /= ZONE_HEIGHT;
    zone_y1 /= ZONE_HEIGHT;
 
-   _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
-		x0, x1, y0, y1,
-		zone_x0, zone_x1, zone_y0, zone_y1 );
+   if (0) _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
+		       x0, x1, y0, y1,
+		       zone_x0, zone_x1, zone_y0, zone_y1 );
 
    /* Emit to each zone:
     */
@@ -266,9 +268,9 @@ static void point( struct swz_render *swz,
    zone_y0 /= ZONE_HEIGHT;
    zone_y1 /= ZONE_HEIGHT;
 
-   _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
-		x0, x1, y0, y1,
-		zone_x0, zone_x1, zone_y0, zone_y1 );
+   if (0) _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
+		       x0, x1, y0, y1,
+		       zone_x0, zone_x1, zone_y0, zone_y1 );
 
    /* Emit to each zone:
     */
