@@ -96,8 +96,13 @@ static GLboolean debug_chain( struct debug_stream *stream, const char *name, GLu
 
    stream->offset = ptr[1] & ~0x3;
    
-   _mesa_printf("\n... skipping from 0x%x --> 0x%x ...\n\n", 
-		old_offset, stream->offset );
+   if (stream->offset < old_offset)
+      _mesa_printf("\n... skipping backwards from 0x%x --> 0x%x ...\n\n", 
+		   old_offset, stream->offset );
+   else
+      _mesa_printf("\n... skipping from 0x%x --> 0x%x ...\n\n", 
+		   old_offset, stream->offset );
+
 
    return GL_TRUE;
 }
@@ -145,11 +150,11 @@ static GLboolean i915_debug_packet( struct debug_stream *stream )
       case 0x31:
 	 return debug_chain(stream, "MI_BATCH_BUFFER_START", 2);
       default:
-	 return 0;
+	 break;
       }
       break;
    case 0x1:
-      return 0;
+      break;
    case 0x2:
       switch ((cmd >> 22) & 0xff) {	 
       case 0x50:
@@ -159,6 +164,7 @@ static GLboolean i915_debug_packet( struct debug_stream *stream )
       default:
 	 return debug(stream, "blit command", (cmd & 0xff) + 2);
       }
+      break;
    case 0x3:
       switch ((cmd >> 24) & 0x1f) {	 
       case 0x6:
@@ -187,8 +193,9 @@ static GLboolean i915_debug_packet( struct debug_stream *stream )
 	 case 0x11:
 	    return debug(stream, "3DSTATE_DEPTH_SUBRECTANGLE_DISABLE", 1);
 	 default:
-	    return 0;
+	    break;
 	 }
+	 break;
       case 0x1d:
 	 /* 3DStateMW */
 	 switch ((cmd >> 16) & 0xff) {
@@ -229,13 +236,16 @@ static GLboolean i915_debug_packet( struct debug_stream *stream )
 	 case 0x9c:
 	    return debug(stream, "3DSTATE_CLEAR_PARAMETERS", (cmd & 0xffff) + 2);
 	 default:
+	    assert(0);
 	    return 0;
 	 }
+	 break;
       case 0x1e:
 	 if (cmd & (1 << 23))
 	    return debug(stream, "???", (cmd & 0xffff) + 1);
 	 else
 	    return debug(stream, "", 1);
+	 break;
       case 0x1f:
 	 if ((cmd & (1 << 23)) == 0)	/* inline vertices */
 	    return debug(stream, "3DPRIMITIVE (inline)", (cmd & 0x1ffff) + 2);
@@ -246,13 +256,16 @@ static GLboolean i915_debug_packet( struct debug_stream *stream )
 	       return debug(stream, "3DPRIM (indexed)", (((cmd & 0xffff) + 1) / 2) + 1);
 	 else
 	    return debug(stream, "3DPRIM (indirect sequential)", 2);	/* indirect sequential */
+	 break;
       default:
 	 return debug(stream, "", 0);
       }
    default:
+      assert(0);
       return 0;
    }
 
+   assert(0);
    return 0;
 }
 

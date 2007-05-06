@@ -80,18 +80,25 @@
 static void dump(struct intel_context *intel,
 		 GLubyte *buffer_ptr,
 		 GLuint offset, 
-		 GLuint max_offset )
+		 GLuint max_offset,
+		 GLboolean is_batch )
 {
    struct debug_stream stream;
+   GLboolean done = GL_FALSE;
 
    stream.offset = offset;
    stream.ptr = buffer_ptr - offset;
 
-   while (intel->vtbl.debug_packet( &stream ) &&
+   while (!done &&
 	  stream.offset < max_offset &&
-	  stream.offset >= offset);
+	  stream.offset >= offset)
+   {
+      done = !intel->vtbl.debug_packet( &stream );
+      if (!done && is_batch)
+	 assert(stream.offset < max_offset &&
+		stream.offset >= offset);
+   }
 }
-
 
 static void
 intel_dump_batchbuffer(struct intel_batchbuffer *batch, 
@@ -104,7 +111,8 @@ intel_dump_batchbuffer(struct intel_batchbuffer *batch,
 
       fprintf(stderr, "\n\nBATCH: (%d)\n", count / 4);
       dump( batch->intel, batch_map, batch_offset, 
-	    batch_offset + 3 * SEGMENT_SZ );
+	    batch_offset + 3 * SEGMENT_SZ,
+	    GL_TRUE );
       fprintf(stderr, "END-BATCH\n\n\n");
    }
 
@@ -118,7 +126,8 @@ intel_dump_batchbuffer(struct intel_batchbuffer *batch,
       GLubyte *dyn_ptr = state_map + batch->segment_start_offset[1];
 
       fprintf(stderr, "\n\nDYNAMIC: (%d)\n", count / 4);
-      dump( batch->intel, dyn_ptr, dyn_offset, dyn_offset + count );
+      dump( batch->intel, dyn_ptr, dyn_offset, dyn_offset + count,
+	    GL_FALSE );
       fprintf(stderr, "END-DYNAMIC\n\n\n");
    }
 
@@ -133,7 +142,8 @@ intel_dump_batchbuffer(struct intel_batchbuffer *batch,
       GLubyte *stat_ptr = state_map + batch->segment_start_offset[2];
 
       fprintf(stderr, "\n\nSTATIC: (%d)\n", count / 4);
-      dump( batch->intel, stat_ptr, stat_offset, stat_offset + count );
+      dump( batch->intel, stat_ptr, stat_offset, stat_offset + count,
+	    GL_FALSE );
       fprintf(stderr, "END-STATIC\n\n\n");
    }
 }
