@@ -45,41 +45,90 @@
 #include "i915_state.h"
 #include "i915_differencer.h"
 
-static GLuint debug( const GLuint *stream, const char *name, GLuint len )
+static GLboolean debug( struct debug_stream *stream, const char *name, GLuint len )
 {
    GLuint i;
-
-   if (len == 0) 
-      _mesa_printf("Error - zero length packet (0x%08x)\n", stream[0]);
-   else
-      _mesa_printf("%s (%d dwords):\n", name, len);
-
-   for (i = 0; i < len; i++)
-      _mesa_printf("\t\t0x%08x\n",  stream[i]);
+   GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
    
-   _mesa_printf("\n");
-
-   return len;
-}
-
-static GLuint debug_program( const GLuint *stream, const char *name, GLuint len )
-{
    if (len == 0) {
-      _mesa_printf("Error - zero length packet (0x%08x)\n", stream[0]);
-      return 0;
+      _mesa_printf("Error - zero length packet (0x%08x)\n", stream->ptr[0]);
+      assert(0);
+      return GL_FALSE;
    }
 
    _mesa_printf("%s (%d dwords):\n", name, len);
-   i915_disassemble_program( stream, len );
+   for (i = 0; i < len; i++)
+      _mesa_printf("\t\t0x%08x\n",  ptr[i]);   
+   _mesa_printf("\n");
 
-   return len;
+   stream->offset += len * sizeof(GLuint);
+   
+   return GL_TRUE;
+}
+
+static GLboolean debug_program( struct debug_stream *stream, const char *name, GLuint len )
+{
+   GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
+
+   if (len == 0) {
+      _mesa_printf("Error - zero length packet (0x%08x)\n", stream->ptr[0]);
+      assert(0);
+      return GL_FALSE;
+   }
+
+   _mesa_printf("%s (%d dwords):\n", name, len);
+   i915_disassemble_program( ptr, len );
+
+   stream->offset += len * sizeof(GLuint);
+   return GL_TRUE;
+}
+
+
+static GLboolean debug_chain( struct debug_stream *stream, const char *name, GLuint len )
+{
+   GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
+   GLuint old_offset = stream->offset + len * sizeof(GLuint);
+   GLuint i;
+
+   _mesa_printf("%s (%d dwords):\n", name, len);
+   for (i = 0; i < len; i++)
+      _mesa_printf("\t\t0x%08x\n",  ptr[i]);
+
+   stream->offset = ptr[1] & ~0x3;
+   
+   _mesa_printf("\n... skipping from 0x%x --> 0x%x ...\n\n", 
+		old_offset, stream->offset );
+
+   return GL_TRUE;
+}
+
+
+static GLboolean debug_variable_length_prim( struct debug_stream *stream )
+{
+   GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
+   GLuint i, len;
+
+   GLushort *idx = (GLushort *)(ptr+1);
+   for (i = 0; idx[i] != 0xffff; i++)
+      ;
+
+   len = 1+(i+1)/2;
+
+   _mesa_printf("3DPRIM, variable length indexed (%d dwords):\n", len);
+   for (i = 0; i < len; i++)
+      _mesa_printf("\t\t0x%08x\n",  ptr[i]);
+   _mesa_printf("\n");
+
+   stream->offset += len * sizeof(GLuint);
+   return GL_TRUE;
 }
 
 		   
 
-static GLuint i915_debug_packet(const GLuint *stream)
+static GLboolean i915_debug_packet( struct debug_stream *stream )
 {
-   GLuint cmd = *stream;
+   GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
+   GLuint cmd = *ptr;
    
    switch (((cmd >> 29) & 0x7)) {
    case 0x0:
@@ -91,7 +140,10 @@ static GLuint i915_debug_packet(const GLuint *stream)
       case 0x4:
 	 return debug(stream, "MI_FLUSH", 1);
       case 0xA:
-	 return debug(stream, "MI_BATCH_BUFFER_END", 1);
+	 debug(stream, "MI_BATCH_BUFFER_END", 1);
+	 return GL_FALSE;
+      case 0x31:
+	 return debug_chain(stream, "MI_BATCH_BUFFER_START", 2);
       default:
 	 return 0;
       }
@@ -189,7 +241,7 @@ static GLuint i915_debug_packet(const GLuint *stream)
 	    return debug(stream, "3DPRIMITIVE (inline)", (cmd & 0x1ffff) + 2);
 	 else if (cmd & (1 << 17))	/* indirect random */
 	    if ((cmd & 0xffff) == 0)
-	       return debug(stream, "too hard", 0);	/* unknown length, too hard */
+	       return debug_variable_length_prim(stream);
 	    else
 	       return debug(stream, "3DPRIM (indexed)", (((cmd & 0xffff) + 1) / 2) + 1);
 	 else
@@ -267,6 +319,7 @@ i915InitVtbl(struct i915_context *i915)
 
    i915->intel.vtbl.get_state_size = i915_get_state_size;
    i915->intel.vtbl.emit_hardware_state = i915_emit_hardware_state;
+   i915->intel.vtbl.get_hw_dirty = i915_get_hw_dirty;
 
 
    i915->intel.vtbl.check_indirect_space = i915_check_indirect_space;

@@ -85,9 +85,14 @@ intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
       }
    }
    
+   intel_frame_note_clear( intel->ft );
+
    intel_update_software_state( intel );
 
-   intel_frame_note_clear( intel->ft );
+   /* XXX:
+    */
+   intel->render->start_render( intel->render, GL_TRUE );
+
    intel->render->clear_rect( intel->render, 
 			      mask,
 			      fb->_Xmin, fb->_Ymin,

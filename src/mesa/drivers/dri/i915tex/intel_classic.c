@@ -109,6 +109,28 @@ static void classic_draw_indexed_prim( struct intel_render *render,
     * interpose a batchbuffer containing different statesetting
     * commands.
     */
+#if 1
+   GLuint dwords = 1 + (nr+1+1)/2;
+   GLuint *ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_CLIPRECTS);
+
+   *ptr++ = ( _3DPRIMITIVE | 
+	      crc->hw_prim | 
+	      PRIM_INDIRECT | 
+	      PRIM_INDIRECT_ELTS | 
+	      0 );
+      
+   /* Pack indices into 16bits 
+    */
+   {
+      GLushort *out = (GLushort *)ptr;
+      
+      for (j = 0; j < nr; j++)
+	 out[j] = offset + indices[j];
+      
+      out[j] = 0xffff;
+   }
+
+#else
    GLuint dwords = 1 + (nr+1)/2;
    GLuint *ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_CLIPRECTS);
 
@@ -118,8 +140,6 @@ static void classic_draw_indexed_prim( struct intel_render *render,
 	      PRIM_INDIRECT_ELTS | 
 	      nr );
       
-   /* Pack indices into 16bits 
-    */
    for (j = 0; j+1 < nr; j += 2) {
       *ptr++ = ( (offset + indices[j]) | ((offset + indices[j+1])<<16) );
    }
@@ -127,6 +147,7 @@ static void classic_draw_indexed_prim( struct intel_render *render,
    if (j < nr) {
       *ptr++ = ( (offset + indices[j]) );
    }
+#endif
 }
 
 

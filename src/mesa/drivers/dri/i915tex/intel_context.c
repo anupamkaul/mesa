@@ -62,6 +62,7 @@
 #include "intel_fbo.h"
 #include "intel_metaops.h"
 #include "intel_state.h"
+#include "intel_swz.h"
 #include "intel_frame_tracker.h"
 
 #include "draw/intel_draw.h"
@@ -528,6 +529,7 @@ intelInitContext(struct intel_context *intel,
    intel->ft = intel_frame_tracker_create( intel );
    intel->classic = intel_create_classic_render( intel );
    intel->hwz = intel_create_hwz_render( intel );
+   intel->swz = intel_create_swz_render( intel );
    intel->swrender = intel_create_swrast_render( intel );
 
    {

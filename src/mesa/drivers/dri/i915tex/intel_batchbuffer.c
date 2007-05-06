@@ -33,6 +33,7 @@
 #include "intel_reg.h"
 #include "intel_utils.h"
 #include "intel_lock.h"
+#include "intel_cmdstream.h"
 
 /* needed for hwz:
  */
@@ -77,56 +78,64 @@
  * modifying cliprects ???
  */
 static void dump(struct intel_context *intel,
-		 GLuint offset, GLuint *ptr, GLuint count)
+		 GLubyte *buffer_ptr,
+		 GLuint offset, 
+		 GLuint max_offset )
 {
-   GLuint i;
+   struct debug_stream stream;
 
-   for (i = 0; i < count; ) {
-      GLuint len;
+   stream.offset = offset;
+   stream.ptr = buffer_ptr - offset;
 
-      _mesa_printf("[0x%x]: ", offset + i * 4);
-
-      len = intel->vtbl.debug_packet( &ptr[i] );
-      if (len == 0) {
-	 _mesa_printf("XXX bad/unknown packet: 0x%08x\n",  ptr[i]);
-	 assert(0);
-	 return;
-      }
-      
-      i += len;
-   }      
+   while (intel->vtbl.debug_packet( &stream ) &&
+	  stream.offset < max_offset &&
+	  stream.offset >= offset);
 }
 
 
 static void
-intel_dump_batchbuffer(struct intel_batchbuffer *batch, GLubyte *map,
+intel_dump_batchbuffer(struct intel_batchbuffer *batch, 
+		       GLubyte *batch_map,
 		       GLubyte *state_map)
 {
-   GLuint *ptr = (GLuint *)map;
-   GLuint count = batch->segment_finish_offset[0];
-   GLuint buf0 = driBOOffset(batch->buffer);
-   GLuint buf1 = driBOOffset(batch->state_buffer);
-   GLuint buf = buf0;
+   {
+      GLuint count = batch->segment_finish_offset[0];
+      GLuint batch_offset = driBOOffset(batch->buffer);
 
-   fprintf(stderr, "\n\nBATCH: (%d)\n", count / 4);
-   dump( batch->intel, buf, ptr, count/4 );
-   fprintf(stderr, "END-BATCH\n\n\n");
+      fprintf(stderr, "\n\nBATCH: (%d)\n", count / 4);
+      dump( batch->intel, batch_map, batch_offset, 
+	    batch_offset + 3 * SEGMENT_SZ );
+      fprintf(stderr, "END-BATCH\n\n\n");
+   }
 
-   count = batch->segment_finish_offset[1] - batch->segment_start_offset[1];
-   ptr = (GLuint *)(state_map + batch->segment_start_offset[1]);
-   buf = buf1 + batch->segment_start_offset[1];
+   {
+      GLuint count = ( batch->segment_finish_offset[1] - 
+		       batch->segment_start_offset[1] );
 
-   fprintf(stderr, "\n\nDYNAMIC: (%d)\n", count / 4);
-   dump( batch->intel, buf, ptr, count/4 );
-   fprintf(stderr, "END-DYNAMIC\n\n\n");
+      GLuint dyn_offset = (driBOOffset(batch->state_buffer) 
+			   + batch->segment_start_offset[1]);
+      
+      GLubyte *dyn_ptr = state_map + batch->segment_start_offset[1];
 
-   count = batch->segment_finish_offset[2] - batch->segment_start_offset[2];
-   ptr = (GLuint *)(state_map + batch->segment_start_offset[2]);
-   buf = buf1 + batch->segment_start_offset[2];
+      fprintf(stderr, "\n\nDYNAMIC: (%d)\n", count / 4);
+      dump( batch->intel, dyn_ptr, dyn_offset, dyn_offset + count );
+      fprintf(stderr, "END-DYNAMIC\n\n\n");
+   }
 
-   fprintf(stderr, "\n\nINDIRECT: (%d)\n", count / 4);
-   dump( batch->intel, buf, ptr, count/4 );
-   fprintf(stderr, "END-INDIRECT\n\n\n");
+
+   {
+      GLuint count = ( batch->segment_finish_offset[2] - 
+		       batch->segment_start_offset[2] );
+
+      GLuint stat_offset = (driBOOffset(batch->state_buffer) 
+			   + batch->segment_start_offset[2]);
+      
+      GLubyte *stat_ptr = state_map + batch->segment_start_offset[2];
+
+      fprintf(stderr, "\n\nSTATIC: (%d)\n", count / 4);
+      dump( batch->intel, stat_ptr, stat_offset, stat_offset + count );
+      fprintf(stderr, "END-STATIC\n\n\n");
+   }
 }
 
 void
@@ -228,9 +237,10 @@ intel_batchbuffer_alloc(struct intel_context *intel)
       /* Manage a chunk of the much-abused batch buffer as pages for
        * the swz binner:
        */
-      intel_cmdstream_use_batch_range( intel, 
-				       1 * SEGMENT_SZ,
-				       3 * SEGMENT_SZ );      
+      if (_mesa_getenv("INTEL_SWZ"))
+	 intel_cmdstream_use_batch_range( intel, 
+					  1 * SEGMENT_SZ,
+					  3 * SEGMENT_SZ );      
    } else {
       batch->state_buffer = batch->buffer;
       batch->state_memtype = 1 << 14;

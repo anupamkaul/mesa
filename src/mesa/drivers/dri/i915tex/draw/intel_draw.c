@@ -377,7 +377,7 @@ void intel_draw_vb(struct intel_draw *draw,
     * gets swapped out in the validation above.
     */
    if (!draw->in_frame) {
-      draw->hw->start_render( draw->hw, GL_TRUE );
+/*       draw->hw->start_render( draw->hw, GL_TRUE ); */
       draw->in_frame = 1;
    }
    

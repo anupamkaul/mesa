@@ -217,7 +217,7 @@ struct intel_context
 
 
 
-      GLuint (*debug_packet)(const GLuint *stream);
+      GLboolean (*debug_packet)(struct debug_stream *stream);
 
       struct intel_hw_dirty (*get_hw_dirty) (struct intel_context *intel );
 

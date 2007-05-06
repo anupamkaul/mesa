@@ -60,4 +60,12 @@ extern int INTEL_DEBUG;
 #define DBG(...)  do { if (INTEL_DEBUG & FILE_DEBUG_FLAG) _mesa_printf(__VA_ARGS__); } while(0)
 
 
+struct debug_stream 
+{
+   GLuint offset;		/* current gtt offset */
+   GLubyte *ptr;			/* pointer to gtt offset zero */
+};
+
+
+
 #endif

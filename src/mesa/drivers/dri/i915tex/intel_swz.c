@@ -47,15 +47,18 @@
 
 
 
+
+
 static void *swz_allocate_vertices( struct intel_render *render,
 					GLuint vertex_size,
 					GLuint nr_vertices )
 {
    struct swz_render *swz = swz_render( render );
    struct intel_context *intel = swz->intel;
-   void *ptr;
 
-   ptr = intel_vb_alloc_vertices( intel->vb, nr_vertices, &swz->vbo_offset );
+   void *ptr = intel_vb_alloc_vertices( intel->vb, 
+					nr_vertices,
+					&swz->vbo_offset );
 
    if (!ptr) {
       render->flush( render, GL_FALSE );
@@ -85,28 +88,60 @@ static void swz_start_render( struct intel_render *render,
 			      GLboolean start_of_frame )
 {
    struct swz_render *swz = swz_render( render );
-   GLuint x, y;
+   struct intel_context *intel = swz->intel;
    GLuint i = 0;
       
+   assert(!swz->started_binning);
+
+   intel_cmdstream_reset( intel );
+
+   /* Window size won't change during a frame (though cliprects may be
+    * applied at the end).  
+    */
+   swz->zone_width  = align(intel->driDrawable->w, ZONE_WIDTH) / ZONE_WIDTH;
+   swz->zone_height = align(intel->driDrawable->h, ZONE_HEIGHT) / ZONE_HEIGHT;
+   swz->nr_zones = swz->zone_width * swz->zone_height;
+   assert(swz->nr_zones < MAX_ZONES);
+   
+   _mesa_printf("swz %dx%d --> %dx%d\n", 
+		intel->driDrawable->w,
+		intel->driDrawable->h,
+		swz->zone_width,
+		swz->zone_height);
+
+
    /* Goes to the main batchbuffer: 
     */
 //   intel_wait_flips(intel, INTEL_BATCH_NO_CLIPRECTS);
 
-   /* Window size won't change during a frame (though cliprects may be
-    * applied at the end).  Hence we can set up all the zones & zone
-    * preamble here.
-    */
-   for (y = 0; y < swz->zone_height; y++) {
-      for (x = 0; x < swz->zone_stride; x++, i++) {
-	 /* alloc initial block */
-	 swz->initial_ptr[i] = intel_cmdstream_alloc_block( swz->intel );
-	 swz->zone[i].ptr = swz->initial_ptr[i];
-	 swz->zone[i].state.prim = ZONE_NONE;
-	 swz->zone[i].state.dirty = 0;
-      }
+   for (i = 0; i < swz->nr_zones; i++) {
+      /* alloc initial block */
+      swz->initial_ptr[i] = intel_cmdstream_alloc_block( swz->intel );
+      swz->zone[i].ptr = swz->initial_ptr[i];
+      swz->zone[i].state.prim = ZONE_NONE;
+      swz->zone[i].state.dirty = 0;
    }
 
-   swz->nr_zones = i;
+   /* Emit the initial state to zone zero in full.  
+    */
+   {
+      struct intel_hw_dirty flags = intel->vtbl.get_hw_dirty( intel );
+      GLuint space = intel->vtbl.get_state_size( intel, flags );
+      
+      intel->vtbl.emit_hardware_state( intel, (GLuint *)swz->zone[0].ptr, 
+				       flags, GL_TRUE );
+      swz->zone[0].ptr += space;
+   }
+
+   /* Initial draw rectangle.  
+    */
+   zone_draw_rect( &swz->zone[0], 
+		   intel->drawX, 
+		   intel->drawY,
+		   0, 0,
+		   ZONE_WIDTH-1, 
+		   ZONE_HEIGHT-1 );
+
    swz->started_binning = GL_TRUE; /* actually want to delay until first prim is seen */
 }
 
@@ -121,73 +156,78 @@ static void swz_flush( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    struct intel_context *intel = swz->intel;
-   GLuint i;
+   GLuint i = 0;
    GLuint x, y;
 
-   LOCK_HARDWARE( intel );
-   UPDATE_CLIPRECTS( intel );
-
-   /* The window may have moved since we started, in which case the
-    * bins constructed will no longer align with hardware zones.  That
-    * sucks, we just ignore it.  Oh for private backbuffers.
-    */
-   for (y = 0; y < swz->zone_height; y++) 
+   if (swz->started_binning) 
    {
-      for (x = 0; x < swz->zone_stride; x++, i++) 
+      LOCK_HARDWARE( intel );
+      UPDATE_CLIPRECTS( intel );
+
+      /* The window may have moved since we started, in which case the
+       * bins constructed will no longer align with hardware zones.  That
+       * sucks, we just ignore it.  Oh for private backbuffers.
+       */
+      for (x = y = i = 0; i < swz->nr_zones - 1; i++)
       {
 	 zone_finish_prim( &swz->zone[i] );
 
-	 GLuint zx1 = x * ZONE_WIDTH;
-	 GLuint zy1 = y * ZONE_HEIGHT;
-	 GLuint zx2 = zx1 + ZONE_WIDTH - 1;
-	 GLuint zy2 = zy1 + ZONE_HEIGHT - 1;
-	 
-	 zone_draw_rect( &swz->zone[i], 
-			 intel->drawX, intel->drawY,
-			 zx1, zy1,
-			 zx2, zy2 );
+	 if (++x >= swz->zone_width) {
+	    x = 0;
+	    y++;
+	 }
 
+	 /*  Emit next zone's draw rect:
+	  */
+	 {
+	    GLuint zx1 = x * ZONE_WIDTH;
+	    GLuint zy1 = y * ZONE_HEIGHT;
+	    GLuint zx2 = zx1 + ZONE_WIDTH - 1;
+	    GLuint zy2 = zy1 + ZONE_HEIGHT - 1;
+	 
+	    zone_draw_rect( &swz->zone[i], 
+			    intel->drawX, intel->drawY,
+			    zx1, zy1,
+			    zx2, zy2 );
+	 }
+
+#if 1
 	 zone_begin_batch( swz,
 			   &swz->zone[i], 
 			   swz->initial_ptr[i + 1] );
+#else
+	 zone_end_batch( &swz->zone[i], intel->vtbl.flush_cmd() );
+#endif
       }
-   }
 
-   /* Last zone: 
-    */
-   zone_finish_prim( &swz->zone[i] );   
-   zone_end_batch( &swz->zone[i] );
 
-   intel_batchbuffer_flush( intel->batch, !finished );
-   UNLOCK_HARDWARE( intel );
-}
-
-static void swz_set_state( struct intel_render *render )
-{
-   struct swz_render *swz = swz_render( render );
-   struct intel_context *intel = swz->intel;
-   struct intel_hw_dirty flags = intel->vtbl.get_hw_dirty( intel );
-   
-   if (flags.dirty == 0)
-      return;
-
-   if (1 /* swz->started_binning */) {
-
-      GLuint i;
-
-      /* Just mark the differences, state will be emitted per-zone later
-       * on.
+      /* Last zone: 
        */
-      for (i = 0; i < swz->nr_zones; i++)
-	 swz->zone[i].state.dirty |= flags.dirty;
+      zone_finish_prim( &swz->zone[i] );   
+
+      zone_end_batch( &swz->zone[i], intel->vtbl.flush_cmd() );
+
+      /* Hmmm.  Issue a pointless begin batch to jump to the first zone:
+       */
+      BEGIN_BATCH(2, 0);
+
+      OUT_BATCH( MI_BATCH_BUFFER_START |
+		 MI_BATCH_GTT );	
+
+      OUT_RELOC( intel->batch->buffer,
+		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
+		 DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,			 
+		 swz->initial_ptr[0] - swz->intel->batch->map );
       
-      swz->state_reset_bits |= flags.dirty;
+      ADVANCE_BATCH();
+
+      intel_batchbuffer_flush( intel->batch, !finished );
+      UNLOCK_HARDWARE( intel );
    }
-   else {
-      /* Emit initial states to zone[0] only. 
-       */
-   }
+
+   swz->started_binning = GL_FALSE;
 }
+
 
 
 
@@ -199,7 +239,7 @@ static void swz_destroy_context( struct intel_render *render )
    _mesa_free(swz);
 }
 
-struct intel_render *intel_swz_create_context( struct intel_context *intel )
+struct intel_render *intel_create_swz_render( struct intel_context *intel )
 {
    struct swz_render *swz = CALLOC_STRUCT(swz_render);
 

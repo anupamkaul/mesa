@@ -32,8 +32,7 @@
 #define INTEL_SWZ_H
 
 struct intel_context;
-struct intel_render *intel_swz_create_context( struct intel_context *intel );
-
+struct intel_render *intel_create_swz_render( struct intel_context *intel );
 
 
 
@@ -64,7 +63,7 @@ struct swz_render {
    GLubyte *initial_ptr[MAX_ZONES];
    struct swz_zone zone[MAX_ZONES];
    GLuint nr_zones;   
-   GLuint zone_stride;
+   GLuint zone_width;
    GLuint zone_height;
 
    GLuint state_reset_bits;
@@ -91,7 +90,6 @@ void swz_clear_rect( struct intel_render *render,
 
 void swz_set_prim( struct intel_render *render,
 		   GLenum prim );
-
 
 
 /* Inlines:
@@ -202,15 +200,18 @@ static INLINE void zone_finish_prim( struct swz_zone *zone )
 }
 
 
-static INLINE void zone_end_batch( struct swz_zone *zone )
+static INLINE void zone_end_batch( struct swz_zone *zone,
+				   GLuint flushcmd )
 {
    if ( ((unsigned long)zone->ptr) & 4 ) {
-      GLuint *out = zone_get_dwords( zone, 1 );
-      out[0] = MI_BATCH_BUFFER_END;
+      GLuint *out = zone_get_dwords( zone, 3 );
+      out[0] = flushcmd;
+      out[1] = 0;
+      out[2] = MI_BATCH_BUFFER_END;
    }
    else {
       GLuint *out = zone_get_dwords( zone, 2 );
-      out[0] = 0;
+      out[0] = flushcmd;
       out[1] = MI_BATCH_BUFFER_END;
    }
 }

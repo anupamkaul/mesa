@@ -28,6 +28,7 @@
 #include "macros.h"
 #include "intel_context.h"
 #include "intel_fbo.h"
+#include "intel_lock.h"
 #include "intel_frame_tracker.h"
 
 #define FILE_DEBUG_FLAG DEBUG_FRAME
@@ -127,7 +128,18 @@ void intel_frame_note_flush( struct intel_frame_tracker *ft,
 void intel_frame_note_clear( struct intel_frame_tracker *ft )
 {
    DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
-   ft->in_frame = GL_TRUE;
+   if (!ft->in_frame) {
+      struct intel_context *intel = ft->intel;
+
+      /* Update window dimensions for the coming frame???  This is
+       * bogus, but will do for now.
+       */
+      LOCK_HARDWARE(intel);
+      UPDATE_CLIPRECTS(intel);
+      UNLOCK_HARDWARE(intel);
+
+      ft->in_frame = GL_TRUE;
+   }
 }
 
 

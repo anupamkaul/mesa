@@ -32,6 +32,36 @@
 #define INTEL_SWZ_PRIVATE
 #include "intel_swz.h"
 
+/* XXX: this sucks, want a specific call from draw for when state
+ * might have changed...
+ */
+static void invalidate_bins( struct swz_render *swz )
+{
+   struct intel_context *intel = swz->intel;
+
+   if (intel->state.dirty.intel)
+      intel_update_software_state( intel );
+
+   {
+      struct intel_hw_dirty flags = intel->vtbl.get_hw_dirty( intel );
+      GLuint i;
+   
+      if (flags.dirty == 0)
+	 return;
+
+      assert (swz->started_binning);
+
+      /* Just mark the differences, state will be emitted per-zone later
+       * on.
+       */
+      for (i = 0; i < swz->nr_zones; i++)
+	 swz->zone[i].state.dirty |= flags.dirty;
+      
+      swz->state_reset_bits |= flags.dirty;
+   }
+}
+
+
 
 static void do_update_state( struct swz_render *swz, 
 			     struct swz_zone *zone,
@@ -123,7 +153,7 @@ static void tri( struct swz_render *swz,
    /* Emit to each zone:
     */
    for (y = zone_y0; y <= zone_y1; y++) {
-      struct swz_zone *zone = &swz->zone[y * swz->zone_stride + zone_x0];
+      struct swz_zone *zone = &swz->zone[y * swz->zone_width + zone_x0];
 
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state(swz, zone, ZONE_TRIS, ZONE_PRIM_SPACE );
@@ -179,7 +209,7 @@ static void line( struct swz_render *swz,
    /* Emit to each zone:
     */
    for (y = zone_y0; y <= zone_y1; y++) {
-      struct swz_zone *zone = &swz->zone[y * swz->zone_stride + zone_x0];
+      struct swz_zone *zone = &swz->zone[y * swz->zone_width + zone_x0];
 
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state(swz, zone, ZONE_LINES, ZONE_PRIM_SPACE);
@@ -227,7 +257,7 @@ static void point( struct swz_render *swz,
    /* Emit to each zone:
     */
    for (y = zone_y0; y <= zone_y1; y++) {
-      struct swz_zone *zone = &swz->zone[y * swz->zone_stride + zone_x0];
+      struct swz_zone *zone = &swz->zone[y * swz->zone_width + zone_x0];
 
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state(swz, zone, ZONE_POINTS, ZONE_PRIM_SPACE);
@@ -249,9 +279,11 @@ void swz_clear_rect( struct intel_render *render,
 
    assert( swz->started_binning );
 
+   invalidate_bins( swz );
+
    for (y = 0; y < swz->zone_height; y++) 
    {
-      for (x = 0; x < swz->zone_stride; x++, i++) 
+      for (x = 0; x < swz->zone_width; x++, i++) 
       {
 	 GLuint zx1 = MAX2(x * ZONE_WIDTH, x1);
 	 GLuint zy1 = MAX2(y * ZONE_HEIGHT, y1);
@@ -274,6 +306,8 @@ static void draw_indexed_points( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i < nr; i++) {
       point( swz, 
 	     get_vert(swz, indices[i]),
@@ -287,6 +321,8 @@ static void draw_indexed_lines( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+1 < nr; i += 2) {
       line( swz, 
 	    get_vert(swz, indices[i]),
@@ -302,6 +338,8 @@ static void draw_indexed_linestrip( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+1 < nr; i++) {
       line( swz, 
 	    get_vert(swz, indices[i]),
@@ -317,6 +355,8 @@ static void draw_indexed_tris( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+2 < nr; i += 3) {
       tri( swz, 
 	   get_vert(swz, indices[i]),
@@ -334,6 +374,8 @@ static void draw_indexed_tristrip( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+2 < nr; i++) {
       tri( swz, 
 	   get_vert(swz, indices[i]),
@@ -351,6 +393,8 @@ static void draw_indexed_trifan( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+2 < nr; i++) {
       tri( swz, 
 	   get_vert(swz, indices[0]),
@@ -370,6 +414,8 @@ static void draw_indexed_poly( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+2 < nr; i++) {
       tri( swz, 
 	   get_vert(swz, indices[0]),
@@ -388,6 +434,8 @@ static void draw_points( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i < nr; i++) {
       point( swz, 
 	     get_vert(swz, i),
@@ -401,6 +449,8 @@ static void draw_lines( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+1 < nr; i += 2) {
       line( swz, 
 	    get_vert(swz, i),
@@ -416,6 +466,8 @@ static void draw_linestrip( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+1 < nr; i++) {
       line( swz, 
 	    get_vert(swz, i),
@@ -431,6 +483,8 @@ static void draw_tris( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+2 < nr; i += 3) {
       tri( swz, 
 	   get_vert(swz, i),
@@ -448,6 +502,8 @@ static void draw_tristrip( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   invalidate_bins( swz );
    for (i = 0; i+2 < nr; i++) {
       tri( swz, 
 	   get_vert(swz, i),
@@ -466,6 +522,7 @@ static void draw_trifan( struct intel_render *render,
    struct swz_render *swz = swz_render( render );
    GLuint i;
 
+   invalidate_bins( swz );
    for (i = 0; i+2 < nr; i++) {
       tri( swz, 
 	   get_vert(swz, 0),
@@ -486,6 +543,7 @@ static void draw_poly( struct intel_render *render,
    struct swz_render *swz = swz_render( render );
    GLuint i;
 
+   invalidate_bins( swz );
    for (i = 0; i+2 < nr; i++) {
       tri( swz, 
 	   get_vert(swz, 0),
