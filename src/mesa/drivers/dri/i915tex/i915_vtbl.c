@@ -66,6 +66,35 @@ static GLboolean debug( struct debug_stream *stream, const char *name, GLuint le
    return GL_TRUE;
 }
 
+
+static GLboolean debug_prim( struct debug_stream *stream, const char *name, GLuint len )
+{
+   GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
+   const char *prim;
+
+   switch (ptr[0] & PRIM3D_MASK) {
+   case PRIM3D_TRILIST: prim = "TRILIST"; break;
+   case PRIM3D_TRISTRIP: prim = "TRISTRIP"; break;
+   case PRIM3D_TRISTRIP_RVRSE: prim = "TRISTRIP_RVRSE"; break;
+   case PRIM3D_TRIFAN: prim = "TRIFAN"; break;
+   case PRIM3D_POLY: prim = "POLY"; break;
+   case PRIM3D_LINELIST: prim = "LINELIST"; break;
+   case PRIM3D_LINESTRIP: prim = "LINESTRIP"; break;
+   case PRIM3D_RECTLIST: prim = "RECTLIST"; break;
+   case PRIM3D_POINTLIST: prim = "POINTLIST"; break;
+   case PRIM3D_DIB: prim = "DIB"; break;
+   case PRIM3D_CLEAR_RECT: prim = "CLEAR_RECT"; break;
+   case PRIM3D_ZONE_INIT: prim = "ZONE_INIT"; break;
+   default: prim = "????"; break;
+   }
+
+   _mesa_printf("%s %s", name, prim);
+   return debug(stream, "", len);
+}
+   
+
+
+
 static GLboolean debug_program( struct debug_stream *stream, const char *name, GLuint len )
 {
    GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
@@ -249,15 +278,17 @@ static GLboolean i915_debug_packet( struct debug_stream *stream )
 	    return debug(stream, "", 1);
 	 break;
       case 0x1f:
-	 if ((cmd & (1 << 23)) == 0)	/* inline vertices */
-	    return debug(stream, "3DPRIMITIVE (inline)", (cmd & 0x1ffff) + 2);
-	 else if (cmd & (1 << 17))	/* indirect random */
+	 if ((cmd & (1 << 23)) == 0)	
+	    return debug_prim(stream, "3DPRIM (inline)", (cmd & 0x1ffff) + 2);
+	 else if (cmd & (1 << 17)) 
+	 {
 	    if ((cmd & 0xffff) == 0)
 	       return debug_variable_length_prim(stream);
 	    else
-	       return debug(stream, "3DPRIM (indexed)", (((cmd & 0xffff) + 1) / 2) + 1);
+	       return debug_prim(stream, "3DPRIM (indexed)", (((cmd & 0xffff) + 1) / 2) + 1);
+	 }
 	 else
-	    return debug(stream, "3DPRIM (indirect sequential)", 2);	/* indirect sequential */
+	    return debug_prim(stream, "3DPRIM  (indirect sequential)", 2); 
 	 break;
       default:
 	 return debug(stream, "", 0);

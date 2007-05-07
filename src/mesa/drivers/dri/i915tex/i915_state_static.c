@@ -133,7 +133,7 @@ static void upload_static(struct intel_context *intel)
 		    (depth_region ? 3 : 0) + 
 		    2 +		/* DV */
 		    (scissor      ? 4 : 1) +
-		    (clearparams ? 7 : 0) +
+		    (clearparams ? 14 : 0) +
 		    Elements(invarient_state));
 
    GLuint relocs = ((color_region ? 1 : 0) + 
@@ -252,10 +252,10 @@ static void upload_static(struct intel_context *intel)
    /* INTEL_NEW_CLEAR_PARAMS
     */
    if (clearparams) {
-      unsigned statemask = CLEARPARAM_CLEAR_RECT;
       GLuint clearColor = 0;
       GLuint clearDepth = 0;
       GLuint clearStencil = 0;
+      GLuint statemask = 0;
 
       if (color_region && (clearparams & (BUFFER_BIT_BACK_LEFT |
 					  BUFFER_BIT_FRONT_LEFT))) {
@@ -283,7 +283,15 @@ static void upload_static(struct intel_context *intel)
       }
 
       packet_dword( &packet, _3DSTATE_CLEAR_PARAMETERS );
-      packet_dword( &packet, statemask );
+      packet_dword( &packet, statemask | CLEARPARAM_CLEAR_RECT );
+      packet_dword( &packet, clearColor );
+      packet_dword( &packet, clearDepth );
+      packet_dword( &packet, intel->ClearColor8888 );
+      packet_float( &packet, intel->ctx.Depth.Clear );
+      packet_dword( &packet, clearStencil );
+
+      packet_dword( &packet, _3DSTATE_CLEAR_PARAMETERS );
+      packet_dword( &packet, statemask | CLEARPARAM_ZONE_INIT );
       packet_dword( &packet, clearColor );
       packet_dword( &packet, clearDepth );
       packet_dword( &packet, intel->ClearColor8888 );

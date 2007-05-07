@@ -115,6 +115,7 @@
 #define _3DSTATE_CLEAR_PARAMETERS	(CMD_3D | (0x1d<<24) | (0x9c<<16) | 5)
 /* Dword 1 */
 #define CLEARPARAM_CLEAR_RECT		(1 << 16)
+#define CLEARPARAM_ZONE_INIT		(0 << 16)
 #define CLEARPARAM_WRITE_COLOR		(1 << 2)
 #define CLEARPARAM_WRITE_DEPTH		(1 << 1)
 #define CLEARPARAM_WRITE_STENCIL	(1 << 0)

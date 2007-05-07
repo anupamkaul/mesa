@@ -354,7 +354,6 @@ void swz_clear_rect( struct intel_render *render,
 
 /* Presumably this should also be binned:
  */
-#if 0
 void swz_zone_init( struct intel_render *render,
 		    GLuint unused_mask,
 		    GLuint x0, GLuint y0, 
@@ -383,11 +382,10 @@ void swz_zone_init( struct intel_render *render,
       struct swz_zone *zone = &swz->zone[y * swz->zone_width + zone_x0];
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state( swz, zone, ZONE_NONE, ZONE_CLEAR_SPACE );
-	 zone_clear_rect( zone, x0, y0, x1, y1 ); /* or b */
+	 zone_emit_zone_init( zone, x0, y0, x1, y1 );
       }
    }
 }
-#endif
 
 
 

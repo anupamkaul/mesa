@@ -96,6 +96,11 @@ void swz_clear_rect( struct intel_render *render,
 		     GLuint x1, GLuint y1, 
 		     GLuint x2, GLuint y2 );
 
+void swz_zone_init( struct intel_render *render,
+		    GLuint unused_mask,
+		    GLuint x1, GLuint y1, 
+		    GLuint x2, GLuint y2 );
+
 void swz_set_prim( struct intel_render *render,
 		   GLenum prim );
 

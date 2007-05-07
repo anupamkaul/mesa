@@ -36,6 +36,7 @@
 
 #include "intel_batchbuffer.h"
 #include "intel_vb.h"
+#include "intel_fbo.h"
 #include "intel_state_inlines.h"
 #include "intel_swapbuffers.h"
 #include "intel_lock.h"
@@ -271,7 +272,10 @@ static void swz_flush( struct intel_render *render,
 
       /* Emit preamble - tweak cachemode0:
        */
-      if (0 && finished) 
+      if ( 0 &&
+	  intel->state.depth_region == 0
+/* 	  || finished */
+	 ) 
 	 zone_loadreg_imm( &swz->pre_post, 
 			   CACHE_MODE_0, 
 			   (CM0_RC_OP_FLUSH_MODIFY |
@@ -333,6 +337,51 @@ static void swz_flush( struct intel_render *render,
 
 
 
+static void swz_clear( struct intel_render *render,
+		       GLuint mask,
+		       GLuint x1, GLuint y1, 
+		       GLuint x2, GLuint y2 )
+{
+   struct swz_render *swz = swz_render( render );
+   struct intel_context *intel = swz->intel;
+   struct intel_framebuffer *intel_fb = intel_get_fb( intel );
+   GLboolean do_depth = !!(mask & BUFFER_BIT_DEPTH);
+   GLboolean do_stencil = !!(mask & BUFFER_BIT_STENCIL);
+
+   if (mask == 0)
+      return;
+
+   if (
+/* intel_frame_is_double_buffered( intel->ft ) && */
+/*        intel_frame_draws_since_swap( intel->ft ) == 0 && */
+
+      intel->drawX % ZONE_WIDTH == 0 &&
+      intel->drawY % ZONE_HEIGHT == 0 &&
+      intel_fb->Base.Width % ZONE_WIDTH == 0 &&
+      intel_fb->Base.Height % ZONE_HEIGHT == 0 &&
+      x1 == 0 && 
+      y1 == 0 &&
+      x2 == intel_fb->Base.Width &&
+      y2 == intel_fb->Base.Height &&
+      do_depth == do_stencil &&
+
+      /* ??? 
+       */
+      do_depth 
+
+//      && 0
+
+      )
+   {
+      swz_zone_init( render, mask, x1, y1, x2, y2 );
+   }
+   else 
+   {
+      _mesa_printf("%d, %d\n", x2, y2);
+      swz_clear_rect( render, mask, x1, y1, x2, y2 );
+   }
+}
+
 
 static void swz_destroy_context( struct intel_render *render )
 {
@@ -342,6 +391,8 @@ static void swz_destroy_context( struct intel_render *render )
    _mesa_free(swz->last_driver_state);
    _mesa_free(swz);
 }
+
+
 
 struct intel_render *intel_create_swz_render( struct intel_context *intel )
 {
@@ -355,7 +406,7 @@ struct intel_render *intel_create_swz_render( struct intel_context *intel )
    swz->render.draw_indexed_prim = NULL;
    swz->render.release_vertices = swz_release_vertices;
    swz->render.flush = swz_flush;
-   swz->render.clear_rect = swz_clear_rect;
+   swz->render.clear_rect = swz_clear;
 
    swz->intel = intel;
 
@@ -368,31 +419,4 @@ struct intel_render *intel_create_swz_render( struct intel_context *intel )
    
 
 
-
-#if 0
-static void swz_clear( struct intel_render *render,
-		       GLuint unused_mask,
-		       GLuint x1, GLuint y1, 
-		       GLuint x2, GLuint y2 )
-{
-   struct swz_render *swz = swz_render( render );
-   struct intel_context *intel = swz->intel;
-   struct intel_framebuffer *intel_fb = intel_get_fb( intel );
-   if (intel_frame_is_double_buffered( intel->ft ) &&
-       intel_frame_draws_since_swap( intel->ft ) == 0 &&
-       swz_zone_aligned( swz ) &&
-       x1 == 0 && 
-       y1 == 0 &&
-       x2 == intel_fb->Base.Width &&
-       y2 == intel_fb->Base.Height )
-   {
-      swz->zone_init = GL_TRUE;
-      swz_zone_init( render, unused_mask, x1, y1, x2, y2 );
-   }
-   else 
-   {
-      swz_clear_rect( render, unused_mask, x1, y1, x2, y2 );
-   }
-}
-#endif
 
