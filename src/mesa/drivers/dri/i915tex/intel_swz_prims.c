@@ -179,8 +179,8 @@ static void tri( struct swz_render *swz,
 
    if (zone_x0 < 0) zone_x0 = 0;
    if (zone_y0 < 0) zone_y0 = 0;
-   if (zone_x1 > swz->zone_width) zone_x1 = swz->zone_width;
-   if (zone_y1 > swz->zone_height) zone_y1 = swz->zone_height;
+   if (zone_x1 >= swz->zone_width) zone_x1 = swz->zone_width-1;
+   if (zone_y1 >= swz->zone_height) zone_y1 = swz->zone_height-1;
    
 
    if (0) _mesa_printf("tri (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
@@ -241,8 +241,8 @@ static void line( struct swz_render *swz,
 
    if (zone_x0 < 0) zone_x0 = 0;
    if (zone_y0 < 0) zone_y0 = 0;
-   if (zone_x1 > swz->zone_width) zone_x1 = swz->zone_width;
-   if (zone_y1 > swz->zone_height) zone_y1 = swz->zone_height;
+   if (zone_x1 >= swz->zone_width) zone_x1 = swz->zone_width-1;
+   if (zone_y1 >= swz->zone_height) zone_y1 = swz->zone_height-1;
    
 
 
@@ -295,8 +295,8 @@ static void point( struct swz_render *swz,
 
    if (zone_x0 < 0) zone_x0 = 0;
    if (zone_y0 < 0) zone_y0 = 0;
-   if (zone_x1 > swz->zone_width) zone_x1 = swz->zone_width;
-   if (zone_y1 > swz->zone_height) zone_y1 = swz->zone_height;
+   if (zone_x1 >= swz->zone_width) zone_x1 = swz->zone_width-1;
+   if (zone_y1 >= swz->zone_height) zone_y1 = swz->zone_height-1;
 
    if (0) _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
 		       x0, x1, y0, y1,
