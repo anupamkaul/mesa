@@ -326,6 +326,18 @@ static INLINE void zone_emit_zone_init( struct swz_zone *zone,
    out[5].f = x1;
    out[6].f = y1;
 }
+
+
+static INLINE void zone_loadreg_imm( struct swz_zone *zone,
+				     GLuint reg,
+				     GLuint value )
+{
+   GLuint *out = zone_get_dwords( zone, 3 );
+
+   out[0] = MI_LOAD_REGISTER_IMM;
+   out[1] = reg;
+   out[2] = value;
+}
 				    
 
 static INLINE void zone_get_space( struct swz_render *swz,

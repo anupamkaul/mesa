@@ -271,6 +271,22 @@ static void swz_flush( struct intel_render *render,
 
       /* Emit preamble - tweak cachemode0:
        */
+      if (0 && finished) 
+	 zone_loadreg_imm( &swz->pre_post, 
+			   CACHE_MODE_0, 
+			   (CM0_RC_OP_FLUSH_MODIFY |
+			    CM0_DEPTH_WRITE_MODIFY |
+			    CM0_RC_OP_FLUSH_DISABLE |
+			    CM0_DEPTH_WRITE_DISABLE) );
+      else
+	 zone_loadreg_imm( &swz->pre_post, 
+			   CACHE_MODE_0, 
+			   (CM0_RC_OP_FLUSH_MODIFY |
+			    CM0_DEPTH_WRITE_MODIFY |
+			    CM0_RC_OP_FLUSH_DISABLE |
+			    CM0_DEPTH_WRITE_ENABLE) );
+
+
 
       /* Call into the first zone:
        */
@@ -292,15 +308,20 @@ static void swz_flush( struct intel_render *render,
       }
 
       /* Emit postamble:
-       */
-      
-      /* Reset cachemode0:
-       */
+       */     
 
-      /* Finished:
+      /* Restore CACHE_MODE_0 bits:
        */
-/*       zone_end_batch( &swz->pre_post ); */
+      zone_loadreg_imm( &swz->pre_post, 
+			CACHE_MODE_0, 
+			(CM0_RC_OP_FLUSH_MODIFY |
+			 CM0_DEPTH_WRITE_MODIFY |
+			 CM0_RC_OP_FLUSH_ENABLE |
+			 CM0_DEPTH_WRITE_ENABLE) );
 
+
+      /* Tell the batchbuffer code about what we've emitted:
+       */
       intel->batch->segment_finish_offset[0] = swz->pre_post.ptr - intel->batch->map;
       intel_batchbuffer_flush( intel->batch, !finished );
 

@@ -147,6 +147,8 @@ static GLboolean i915_debug_packet( struct debug_stream *stream )
       case 0xA:
 	 debug(stream, "MI_BATCH_BUFFER_END", 1);
 	 return GL_FALSE;
+      case 0x22:
+	 return debug(stream, "MI_LOAD_REGISTER_IMM", 3);
       case 0x31:
 	 return debug_chain(stream, "MI_BATCH_BUFFER_START", 2);
       default:

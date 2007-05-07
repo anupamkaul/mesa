@@ -152,4 +152,16 @@
 #define GFX_OP_DRAWRECT_INFO     ((0x3<<29)|(0x1d<<24)|(0x80<<16)|(0x3))
 
 
+#define CACHE_MODE_0		           0x2120
+#define CM0_RC_OP_FLUSH_ENABLE             0x0
+#define CM0_RC_OP_FLUSH_DISABLE            0x1
+#define CM0_RC_OP_FLUSH_MODIFY             (0x1<<16)
+#define CM0_DEPTH_WRITE_ENABLE             0x0
+#define CM0_DEPTH_WRITE_DISABLE            0x2
+#define CM0_DEPTH_WRITE_MODIFY             (0x2<<16)
+
+
+#define MI_LOAD_REGISTER_IMM	((0x22 << 23)|0x1)
+
+
 #endif
