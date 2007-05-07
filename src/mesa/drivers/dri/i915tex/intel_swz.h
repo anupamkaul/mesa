@@ -66,6 +66,7 @@ struct swz_render {
    GLuint zone_width;
    GLuint zone_height;
 
+   struct swz_zone pre_post;
    
    GLboolean started_binning;
 
@@ -75,8 +76,9 @@ struct swz_render {
    GLuint nr_vertices;
    GLuint vbo_offset;
 
+   struct intel_hw_dirty reset_state;
 
-   void *initial_driver_state;
+   GLuint initial_state_size;
    void *last_driver_state;
    GLuint driver_state_size;
 };
@@ -128,7 +130,7 @@ static INLINE void *get_vert( struct swz_render *swz,
     I915_CLEAR_RECT_SIZE + 			\
     I915_BB_CHAIN_SIZE)
 
-#define ZONE_PRIM_SPACE  (5 * sizeof(GLuint)) /* start + 3 indices + ffff + BATCH_BEGIN */
+#define ZONE_PRIM_SPACE  (6 * sizeof(GLuint)) /* start + 3 indices + ffff + BATCH_END */
 #define ZONE_END_SPACE   (3 * sizeof(GLuint)) /* NOOP + MI_FLUSH + BATCH_END */
 #define ZONE_DRAWRECT_SPACE   (5 * sizeof(GLuint))
 #define ZONE_CLEAR_SPACE ((I915_CLEAR_RECT_SIZE+1) * sizeof(GLuint)) /* clear + BATCH_BEGIN */
@@ -193,6 +195,13 @@ static INLINE void zone_emit_point( struct swz_zone *zone, GLuint i0 )
    out[0] = i0;
 }
 
+static INLINE void zone_emit_noop( struct swz_zone *zone )
+{
+   GLuint *out = zone_get_dwords( zone, 1 );
+
+   out[0] = 0;
+}
+
 
 static INLINE void zone_finish_prim( struct swz_zone *zone )
 {
@@ -233,7 +242,7 @@ static INLINE void zone_end_batch( struct swz_zone *zone,
  */
 static INLINE void zone_begin_batch( struct swz_render *swz,
 				     struct swz_zone *zone,
-				     GLubyte *newptr )
+				     const GLubyte *newptr )
 {
    GLuint *out = zone_get_dwords( zone, 2 );
 

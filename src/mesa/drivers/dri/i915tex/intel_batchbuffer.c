@@ -249,7 +249,7 @@ intel_batchbuffer_alloc(struct intel_context *intel)
        */
       if (_mesa_getenv("INTEL_SWZ"))
 	 intel_cmdstream_use_batch_range( intel, 
-					  1 * SEGMENT_SZ,
+					  0 * SEGMENT_SZ,
 					  3 * SEGMENT_SZ );      
    } else {
       batch->state_buffer = batch->buffer;

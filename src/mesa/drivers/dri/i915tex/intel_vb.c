@@ -73,22 +73,6 @@ void intel_vb_set_vertex_size( struct intel_vb *vb,
 
 
 
-/* Callback from (eventually) intel_batchbuffer_flush().  Prepare for
- * submit to hardware.
- */
-void intel_vb_flush( struct intel_vb *vb )
-{
-   DBG("%s\n", __FUNCTION__);
-
-   if (vb->vbo.current_ptr) 
-      intel_vb_unmap_current_vbo( vb );
-
-   vb->vbo.current_used = vb->vbo.current_size;
-   vb->vbo.wrap_vbo = vb->vbo.idx;
-}
-
-
-
 
 
 void
@@ -196,6 +180,25 @@ void *intel_vb_alloc_vertices( struct intel_vb *vb,
 
 
 
+/* Callback from (eventually) intel_batchbuffer_flush().  Prepare for
+ * submit to hardware.
+ */
+void intel_vb_flush( struct intel_vb *vb )
+{
+   DBG("%s\n", __FUNCTION__);
+
+   if (vb->vbo.current_ptr) 
+      intel_vb_unmap_current_vbo( vb );
+
+   if (vb->vbo.current_used) {
+      vb->vbo.current_used = vb->vbo.current_size;
+      vb->vbo.wrap_vbo = vb->vbo.idx;
+      get_next_vbo( vb, 0 );
+   }   
+}
+
+
+
 
 struct intel_vb *intel_vb_init( struct intel_context *intel )
 {
@@ -222,6 +225,7 @@ struct intel_vb *intel_vb_init( struct intel_context *intel )
 
    }
 
+   get_next_vbo( vb, 0 );
    return vb;
 }
 

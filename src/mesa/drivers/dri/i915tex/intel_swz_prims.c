@@ -60,6 +60,8 @@ static void invalidate_bins( struct swz_render *swz )
        */
       for (i = 0; i < swz->nr_zones; i++)
 	 swz->zone[i].state.dirty |= flags.dirty;
+
+      swz->reset_state.dirty |= flags.dirty;
    }
 }
 
@@ -131,7 +133,7 @@ static void tri( struct swz_render *swz,
    GLint zone_x0, zone_x1, zone_y0, zone_y1;
    GLint x,y;
 
-#if 0
+#if 1
    GLfloat ex = v0[0] - v2[0];
    GLfloat ey = v0[1] - v2[1];
    GLfloat fx = v1[0] - v2[0];
