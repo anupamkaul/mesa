@@ -128,35 +128,58 @@ static void tri( struct swz_render *swz,
 		 GLuint i2 )
 {
    GLfloat x0, x1, y0, y1;
-   GLuint zone_x0, zone_x1, zone_y0, zone_y1;
-   GLuint x,y;
+   GLint zone_x0, zone_x1, zone_y0, zone_y1;
+   GLint x,y;
+
+#if 0
+   GLfloat ex = v0[0] - v2[0];
+   GLfloat ey = v0[1] - v2[1];
+   GLfloat fx = v1[0] - v2[0];
+   GLfloat fy = v1[1] - v2[1];
+   
+   GLfloat det = ex * fy - ey * fx;
+
+   if (det >= 0) 
+      return;
+#endif
 
    /* Calculate bounds: NOTE: reading back from the vbo - must be
     * declared with appropriate flags.
+    *
+    * Almost all of the slowdown of swz relative to other rendering is
+    * attributable to this calculation.  Need an optimized sse version
+    * to get performance back.
     */
-   x0 = x1 = v0[0];
-   y0 = y1 = v0[1];
+   x0 = v0[0];
+   x1 = v0[0];
+   y0 = v0[1];
+   y1 = v0[1];
 
    if (x0 > v1[0]) x0 = v1[0];
-   if (x1 < v1[0]) x1 = v1[0];
-   if (y0 > v1[1]) y0 = v1[1];
-   if (y1 < v1[1]) y1 = v1[1];
-
    if (x0 > v2[0]) x0 = v2[0];
-   if (x1 < v2[0]) x1 = v2[0];
+   if (y0 > v1[1]) y0 = v1[1];
    if (y0 > v2[1]) y0 = v2[1];
+
+   if (x1 < v1[0]) x1 = v1[0];
+   if (x1 < v2[0]) x1 = v2[0];
+   if (y1 < v1[1]) y1 = v1[1];
    if (y1 < v2[1]) y1 = v2[1];
 
    zone_x0 = x0;
-   zone_x1 = x1 - .126;
+   zone_x1 = x1;
    zone_y0 = y0;
-   zone_y1 = y1 - .126;
+   zone_y1 = y1;
 
    zone_x0 /= ZONE_WIDTH;
    zone_x1 /= ZONE_WIDTH;
    zone_y0 /= ZONE_HEIGHT;
    zone_y1 /= ZONE_HEIGHT;
 
+   if (zone_x0 < 0) zone_x0 = 0;
+   if (zone_y0 < 0) zone_y0 = 0;
+   if (zone_x1 > swz->zone_width) zone_x1 = swz->zone_width;
+   if (zone_y1 > swz->zone_height) zone_y1 = swz->zone_height;
+   
 
    if (0) _mesa_printf("tri (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
 		       x0, x1, y0, y1,
@@ -183,8 +206,8 @@ static void line( struct swz_render *swz,
 		  GLuint i1 )
 {
    GLfloat x0, x1, y0, y1;
-   GLuint zone_x0, zone_x1, zone_y0, zone_y1;
-   GLuint x,y;
+   GLint zone_x0, zone_x1, zone_y0, zone_y1;
+   GLint x,y;
    GLuint w = 1;
 
    /* Calculate bounds:
@@ -204,11 +227,6 @@ static void line( struct swz_render *swz,
    y0 = (y0 - w);
    y1 = (y1 + w);
 
-/*    CLAMP(x0, 0, swz->screen_width); */
-/*    CLAMP(x1, 0, swz->screen_width); */
-/*    CLAMP(y0, 0, swz->screen_height); */
-/*    CLAMP(y1, 0, swz->screen_height); */
-   
    zone_x0 = x0;
    zone_x1 = x1;
    zone_y0 = y0;
@@ -218,6 +236,13 @@ static void line( struct swz_render *swz,
    zone_x1 /= ZONE_WIDTH;
    zone_y0 /= ZONE_HEIGHT;
    zone_y1 /= ZONE_HEIGHT;
+
+   if (zone_x0 < 0) zone_x0 = 0;
+   if (zone_y0 < 0) zone_y0 = 0;
+   if (zone_x1 > swz->zone_width) zone_x1 = swz->zone_width;
+   if (zone_y1 > swz->zone_height) zone_y1 = swz->zone_height;
+   
+
 
    if (0) _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
 		       x0, x1, y0, y1,
@@ -240,8 +265,8 @@ static void point( struct swz_render *swz,
 		   GLuint i0 )
 {
    GLfloat x0, x1, y0, y1;
-   GLuint zone_x0, zone_x1, zone_y0, zone_y1;
-   GLuint x,y;
+   GLint zone_x0, zone_x1, zone_y0, zone_y1;
+   GLint x,y;
    GLuint w = 1;
 
    /* Calculate bounds:
@@ -256,11 +281,6 @@ static void point( struct swz_render *swz,
    y0 = (y0 - w);
    y1 = (y1 + w);
 
-/*    CLAMP(x0, 0, swz->screen_width); */
-/*    CLAMP(x1, 0, swz->screen_width); */
-/*    CLAMP(y0, 0, swz->screen_height); */
-/*    CLAMP(y1, 0, swz->screen_height); */
-   
    zone_x0 = x0;
    zone_x1 = x1;
    zone_y0 = y0;
@@ -270,6 +290,11 @@ static void point( struct swz_render *swz,
    zone_x1 /= ZONE_WIDTH;
    zone_y0 /= ZONE_HEIGHT;
    zone_y1 /= ZONE_HEIGHT;
+
+   if (zone_x0 < 0) zone_x0 = 0;
+   if (zone_y0 < 0) zone_y0 = 0;
+   if (zone_x1 > swz->zone_width) zone_x1 = swz->zone_width;
+   if (zone_y1 > swz->zone_height) zone_y1 = swz->zone_height;
 
    if (0) _mesa_printf("point (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
 		       x0, x1, y0, y1,
