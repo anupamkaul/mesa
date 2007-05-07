@@ -107,7 +107,6 @@ void i915_init_state( struct i915_context *i915 )
 		&i915_upload_constants,
 		sizeof(i915_upload_constants));
 
-   i915->hardware.id = 0;
    i915->current.id = 1;
 }
 

@@ -249,7 +249,7 @@ static void classic_start_render( struct intel_render *render,
 				  GLboolean start_of_frame )
 {
    struct classic_render *crc = classic_render( render );
-   _mesa_printf("%s\n", __FUNCTION__);
+//   _mesa_printf("%s\n", __FUNCTION__);
 
    /* Start a new batchbuffer, emit wait for pending flip.
     */

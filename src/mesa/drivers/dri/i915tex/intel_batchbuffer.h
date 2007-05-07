@@ -13,7 +13,7 @@ struct intel_context;
 #define BATCH_SZ (3*SEGMENT_SZ)
 #define BATCH_RESERVED 16
 
-#define MAX_RELOCS 400
+#define MAX_RELOCS 4000
 
 #define INTEL_BATCH_NO_CLIPRECTS     0x1
 #define INTEL_BATCH_CLIPRECTS        0x2

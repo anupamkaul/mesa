@@ -330,10 +330,5 @@ i915InitVtbl(struct i915_context *i915)
    i915->intel.vtbl.lost_hardware = i915_lost_hardware;
    i915->intel.vtbl.debug_packet = i915_debug_packet;
 
-   i915->intel.vtbl.get_state_size = i915_get_state_size;
-   i915->intel.vtbl.emit_hardware_state = i915_emit_hardware_state;
-   i915->intel.vtbl.get_hw_dirty = i915_get_hw_dirty;
-
-
    i915->intel.vtbl.check_indirect_space = i915_check_indirect_space;
 }

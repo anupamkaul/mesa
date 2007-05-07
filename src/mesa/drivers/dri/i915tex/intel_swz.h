@@ -66,13 +66,19 @@ struct swz_render {
    GLuint zone_width;
    GLuint zone_height;
 
-   GLuint state_reset_bits;
    
    GLboolean started_binning;
 
+   GLubyte *vbo_vertices;
    GLubyte *vertices;
    GLuint vertex_stride;
+   GLuint nr_vertices;
    GLuint vbo_offset;
+
+
+   void *initial_driver_state;
+   void *last_driver_state;
+   GLuint driver_state_size;
 };
 
 static INLINE struct swz_render *swz_render( struct intel_render *render )
@@ -275,6 +281,7 @@ static INLINE void zone_draw_rect( struct swz_zone *zone,
 /* XXX: i915 only
  */
 #define PRIM3D_CLEAR_RECT	(0xa<<18)
+#define PRIM3D_ZONE_INIT	(0xd<<18)
 
 static INLINE void zone_clear_rect( struct swz_zone *zone,
 				    GLuint x1,
@@ -285,6 +292,24 @@ static INLINE void zone_clear_rect( struct swz_zone *zone,
 
    union fi *out = (union fi *)zone_get_dwords( zone, 7 );
    out[0].u = _3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5;
+   out[1].f = x2;
+   out[2].f = y2;
+   out[3].f = x1;
+   out[4].f = y2;
+   out[5].f = x1;
+   out[6].f = y1;
+}
+				    
+
+static INLINE void zone_emit_zone_init( struct swz_zone *zone,
+					GLuint x1,
+					GLuint y1,
+					GLuint x2,
+					GLuint y2 )
+{
+
+   union fi *out = (union fi *)zone_get_dwords( zone, 7 );
+   out[0].u = _3DPRIMITIVE | PRIM3D_ZONE_INIT | 5;
    out[1].f = x2;
    out[2].f = y2;
    out[3].f = x1;

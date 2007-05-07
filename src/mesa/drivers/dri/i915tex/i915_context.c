@@ -117,7 +117,9 @@ i915CreateContext(const __GLcontextModes *mesaVis,
 
    i915InitVtbl(i915);
    i915InitDriverFunctions(&functions);
+
    i915_init_state(i915);
+   i915_init_differencer(i915);
 
    i915->cctx = i915_create_caches( i915 );
    if (!i915->cctx)

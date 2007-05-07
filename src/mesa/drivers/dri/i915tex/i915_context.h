@@ -184,13 +184,12 @@ struct i915_context
       GLuint attrs;
    } vertex_format;
    
-   /* Used for short-circuiting state updates.  Won't work for packets
-    * containing relocations, unless they are specifically invalidated
-    * after batchbuffer flushes - currently we zero out the whole
-    * state after lost_context events.
+   /* The current, desired hardware state as calcuated by the state
+    * tracker.  It is up to the render engine or other user of state
+    * to figure out how to get this into hardware, and to track when
+    * hardware state is lost:
     */
    struct i915_state current;
-   struct i915_state hardware;
    GLuint hardware_dirty;
 
    /* Misc flags: 
@@ -217,6 +216,12 @@ extern GLboolean i915CreateContext(const __GLcontextModes * mesaVis,
  * i915_program.c
  */
 extern void i915InitFragProgFuncs(struct dd_function_table *functions);
+
+
+/*======================================================================
+ * i915_differencer.c
+ */
+extern void i915_init_differencer( struct i915_context *i915 );
 
 
 

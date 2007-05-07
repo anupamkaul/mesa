@@ -44,7 +44,10 @@ static void invalidate_bins( struct swz_render *swz )
       intel_update_software_state( intel );
 
    {
-      struct intel_hw_dirty flags = intel->vtbl.get_hw_dirty( intel );
+      struct intel_hw_dirty flags = intel_track_states( intel,
+							swz->last_driver_state,
+							intel->state.current );
+
       GLuint i;
    
       if (flags.dirty == 0)
@@ -57,8 +60,6 @@ static void invalidate_bins( struct swz_render *swz )
        */
       for (i = 0; i < swz->nr_zones; i++)
 	 swz->zone[i].state.dirty |= flags.dirty;
-      
-      swz->state_reset_bits |= flags.dirty;
    }
 }
 
@@ -79,18 +80,20 @@ static void do_update_state( struct swz_render *swz,
     */
    if (zone->state.dirty) 
    {
-      GLuint size = intel->vtbl.get_state_size( intel, zone->state );
+      GLuint size = intel->vtbl.get_state_emit_size( intel, zone->state );
 
       if (intel_cmdstream_space( zone->ptr ) <  size + space )
 	 zone_get_space( swz, zone );
 
       intel->vtbl.emit_hardware_state( intel, 
 				       (GLuint *)zone->ptr,
+				       intel->state.current,
 				       zone->state,
 				       0 );
 
       zone->ptr += size;
       zone->state.dirty = 0;
+      zone->state.swz_reset = 1;
    }
    else if (intel_cmdstream_space( zone->ptr ) <  space ) 
    {
@@ -145,9 +148,9 @@ static void tri( struct swz_render *swz,
    if (y1 < v2[1]) y1 = v2[1];
 
    zone_x0 = x0;
-   zone_x1 = x1;
+   zone_x1 = x1 - .126;
    zone_y0 = y0;
-   zone_y1 = y1;
+   zone_y1 = y1 - .126;
 
    zone_x0 /= ZONE_WIDTH;
    zone_x1 /= ZONE_WIDTH;
@@ -289,33 +292,76 @@ static void point( struct swz_render *swz,
  */
 void swz_clear_rect( struct intel_render *render,
 		     GLuint unused_mask,
-		     GLuint x1, GLuint y1, 
-		     GLuint x2, GLuint y2 )
+		     GLuint x0, GLuint y0, 
+		     GLuint x1, GLuint y1 )
 {
    struct swz_render *swz = swz_render( render );
-   GLuint x, y, i = 0;
+   GLuint zone_x0, zone_x1, zone_y0, zone_y1;
+   GLuint x, y;
 
    assert( swz->started_binning );
 
    invalidate_bins( swz );
 
-   for (y = 0; y < swz->zone_height; y++) 
-   {
-      for (x = 0; x < swz->zone_width; x++, i++) 
-      {
-	 GLuint zx1 = MAX2(x * ZONE_WIDTH, x1);
-	 GLuint zy1 = MAX2(y * ZONE_HEIGHT, y1);
-	 GLuint zx2 = MIN2(x * ZONE_WIDTH + ZONE_WIDTH - 1, x2);
-	 GLuint zy2 = MIN2(y * ZONE_HEIGHT + ZONE_HEIGHT - 1, y2);
-	 
-	 if (zx1 < zx2 && zy1 < zy2) 
-	 {
-	    zone_update_state( swz, &swz->zone[i], ZONE_NONE, ZONE_CLEAR_SPACE );
-	    zone_clear_rect( &swz->zone[i], zx1, zy1, zx2, zy2 );
-	 }
+   zone_x0 = x0;
+   zone_x1 = x1-1;
+   zone_y0 = y0;
+   zone_y1 = y1-1;
+
+   zone_x0 /= ZONE_WIDTH;
+   zone_x1 /= ZONE_WIDTH;
+   zone_y0 /= ZONE_HEIGHT;
+   zone_y1 /= ZONE_HEIGHT;
+
+
+   for (y = zone_y0; y <= zone_y1; y++) {
+      struct swz_zone *zone = &swz->zone[y * swz->zone_width + zone_x0];
+      for (x = zone_x0; x <= zone_x1; x++, zone++) {
+	 zone_update_state( swz, zone, ZONE_NONE, ZONE_CLEAR_SPACE );
+	 zone_clear_rect( zone, x0, y0, x1, y1 ); /* or b */
       }
    }
 }
+
+
+
+/* Presumably this should also be binned:
+ */
+#if 0
+void swz_zone_init( struct intel_render *render,
+		    GLuint unused_mask,
+		    GLuint x0, GLuint y0, 
+		    GLuint x1, GLuint y1 )
+{
+   struct swz_render *swz = swz_render( render );
+   GLuint zone_x0, zone_x1, zone_y0, zone_y1;
+   GLuint x, y;
+
+   assert( swz->started_binning );
+
+   invalidate_bins( swz );
+
+   zone_x0 = x0;
+   zone_x1 = x1-1;
+   zone_y0 = y0;
+   zone_y1 = y1-1;
+
+   zone_x0 /= ZONE_WIDTH;
+   zone_x1 /= ZONE_WIDTH;
+   zone_y0 /= ZONE_HEIGHT;
+   zone_y1 /= ZONE_HEIGHT;
+
+
+   for (y = zone_y0; y <= zone_y1; y++) {
+      struct swz_zone *zone = &swz->zone[y * swz->zone_width + zone_x0];
+      for (x = zone_x0; x <= zone_x1; x++, zone++) {
+	 zone_update_state( swz, zone, ZONE_NONE, ZONE_CLEAR_SPACE );
+	 zone_clear_rect( zone, x0, y0, x1, y1 ); /* or b */
+      }
+   }
+}
+#endif
+
 
 
 static void draw_indexed_points( struct intel_render *render,

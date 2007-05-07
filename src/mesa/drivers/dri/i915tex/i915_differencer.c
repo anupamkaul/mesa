@@ -33,7 +33,6 @@
 #include "i915_context.h"
 #include "i915_state.h"
 #include "i915_reg.h"
-#include "i915_differencer.h"
 #include "intel_batchbuffer.h"
 #include "intel_utils.h"
 #include "intel_fbo.h"
@@ -45,7 +44,8 @@ union i915_hw_dirty {
       GLuint prim:2;
       GLuint immediate:8;
       GLuint indirect:6;
-      GLuint pad:16;
+      GLuint pad:1;
+      GLuint reserved_swz:15;
    } i915;
    struct intel_hw_dirty intel;
 };
@@ -190,8 +190,8 @@ static GLuint size_immediate( GLuint dirty )
 }
 
 
-GLuint i915_get_state_size( struct intel_context *intel,
-			    struct intel_hw_dirty iflags )
+static GLuint i915_get_state_size( struct intel_context *intel,
+				   struct intel_hw_dirty iflags )
 {
    union i915_hw_dirty flags;
 
@@ -210,7 +210,7 @@ static GLuint diff_immediate( const struct i915_state *from,
 
    /* Lost context?
     */
-   if (from->id != to->id) {
+   if (from == NULL || from->id != to->id) {
       dirty = (1<<I915_MAX_IMMEDIATE) - 1;
    }
    else {
@@ -237,7 +237,7 @@ static GLuint diff_indirect( const struct i915_state *from,
    GLuint dirty = 0;
    GLuint i;
 
-   if (from->id != to->id) {
+   if (from == NULL || from->id != to->id) {
       dirty = (1<<I915_MAX_CACHE) - 1;
    }
    else {
@@ -262,19 +262,18 @@ static GLuint diff_indirect( const struct i915_state *from,
 }
 
 
-struct intel_hw_dirty i915_get_hw_dirty( struct intel_context *intel )
+static struct intel_hw_dirty i915_diff_states( const void *old_state,
+					       const void *new_state )
 {
-   struct i915_context *i915 = i915_context( &intel->ctx );
-   const struct i915_state *current = &i915->current;
-   struct i915_state *hw = &i915->hardware;
+   const struct i915_state *old_i915_state = (const struct i915_state *)old_state;
+   const struct i915_state *new_i915_state = (const struct i915_state *)new_state;
    union i915_hw_dirty flags;
 
    flags.i915.prim = 0;
-   flags.i915.immediate = diff_immediate( hw, current );
-   flags.i915.indirect = diff_indirect( hw, current );
+   flags.i915.immediate = diff_immediate( old_i915_state, new_i915_state );
+   flags.i915.indirect = diff_indirect( old_i915_state, new_i915_state );
    flags.i915.pad = 0;
-
-   memcpy(hw, current, sizeof(*current));
+   flags.i915.reserved_swz = 0;
 
    return flags.intel;
 }
@@ -283,19 +282,28 @@ struct intel_hw_dirty i915_get_hw_dirty( struct intel_context *intel )
 /* Combine packets, diff against hardware state and emit a minimal set
  * of changes.
  */
-void i915_emit_hardware_state( struct intel_context *intel,
-			       GLuint *ptr,
-			       struct intel_hw_dirty intel_flags,
-			       GLboolean force_load )
+static void i915_emit_hardware_state( struct intel_context *intel,
+				      GLuint *ptr,
+				      const void *driver_state,
+				      struct intel_hw_dirty intel_flags,
+				      GLboolean force_load )
 {
-   struct i915_context *i915 = i915_context( &intel->ctx );
-   const struct i915_state *new = &i915->current;
+   const struct i915_state *state = (const struct i915_state *)driver_state;
    union i915_hw_dirty flags;
    
    flags.intel = intel_flags;
 
-   emit_immediates( intel, &ptr, new, flags.i915.immediate );
-   emit_indirect( intel, &ptr, new, flags.i915.indirect, force_load );
+   emit_immediates( intel, &ptr, state, flags.i915.immediate );
+   emit_indirect( intel, &ptr, state, flags.i915.indirect, force_load );
 }
 
 
+void i915_init_differencer( struct i915_context *i915 )
+{
+   i915->intel.state.current = (void *)(&i915->current);
+   i915->intel.state.driver_state_size = sizeof(struct i915_state);
+
+   i915->intel.vtbl.get_state_emit_size = i915_get_state_size;
+   i915->intel.vtbl.emit_hardware_state = i915_emit_hardware_state;
+   i915->intel.vtbl.diff_states = i915_diff_states;
+}

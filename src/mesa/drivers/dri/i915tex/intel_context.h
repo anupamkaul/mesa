@@ -170,7 +170,17 @@ struct intel_context_state {
    GLuint vbo_offset;
 
 
+   /* Track dirty flags for software state:
+    */
    struct intel_state_flags dirty;
+
+
+   /* A hardware state tracker:
+    */
+   GLuint driver_state_size;
+   void *current;		/* pointer to subdriver state */
+   void *hardware;		/* malloc'ed */
+   GLboolean force_load;
 };
 
 /* A single atom of derived state
@@ -188,7 +198,8 @@ struct intel_driver_state {
 
 struct intel_hw_dirty {
    GLuint prim:2;
-   GLuint dirty:30;
+   GLuint dirty:15;
+   GLuint swz_reset:15;
 };
 
 
@@ -219,16 +230,20 @@ struct intel_context
 
       GLboolean (*debug_packet)(struct debug_stream *stream);
 
-      struct intel_hw_dirty (*get_hw_dirty) (struct intel_context *intel );
-
       /* Must be exact
        */
-      GLuint (*get_state_size) (struct intel_context *intel,
-				struct intel_hw_dirty flags );
+      GLuint (*get_state_emit_size) (struct intel_context *intel,
+				     struct intel_hw_dirty flags );
 
+
+      struct intel_hw_dirty (*diff_states) ( const void *old_state,
+					     const void *new_state );
+
+      
 
       void (*emit_hardware_state) (struct intel_context *intel,
 				   GLuint *ptr,
+				   const void *state,
 				   struct intel_hw_dirty flags, 
 				   GLboolean force_load );
 
@@ -478,8 +493,14 @@ intel_texture_image(struct gl_texture_image *img)
    return (struct intel_texture_image *) img;
 }
 
-extern struct intel_renderbuffer *intel_renderbuffer(struct gl_renderbuffer
-                                                     *rb);
+static INLINE struct intel_framebuffer *
+intel_get_fb( struct intel_context *intel )
+{
+   return (struct intel_framebuffer *) intel->driDrawable->driverPrivate;
+}
+
+extern struct intel_renderbuffer *
+intel_renderbuffer(struct gl_renderbuffer *rb);
 
 
 #endif

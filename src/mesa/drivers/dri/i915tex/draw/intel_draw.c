@@ -47,7 +47,7 @@
 void intel_draw_finish_frame( struct intel_draw *draw )
 {
    assert(!draw->in_vb);
-   assert(draw->in_frame);
+//   assert(draw->in_frame);
    draw->in_frame = GL_FALSE;
 }
 

@@ -134,6 +134,16 @@ void intel_update_software_state( struct intel_context *intel )
    memset(state, 0, sizeof(*state));
 }
 
+struct intel_hw_dirty intel_track_states( struct intel_context *intel,
+					  void *prev,
+					  const void *current )
+{
+   struct intel_hw_dirty flags = intel->vtbl.diff_states( prev, current );
+   if (prev)
+      memcpy(prev, current, intel->state.driver_state_size );
+   return flags;
+}
+
 /* By the time this gets called, software state should be clean and
  * there should be sufficient batch to hold things...  How does that
  * work with big indexed primitives???
@@ -146,19 +156,19 @@ GLuint *intel_emit_hardware_state( struct intel_context *intel,
 				   GLuint batchflags )
 {
 
-   /* Fix this:
-    */
-   GLboolean force_load = 0; //i915->current.id != i915->hardware.id;
+   struct intel_hw_dirty dirty = intel_track_states( intel,
+						     intel->state.hardware,
+						     intel->state.current );
 
-   struct intel_hw_dirty dirty = intel->vtbl.get_hw_dirty( intel );
-   GLuint state_size = intel->vtbl.get_state_size( intel, dirty );
-   GLuint size_bytes = state_size + dwords * 4;
+   GLuint state_size = 
+      intel->vtbl.get_state_emit_size( intel, dirty );
+
 
    /* Just emit to the batch stream:
     */
    intel_batchbuffer_require_space( intel->batch,
 				    0,
-				    size_bytes, 
+				    state_size + dwords * 4, 
 				    batchflags );
 
    /* What do we do on flushes????
@@ -169,10 +179,14 @@ GLuint *intel_emit_hardware_state( struct intel_context *intel,
       GLuint *ptr = (GLuint *) (intel->batch->map + 
 				intel->batch->segment_finish_offset[0]);      
       
-      intel->vtbl.emit_hardware_state( intel, ptr, dirty, force_load );
+      intel->vtbl.emit_hardware_state( intel, ptr, 
+				       intel->state.current,
+				       dirty, 
+				       intel->state.force_load );
       
-      intel->batch->segment_finish_offset[0] += size_bytes;
+      intel->state.force_load = 0;
 
+      intel->batch->segment_finish_offset[0] += state_size + dwords * 4;
       return ptr + state_size/4;
    }
 }
@@ -200,4 +214,13 @@ void intel_state_init( struct intel_context *intel )
    intel->state.VertexProgram = &ctx->VertexProgram;
    intel->state.FragmentProgram = &ctx->FragmentProgram;
    intel->state.PolygonStipple = &ctx->PolygonStipple[0];
+
+   intel->state.hardware = malloc( intel->state.driver_state_size );
+   memset( intel->state.hardware, 0, intel->state.driver_state_size );
+}
+
+
+void intel_state_destroy( struct intel_context *intel )
+{
+   free( intel->state.hardware );
 }
