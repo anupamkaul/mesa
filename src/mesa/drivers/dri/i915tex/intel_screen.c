@@ -365,7 +365,7 @@ intelUpdateScreenFromSAREA(intelScreenPrivate * intelScreen,
 GLboolean
 intelCreatePools(intelScreenPrivate *intelScreen)
 {
-   unsigned batchPoolSize = 1024*1024;
+   unsigned batchPoolSize = 4*1024*1024;
    __DRIscreenPrivate * sPriv = intelScreen->driScrnPriv;
 
    if (intelScreen->havePools)
