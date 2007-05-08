@@ -40,10 +40,6 @@
 #include "intel_utils.h"
 #include "draw/intel_draw.h"
 
-/* XXX: 
- */
-#include "i915_context.h"
-
 struct classic_render {
    struct intel_render render;
    struct intel_context *intel;
@@ -101,36 +97,12 @@ static void classic_draw_indexed_prim( struct intel_render *render,
    if (nr == 0 || !intel_validate_vertices(crc->hw_prim, nr))
       return; 
 
-   assert(nr>0);
-
    /* The 'dwords' usage below ensures that both the state and the
     * primitive command below end up in the same batchbuffer,
     * otherwise there is a risk that another context might
     * interpose a batchbuffer containing different statesetting
     * commands.
     */
-#if 1
-   GLuint dwords = 1 + (nr+1+1)/2;
-   GLuint *ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_CLIPRECTS);
-
-   *ptr++ = ( _3DPRIMITIVE | 
-	      crc->hw_prim | 
-	      PRIM_INDIRECT | 
-	      PRIM_INDIRECT_ELTS | 
-	      0 );
-      
-   /* Pack indices into 16bits 
-    */
-   {
-      GLushort *out = (GLushort *)ptr;
-      
-      for (j = 0; j < nr; j++)
-	 out[j] = offset + indices[j];
-      
-      out[j] = 0xffff;
-   }
-
-#else
    GLuint dwords = 1 + (nr+1)/2;
    GLuint *ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_CLIPRECTS);
 
@@ -147,7 +119,6 @@ static void classic_draw_indexed_prim( struct intel_render *render,
    if (j < nr) {
       *ptr++ = ( (offset + indices[j]) );
    }
-#endif
 }
 
 
