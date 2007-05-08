@@ -87,6 +87,8 @@ static void emit_resize( struct intel_frame_tracker *ft )
 
    intel_resize_framebuffer(&intel->ctx, fb, dPriv->w, dPriv->h);
 
+   intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
+
    ft->resize_flag = GL_FALSE;
 }
 

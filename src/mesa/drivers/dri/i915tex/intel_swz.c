@@ -107,7 +107,11 @@ static void init_zones( struct swz_render *swz )
    struct intel_hw_dirty flags = 
       intel->vtbl.diff_states( NULL, intel->state.current );
    GLuint space = intel->vtbl.get_state_emit_size( intel, flags );
-   GLuint x, y, i;
+   GLint x, y, i;
+   GLint drawX = intel->drawX; 
+   GLint drawY = intel->drawY; 
+
+   _mesa_printf("draw origin: %d,%d\n", intel->drawX, intel->drawY);
 
    for (i = y = 0; y < swz->zone_height; y++)
    {
@@ -143,12 +147,12 @@ static void init_zones( struct swz_render *swz )
 	 /* Draw rectangle.  
 	  */
 	 zone_draw_rect( zone, 
-			 swz->intel->drawX, 
-			 swz->intel->drawY,
-			 x * ZONE_WIDTH,
-			 y * ZONE_HEIGHT,
-			 x * ZONE_WIDTH + ZONE_WIDTH - 1,
-			 y * ZONE_HEIGHT + ZONE_HEIGHT - 1);
+			 drawX - swz->xoff + x * ZONE_WIDTH,
+			 drawY - swz->yoff + y * ZONE_HEIGHT,
+			 drawX - swz->xoff + x * ZONE_WIDTH + ZONE_WIDTH - 1,
+			 drawY - swz->yoff + y * ZONE_HEIGHT + ZONE_HEIGHT - 1,
+			 drawX, 
+			 drawY );
       }
    }
 
@@ -181,6 +185,9 @@ static void swz_start_render( struct intel_render *render,
 		       swz->zone_width,
 		       swz->zone_height);
 
+
+   swz->xoff = intel->drawX % 64;
+   swz->yoff = intel->drawY % 32;
 
    /* Goes to the main batchbuffer: 
     */

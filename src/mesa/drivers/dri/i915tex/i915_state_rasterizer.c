@@ -64,6 +64,16 @@ static GLboolean check_swz( struct intel_context *intel )
    if (!intel->cmdstream.size)
       return GL_FALSE;
 
+   /* INTEL_NEW_WINDOW_DIMENSIONS?? 
+    */
+#if 0
+   _mesa_printf("%d,%d\n", intel->drawX % 64, intel->drawY %32);
+
+   if (intel->drawX % 64 ||
+       intel->drawY % 32)
+      return GL_FALSE;
+#endif
+
    /* INTEL_NEW_FRAME
     */
 /*    if (is_conventional_frame_start(intel->ft)) */

@@ -76,6 +76,8 @@ struct swz_render {
    GLuint nr_vertices;
    GLuint vbo_offset;
 
+   GLfloat xoff, yoff;
+
    struct intel_hw_dirty reset_state;
 
    GLuint initial_state_size;
@@ -276,12 +278,12 @@ static INLINE void zone_begin_batch( struct swz_render *swz,
  * but at this point we have to live with glitches.
  */
 static INLINE void zone_draw_rect( struct swz_zone *zone,
-				   GLuint origin_x,
-				   GLuint origin_y,
 				   GLuint x1, 
 				   GLuint y1,
 				   GLuint x2,
-				   GLuint y2 )
+				   GLuint y2,
+				   GLuint origin_x,
+				   GLuint origin_y )
 {
    GLuint *out = zone_get_dwords( zone, 5 );
 

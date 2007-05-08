@@ -167,10 +167,10 @@ static void tri( struct swz_render *swz,
    if (y1 < v1[1]) y1 = v1[1];
    if (y1 < v2[1]) y1 = v2[1];
 
-   zone_x0 = x0;
-   zone_x1 = x1;
-   zone_y0 = y0;
-   zone_y1 = y1;
+   zone_x0 = x0 + swz->xoff;
+   zone_x1 = x1 + swz->xoff;
+   zone_y0 = y0 + swz->yoff;
+   zone_y1 = y1 + swz->yoff;
 
    zone_x0 /= ZONE_WIDTH;
    zone_x1 /= ZONE_WIDTH;
