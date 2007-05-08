@@ -191,8 +191,9 @@ GLuint vf_set_vertex_attributes( struct vertex_fetch *vf,
 
    vf->attr_count = j;
    vf->vertex_stride = vertex_stride ? vertex_stride : offset;
+   vf->emit = choose_emit_func;
 
-
+   assert(vf->vertex_stride >= offset);
    return vf->vertex_stride;
 }
 
