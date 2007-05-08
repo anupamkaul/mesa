@@ -47,6 +47,8 @@ struct intel_frame_tracker
 
    GLboolean single_buffered;
    GLboolean resize_flag;
+
+   GLbitfield allclears;
    
    /* Bitflags:
     */
@@ -87,7 +89,7 @@ static void emit_resize( struct intel_frame_tracker *ft )
 
    intel_resize_framebuffer(&intel->ctx, fb, dPriv->w, dPriv->h);
 
-   intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
+//   intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
 
    ft->resize_flag = GL_FALSE;
 }
@@ -127,7 +129,9 @@ void intel_frame_note_flush( struct intel_frame_tracker *ft,
    }
 }
 
-void intel_frame_note_clear( struct intel_frame_tracker *ft )
+void intel_frame_note_clear( struct intel_frame_tracker *ft,
+			     GLbitfield mask,
+			     GLboolean clearrect )
 {
    DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
    if (!ft->in_frame) {
@@ -141,7 +145,18 @@ void intel_frame_note_clear( struct intel_frame_tracker *ft )
       UNLOCK_HARDWARE(intel);
 
       ft->in_frame = GL_TRUE;
+
+      if (!ft->intel->ctx.Scissor.Enabled)
+	 ft->allclears |= mask;
    }
+}
+
+GLboolean intel_frame_can_clear_stencil( struct intel_frame_tracker *ft )
+{
+   if ((ft->allclears & BUFFER_BIT_STENCIL) == 0) 
+      return GL_TRUE;
+
+   return GL_FALSE;
 }
 
 

@@ -48,9 +48,14 @@ void intel_frame_note_flush( struct intel_frame_tracker *ft,
 void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft );
 void intel_frame_note_window_resize( struct intel_frame_tracker *ft );
 void intel_frame_note_window_rebind( struct intel_frame_tracker *ft );
-void intel_frame_note_clear( struct intel_frame_tracker *ft );
+void intel_frame_note_clear( struct intel_frame_tracker *ft,
+			     GLbitfield mask,
+			     GLboolean clearrect );
 void intel_frame_note_draw_start( struct intel_frame_tracker *ft );
 void intel_frame_note_draw_end( struct intel_frame_tracker *ft );
+
+
+GLboolean intel_frame_can_clear_stencil( struct intel_frame_tracker *ft );
 
 
 #endif

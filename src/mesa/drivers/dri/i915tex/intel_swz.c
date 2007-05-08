@@ -39,6 +39,7 @@
 #include "intel_fbo.h"
 #include "intel_state_inlines.h"
 #include "intel_swapbuffers.h"
+#include "intel_frame_tracker.h"
 #include "intel_lock.h"
 
 #include "draw/intel_draw.h"
@@ -246,11 +247,11 @@ static INLINE void chain_zones( struct swz_render *swz,
     */
    zone_mi_flush( zone, (1<<4) );
 
-   /* If per-zone state was emitted in the previous zone, issue
-    * another statechange to reset to the original state.
-    */
    if (i+1 < swz->nr_zones) {
       if (zone->state.swz_reset) {
+	 /* If per-zone state was emitted in this zone, issue another
+	  * statechange to reset to the original state in zone i+1.
+	  */
 	 emit_initial_state( swz, i+1 );
 	 zone_begin_batch( swz, zone, swz->initial_ptr[i+1] );
       }
@@ -366,10 +367,15 @@ static void swz_clear( struct intel_render *render,
    if (mask == 0)
       return;
 
-   if (
-/* intel_frame_is_double_buffered( intel->ft ) && */
-/*        intel_frame_draws_since_swap( intel->ft ) == 0 && */
+   /* Turn on stencil clear if possible.  Otherwise apps that don't
+    * request a stencil buffer are prevented from using the zone_init
+    * path.
+    */
+   if (do_depth && intel_frame_can_clear_stencil( intel->ft ))
+      do_stencil = GL_TRUE;
 
+   if (
+/*        intel_frame_draws_since_swap( intel->ft ) == 0 && */
       intel->drawX % ZONE_WIDTH == 0 &&
       intel->drawY % ZONE_HEIGHT == 0 &&
       intel_fb->Base.Width % ZONE_WIDTH == 0 &&
@@ -379,13 +385,7 @@ static void swz_clear( struct intel_render *render,
       x2 == intel_fb->Base.Width &&
       y2 == intel_fb->Base.Height &&
       do_depth == do_stencil &&
-
-      /* ??? 
-       */
-      do_depth 
-
-//      && 0
-
+      do_depth  			/* ??? */
       )
    {
       swz_zone_init( render, mask, x1, y1, x2, y2 );

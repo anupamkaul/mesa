@@ -85,7 +85,7 @@ intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
       }
    }
    
-   intel_frame_note_clear( intel->ft );
+   intel_frame_note_clear( intel->ft, mask, GL_TRUE );
 
    intel_update_software_state( intel );
 
@@ -111,7 +111,7 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
    struct gl_framebuffer *fb = ctx->DrawBuffer;
 
 
-   if (INTEL_DEBUG & DEBUG_BLIT)
+/*    if (INTEL_DEBUG & DEBUG_BLIT) */
       _mesa_printf("%s 0x%x\n", __FUNCTION__, mask);
 
    intel_install_meta_state(intel);
