@@ -1,0 +1,66 @@
+
+0) swrast synchronization
+
+
+2) clipping vertices - seem to start at 0x100??
+    - see tri-dlist
+
+6) manytex -n 1000 lockup
+
+10) optimize bounding box calc 
+    --> michal
+
+
+13) frametracker improvements
+
+
+15) cache_mode_0
+		+(1<<9) ??
+
+17) Software cull triangles
+
+19) pageflip lockups
+
+20) HWZ disabled
+
+21) zEvict if initial clear wasn't a clear rect
+
+22) Don't ZONE_INIT halfway through a frame
+
+23) window resizes / moves
+	   --> abandon frame
+	   --> disable SWZ, translate away zone_init, fixup draw_rects??
+
+24) cliprects
+	   --> ???  back copy from frontbuffer ???
+	   --> then disable swz/hwz
+
+25) quake3
+	- renders fullscreen video frames w/o clearing
+	- upsets frame tracker
+
+
+
+
+======================================================================
+Postpone:
+
+16) swz LOCAL_VERTS
+
+
+3) line stipple reset
+
+4) lineloops begin/end
+
+5) unfilled polygon begin/end
+
+7) polystipple not working
+
+8) poly offset?
+
+
+debug
+	- buffer capture
+	- buffer replay - can this work???
+		 - force ttm upload at specific address???
+
