@@ -229,10 +229,10 @@ static void line( struct swz_render *swz,
    y0 = (y0 - w);
    y1 = (y1 + w);
 
-   zone_x0 = x0;
-   zone_x1 = x1;
-   zone_y0 = y0;
-   zone_y1 = y1;
+   zone_x0 = x0 + swz->xoff;
+   zone_x1 = x1 + swz->xoff;
+   zone_y0 = y0 + swz->yoff;
+   zone_y1 = y1 + swz->yoff;
 
    zone_x0 /= ZONE_WIDTH;
    zone_x1 /= ZONE_WIDTH;
@@ -283,10 +283,10 @@ static void point( struct swz_render *swz,
    y0 = (y0 - w);
    y1 = (y1 + w);
 
-   zone_x0 = x0;
-   zone_x1 = x1;
-   zone_y0 = y0;
-   zone_y1 = y1;
+   zone_x0 = x0 + swz->xoff;
+   zone_x1 = x1 + swz->xoff;
+   zone_y0 = y0 + swz->yoff;
+   zone_y1 = y1 + swz->yoff;
 
    zone_x0 /= ZONE_WIDTH;
    zone_x1 /= ZONE_WIDTH;
@@ -323,8 +323,8 @@ void swz_clear_rect( struct intel_render *render,
 		     GLuint x1, GLuint y1 )
 {
    struct swz_render *swz = swz_render( render );
-   GLuint zone_x0, zone_x1, zone_y0, zone_y1;
-   GLuint x, y;
+   GLint zone_x0, zone_x1, zone_y0, zone_y1;
+   GLint x, y;
 
    _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
    
@@ -332,10 +332,10 @@ void swz_clear_rect( struct intel_render *render,
 
    invalidate_bins( swz );
 
-   zone_x0 = x0;
-   zone_x1 = x1-1;
-   zone_y0 = y0;
-   zone_y1 = y1-1;
+   zone_x0 = x0     + swz->xoff;
+   zone_x1 = x1 - 1 + swz->xoff;
+   zone_y0 = y0     + swz->yoff;
+   zone_y1 = y1 - 1 + swz->yoff;
 
    zone_x0 /= ZONE_WIDTH;
    zone_x1 /= ZONE_WIDTH;
@@ -362,8 +362,8 @@ void swz_zone_init( struct intel_render *render,
 		    GLuint x1, GLuint y1 )
 {
    struct swz_render *swz = swz_render( render );
-   GLuint zone_x0, zone_x1, zone_y0, zone_y1;
-   GLuint x, y;
+   GLint zone_x0, zone_x1, zone_y0, zone_y1;
+   GLint x, y;
 
    _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
 
@@ -371,10 +371,10 @@ void swz_zone_init( struct intel_render *render,
 
    invalidate_bins( swz );
 
-   zone_x0 = x0;
-   zone_x1 = x1-1;
-   zone_y0 = y0;
-   zone_y1 = y1-1;
+   zone_x0 = x0     + swz->xoff;
+   zone_x1 = x1 - 1 + swz->xoff;
+   zone_y0 = y0     + swz->yoff;
+   zone_y1 = y1 - 1 + swz->yoff;
 
    zone_x0 /= ZONE_WIDTH;
    zone_x1 /= ZONE_WIDTH;

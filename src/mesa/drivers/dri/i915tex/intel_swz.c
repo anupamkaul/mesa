@@ -173,8 +173,11 @@ static void swz_start_render( struct intel_render *render,
    /* Window size won't change during a frame (though cliprects may be
     * applied at the end).  
     */
-   swz->zone_width  = align(intel->driDrawable->w, ZONE_WIDTH) / ZONE_WIDTH;
-   swz->zone_height = align(intel->driDrawable->h, ZONE_HEIGHT) / ZONE_HEIGHT;
+   swz->xoff = intel->drawX % 64;
+   swz->yoff = intel->drawY % 32;
+
+   swz->zone_width  = align(intel->driDrawable->w + swz->xoff, ZONE_WIDTH) / ZONE_WIDTH;
+   swz->zone_height = align(intel->driDrawable->h + swz->yoff, ZONE_HEIGHT) / ZONE_HEIGHT;
    swz->nr_zones = swz->zone_width * swz->zone_height;
    assert(swz->nr_zones < MAX_ZONES);
    
@@ -185,9 +188,6 @@ static void swz_start_render( struct intel_render *render,
 		       swz->zone_width,
 		       swz->zone_height);
 
-
-   swz->xoff = intel->drawX % 64;
-   swz->yoff = intel->drawY % 32;
 
    /* Goes to the main batchbuffer: 
     */
