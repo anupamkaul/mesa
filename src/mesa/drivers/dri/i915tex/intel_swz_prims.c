@@ -326,6 +326,8 @@ void swz_clear_rect( struct intel_render *render,
    GLuint zone_x0, zone_x1, zone_y0, zone_y1;
    GLuint x, y;
 
+   _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
+   
    assert( swz->started_binning );
 
    invalidate_bins( swz );
@@ -362,6 +364,8 @@ void swz_zone_init( struct intel_render *render,
    struct swz_render *swz = swz_render( render );
    GLuint zone_x0, zone_x1, zone_y0, zone_y1;
    GLuint x, y;
+
+   _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
 
    assert( swz->started_binning );
 

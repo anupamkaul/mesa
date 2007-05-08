@@ -174,7 +174,8 @@ static void swz_start_render( struct intel_render *render,
    swz->nr_zones = swz->zone_width * swz->zone_height;
    assert(swz->nr_zones < MAX_ZONES);
    
-   if (0) _mesa_printf("swz %dx%d --> %dx%d\n", 
+   if (1) _mesa_printf("%s %dx%d --> %dx%d\n", 
+		       __FUNCTION__,
 		       intel->driDrawable->w,
 		       intel->driDrawable->h,
 		       swz->zone_width,
@@ -226,11 +227,17 @@ static INLINE void chain_zones( struct swz_render *swz,
 {
    struct swz_zone *zone = &swz->zone[i];
 
-   /* There is always space for the finish prim and a begin/end batch:
+   /* finish prim: 2 dwords
+    * mi_flush: 1 dword
+    * begin_batch: 2 dwords
     */
    assert(intel_cmdstream_space(zone->ptr) >= 16);
+
    zone_finish_prim( zone );
 
+   /* Emit a flush with the end_scene bit set
+    */
+   zone_mi_flush( zone, (1<<4) );
 
    /* If per-zone state was emitted in the previous zone, issue
     * another statechange to reset to the original state.
@@ -266,20 +273,19 @@ static void swz_flush( struct intel_render *render,
 
    if (swz->started_binning) 
    {
-//      LOCK_HARDWARE( intel );
-//      UPDATE_CLIPRECTS( intel );
-
-
       /* Emit preamble - tweak cachemode0:
        */
-      if ( 0 &&
-	  intel->state.depth_region == 0
-/* 	  || finished */
+      if ( 
+ 	 0 &&
+	   (intel->state.depth_region == 0 ||
+	    finished)
 	 ) 
 	 zone_loadreg_imm( &swz->pre_post, 
 			   CACHE_MODE_0, 
 			   (CM0_RC_OP_FLUSH_MODIFY |
 			    CM0_DEPTH_WRITE_MODIFY |
+			    CM0_ZONE_OPT_MODIFY |
+			    CM0_ZONE_OPT_ENABLE |
 			    CM0_RC_OP_FLUSH_DISABLE |
 			    CM0_DEPTH_WRITE_DISABLE) );
       else
@@ -287,6 +293,8 @@ static void swz_flush( struct intel_render *render,
 			   CACHE_MODE_0, 
 			   (CM0_RC_OP_FLUSH_MODIFY |
 			    CM0_DEPTH_WRITE_MODIFY |
+			    CM0_ZONE_OPT_MODIFY |
+			    CM0_ZONE_OPT_ENABLE |
 			    CM0_RC_OP_FLUSH_DISABLE |
 			    CM0_DEPTH_WRITE_ENABLE) );
 
@@ -320,6 +328,8 @@ static void swz_flush( struct intel_render *render,
 			CACHE_MODE_0, 
 			(CM0_RC_OP_FLUSH_MODIFY |
 			 CM0_DEPTH_WRITE_MODIFY |
+			 CM0_ZONE_OPT_MODIFY |
+			 CM0_ZONE_OPT_DISABLE |
 			 CM0_RC_OP_FLUSH_ENABLE |
 			 CM0_DEPTH_WRITE_ENABLE) );
 
@@ -328,8 +338,6 @@ static void swz_flush( struct intel_render *render,
        */
       intel->batch->segment_finish_offset[0] = swz->pre_post.ptr - intel->batch->map;
       intel_batchbuffer_flush( intel->batch, !finished );
-
-//      UNLOCK_HARDWARE( intel );
    }
 
    swz->started_binning = GL_FALSE;

@@ -355,7 +355,7 @@ do_flush_locked( struct intel_batchbuffer *batch,
    driBOUnmap(batch->buffer);
    batch->state_map = batch->map = NULL;
 
-   if (batch->flags & INTEL_BATCH_CLIPRECTS) {
+   if (batch->flags & (INTEL_BATCH_HWZ|INTEL_BATCH_CLIPRECTS)) {
       UPDATE_CLIPRECTS(intel);
 
       if (intel->numClipRects) {
@@ -426,6 +426,8 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch,
 
    if (used == 0)
       return batch->last_fence;
+
+   _mesa_printf("%s used %d relocs: %d\n", __FUNCTION__, used, batch->nr_relocs);
 
    intel_frame_note_flush( intel->ft, forced );
    intel_vb_flush( intel->vb );

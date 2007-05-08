@@ -339,9 +339,21 @@ static INLINE void zone_loadreg_imm( struct swz_zone *zone,
 {
    GLuint *out = zone_get_dwords( zone, 3 );
 
+   _mesa_printf("zone_loadreg_imm: %x / %08x\n", reg, value);
+
    out[0] = MI_LOAD_REGISTER_IMM;
    out[1] = reg;
    out[2] = value;
+}
+
+#define MI_FLUSH                   ((0<<29)|(4<<23))
+
+static INLINE void zone_mi_flush( struct swz_zone *zone,
+				  GLuint flags )
+{
+   GLuint *out = zone_get_dwords( zone, 1 );
+
+   out[0] = MI_FLUSH | flags;
 }
 				    
 

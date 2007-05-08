@@ -35,15 +35,6 @@
 #define CMD_3D   (0x3<<29)
 #define CMD_MASK (0x7<<29)
 
-#define CMD_MI_MASK  (0x3f << 23)
-#define CMD_MI_NOOP  (0x0 << 23)
-#define CMD_MI_FLUSH (0x1 << 23)
-
-#define CMD_2D_MASK              (0x7f << 22)
-#define CMD_2D_XY_COLOR_BLT      (0x50 << 22)
-#define CMD_2D_XY_SRC_COPY_BLT   (0x53 << 22)
-
-
 #define _3DPRIMITIVE         ((0x3<<29)|(0x1f<<24))
 #define PRIM_INDIRECT            (1<<23)
 #define PRIM_INLINE              (0<<23)
@@ -151,14 +142,21 @@
 
 #define GFX_OP_DRAWRECT_INFO     ((0x3<<29)|(0x1d<<24)|(0x80<<16)|(0x3))
 
-
+/* XXX: this is i915 specific
+ */
 #define CACHE_MODE_0		           0x2120
-#define CM0_RC_OP_FLUSH_ENABLE             0x0
-#define CM0_RC_OP_FLUSH_DISABLE            0x1
-#define CM0_RC_OP_FLUSH_MODIFY             (0x1<<16)
-#define CM0_DEPTH_WRITE_ENABLE             0x0
-#define CM0_DEPTH_WRITE_DISABLE            0x2
-#define CM0_DEPTH_WRITE_MODIFY             (0x2<<16)
+#define CM0_RC_OP_FLUSH_ENABLE             0
+#define CM0_RC_OP_FLUSH_DISABLE            (1<<0)
+#define CM0_DEPTH_WRITE_ENABLE             0
+#define CM0_DEPTH_WRITE_DISABLE            (1<<1)
+#define CM0_ZONE_OPT_ENABLE                0
+#define CM0_ZONE_OPT_DISABLE               (1<<5)
+#define CM0_FAST_TILEX_ALLOC_ENABLE        (1<<9)
+#define CM0_FAST_TILEX_ALLOC_DISABLE       0
+#define CM0_RC_OP_FLUSH_MODIFY             (1<<16)
+#define CM0_DEPTH_WRITE_MODIFY             (1<<17)
+#define CM0_ZONE_OPT_MODIFY                (1<<21)
+#define CM0_FAST_TILEX_ALLOC_MODIFY        (1<<25)
 
 
 #define MI_LOAD_REGISTER_IMM	((0x22 << 23)|0x1)
