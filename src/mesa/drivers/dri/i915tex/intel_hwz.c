@@ -320,6 +320,8 @@ struct intel_render *intel_create_hwz_render( struct intel_context *intel )
 {
    struct hwz_render *hwz = CALLOC_STRUCT(hwz_render);
 
+   hwz->render.limits.max_indices = (SEGMENT_SZ - 1024) / sizeof(GLushort);
+
    hwz->render.destroy = hwz_destroy_context;
    hwz->render.start_render = hwz_start_render;
    hwz->render.allocate_vertices = hwz_allocate_vertices;

@@ -475,7 +475,7 @@ intelInitContext(struct intel_context *intel,
    _tnl_install_pipeline(ctx, intel_pipeline);
    TNL_CONTEXT(ctx)->Driver.RunPipeline = intelRunPipeline;
 
-   TNL_CONTEXT(ctx)->max_indices = (SEGMENT_SZ - 1024) / 2;
+   TNL_CONTEXT(ctx)->max_indices = ~0;
 //   TNL_CONTEXT(ctx)->max_indices = 20;
 
    /* Configure swrast to match hardware characteristics: */

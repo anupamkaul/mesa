@@ -451,6 +451,8 @@ struct intel_render *intel_create_swrast_render( struct intel_context *intel )
 {
    struct swrast_render *swrender = CALLOC_STRUCT(swrast_render);
 
+   swrender->render.limits.max_indices = ~0;
+
    swrender->render.start_render = swrender_start_render;
    swrender->render.allocate_vertices = swrender_allocate_vertices;
    swrender->render.set_prim = swrender_set_prim;

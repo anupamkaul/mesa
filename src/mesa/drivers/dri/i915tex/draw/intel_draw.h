@@ -39,6 +39,12 @@ struct intel_draw_vb_state {
 };
 
 struct intel_render {
+
+   struct {
+      GLuint max_indices;
+   } limits;
+
+
    /* Initialize state for the frame.  EG. emit dma to wait for
     * pending flips.
     */

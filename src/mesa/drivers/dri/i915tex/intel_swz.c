@@ -406,6 +406,7 @@ struct intel_render *intel_create_swz_render( struct intel_context *intel )
 {
    struct swz_render *swz = CALLOC_STRUCT(swz_render);
 
+   swz->render.limits.max_indices = ~0;
    swz->render.destroy = swz_destroy_context;
    swz->render.start_render = swz_start_render;
    swz->render.allocate_vertices = swz_allocate_vertices;

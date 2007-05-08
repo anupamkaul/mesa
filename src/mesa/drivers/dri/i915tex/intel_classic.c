@@ -316,6 +316,8 @@ struct intel_render *intel_create_classic_render( struct intel_context *intel )
 {
    struct classic_render *crc = CALLOC_STRUCT(classic_render);
 
+   crc->render.limits.max_indices = (SEGMENT_SZ - 1024) / sizeof(GLushort);
+
    crc->render.destroy = classic_destroy_context;
    crc->render.start_render = classic_start_render;
    crc->render.allocate_vertices = classic_allocate_vertices;

@@ -31,6 +31,7 @@
   */
 
 #include "imports.h"      
+#include "macros.h"      
 #include "draw/intel_draw_quads.h"
 #include "draw/intel_draw.h"
 
@@ -81,42 +82,53 @@ static void quads_set_prim( struct intel_render *render,
    }
 }
 
-/* XXX: do this in the VBO layer.
- */
-static GLuint trim( GLenum prim, GLuint nr )
+
+static GLboolean split_prim_inplace(GLenum mode, GLuint *first, GLuint *incr)
 {
-   switch (prim) {
+   switch (mode) {
    case GL_POINTS:
-      break;
+      *first = 1;
+      *incr = 1;
+      return 0;
    case GL_LINES:
-      nr -= nr % 2;
-      break;
+      *first = 2;
+      *incr = 2;
+      return 0;
    case GL_LINE_STRIP:
+      *first = 2;
+      *incr = 1;
+      return 0;
    case GL_LINE_LOOP:
-      if (nr < 2) nr = 0;
-      break;
+      *first = 2;
+      *incr = 1;
+      return 1;
    case GL_TRIANGLES:
-      nr -= nr % 3;
-      break;
+      *first = 3;
+      *incr = 3;
+      return 0;
    case GL_TRIANGLE_STRIP:
+      *first = 3;
+      *incr = 1;
+      return 0;
    case GL_TRIANGLE_FAN:
    case GL_POLYGON:
-      if (nr < 3) nr = 0;
-      break;
+      *first = 3;
+      *incr = 1;
+      return 1;
    case GL_QUADS:
-      nr -= nr % 4;
-      break;
+      *first = 4;
+      *incr = 4;
+      return 0;
    case GL_QUAD_STRIP:
-      nr -= nr % 2;
-      if (nr < 4) nr = 0;
-      break;
+      *first = 4;
+      *incr = 2;
+      return 0;
    default:
       assert(0);
-      nr = 0;
-      break;
+      *first = 1;
+      *incr = 1;
+      return 0;
    }
-
-   return nr;
 }
 
 
@@ -125,8 +137,6 @@ static void quads_draw_indexed_prim( struct intel_render *render,
 				     GLuint length )
 {
    struct quads_render *quads = quads_render( render );
-
-   length = trim(quads->gl_prim, length);
 
    switch (quads->gl_prim) {
    case GL_LINE_LOOP: {
@@ -191,6 +201,69 @@ static void quads_draw_indexed_prim( struct intel_render *render,
    }
 }
 
+static GLuint trim( GLuint count, GLuint first, GLuint incr )
+{
+   return count - (count - first) % incr; 
+}
+
+
+
+static void quads_split_indexed_prim( struct intel_render *render,
+				      const GLuint *indices,
+				      GLuint count )
+{
+   struct quads_render *quads = quads_render( render );
+   GLuint first, incr;
+   GLuint fan_verts;
+
+   fan_verts = split_prim_inplace(quads->gl_prim, &first, &incr);
+   count = trim( count, first, incr );
+
+   if (count < quads->hw->limits.max_indices) 
+   {
+      quads_draw_indexed_prim( render, indices, count );
+   }
+   else 
+   {
+      GLuint replay = first - incr;
+      GLuint max_step = quads->hw->limits.max_indices - (fan_verts + replay);
+      GLuint start;
+
+      for (start = 0 ; start < count ; ) {
+	 GLuint remaining = count - start;
+	 GLuint step = trim( MIN2( max_step, remaining ), first, incr );
+	 
+/* 	 outprim->begin = (j == 0 && prim->begin); */
+/* 	 outprim->end = (step == remaining && prim->end); */
+
+	 if (start && fan_verts) { 
+	    GLuint *tmp = malloc( (fan_verts + step) * sizeof(GLuint) );
+	    GLuint i;
+
+	    for (i = 0; i < fan_verts; i++)
+	       tmp[i] = indices[i];
+
+	    for (i = 0 ; i < step ; i++)
+	       tmp[i+fan_verts] = indices[start+i];
+
+	    quads_draw_indexed_prim( render, tmp, fan_verts + step );
+
+	    free(tmp);
+	 }
+	 else {
+	    quads_draw_indexed_prim( render, indices + start, step );
+	 }
+
+	 start += step;
+
+	 /* Do we need to replay some verts?
+	  */
+	 if (start < count) 
+	    start -= replay;
+      }
+   }
+}
+
 
 
 static void quads_draw_prim( struct intel_render *render,
@@ -202,8 +275,6 @@ static void quads_draw_prim( struct intel_render *render,
 //   _mesa_printf("%s (%s) %d/%d\n", __FUNCTION__, 
 //		_mesa_lookup_enum_by_nr(quads->gl_prim),
 //		start, length );
-
-   length = trim(quads->gl_prim, length);
 
    switch (quads->gl_prim) {
 
@@ -293,7 +364,7 @@ struct intel_render *intel_create_quads_render( struct intel_draw *draw )
    quads->render.allocate_vertices = quads_allocate_vertices;
    quads->render.set_prim = quads_set_prim;
    quads->render.draw_prim = quads_draw_prim;
-   quads->render.draw_indexed_prim = quads_draw_indexed_prim;
+   quads->render.draw_indexed_prim = quads_split_indexed_prim;
    quads->render.release_vertices = quads_release_vertices;
    quads->render.flush = NULL;
    quads->gl_prim = GL_POINTS;

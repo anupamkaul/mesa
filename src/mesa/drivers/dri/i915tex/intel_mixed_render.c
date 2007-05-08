@@ -170,8 +170,8 @@ struct intel_render *intel_create_mixed_render( struct intel_context *intel )
 {
    struct mixed_render *mixed = CALLOC_STRUCT(mixed_render);
 
-   /* XXX: Add casts here to avoid the compiler messages:
-    */
+   mixed->render.limits.max_indices = (SEGMENT_SZ - 1024) / sizeof(GLushort);
+
    mixed->render.start_render = mixed_start_render;
    mixed->render.allocate_vertices = mixed_allocate_vertices;
    mixed->render.set_prim = mixed_set_prim;
