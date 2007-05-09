@@ -426,11 +426,7 @@ static void swrender_clear_rect( struct intel_render *render,
 {
    struct intel_context *intel = swrast_render(render)->intel;
 
-   intel_frame_set_mode( intel->ft, INTEL_FT_SWRAST );
-
-   /* XXX: In every case could blit or metaops instead:
-    */
-   _swrast_Clear( &intel->ctx, mask );
+   intel->classic->clear_rect( intel->classic, mask, x1, y1, x2, y2 );
 }
 
 
