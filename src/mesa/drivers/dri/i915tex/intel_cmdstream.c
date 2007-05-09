@@ -37,7 +37,6 @@ GLubyte *intel_cmdstream_alloc_block( struct intel_context *intel )
       return ptr;
    }
    else {
-      assert(0);
       return NULL;
    }
 }
@@ -59,6 +58,9 @@ void intel_cmdstream_use_batch_range( struct intel_context *intel,
  */
 void intel_cmdstream_reset( struct intel_context *intel )
 {
+   _mesa_printf("%s used %x of %x\n", __FUNCTION__, 
+		intel->cmdstream.used, intel->cmdstream.size);
+
    intel->cmdstream.map = intel->batch->map + intel->cmdstream.offset;
    intel->cmdstream.used = 0;
 

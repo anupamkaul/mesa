@@ -28,6 +28,7 @@
 #include "intel_context.h"
 #include "intel_state.h"
 #include "intel_batchbuffer.h"
+#include "intel_frame_tracker.h"
 #include "mtypes.h"
 
 /***********************************************************************
@@ -160,19 +161,24 @@ GLuint *intel_emit_hardware_state( struct intel_context *intel,
 						     intel->state.hardware,
 						     intel->state.current );
 
-   GLuint state_size = 
-      intel->vtbl.get_state_emit_size( intel, dirty );
+   GLuint state_size = intel->vtbl.get_state_emit_size( intel, dirty );
+   GLuint total_size = state_size + dwords * 4;
 
+   if (intel_batchbuffer_space(intel->batch, 0) < total_size) {
+
+      /* XXX: This isn't enough - need to do something about the
+       * relocations pointing to indirect state??
+       */
+      intel_frame_flush_and_restart( intel->ft );
+      return intel_emit_hardware_state( intel, dwords, batchflags );
+   }
 
    /* Just emit to the batch stream:
     */
-   intel_batchbuffer_require_space( intel->batch,
-				    0,
-				    state_size + dwords * 4, 
-				    batchflags );
+   assert(intel->batch->flags == 0 || 
+	  intel->batch->flags == batchflags);
+   intel->batch->flags = batchflags;
 
-   /* What do we do on flushes????
-    */
    assert(intel->state.dirty.intel == 0);
 
    {
@@ -181,11 +187,8 @@ GLuint *intel_emit_hardware_state( struct intel_context *intel,
       
       intel->vtbl.emit_hardware_state( intel, ptr, 
 				       intel->state.current,
-				       dirty, 
-				       intel->state.force_load );
+				       dirty );
       
-      intel->state.force_load = 0;
-
       intel->batch->segment_finish_offset[0] += state_size + dwords * 4;
       return ptr + state_size/4;
    }

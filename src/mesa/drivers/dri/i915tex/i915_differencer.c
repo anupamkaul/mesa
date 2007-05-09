@@ -111,7 +111,7 @@ static void emit_indirect( struct intel_context *intel,
 			   GLuint **ptr,
 			   const struct i915_state *state,
 			   GLuint dirty,
-			   GLboolean force_load )
+			   GLboolean force_reload )
 {
    if (dirty) {
       GLuint nr = count_bits(dirty);
@@ -119,7 +119,7 @@ static void emit_indirect( struct intel_context *intel,
       GLuint flag = 0;
       GLuint i;
 
-      if (force_load)
+      if (force_reload)
 	 flag = SIS0_FORCE_LOAD;
 
       /* No state size dword for dynamic state:
@@ -261,7 +261,9 @@ static struct intel_hw_dirty i915_diff_states( const void *old_state,
    flags.i915.immediate = diff_immediate( old_i915_state, new_i915_state );
    flags.i915.indirect = diff_indirect( old_i915_state, new_i915_state );
    flags.i915.pad = 0;
-   flags.i915.reserved_swz = 0;
+   flags.i915.swz_reset = 0;
+   flags.i915.force_reload = ((old_i915_state == NULL) || 
+			      (old_i915_state->id != new_i915_state->id));
 
    return flags.intel;
 }
@@ -273,8 +275,7 @@ static struct intel_hw_dirty i915_diff_states( const void *old_state,
 static void i915_emit_hardware_state( struct intel_context *intel,
 				      GLuint *ptr,
 				      const void *driver_state,
-				      struct intel_hw_dirty intel_flags,
-				      GLboolean force_load )
+				      struct intel_hw_dirty intel_flags )
 {
    const struct i915_state *state = (const struct i915_state *)driver_state;
    union i915_hw_dirty flags;
@@ -282,7 +283,7 @@ static void i915_emit_hardware_state( struct intel_context *intel,
    flags.intel = intel_flags;
 
    emit_immediates( intel, &ptr, state, flags.i915.immediate );
-   emit_indirect( intel, &ptr, state, flags.i915.indirect, force_load );
+   emit_indirect( intel, &ptr, state, flags.i915.indirect, flags.i915.force_reload );
 }
 
 

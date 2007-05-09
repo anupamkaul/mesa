@@ -82,7 +82,8 @@ static void *swrender_allocate_vertices( struct intel_render *render,
 
    assert(vertex_size == swrender->vf->vertex_stride);
 
-   _mesa_printf("%s %d %d\n", __FUNCTION__, vertex_size, nr_vertices); 
+   _mesa_printf("%s %d %d %p\n", __FUNCTION__, vertex_size, nr_vertices,
+		swrender->hw_verts); 
 
    return swrender->hw_verts;
 }

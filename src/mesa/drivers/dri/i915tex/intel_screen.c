@@ -401,6 +401,7 @@ intelCreatePools(intelScreenPrivate *intelScreen)
 						DRM_BO_FLAG_MEM_PRIV1,
 						8192, batchPoolSize, 5);
 
+      assert(intelScreen->statePool);
    }
 
    intel_recreate_static_regions(intelScreen);

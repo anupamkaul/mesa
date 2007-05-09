@@ -289,7 +289,6 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
       break;
 
    case INTEL_FT_SWRAST:
-//      intel_frame_note_flush( intel->ft, forced );
       intel->swrender->flush( intel->swrender, finished );
       break;
 
@@ -353,7 +352,13 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
 }
 
 
-
+void intel_frame_flush_and_restart( struct intel_frame_tracker *ft )
+{
+   GLuint mode = ft->mode;
+   intel_frame_set_mode( ft, INTEL_FT_FLUSHED );
+   intel_frame_set_mode( ft, mode );
+}
+   
 
    
 struct intel_frame_tracker *intel_frame_tracker_create( struct intel_context *intel )

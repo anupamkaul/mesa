@@ -80,11 +80,12 @@ const struct intel_tracked_state i915_upload_static;
  */
 union i915_hw_dirty {
    struct {
-      GLuint prim:2;
-      GLuint immediate:8;
-      GLuint indirect:6;
-      GLuint pad:1;
-      GLuint reserved_swz:15;
+      GLuint prim         :2;
+      GLuint force_reload :1;
+      GLuint swz_reset    :1;
+      GLuint immediate    :8;
+      GLuint indirect     :6;
+      GLuint pad          :14;
    } i915;
    struct intel_hw_dirty intel;
 };

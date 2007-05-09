@@ -98,15 +98,16 @@ static void do_update_state( struct swz_render *swz,
       if (intel_cmdstream_space( zone->ptr ) <  size + space )
 	 zone_get_space( swz, zone );
 
+      assert(zone->state.force_reload == 0);
       intel->vtbl.emit_hardware_state( intel, 
 				       (GLuint *)zone->ptr,
 				       intel->state.current,
-				       zone->state,
-				       0 );
+				       zone->state );
 
       zone->ptr += size;
-      zone->state.dirty = 0;
+      zone->state.force_reload = 0;
       zone->state.swz_reset = 1;
+      zone->state.dirty = 0;
    }
    else if (intel_cmdstream_space( zone->ptr ) <  space ) 
    {

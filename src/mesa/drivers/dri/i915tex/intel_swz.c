@@ -63,7 +63,7 @@ static void *swz_allocate_vertices( struct intel_render *render,
 					&swz->vbo_offset );
 
    if (!ptr) {
-      render->flush( render, GL_FALSE );
+      intel_frame_flush_and_restart( intel->ft );
 
       /* Not really sure how this could fail after the flush:
        */
@@ -91,8 +91,11 @@ static void swz_release_vertices( struct intel_render *render,
    struct swz_render *swz = swz_render( render );
 
 #if LOCAL_VERTS
-   memcpy( swz->vbo_vertices, swz->vertices, 
+   memcpy( swz->vbo_vertices, 
+	   swz->vertices, 
 	   swz->nr_vertices * swz->vertex_stride );
+
+   free(swz->vertices);
 #endif
 
    swz->vertex_stride = 0;   
@@ -124,8 +127,9 @@ static void init_zones( struct swz_render *swz )
 
 	 zone->ptr = swz->initial_ptr[i];
 	 zone->state.prim = ZONE_NONE;
-	 zone->state.dirty = 0;
+	 zone->state.force_reload = 0;
 	 zone->state.swz_reset = 0;
+	 zone->state.dirty = 0;
 
 	 /* Emit the initial state in zone zero::
 	  */
@@ -133,8 +137,7 @@ static void init_zones( struct swz_render *swz )
 	    intel->vtbl.emit_hardware_state( intel, 
 					     (GLuint *)zone->ptr,
 					     intel->state.current,
-					     flags, 
-					     (i == 0) );
+					     flags );
 	 else
 	    memset( zone->ptr, 0, space );
       
@@ -206,8 +209,9 @@ static void swz_start_render( struct intel_render *render,
    init_zones( swz );
 
    swz->reset_state.prim = 0;
-   swz->reset_state.dirty = 0;
+   swz->reset_state.force_reload = 0;
    swz->reset_state.swz_reset = 0;
+   swz->reset_state.dirty = 0;
 
    swz->draws = 0;
    swz->clears = 0;
@@ -220,11 +224,13 @@ static void emit_initial_state( struct swz_render *swz,
 {
    struct intel_context *intel = swz->intel;
 
+   assert(i > 0);
+   assert(swz->reset_state.force_reload == 0);
+
    intel->vtbl.emit_hardware_state( intel, 
 				    (GLuint *)swz->initial_ptr[i],
 				    intel->state.current,
-				    swz->reset_state, 
-				    (i == 0) );
+				    swz->reset_state );
 }
 				
 
@@ -282,12 +288,21 @@ static void swz_flush( struct intel_render *render,
    GLuint i = 0;
    GLuint x, y;
 
+   _mesa_printf("%s finished: %d\n", __FUNCTION__, finished);
+
    if (swz->started_binning) 
    {
+      if (swz->vertices) 
+	 memcpy( swz->vbo_vertices, 
+		 swz->vertices, 
+		 swz->nr_vertices * swz->vertex_stride );
+
+
+
+
       /* Emit preamble - tweak cachemode0:
        */
-      if ( 
- 	 0 &&
+      if ( 0 &&
 	   (intel->state.depth_region == 0 ||
 	    finished)
 	 ) 
@@ -351,6 +366,8 @@ static void swz_flush( struct intel_render *render,
       intel_batchbuffer_flush( intel->batch, !finished );
    }
 
+   memset(swz->zone, 0, sizeof(swz->zone));
+   memset(swz->initial_ptr, 0, sizeof(swz->initial_ptr));
    swz->started_binning = GL_FALSE;
 }
 
@@ -366,6 +383,7 @@ static void swz_clear( struct intel_render *render,
    struct intel_framebuffer *intel_fb = intel_get_fb( intel );
    GLboolean do_depth = !!(mask & BUFFER_BIT_DEPTH);
    GLboolean do_stencil = !!(mask & BUFFER_BIT_STENCIL);
+
 
    if (mask == 0)
       return;

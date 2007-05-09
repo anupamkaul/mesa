@@ -72,5 +72,6 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
 
 GLuint intel_frame_mode( const struct intel_frame_tracker *ft );
 
+void intel_frame_flush_and_restart( struct intel_frame_tracker *ft );
 
 #endif

@@ -198,8 +198,9 @@ struct intel_driver_state {
 
 struct intel_hw_dirty {
    GLuint prim:2;
-   GLuint dirty:15;
-   GLuint swz_reset:15;
+   GLuint force_reload:1;
+   GLuint swz_reset:1;
+   GLuint dirty:28;
 };
 
 
@@ -244,8 +245,7 @@ struct intel_context
       void (*emit_hardware_state) (struct intel_context *intel,
 				   GLuint *ptr,
 				   const void *state,
-				   struct intel_hw_dirty flags, 
-				   GLboolean force_load );
+				   struct intel_hw_dirty flags );
 
       GLboolean (*check_indirect_space) (struct intel_context *intel);
 

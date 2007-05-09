@@ -34,7 +34,7 @@
 
 28) swz demos/engine is wierd...
 
-
+30) need to update clearparams on clear depth change.
 
 ======================================================================
 Postpone:

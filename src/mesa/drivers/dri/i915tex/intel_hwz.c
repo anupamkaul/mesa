@@ -135,10 +135,8 @@ static GLuint *hwz_emit_hardware_state( struct intel_context *intel,
       
       intel->vtbl.emit_hardware_state( intel, ptr,
 				       intel->state.current,
-				       flags.intel,
-				       intel->state.force_load );
+				       flags.intel );
 
-      intel->state.force_load = 0;
 
       intel->batch->segment_finish_offset[0] += state_size + dwords * 4;
       return ptr + state_size/4;

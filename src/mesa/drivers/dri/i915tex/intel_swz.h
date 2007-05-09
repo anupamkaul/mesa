@@ -349,10 +349,15 @@ static INLINE void zone_get_space( struct swz_render *swz,
 {
    GLubyte *newptr = intel_cmdstream_alloc_block( swz->intel );
 
-   assert(newptr - zone->ptr > 0);
-
-   zone_begin_batch( swz, zone, newptr );
-   zone->ptr = newptr;
+   if (newptr == NULL) {
+      _mesa_printf("FLUSHING ****************\n");
+      intel_frame_flush_and_restart( swz->intel->ft );
+   }
+   else {
+      assert(newptr - zone->ptr > 0);
+      zone_begin_batch( swz, zone, newptr );
+      zone->ptr = newptr;
+   }
 }
 
 
