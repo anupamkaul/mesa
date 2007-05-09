@@ -88,6 +88,7 @@ static void dump(struct intel_context *intel,
 
    stream.offset = offset;
    stream.ptr = buffer_ptr - offset;
+   stream.print_addresses = !is_batch;
 
    while (!done &&
 	  stream.offset < max_offset &&

@@ -64,6 +64,7 @@ struct debug_stream
 {
    GLuint offset;		/* current gtt offset */
    GLubyte *ptr;			/* pointer to gtt offset zero */
+   GLboolean print_addresses;
 };
 
 

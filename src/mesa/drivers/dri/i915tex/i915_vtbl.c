@@ -55,6 +55,10 @@ static GLboolean debug( struct debug_stream *stream, const char *name, GLuint le
       return GL_FALSE;
    }
 
+   if (stream->print_addresses)
+      _mesa_printf("%08x:  ", stream->offset);
+
+
    _mesa_printf("%s (%d dwords):\n", name, len);
    for (i = 0; i < len; i++)
       _mesa_printf("\t\t0x%08x\n",  ptr[i]);   
@@ -103,6 +107,9 @@ static GLboolean debug_program( struct debug_stream *stream, const char *name, G
       assert(0);
       return GL_FALSE;
    }
+
+   if (stream->print_addresses)
+      _mesa_printf("%08x:  ", stream->offset);
 
    _mesa_printf("%s (%d dwords):\n", name, len);
    i915_disassemble_program( ptr, len );
