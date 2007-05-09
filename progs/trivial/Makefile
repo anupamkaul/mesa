@@ -68,6 +68,13 @@ SOURCES = \
 	tri-userclip.c \
 	tri-dlist.c \
 	tri.c \
+	tri-z.c \
+	mini-tri.c \
+	mini-tri-z.c \
+	little-tri.c \
+	little-tri-z.c \
+	little-lineloop.c \
+	little-points.c \
 	tristrip-clip.c \
 	tristrip.c \
 	vbo-drawrange.c \
