@@ -200,8 +200,8 @@ struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbac
    ASSIGN_4V( draw->plane[1],  1,  0,  0, 1 );
    ASSIGN_4V( draw->plane[2],  0, -1,  0, 1 );
    ASSIGN_4V( draw->plane[3],  0,  1,  0, 1 );
-   ASSIGN_4V( draw->plane[4],  0,  0, -1, 1 );
-   ASSIGN_4V( draw->plane[5],  0,  0,  1, 1 );
+   ASSIGN_4V( draw->plane[4],  0,  0,  1, 1 ); /* yes these are correct */
+   ASSIGN_4V( draw->plane[5],  0,  0, -1, 1 ); /* mesa's a bit wonky */
    draw->nr_planes = 6;
 
    return draw;
