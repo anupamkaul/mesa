@@ -563,6 +563,9 @@ intelInitContext(struct intel_context *intel,
       FALLBACK(intel, INTEL_FALLBACK_USER, 1);
    }
 
+
+   intelClearColor(&intel->ctx, intel->ctx.Color.ClearColor);
+
    return GL_TRUE;
 }
 

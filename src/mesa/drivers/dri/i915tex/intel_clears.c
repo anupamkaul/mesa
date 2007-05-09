@@ -193,6 +193,8 @@ void intelClear(GLcontext *ctx, GLbitfield mask)
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    GLuint i;
 
+   _mesa_printf("CLEAR %x\n", mask);
+
    intel_frame_note_clear( intel->ft, mask );
 
    /* Fallback to tris if colormask or stencil mask are active.
@@ -251,6 +253,7 @@ intelClearColor(GLcontext * ctx, const GLfloat color[4])
 {
    struct intel_context *intel = intel_context(ctx);
    GLubyte clear[4];
+   GLuint cc565, cc8888;
 
    CLAMPED_FLOAT_TO_UBYTE(clear[0], color[0]);
    CLAMPED_FLOAT_TO_UBYTE(clear[1], color[1]);
@@ -258,9 +261,14 @@ intelClearColor(GLcontext * ctx, const GLfloat color[4])
    CLAMPED_FLOAT_TO_UBYTE(clear[3], color[3]);
 
    /* compute both 32 and 16-bit clear values */
-   intel->ClearColor8888 = INTEL_PACKCOLOR8888(clear[0], clear[1],
-                                               clear[2], clear[3]);
-   intel->ClearColor565 = INTEL_PACKCOLOR565(clear[0], clear[1], clear[2]);
+   cc8888 = INTEL_PACKCOLOR8888(clear[0], clear[1], clear[2], clear[3]);
+   cc565 = INTEL_PACKCOLOR565(clear[0], clear[1], clear[2]);
+
+   if (cc8888 != intel->ClearColor8888) {
+      intel->ClearColor8888 = cc8888;
+      intel->ClearColor565 = cc565;
+      intel->state.dirty.intel |= INTEL_NEW_CLEAR_PARAMS;
+   }
 }
 
 
