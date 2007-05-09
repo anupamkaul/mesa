@@ -116,7 +116,7 @@ int main(int argc, char **argv)
 	exit(1);
     }
 
-    glutInitWindowPosition(0, 0); glutInitWindowSize( 250, 250);
+    glutInitWindowPosition(0, 0); glutInitWindowSize( 256, 256);
 
     type = GLUT_RGB;
     type |= (doubleBuffer) ? GLUT_DOUBLE : GLUT_SINGLE;
