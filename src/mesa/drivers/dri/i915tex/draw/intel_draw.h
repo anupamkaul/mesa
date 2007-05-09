@@ -173,7 +173,7 @@ void intel_draw_set_state( struct intel_draw *draw,
 
 
 void intel_draw_set_userclip( struct intel_draw *draw,
-			      const GLfloat (*ucp)[4],
+			      GLfloat (* const ucp)[4],
 			      GLuint nr );
 
 void intel_draw_set_hw_vertex_format( struct intel_draw *draw,

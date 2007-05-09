@@ -138,7 +138,7 @@ void intel_draw_set_render( struct intel_draw *draw,
 }
 
 void intel_draw_set_userclip( struct intel_draw *draw,
-			      const GLfloat (*ucp)[4],
+			      GLfloat (* const ucp)[4],
 			      GLuint nr )
 {
    memcpy(&draw->plane[6], ucp, nr * sizeof(ucp[0]));
