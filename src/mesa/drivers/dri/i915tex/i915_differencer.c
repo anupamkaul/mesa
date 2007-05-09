@@ -39,18 +39,6 @@
 #include "intel_state.h"
 
 
-union i915_hw_dirty {
-   struct {
-      GLuint prim:2;
-      GLuint immediate:8;
-      GLuint indirect:6;
-      GLuint pad:1;
-      GLuint reserved_swz:15;
-   } i915;
-   struct intel_hw_dirty intel;
-};
-
-
 static INLINE void EMIT_DWORD( GLuint **ptr, GLuint dw )
 {
    **ptr = dw;

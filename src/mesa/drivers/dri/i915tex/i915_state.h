@@ -78,6 +78,17 @@ const struct intel_tracked_state i915_upload_static;
 
 /* Perform state differencing and update hardware: 
  */
+union i915_hw_dirty {
+   struct {
+      GLuint prim:2;
+      GLuint immediate:8;
+      GLuint indirect:6;
+      GLuint pad:1;
+      GLuint reserved_swz:15;
+   } i915;
+   struct intel_hw_dirty intel;
+};
+
 const struct intel_tracked_state i915_state_differencer;
 
 
