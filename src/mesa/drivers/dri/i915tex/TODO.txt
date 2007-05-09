@@ -1,19 +1,9 @@
 
-0) swrast synchronization
-
-
 2) clipping vertices - seem to start at 0x100??
     - see tri-dlist
 
 6) manytex -n 1000 lockup
 
-10) optimize bounding box calc 
-    --> michal
-
-
-13) frametracker improvements
-       - flushing, swrast synchronizati
-       - notice partial frames, etc.
 
 15) cache_mode_0
 		+(1<<9) ??
@@ -21,8 +11,6 @@
 17) Software cull triangles
 
 19) pageflip lockups
-
-20) HWZ disabled
 
 21) zEvict if initial clear wasn't a clear rect
 
@@ -37,12 +25,15 @@
 	   --> then disable swz/hwz
 
 25) quake3
-	- renders fullscreen video frames w/o clearing
-	- upsets frame tracker
+	- swz - wierd corruptions on background areas.
+	- clears don't seem to work right.
 
 26) demos/reflect
-	- fails because we don't flush swz properly on the
-          intermediate clear and it gets confused.
+	- swz doesn't render the reflected objects.
+	- clearparam issue???
+
+28) swz demos/engine is wierd...
+
 
 
 ======================================================================
