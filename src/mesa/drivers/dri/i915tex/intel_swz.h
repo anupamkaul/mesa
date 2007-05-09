@@ -34,6 +34,9 @@
 struct intel_context;
 struct intel_render *intel_create_swz_render( struct intel_context *intel );
 
+#define ZONE_WIDTH (1<<6)
+#define ZONE_HEIGHT (1<<5)
+
 
 
 /***********************************************************************
@@ -118,9 +121,6 @@ static INLINE void *get_vert( struct swz_render *swz,
    return swz->vertices + idx * swz->vertex_stride;
 }
 
-
-#define ZONE_WIDTH (1<<6)
-#define ZONE_HEIGHT (1<<5)
 
 #define ZONE_NONE   0
 #define ZONE_POINTS 1
@@ -283,11 +283,6 @@ static INLINE void zone_draw_rect( struct swz_zone *zone,
    out[3] = (x2 & 0xffff) | (y2 << 16);
    out[4] = (origin_x & 0xffff) | (origin_y << 16);
 }
-
-/* XXX: i915 only
- */
-#define PRIM3D_CLEAR_RECT	(0xa<<18)
-#define PRIM3D_ZONE_INIT	(0xd<<18)
 
 static INLINE void zone_clear_rect( struct swz_zone *zone,
 				    GLuint x1,

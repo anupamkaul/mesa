@@ -62,6 +62,8 @@ struct intel_batchbuffer
    GLuint segment_start_offset[NR_SEGMENTS];
    GLuint segment_finish_offset[NR_SEGMENTS];
    GLuint segment_max_offset[NR_SEGMENTS];
+
+   GLuint zone_init_offset;
 };
 
 struct intel_batchbuffer *intel_batchbuffer_alloc(struct intel_context

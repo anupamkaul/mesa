@@ -31,8 +31,11 @@
   */
       
 #include "intel_context.h"
+#include "intel_fbo.h"
 #include "intel_vb.h"
 #include "intel_batchbuffer.h"
+#include "intel_lock.h"
+#include "intel_frame_tracker.h"
 #include "intel_reg.h"
 #include "intel_swapbuffers.h"
 #include "intel_state.h"
@@ -42,6 +45,7 @@
 #include "draw/intel_draw.h"
 
 #include "i915_context.h"
+#include "i915_state.h"
 
 struct hwz_render {
    struct intel_render render;
@@ -88,6 +92,59 @@ static void hwz_release_vertices( struct intel_render *render,
 }
 
 
+/* By the time this gets called, software state should be clean and
+ * there should be sufficient batch to hold things...  How does that
+ * work with big indexed primitives???
+ *
+ * Do we need to be able to split indexed prims?? - yes - would solve
+ * isosurf crash also.
+ */
+static GLuint *hwz_emit_hardware_state( struct intel_context *intel,
+					GLuint dwords,
+					GLuint batchflags )
+{
+   union i915_hw_dirty flags;
+   GLuint state_size;
+
+   flags.intel = intel_track_states( intel,
+				     intel->state.hardware,
+				     intel->state.current );
+   state_size = intel->vtbl.get_state_emit_size( intel, flags.intel );
+
+   if (flags.i915.indirect & I915_CACHE_STATIC) {
+      assert(!intel_frame_is_in_frame(intel->ft));
+
+      flags.i915.indirect &= ~I915_CACHE_STATIC;
+      state_size -= 8;
+   }
+
+   /* Just emit to the batch stream:
+    */
+   intel_batchbuffer_require_space( intel->batch,
+				    0,
+				    state_size + dwords * 4, 
+				    batchflags );
+
+   /* What do we do on flushes????
+    */
+   assert(intel->state.dirty.intel == 0);
+
+   {
+      GLuint *ptr = (GLuint *) (intel->batch->map +
+				intel->batch->segment_finish_offset[0]);
+      
+      intel->vtbl.emit_hardware_state( intel, ptr,
+				       intel->state.current,
+				       flags.intel,
+				       intel->state.force_load );
+
+      intel->state.force_load = 0;
+
+      intel->batch->segment_finish_offset[0] += state_size + dwords * 4;
+      return ptr + state_size/4;
+   }
+}
+
 
 static void hwz_draw_indexed_prim( struct intel_render *render,
 				       const GLuint *indices,
@@ -110,7 +167,7 @@ static void hwz_draw_indexed_prim( struct intel_render *render,
     * commands.
     */
    GLuint dwords = 1 + (nr+1)/2;
-   GLuint *ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
+   GLuint *ptr = hwz_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
 
    *ptr++ = ( _3DPRIMITIVE | 
 	      hwz->hw_prim | 
@@ -146,7 +203,7 @@ static void hwz_draw_prim( struct intel_render *render,
 
    intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
 
-   ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
+   ptr = hwz_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
 
    ptr[0] = ( _3DPRIMITIVE | 
 	      hwz->hw_prim | 
@@ -155,24 +212,6 @@ static void hwz_draw_prim( struct intel_render *render,
 	      nr );      
    ptr[1] = ( hwz->offset + start );
 }
-
-#if 0
-static void hwz_set_state( struct intel_render *render,
-			   void *state )
-{
-   /* Bogus - need to stop hwz at this point */
-   {
-      struct intel_framebuffer *intel_fb =
-	 (struct intel_framebuffer*)intel->ctx.DrawBuffer;
-
-      if ((dirty & (1<<0)) && intel_fb->hwz) {
-	 dirty &= ~(1<<0);
-	 size -= 2;
-      }
-   }
-
-}
-#endif
 
 
 static GLuint hw_prim[GL_POLYGON+1] = {
@@ -274,40 +313,43 @@ static void hwz_flush( struct intel_render *render,
 
 
 static void hwz_clear_rect( struct intel_render *render,
-				GLuint unused_mask,
+				GLuint mask,
 				GLuint x1, GLuint y1, 
 				GLuint x2, GLuint y2 )
 {
    struct hwz_render *hwz = hwz_render( render );
    struct intel_context *intel = hwz->intel;
+   struct intel_framebuffer *intel_fb = intel_get_fb( intel );
+   GLboolean do_depth = !!(mask & BUFFER_BIT_DEPTH);
+   GLboolean do_stencil = !!(mask & BUFFER_BIT_STENCIL);
+   union fi *ptr = (union fi *)hwz_emit_hardware_state(intel, 7, INTEL_BATCH_HWZ);
 
    intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
 
-   /* XXX: i915 only
-    */
-#define PRIM3D_CLEAR_RECT	(0xa<<18)
-#define PRIM3D_ZONE_INIT	(0xd<<18)
+   if (intel_fb->may_use_zone_init &&
+       !intel_frame_is_in_frame(intel->ft) &&
+       x1 == 0 &&
+       y1 == 0 &&
+       x2 == intel_fb->Base.Width &&
+       y2 == intel_fb->Base.Height &&
+       do_depth == do_stencil &&
+       do_depth  			/* ??? */
+       ) {
+      ptr[0].i = (_3DPRIMITIVE | PRIM3D_ZONE_INIT | 5);
 
-   union fi *ptr = (union fi *)intel_emit_hardware_state(intel, 7, INTEL_BATCH_HWZ);
-
-   if (1) {
-      ptr[0].i = (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
-      ptr[1].f = x2;
-      ptr[2].f = y2;
-      ptr[3].f = x1;
-      ptr[4].f = y2;
-      ptr[5].f = x1;
-      ptr[6].f = y1;
+      intel->batch->zone_init_offset = (char*)&ptr[0].u -
+	 (char*)intel->batch->map;
    }
    else {
-      ptr[0].i = (_3DPRIMITIVE | PRIM3D_ZONE_INIT | 5);
-      ptr[1].f = x2;
-      ptr[2].f = y2;
-      ptr[3].f = x1;
-      ptr[4].f = y2;
-      ptr[5].f = x1;
-      ptr[6].f = y1;
+      ptr[0].i = (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
    }
+
+   ptr[1].f = x2;
+   ptr[2].f = y2;
+   ptr[3].f = x1;
+   ptr[4].f = y2;
+   ptr[5].f = x1;
+   ptr[6].f = y1;
 }
 
 
@@ -330,7 +372,6 @@ struct intel_render *intel_create_hwz_render( struct intel_context *intel )
    hwz->render.destroy = hwz_destroy_context;
    hwz->render.start_render = hwz_start_render;
    hwz->render.allocate_vertices = hwz_allocate_vertices;
-//   hwz->render.set_state = hwz_set_state;
    hwz->render.set_prim = hwz_set_prim;
    hwz->render.draw_prim = hwz_draw_prim;
    hwz->render.draw_indexed_prim = hwz_draw_indexed_prim;

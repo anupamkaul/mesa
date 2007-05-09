@@ -380,18 +380,14 @@ static void swz_clear( struct intel_render *render,
    if (do_depth && intel_frame_can_clear_stencil( intel->ft ))
       do_stencil = GL_TRUE;
 
-   if (
-/*        intel_frame_draws_since_swap( intel->ft ) == 0 && */
-      intel->drawX % ZONE_WIDTH == 0 &&
-      intel->drawY % ZONE_HEIGHT == 0 &&
-      intel_fb->Base.Width % ZONE_WIDTH == 0 &&
-      intel_fb->Base.Height % ZONE_HEIGHT == 0 &&
-      x1 == 0 && 
-      y1 == 0 &&
-      x2 == intel_fb->Base.Width &&
-      y2 == intel_fb->Base.Height &&
-      do_depth == do_stencil &&
-      do_depth  			/* ??? */
+   if (intel_fb->may_use_zone_init &&
+       !intel_frame_is_in_frame(intel->ft) &&
+       x1 == 0 &&
+       y1 == 0 &&
+       x2 == intel_fb->Base.Width &&
+       y2 == intel_fb->Base.Height &&
+       do_depth == do_stencil &&
+       do_depth  			/* ??? */
       )
    {
       swz_zone_init( render, mask, x1, y1, x2, y2 );

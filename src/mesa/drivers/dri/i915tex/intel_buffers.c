@@ -34,6 +34,7 @@
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
 #include "intel_frame_tracker.h"
+#include "intel_swz.h"
 
 #include "i915_context.h"
 #include "i915_reg.h"
@@ -234,7 +235,7 @@ intelWindowMoved(struct intel_context *intel)
       GLint areaB = driIntersectArea( drw_rect, pipeB_rect );
       GLuint flags = intel_fb->vblank_flags;
       GLboolean pf_active;
-      GLint pf_pipes;
+      GLint pf_pipes, i;
 
       /* Update page flipping info
        */
@@ -330,6 +331,21 @@ intelWindowMoved(struct intel_context *intel)
 	 for (i = 0; i < intel_fb->pf_num_pages; i++) {
 	    if (intel_fb->color_rb[i])
 	       intel_fb->color_rb[i]->vbl_pending = intel_fb->vbl_waited;
+	 }
+      }
+
+      /* Can ZONE_INIT primitives be used for clears with zone rendering? */
+      intel_fb->may_use_zone_init = GL_TRUE;
+
+      for (i = 0; i < intel->numClipRects; i++) {
+	 drm_clip_rect_t *pRect = &intel->pClipRects[i];
+
+	 if ((pRect->x1 % ZONE_WIDTH != 0) ||
+	     (pRect->y1 % ZONE_HEIGHT != 0) ||
+	     ((pRect->x2 + 1) % ZONE_WIDTH != 0) ||
+	     ((pRect->y2 + 1) % ZONE_HEIGHT != 0)) {
+	    intel_fb->may_use_zone_init = GL_FALSE;
+	    break;
 	 }
       }
 

@@ -204,6 +204,8 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
    batch->segment_finish_offset[0] = batch->segment_start_offset[0];
    batch->segment_finish_offset[1] = batch->segment_start_offset[1];
    batch->segment_finish_offset[2] = batch->segment_start_offset[2];
+
+   batch->zone_init_offset = 0;
 }
 
 /*======================================================================
@@ -314,6 +316,7 @@ do_flush_locked( struct intel_batchbuffer *batch,
    GLuint *ptr, *batch_ptr, *state_ptr;
    GLuint i;
    struct intel_context *intel = batch->intel;
+   struct intel_framebuffer *intel_fb = intel_get_fb( intel );
    unsigned fenceFlags;
    struct _DriFenceObject *fo;
 
@@ -329,6 +332,11 @@ do_flush_locked( struct intel_batchbuffer *batch,
    if (batch->state_buffer != batch->buffer) {
 	 state_ptr = (GLuint *) driBOMap(batch->state_buffer, DRM_BO_FLAG_WRITE,
 					 DRM_BO_HINT_ALLOW_UNFENCED_MAP);
+   }
+
+   if (batch->zone_init_offset && !intel_fb->may_use_zone_init) {
+      *(GLuint*)(batch->map + batch->zone_init_offset) =
+	 (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
    }
 
    for (i = 0; i < batch->nr_relocs; i++) {
