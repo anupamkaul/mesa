@@ -31,8 +31,10 @@
   */
       
 #include "intel_context.h"
+#include "intel_fbo.h"
 #include "intel_vb.h"
 #include "intel_batchbuffer.h"
+#include "intel_lock.h"
 #include "intel_frame_tracker.h"
 #include "intel_reg.h"
 #include "intel_swapbuffers.h"
@@ -308,38 +310,41 @@ static void hwz_flush( struct intel_render *render,
 
 
 static void hwz_clear_rect( struct intel_render *render,
-				GLuint unused_mask,
+				GLuint mask,
 				GLuint x1, GLuint y1, 
 				GLuint x2, GLuint y2 )
 {
    struct hwz_render *hwz = hwz_render( render );
    struct intel_context *intel = hwz->intel;
-
-   /* XXX: i915 only
-    */
-#define PRIM3D_CLEAR_RECT	(0xa<<18)
-#define PRIM3D_ZONE_INIT	(0xd<<18)
-
+   struct intel_framebuffer *intel_fb = intel_get_fb( intel );
+   GLboolean do_depth = !!(mask & BUFFER_BIT_DEPTH);
+   GLboolean do_stencil = !!(mask & BUFFER_BIT_STENCIL);
    union fi *ptr = (union fi *)hwz_emit_hardware_state(intel, 7, INTEL_BATCH_HWZ);
 
-   if (1) {
-      ptr[0].i = (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
-      ptr[1].f = x2;
-      ptr[2].f = y2;
-      ptr[3].f = x1;
-      ptr[4].f = y2;
-      ptr[5].f = x1;
-      ptr[6].f = y1;
+   if (intel_fb->may_use_zone_init &&
+       !intel_frame_is_in_frame(intel->ft) &&
+       x1 == 0 &&
+       y1 == 0 &&
+       x2 == intel_fb->Base.Width &&
+       y2 == intel_fb->Base.Height &&
+       do_depth == do_stencil &&
+       do_depth  			/* ??? */
+       ) {
+      ptr[0].i = (_3DPRIMITIVE | PRIM3D_ZONE_INIT | 5);
+
+      intel->batch->zone_init_offset = (char*)&ptr[0].u -
+	 (char*)intel->batch->map;
    }
    else {
-      ptr[0].i = (_3DPRIMITIVE | PRIM3D_ZONE_INIT | 5);
-      ptr[1].f = x2;
-      ptr[2].f = y2;
-      ptr[3].f = x1;
-      ptr[4].f = y2;
-      ptr[5].f = x1;
-      ptr[6].f = y1;
+      ptr[0].i = (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
    }
+
+   ptr[1].f = x2;
+   ptr[2].f = y2;
+   ptr[3].f = x1;
+   ptr[4].f = y2;
+   ptr[5].f = x1;
+   ptr[6].f = y1;
 }
 
 

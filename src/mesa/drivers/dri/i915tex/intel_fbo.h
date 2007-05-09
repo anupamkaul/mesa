@@ -60,8 +60,9 @@ struct intel_framebuffer
    GLuint swap_count;
    GLuint swap_missed_count;
 
-   /* HWZ */
+   /* Zone rendering */
    GLboolean hwz;
+   GLboolean may_use_zone_init;
 };
 
 

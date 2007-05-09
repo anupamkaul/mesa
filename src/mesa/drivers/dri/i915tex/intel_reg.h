@@ -51,6 +51,10 @@
 #define PRIM3D_RECTLIST 	(0x7<<18)
 #define PRIM3D_POINTLIST	(0x8<<18)
 #define PRIM3D_DIB		(0x9<<18)
+/* XXX: i915 only
+ */
+#define PRIM3D_CLEAR_RECT	(0xa<<18)
+#define PRIM3D_ZONE_INIT	(0xd<<18)
 #define PRIM3D_MASK		(0x1f<<18)
 
 #define I915PACKCOLOR4444(r,g,b,a) \
