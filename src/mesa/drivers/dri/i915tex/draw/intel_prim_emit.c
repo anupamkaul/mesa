@@ -256,5 +256,7 @@ struct prim_stage *intel_prim_emit( struct prim_pipeline *pipe )
    emit->stage.reset_tmps = emit_reset_tmps;
    emit->stage.end = emit_end;
 
+   emit->elts.space = EMIT_MAX_ELTS;
+
    return &emit->stage;
 }
