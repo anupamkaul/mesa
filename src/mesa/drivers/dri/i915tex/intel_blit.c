@@ -38,6 +38,7 @@
 #include "intel_buffers.h"
 #include "intel_context.h"
 #include "intel_fbo.h"
+#include "intel_frame_tracker.h"
 #include "intel_reg.h"
 #include "intel_regions.h"
 #include "vblank.h"
@@ -57,6 +58,8 @@ intelEmitFillBlit(struct intel_context *intel,
 {
    GLuint BR13, CMD;
    BATCH_LOCALS;
+
+   intel_frame_set_mode( intel->ft, INTEL_FT_BLITTER );
 
    dst_pitch *= cpp;
 
@@ -137,6 +140,7 @@ intelEmitCopyBlit(struct intel_context *intel,
    int dst_x2 = dst_x + w;
    BATCH_LOCALS;
 
+   intel_frame_set_mode( intel->ft, INTEL_FT_BLITTER );
 
    DBG("%s src:buf(%p)/%d+%d %d,%d dst:buf(%p)/%d+%d %d,%d sz:%dx%d\n",
        __FUNCTION__,

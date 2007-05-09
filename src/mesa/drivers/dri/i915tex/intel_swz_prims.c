@@ -29,6 +29,7 @@
  */
 #include "macros.h"
 #include "intel_state.h"
+#include "intel_frame_tracker.h"
 
 #define INTEL_SWZ_PRIVATE
 #include "intel_swz.h"
@@ -40,8 +41,18 @@ static void invalidate_bins( struct swz_render *swz )
 {
    struct intel_context *intel = swz->intel;
 
-   if (intel->state.dirty.intel)
-      intel_update_software_state( intel );
+   swz->draws++;
+
+   {
+      /* XXX: only want to do this once per VB, not once per prim...
+       */
+      if (intel->state.dirty.intel)
+	 intel_update_software_state( intel );
+      
+      intel_frame_set_mode( intel->ft, INTEL_FT_SWZ );
+      assert(swz->started_binning);
+   }
+
 
    {
       struct intel_hw_dirty flags = intel_track_states( intel,

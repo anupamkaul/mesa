@@ -37,6 +37,8 @@
 #include "intel_ioctl.h"
 #include "intel_lock.h"
 #include "intel_tex.h"
+#include "intel_frame_tracker.h"
+#include "intel_batchbuffer.h"
 
 #include "swrast/swrast.h"
 
@@ -309,28 +311,13 @@ intel_map_unmap_buffers(struct intel_context *intel, GLboolean map)
  * Old note: Moved locking out to get reasonable span performance.
  */
 void
-intelSpanRenderStart(GLcontext * ctx)
+intel_do_SpanRenderStart(struct intel_context *intel)
 {
-   struct intel_context *intel = intel_context(ctx);
+   GLcontext *ctx = &intel->ctx;
    GLuint i;
-
-   /* XXX FIX ME XXX
-    */
-#if 0
-   intelFinish(&intel->ctx); 
-#endif
 
    LOCK_HARDWARE(intel);
    UPDATE_CLIPRECTS(intel);
-
-#if 0
-   /* Just map the framebuffer and all textures.  Bufmgr code will
-    * take care of waiting on the necessary fences:
-    */
-   intel_region_map(intel->intelScreen, intel->front_region);
-   intel_region_map(intel->intelScreen, intel->back_region);
-   intel_region_map(intel->intelScreen, intel->intelScreen->depth_region);
-#endif
 
    for (i = 0; i < ctx->Const.MaxTextureCoordUnits; i++) {
       if (ctx->Texture.Unit[i]._ReallyEnabled) {
@@ -347,20 +334,12 @@ intelSpanRenderStart(GLcontext * ctx)
  * the above function.
  */
 void
-intelSpanRenderFinish(GLcontext * ctx)
+intel_do_SpanRenderFinish(struct intel_context *intel)
 {
-   struct intel_context *intel = intel_context(ctx);
+   GLcontext *ctx = &intel->ctx;
    GLuint i;
 
    _swrast_flush(ctx);
-
-   /* Now unmap the framebuffer:
-    */
-#if 0
-   intel_region_unmap(intel, intel->front_region);
-   intel_region_unmap(intel, intel->back_region);
-   intel_region_unmap(intel, intel->intelScreen->depth_region);
-#endif
 
    for (i = 0; i < ctx->Const.MaxTextureCoordUnits; i++) {
       if (ctx->Texture.Unit[i]._ReallyEnabled) {
@@ -374,6 +353,21 @@ intelSpanRenderFinish(GLcontext * ctx)
    UNLOCK_HARDWARE(intel);
 }
 
+
+static void intelSpanRenderStart(GLcontext * ctx)
+{
+   struct intel_context *intel = intel_context(ctx);
+   intel_frame_set_mode( intel->ft, INTEL_FT_SWRAST );
+
+   intel_do_SpanRenderStart( intel );
+}
+
+static void intelSpanRenderFinish(GLcontext * ctx)
+{
+   struct intel_context *intel = intel_context(ctx);
+   
+   intel_do_SpanRenderFinish( intel );
+}
 
 void
 intelInitSpanFuncs(GLcontext * ctx)

@@ -83,6 +83,9 @@ struct swz_render {
    GLuint initial_state_size;
    void *last_driver_state;
    GLuint driver_state_size;
+
+   GLuint draws;
+   GLuint clears;
 };
 
 static INLINE struct swz_render *swz_render( struct intel_render *render )
@@ -124,18 +127,7 @@ static INLINE void *get_vert( struct swz_render *swz,
 #define ZONE_LINES  2
 #define ZONE_TRIS   3
 
-#define I915_BB_CHAIN_SIZE   3	/* potentially */
 #define I915_CLEAR_RECT_SIZE 6	/* the largest single primitive */
-
-/* Room for the worst case: full state emit, clear rect, bb chain.
- * About 32 dwords == 128 bytes waste, quite a lot if you are using
- * 512 byte bins!
- */
-#define I915_HW_STATE_SIZE			\
-   (I915_MAX_IMMEDIATE + 1 + 			\
-    I915_MAX_CACHE * 2 + 1 + 			\
-    I915_CLEAR_RECT_SIZE + 			\
-    I915_BB_CHAIN_SIZE)
 
 #define ZONE_PRIM_SPACE  (6 * sizeof(GLuint)) /* start + 3 indices + ffff + BATCH_END */
 #define ZONE_END_SPACE   (3 * sizeof(GLuint)) /* NOOP + MI_FLUSH + BATCH_END */
@@ -245,8 +237,6 @@ static INLINE void zone_end_batch( struct swz_zone *zone,
 #define MI_BATCH_GTT    	(2<<6)
 #define MI_BATCH_PHYSICAL    	(0<<6)
 
-/* Assumes prevalidated batch buffers:
- */
 static INLINE void zone_begin_batch( struct swz_render *swz,
 				     struct swz_zone *zone,
 				     const GLubyte *newptr )

@@ -103,6 +103,12 @@ GLboolean intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
                                        GLuint flags,
                                        GLuint mask, GLuint offset);
 
+
+
+
+void
+intel_batchbuffer_wait_last_fence(struct intel_batchbuffer *batch );
+
 /* Inline functions - might actually be better off with these
  * non-inlined.  Certainly better off switching all command packets to
  * be passed as structs rather than dwords, but that's a little bit of

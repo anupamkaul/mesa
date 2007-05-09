@@ -30,6 +30,7 @@
 #include "intel_fbo.h"
 #include "intel_lock.h"
 #include "intel_frame_tracker.h"
+#include "intel_batchbuffer.h"
 
 #define FILE_DEBUG_FLAG DEBUG_FRAME
 
@@ -42,6 +43,8 @@ struct intel_frame_tracker
 {
    struct intel_context *intel;
 
+   GLuint mode;
+
    GLboolean in_frame;
    GLboolean in_draw;
 
@@ -53,8 +56,7 @@ struct intel_frame_tracker
    /* Bitflags:
     */
    GLuint flush_prediction;
-   GLuint draw_without_clears;
-   GLuint map_depth_pixels;
+   GLuint finish_prediction;
 
    /* Counters: 
     */
@@ -67,10 +69,43 @@ GLboolean intel_frame_is_in_frame( struct intel_frame_tracker *ft )
    return ft->in_frame;
 }
 
-GLboolean intel_frame_predict_forced_flush( struct intel_frame_tracker *ft )
+GLboolean intel_frame_predict_flush( struct intel_frame_tracker *ft )
 {
    return ft->flush_prediction != 0;
 }
+
+/* These are worse than flushes.  If we think one is coming, we need
+ * to try and aim for low latency over rendering performance, ie no
+ * zone rendering.
+ */
+GLboolean intel_frame_predict_finish( struct intel_frame_tracker *ft )
+{
+   return ft->finish_prediction != 0;
+}
+
+
+GLboolean intel_frame_can_clear_stencil( struct intel_frame_tracker *ft )
+{
+   /* This isn't quite accurate, tries to check whether the stencil
+    * buffer has ever been initialized, but it could be written to by
+    * other methods, like 3d drawing with unconditional stencil
+    * writes, etc.  Probably need to disable this or deal with trying
+    * to catch all the cases. 
+    *
+    * Would be nicer to know if the app really requested a stencil
+    * buffer...
+    */
+   if ((ft->allclears & BUFFER_BIT_STENCIL) == 0) 
+      return GL_TRUE;
+
+   /* Z/Stencil buffer contents undefined after swapbuffer?
+    */
+   if (ft->mode == INTEL_FT_SWAP_BUFFERS)
+      return GL_TRUE;
+
+   return GL_FALSE;
+}
+
 
 
 
@@ -88,8 +123,7 @@ static void emit_resize( struct intel_frame_tracker *ft )
    DBG("%s %dx%d\n", __FUNCTION__, dPriv->w, dPriv->h);
 
    intel_resize_framebuffer(&intel->ctx, fb, dPriv->w, dPriv->h);
-
-//   intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
+   intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
 
    ft->resize_flag = GL_FALSE;
 }
@@ -102,6 +136,25 @@ static void finish_frame( struct intel_frame_tracker *ft )
 
    if (ft->resize_flag && !ft->in_draw) 
       emit_resize( ft );
+}
+
+
+static void start_frame( struct intel_frame_tracker *ft )
+{
+   struct intel_context *intel = ft->intel;
+   
+   /* Update window dimensions for the coming frame???  This is
+    * bogus, but will do for now.
+    */
+   LOCK_HARDWARE(intel);
+   UPDATE_CLIPRECTS(intel);
+   UNLOCK_HARDWARE(intel);
+
+   if (ft->resize_flag) 
+      emit_resize( ft );
+
+
+   ft->in_frame = GL_TRUE;
 }
 
 
@@ -130,33 +183,17 @@ void intel_frame_note_flush( struct intel_frame_tracker *ft,
 }
 
 void intel_frame_note_clear( struct intel_frame_tracker *ft,
-			     GLbitfield mask,
-			     GLboolean clearrect )
+			     GLbitfield mask )
 {
    DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
+   
+
    if (!ft->in_frame) {
-      struct intel_context *intel = ft->intel;
-
-      /* Update window dimensions for the coming frame???  This is
-       * bogus, but will do for now.
-       */
-      LOCK_HARDWARE(intel);
-      UPDATE_CLIPRECTS(intel);
-      UNLOCK_HARDWARE(intel);
-
-      ft->in_frame = GL_TRUE;
+      start_frame( ft );
 
       if (!ft->intel->ctx.Scissor.Enabled)
 	 ft->allclears |= mask;
    }
-}
-
-GLboolean intel_frame_can_clear_stencil( struct intel_frame_tracker *ft )
-{
-   if ((ft->allclears & BUFFER_BIT_STENCIL) == 0) 
-      return GL_TRUE;
-
-   return GL_FALSE;
 }
 
 
@@ -165,8 +202,6 @@ void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft )
 {
    DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
 
-   intel_draw_finish_frame( ft->intel->draw );
-   
    if (ft->in_frame) {
       finish_frame( ft );
    }
@@ -197,7 +232,7 @@ void intel_frame_note_draw_start( struct intel_frame_tracker *ft )
    assert(!ft->in_draw);
    ft->in_draw = 1;
    if (!ft->in_frame) {
-      ft->draw_without_clears |= (1<<31);
+//      ft->draw_without_clears |= (1<<31);
       ft->in_frame = 1;
    }
 }
@@ -211,6 +246,112 @@ void intel_frame_note_draw_end( struct intel_frame_tracker *ft )
    if (ft->resize_flag && !ft->in_frame) 
       emit_resize( ft );
 }
+
+
+GLuint  intel_frame_mode( const struct intel_frame_tracker *ft )
+{
+   return ft->mode; 
+}
+
+
+static const char * mode_name[] = 
+{
+   "FLUSHED",
+   "SWAP_BUFFERS",
+   "CLASSIC",
+   "SWRAST",
+   "SWZ",
+   "HWZ",
+   "BLITTER"
+};
+
+
+void intel_frame_set_mode( struct intel_frame_tracker *ft,
+			   GLuint new_mode )
+{
+   struct intel_context *intel = ft->intel;
+   GLboolean finished = (new_mode == INTEL_FT_SWAP_BUFFERS);
+   GLboolean begin_frame = GL_FALSE;
+
+   if (ft->mode == new_mode) 
+      return;
+
+   _mesa_printf("transiton %s -> %s\n",
+		mode_name[ft->mode],
+		mode_name[new_mode]);
+
+   switch (ft->mode) {
+   case INTEL_FT_SWAP_BUFFERS:
+      begin_frame = GL_TRUE;
+      break;
+	 
+   case INTEL_FT_FLUSHED:
+      break;
+
+   case INTEL_FT_SWRAST:
+//      intel_frame_note_flush( intel->ft, forced );
+      intel->swrender->flush( intel->swrender, finished );
+      break;
+
+   case INTEL_FT_CLASSIC:
+      intel->classic->flush( intel->classic, finished );
+      break;
+
+   case INTEL_FT_SWZ:
+      intel->swz->flush( intel->swz, finished );
+      break;
+
+   case INTEL_FT_HWZ:
+      intel->hwz->flush( intel->hwz, finished );
+      break;
+
+   case INTEL_FT_BLITTER:
+      intel_batchbuffer_flush( intel->batch, GL_FALSE );
+      break;
+	 
+   default:
+      assert(0);
+      break;
+   }
+
+   ft->mode = INTEL_FT_FLUSHED;
+
+/*    if (ft->in_frame) */
+/*       intel_frame_no */
+   
+   switch (new_mode) {
+   case INTEL_FT_SWAP_BUFFERS:
+      break;
+   case INTEL_FT_FLUSHED:
+      break;
+
+   case INTEL_FT_SWRAST:
+      intel->swrender->start_render( intel->swrender, begin_frame );
+      break;
+
+   case INTEL_FT_CLASSIC:
+      intel->classic->start_render( intel->classic, begin_frame );
+      break;
+
+   case INTEL_FT_SWZ:
+      intel->swz->start_render( intel->swz, begin_frame );
+      break;
+
+   case INTEL_FT_HWZ:
+      intel->hwz->start_render( intel->hwz, begin_frame );
+      break;
+
+   case INTEL_FT_BLITTER:
+      break;
+	 
+   default:
+      assert(0);
+      break;      
+   }
+
+   ft->mode = new_mode;
+}
+
 
 
 

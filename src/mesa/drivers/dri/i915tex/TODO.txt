@@ -12,7 +12,8 @@
 
 
 13) frametracker improvements
-
+       - flushing, swrast synchronizati
+       - notice partial frames, etc.
 
 15) cache_mode_0
 		+(1<<9) ??
@@ -39,7 +40,9 @@
 	- renders fullscreen video frames w/o clearing
 	- upsets frame tracker
 
-
+26) demos/reflect
+	- fails because we don't flush swz properly on the
+          intermediate clear and it gets confused.
 
 
 ======================================================================

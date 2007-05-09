@@ -38,7 +38,8 @@ void intel_frame_tracker_destroy( struct intel_frame_tracker * );
 
 
 GLboolean intel_frame_is_in_frame( struct intel_frame_tracker *ft );
-GLboolean intel_frame_predict_forced_flush( struct intel_frame_tracker *ft );
+GLboolean intel_frame_predict_flush( struct intel_frame_tracker *ft );
+GLboolean intel_frame_predict_finish( struct intel_frame_tracker *ft );
 GLboolean intel_frame_predict_window_rebind( struct intel_frame_tracker *ft );
 GLboolean intel_frame_predict_window_resize( struct intel_frame_tracker *ft );
 
@@ -48,14 +49,28 @@ void intel_frame_note_flush( struct intel_frame_tracker *ft,
 void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft );
 void intel_frame_note_window_resize( struct intel_frame_tracker *ft );
 void intel_frame_note_window_rebind( struct intel_frame_tracker *ft );
-void intel_frame_note_clear( struct intel_frame_tracker *ft,
-			     GLbitfield mask,
-			     GLboolean clearrect );
+void intel_frame_note_clear( struct intel_frame_tracker *ft, GLbitfield mask );
 void intel_frame_note_draw_start( struct intel_frame_tracker *ft );
 void intel_frame_note_draw_end( struct intel_frame_tracker *ft );
 
 
 GLboolean intel_frame_can_clear_stencil( struct intel_frame_tracker *ft );
+
+
+enum {
+   INTEL_FT_FLUSHED = 0,
+   INTEL_FT_SWAP_BUFFERS,
+   INTEL_FT_CLASSIC,
+   INTEL_FT_SWRAST,
+   INTEL_FT_SWZ,
+   INTEL_FT_HWZ,
+   INTEL_FT_BLITTER
+};
+
+void intel_frame_set_mode( struct intel_frame_tracker *ft,
+			   GLuint new_mode );
+
+GLuint intel_frame_mode( const struct intel_frame_tracker *ft );
 
 
 #endif

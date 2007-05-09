@@ -329,7 +329,8 @@ intelSwapBuffers(__DRIdrawablePrivate * dPriv)
 	 int64_t ust;
 
 	 _mesa_notifySwapBuffers(ctx);  /* flush pending tnl vertices */
-         intel_frame_note_swapbuffers( intel->ft );
+
+         intel_frame_set_mode( intel->ft, INTEL_FT_SWAP_BUFFERS );
 
          if (screen->current_rotation != 0 ||
 	     !intelScheduleSwap(intel, dPriv, &missed_target)) {
@@ -346,6 +347,11 @@ intelSwapBuffers(__DRIdrawablePrivate * dPriv)
 	       intelRotateWindow(intel, dPriv, BUFFER_BIT_FRONT_LEFT);
 	    }
 	 }
+
+	 /* XXX: do this twice, as it gets reset, eg by blits above:
+	  */
+         intel_frame_set_mode( intel->ft, INTEL_FT_SWAP_BUFFERS );
+
 
 	 intel_fb->swap_count++;
 	 (*dri_interface->getUST) (&ust);
@@ -422,3 +428,15 @@ intel_wait_flips(struct intel_context *intel, GLuint batch_flags)
 }
 
  
+void intel_do_wait_flips( struct intel_context *intel ) 
+{
+   intel_wait_flips( intel, 0 );
+
+   /* Flush the batchbuffer.  Later call to intelSpanRenderStart will
+    * ensure we wait for completion.
+    */
+   if (intel->batch->segment_finish_offset[0] != 0)
+      intel_batchbuffer_flush(intel->batch, GL_TRUE);
+
+   intel_batchbuffer_wait_last_fence( intel->batch );
+}

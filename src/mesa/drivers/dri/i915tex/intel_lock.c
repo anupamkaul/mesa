@@ -86,8 +86,8 @@ void UPDATE_CLIPRECTS(struct intel_context *intel)
       /*
        * This will drop the outstanding batchbuffer on the floor
        */
-
-      intel_draw_flush( intel->draw );
+//      intel_frame_set_mode( intel->ft, INTEL_FT_FLUSHED );
+      assert(0);
 
       if (stateMap != NULL && stateMap != batchMap) {
 	 driBOUnmap(intel->batch->state_buffer);

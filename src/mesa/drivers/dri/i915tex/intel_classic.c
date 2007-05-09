@@ -35,6 +35,7 @@
 #include "intel_batchbuffer.h"
 #include "intel_reg.h"
 #include "intel_swapbuffers.h"
+#include "intel_frame_tracker.h"
 #include "intel_state.h"
 #include "intel_state_inlines.h"
 #include "intel_utils.h"
@@ -97,6 +98,9 @@ static void classic_draw_indexed_prim( struct intel_render *render,
    if (nr == 0 || !intel_validate_vertices(crc->hw_prim, nr))
       return; 
 
+   intel_frame_set_mode( intel->ft, INTEL_FT_CLASSIC );
+
+
    /* The 'dwords' usage below ensures that both the state and the
     * primitive command below end up in the same batchbuffer,
     * otherwise there is a risk that another context might
@@ -135,6 +139,8 @@ static void classic_draw_prim( struct intel_render *render,
 
    if (nr == 0 || !intel_validate_vertices(crc->hw_prim, nr))
       return; 
+
+   intel_frame_set_mode( intel->ft, INTEL_FT_CLASSIC );
 
    ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_CLIPRECTS);
 
@@ -222,16 +228,22 @@ static void classic_start_render( struct intel_render *render,
    struct classic_render *crc = classic_render( render );
 //   _mesa_printf("%s\n", __FUNCTION__);
 
+   /* Should already be flushed!
+    */
+   assert( crc->intel->batch->segment_finish_offset[0] == 0);
+
    /* Start a new batchbuffer, emit wait for pending flip.
     */
    if (start_of_frame)
       intel_wait_flips(crc->intel, 0);
 
+#if 0
    /* Flush any non-cliprect batch now:
     */
    intel_batchbuffer_require_space( crc->intel->batch, 0, 
 				    SEGMENT_IMMEDIATE,
 				    INTEL_BATCH_CLIPRECTS );
+#endif
 
    intel_update_software_state( crc->intel );
 }
@@ -256,6 +268,8 @@ static void classic_clear_rect( struct intel_render *render,
 {
    struct classic_render *crc = classic_render( render );
    struct intel_context *intel = crc->intel;
+
+   intel_frame_set_mode( intel->ft, INTEL_FT_CLASSIC );
 
    /* XXX: i915 only
     */

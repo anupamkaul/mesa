@@ -85,13 +85,7 @@ intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
       }
    }
    
-   intel_frame_note_clear( intel->ft, mask, GL_TRUE );
-
    intel_update_software_state( intel );
-
-   /* XXX:
-    */
-   intel->render->start_render( intel->render, GL_TRUE );
 
    intel->render->clear_rect( intel->render, 
 			      mask,
@@ -199,6 +193,7 @@ void intelClear(GLcontext *ctx, GLbitfield mask)
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    GLuint i;
 
+   intel_frame_note_clear( intel->ft, mask );
 
    /* Fallback to tris if colormask or stencil mask are active.
     */

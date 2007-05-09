@@ -37,6 +37,7 @@
 #include "intel_swapbuffers.h"
 #include "intel_state.h"
 #include "intel_state_inlines.h"
+#include "intel_frame_tracker.h"
 #include "intel_utils.h"
 #include "draw/intel_draw.h"
 
@@ -100,7 +101,7 @@ static void hwz_draw_indexed_prim( struct intel_render *render,
    if (nr == 0 || !intel_validate_vertices(hwz->hw_prim, nr))
       return; 
 
-   assert(nr>0);
+   intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
 
    /* The 'dwords' usage below ensures that both the state and the
     * primitive command below end up in the same batchbuffer,
@@ -142,6 +143,8 @@ static void hwz_draw_prim( struct intel_render *render,
 
    if (nr == 0 || !intel_validate_vertices(hwz->hw_prim, nr))
       return; 
+
+   intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
 
    ptr = intel_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
 
@@ -277,6 +280,8 @@ static void hwz_clear_rect( struct intel_render *render,
 {
    struct hwz_render *hwz = hwz_render( render );
    struct intel_context *intel = hwz->intel;
+
+   intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
 
    /* XXX: i915 only
     */

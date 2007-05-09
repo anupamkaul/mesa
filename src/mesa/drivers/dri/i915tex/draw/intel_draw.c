@@ -42,26 +42,6 @@
 #include "draw/intel_draw_quads.h"
 
 
-/* Called from swapbuffers:
- */
-void intel_draw_finish_frame( struct intel_draw *draw )
-{
-   assert(!draw->in_vb);
-//   assert(draw->in_frame);
-   draw->in_frame = GL_FALSE;
-}
-
-
-/* Called from glFlush, and other places:
- */
-void intel_draw_flush( struct intel_draw *draw )
-{
-   assert(!draw->in_vb);
-
-   if (draw->hw)
-      draw->hw->flush( draw->hw, !draw->in_frame );
-}
-
 
 /* Called when driver state tracker notices changes to the viewport
  * matrix:
@@ -150,11 +130,6 @@ void intel_draw_set_render( struct intel_draw *draw,
    /* This is not allowed during the processing of a vertex buffer.
     */
    assert( !draw->in_vb );
-
-   /* Shut down the old rasterizerer:
-    */
-   if (draw->hw)
-      draw->hw->flush(draw->hw, !draw->in_frame );
 
    /* Install the new one.
     */
@@ -373,14 +348,6 @@ void intel_draw_vb(struct intel_draw *draw,
       draw_validate_state( draw );
 
 
-   /* Delay this so that we don't start a frame on a renderer that
-    * gets swapped out in the validation above.
-    */
-   if (!draw->in_frame) {
-/*       draw->hw->start_render( draw->hw, GL_TRUE ); */
-      draw->in_frame = 1;
-   }
-   
    /* Maybe build vertex headers: 
     */
    if (draw->prim_pipe_active) {

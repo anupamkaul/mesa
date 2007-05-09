@@ -278,7 +278,7 @@ void
 intelFlush(GLcontext * ctx)
 {
    struct intel_context *intel = intel_context( ctx );
-   intel_draw_flush( intel->draw ); 
+   intel_frame_set_mode( intel->ft, INTEL_FT_FLUSHED ); 
 }
 
 
@@ -574,7 +574,7 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
 
    assert(intel);               /* should never be null */
    if (intel) {
-      intel_draw_flush( intel->draw );
+      intel_frame_set_mode( intel->ft, INTEL_FT_FLUSHED );
 
       _tnl_DestroyContext(&intel->ctx);
       _vbo_DestroyContext(&intel->ctx);

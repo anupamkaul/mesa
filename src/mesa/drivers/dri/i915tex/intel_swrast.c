@@ -36,6 +36,7 @@
 #include "intel_context.h"
 #include "intel_batchbuffer.h"
 #include "intel_swapbuffers.h"
+#include "intel_frame_tracker.h"
 #include "draw/intel_draw.h"
 #include "intel_reg.h"
 #include "intel_span.h"
@@ -78,6 +79,10 @@ static void *swrender_allocate_vertices( struct intel_render *render,
    swrender->vf = intel_draw_get_hw_vf( swrender->intel->draw );
    swrender->hw_vert_size = vertex_size;
    swrender->hw_verts = MALLOC( nr_vertices * swrender->hw_vert_size );
+
+   assert(vertex_size == swrender->vf->vertex_stride);
+
+   _mesa_printf("%s %d %d\n", __FUNCTION__, vertex_size, nr_vertices); 
 
    return swrender->hw_verts;
 }
@@ -215,10 +220,12 @@ static void swrender_draw_prim( struct intel_render *render,
 				GLuint nr )
 {
    struct swrast_render *swrender = swrast_render( render );
-   GLcontext *ctx = &swrender->intel->ctx;
+   struct intel_context *intel = swrender->intel;
    GLuint i;
 
-   intelSpanRenderStart(ctx);
+   intel_frame_set_mode( intel->ft, INTEL_FT_SWRAST );
+
+   intel_do_SpanRenderStart( intel );
 
    switch (swrender->prim) {
    case GL_POINTS:
@@ -292,7 +299,7 @@ static void swrender_draw_prim( struct intel_render *render,
       break;
    }
 
-   intelSpanRenderFinish(ctx);
+   intel_do_SpanRenderFinish( intel );
 }
 
 static void swrender_draw_indexed_prim( struct intel_render *render,
@@ -300,10 +307,13 @@ static void swrender_draw_indexed_prim( struct intel_render *render,
 					GLuint nr )
 {
    struct swrast_render *swrender = swrast_render( render );
-   GLcontext *ctx = &swrender->intel->ctx;
+   struct intel_context *intel = swrender->intel;
+   GLcontext *ctx = &intel->ctx;
    GLuint i;
 
-   intelSpanRenderStart(ctx);
+   intel_frame_set_mode( intel->ft, INTEL_FT_SWRAST );
+
+   intel_do_SpanRenderStart( intel );
 
    switch (swrender->prim) {
    case GL_POINTS:
@@ -378,7 +388,7 @@ static void swrender_draw_indexed_prim( struct intel_render *render,
       break;
    }
 
-   intelSpanRenderFinish(ctx);
+   intel_do_SpanRenderFinish( intel );
 }
 
 
@@ -397,25 +407,16 @@ static void swrender_start_render( struct intel_render *render,
    struct swrast_render *swrender = swrast_render( render );
    struct intel_context *intel = swrender->intel;
 
-
    _mesa_printf("%s\n", __FUNCTION__);
 
-   /* Start a new batchbuffer, emit wait for pending flip.
+   /* Wait for pending flip.
     */
    if (start_of_frame)
-      intel_wait_flips(intel, 0);
+      intel_do_wait_flips(intel);
 
-   /* Emit some other synchronization stuff if necessary 
+   /* Wait for last fence to clear:
     */
-   
-   /* Flush the batchbuffer.  Later call to intelSpanRenderStart will
-    * ensure we wait for completion.
-    */
-   if (intel->batch->segment_finish_offset[0] != 0)
-      intel_batchbuffer_flush(intel->batch, GL_TRUE);
-
-   /* Have to wait on command stream??
-    */
+   intel_batchbuffer_wait_last_fence(intel->batch);
 }
 
 static void swrender_clear_rect( struct intel_render *render,
@@ -423,7 +424,13 @@ static void swrender_clear_rect( struct intel_render *render,
 				 GLuint x1, GLuint y1, 
 				 GLuint x2, GLuint y2 )
 {
-   _swrast_Clear( &swrast_render(render)->intel->ctx, mask );
+   struct intel_context *intel = swrast_render(render)->intel;
+
+   intel_frame_set_mode( intel->ft, INTEL_FT_SWRAST );
+
+   /* XXX: In every case could blit or metaops instead:
+    */
+   _swrast_Clear( &intel->ctx, mask );
 }
 
 
@@ -431,18 +438,13 @@ static void swrender_clear_rect( struct intel_render *render,
 static void swrender_flush( struct intel_render *render,
 			    GLboolean finished_frame )
 {
-   struct swrast_render *swrender = swrast_render( render );
-
-   _mesa_printf("%s\n", __FUNCTION__);
-
-   _swrast_flush( &swrender->intel->ctx );
+   /* all done in SpanRenderFinish */
 }
 
 
 static void swrender_destroy_context( struct intel_render *render )
 {
    struct swrast_render *swrender = swrast_render( render );
-   _mesa_printf("%s\n", __FUNCTION__);
 
    _mesa_free(swrender);
 }

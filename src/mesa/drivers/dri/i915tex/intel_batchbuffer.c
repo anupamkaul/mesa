@@ -429,7 +429,8 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch,
 
    _mesa_printf("%s used %d relocs: %d\n", __FUNCTION__, used, batch->nr_relocs);
 
-   intel_frame_note_flush( intel->ft, forced );
+   assert(used < SEGMENT_SZ);
+
    intel_vb_flush( intel->vb );
 
    /* Add the MI_BATCH_BUFFER_END.  Always add an MI_FLUSH - this is a
@@ -556,3 +557,16 @@ intel_batchbuffer_data(struct intel_batchbuffer *batch,
    batch->segment_finish_offset[segment] += bytes;
 }
 
+void
+intel_batchbuffer_wait_last_fence(struct intel_batchbuffer *batch )
+{
+   if (batch->last_fence)  
+   {
+      driFenceReference(batch->last_fence);
+      driFenceFinish(batch->last_fence, 
+		     DRM_FENCE_TYPE_EXE | DRM_I915_FENCE_TYPE_RW, GL_FALSE);
+      driFenceUnReference(batch->last_fence);
+      //???
+      //batch->last_fence = NULL;
+   }
+}

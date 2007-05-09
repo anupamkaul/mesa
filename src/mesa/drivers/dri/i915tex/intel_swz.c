@@ -168,7 +168,7 @@ static void swz_start_render( struct intel_render *render,
    struct swz_render *swz = swz_render( render );
    struct intel_context *intel = swz->intel;
 
-      
+   assert(intel_frame_mode(intel->ft) == INTEL_FT_FLUSHED);
    assert(!swz->started_binning);
 
    /* Window size won't change during a frame (though cliprects may be
@@ -209,6 +209,8 @@ static void swz_start_render( struct intel_render *render,
    swz->reset_state.dirty = 0;
    swz->reset_state.swz_reset = 0;
 
+   swz->draws = 0;
+   swz->clears = 0;
    swz->started_binning = GL_TRUE; 
 }
 
@@ -268,8 +270,9 @@ static INLINE void chain_zones( struct swz_render *swz,
 
 
 
-/* Called on frame end & premature frame end, which can occur for all
- * sorts of reasons.
+/* Called on transition to INTEL_FT_FLUSHED, which happens at frame
+ * end, renderer switch and flush, which can occur for all sorts of
+ * reasons.
  */
 static void swz_flush( struct intel_render *render,
 		       GLboolean finished )
@@ -366,6 +369,9 @@ static void swz_clear( struct intel_render *render,
 
    if (mask == 0)
       return;
+
+   intel_frame_set_mode( intel->ft, INTEL_FT_SWZ );
+   assert(swz->started_binning);
 
    /* Turn on stencil clear if possible.  Otherwise apps that don't
     * request a stencil buffer are prevented from using the zone_init

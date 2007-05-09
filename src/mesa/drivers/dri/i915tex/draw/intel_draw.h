@@ -164,10 +164,6 @@ struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbac
 				      
 void intel_draw_destroy( struct intel_draw * );
 
-void intel_draw_flush( struct intel_draw * );
-
-void intel_draw_finish_frame( struct intel_draw * );
-
 void intel_draw_set_viewport( struct intel_draw *draw,
 			      const GLfloat *scale,
 			      const GLfloat *trans );
@@ -271,7 +267,6 @@ struct intel_draw {
 
    /* State
     */
-   GLboolean in_frame;
    GLboolean in_vb;
    GLboolean revalidate;
 
