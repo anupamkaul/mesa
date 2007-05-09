@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2006 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,31 +25,26 @@
  * 
  **************************************************************************/
 
-#ifndef INTEL_BUFFERS_H
-#define INTEL_BUFFERS_H
+#ifndef INTEL_CMDSTREAM_H
+#define INTEL_CMDSTREAM_H
+
+#include "intel_context.h"
+
+#define CMDSTREAM_ORDER 9
+#define CMDSTREAM_SIZE (1<<CMDSTREAM_ORDER)
+
+GLubyte *intel_cmdstream_alloc_block( struct intel_context *intel );
+
+void intel_cmdstream_use_batch_range( struct intel_context *intel,
+				      GLuint start_offset,
+				      GLuint finish_offset );
+
+void intel_cmdstream_reset( struct intel_context *intel );
+
+static INLINE GLuint intel_cmdstream_space( GLubyte *ptr )
+{
+   return CMDSTREAM_SIZE - (((unsigned long)ptr) & (CMDSTREAM_SIZE-1));
+}
 
 
-struct intel_context;
-struct intel_framebuffer;
-
-
-extern GLboolean
-intel_intersect_cliprects(drm_clip_rect_t * dest,
-                          const drm_clip_rect_t * a,
-                          const drm_clip_rect_t * b);
-
-extern struct intel_region *intel_readbuf_region(struct intel_context *intel);
-
-extern struct intel_region *intel_drawbuf_region(struct intel_context *intel);
-
-extern void intelWindowMoved(struct intel_context *intel);
-
-extern void intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb);
-
-extern void intelInitBufferFuncs(struct dd_function_table *functions);
-
-extern void
-intelRotateWindow(struct intel_context *intel,
-                  __DRIdrawablePrivate * dPriv, GLuint srcBuf);
-
-#endif /* INTEL_BUFFERS_H */
+#endif

@@ -34,6 +34,7 @@
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
 #include "intel_frame_tracker.h"
+#include "intel_swapbuffers.h"
 
 #include "i915_context.h"
 #include "i915_reg.h"

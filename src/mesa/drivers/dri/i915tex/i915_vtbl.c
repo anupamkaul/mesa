@@ -43,7 +43,6 @@
 #include "i915_cache.h"
 #include "i915_fpc.h"
 #include "i915_state.h"
-#include "i915_differencer.h"
 
 static GLboolean debug( struct debug_stream *stream, const char *name, GLuint len )
 {

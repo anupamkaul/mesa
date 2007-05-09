@@ -34,7 +34,7 @@
 #include "intel_vb.h"
 #include "intel_batchbuffer.h"
 #include "intel_reg.h"
-#include "intel_buffers.h"
+#include "intel_swapbuffers.h"
 #include "intel_state.h"
 #include "intel_state_inlines.h"
 #include "intel_utils.h"

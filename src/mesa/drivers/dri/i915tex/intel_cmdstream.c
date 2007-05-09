@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2006 Tungsten Graphics, Inc., Cedar Park, Texas.
+ * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,31 +25,44 @@
  * 
  **************************************************************************/
 
-#ifndef INTEL_BUFFERS_H
-#define INTEL_BUFFERS_H
+#include "intel_cmdstream.h"
+#include "intel_batchbuffer.h"
+
+GLubyte *intel_cmdstream_alloc_block( struct intel_context *intel )
+{
+   if (intel->cmdstream.used + CMDSTREAM_SIZE < intel->cmdstream.size) {
+      GLubyte *ptr = intel->cmdstream.map + intel->cmdstream.used;
+      intel->cmdstream.used += CMDSTREAM_SIZE;
+      assert(ptr);
+      return ptr;
+   }
+   else {
+      assert(0);
+      return NULL;
+   }
+}
+
+/* Use a chunk of the batchbuffer for our bin pool.  This way
+ * relocations more or less continue to work.
+ */
+void intel_cmdstream_use_batch_range( struct intel_context *intel,
+				      GLuint start_offset,
+				      GLuint finish_offset )
+{
+   intel->cmdstream.offset = start_offset;
+   intel->cmdstream.size = finish_offset - start_offset;
+   intel->cmdstream.used = 0;
+   intel->cmdstream.map = 0;
+}
+
+/* Called on batchbuffer flushes
+ */
+void intel_cmdstream_reset( struct intel_context *intel )
+{
+   intel->cmdstream.map = intel->batch->map + intel->cmdstream.offset;
+   intel->cmdstream.used = 0;
+
+   assert((((unsigned long)intel->cmdstream.map) & (CMDSTREAM_SIZE-1)) == 0);
+}
 
 
-struct intel_context;
-struct intel_framebuffer;
-
-
-extern GLboolean
-intel_intersect_cliprects(drm_clip_rect_t * dest,
-                          const drm_clip_rect_t * a,
-                          const drm_clip_rect_t * b);
-
-extern struct intel_region *intel_readbuf_region(struct intel_context *intel);
-
-extern struct intel_region *intel_drawbuf_region(struct intel_context *intel);
-
-extern void intelWindowMoved(struct intel_context *intel);
-
-extern void intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb);
-
-extern void intelInitBufferFuncs(struct dd_function_table *functions);
-
-extern void
-intelRotateWindow(struct intel_context *intel,
-                  __DRIdrawablePrivate * dPriv, GLuint srcBuf);
-
-#endif /* INTEL_BUFFERS_H */
