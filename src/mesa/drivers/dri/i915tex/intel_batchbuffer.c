@@ -101,6 +101,23 @@ static void dump(struct intel_context *intel,
    }
 }
 
+
+const GLuint foo[] = {
+0x7d800003, 0x00000000, 0x00000000, 0x001f003f, 0x00000000, 0x7d040ff7, 0x08300000, 0x04040000,
+0xffffffff, 0x00000000, 0x00902440, 0x00000002, 0x00000006, 0x00000000, 0x7d071202, 0x2c20002b,
+ 0x2c201003, 0x00000006, 0x7f280005, 0x43000000, 0x42000000, 0x00000000, 0x42000000, 0x00000000,
+ 0x00000000, 0x7f820000, 0x00010000, 0xffff0002, 0x05000000, 0x00000000, 0x00000000, 0x00000000
+};
+
+static void dump_foo( struct intel_context *intel )
+{
+   GLuint offset = 0xeabcf000;
+   _mesa_printf("FOO\n");
+   dump(intel, foo, offset, offset + sizeof(foo), 0);
+   _mesa_printf("END_FOO\n");
+}
+
+
 static void
 intel_dump_batchbuffer(struct intel_batchbuffer *batch, 
 		       GLubyte *batch_map,
@@ -217,6 +234,9 @@ intel_batchbuffer_alloc(struct intel_context *intel)
 {
    struct intel_batchbuffer *batch = calloc(sizeof(*batch), 1);
 
+   //dump_foo(intel);
+   (void) dump_foo;
+   
    batch->intel = intel;
 
    driGenBuffers(intel->intelScreen->batchPool, "batchbuffer", 1,

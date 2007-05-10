@@ -70,10 +70,14 @@ static GLboolean debug( struct debug_stream *stream, const char *name, GLuint le
 }
 
 
-static GLboolean debug_prim( struct debug_stream *stream, const char *name, GLuint len )
+static GLboolean debug_prim( struct debug_stream *stream, const char *name, 
+			     GLboolean dump_floats,
+			     GLuint len )
 {
    GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
    const char *prim;
+   GLuint i;
+   
 
    switch (ptr[0] & PRIM3D_MASK) {
    case PRIM3D_TRILIST: prim = "TRILIST"; break;
@@ -91,8 +95,21 @@ static GLboolean debug_prim( struct debug_stream *stream, const char *name, GLui
    default: prim = "????"; break;
    }
 
-   _mesa_printf("%s %s", name, prim);
-   return debug(stream, "", len);
+   _mesa_printf("%s %s (%d dwords):\n", name, prim, len);
+   _mesa_printf("\t\t0x%08x\n",  ptr[0]);   
+   for (i = 1; i < len; i++) {
+      if (dump_floats)
+	 _mesa_printf("\t\t0x%08x // %f\n",  ptr[i], *(GLfloat *)&ptr[i]);   
+      else
+	 _mesa_printf("\t\t0x%08x\n",  ptr[i]);   
+   }
+
+      
+   _mesa_printf("\n");
+
+   stream->offset += len * sizeof(GLuint);
+   
+   return GL_TRUE;
 }
    
 
@@ -285,16 +302,16 @@ static GLboolean i915_debug_packet( struct debug_stream *stream )
 	 break;
       case 0x1f:
 	 if ((cmd & (1 << 23)) == 0)	
-	    return debug_prim(stream, "3DPRIM (inline)", (cmd & 0x1ffff) + 2);
+	    return debug_prim(stream, "3DPRIM (inline)", 1, (cmd & 0x1ffff) + 2);
 	 else if (cmd & (1 << 17)) 
 	 {
 	    if ((cmd & 0xffff) == 0)
 	       return debug_variable_length_prim(stream);
 	    else
-	       return debug_prim(stream, "3DPRIM (indexed)", (((cmd & 0xffff) + 1) / 2) + 1);
+	       return debug_prim(stream, "3DPRIM (indexed)", 0, (((cmd & 0xffff) + 1) / 2) + 1);
 	 }
 	 else
-	    return debug_prim(stream, "3DPRIM  (indirect sequential)", 2); 
+	    return debug_prim(stream, "3DPRIM  (indirect sequential)", 0, 2); 
 	 break;
       default:
 	 return debug(stream, "", 0);
