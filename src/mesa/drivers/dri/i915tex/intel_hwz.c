@@ -111,10 +111,10 @@ static GLuint *hwz_emit_hardware_state( struct intel_context *intel,
 				     intel->state.current );
    state_size = intel->vtbl.get_state_emit_size( intel, flags.intel );
 
-   if (flags.i915.indirect & I915_CACHE_STATIC) {
+   if (flags.i915.indirect & (1<<I915_CACHE_STATIC)) {
       assert(!intel_frame_is_in_frame(intel->ft));
 
-      flags.i915.indirect &= ~I915_CACHE_STATIC;
+      flags.i915.indirect &= ~(1<<I915_CACHE_STATIC);
       state_size -= 8;
    }
 
