@@ -47,18 +47,7 @@ static GLboolean check_hwz( struct intel_context *intel )
    struct intel_framebuffer *intel_fb =
       (struct intel_framebuffer *) intel->state.DrawBuffer;
 
-   if (!intel_fb->hwz)
-      return GL_FALSE;
-
-   /* _NEW_BUFFERS
-    *
-    * Requires a tiled surface, fbo's currently aren't (which should
-    * be fixed)
-    */
-   if (intel->state.DrawBuffer->Name != 0)
-      return GL_FALSE;
-
-   return GL_TRUE;
+   return intel_fb->hwz;
 }
 
 

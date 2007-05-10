@@ -349,8 +349,12 @@ intelWindowMoved(struct intel_context *intel)
 	 }
       }
 
-      /* Attempt to allocate HWZ context */
-      if (intel->intelScreen->statePool &&
+      /* Attempt to allocate HWZ context
+       *
+       * Requires a tiled surface, fbo's currently aren't (which should
+       * be fixed)
+       */
+      if (intel_fb->Base.Name == 0 && intel->intelScreen->statePool &&
 	  _mesa_getenv("INTEL_HWZ")) {
 	 drm_i915_hwz_t hwz;
 
