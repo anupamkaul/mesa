@@ -83,7 +83,7 @@ static void quads_set_prim( struct intel_render *render,
 }
 
 
-static GLboolean split_prim_inplace(GLenum mode, GLuint *first, GLuint *incr)
+static GLuint split_prim_inplace(GLenum mode, GLuint *first, GLuint *incr)
 {
    switch (mode) {
    case GL_POINTS:
