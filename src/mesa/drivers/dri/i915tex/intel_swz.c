@@ -136,7 +136,7 @@ static void init_zones( struct swz_render *swz )
 	 if (i == 0)
 	    intel->vtbl.emit_hardware_state( intel, 
 					     (GLuint *)zone->ptr,
-					     intel->state.current,
+					     swz->initial_driver_state,
 					     flags );
 	 else
 	    memset( zone->ptr, 0, space );
@@ -201,6 +201,10 @@ static void swz_start_render( struct intel_render *render,
 	   intel->state.current,
 	   intel->state.driver_state_size );
 
+   memcpy( swz->initial_driver_state,
+	   intel->state.current,
+	   intel->state.driver_state_size );
+
 
    intel_cmdstream_reset( intel );
    swz->pre_post.ptr = intel_cmdstream_alloc_block( swz->intel );
@@ -219,7 +223,7 @@ static void swz_start_render( struct intel_render *render,
 }
 
 
-static void emit_initial_state( struct swz_render *swz,
+static void reset_initial_state( struct swz_render *swz,
 				GLuint i )
 {
    struct intel_context *intel = swz->intel;
@@ -229,7 +233,7 @@ static void emit_initial_state( struct swz_render *swz,
 
    intel->vtbl.emit_hardware_state( intel, 
 				    (GLuint *)swz->initial_ptr[i],
-				    intel->state.current,
+				    swz->initial_driver_state,
 				    swz->reset_state );
 }
 				
@@ -260,7 +264,7 @@ static INLINE void chain_zones( struct swz_render *swz,
 	 /* If per-zone state was emitted in this zone, issue another
 	  * statechange to reset to the original state in zone i+1.
 	  */
-	 emit_initial_state( swz, i+1 );
+	 reset_initial_state( swz, i+1 );
 	 zone_begin_batch( swz, zone, swz->initial_ptr[i+1] );
       }
       else {
@@ -431,6 +435,7 @@ static void swz_destroy_context( struct intel_render *render )
    _mesa_printf("%s\n", __FUNCTION__);
 
    _mesa_free(swz->last_driver_state);
+   _mesa_free(swz->initial_driver_state);
    _mesa_free(swz);
 }
 
@@ -454,6 +459,7 @@ struct intel_render *intel_create_swz_render( struct intel_context *intel )
    swz->intel = intel;
 
    swz->last_driver_state = _mesa_malloc( intel->state.driver_state_size );
+   swz->initial_driver_state = _mesa_malloc( intel->state.driver_state_size );
 
    return &swz->render;
 }
