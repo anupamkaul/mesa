@@ -247,11 +247,10 @@ static INLINE void chain_zones( struct swz_render *swz,
 {
    struct swz_zone *zone = &swz->zone[i];
 
-   /* finish prim: 2 dwords
-    * mi_flush: 1 dword
+   /* finish prim: 1 dwords
     * begin_batch: 2 dwords
     */
-   assert(intel_cmdstream_space(zone->ptr) >= 16);
+   assert(intel_cmdstream_space(zone->ptr) >= ZONE_WRAP_SPACE);
 
    zone_finish_prim( zone );
 

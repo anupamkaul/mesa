@@ -34,6 +34,28 @@
 #define INTEL_SWZ_PRIVATE
 #include "intel_swz.h"
 
+
+void swz_debug_zone( struct swz_render *swz,
+		     struct swz_zone *zone )
+{
+   struct debug_stream stream;
+   GLboolean done = GL_FALSE;
+   GLuint used = CMDSTREAM_SIZE - intel_cmdstream_space(zone->ptr);
+
+   stream.offset = 0;
+   stream.ptr = zone->ptr - used;
+   stream.print_addresses = 1;
+
+   while (!done && stream.offset < used)
+   {
+      done = !swz->intel->vtbl.debug_packet( &stream );
+   }
+}
+
+
+
+
+
 /* XXX: this sucks, want a specific call from draw for when state
  * might have changed...
  */
@@ -49,7 +71,8 @@ static void invalidate_bins( struct swz_render *swz )
       if (intel->state.dirty.intel)
 	 intel_update_software_state( intel );
       
-      intel_frame_set_mode( intel->ft, INTEL_FT_SWZ );
+      if (!swz->started_binning)
+	 intel_frame_set_mode( intel->ft, INTEL_FT_SWZ );
       assert(swz->started_binning);
    }
 
@@ -63,6 +86,17 @@ static void invalidate_bins( struct swz_render *swz )
    
       if (flags.dirty == 0)
 	 return;
+
+      /* XXX: this is insufficient!  probably need to make reloc list
+       * dynamic, as it is really hard to predict when it will fill
+       * up.
+       */
+      if (intel->batch->nr_relocs + 1000 > MAX_RELOCS) {
+	 intel_frame_flush_and_restart( intel->ft );
+	 invalidate_bins(swz);
+	 return;
+      }
+
 
       assert (swz->started_binning);
 
@@ -95,7 +129,7 @@ static void do_update_state( struct swz_render *swz,
    {
       GLuint size = intel->vtbl.get_state_emit_size( intel, zone->state );
 
-      if (intel_cmdstream_space( zone->ptr ) <  size + space )
+      if (intel_cmdstream_space( zone->ptr ) <  size + space)
 	 zone_get_space( swz, zone );
 
       assert(zone->state.force_reload == 0);
@@ -208,6 +242,11 @@ static void tri( struct swz_render *swz,
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state(swz, zone, ZONE_TRIS, ZONE_PRIM_SPACE );
 	 zone_emit_tri(zone, i0, i1, i2);
+	 if (intel_cmdstream_space(zone->ptr) < ZONE_WRAP_SPACE) {
+	    *(GLushort *)zone->ptr = 0xffff;
+	    swz_debug_zone( swz, zone );
+	    assert(0);
+	 }
       }
    }
 }
@@ -270,6 +309,7 @@ static void line( struct swz_render *swz,
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state(swz, zone, ZONE_LINES, ZONE_PRIM_SPACE);
 	 zone_emit_line(zone, i0, i1);
+	 ASSERT(intel_cmdstream_space(zone->ptr) >= ZONE_WRAP_SPACE);
       }
    }
 }
@@ -322,6 +362,7 @@ static void point( struct swz_render *swz,
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state(swz, zone, ZONE_POINTS, ZONE_PRIM_SPACE);
 	 zone_emit_point(zone, i0);
+	 ASSERT(intel_cmdstream_space(zone->ptr) >= ZONE_WRAP_SPACE);
       }
    }
 }
@@ -360,6 +401,7 @@ void swz_clear_rect( struct intel_render *render,
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state( swz, zone, ZONE_NONE, ZONE_CLEAR_SPACE );
 	 zone_clear_rect( zone, x0, y0, x1, y1 ); /* or b */
+	 ASSERT(intel_cmdstream_space(zone->ptr) >= ZONE_WRAP_SPACE);
       }
    }
 }
@@ -399,6 +441,7 @@ void swz_zone_init( struct intel_render *render,
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state( swz, zone, ZONE_NONE, ZONE_CLEAR_SPACE );
 	 zone_emit_zone_init( zone, x0, y0, x1, y1 );
+	 ASSERT(intel_cmdstream_space(zone->ptr) >= ZONE_WRAP_SPACE);
       }
    }
 }
