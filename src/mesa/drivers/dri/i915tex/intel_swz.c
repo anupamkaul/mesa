@@ -311,6 +311,8 @@ static void swz_flush( struct intel_render *render,
 			   (CM0_RC_OP_FLUSH_MODIFY |
 			    CM0_DEPTH_WRITE_MODIFY |
 			    CM0_ZONE_OPT_MODIFY |
+			    CM0_FAST_TILEX_ALLOC_MODIFY |
+			    CM0_FAST_TILEX_ALLOC_ENABLE |
 			    CM0_ZONE_OPT_ENABLE |
 			    CM0_RC_OP_FLUSH_DISABLE |
 			    CM0_DEPTH_WRITE_DISABLE) );
@@ -320,6 +322,8 @@ static void swz_flush( struct intel_render *render,
 			   (CM0_RC_OP_FLUSH_MODIFY |
 			    CM0_DEPTH_WRITE_MODIFY |
 			    CM0_ZONE_OPT_MODIFY |
+			    CM0_FAST_TILEX_ALLOC_MODIFY |
+			    CM0_FAST_TILEX_ALLOC_ENABLE |
 			    CM0_ZONE_OPT_ENABLE |
 			    CM0_RC_OP_FLUSH_DISABLE |
 			    CM0_DEPTH_WRITE_ENABLE) );
@@ -355,6 +359,8 @@ static void swz_flush( struct intel_render *render,
 			(CM0_RC_OP_FLUSH_MODIFY |
 			 CM0_DEPTH_WRITE_MODIFY |
 			 CM0_ZONE_OPT_MODIFY |
+			 CM0_FAST_TILEX_ALLOC_MODIFY |
+			 CM0_FAST_TILEX_ALLOC_DISABLE |
 			 CM0_ZONE_OPT_DISABLE |
 			 CM0_RC_OP_FLUSH_ENABLE |
 			 CM0_DEPTH_WRITE_ENABLE) );
