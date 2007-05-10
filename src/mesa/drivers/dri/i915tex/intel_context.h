@@ -52,14 +52,11 @@
 
 typedef struct drm_i915_hwz {
 	unsigned int op;
-	union foo {
+	union {
 		struct drm_i915_hwz_alloc {
 			unsigned int num_buffers;
-			unsigned short x1;
-			unsigned short x2;
-			unsigned short pitch;
-			unsigned short y1;
-			unsigned short y2;
+			unsigned int num_cliprects;
+			uint64_t cliprects;
 		} alloc;
 		struct drm_i915_hwz_render {
 			unsigned int bpl_num;

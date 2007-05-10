@@ -1,8 +1,5 @@
 0) swrast synchronization
 
-1) Make HWZ usable by multiple contexts concurrently.
-    --> Michel
-
 2) clipping vertices - seem to start at 0x100??
     - see tri-dlist
 
@@ -10,6 +7,7 @@
 
 4) Synchronization of BPL and bin batchbuffer access between HWB and
    PRB.
+    --> Michel
 
 6) manytex -n 1000 lockup
 
@@ -29,12 +27,7 @@
 	   --> abandon frame
 	   --> disable SWZ, translate away zone_init, fixup draw_rects??
 
-24) cliprects
-	- Relatively straightforward with HWZ: Pass cliprects to HWZ
-	  alloc sub-ioctl and in the render sub-ioctl fire each bin
-	  batchbuffer for each cliprect it intersects. This requires
-	  moving the drawing rectangle setup out of the beginning of the
-	  bin batchbuffers into the PRB stream.
+24) SWZ cliprects
 	   --> ???  back copy from frontbuffer ???
 	   --> then disable swz/hwz
 

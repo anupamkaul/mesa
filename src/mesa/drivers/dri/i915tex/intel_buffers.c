@@ -356,11 +356,8 @@ intelWindowMoved(struct intel_context *intel)
 
 	 hwz.op = DRM_I915_HWZ_ALLOC;
 	 hwz.arg.alloc.num_buffers = intel_fb->pf_num_pages;
-	 hwz.arg.alloc.x1 = dPriv->x;
-	 hwz.arg.alloc.x2 = dPriv->x + dPriv->w;
-	 hwz.arg.alloc.pitch = intel->sarea->pitch;
-	 hwz.arg.alloc.y1 = dPriv->y;
-	 hwz.arg.alloc.y2 = dPriv->y + dPriv->h;
+	 hwz.arg.alloc.num_cliprects = intel->numClipRects;
+	 hwz.arg.alloc.cliprects = (unsigned long)intel->pClipRects;
 
 	 intel_fb->hwz = !drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz,
 					  sizeof(hwz));
