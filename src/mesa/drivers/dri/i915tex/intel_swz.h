@@ -84,6 +84,8 @@ struct swz_render {
    struct intel_hw_dirty reset_state;
 
    GLuint initial_state_size;
+   void *initial_driver_state;
+
    void *last_driver_state;
    GLuint driver_state_size;
 
@@ -112,6 +114,8 @@ void swz_zone_init( struct intel_render *render,
 void swz_set_prim( struct intel_render *render,
 		   GLenum prim );
 
+void swz_debug_zone( struct swz_render *swz,
+		     struct swz_zone *zone );
 
 /* Inlines:
  */
@@ -127,12 +131,9 @@ static INLINE void *get_vert( struct swz_render *swz,
 #define ZONE_LINES  2
 #define ZONE_TRIS   3
 
-#define I915_CLEAR_RECT_SIZE 6	/* the largest single primitive */
-
-#define ZONE_PRIM_SPACE  (6 * sizeof(GLuint)) /* start + 3 indices + ffff + BATCH_END */
-#define ZONE_END_SPACE   (3 * sizeof(GLuint)) /* NOOP + MI_FLUSH + BATCH_END */
-#define ZONE_DRAWRECT_SPACE   (5 * sizeof(GLuint))
-#define ZONE_CLEAR_SPACE ((I915_CLEAR_RECT_SIZE+1) * sizeof(GLuint)) /* clear + BATCH_BEGIN */
+#define ZONE_WRAP_SPACE  (3 * sizeof(GLuint)) /* finish prim + begin_batch */
+#define ZONE_PRIM_SPACE  ((3+3) * sizeof(GLuint)) /* start + 3 indices + ZONE_WRAP_SPACE */
+#define ZONE_CLEAR_SPACE ((7+3) * sizeof(GLuint)) /* clear + BATCH_BEGIN */
 				 
 static const GLuint hw_prim[4] = {
    0,
