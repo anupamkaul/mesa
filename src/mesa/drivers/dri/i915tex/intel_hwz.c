@@ -52,6 +52,9 @@ struct hwz_render {
    struct intel_context *intel;
    GLuint hw_prim;
    GLuint offset;
+
+   GLboolean started_binning;
+   GLboolean start_of_frame;
 };
 
 static INLINE struct hwz_render *hwz_render( struct intel_render *render )
@@ -99,10 +102,11 @@ static void hwz_release_vertices( struct intel_render *render,
  * Do we need to be able to split indexed prims?? - yes - would solve
  * isosurf crash also.
  */
-static GLuint *hwz_emit_hardware_state( struct intel_context *intel,
+static GLuint *hwz_emit_hardware_state( struct hwz_render *hwz,
 					GLuint dwords,
 					GLuint batchflags )
 {
+   struct intel_context *intel = hwz->intel;
    union i915_hw_dirty flags;
    GLuint state_size;
 
@@ -112,7 +116,7 @@ static GLuint *hwz_emit_hardware_state( struct intel_context *intel,
    state_size = intel->vtbl.get_state_emit_size( intel, flags.intel );
 
    if (flags.i915.indirect & (1<<I915_CACHE_STATIC)) {
-      assert(!intel_frame_is_in_frame(intel->ft));
+      assert(!hwz->started_binning);
 
       flags.i915.indirect &= ~(1<<I915_CACHE_STATIC);
       state_size -= 8;
@@ -157,6 +161,7 @@ static void hwz_draw_indexed_prim( struct intel_render *render,
       return; 
 
    intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
+   hwz->start_of_frame = 0;
 
    /* The 'dwords' usage below ensures that both the state and the
     * primitive command below end up in the same batchbuffer,
@@ -165,7 +170,7 @@ static void hwz_draw_indexed_prim( struct intel_render *render,
     * commands.
     */
    GLuint dwords = 1 + (nr+1)/2;
-   GLuint *ptr = hwz_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
+   GLuint *ptr = hwz_emit_hardware_state(hwz, dwords, INTEL_BATCH_HWZ);
 
    *ptr++ = ( _3DPRIMITIVE | 
 	      hwz->hw_prim | 
@@ -200,8 +205,9 @@ static void hwz_draw_prim( struct intel_render *render,
       return; 
 
    intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
+   hwz->start_of_frame = 0;
 
-   ptr = hwz_emit_hardware_state(intel, dwords, INTEL_BATCH_HWZ);
+   ptr = hwz_emit_hardware_state(hwz, dwords, INTEL_BATCH_HWZ);
 
    ptr[0] = ( _3DPRIMITIVE | 
 	      hwz->hw_prim | 
@@ -287,10 +293,24 @@ static void hwz_start_render( struct intel_render *render,
    struct hwz_render *hwz = hwz_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
 
+   assert(!hwz->started_binning);
+
+#if 0
+   /* The wait flips, plus the initial static state emit should all go
+    * into a separate batch buffer destined for the PRB, not for the
+    * binner.
+    */
+
    /* Start a new batchbuffer, emit wait for pending flip.
     */
    if (start_of_frame)
       intel_wait_flips(hwz->intel, 0);
+#endif
+
+   (void) hwz_emit_hardware_state(hwz, 0, INTEL_BATCH_HWZ);
+
+   hwz->started_binning = GL_TRUE;
+   hwz->start_of_frame = start_of_frame;
 }
 
 
@@ -306,7 +326,8 @@ static void hwz_flush( struct intel_render *render,
    if (intel->batch->segment_finish_offset[0] != 0)
       intel_batchbuffer_flush(intel->batch, !finished_frame);
 
-
+   hwz->started_binning = 0;
+   hwz->start_of_frame = 0;
 }
 
 
@@ -320,12 +341,14 @@ static void hwz_clear_rect( struct intel_render *render,
    struct intel_framebuffer *intel_fb = intel_get_fb( intel );
    GLboolean do_depth = !!(mask & BUFFER_BIT_DEPTH);
    GLboolean do_stencil = !!(mask & BUFFER_BIT_STENCIL);
-   union fi *ptr = (union fi *)hwz_emit_hardware_state(intel, 7, INTEL_BATCH_HWZ);
+   union fi *ptr;
 
    intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
 
+   ptr = (union fi *)hwz_emit_hardware_state(hwz, 7, INTEL_BATCH_HWZ);
+
    if (intel_fb->may_use_zone_init &&
-       !intel_frame_is_in_frame(intel->ft) &&
+       hwz->start_of_frame &&
        x1 == 0 &&
        y1 == 0 &&
        x2 == intel_fb->Base.Width &&
@@ -348,6 +371,8 @@ static void hwz_clear_rect( struct intel_render *render,
    ptr[4].f = y2;
    ptr[5].f = x1;
    ptr[6].f = y1;
+
+   hwz->start_of_frame = 0;
 }
 
 
