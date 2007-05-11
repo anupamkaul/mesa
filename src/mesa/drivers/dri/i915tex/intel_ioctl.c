@@ -38,7 +38,7 @@
 #include "intel_context.h"
 #include "intel_ioctl.h"
 //#include "intel_blit.h"
-//#include "intel_fbo.h"
+#include "intel_fbo.h"
 //#include "intel_regions.h"
 #include "intel_lock.h"
 #include "drm.h"
@@ -173,6 +173,12 @@ intel_cliprect_hwz_ioctl(struct intel_context *intel,
 			 GLuint state_offset,
 			 GLuint state_size )
 {
+   struct intel_framebuffer *intel_fb = intel_get_fb(intel);
+   struct intel_renderbuffer *intel_rb =
+      intel_get_renderbuffer(&intel_fb->Base,
+			     intel_fb->Base._ColorDrawBufferMask[0] ==
+			     BUFFER_BIT_FRONT_LEFT ? BUFFER_FRONT_LEFT :
+			     BUFFER_BACK_LEFT);
    drm_i915_hwz_t hwz;
    int ret;
 
@@ -192,6 +198,14 @@ intel_cliprect_hwz_ioctl(struct intel_context *intel,
    hwz.arg.render.DR1 = 0;
    hwz.arg.render.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
 			 (((GLuint) intel->drawY) << 16));
+
+   if (intel_fb->Base.Name == 0 && 
+       intel_rb->pf_pending == intel_fb->pf_seq)
+   {
+      hwz.arg.render.wait_flips = intel_fb->pf_pipes;
+   } else {
+      hwz.arg.render.wait_flips = 0;
+   }
 
    do {
       ret = drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz, sizeof(hwz));

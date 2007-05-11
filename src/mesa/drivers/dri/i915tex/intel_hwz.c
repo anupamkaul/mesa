@@ -295,18 +295,6 @@ static void hwz_start_render( struct intel_render *render,
 
    assert(!hwz->started_binning);
 
-#if 0
-   /* The wait flips, plus the initial static state emit should all go
-    * into a separate batch buffer destined for the PRB, not for the
-    * binner.
-    */
-
-   /* Start a new batchbuffer, emit wait for pending flip.
-    */
-   if (start_of_frame)
-      intel_wait_flips(hwz->intel, 0);
-#endif
-
    (void) hwz_emit_hardware_state(hwz, 0, INTEL_BATCH_HWZ);
 
    hwz->started_binning = GL_TRUE;
