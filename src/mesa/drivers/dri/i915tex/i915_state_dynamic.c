@@ -492,7 +492,7 @@ static void upload_STIPPLE( struct intel_context *intel )
 
 const struct intel_tracked_state i915_upload_STIPPLE = {
    .dirty = {
-      .mesa = _NEW_POLYGONSTIPPLE, _NEW_POLYGON,
+      .mesa = _NEW_POLYGONSTIPPLE | _NEW_POLYGON,
       .intel = 0,
       .extra = 0
    },

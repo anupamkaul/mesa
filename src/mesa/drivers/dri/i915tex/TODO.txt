@@ -40,9 +40,9 @@ xx) Clean up HWZ DRM interface
 
 xx) Move HWZ DRM code to its own file.
 
-33) swz lockups after first frame
-    - demos/ipers
-    - demos/ray
+
+34) MI_FLUSH'es for clearparam state.
+
 
 ======================================================================
 Postpone:

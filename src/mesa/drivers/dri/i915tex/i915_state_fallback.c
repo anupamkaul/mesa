@@ -149,7 +149,8 @@ const struct intel_tracked_state i915_check_fallback = {
 	       _NEW_TEXTURE | 
 	       _NEW_STENCIL ),
 
-      .intel  = (INTEL_NEW_METAOPS),
+      .intel  = (INTEL_NEW_METAOPS |
+		 I915_NEW_POLY_STIPPLE_FALLBACK),
 
       .extra = 0
    },
