@@ -248,7 +248,7 @@ static void tri( struct swz_render *swz,
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state(swz, zone, ZONE_TRIS, ZONE_PRIM_SPACE );
 	 zone_emit_tri(zone, i0, i1, i2);
-	 ASSERT(intel_cmdstream_space(zone->ptr) < ZONE_WRAP_SPACE);
+	 ASSERT(intel_cmdstream_space(zone->ptr) >= ZONE_WRAP_SPACE);
       }
    }
 }
