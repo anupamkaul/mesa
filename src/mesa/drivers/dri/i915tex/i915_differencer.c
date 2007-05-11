@@ -135,19 +135,29 @@ static void emit_indirect( struct intel_context *intel,
       
       for (i = 0; i < I915_MAX_CACHE; i++) {
 	 if (dirty & (1<<i)) {
-	    EMIT_RELOC( intel, 
-			ptr,
-			intel->batch->state_buffer, 
-			intel->batch->state_memflags,
-			DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
-			( state->offsets[i] | flag | SIS0_BUFFER_VALID ) );
-
-	    /* No state size dword for dynamic state:
-	     */
 	    if (i != I915_CACHE_DYNAMIC) {
+	       EMIT_RELOC( intel, 
+			   ptr,
+			   intel->batch->state_buffer, 
+			   intel->batch->state_memflags,
+			   DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
+			   ( state->offsets[i] | flag | SIS0_BUFFER_VALID ) );
+
+	       /* No state size dword for dynamic state:
+		*/
 	       assert(state->sizes[i] > 0);
 	       EMIT_DWORD( ptr, 
 			   state->sizes[i]-1 );
+	    }
+	    else {
+	       assert( (state->offsets[i] & 4095) >= 4 );
+
+	       EMIT_RELOC( intel, 
+			   ptr,
+			   intel->batch->state_buffer, 
+			   intel->batch->state_memflags,
+			   DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
+			   ( (state->offsets[i] - 4) | flag | SIS0_BUFFER_VALID ) );
 	    }
 	 }
       }
