@@ -17,6 +17,7 @@ DRIVER_SOURCES = \
 	draw/intel_prim_cull.c \
 	draw/intel_prim_clip.c \
 	draw/intel_prim_unfilled.c \
+	i915_debug.c \
 	intel_hwz.c \
 	intel_cmdstream.c \
 	intel_swz.c \

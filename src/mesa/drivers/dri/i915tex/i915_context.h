@@ -206,6 +206,12 @@ extern void i915InitVtbl(struct i915_context *i915);
 
 
 /*======================================================================
+ * i915_debug.c
+ */
+GLboolean i915_debug_packet( struct debug_stream *stream );
+
+
+/*======================================================================
  * i915_context.c
  */
 extern GLboolean i915CreateContext(const __GLcontextModes * mesaVis,
