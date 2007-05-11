@@ -85,6 +85,7 @@ struct swz_render {
 
    GLuint initial_state_size;
    void *initial_driver_state;
+   struct intel_hw_dirty initial_driver_flags;
 
    void *last_driver_state;
    GLuint driver_state_size;

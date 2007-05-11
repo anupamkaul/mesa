@@ -108,12 +108,16 @@ static void swz_release_vertices( struct intel_render *render,
 static void init_zones( struct swz_render *swz )
 {
    struct intel_context *intel = swz->intel;
-   struct intel_hw_dirty flags = 
-      intel->vtbl.diff_states( NULL, intel->state.current );
-   GLuint space = intel->vtbl.get_state_emit_size( intel, flags );
+   GLuint space;
    GLint x, y, i;
    GLint drawX = intel->drawX; 
    GLint drawY = intel->drawY; 
+
+   swz->initial_driver_flags = 
+      intel->vtbl.diff_states( NULL, intel->state.current );
+   
+   space = intel->vtbl.get_state_emit_size( intel, 
+					    swz->initial_driver_flags );
 
    _mesa_printf("draw origin: %d,%d\n", intel->drawX, intel->drawY);
 
@@ -137,7 +141,7 @@ static void init_zones( struct swz_render *swz )
 	    intel->vtbl.emit_hardware_state( intel, 
 					     (GLuint *)zone->ptr,
 					     swz->initial_driver_state,
-					     flags );
+					     swz->initial_driver_flags );
 	 else
 	    memset( zone->ptr, 0, space );
       
@@ -339,6 +343,10 @@ static void swz_flush( struct intel_render *render,
       
       if (((unsigned long)swz->pre_post.ptr) & 4)
 	 zone_emit_noop( &swz->pre_post );
+
+
+      swz->reset_state.dirty &= swz->initial_driver_flags.dirty;
+      
 
       /* We keep the same window position we started with...  That may
        * leave droppings in X, but at least ZONE_INIT prims will be

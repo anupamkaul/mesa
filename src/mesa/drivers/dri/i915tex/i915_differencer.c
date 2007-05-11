@@ -144,9 +144,11 @@ static void emit_indirect( struct intel_context *intel,
 
 	    /* No state size dword for dynamic state:
 	     */
-	    if (i != I915_CACHE_DYNAMIC)
+	    if (i != I915_CACHE_DYNAMIC) {
+	       assert(state->sizes[i] > 0);
 	       EMIT_DWORD( ptr, 
 			   state->sizes[i]-1 );
+	    }
 	 }
       }
    }
