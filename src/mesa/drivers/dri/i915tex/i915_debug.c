@@ -216,26 +216,26 @@ static GLboolean debug_load_indirect( struct debug_stream *stream,
       if (bits & (1<<i)) {
 	 switch (1<<(8+i)) {
 	 case LI0_STATE_STATIC_INDIRECT:
-	    _mesa_printf("        STATIC: 0x%08x\n", ptr[j++]);
+	    _mesa_printf("        STATIC: 0x%08x | %x\n", ptr[j]&~3, ptr[j]&3); j++;
 	    _mesa_printf("                0x%08x\n", ptr[j++]);
 	    break;
 	 case LI0_STATE_DYNAMIC_INDIRECT:
-	    _mesa_printf("       DYNAMIC: 0x%08x\n", ptr[j++]);
+	    _mesa_printf("       DYNAMIC: 0x%08x | %x\n", ptr[j]&~3, ptr[j]&3); j++;
 	    break;
 	 case LI0_STATE_SAMPLER:
-	    _mesa_printf("       SAMPLER: 0x%08x\n", ptr[j++]);
+	    _mesa_printf("       SAMPLER: 0x%08x | %x\n", ptr[j]&~3, ptr[j]&3); j++;
 	    _mesa_printf("                0x%08x\n", ptr[j++]);
 	    break;
 	 case LI0_STATE_MAP:
-	    _mesa_printf("           MAP: 0x%08x\n", ptr[j++]);
+	    _mesa_printf("           MAP: 0x%08x | %x\n", ptr[j]&~3, ptr[j]&3); j++;
 	    _mesa_printf("                0x%08x\n", ptr[j++]);
 	    break;
 	 case LI0_STATE_PROGRAM:
-	    _mesa_printf("       PROGRAM: 0x%08x\n", ptr[j++]);
+	    _mesa_printf("       PROGRAM: 0x%08x | %x\n", ptr[j]&~3, ptr[j]&3); j++;
 	    _mesa_printf("                0x%08x\n", ptr[j++]);
 	    break;
 	 case LI0_STATE_CONSTANTS:
-	    _mesa_printf("     CONSTANTS: 0x%08x\n", ptr[j++]);
+	    _mesa_printf("     CONSTANTS: 0x%08x | %x\n", ptr[j]&~3, ptr[j]&3); j++;
 	    _mesa_printf("                0x%08x\n", ptr[j++]);
 	    break;
 	 default:
