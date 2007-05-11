@@ -136,6 +136,7 @@ gamma_ramp(GLfloat yoffs, GLfloat r, GLfloat g, GLfloat b)
 static void
 display(void)
 {
+   glClear(GL_COLOR_BUFFER_BIT);
   gamma_ramp( 0.5, 1.0, 1.0, 1.0); /* white ramp */
   gamma_ramp( 0.0, 1.0, 0.0, 0.0); /* red ramp */
   gamma_ramp(-0.5, 0.0, 1.0, 0.0); /* green ramp */
