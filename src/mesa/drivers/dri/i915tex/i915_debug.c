@@ -57,30 +57,34 @@ static GLboolean debug( struct debug_stream *stream, const char *name, GLuint le
 }
 
 
+static const char *get_prim_name( GLuint val )
+{
+   switch (val & PRIM3D_MASK) {
+   case PRIM3D_TRILIST: return "TRILIST"; break;
+   case PRIM3D_TRISTRIP: return "TRISTRIP"; break;
+   case PRIM3D_TRISTRIP_RVRSE: return "TRISTRIP_RVRSE"; break;
+   case PRIM3D_TRIFAN: return "TRIFAN"; break;
+   case PRIM3D_POLY: return "POLY"; break;
+   case PRIM3D_LINELIST: return "LINELIST"; break;
+   case PRIM3D_LINESTRIP: return "LINESTRIP"; break;
+   case PRIM3D_RECTLIST: return "RECTLIST"; break;
+   case PRIM3D_POINTLIST: return "POINTLIST"; break;
+   case PRIM3D_DIB: return "DIB"; break;
+   case PRIM3D_CLEAR_RECT: return "CLEAR_RECT"; break;
+   case PRIM3D_ZONE_INIT: return "ZONE_INIT"; break;
+   default: return "????"; break;
+   }
+}
+
 static GLboolean debug_prim( struct debug_stream *stream, const char *name, 
 			     GLboolean dump_floats,
 			     GLuint len )
 {
    GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
-   const char *prim;
+   const char *prim = get_prim_name( ptr[0] );
    GLuint i;
    
 
-   switch (ptr[0] & PRIM3D_MASK) {
-   case PRIM3D_TRILIST: prim = "TRILIST"; break;
-   case PRIM3D_TRISTRIP: prim = "TRISTRIP"; break;
-   case PRIM3D_TRISTRIP_RVRSE: prim = "TRISTRIP_RVRSE"; break;
-   case PRIM3D_TRIFAN: prim = "TRIFAN"; break;
-   case PRIM3D_POLY: prim = "POLY"; break;
-   case PRIM3D_LINELIST: prim = "LINELIST"; break;
-   case PRIM3D_LINESTRIP: prim = "LINESTRIP"; break;
-   case PRIM3D_RECTLIST: prim = "RECTLIST"; break;
-   case PRIM3D_POINTLIST: prim = "POINTLIST"; break;
-   case PRIM3D_DIB: prim = "DIB"; break;
-   case PRIM3D_CLEAR_RECT: prim = "CLEAR_RECT"; break;
-   case PRIM3D_ZONE_INIT: prim = "ZONE_INIT"; break;
-   default: prim = "????"; break;
-   }
 
    _mesa_printf("%s %s (%d dwords):\n", name, prim, len);
    _mesa_printf("\t\t0x%08x\n",  ptr[0]);   
@@ -150,6 +154,7 @@ static GLboolean debug_chain( struct debug_stream *stream, const char *name, GLu
 static GLboolean debug_variable_length_prim( struct debug_stream *stream )
 {
    GLuint *ptr = (GLuint *)(stream->ptr + stream->offset);
+   const char *prim = get_prim_name( ptr[0] );
    GLuint i, len;
 
    GLushort *idx = (GLushort *)(ptr+1);
@@ -158,7 +163,7 @@ static GLboolean debug_variable_length_prim( struct debug_stream *stream )
 
    len = 1+(i+2)/2;
 
-   _mesa_printf("3DPRIM, variable length %d indicies (%d dwords):\n", i, len);
+   _mesa_printf("3DPRIM, %s variable length %d indicies (%d dwords):\n", prim, i, len);
    for (i = 0; i < len; i++)
       _mesa_printf("\t\t0x%08x\n",  ptr[i]);
    _mesa_printf("\n");
