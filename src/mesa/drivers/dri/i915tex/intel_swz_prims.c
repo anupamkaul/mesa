@@ -73,6 +73,7 @@ static void invalidate_bins( struct swz_render *swz )
       
       if (!swz->started_binning)
 	 intel_frame_set_mode( intel->ft, INTEL_FT_SWZ );
+
       assert(swz->started_binning);
    }
 
@@ -168,9 +169,6 @@ static INLINE void zone_update_state( struct swz_render *swz,
 }
 
 static void tri( struct swz_render *swz,
-		 const GLfloat *v0,
-		 const GLfloat *v1,
-		 const GLfloat *v2,
 		 GLuint i0, 
 		 GLuint i1, 
 		 GLuint i2 )
@@ -178,6 +176,14 @@ static void tri( struct swz_render *swz,
    GLfloat x0, x1, y0, y1;
    GLint zone_x0, zone_x1, zone_y0, zone_y1;
    GLint x,y;
+
+   const GLfloat *v0 = get_vertex(swz, i0);
+   const GLfloat *v1 = get_vertex(swz, i1);
+   const GLfloat *v2 = get_vertex(swz, i2);
+
+   i0 += swz->vbo_offset;
+   i1 += swz->vbo_offset;
+   i2 += swz->vbo_offset;
 
 #if 0
    GLfloat ex = v0[0] - v2[0];
@@ -242,19 +248,13 @@ static void tri( struct swz_render *swz,
       for (x = zone_x0; x <= zone_x1; x++, zone++) {
 	 zone_update_state(swz, zone, ZONE_TRIS, ZONE_PRIM_SPACE );
 	 zone_emit_tri(zone, i0, i1, i2);
-	 if (intel_cmdstream_space(zone->ptr) < ZONE_WRAP_SPACE) {
-	    *(GLushort *)zone->ptr = 0xffff;
-	    swz_debug_zone( swz, zone );
-	    assert(0);
-	 }
+	 ASSERT(intel_cmdstream_space(zone->ptr) < ZONE_WRAP_SPACE);
       }
    }
 }
 
 
 static void line( struct swz_render *swz,
-		  const GLfloat *v0,
-		  const GLfloat *v1,
 		  GLuint i0, 
 		  GLuint i1 )
 {
@@ -262,6 +262,12 @@ static void line( struct swz_render *swz,
    GLint zone_x0, zone_x1, zone_y0, zone_y1;
    GLint x,y;
    GLuint w = 1;
+
+   const GLfloat *v0 = get_vertex(swz, i0);
+   const GLfloat *v1 = get_vertex(swz, i1);
+
+   i0 += swz->vbo_offset;
+   i1 += swz->vbo_offset;
 
    /* Calculate bounds:
     */
@@ -315,13 +321,16 @@ static void line( struct swz_render *swz,
 }
 
 static void point( struct swz_render *swz,
-		  const GLfloat *v0,
 		   GLuint i0 )
 {
    GLfloat x0, x1, y0, y1;
    GLint zone_x0, zone_x1, zone_y0, zone_y1;
    GLint x,y;
    GLuint w = 1;
+
+   const GLfloat *v0 = get_vertex(swz, i0);
+
+   i0 += swz->vbo_offset;
 
    /* Calculate bounds:
     */
@@ -448,260 +457,179 @@ void swz_zone_init( struct intel_render *render,
 
 
 
-static void draw_indexed_points( struct intel_render *render,
-				 const GLuint *indices,
-				 GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i < nr; i++) {
-      point( swz, 
-	     get_vert(swz, indices[i]),
-	     swz->vbo_offset + indices[i] );
-   }
-}
-
-static void draw_indexed_lines( struct intel_render *render,
-				const GLuint *indices,
-				GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+1 < nr; i += 2) {
-      line( swz, 
-	    get_vert(swz, indices[i]),
-	    get_vert(swz, indices[i+1]),
-	    swz->vbo_offset + indices[i], 
-	    swz->vbo_offset + indices[i+1] );
-   }
-}
-
-static void draw_indexed_linestrip( struct intel_render *render,
-				    const GLuint *indices,
-				    GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+1 < nr; i++) {
-      line( swz, 
-	    get_vert(swz, indices[i]),
-	    get_vert(swz, indices[i+1]),
-	    swz->vbo_offset + indices[i], 
-	    swz->vbo_offset + indices[i+1] );
-   }
-}
-
-static void draw_indexed_tris( struct intel_render *render,
-			       const GLuint *indices,
-			       GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+2 < nr; i += 3) {
-      tri( swz, 
-	   get_vert(swz, indices[i]),
-	   get_vert(swz, indices[i+1]),
-	   get_vert(swz, indices[i+2]),
-	   swz->vbo_offset + indices[i], 
-	   swz->vbo_offset + indices[i+1],
-	   swz->vbo_offset + indices[i+2] );
-   }
-}
-
-static void draw_indexed_tristrip( struct intel_render *render,
-				   const GLuint *indices,
-				   GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+2 < nr; i++) {
-      tri( swz, 
-	   get_vert(swz, indices[i]),
-	   get_vert(swz, indices[i+1]),
-	   get_vert(swz, indices[i+2]),
-	   swz->vbo_offset + indices[i], 
-	   swz->vbo_offset + indices[i+1],
-	   swz->vbo_offset + indices[i+2] );
-   }
-}
-
-static void draw_indexed_trifan( struct intel_render *render,
-				 const GLuint *indices,
-				 GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+2 < nr; i++) {
-      tri( swz, 
-	   get_vert(swz, indices[0]),
-	   get_vert(swz, indices[i+1]),
-	   get_vert(swz, indices[i+2]),
-	   swz->vbo_offset + indices[0], 
-	   swz->vbo_offset + indices[i+1],
-	   swz->vbo_offset + indices[i+2] );
-   }
-}
-
-/* XXX: fix pv
- */
-static void draw_indexed_poly( struct intel_render *render,
-				 const GLuint *indices,
-				 GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+2 < nr; i++) {
-      tri( swz, 
-	   get_vert(swz, indices[0]),
-	   get_vert(swz, indices[i+1]),
-	   get_vert(swz, indices[i+2]),
-	   swz->vbo_offset + indices[0], 
-	   swz->vbo_offset + indices[i+1],
-	   swz->vbo_offset + indices[i+2] );
-   }
-}
 
 
-static void draw_points( struct intel_render *render,
-			 GLuint start,
-			 GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
 
-   invalidate_bins( swz );
-   for (i = 0; i < nr; i++) {
-      point( swz, 
-	     get_vert(swz, i),
-	     swz->vbo_offset + i );
-   }
-}
-
-static void draw_lines( struct intel_render *render,
-			GLuint start,
-			GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+1 < nr; i += 2) {
-      line( swz, 
-	    get_vert(swz, i),
-	    get_vert(swz, i+1),
-	    swz->vbo_offset + i,
-	    swz->vbo_offset + i + 1 );
-   }
-}
-
-static void draw_linestrip( struct intel_render *render,
-			    GLuint start,
-			    GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+1 < nr; i++) {
-      line( swz, 
-	    get_vert(swz, i),
-	    get_vert(swz, i+1),
-	    swz->vbo_offset + i,
-	    swz->vbo_offset + i + 1 );
-   }
-}
-
-static void draw_tris( struct intel_render *render,
-		       GLuint start,
-		       GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
-
-   invalidate_bins( swz );
-   for (i = 0; i+2 < nr; i += 3) {
-      tri( swz, 
-	   get_vert(swz, i),
-	   get_vert(swz, i+1),
-	   get_vert(swz, i+2),
-	   swz->vbo_offset + i,
-	   swz->vbo_offset + i + 1,
-	   swz->vbo_offset + i + 2 );
-   }
-}
-
-static void draw_tristrip( struct intel_render *render,
+static void swz_draw_prim( struct intel_render *render,
 			   GLuint start,
 			   GLuint nr )
 {
    struct swz_render *swz = swz_render( render );
+   struct intel_context *intel = swz->intel;
    GLuint i;
 
    invalidate_bins( swz );
-   for (i = 0; i+2 < nr; i++) {
-      tri( swz, 
-	   get_vert(swz, i),
-	   get_vert(swz, i+1),
-	   get_vert(swz, i+2),
-	   swz->vbo_offset + i,
-	   swz->vbo_offset + i + 1,
-	   swz->vbo_offset + i + 2 );
+
+   switch (swz->prim) {
+   case GL_POINTS:
+      for (i = 0; i < nr; i++) {
+	 point( swz, 
+		start+i );
+      }
+      break;
+
+   case GL_LINES:
+      for (i = 0; i+1 < nr; i += 2) {
+	 line( swz, 
+	       start+i,
+	       start+i+1 );
+      }
+      break;
+
+   case GL_LINE_STRIP:
+      for (i = 0; i+1 < nr; i++) {
+	 _mesa_printf("line %d %d\n", i, i+1);
+	 line( swz, 
+	       start+i,
+	       start+i+1 );
+      }
+      break;
+
+   case GL_TRIANGLES:
+      for (i = 0; i+2 < nr; i += 3) {
+	 tri( swz, 
+	      start+i,
+	      start+i+1,
+	      start+i+2 );
+      }
+      break;
+
+   case GL_TRIANGLE_STRIP:
+      for (i = 0; i+2 < nr; i++) {
+	 if (i & 1) 
+	    tri( swz, 
+		 start+i+1,
+		 start+i+0,
+		 start+i+2 );
+	 else
+	    tri( swz, 
+		 start+i+0,
+		 start+i+1,
+		 start+i+2 );
+      }
+      break;
+
+   case GL_TRIANGLE_FAN:
+      for (i = 0; i+2 < nr; i++) {
+	 tri( swz, 
+	      start+0,
+	      start+i+1,
+	      start+i+2 );
+      }
+      break;
+
+   case GL_POLYGON:
+      for (i = 0; i+2 < nr; i++) {
+	 tri( swz, 
+	      start+i+1,
+	      start+i+2,
+	      start+0 );
+      }
+      break;
+
+   default:
+      assert(0);
+      break;
    }
 }
 
-static void draw_trifan( struct intel_render *render,
-			 GLuint start,
-			 GLuint nr )
+static void swz_draw_indexed_prim( struct intel_render *render,
+				   const GLuint *indices,
+				   GLuint nr )
 {
    struct swz_render *swz = swz_render( render );
+   struct intel_context *intel = swz->intel;
+   GLcontext *ctx = &intel->ctx;
    GLuint i;
 
    invalidate_bins( swz );
-   for (i = 0; i+2 < nr; i++) {
-      tri( swz, 
-	   get_vert(swz, 0),
-	   get_vert(swz, i+1),
-	   get_vert(swz, i+2),
-	   swz->vbo_offset + 0,
-	   swz->vbo_offset + i + 1,
-	   swz->vbo_offset + i + 2 );
+
+   switch (swz->prim) {
+   case GL_POINTS:
+      for (i = 0; i < nr; i++) {
+	 point( swz, 
+		indices[i] );
+      }
+      break;
+
+   case GL_LINES:
+      for (i = 0; i+1 < nr; i += 2) {
+	 line( swz, 
+	       indices[i],
+	       indices[i+1] );
+      }
+      break;
+
+   case GL_LINE_STRIP:
+      for (i = 0; i+1 < nr; i++) {
+	 line( swz, 
+	       indices[i],
+	       indices[i+1] );
+      }
+      break;
+
+   case GL_TRIANGLES:
+      for (i = 0; i+2 < nr; i += 3) {
+	 tri( swz, 
+	      indices[i],
+	      indices[i+1],
+	      indices[i+2] );
+      }
+      break;
+
+   case GL_TRIANGLE_STRIP:
+      for (i = 0; i+2 < nr; i++) {
+	 if (i & 1) 
+	    tri( swz, 
+		 indices[i+1],
+		 indices[i+0],
+		 indices[i+2] );
+	 else
+	    tri( swz, 
+		 indices[i+0],
+		 indices[i+1],
+		 indices[i+2] );
+      }
+      break;
+
+   case GL_TRIANGLE_FAN:
+      for (i = 0; i+2 < nr; i++) {
+	 tri( swz, 
+	      indices[0],
+	      indices[i+1],
+	      indices[i+2] );
+      }
+      break;
+
+   case GL_POLYGON:
+      for (i = 0; i+2 < nr; i++) {
+	 tri( swz, 
+	      indices[i+1],
+	      indices[i+2],
+	      indices[0] );
+      }
+      break;
+
+   default:
+      assert(0);
+      break;
    }
 }
 
-/* XXX: fix pv
- */
-static void draw_poly( struct intel_render *render,
-		       GLuint start,
-		       GLuint nr )
-{
-   struct swz_render *swz = swz_render( render );
-   GLuint i;
 
-   invalidate_bins( swz );
-   for (i = 0; i+2 < nr; i++) {
-      tri( swz, 
-	   get_vert(swz, 0),
-	   get_vert(swz, i+1),
-	   get_vert(swz, i+2),
-	   swz->vbo_offset + 0,
-	   swz->vbo_offset + i + 1,
-	   swz->vbo_offset + i + 2 );
-   }
-}
+
+
+
 
 
 void swz_set_prim( struct intel_render *render,
@@ -709,46 +637,8 @@ void swz_set_prim( struct intel_render *render,
 {
    struct swz_render *swz = swz_render( render );
 
-   switch (prim) {
-   case GL_POINTS:
-      swz->render.draw_prim = draw_points;
-      swz->render.draw_indexed_prim = draw_indexed_points;
-      break;
+   swz->render.draw_prim = swz_draw_prim;
+   swz->render.draw_indexed_prim = swz_draw_indexed_prim;
 
-   case GL_LINES:
-      swz->render.draw_prim = draw_lines;
-      swz->render.draw_indexed_prim = draw_indexed_lines;
-      break;
-
-   case GL_LINE_STRIP:
-      swz->render.draw_prim = draw_linestrip;
-      swz->render.draw_indexed_prim = draw_indexed_linestrip;
-      break;
-
-   case GL_TRIANGLES:
-      swz->render.draw_prim = draw_tris;
-      swz->render.draw_indexed_prim = draw_indexed_tris;
-      break;
-
-   case GL_TRIANGLE_STRIP:
-      swz->render.draw_prim = draw_tristrip;
-      swz->render.draw_indexed_prim = draw_indexed_tristrip;
-      break;
-
-   case GL_TRIANGLE_FAN:
-      swz->render.draw_prim = draw_trifan;
-      swz->render.draw_indexed_prim = draw_indexed_trifan;
-      break;
-
-   case GL_POLYGON:
-      swz->render.draw_prim = draw_poly;
-      swz->render.draw_indexed_prim = draw_indexed_poly;
-      break;
-
-   default:
-      /* Handled elsewhere. 
-       */
-      assert(0);
-      break;
-   }
+   swz->prim = prim;
 }

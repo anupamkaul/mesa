@@ -91,6 +91,8 @@ struct swz_render {
 
    GLuint draws;
    GLuint clears;
+
+   GLuint prim;
 };
 
 static INLINE struct swz_render *swz_render( struct intel_render *render )
@@ -119,8 +121,8 @@ void swz_debug_zone( struct swz_render *swz,
 
 /* Inlines:
  */
-static INLINE void *get_vert( struct swz_render *swz,
-			      GLuint idx )
+static INLINE void *get_vertex( struct swz_render *swz,
+				GLuint idx )
 {
    return swz->vertices + idx * swz->vertex_stride;
 }
