@@ -129,20 +129,24 @@ static void update_draw_state( struct intel_context *intel )
       }
    }
 
-   /* _NEW_POLYGON 
+   /* Hardware does offset for filled prims, but need to do it in
+    * software for unfilled.
+    *
+    * _NEW_POLYGON 
     */
-   {
+   if (state.fill_cw != FILL_TRI)
       state.offset_cw = get_offset_flag( state.fill_cw, 
 					 intel->state.Polygon );
    
+   if (state.fill_ccw != FILL_TRI)
       state.offset_ccw = get_offset_flag( state.fill_ccw, 
 					  intel->state.Polygon );
-
-   }
 
 
    /* _NEW_BUFFERS, _NEW_POLYGON
     */
+   if (state.fill_cw != FILL_TRI ||
+       state.fill_ccw != FILL_TRI)
    {
       GLfloat mrd = intel->state.DrawBuffer->_MRD;
       state.offset_units = intel->state.Polygon->OffsetFactor * mrd;

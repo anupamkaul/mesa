@@ -341,8 +341,7 @@ static void upload_S7( struct intel_context *intel )
 
    /* _NEW_POLYGON
     */
-/*    LIS7 = intel->state.Polygon->OffsetUnits * DEPTH_SCALE; */
-   LIS7 = 0;
+   LIS7 = intel->state.Polygon->OffsetUnits * intel->polygon_offset_scale;
 
    if (LIS7 != i915->current.immediate[I915_IMMEDIATE_S7]) {
       i915->current.immediate[I915_IMMEDIATE_S7] = LIS7;

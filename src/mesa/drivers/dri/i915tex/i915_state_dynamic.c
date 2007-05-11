@@ -393,9 +393,11 @@ static void upload_DEPTHSCALE( struct intel_context *intel )
 
    memset( ds, 0, sizeof(ds) );
    
+   /* _NEW_POLYGON, _NEW_BUFFERS 
+    */
    {
       ds[0].u = (_3DSTATE_DEPTH_OFFSET_SCALE);
-      ds[1].f = 0;		/* XXX */
+      ds[1].f = intel->state.Polygon->OffsetFactor * intel->state.DrawBuffer->_MRD;
    }
 
    set_dynamic_indirect( intel, 
@@ -406,7 +408,7 @@ static void upload_DEPTHSCALE( struct intel_context *intel )
 
 const struct intel_tracked_state i915_upload_DEPTHSCALE = {
    .dirty = {
-      .mesa = _NEW_POLYGON,
+      .mesa = _NEW_POLYGON | _NEW_BUFFERS,
       .intel = 0,
       .extra = 0
    },
