@@ -1,8 +1,5 @@
 0) swrast synchronization
 
-2) clipping vertices - seem to start at 0x100??
-    - see tri-dlist
-
 3) Handling HWB out of memory conditions
 
 4) Synchronization of BPL and bin batchbuffer access between HWB and
@@ -32,14 +29,7 @@
 	   --> then disable swz/hwz
 
 25) quake3
-	- swz - wierd corruptions on background areas.
 	- clears don't seem to work right.
-
-26) demos/reflect
-	- swz doesn't render the reflected objects.
-	- clearparam issue???
-
-28) swz demos/engine is wierd...
 
 30) need to update clearparams on clear depth change.
 
@@ -49,6 +39,10 @@ xx) Clean up HWZ DRM interface
 	- ...
 
 xx) Move HWZ DRM code to its own file.
+
+33) swz lockups after first frame
+    - demos/ipers
+    - demos/ray
 
 ======================================================================
 Postpone:
