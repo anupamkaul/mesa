@@ -30,16 +30,16 @@
 #include "imports.h"
 #include "macros.h"
 
-#define INTEL_DRAW_PRIVATE
-#include "draw/intel_draw.h"
+#define CLIP_PRIVATE
+#include "clip/clip_context.h"
 
-#define INTEL_PRIM_PRIVATE
-#include "draw/intel_prim.h"
+#define CLIP_PIPE_PRIVATE
+#include "clip/clip_pipe.h"
 
 
 
 struct offset_stage {
-   struct prim_stage stage;
+   struct clip_pipe_stage stage;
 
    GLuint hw_data_offset;
 
@@ -49,13 +49,13 @@ struct offset_stage {
 
 
 
-static INLINE struct offset_stage *offset_stage( struct prim_stage *stage )
+static INLINE struct offset_stage *offset_stage( struct clip_pipe_stage *stage )
 {
    return (struct offset_stage *)stage;
 }
 
 
-static void offset_begin( struct prim_stage *stage )
+static void offset_begin( struct clip_pipe_stage *stage )
 {
    struct offset_stage *offset = offset_stage(stage);
 
@@ -71,10 +71,10 @@ static void offset_begin( struct prim_stage *stage )
 }
 
 
-/* Offset tri.  i915 can handle this, but not i830, and neither when
- * unfilled rendering.
+/* Offset tri.  Some hardware can handle this, but not usually when
+ * doing unfilled rendering.
  */
-static void do_offset_tri( struct prim_stage *stage,
+static void do_offset_tri( struct clip_pipe_stage *stage,
 			   struct prim_header *header )
 {
    struct offset_stage *offset = offset_stage(stage);
@@ -113,7 +113,7 @@ static void do_offset_tri( struct prim_stage *stage,
 }
 
 
-static void offset_tri( struct prim_stage *stage,
+static void offset_tri( struct clip_pipe_stage *stage,
 			struct prim_header *header )
 {
    struct prim_header tmp;
@@ -128,30 +128,30 @@ static void offset_tri( struct prim_stage *stage,
 
 
 
-static void offset_line( struct prim_stage *stage,
+static void offset_line( struct clip_pipe_stage *stage,
 		       struct prim_header *header )
 {
    stage->next->line( stage->next, header );
 }
 
 
-static void offset_point( struct prim_stage *stage,
+static void offset_point( struct clip_pipe_stage *stage,
 			struct prim_header *header )
 {
    stage->next->point( stage->next, header );
 }
 
 
-static void offset_end( struct prim_stage *stage )
+static void offset_end( struct clip_pipe_stage *stage )
 {
    stage->next->end( stage->next );
 }
 
-struct prim_stage *intel_prim_offset( struct prim_pipeline *pipe )
+struct clip_pipe_stage *clip_pipe_offset( struct clip_pipeline *pipe )
 {
    struct offset_stage *offset = CALLOC_STRUCT(offset_stage);
 
-   intel_prim_alloc_tmps( &offset->stage, 3 );
+   clip_pipe_alloc_tmps( &offset->stage, 3 );
 
    offset->stage.pipe = pipe;
    offset->stage.next = NULL;
@@ -159,7 +159,7 @@ struct prim_stage *intel_prim_offset( struct prim_pipeline *pipe )
    offset->stage.point = offset_point;
    offset->stage.line = offset_line;
    offset->stage.tri = offset_tri;
-   offset->stage.reset_tmps = intel_prim_reset_tmps;
+   offset->stage.reset_tmps = clip_pipe_reset_tmps;
    offset->stage.end = offset_end;
 
    return &offset->stage;

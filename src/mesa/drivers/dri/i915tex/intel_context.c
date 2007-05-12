@@ -65,7 +65,7 @@
 #include "intel_swz.h"
 #include "intel_frame_tracker.h"
 
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 #include "drirenderbuffer.h"
 #include "vblank.h"
@@ -381,11 +381,11 @@ intelInitDriverFunctions(struct dd_function_table *functions)
 
 
 static void intel_cb_set_vb_state( void *driver, 
-				   const struct intel_draw_vb_state *vb_state )
+				   const struct clip_vb_state *vb_state )
 {
    struct intel_context *intel = driver;
 
-   intel->vb_state = *vb_state;
+   intel->clip_vb_state = *vb_state;
    intel->state.dirty.intel |= INTEL_NEW_VB_STATE;
 }
 
@@ -533,13 +533,13 @@ intelInitContext(struct intel_context *intel,
    intel->swrender = intel_create_swrast_render( intel );
 
    {
-      struct intel_draw_callbacks cb;
+      struct clip_callbacks cb;
       
       cb.driver = (void *)intel;
       cb.validate_state = intel_cb_validate_state;
       cb.set_vb_state = intel_cb_set_vb_state;
 
-      intel->draw = intel_draw_create( &cb );
+      intel->clip = clip_create( &cb );
    }
 
    intel->state.dirty.mesa = ~0;

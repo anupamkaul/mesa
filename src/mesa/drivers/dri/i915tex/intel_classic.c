@@ -39,22 +39,22 @@
 #include "intel_state.h"
 #include "intel_state_inlines.h"
 #include "intel_utils.h"
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 struct classic_render {
-   struct intel_render render;
+   struct clip_render render;
    struct intel_context *intel;
    GLuint hw_prim;
    GLuint offset;
 };
 
-static INLINE struct classic_render *classic_render( struct intel_render *render )
+static INLINE struct classic_render *classic_render( struct clip_render *render )
 {
    return (struct classic_render *)render;
 }
 
 
-static void *classic_allocate_vertices( struct intel_render *render,
+static void *classic_allocate_vertices( struct clip_render *render,
 					GLuint vertex_size,
 					GLuint nr_vertices )
 {
@@ -78,7 +78,7 @@ static void *classic_allocate_vertices( struct intel_render *render,
    return ptr;
 }
 
-static void classic_release_vertices( struct intel_render *render,
+static void classic_release_vertices( struct clip_render *render,
 				      void *vertices )
 {
    /* Nothing to do.   
@@ -86,7 +86,7 @@ static void classic_release_vertices( struct intel_render *render,
 }
 
 
-static void classic_draw_indexed_prim( struct intel_render *render,
+static void classic_draw_indexed_prim( struct clip_render *render,
 				       const GLuint *indices,
 				       GLuint nr )
 {
@@ -126,7 +126,7 @@ static void classic_draw_indexed_prim( struct intel_render *render,
 }
 
 
-static void classic_draw_prim( struct intel_render *render,
+static void classic_draw_prim( struct clip_render *render,
 			       GLuint start,
 			       GLuint nr )
 {
@@ -182,7 +182,7 @@ static const GLenum reduced_prim[GL_POLYGON+1] = {
 
 /* XXX: this is where we need to set the reduced primitive from: 
  */
-static void classic_set_prim( struct intel_render *render,
+static void classic_set_prim( struct clip_render *render,
 			      GLenum mode )
 {
    struct classic_render *crc = classic_render( render );
@@ -222,7 +222,7 @@ static void classic_set_prim( struct intel_render *render,
 }
 
 
-static void classic_start_render( struct intel_render *render,
+static void classic_start_render( struct clip_render *render,
 				  GLboolean start_of_frame )
 {
    struct classic_render *crc = classic_render( render );
@@ -249,7 +249,7 @@ static void classic_start_render( struct intel_render *render,
 }
 
 
-static void classic_flush( struct intel_render *render, 
+static void classic_flush( struct clip_render *render, 
 			   GLboolean finished_frame )
 {
    struct classic_render *crc = classic_render( render );
@@ -261,7 +261,7 @@ static void classic_flush( struct intel_render *render,
 }
 
 
-static void classic_clear_rect( struct intel_render *render,
+static void classic_clear_rect( struct clip_render *render,
 				GLuint unused_mask,
 				GLuint x1, GLuint y1, 
 				GLuint x2, GLuint y2 )
@@ -289,7 +289,7 @@ static void classic_clear_rect( struct intel_render *render,
 
 
 
-static void classic_destroy_context( struct intel_render *render )
+static void classic_destroy_context( struct clip_render *render )
 {
    struct classic_render *crc = classic_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
@@ -297,7 +297,7 @@ static void classic_destroy_context( struct intel_render *render )
    _mesa_free(crc);
 }
 
-struct intel_render *intel_create_classic_render( struct intel_context *intel )
+struct clip_render *intel_create_classic_render( struct intel_context *intel )
 {
    struct classic_render *crc = CALLOC_STRUCT(classic_render);
 

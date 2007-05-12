@@ -32,20 +32,20 @@
 
 #include "imports.h"
 
-#define INTEL_DRAW_PRIVATE
-#include "draw/intel_draw.h"
+#define CLIP_PRIVATE
+#include "clip/clip_context.h"
 
-#define INTEL_PRIM_PRIVATE
-#include "draw/intel_prim.h"
+#define CLIP_PIPE_PRIVATE
+#include "clip/clip_pipe.h"
 
 
-static INLINE struct prim_pipeline *prim_pipeline( struct intel_render *render )
+static INLINE struct clip_pipeline *clip_pipeline( struct clip_render *render )
 {
-   return (struct prim_pipeline *)render;
+   return (struct clip_pipeline *)render;
 }
 
 
-static struct vertex_header *get_vertex( struct prim_pipeline *pipe,
+static struct vertex_header *get_vertex( struct clip_pipeline *pipe,
 					       GLuint i )
 {
    return (struct vertex_header *)(pipe->verts + i * pipe->vertex_size);
@@ -53,11 +53,11 @@ static struct vertex_header *get_vertex( struct prim_pipeline *pipe,
 
 
 
-static void *pipe_allocate_vertices( struct intel_render *render,
+static void *pipe_allocate_vertices( struct clip_render *render,
 				     GLuint vertex_size,
 				     GLuint nr_vertices )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render );
+   struct clip_pipeline *pipe = clip_pipeline( render );
 
    pipe->vertex_size = vertex_size;
    pipe->nr_vertices = nr_vertices;
@@ -70,10 +70,10 @@ static void *pipe_allocate_vertices( struct intel_render *render,
    return pipe->verts;
 }
 
-static void pipe_set_prim( struct intel_render *render,
+static void pipe_set_prim( struct clip_render *render,
 			   GLenum prim )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render );
+   struct clip_pipeline *pipe = clip_pipeline( render );
 
 //   _mesa_printf("%s (%d) \n", __FUNCTION__, prim );
 
@@ -114,7 +114,7 @@ static const GLuint pipe_prim[GL_POLYGON+1] = {
 };
 
 
-static void do_tri( struct prim_stage *first,
+static void do_tri( struct clip_pipe_stage *first,
 		    struct vertex_header *v0,
 		    struct vertex_header *v1,
 		    struct vertex_header *v2 )
@@ -128,7 +128,7 @@ static void do_tri( struct prim_stage *first,
 }
 
 
-static void do_quad( struct prim_stage *first,
+static void do_quad( struct clip_pipe_stage *first,
 		     struct vertex_header *v0,
 		     struct vertex_header *v1,
 		     struct vertex_header *v2,
@@ -153,7 +153,7 @@ static void do_quad( struct prim_stage *first,
 
 #if 0
 
-static void do_quad( struct prim_stage *first,
+static void do_quad( struct clip_pipe_stage *first,
 		     struct vertex_header *v0,
 		     struct vertex_header *v1,
 		     struct vertex_header *v2,
@@ -164,7 +164,7 @@ static void do_quad( struct prim_stage *first,
 }
 
 
-static void unfilled_quadstrip( struct prim_stage *first,
+static void unfilled_quadstrip( struct clip_pipe_stage *first,
 				struct vertex_header *v0,
 				struct vertex_header *v1,
 				struct vertex_header *v2,
@@ -193,12 +193,12 @@ static void unfilled_quadstrip( struct prim_stage *first,
 
 
 
-static void pipe_draw_indexed_prim( struct intel_render *render,
+static void pipe_draw_indexed_prim( struct clip_render *render,
 				    const GLuint *elts,
 				    GLuint count )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render );
-   struct prim_stage * const first = pipe->first;
+   struct clip_pipeline *pipe = clip_pipeline( render );
+   struct clip_pipe_stage * const first = pipe->first;
    struct prim_header prim;
    GLuint i;
 
@@ -344,12 +344,12 @@ static void pipe_draw_indexed_prim( struct intel_render *render,
    }
 }
 
-static void pipe_draw_prim( struct intel_render *render,
+static void pipe_draw_prim( struct clip_render *render,
 			    GLuint start,
 			    GLuint count )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render );
-   struct prim_stage * const first = pipe->first;
+   struct clip_pipeline *pipe = clip_pipeline( render );
+   struct clip_pipe_stage * const first = pipe->first;
    struct prim_header prim;
    GLuint i;
 
@@ -490,10 +490,10 @@ static void pipe_draw_prim( struct intel_render *render,
 }
 
 
-static void pipe_release_vertices( struct intel_render *render,
+static void pipe_release_vertices( struct clip_render *render,
 				   void *vertices )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render );
+   struct clip_pipeline *pipe = clip_pipeline( render );
 
    pipe->first->end( pipe->first );
 
@@ -501,17 +501,17 @@ static void pipe_release_vertices( struct intel_render *render,
    pipe->verts = NULL;
 }
 
-static void pipe_destroy( struct intel_render *render )
+static void pipe_destroy( struct clip_render *render )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render );
+   struct clip_pipeline *pipe = clip_pipeline( render );
    _mesa_printf("%s\n", __FUNCTION__);
 
    _mesa_free(pipe);
 }
 
-struct intel_render *intel_create_prim_render( struct intel_draw *draw )
+struct clip_render *clip_create_prim_render( struct clip_context *draw )
 {
-   struct prim_pipeline *pipe = CALLOC_STRUCT(prim_pipeline);
+   struct clip_pipeline *pipe = CALLOC_STRUCT(clip_pipeline);
 
    /* XXX: Add casts here to avoid the compiler messages:
     */
@@ -527,26 +527,26 @@ struct intel_render *intel_create_prim_render( struct intel_draw *draw )
    pipe->draw = draw;
    pipe->prim = 0;
 
-   pipe->emit      = intel_prim_emit( pipe );
-   pipe->unfilled  = intel_prim_unfilled( pipe );
-   pipe->twoside   = intel_prim_twoside( pipe );
-   pipe->offset    = intel_prim_offset( pipe );
-   pipe->clip      = intel_prim_clip( pipe );
-   pipe->flatshade = intel_prim_flatshade( pipe );
-   pipe->cull      = intel_prim_cull( pipe );
+   pipe->emit      = clip_pipe_emit( pipe );
+   pipe->unfilled  = clip_pipe_unfilled( pipe );
+   pipe->twoside   = clip_pipe_twoside( pipe );
+   pipe->offset    = clip_pipe_offset( pipe );
+   pipe->clip      = clip_pipe_clip( pipe );
+   pipe->flatshade = clip_pipe_flatshade( pipe );
+   pipe->cull      = clip_pipe_cull( pipe );
 
    return &pipe->render;
 }
 
 
 
-GLboolean intel_prim_validate_state( struct intel_render *render )
+GLboolean clip_pipe_validate_state( struct clip_render *render )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render );
+   struct clip_pipeline *pipe = clip_pipeline( render );
    
    /* Dependent on driver state and primitive:
     */
-   struct prim_stage *next = pipe->emit;
+   struct clip_pipe_stage *next = pipe->emit;
    GLboolean install = GL_FALSE;
 
    pipe->need_validate = 0;
@@ -617,28 +617,28 @@ GLboolean intel_prim_validate_state( struct intel_render *render )
 }
 
 
-void intel_prim_set_hw_render( struct intel_render *render,
-			       struct intel_render *hw )
+void clip_pipe_set_hw_render( struct clip_render *render,
+			       struct clip_render *hw )
 {
 }
 
 
-void intel_prim_set_draw_state( struct intel_render *render,
-				struct intel_draw_state *state )
+void clip_pipe_set_clip_state( struct clip_render *render,
+				struct clip_state *state )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render ); 
+   struct clip_pipeline *pipe = clip_pipeline( render ); 
    pipe->need_validate = 1;
 }
 
-void intel_prim_set_vb_state( struct intel_render *render,
-			      struct intel_draw_vb_state *state )
+void clip_pipe_set_vb_state( struct clip_render *render,
+			      struct clip_vb_state *state )
 {
-   struct prim_pipeline *pipe = prim_pipeline( render ); 
+   struct clip_pipeline *pipe = clip_pipeline( render ); 
    pipe->need_validate = 1;
 }
 
 
-void intel_prim_reset_vertex_indices( struct prim_pipeline *pipe )
+void clip_pipe_reset_vertex_indices( struct clip_pipeline *pipe )
 {
    GLuint i;
 
@@ -653,7 +653,7 @@ void intel_prim_reset_vertex_indices( struct prim_pipeline *pipe )
 
 #define MAX_VERTEX_SIZE ((2 + FRAG_ATTRIB_MAX) * 4 * sizeof(GLfloat))
 
-void intel_prim_alloc_tmps( struct prim_stage *stage, GLuint nr )
+void clip_pipe_alloc_tmps( struct clip_pipe_stage *stage, GLuint nr )
 {
    stage->nr_tmps = nr;
 
@@ -668,7 +668,7 @@ void intel_prim_alloc_tmps( struct prim_stage *stage, GLuint nr )
    }
 }
 
-void intel_prim_free_tmps( struct prim_stage *stage )
+void clip_pipe_free_tmps( struct clip_pipe_stage *stage )
 {
    if (stage->tmp) {
       FREE(stage->tmp[0]);
@@ -677,7 +677,7 @@ void intel_prim_free_tmps( struct prim_stage *stage )
 }
 
 
-void intel_prim_reset_tmps( struct prim_stage *stage )
+void clip_pipe_reset_tmps( struct clip_pipe_stage *stage )
 {
    GLuint i;
 

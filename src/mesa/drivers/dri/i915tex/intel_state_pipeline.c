@@ -43,7 +43,7 @@
 #include "intel_state.h"
 #include "intel_frame_tracker.h"
 
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 static GLuint frag_attr_to_VB( GLuint attr )
 {
@@ -112,7 +112,7 @@ static GLboolean draw( GLcontext * ctx, struct tnl_pipeline_stage *stage )
 
    /* Call into the new draw code to handle the VB:
     */
-   intel_draw_vb( intel->draw, VB );
+   clip_vb( intel->clip, VB );
    
    /* Finished 
     */

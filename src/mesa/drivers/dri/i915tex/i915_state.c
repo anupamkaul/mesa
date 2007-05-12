@@ -51,8 +51,8 @@ const struct intel_tracked_state *atoms[] =
    &i915_check_fallback,
    &i915_choose_rasterizer,
 
-   &intel_update_draw_state,
-   &intel_update_draw_userclip,
+   &intel_update_clip_state,
+   &intel_update_clip_userclip,
    &intel_update_viewport,
 
    /* Get compiled version of the fragment program.

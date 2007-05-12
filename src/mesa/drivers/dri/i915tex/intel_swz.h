@@ -33,7 +33,7 @@
 #define INTEL_SWZ_H
 
 struct intel_context;
-struct intel_render *intel_create_swz_render( struct intel_context *intel );
+struct clip_render *intel_create_swz_render( struct intel_context *intel );
 
 #define ZONE_WIDTH (1<<6)
 #define ZONE_HEIGHT (1<<5)
@@ -59,7 +59,7 @@ struct swz_zone {
 #define MAX_ZONES 1024
 
 struct swz_render {
-   struct intel_render render;
+   struct clip_render render;
    struct intel_context *intel;
 
    /* Zone starting points, used for chaining at flush. 
@@ -98,7 +98,7 @@ struct swz_render {
    GLuint prim;
 };
 
-static INLINE struct swz_render *swz_render( struct intel_render *render )
+static INLINE struct swz_render *swz_render( struct clip_render *render )
 {
    return (struct swz_render *)render;
 }
@@ -106,17 +106,17 @@ static INLINE struct swz_render *swz_render( struct intel_render *render )
 
 /* Functions in intel_swz_prims.c: 
  */
-void swz_clear_rect( struct intel_render *render,
+void swz_clear_rect( struct clip_render *render,
 		     GLuint unused_mask,
 		     GLuint x1, GLuint y1, 
 		     GLuint x2, GLuint y2 );
 
-void swz_zone_init( struct intel_render *render,
+void swz_zone_init( struct clip_render *render,
 		    GLuint unused_mask,
 		    GLuint x1, GLuint y1, 
 		    GLuint x2, GLuint y2 );
 
-void swz_set_prim( struct intel_render *render,
+void swz_set_prim( struct clip_render *render,
 		   GLenum prim );
 
 void swz_debug_zone( struct swz_render *swz,

@@ -30,7 +30,7 @@
 #include "intel_state.h"
 #include "intel_metaops.h"
 #include "intel_fbo.h"
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 
 

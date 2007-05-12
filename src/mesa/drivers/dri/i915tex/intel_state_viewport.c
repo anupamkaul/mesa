@@ -94,7 +94,7 @@ static void update_viewport( struct intel_context *intel )
 
       /* Update both hw and clip-setup viewports:
        */
-      intel_draw_set_viewport( intel->draw, scale, trans );
+      clip_set_viewport( intel->clip, scale, trans );
    }
 }
 

@@ -25,20 +25,22 @@
  * 
  **************************************************************************/
 
-#ifndef INTEL_DRAW_H
-#define INTEL_DRAW_H
+#ifndef CLIP_CONTEXT_H
+#define CLIP_CONTEXT_H
 
 #include "mtypes.h"
 #include "vf/vf.h"
 
+struct vertex_buffer;
 
-struct intel_draw_vb_state {
+
+struct clip_vb_state {
    GLuint clipped_prims:1;
    GLuint pad:15;
    GLuint active_prims:16;
 };
 
-struct intel_render {
+struct clip_render {
 
    struct {
       GLuint max_indices;
@@ -48,7 +50,7 @@ struct intel_render {
    /* Initialize state for the frame.  EG. emit dma to wait for
     * pending flips.
     */
-   void (*start_render)( struct intel_render *,
+   void (*start_render)( struct clip_render *,
 			 GLboolean start_of_frame );
 
 
@@ -57,56 +59,56 @@ struct intel_render {
     * something.  Vertices will be built by some external facility
     * (draw itself, or the prim pipe).
     */
-   void *(*allocate_vertices)( struct intel_render *,
+   void *(*allocate_vertices)( struct clip_render *,
 			       GLuint vertex_size,
 			       GLuint nr_vertices );
 
    /* Notify the renderer of the current primitive when it changes:
     */
-   void (*set_prim)( struct intel_render *, GLuint prim );
+   void (*set_prim)( struct clip_render *, GLuint prim );
 
    /* Driver state passed as a void pointer.  
     */
-   void (*emit_state)( struct intel_render *render,
+   void (*emit_state)( struct clip_render *render,
 		       const void *driver_state );
 
    /* DrawArrays:
     */
-   void (*draw_prim)( struct intel_render *,
+   void (*draw_prim)( struct clip_render *,
 		      GLuint start,
 		      GLuint nr );
 
    /* DrawElements:
     */
-   void (*draw_indexed_prim)( struct intel_render *,
+   void (*draw_indexed_prim)( struct clip_render *,
 			      const GLuint *indices,
 			      GLuint nr );
 
 
    /* Special primitive: 
     */
-   void (*clear_rect)( struct intel_render *,
+   void (*clear_rect)( struct clip_render *,
 		       GLuint mask,
 		       GLuint x1, GLuint y1, 
 		       GLuint x2, GLuint y2 );
 
    /* Hardware drivers will flush/unmap the ttm:
     */
-   void (*release_vertices)( struct intel_render *,
+   void (*release_vertices)( struct clip_render *,
 			     void *vertices );
 
 
    /* Execute glFlush(), flag to state whether this is the end of the
     * frame or not, to help choose renderers.
     */
-   void (*flush)( struct intel_render *, 
+   void (*flush)( struct clip_render *, 
 		  GLboolean finished_frame );
 
-   void (*destroy)( struct intel_render * );
+   void (*destroy)( struct clip_render * );
 };
 
 
-struct intel_draw_callbacks {
+struct clip_callbacks {
    /* This is opaque to the draw code:
     */
    void *driver;
@@ -115,7 +117,7 @@ struct intel_draw_callbacks {
     * Driver may want to set a new hardware renderer.
     */
    void (*set_vb_state)( void *driver, 
-			 const struct intel_draw_vb_state *vb_state  );
+			 const struct clip_vb_state *vb_state  );
 
 
    /* Ask driver to validate state at the head of a vb.  May result in
@@ -139,7 +141,7 @@ struct intel_draw_callbacks {
  * metaops state and notifying the drawing engine whenever necessary
  * to keep it uptodate.
  */
-struct intel_draw_state {
+struct clip_state {
    /* GL state
     */
    GLuint flatshade:1;
@@ -160,63 +162,60 @@ struct intel_draw_state {
 };
 
 
-struct intel_draw *intel_draw_create( const struct intel_draw_callbacks *callbacks );
+struct clip_context *clip_create( const struct clip_callbacks *callbacks );
 				      
-void intel_draw_destroy( struct intel_draw * );
+void clip_destroy( struct clip_context * );
 
-void intel_draw_set_viewport( struct intel_draw *draw,
+void clip_set_viewport( struct clip_context *draw,
 			      const GLfloat *scale,
 			      const GLfloat *trans );
 
-void intel_draw_set_state( struct intel_draw *draw,
-			   const struct intel_draw_state *state );
+void clip_set_state( struct clip_context *draw,
+			   const struct clip_state *state );
 
 
-void intel_draw_set_userclip( struct intel_draw *draw,
+void clip_set_userclip( struct clip_context *draw,
 			      GLfloat (* const ucp)[4],
 			      GLuint nr );
 
-void intel_draw_set_hw_vertex_format( struct intel_draw *draw,
+void clip_set_hw_vertex_format( struct clip_context *draw,
 				      const struct vf_attr_map *attr,
 				      GLuint count,
 				      GLuint vertex_size );
 
 
-void intel_draw_set_prim_vertex_format( struct intel_draw *draw,
+void clip_set_prim_vertex_format( struct clip_context *draw,
 					const struct vf_attr_map *attr,
 					GLuint count,
 					GLuint vertex_size );
 
-void intel_draw_set_render( struct intel_draw *draw,
-			    struct intel_render *render );
+void clip_set_render( struct clip_context *draw,
+			    struct clip_render *render );
 
-void intel_draw_set_prim_pipe_active( struct intel_draw *draw,
+void clip_set_prim_pipe_active( struct clip_context *draw,
 				      GLboolean active );
 
 
-struct vertex_fetch *intel_draw_get_hw_vf( struct intel_draw *draw );
+struct vertex_fetch *clip_get_hw_vf( struct clip_context *draw );
 
-struct vertex_buffer;
-void intel_draw_vb(struct intel_draw *draw,
-		   struct vertex_buffer *VB );
+void clip_vb(struct clip_context *draw, struct vertex_buffer *VB );
 
 /***********************************************************************
  * Private structs and functions:
  */
-#ifdef INTEL_DRAW_PRIVATE
+#ifdef CLIP_PRIVATE
 
-struct intel_draw {     
-   struct intel_draw_callbacks callbacks;
+struct clip_context {     
+   struct clip_callbacks callbacks;
 
    /* The most recent drawing state as set by the driver:
     */
-   struct intel_draw_state state;
+   struct clip_state state;
 
    /* Primitive/VB state that we send to the driver (and to the prim
     * pipeline).
     */
-   struct intel_draw_vb_state vb_state;
-
+   struct clip_vb_state vb_state;
    
    GLfloat plane[12][4];
    GLuint nr_planes;
@@ -224,21 +223,21 @@ struct intel_draw {
    
    /* The hardware backend (or swrast)
     */
-   struct intel_render *hw;
+   struct clip_render *hw;
    struct vf_attr_map hw_attrs[VF_ATTRIB_MAX];
    GLuint hw_attr_count;
    GLuint hw_vertex_size;
    struct vertex_fetch *hw_vf;
 
-   /* Helper for quads (when prim pipe not active??)
+   /* Helper for hardware (when prim pipe not active).
     */
-   struct intel_render *quads;
+   struct clip_render *noop;
 
 
    /* The software clipper/setup engine.  Feeds primitives into the
     * above as necessary:
     */
-   struct intel_render *prim;	 
+   struct clip_render *prim;	 
    struct vf_attr_map prim_attrs[VF_ATTRIB_MAX];
    GLuint prim_attr_count;
    GLuint prim_vertex_size;
@@ -247,10 +246,10 @@ struct intel_draw {
 
 
    struct {
-      /* The active renderer - either quads or prim, depending on gl
+      /* The active renderer - either noop or pipe, depending on gl
        * state and clipped prims.
        */
-      struct intel_render *render;
+      struct clip_render *render;
       GLenum render_prim;
 
       /* The active vf and the attributes installed in vf:

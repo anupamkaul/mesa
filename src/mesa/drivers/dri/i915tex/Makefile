@@ -7,16 +7,6 @@ LIBNAME = i915tex_dri.so
 MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
-	draw/intel_draw.c \
-	draw/intel_draw_quads.c \
-	draw/intel_prim.c \
-	draw/intel_prim_emit.c \
-	draw/intel_prim_flatshade.c \
-	draw/intel_prim_twoside.c \
-	draw/intel_prim_offset.c \
-	draw/intel_prim_cull.c \
-	draw/intel_prim_clip.c \
-	draw/intel_prim_unfilled.c \
 	i915_debug.c \
 	intel_hwz.c \
 	intel_cmdstream.c \
@@ -75,7 +65,7 @@ DRIVER_SOURCES = \
 	intel_screen.c \
 	intel_span.c \
 	intel_state.c \
-	intel_state_draw.c \
+	intel_state_clip.c \
 	intel_state_pipeline.c \
 	intel_state_viewport.c \
 	intel_fbo.c \

@@ -30,7 +30,7 @@
 #include "enums.h"
 #include "program.h"
 
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 #include "i915_context.h"
 #include "i915_reg.h"
 
@@ -162,10 +162,10 @@ static void i915_calculate_vertex_format( struct intel_context *intel )
    if (s2 != i915->vertex_format.LIS2 || 
        s4 != i915->vertex_format.LIS4) {
 
-      intel_draw_set_hw_vertex_format( intel->draw, 
-				       i915->vertex_attrs, 
-				       i915->vertex_attr_count,
-				       offset );
+      clip_set_hw_vertex_format( intel->clip, 
+				 i915->vertex_attrs, 
+				 i915->vertex_attr_count,
+				 offset );
 
       /* Needed?  This does raise the INTEL_NEW_VERTEX_SIZE flag:
        */
@@ -240,7 +240,7 @@ static void calculate_setup_vertex_format( struct intel_context *intel )
    
    /* INTEL_NEW_VB_STATE
     */
-   if (intel->vb_state.clipped_prims) {
+   if (intel->clip_vb_state.clipped_prims) {
       EMIT_ATTR(VF_ATTRIB_CLIP_POS, EMIT_4F, 0, 16);
    }
 
@@ -267,10 +267,10 @@ static void calculate_setup_vertex_format( struct intel_context *intel )
    }
 
    
-   intel_draw_set_prim_vertex_format( intel->draw, 
-				      prim_attrs, 
-				      prim_attr_count,
-				      offset );
+   clip_set_prim_vertex_format( intel->clip, 
+				prim_attrs, 
+				prim_attr_count,
+				offset );
 }
 
 const struct intel_tracked_state i915_setup_vertex_format = {

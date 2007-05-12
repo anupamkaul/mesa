@@ -36,7 +36,7 @@
 #include "texmem.h"
 
 #include "intel_screen.h"
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 #include "i915_drm.h"
 #include "i830_common.h"
@@ -283,31 +283,32 @@ struct intel_context
 
    /* All the known rasterizers:
     */
-   struct intel_render *classic;
-   struct intel_render *swrender;
-   struct intel_render *mixed;
-   struct intel_render *swz;
-   struct intel_render *hwz;
+   struct clip_render *classic;
+   struct clip_render *swrender;
+   struct clip_render *mixed;
+   struct clip_render *swz;
+   struct clip_render *hwz;
 
    /* Current active rasterizer: 
     */
-   struct intel_render *render;
+   struct clip_render *render;
 
    /* Track frame events to help decide which renderer to use:
     */
    struct intel_frame_tracker *ft;
 
-   /* The drawing engine: 
+   /* The clip/setup engine, which sits between tnl and us, and which
+    * drives all the drawing:
     */
-   struct intel_draw *draw;
+   struct clip_context *clip;
 
    /* State to keep it fed: 
     */
-   struct intel_draw_state draw_state;
+   struct clip_state clip_state;
 
    /* State we get back from it:
     */
-   struct intel_draw_vb_state vb_state;
+   struct clip_vb_state clip_vb_state;
    GLuint fallback_prims:16;
 
    GLenum hw_reduced_prim;
@@ -447,19 +448,19 @@ void intel_lost_hardware( struct intel_context *intel );
 /*======================================================================
  * intel_swrast.c 
  */
-struct intel_render *intel_create_swrast_render( struct intel_context *intel );
+struct clip_render *intel_create_swrast_render( struct intel_context *intel );
 
 
 /*======================================================================
  * intel_classic.c 
  */
-struct intel_render *intel_create_classic_render( struct intel_context *intel );
+struct clip_render *intel_create_classic_render( struct intel_context *intel );
 
 
 /*======================================================================
  * intel_hwz.c 
  */
-struct intel_render *intel_create_hwz_render( struct intel_context *intel );
+struct clip_render *intel_create_hwz_render( struct intel_context *intel );
 
 /*======================================================================
  * intel_clears.c 

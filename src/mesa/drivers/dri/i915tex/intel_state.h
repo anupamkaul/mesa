@@ -47,7 +47,7 @@ struct intel_hw_dirty intel_track_states( struct intel_context *intel,
 
 
 const struct intel_tracked_state intel_update_viewport;
-const struct intel_tracked_state intel_update_draw_state;
-const struct intel_tracked_state intel_update_draw_userclip;
+const struct intel_tracked_state intel_update_clip_state;
+const struct intel_tracked_state intel_update_clip_userclip;
 
 #endif

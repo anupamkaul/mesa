@@ -67,7 +67,7 @@ static void invalidate_bins( struct swz_render *swz )
 
    swz->draws++;
 
-   switch(intel->draw_state.cull_mode) {
+   switch(intel->clip_state.cull_mode) {
    case WINDING_NONE:
    case WINDING_BOTH:
       swz->cull = 0;
@@ -444,7 +444,7 @@ static void point( struct swz_render *swz,
 
 /* Presumably this should also be binned:
  */
-void swz_clear_rect( struct intel_render *render,
+void swz_clear_rect( struct clip_render *render,
 		     GLuint unused_mask,
 		     GLuint x0, GLuint y0, 
 		     GLuint x1, GLuint y1 )
@@ -484,7 +484,7 @@ void swz_clear_rect( struct intel_render *render,
 
 /* Presumably this should also be binned:
  */
-void swz_zone_init( struct intel_render *render,
+void swz_zone_init( struct clip_render *render,
 		    GLuint unused_mask,
 		    GLuint x0, GLuint y0, 
 		    GLuint x1, GLuint y1 )
@@ -526,12 +526,11 @@ typedef void (*trifunc)( struct swz_render *swz,
 			 GLuint, GLuint, GLuint );
 
 
-static void swz_draw_prim( struct intel_render *render,
+static void swz_draw_prim( struct clip_render *render,
 			   GLuint start,
 			   GLuint nr )
 {
    struct swz_render *swz = swz_render( render );
-   struct intel_context *intel = swz->intel;
    GLuint i;
 
    invalidate_bins( swz );
@@ -610,13 +609,11 @@ static void swz_draw_prim( struct intel_render *render,
    }
 }
 
-static void swz_draw_indexed_prim( struct intel_render *render,
+static void swz_draw_indexed_prim( struct clip_render *render,
 				   const GLuint *indices,
 				   GLuint nr )
 {
    struct swz_render *swz = swz_render( render );
-   struct intel_context *intel = swz->intel;
-   GLcontext *ctx = &intel->ctx;
    GLuint i;
 
    invalidate_bins( swz );
@@ -701,7 +698,7 @@ static void swz_draw_indexed_prim( struct intel_render *render,
 
 
 
-void swz_set_prim( struct intel_render *render,
+void swz_set_prim( struct clip_render *render,
 		   GLenum prim )
 {
    struct swz_render *swz = swz_render( render );

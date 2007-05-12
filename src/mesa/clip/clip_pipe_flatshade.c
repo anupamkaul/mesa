@@ -29,29 +29,29 @@
  */
 #include "imports.h"
 
-#define INTEL_DRAW_PRIVATE
-#include "draw/intel_draw.h"
+#define CLIP_PRIVATE
+#include "clip/clip_context.h"
 
-#define INTEL_PRIM_PRIVATE
-#include "draw/intel_prim.h"
+#define CLIP_PIPE_PRIVATE
+#include "clip/clip_pipe.h"
 
 
 
 struct flatshade_stage {
-   struct prim_stage stage;
+   struct clip_pipe_stage stage;
 
    struct vertex_fetch *vf;
 };
 
 
 
-static INLINE struct flatshade_stage *flatshade_stage( struct prim_stage *stage )
+static INLINE struct flatshade_stage *flatshade_stage( struct clip_pipe_stage *stage )
 {
    return (struct flatshade_stage *)stage;
 }
 
 
-static void flatshade_begin( struct prim_stage *stage )
+static void flatshade_begin( struct clip_pipe_stage *stage )
 {
    struct flatshade_stage *flatshade = flatshade_stage(stage);
 
@@ -90,7 +90,7 @@ static void copy_colors( const struct vertex_fetch *vf,
 /* Flatshade tri.  Required for clipping and when unfilled tris are
  * active, otherwise handled by hardware.
  */
-static void flatshade_tri( struct prim_stage *stage,
+static void flatshade_tri( struct clip_pipe_stage *stage,
 			   struct prim_header *header )
 {
    struct prim_header tmp;
@@ -110,7 +110,7 @@ static void flatshade_tri( struct prim_stage *stage,
 
 /* Flatshade line.  Required for clipping.
  */
-static void flatshade_line( struct prim_stage *stage,
+static void flatshade_line( struct clip_pipe_stage *stage,
 			    struct prim_header *header )
 {
    struct prim_header tmp;
@@ -125,13 +125,13 @@ static void flatshade_line( struct prim_stage *stage,
 }
 
 
-static void flatshade_point( struct prim_stage *stage,
+static void flatshade_point( struct clip_pipe_stage *stage,
 			struct prim_header *header )
 {
    stage->next->point( stage->next, header );
 }
 
-static void flatshade_end( struct prim_stage *stage )
+static void flatshade_end( struct clip_pipe_stage *stage )
 {
    struct flatshade_stage *flatshade = flatshade_stage(stage);
 
@@ -139,11 +139,11 @@ static void flatshade_end( struct prim_stage *stage )
    stage->next->end( stage->next );
 }
 
-struct prim_stage *intel_prim_flatshade( struct prim_pipeline *pipe )
+struct clip_pipe_stage *clip_pipe_flatshade( struct clip_pipeline *pipe )
 {
    struct flatshade_stage *flatshade = CALLOC_STRUCT(flatshade_stage);
 
-   intel_prim_alloc_tmps( &flatshade->stage, 2 );
+   clip_pipe_alloc_tmps( &flatshade->stage, 2 );
 
    flatshade->stage.pipe = pipe;
    flatshade->stage.next = NULL;
@@ -151,7 +151,7 @@ struct prim_stage *intel_prim_flatshade( struct prim_pipeline *pipe )
    flatshade->stage.point = flatshade_point;
    flatshade->stage.line = flatshade_line;
    flatshade->stage.tri = flatshade_tri;
-   flatshade->stage.reset_tmps = intel_prim_reset_tmps;
+   flatshade->stage.reset_tmps = clip_pipe_reset_tmps;
    flatshade->stage.end = flatshade_end;
    flatshade->vf = NULL;
 

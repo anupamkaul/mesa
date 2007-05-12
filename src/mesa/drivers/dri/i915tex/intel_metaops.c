@@ -345,7 +345,7 @@ intel_meta_draw_color_quad(struct intel_context *intel,
    assert(sizeof(*vertex) == intel->vb->vertex_size_bytes);
 
    {
-      struct intel_render *render = intel->render;
+      struct clip_render *render = intel->render;
       void *vb = render->allocate_vertices( render,
 					    intel->vb->vertex_size_bytes,
 					    4 );
@@ -367,7 +367,7 @@ intel_meta_draw_textured_quad(struct intel_context *intel,
    assert(sizeof(*vertex) == intel->vb->vertex_size_bytes);
 
    {
-      struct intel_render *render = intel->render;
+      struct clip_render *render = intel->render;
       void *vb = render->allocate_vertices( render, 
 					    intel->vb->vertex_size_bytes,
 					    4 );

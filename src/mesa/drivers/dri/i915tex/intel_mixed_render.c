@@ -31,12 +31,12 @@
   */
       
 #include "intel_context.h"
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 #define ELT_TABLE_SIZE 16
 
 struct mixed_render {
-   struct intel_render render;
+   struct clip_render render;
    struct intel_context *intel;
 
    GLuint vertex_size;
@@ -47,11 +47,11 @@ struct mixed_render {
       GLuint out;
    } vert_cache[ELT_TABLE_SIZE];
 
-   struct intel_render *hw;
-   struct intel_render *sw;
+   struct clip_render *hw;
+   struct clip_render *sw;
 };
 
-static INLINE struct mixed_render *mixed_render( struct intel_render *render )
+static INLINE struct mixed_render *mixed_render( struct clip_render *render )
 {
    return (struct mixed_render *)render;
 }
@@ -65,7 +65,7 @@ static void reset_vertex_cache( struct mixed_render *mixed )
       copy->vert_cache[i].in = ~0;
 }
 
-static void mixed_start_render( struct intel_render *render )
+static void mixed_start_render( struct clip_render *render )
 {
    struct mixed_render *mixed = mixed_render( render );
    mixed->active = NULL;
@@ -83,7 +83,7 @@ static void mixed_start_render( struct intel_render *render )
  * after switching from classic, but it will have to wait to access
  * the screen maps anyway, so that's a non-issue.
  */
-static void *mixed_allocate_vertices( struct intel_render *render,
+static void *mixed_allocate_vertices( struct clip_render *render,
 				      GLuint vertex_size,
 				      GLuint nr_verts )
 {
@@ -94,7 +94,7 @@ static void *mixed_allocate_vertices( struct intel_render *render,
 }
    
 
-static void mixed_draw_prim( struct intel_render *render,
+static void mixed_draw_prim( struct clip_render *render,
 			     GLuint start,
 			     GLuint nr )
 {
@@ -104,7 +104,7 @@ static void mixed_draw_prim( struct intel_render *render,
    mixed->active->draw_prim( mixed->active, start, nr );
 }
 
-static void mixed_draw_indexed_prim( struct intel_render *render,
+static void mixed_draw_indexed_prim( struct clip_render *render,
 				     const GLuint *indices,
 				     GLuint nr )
 {
@@ -116,11 +116,11 @@ static void mixed_draw_indexed_prim( struct intel_render *render,
 }
 
 
-static void mixed_set_prim( struct intel_render *render,
+static void mixed_set_prim( struct clip_render *render,
 			      GLenum mode )
 {
    struct mixed_render *mixed = mixed_render( render );
-   struct intel_render *active;
+   struct clip_render *active;
 
    if (mixed->intel->fallback_prims & (1<<mode)) 
       active = mixed->sw;
@@ -144,7 +144,7 @@ static void mixed_set_prim( struct intel_render *render,
 
 
 
-static void mixed_flush( struct intel_render *render, 
+static void mixed_flush( struct clip_render *render, 
 			   GLboolean finished_frame )
 {
    if (mixed->active)
@@ -157,7 +157,7 @@ static void mixed_flush( struct intel_render *render,
 
 
 
-static void mixed_destroy( struct intel_render *render )
+static void mixed_destroy( struct clip_render *render )
 {
    struct mixed_render *mixed = mixed_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
@@ -166,7 +166,7 @@ static void mixed_destroy( struct intel_render *render )
 }
 
 
-struct intel_render *intel_create_mixed_render( struct intel_context *intel )
+struct clip_render *intel_create_mixed_render( struct intel_context *intel )
 {
    struct mixed_render *mixed = CALLOC_STRUCT(mixed_render);
 

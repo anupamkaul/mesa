@@ -29,28 +29,28 @@
  */
 #include "imports.h"
 
-#define INTEL_DRAW_PRIVATE
-#include "draw/intel_draw.h"
+#define CLIP_PRIVATE
+#include "clip/clip_context.h"
 
-#define INTEL_PRIM_PRIVATE
-#include "draw/intel_prim.h"
+#define CLIP_PIPE_PRIVATE
+#include "clip/clip_pipe.h"
 
 
 
 struct unfilled_stage {
-   struct prim_stage stage;
+   struct clip_pipe_stage stage;
 
    GLuint mode[2];
 };
 
 
-static INLINE struct unfilled_stage *unfilled_stage( struct prim_stage *stage )
+static INLINE struct unfilled_stage *unfilled_stage( struct clip_pipe_stage *stage )
 {
    return (struct unfilled_stage *)stage;
 }
 
 
-static void unfilled_begin( struct prim_stage *stage )
+static void unfilled_begin( struct clip_pipe_stage *stage )
 {
    struct unfilled_stage *unfilled = unfilled_stage(stage);
 
@@ -60,7 +60,7 @@ static void unfilled_begin( struct prim_stage *stage )
    stage->next->begin( stage->next );
 }
 
-static void point( struct prim_stage *stage,
+static void point( struct clip_pipe_stage *stage,
 		   struct vertex_header *v0 )
 {
    struct prim_header tmp;
@@ -68,7 +68,7 @@ static void point( struct prim_stage *stage,
    stage->next->point( stage->next, &tmp );
 }
 
-static void line( struct prim_stage *stage,
+static void line( struct clip_pipe_stage *stage,
 		  struct vertex_header *v0,
 		  struct vertex_header *v1 )
 {
@@ -79,7 +79,7 @@ static void line( struct prim_stage *stage,
 }
 
 
-static void points( struct prim_stage *stage,
+static void points( struct clip_pipe_stage *stage,
 		    struct prim_header *header )
 {
    struct vertex_header *v0 = header->v[0];
@@ -91,7 +91,7 @@ static void points( struct prim_stage *stage,
    if (v2->edgeflag) point( stage, v2 );
 }
 
-static void lines( struct prim_stage *stage,
+static void lines( struct clip_pipe_stage *stage,
 		   struct prim_header *header )
 {
    struct vertex_header *v0 = header->v[0];
@@ -109,7 +109,7 @@ static void lines( struct prim_stage *stage,
  * Note edgeflags in the vertex struct is not sufficient as we will
  * need to manipulate them when decomposing primitives???
  */
-static void unfilled_tri( struct prim_stage *stage,
+static void unfilled_tri( struct clip_pipe_stage *stage,
 			  struct prim_header *header )
 {
    struct unfilled_stage *unfilled = unfilled_stage(stage);
@@ -130,30 +130,30 @@ static void unfilled_tri( struct prim_stage *stage,
    }   
 }
 
-static void unfilled_line( struct prim_stage *stage,
+static void unfilled_line( struct clip_pipe_stage *stage,
 		       struct prim_header *header )
 {
    stage->next->line( stage->next, header );
 }
 
 
-static void unfilled_point( struct prim_stage *stage,
+static void unfilled_point( struct clip_pipe_stage *stage,
 			struct prim_header *header )
 {
    stage->next->point( stage->next, header );
 }
 
 
-static void unfilled_end( struct prim_stage *stage )
+static void unfilled_end( struct clip_pipe_stage *stage )
 {
    stage->next->end( stage->next );
 }
 
-struct prim_stage *intel_prim_unfilled( struct prim_pipeline *pipe )
+struct clip_pipe_stage *clip_pipe_unfilled( struct clip_pipeline *pipe )
 {
    struct unfilled_stage *unfilled = CALLOC_STRUCT(unfilled_stage);
 
-   intel_prim_alloc_tmps( &unfilled->stage, 0 );
+   clip_pipe_alloc_tmps( &unfilled->stage, 0 );
 
    unfilled->stage.pipe = pipe;
    unfilled->stage.next = NULL;
@@ -162,7 +162,7 @@ struct prim_stage *intel_prim_unfilled( struct prim_pipeline *pipe )
    unfilled->stage.point = unfilled_point;
    unfilled->stage.line = unfilled_line;
    unfilled->stage.tri = unfilled_tri;
-   unfilled->stage.reset_tmps = intel_prim_reset_tmps;
+   unfilled->stage.reset_tmps = clip_pipe_reset_tmps;
    unfilled->stage.end = unfilled_end;
 
    return &unfilled->stage;

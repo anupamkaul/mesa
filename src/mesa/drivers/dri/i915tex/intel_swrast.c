@@ -37,7 +37,7 @@
 #include "intel_batchbuffer.h"
 #include "intel_swapbuffers.h"
 #include "intel_frame_tracker.h"
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 #include "intel_reg.h"
 #include "intel_span.h"
 #include "intel_vb.h"
@@ -45,7 +45,7 @@
 
 
 struct swrast_render {
-   struct intel_render render;
+   struct clip_render render;
    struct intel_context *intel;
 
    struct vertex_fetch *vf;
@@ -57,7 +57,7 @@ struct swrast_render {
    GLenum prim;
 };
 
-static INLINE struct swrast_render *swrast_render( struct intel_render *render )
+static INLINE struct swrast_render *swrast_render( struct clip_render *render )
 {
    return (struct swrast_render *)render;
 }
@@ -70,13 +70,13 @@ static const GLubyte *get_vertex( struct swrast_render *swrender,
 }
 
 
-static void *swrender_allocate_vertices( struct intel_render *render,
+static void *swrender_allocate_vertices( struct clip_render *render,
 					 GLuint vertex_size,
 					 GLuint nr_vertices )
 {
    struct swrast_render *swrender = swrast_render( render );
 
-   swrender->vf = intel_draw_get_hw_vf( swrender->intel->draw );
+   swrender->vf = clip_get_hw_vf( swrender->intel->clip );
    swrender->hw_vert_size = vertex_size;
    swrender->hw_verts = MALLOC( nr_vertices * swrender->hw_vert_size );
 
@@ -86,7 +86,7 @@ static void *swrender_allocate_vertices( struct intel_render *render,
 }
 
 
-static void swrender_release_vertices( struct intel_render *render, 
+static void swrender_release_vertices( struct clip_render *render, 
 				       void *hw_verts)
 {
    struct swrast_render *swrender = swrast_render( render );
@@ -213,7 +213,7 @@ static void point( struct swrast_render *swrender,
 
 
 
-static void swrender_draw_prim( struct intel_render *render,
+static void swrender_draw_prim( struct clip_render *render,
 				GLuint start,
 				GLuint nr )
 {
@@ -299,7 +299,7 @@ static void swrender_draw_prim( struct intel_render *render,
    intel_do_SpanRenderFinish( intel );
 }
 
-static void swrender_draw_indexed_prim( struct intel_render *render,
+static void swrender_draw_indexed_prim( struct clip_render *render,
 					const GLuint *indices,
 					GLuint nr )
 {
@@ -390,7 +390,7 @@ static void swrender_draw_indexed_prim( struct intel_render *render,
 
 
 
-static void swrender_set_prim( struct intel_render *render,
+static void swrender_set_prim( struct clip_render *render,
 			     GLuint prim )
 {
    struct swrast_render *swrender = swrast_render( render );
@@ -398,7 +398,7 @@ static void swrender_set_prim( struct intel_render *render,
 }
 
 
-static void swrender_start_render( struct intel_render *render,
+static void swrender_start_render( struct clip_render *render,
 				   GLboolean start_of_frame)
 {
    struct swrast_render *swrender = swrast_render( render );
@@ -416,7 +416,7 @@ static void swrender_start_render( struct intel_render *render,
    intel_batchbuffer_wait_last_fence(intel->batch);
 }
 
-static void swrender_clear_rect( struct intel_render *render,
+static void swrender_clear_rect( struct clip_render *render,
 				 GLuint mask,
 				 GLuint x1, GLuint y1, 
 				 GLuint x2, GLuint y2 )
@@ -428,21 +428,21 @@ static void swrender_clear_rect( struct intel_render *render,
 
 
 
-static void swrender_flush( struct intel_render *render,
+static void swrender_flush( struct clip_render *render,
 			    GLboolean finished_frame )
 {
    /* all done in SpanRenderFinish */
 }
 
 
-static void swrender_destroy_context( struct intel_render *render )
+static void swrender_destroy_context( struct clip_render *render )
 {
    struct swrast_render *swrender = swrast_render( render );
 
    _mesa_free(swrender);
 }
 
-struct intel_render *intel_create_swrast_render( struct intel_context *intel )
+struct clip_render *intel_create_swrast_render( struct intel_context *intel )
 {
    struct swrast_render *swrender = CALLOC_STRUCT(swrast_render);
 

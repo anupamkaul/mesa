@@ -42,7 +42,7 @@
 #include "intel_frame_tracker.h"
 #include "intel_lock.h"
 
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 #define INTEL_SWZ_PRIVATE
 #include "intel_swz.h"
@@ -51,7 +51,7 @@
 
 
 
-static void *swz_allocate_vertices( struct intel_render *render,
+static void *swz_allocate_vertices( struct clip_render *render,
 				    GLuint vertex_size,
 				    GLuint nr_vertices )
 {
@@ -85,7 +85,7 @@ static void *swz_allocate_vertices( struct intel_render *render,
    return swz->vertices;
 }
 
-static void swz_release_vertices( struct intel_render *render,
+static void swz_release_vertices( struct clip_render *render,
 				      void *vertices )
 {
    struct swz_render *swz = swz_render( render );
@@ -168,7 +168,7 @@ static void init_zones( struct swz_render *swz )
 }		       
 
 
-static void swz_start_render( struct intel_render *render,
+static void swz_start_render( struct clip_render *render,
 			      GLboolean start_of_frame )
 {
    struct swz_render *swz = swz_render( render );
@@ -286,7 +286,7 @@ static INLINE void chain_zones( struct swz_render *swz,
  * end, renderer switch and flush, which can occur for all sorts of
  * reasons.
  */
-static void swz_flush( struct intel_render *render,
+static void swz_flush( struct clip_render *render,
 		       GLboolean finished )
 {
    struct swz_render *swz = swz_render( render );
@@ -391,7 +391,7 @@ static void swz_flush( struct intel_render *render,
 
 
 
-static void swz_clear( struct intel_render *render,
+static void swz_clear( struct clip_render *render,
 		       GLuint mask,
 		       GLuint x1, GLuint y1, 
 		       GLuint x2, GLuint y2 )
@@ -438,7 +438,7 @@ static void swz_clear( struct intel_render *render,
 }
 
 
-static void swz_destroy_context( struct intel_render *render )
+static void swz_destroy_context( struct clip_render *render )
 {
    struct swz_render *swz = swz_render( render );
 
@@ -449,7 +449,7 @@ static void swz_destroy_context( struct intel_render *render )
 
 
 
-struct intel_render *intel_create_swz_render( struct intel_context *intel )
+struct clip_render *intel_create_swz_render( struct intel_context *intel )
 {
    struct swz_render *swz = CALLOC_STRUCT(swz_render);
 

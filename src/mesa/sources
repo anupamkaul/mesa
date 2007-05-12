@@ -157,6 +157,17 @@ VF_SOURCES = \
 	vf/vf_generic.c \
 	vf/vf_sse.c 
 
+CLIP_SOURCES = \
+	clip/clip_context.c \
+	clip/clip_noop.c \
+	clip/clip_pipe.c \
+	clip/clip_pipe_emit.c \
+	clip/clip_pipe_flatshade.c \
+	clip/clip_pipe_twoside.c \
+	clip/clip_pipe_offset.c \
+	clip/clip_pipe_cull.c \
+	clip/clip_pipe_clip.c \
+	clip/clip_pipe_unfilled.c 
 
 SHADER_SOURCES = \
 	shader/arbprogparse.c \
@@ -301,6 +312,7 @@ SOLO_SOURCES = \
 	$(MATH_SOURCES)		\
 	$(VBO_SOURCES)		\
 	$(VF_SOURCES)		\
+	$(CLIP_SOURCES)		\
 	$(TNL_SOURCES)		\
 	$(SHADER_SOURCES)	\
 	$(SWRAST_SOURCES)	\

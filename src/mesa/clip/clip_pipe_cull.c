@@ -29,16 +29,16 @@
  */
 #include "imports.h"
 
-#define INTEL_DRAW_PRIVATE
-#include "draw/intel_draw.h"
+#define CLIP_PRIVATE
+#include "clip/clip_context.h"
 
-#define INTEL_PRIM_PRIVATE
-#include "draw/intel_prim.h"
+#define CLIP_PIPE_PRIVATE
+#include "clip/clip_pipe.h"
 
 
 
 struct cull_stage {
-   struct prim_stage stage;
+   struct clip_pipe_stage stage;
 
    GLuint hw_data_offset;
    GLuint mode;
@@ -46,13 +46,13 @@ struct cull_stage {
 
 
 
-static INLINE struct cull_stage *cull_stage( struct prim_stage *stage )
+static INLINE struct cull_stage *cull_stage( struct clip_pipe_stage *stage )
 {
    return (struct cull_stage *)stage;
 }
 
 
-static void cull_begin( struct prim_stage *stage )
+static void cull_begin( struct clip_pipe_stage *stage )
 {
    struct cull_stage *cull = cull_stage(stage);
 
@@ -67,7 +67,7 @@ static void cull_begin( struct prim_stage *stage )
 }
 
 
-static void cull_tri( struct prim_stage *stage,
+static void cull_tri( struct clip_pipe_stage *stage,
 		      struct prim_header *header )
 {
    GLuint hw_data_offset = cull_stage(stage)->hw_data_offset;
@@ -92,29 +92,29 @@ static void cull_tri( struct prim_stage *stage,
 }
 
 
-static void cull_line( struct prim_stage *stage,
+static void cull_line( struct clip_pipe_stage *stage,
 		       struct prim_header *header )
 {
    stage->next->line( stage->next, header );
 }
 
 
-static void cull_point( struct prim_stage *stage,
+static void cull_point( struct clip_pipe_stage *stage,
 			struct prim_header *header )
 {
    stage->next->point( stage->next, header );
 }
 
-static void cull_end( struct prim_stage *stage )
+static void cull_end( struct clip_pipe_stage *stage )
 {
    stage->next->end( stage->next );
 }
 
-struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe )
+struct clip_pipe_stage *clip_pipe_cull( struct clip_pipeline *pipe )
 {
    struct cull_stage *cull = CALLOC_STRUCT(cull_stage);
 
-   intel_prim_alloc_tmps( &cull->stage, 0 );
+   clip_pipe_alloc_tmps( &cull->stage, 0 );
 
    cull->stage.pipe = pipe;
    cull->stage.next = NULL;
@@ -122,7 +122,7 @@ struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe )
    cull->stage.point = cull_point;
    cull->stage.line = cull_line;
    cull->stage.tri = cull_tri;
-   cull->stage.reset_tmps = intel_prim_reset_tmps;
+   cull->stage.reset_tmps = clip_pipe_reset_tmps;
    cull->stage.end = cull_end;
 
    return &cull->stage;

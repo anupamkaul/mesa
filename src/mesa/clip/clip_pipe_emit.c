@@ -29,11 +29,11 @@
  */
 #include "imports.h"
 
-#define INTEL_DRAW_PRIVATE
-#include "draw/intel_draw.h"
+#define CLIP_PRIVATE
+#include "clip/clip_context.h"
 
-#define INTEL_PRIM_PRIVATE
-#include "draw/intel_prim.h"
+#define CLIP_PIPE_PRIVATE
+#include "clip/clip_pipe.h"
 
 /* Don't want these too large as there is no mechanism to "give back"
  * unused space.  FIXME.
@@ -42,7 +42,7 @@
 #define EMIT_MAX_VERTS 256
 
 struct emit_stage {
-   struct prim_stage stage;
+   struct clip_pipe_stage stage;
 
    struct {
       GLubyte *buf;
@@ -56,14 +56,14 @@ struct emit_stage {
       GLuint space;
    } elts;
          
-   struct intel_render *hw;
+   struct clip_render *hw;
    GLuint hw_vertex_size;
    GLuint hw_data_offset;
    GLuint hw_prim;
 };
    
 
-static INLINE struct emit_stage *emit_stage( struct prim_stage *stage )
+static INLINE struct emit_stage *emit_stage( struct clip_pipe_stage *stage )
 {
    return (struct emit_stage *)stage;
 }
@@ -72,7 +72,7 @@ static INLINE struct emit_stage *emit_stage( struct prim_stage *stage )
 static void set_primitive( struct emit_stage *emit,
 			   GLenum primitive )
 {
-   struct intel_render *hw = emit->hw;
+   struct clip_render *hw = emit->hw;
 
    if (emit->elts.count) {
       hw->draw_indexed_prim( hw, emit->elts.elts, emit->elts.count );
@@ -88,7 +88,7 @@ static void set_primitive( struct emit_stage *emit,
 static void flush( struct emit_stage *emit, 
 		   GLboolean allocate_new_vertices )
 {
-   struct intel_render *hw = emit->hw;
+   struct clip_render *hw = emit->hw;
    GLboolean flush_hw = (emit->verts.buf != NULL);
    
    if (flush_hw) {
@@ -120,7 +120,7 @@ static void flush( struct emit_stage *emit,
    }
 
    if (flush_hw && allocate_new_vertices)
-      intel_prim_reset_vertex_indices( emit->stage.pipe );
+      clip_pipe_reset_vertex_indices( emit->stage.pipe );
 }
 
 /* Check for sufficient vertex and index space.  Return pointer to
@@ -175,7 +175,7 @@ static GLuint emit_vert( struct emit_stage *emit,
 }
 
 
-static void emit_begin( struct prim_stage *stage )
+static void emit_begin( struct clip_pipe_stage *stage )
 {
    struct emit_stage *emit = emit_stage( stage );
 
@@ -197,7 +197,7 @@ static void emit_begin( struct prim_stage *stage )
 
 
 
-static void emit_tri( struct prim_stage *stage,
+static void emit_tri( struct clip_pipe_stage *stage,
 		      struct prim_header *header )
 {
    struct emit_stage *emit = emit_stage( stage );
@@ -209,7 +209,7 @@ static void emit_tri( struct prim_stage *stage,
 }
 
 
-static void emit_line( struct prim_stage *stage,
+static void emit_line( struct clip_pipe_stage *stage,
 		       struct prim_header *header )
 {
    struct emit_stage *emit = emit_stage( stage );
@@ -220,7 +220,7 @@ static void emit_line( struct prim_stage *stage,
 }
 
 
-static void emit_point( struct prim_stage *stage,
+static void emit_point( struct clip_pipe_stage *stage,
 			struct prim_header *header )
 {
    struct emit_stage *emit = emit_stage( stage );
@@ -229,11 +229,11 @@ static void emit_point( struct prim_stage *stage,
    elts[0] = emit_vert( emit, header->v[0] );
 }
 
-static void emit_reset_tmps( struct prim_stage *stage )
+static void emit_reset_tmps( struct clip_pipe_stage *stage )
 {
 }
 
-static void emit_end( struct prim_stage *stage )
+static void emit_end( struct clip_pipe_stage *stage )
 {
    struct emit_stage *emit = emit_stage( stage );
 
@@ -241,11 +241,11 @@ static void emit_end( struct prim_stage *stage )
    emit->hw = NULL;
 }
 
-struct prim_stage *intel_prim_emit( struct prim_pipeline *pipe )
+struct clip_pipe_stage *clip_pipe_emit( struct clip_pipeline *pipe )
 {
    struct emit_stage *emit = CALLOC_STRUCT(emit_stage);
 
-   intel_prim_alloc_tmps( &emit->stage, 0 );
+   clip_pipe_alloc_tmps( &emit->stage, 0 );
 
    emit->stage.pipe = pipe;
    emit->stage.next = NULL;

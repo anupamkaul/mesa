@@ -32,7 +32,7 @@
  
 
 #include "intel_context.h"
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 static GLuint translate_fill( GLenum mode )
 {
@@ -56,9 +56,9 @@ static GLboolean get_offset_flag( GLuint fill_mode,
 }
 
 
-static void update_draw_state( struct intel_context *intel )
+static void update_clip_state( struct intel_context *intel )
 {
-   struct intel_draw_state state;
+   struct intel_clip_state state;
 
    memset(&state, 0, sizeof(state));
    
@@ -158,25 +158,25 @@ static void update_draw_state( struct intel_context *intel )
    }
       
 
-   if (memcmp(&state, &intel->draw_state, sizeof(state)) != 0) {
-      intel_draw_set_state( intel->draw, &state );
-      memcpy( &intel->draw_state, &state, sizeof(state));
+   if (memcmp(&state, &intel->clip_state, sizeof(state)) != 0) {
+      intel_draw_set_state( intel->clip, &state );
+      memcpy( &intel->clip_state, &state, sizeof(state));
    }
 }
 
-const struct intel_tracked_state intel_update_draw_state = {
+const struct intel_tracked_state intel_update_clip_state = {
    .dirty = {
       .mesa = (_NEW_LIGHT | _NEW_POLYGON | _NEW_BUFFERS),
       .intel  = 0,
       .extra = 0
    },
-   .update = update_draw_state
+   .update = update_clip_state
 };
 
 
 /* Second state atom for user clip planes:
  */
-static void update_draw_userclip( struct intel_context *intel )
+static void update_clip_userclip( struct intel_context *intel )
 {
    GLuint nr = 0;
    GLfloat plane[6][4];
@@ -190,17 +190,17 @@ static void update_draw_userclip( struct intel_context *intel )
       }
    }
       
-   intel_draw_set_userclip(intel->draw, plane, nr);
+   intel_draw_set_userclip(intel->clip, plane, nr);
 }
 
 
-const struct intel_tracked_state intel_update_draw_userclip = {
+const struct intel_tracked_state intel_update_clip_userclip = {
    .dirty = {
       .mesa = (_NEW_TRANSFORM),
       .intel  = 0,
       .extra = 0
    },
-   .update = update_draw_userclip
+   .update = update_clip_userclip
 };
 
 

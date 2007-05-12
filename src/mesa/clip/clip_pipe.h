@@ -28,33 +28,33 @@
 /* Authors:  Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#ifndef INTEL_PRIM_H
-#define INTEL_PRIM_H
+#ifndef CLIP_PIPE_H
+#define CLIP_PIPE_H
 
 #include "glheader.h"
 
 /* The prim pipeline probably needs to know about the internals of the
- * intel_draw struct.  Need to figure that out shortly.
+ * clip_context struct.  Need to figure that out shortly.
  */
 
-struct intel_draw;
-struct intel_draw_state;
-struct intel_draw_vb_state;
-struct intel_render;
-struct prim_pipeline;
+struct clip;
+struct clip_state;
+struct clip_vb_state;
+struct clip_render;
+struct clip_pipeline;
 
-struct intel_render *intel_create_prim_render( struct intel_draw *draw );
+struct clip_render *clip_create_prim_render( struct clip_context *draw );
 
-GLboolean intel_prim_validate_state( struct intel_render *render );
+GLboolean clip_pipe_validate_state( struct clip_render *render );
 
-void intel_prim_set_hw_render( struct intel_render *render,
-			       struct intel_render *hw );
+void clip_pipe_set_hw_render( struct clip_render *render,
+			       struct clip_render *hw );
 
-void intel_prim_set_vb_state( struct intel_render *render,
-			      struct intel_draw_vb_state *state );
+void clip_pipe_set_vb_state( struct clip_render *render,
+			      struct clip_vb_state *state );
 
-void intel_prim_set_draw_state( struct intel_render *render,
-				struct intel_draw_state *state );
+void clip_pipe_set_clip_state( struct clip_render *render,
+				struct clip_state *state );
 
 
 
@@ -72,25 +72,25 @@ struct vertex_header {
 
 
 /***********************************************************************
- * Private structs and data for the intel_prim* files.
+ * Private structs and data for the clip_pipe* files.
  */
-#ifdef INTEL_PRIM_PRIVATE
+#ifdef CLIP_PIPE_PRIVATE
 
-struct prim_stage;
+struct clip_pipe_stage;
 
-struct prim_pipeline {
-   struct intel_render render;
-   struct intel_draw *draw;
+struct clip_pipeline {
+   struct clip_render render;
+   struct clip_context *draw;
 
-   struct prim_stage *emit;
-   struct prim_stage *unfilled;
-   struct prim_stage *twoside;
-   struct prim_stage *clip;
-   struct prim_stage *flatshade;
-   struct prim_stage *offset;
-   struct prim_stage *cull;
+   struct clip_pipe_stage *emit;
+   struct clip_pipe_stage *unfilled;
+   struct clip_pipe_stage *twoside;
+   struct clip_pipe_stage *clip;
+   struct clip_pipe_stage *flatshade;
+   struct clip_pipe_stage *offset;
+   struct clip_pipe_stage *cull;
 
-   struct prim_stage *first;
+   struct clip_pipe_stage *first;
 
    GLubyte *verts;
    GLuint nr_vertices;
@@ -114,54 +114,54 @@ struct prim_header {
 
 /* Internal structs and helpers for the primitive clip/setup pipeline:
  */
-struct prim_stage {
-   struct prim_pipeline *pipe;
-   struct prim_stage *next;
+struct clip_pipe_stage {
+   struct clip_pipeline *pipe;
+   struct clip_pipe_stage *next;
    struct vertex_header **tmp;
    GLuint nr_tmps;
 
-   void (*begin)( struct prim_stage * );
+   void (*begin)( struct clip_pipe_stage * );
 
-   void (*point)( struct prim_stage *,
+   void (*point)( struct clip_pipe_stage *,
 		  struct prim_header * );
 
-   void (*line)( struct prim_stage *,
+   void (*line)( struct clip_pipe_stage *,
 		 struct prim_header * );
 
-   void (*tri)( struct prim_stage *,
+   void (*tri)( struct clip_pipe_stage *,
 		struct prim_header * );
    
    /* Can occur at any time, even within a call to tri() or end().
     */
-   void (*reset_tmps)( struct prim_stage * );
+   void (*reset_tmps)( struct clip_pipe_stage * );
 
-   void (*end)( struct prim_stage * );
+   void (*end)( struct clip_pipe_stage * );
 };
 
 
-struct prim_stage *intel_prim_emit( struct prim_pipeline *pipe );
-struct prim_stage *intel_prim_unfilled( struct prim_pipeline *pipe );
-struct prim_stage *intel_prim_twoside( struct prim_pipeline *pipe );
-struct prim_stage *intel_prim_offset( struct prim_pipeline *pipe );
-struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe );
-struct prim_stage *intel_prim_flatshade( struct prim_pipeline *pipe );
-struct prim_stage *intel_prim_cull( struct prim_pipeline *pipe );
+struct clip_pipe_stage *clip_pipe_emit( struct clip_pipeline *pipe );
+struct clip_pipe_stage *clip_pipe_unfilled( struct clip_pipeline *pipe );
+struct clip_pipe_stage *clip_pipe_twoside( struct clip_pipeline *pipe );
+struct clip_pipe_stage *clip_pipe_offset( struct clip_pipeline *pipe );
+struct clip_pipe_stage *clip_pipe_clip( struct clip_pipeline *pipe );
+struct clip_pipe_stage *clip_pipe_flatshade( struct clip_pipeline *pipe );
+struct clip_pipe_stage *clip_pipe_cull( struct clip_pipeline *pipe );
 
 
-void intel_prim_alloc_tmps( struct prim_stage *stage, GLuint nr );
-void intel_prim_free_tmps( struct prim_stage *stage );
-void intel_prim_reset_tmps( struct prim_stage *stage );
+void clip_pipe_alloc_tmps( struct clip_pipe_stage *stage, GLuint nr );
+void clip_pipe_free_tmps( struct clip_pipe_stage *stage );
+void clip_pipe_reset_tmps( struct clip_pipe_stage *stage );
 
 /* Reset vertex indices for the incoming vertices and all temporary
  * vertices within the pipeline.
  */
-void intel_prim_reset_vertex_indices( struct prim_pipeline *pipe );
+void clip_pipe_reset_vertex_indices( struct clip_pipeline *pipe );
 
 
 /* Get a writeable copy of a vertex:
  */
 static INLINE struct vertex_header *
-dup_vert( struct prim_stage *stage,
+dup_vert( struct clip_pipe_stage *stage,
 	  const struct vertex_header *vert,
 	  GLuint idx )
 {   

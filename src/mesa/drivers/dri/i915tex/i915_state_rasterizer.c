@@ -35,7 +35,7 @@
 #include "intel_frame_tracker.h"
 #include "intel_fbo.h"
 
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 #include "i915_context.h"
 
@@ -73,17 +73,17 @@ static GLboolean check_swz( struct intel_context *intel )
 
 static void choose_rasterizer( struct intel_context *intel )
 {
-   struct intel_render *render = NULL;
+   struct clip_render *render = NULL;
 
    if (intel->Fallback) {
       /* INTEL_NEW_FALLBACK
        */
       render = intel->swrender;
    }
-   else if (intel->vb_state.active_prims & intel->fallback_prims) {
+   else if (intel->clip_vb_state.active_prims & intel->fallback_prims) {
       /* INTEL_NEW_VB_STATE, INTEL_NEW_FALLBACK_PRIMS
        */
-      if (0 & intel->vb_state.active_prims & ~intel->fallback_prims) {
+      if (0 & intel->clip_vb_state.active_prims & ~intel->fallback_prims) {
 	 /* classic + swrast - not done yet */
 	 render = intel->mixed; 
       }
@@ -102,7 +102,7 @@ static void choose_rasterizer( struct intel_context *intel )
    }
 
    if (render != intel->render) {
-      intel_draw_set_render( intel->draw, render );
+      clip_set_render( intel->clip, render );
       intel->render = render;
    }
 }

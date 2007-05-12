@@ -31,26 +31,28 @@
 #include "imports.h"
 #include "macros.h"
 
-#define INTEL_DRAW_PRIVATE
-#include "draw/intel_draw.h"
+#define CLIP_PRIVATE
+#include "clip/clip_context.h"
 
-#define INTEL_PRIM_PRIVATE
-#include "draw/intel_prim.h"
+#define CLIP_PIPE_PRIVATE
+#include "clip/clip_pipe.h"
 
 #define VF_PRIVATE
 #include "vf/vf.h"
 
-struct clip_stage {
-   struct prim_stage stage;
+struct clipper {
+   struct clip_pipe_stage stage;
    struct vertex_fetch *vf;
 
    GLuint active_user_planes;
    GLfloat (*plane)[4];
 };
 
-static INLINE struct clip_stage *clip_stage( struct prim_stage *stage )
+/* This is a bit confusing:
+ */
+static INLINE struct clipper *clipper_stage( struct clip_pipe_stage *stage )
 {
-   return (struct clip_stage *)stage;
+   return (struct clipper *)stage;
 }
 
 
@@ -119,13 +121,13 @@ static void interp( struct vertex_fetch *vf,
    /* Do the projective divide and insert window coordinates:
     */
    {
-      const GLfloat *clip = (const GLfloat *)&vdst[4];
+      const GLfloat *pos = (const GLfloat *)&vdst[4];
       GLfloat ndc[4];
 
-      ndc[3] = 1.0 / clip[3];
-      ndc[0] = clip[0] * ndc[3];
-      ndc[1] = clip[1] * ndc[3];
-      ndc[2] = clip[2] * ndc[3];
+      ndc[3] = 1.0 / pos[3];
+      ndc[0] = pos[0] * ndc[3];
+      ndc[1] = pos[1] * ndc[3];
+      ndc[2] = pos[2] * ndc[3];
 
       /* vf module handles the viewport application.  XXX fix this
        * - vf should take (only) clip coordinates, and do the
@@ -160,7 +162,7 @@ static INLINE GLfloat dot4( const GLfloat *a,
 
 
 #if 0   
-static INLINE void do_tri( struct prim_stage *next,
+static INLINE void do_tri( struct clip_pipe_stage *next,
 			   struct prim_header *header )
 {
    GLuint i;
@@ -176,7 +178,7 @@ static INLINE void do_tri( struct prim_stage *next,
 #endif
 
 
-static void emit_poly( struct prim_stage *stage,
+static void emit_poly( struct clip_pipe_stage *stage,
 		       struct vertex_header **inlist,
 		       GLuint n )
 {
@@ -205,7 +207,7 @@ static void emit_poly( struct prim_stage *stage,
 
 
 #if 0
-static void emit_poly( struct prim_stage *stage )
+static void emit_poly( struct clip_pipe_stage *stage )
 {
    GLuint i;
 
@@ -223,11 +225,11 @@ static void emit_poly( struct prim_stage *stage )
 /* Clip a triangle against the viewport and user clip planes.
  */
 static void
-do_clip_tri( struct prim_stage *stage, 
+do_clip_tri( struct clip_pipe_stage *stage, 
 	     struct prim_header *header,
 	     GLuint clipmask )
 {
-   struct clip_stage *clip = clip_stage( stage );
+   struct clipper *clipper = clipper_stage( stage );
    struct vertex_header *a[MAX_CLIPPED_VERTICES];
    struct vertex_header *b[MAX_CLIPPED_VERTICES];
    struct vertex_header **inlist = a;
@@ -246,12 +248,12 @@ do_clip_tri( struct prim_stage *stage,
    clipmask &= ~CLIP_CULL_BIT;
    if (clipmask & CLIP_USER_BIT) {
       clipmask &= ~CLIP_USER_BIT;
-      clipmask |= clip->active_user_planes;
+      clipmask |= clipper->active_user_planes;
    }
 
    while (clipmask && n >= 3) {
       GLuint plane_idx = ffs(clipmask)-1;
-      const GLfloat *plane = clip->plane[plane_idx];
+      const GLfloat *plane = clipper->plane[plane_idx];
       struct vertex_header *vert_prev = inlist[0];
       GLfloat dp_prev = dot4( (GLfloat *)vert_prev->data, plane );
       GLuint outcount = 0;
@@ -270,7 +272,7 @@ do_clip_tri( struct prim_stage *stage,
 	 }
 
 	 if (DIFFERENT_SIGNS(dp, dp_prev)) {
-	    struct vertex_header *new_vert = clip->stage.tmp[tmpnr++];
+	    struct vertex_header *new_vert = clipper->stage.tmp[tmpnr++];
 	    outlist[outcount++] = new_vert;
 
 	    if (IS_NEGATIVE(dp)) {
@@ -278,7 +280,7 @@ do_clip_tri( struct prim_stage *stage,
 		* know dp != dp_prev from DIFFERENT_SIGNS, above.
 		*/
 	       GLfloat t = dp / (dp - dp_prev);
-	       interp( clip->vf, new_vert, t, vert, vert_prev );
+	       interp( clipper->vf, new_vert, t, vert, vert_prev );
 	       
 	       /* Force edgeflag true in this case:
 		*/
@@ -287,7 +289,7 @@ do_clip_tri( struct prim_stage *stage,
 	       /* Coming back in.
 		*/
 	       GLfloat t = dp_prev / (dp_prev - dp);
-	       interp( clip->vf, new_vert, t, vert_prev, vert );
+	       interp( clipper->vf, new_vert, t, vert_prev, vert );
 
 	       /* Copy starting vert's edgeflag:
 		*/
@@ -317,11 +319,11 @@ do_clip_tri( struct prim_stage *stage,
 /* Clip a line against the viewport and user clip planes.
  */
 static void
-do_clip_line( struct prim_stage *stage,
+do_clip_line( struct clip_pipe_stage *stage,
 	      struct prim_header *header,
 	      GLuint clipmask )
 {
-   struct clip_stage *clip = clip_stage( stage );
+   struct clipper *clipper = clipper_stage( stage );
    struct vertex_header *v0 = header->v[0];
    struct vertex_header *v1 = header->v[1];
    const GLfloat *pos0 = (const GLfloat *)(v0->data);
@@ -335,12 +337,12 @@ do_clip_line( struct prim_stage *stage,
    clipmask &= ~CLIP_CULL_BIT;
    if (clipmask & CLIP_USER_BIT) {
       clipmask &= ~CLIP_USER_BIT;
-      clipmask |= clip->active_user_planes;
+      clipmask |= clipper->active_user_planes;
    }
 
    while (clipmask) {
       GLuint plane_idx = ffs(clipmask)-1;
-      const GLfloat *plane = clip->plane[plane_idx];
+      const GLfloat *plane = clipper->plane[plane_idx];
 
       clipmask &= ~(1<<plane_idx);
 
@@ -362,12 +364,12 @@ do_clip_line( struct prim_stage *stage,
    }
 
    if (v0->clipmask) {
-      interp( clip->vf, stage->tmp[0], t0, v0, v1 );
+      interp( clipper->vf, stage->tmp[0], t0, v0, v1 );
       header->v[0] = stage->tmp[0];
    }
 
    if (v1->clipmask) {
-      interp( clip->vf, stage->tmp[1], t1, v1, v0 );
+      interp( clipper->vf, stage->tmp[1], t1, v1, v0 );
       header->v[1] = stage->tmp[1];
    }
 
@@ -376,22 +378,22 @@ do_clip_line( struct prim_stage *stage,
 
 
 
-static void clip_begin( struct prim_stage *stage )
+static void clip_begin( struct clip_pipe_stage *stage )
 {
-   struct clip_stage *clip = clip_stage(stage);
+   struct clipper *clipper = clipper_stage(stage);
    GLuint nr = stage->pipe->draw->nr_planes;
 
-   clip->vf = stage->pipe->draw->vb.vf;
+   clipper->vf = stage->pipe->draw->vb.vf;
    
    /* Hacky bitmask to use when we hit CLIP_USER_BIT:
     */   
-   clip->active_user_planes = ((1<<nr)-1) & ~((1<<6)-1);
+   clipper->active_user_planes = ((1<<nr)-1) & ~((1<<6)-1);
 
    stage->next->begin( stage->next );
 }
      
 static void
-clip_point( struct prim_stage *stage, 
+clip_point( struct clip_pipe_stage *stage, 
 	    struct prim_header *header )
 {
    if (header->v[0]->clipmask == 0) 
@@ -400,7 +402,7 @@ clip_point( struct prim_stage *stage,
 
 
 static void
-clip_line( struct prim_stage *stage,
+clip_line( struct clip_pipe_stage *stage,
 	   struct prim_header *header )
 {
    GLuint clipmask = (header->v[0]->clipmask | 
@@ -417,7 +419,7 @@ clip_line( struct prim_stage *stage,
 
 
 static void
-clip_tri( struct prim_stage *stage,
+clip_tri( struct clip_pipe_stage *stage,
 	  struct prim_header *header )
 {
    GLuint clipmask = (header->v[0]->clipmask | 
@@ -434,30 +436,30 @@ clip_tri( struct prim_stage *stage,
    }
 }
 
-static void clip_end( struct prim_stage *stage )
+static void clip_end( struct clip_pipe_stage *stage )
 {
-   struct clip_stage *clip = clip_stage(stage);
+   struct clipper *clipper = clipper_stage(stage);
 
-   clip->vf = NULL;
+   clipper->vf = NULL;
    stage->next->end( stage->next );
 }
 
 
-struct prim_stage *intel_prim_clip( struct prim_pipeline *pipe )
+struct clip_pipe_stage *clip_pipe_clip( struct clip_pipeline *pipe )
 {
-   struct clip_stage *clip = CALLOC_STRUCT(clip_stage);
+   struct clipper *clipper = CALLOC_STRUCT(clipper);
 
-   intel_prim_alloc_tmps( &clip->stage, MAX_CLIPPED_VERTICES );
+   clip_pipe_alloc_tmps( &clipper->stage, MAX_CLIPPED_VERTICES );
 
-   clip->stage.pipe = pipe;
-   clip->stage.begin = clip_begin;
-   clip->stage.point = clip_point;
-   clip->stage.line = clip_line;
-   clip->stage.tri = clip_tri;
-   clip->stage.reset_tmps = intel_prim_reset_tmps;
-   clip->stage.end = clip_end;
+   clipper->stage.pipe = pipe;
+   clipper->stage.begin = clip_begin;
+   clipper->stage.point = clip_point;
+   clipper->stage.line = clip_line;
+   clipper->stage.tri = clip_tri;
+   clipper->stage.reset_tmps = clip_pipe_reset_tmps;
+   clipper->stage.end = clip_end;
 
-   clip->plane = pipe->draw->plane;
+   clipper->plane = pipe->draw->plane;
 
-   return &clip->stage;
+   return &clipper->stage;
 }

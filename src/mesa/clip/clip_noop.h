@@ -25,15 +25,15 @@
  * 
  **************************************************************************/
 
-#ifndef INTEL_QUADS_H
-#define INTEL_QUADS_H
+#ifndef CLIP_NOOP_H
+#define CLIP_NOOP_H
 
-struct intel_render;
-struct intel_draw;
+struct clip_render;
+struct clip_context;
 
-struct intel_render *intel_create_quads_render( struct intel_draw *draw );
+struct clip_render *clip_create_noop_render( struct clip_context *draw );
 
-void intel_quads_set_hw_render( struct intel_render *quads_render,
-				struct intel_render *hw );
+void clip_noop_set_hw_render( struct clip_render *noop_render,
+				struct clip_render *hw );
 
 #endif

@@ -29,15 +29,15 @@
  */
 #include "imports.h"
 
-#define INTEL_DRAW_PRIVATE
-#include "draw/intel_draw.h"
+#define CLIP_PRIVATE
+#include "clip/clip_context.h"
 
-#define INTEL_PRIM_PRIVATE
-#include "draw/intel_prim.h"
+#define CLIP_PIPE_PRIVATE
+#include "clip/clip_pipe.h"
 
 
 struct twoside_stage {
-   struct prim_stage stage;
+   struct clip_pipe_stage stage;
    
    GLfloat facing;
 
@@ -45,13 +45,13 @@ struct twoside_stage {
 };
 
 
-static INLINE struct twoside_stage *twoside_stage( struct prim_stage *stage )
+static INLINE struct twoside_stage *twoside_stage( struct clip_pipe_stage *stage )
 {
    return (struct twoside_stage *)stage;
 }
 
 
-static void twoside_begin( struct prim_stage *stage )
+static void twoside_begin( struct clip_pipe_stage *stage )
 {
    struct twoside_stage *twoside = twoside_stage(stage);
 
@@ -98,7 +98,7 @@ static struct vertex_header *copy_bfc( struct twoside_stage *twoside,
 
 /* Twoside tri:
  */
-static void twoside_tri( struct prim_stage *stage,
+static void twoside_tri( struct clip_pipe_stage *stage,
 			 struct prim_header *header )
 {
    struct twoside_stage *twoside = twoside_stage(stage);
@@ -119,31 +119,31 @@ static void twoside_tri( struct prim_stage *stage,
 }
 
 
-static void twoside_line( struct prim_stage *stage,
+static void twoside_line( struct clip_pipe_stage *stage,
 		       struct prim_header *header )
 {
    stage->next->line( stage->next, header );
 }
 
 
-static void twoside_point( struct prim_stage *stage,
+static void twoside_point( struct clip_pipe_stage *stage,
 			struct prim_header *header )
 {
    stage->next->point( stage->next, header );
 }
 
-static void twoside_end( struct prim_stage *stage )
+static void twoside_end( struct clip_pipe_stage *stage )
 {
    stage->next->end( stage->next );
 }
 
 
 
-struct prim_stage *intel_prim_twoside( struct prim_pipeline *pipe )
+struct clip_pipe_stage *clip_pipe_twoside( struct clip_pipeline *pipe )
 {
    struct twoside_stage *twoside = CALLOC_STRUCT(twoside_stage);
 
-   intel_prim_alloc_tmps( &twoside->stage, 3 );
+   clip_pipe_alloc_tmps( &twoside->stage, 3 );
 
    twoside->stage.pipe = pipe;
    twoside->stage.next = NULL;
@@ -151,7 +151,7 @@ struct prim_stage *intel_prim_twoside( struct prim_pipeline *pipe )
    twoside->stage.point = twoside_point;
    twoside->stage.line = twoside_line;
    twoside->stage.tri = twoside_tri;
-   twoside->stage.reset_tmps = intel_prim_reset_tmps;
+   twoside->stage.reset_tmps = clip_pipe_reset_tmps;
    twoside->stage.end = twoside_end;
 
    return &twoside->stage;

@@ -32,37 +32,37 @@
 
 #include "imports.h"      
 #include "macros.h"      
-#include "draw/intel_draw_quads.h"
-#include "draw/intel_draw.h"
+#include "clip/clip_noop.h"
+#include "clip/clip_context.h"
 
 
-struct quads_render {
-   struct intel_render render;
-   struct intel_render *hw;
+struct noop_render {
+   struct clip_render render;
+   struct clip_render *hw;
    GLenum gl_prim;
 };
 
-static INLINE struct quads_render *quads_render( struct intel_render *render )
+static INLINE struct noop_render *noop_render( struct clip_render *render )
 {
-   return (struct quads_render *)render;
+   return (struct noop_render *)render;
 }
 
 
 
-static void *quads_allocate_vertices( struct intel_render *render,
+static void *noop_allocate_vertices( struct clip_render *render,
 				      GLuint vertex_size,
 				      GLuint nr_vertices )
 {
-   struct quads_render *quads = quads_render( render );
+   struct noop_render *quads = noop_render( render );
    return quads->hw->allocate_vertices( quads->hw, vertex_size, nr_vertices );
 }
 
 
 
-static void quads_set_prim( struct intel_render *render,
+static void noop_set_prim( struct clip_render *render,
 			      GLenum mode )
 {
-   struct quads_render *quads = quads_render( render );
+   struct noop_render *quads = noop_render( render );
 
 //   _mesa_printf("%s: %d\n", __FUNCTION__, mode);
 
@@ -132,11 +132,11 @@ static GLuint split_prim_inplace(GLenum mode, GLuint *first, GLuint *incr)
 }
 
 
-static void quads_draw_indexed_prim( struct intel_render *render,
+static void noop_draw_indexed_prim( struct clip_render *render,
 				     const GLuint *indices,
 				     GLuint length )
 {
-   struct quads_render *quads = quads_render( render );
+   struct noop_render *quads = noop_render( render );
 
    switch (quads->gl_prim) {
    case GL_LINE_LOOP: {
@@ -208,11 +208,11 @@ static GLuint trim( GLuint count, GLuint first, GLuint incr )
 
 
 
-static void quads_split_indexed_prim( struct intel_render *render,
+static void noop_split_indexed_prim( struct clip_render *render,
 				      const GLuint *indices,
 				      GLuint count )
 {
-   struct quads_render *quads = quads_render( render );
+   struct noop_render *quads = noop_render( render );
    GLuint first, incr;
    GLuint fan_verts;
 
@@ -221,7 +221,7 @@ static void quads_split_indexed_prim( struct intel_render *render,
 
    if (count < quads->hw->limits.max_indices) 
    {
-      quads_draw_indexed_prim( render, indices, count );
+      noop_draw_indexed_prim( render, indices, count );
    }
    else 
    {
@@ -246,12 +246,12 @@ static void quads_split_indexed_prim( struct intel_render *render,
 	    for (i = 0 ; i < step ; i++)
 	       tmp[i+fan_verts] = indices[start+i];
 
-	    quads_draw_indexed_prim( render, tmp, fan_verts + step );
+	    noop_draw_indexed_prim( render, tmp, fan_verts + step );
 
 	    free(tmp);
 	 }
 	 else {
-	    quads_draw_indexed_prim( render, indices + start, step );
+	    noop_draw_indexed_prim( render, indices + start, step );
 	 }
 
 	 start += step;
@@ -266,11 +266,11 @@ static void quads_split_indexed_prim( struct intel_render *render,
 
 
 
-static void quads_draw_prim( struct intel_render *render,
+static void noop_draw_prim( struct clip_render *render,
 			     GLuint start,
 			     GLuint length )
 {
-   struct quads_render *quads = quads_render( render );
+   struct noop_render *quads = noop_render( render );
 
 //   _mesa_printf("%s (%s) %d/%d\n", __FUNCTION__, 
 //		_mesa_lookup_enum_by_nr(quads->gl_prim),
@@ -339,33 +339,33 @@ static void quads_draw_prim( struct intel_render *render,
 }
 
 
-static void quads_release_vertices( struct intel_render *render, 
+static void noop_release_vertices( struct clip_render *render, 
 				    void *hw_verts)
 {
-   struct quads_render *quads = quads_render( render );
+   struct noop_render *quads = noop_render( render );
    quads->hw->release_vertices( quads->hw, hw_verts );
 }
 
 
-static void quads_destroy_context( struct intel_render *render )
+static void noop_destroy_context( struct clip_render *render )
 {
-   struct quads_render *quads = quads_render( render );
+   struct noop_render *quads = noop_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
 
    _mesa_free(quads);
 }
 
-struct intel_render *intel_create_quads_render( struct intel_draw *draw )
+struct clip_render *clip_create_noop_render( struct clip_context *draw )
 {
-   struct quads_render *quads = CALLOC_STRUCT(quads_render);
+   struct noop_render *quads = CALLOC_STRUCT(noop_render);
 
-   quads->render.destroy = quads_destroy_context;
+   quads->render.destroy = noop_destroy_context;
    quads->render.start_render = NULL;
-   quads->render.allocate_vertices = quads_allocate_vertices;
-   quads->render.set_prim = quads_set_prim;
-   quads->render.draw_prim = quads_draw_prim;
-   quads->render.draw_indexed_prim = quads_split_indexed_prim;
-   quads->render.release_vertices = quads_release_vertices;
+   quads->render.allocate_vertices = noop_allocate_vertices;
+   quads->render.set_prim = noop_set_prim;
+   quads->render.draw_prim = noop_draw_prim;
+   quads->render.draw_indexed_prim = noop_split_indexed_prim;
+   quads->render.release_vertices = noop_release_vertices;
    quads->render.flush = NULL;
    quads->gl_prim = GL_POINTS;
    return &quads->render;
@@ -374,9 +374,9 @@ struct intel_render *intel_create_quads_render( struct intel_draw *draw )
 /* Or, could just peer into the draw struct and update these values on
  * allocate vertices.
  */
-void intel_quads_set_hw_render( struct intel_render *render,
-				struct intel_render *hw )
+void clip_noop_set_hw_render( struct clip_render *render,
+				struct clip_render *hw )
 {
-   struct quads_render *quads = quads_render( render );
+   struct noop_render *quads = noop_render( render );
    quads->hw = hw;
 }

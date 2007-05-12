@@ -42,13 +42,13 @@
 #include "intel_state_inlines.h"
 #include "intel_frame_tracker.h"
 #include "intel_utils.h"
-#include "draw/intel_draw.h"
+#include "clip/clip_context.h"
 
 #include "i915_context.h"
 #include "i915_state.h"
 
 struct hwz_render {
-   struct intel_render render;
+   struct clip_render render;
    struct intel_context *intel;
    GLuint hw_prim;
    GLuint offset;
@@ -57,13 +57,13 @@ struct hwz_render {
    GLboolean start_of_frame;
 };
 
-static INLINE struct hwz_render *hwz_render( struct intel_render *render )
+static INLINE struct hwz_render *hwz_render( struct clip_render *render )
 {
    return (struct hwz_render *)render;
 }
 
 
-static void *hwz_allocate_vertices( struct intel_render *render,
+static void *hwz_allocate_vertices( struct clip_render *render,
 					GLuint vertex_size,
 					GLuint nr_vertices )
 {
@@ -87,7 +87,7 @@ static void *hwz_allocate_vertices( struct intel_render *render,
    return ptr;
 }
 
-static void hwz_release_vertices( struct intel_render *render,
+static void hwz_release_vertices( struct clip_render *render,
 				      void *vertices )
 {
    /* Nothing to do.   
@@ -148,7 +148,7 @@ static GLuint *hwz_emit_hardware_state( struct hwz_render *hwz,
 }
 
 
-static void hwz_draw_indexed_prim( struct intel_render *render,
+static void hwz_draw_indexed_prim( struct clip_render *render,
 				       const GLuint *indices,
 				       GLuint nr )
 {
@@ -190,7 +190,7 @@ static void hwz_draw_indexed_prim( struct intel_render *render,
 }
 
 
-static void hwz_draw_prim( struct intel_render *render,
+static void hwz_draw_prim( struct clip_render *render,
 			       GLuint start,
 			       GLuint nr )
 {
@@ -247,7 +247,7 @@ static const GLenum reduced_prim[GL_POLYGON+1] = {
 
 /* XXX: this is where we need to set the reduced primitive from: 
  */
-static void hwz_set_prim( struct intel_render *render,
+static void hwz_set_prim( struct clip_render *render,
 			      GLenum mode )
 {
    struct hwz_render *hwz = hwz_render( render );
@@ -287,7 +287,7 @@ static void hwz_set_prim( struct intel_render *render,
 }
 
 
-static void hwz_start_render( struct intel_render *render,
+static void hwz_start_render( struct clip_render *render,
 				  GLboolean start_of_frame )
 {
    struct hwz_render *hwz = hwz_render( render );
@@ -302,7 +302,7 @@ static void hwz_start_render( struct intel_render *render,
 }
 
 
-static void hwz_flush( struct intel_render *render, 
+static void hwz_flush( struct clip_render *render, 
 			   GLboolean finished_frame )
 {
    struct hwz_render *hwz = hwz_render( render );
@@ -319,7 +319,7 @@ static void hwz_flush( struct intel_render *render,
 }
 
 
-static void hwz_clear_rect( struct intel_render *render,
+static void hwz_clear_rect( struct clip_render *render,
 				GLuint mask,
 				GLuint x1, GLuint y1, 
 				GLuint x2, GLuint y2 )
@@ -366,7 +366,7 @@ static void hwz_clear_rect( struct intel_render *render,
 
 
 
-static void hwz_destroy_context( struct intel_render *render )
+static void hwz_destroy_context( struct clip_render *render )
 {
    struct hwz_render *hwz = hwz_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
@@ -374,7 +374,7 @@ static void hwz_destroy_context( struct intel_render *render )
    _mesa_free(hwz);
 }
 
-struct intel_render *intel_create_hwz_render( struct intel_context *intel )
+struct clip_render *intel_create_hwz_render( struct intel_context *intel )
 {
    struct hwz_render *hwz = CALLOC_STRUCT(hwz_render);
 
