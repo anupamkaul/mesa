@@ -259,7 +259,7 @@ intelScheduleSwap(struct intel_context *intel,
    LOCK_HARDWARE(intel);
    UPDATE_CLIPRECTS(intel);
 
-   intel_batchbuffer_flush(intel->batch, GL_TRUE);
+   assert(intel_frame_mode( intel->ft ) == INTEL_FT_SWAP_BUFFERS);
 
    if ( intel_fb->pf_active ) {
       swap.seqtype |= DRM_VBLANK_FLIP;

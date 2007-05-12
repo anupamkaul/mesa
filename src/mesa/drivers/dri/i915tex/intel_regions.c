@@ -434,11 +434,6 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
    /* Now blit from the texture buffer to the new buffer: 
     */
 
-   /* XXX: forced is appropriate if either buffer is on the validate
-    * list, otherwise this is overkill.
-    */
-   intel_batchbuffer_flush(intel->batch, GL_TRUE);
-
    intelEmitCopyBlit(intel,
 		     region->cpp,
 		     region->pitch,
