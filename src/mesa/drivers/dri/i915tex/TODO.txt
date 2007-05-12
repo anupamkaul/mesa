@@ -12,8 +12,6 @@
 
 21) zEvict if initial clear wasn't a clear rect
 
-22) Don't ZONE_INIT halfway through a frame
-
 23) window resizes / moves
 	   --> abandon frame
 	   --> disable SWZ, translate away zone_init, fixup draw_rects??
@@ -21,8 +19,6 @@
 24) SWZ cliprects
 	   --> ???  back copy from frontbuffer ???
 	   --> then disable swz/hwz
-
-30) need to update clearparams on clear depth change.
 
 
 34) MI_FLUSH'es for clearparam state and some other STATIC state.
@@ -34,6 +30,9 @@
 38) demos/streaming_rect is broken
 
 39) demos/glutfx  >1024 zones
+
+40) torcs crash
+
 
 ======================================================================
 Postpone:

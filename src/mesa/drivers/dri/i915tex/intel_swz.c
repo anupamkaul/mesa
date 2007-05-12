@@ -418,7 +418,8 @@ static void swz_clear( struct intel_render *render,
       do_stencil = GL_TRUE;
 
    if (intel_fb->may_use_zone_init &&
-       !intel_frame_is_in_frame(intel->ft) &&
+       swz->clears == 0 && 
+       swz->draws == 0 && 
        x1 == 0 &&
        y1 == 0 &&
        x2 == intel_fb->Base.Width &&
@@ -434,6 +435,8 @@ static void swz_clear( struct intel_render *render,
       _mesa_printf("%d, %d\n", x2, y2);
       swz_clear_rect( render, mask, x1, y1, x2, y2 );
    }
+
+   swz->clears++;
 }
 
 

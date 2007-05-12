@@ -249,7 +249,7 @@ static void upload_static(struct intel_context *intel)
    }
 
 
-   /* INTEL_NEW_CLEAR_PARAMS
+   /* INTEL_NEW_CLEAR_PARAMS, _NEW_DEPTH
     */
    if (clearparams) {
       GLuint clearColor = 0;
