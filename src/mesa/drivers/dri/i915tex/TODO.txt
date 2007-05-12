@@ -1,12 +1,6 @@
-0) swrast synchronization
 
-3) Handling HWB out of memory conditions
-
-4) Synchronization of BPL and bin batchbuffer access between HWB and
-   PRB.
-    --> Michel
-
-6) manytex -n 1000 lockup
+6) manytex -n 1000 crash
+   ---> intel_frame_flush_and_restart is pretty bogus.
 
 
 15) cache_mode_0
@@ -33,16 +27,18 @@
 
 30) need to update clearparams on clear depth change.
 
-xx) Clean up HWZ DRM interface
-	- Remove anything related to high-priority PRB.
-	- Don't pass drawrect info members to render sub-ioctl explicitly.
-	- ...
 
-xx) Move HWZ DRM code to its own file.
+34) MI_FLUSH'es for clearparam state and some other STATIC state.
 
+35) Turn off stipple for clear rect clears.
 
-34) MI_FLUSH'es for clearparam state.
+36) FBO apps are broken, eg tests/fbo*, demos/shadowtex
 
+37) gearbox clears are broken
+
+38) demos/streaming_rect is broken
+
+39) demos/glutfx  >1024 zones
 
 ======================================================================
 Postpone:
@@ -56,9 +52,22 @@ Postpone:
 
 5) unfilled polygon begin/end
 
-7) polystipple not working
 
-8) poly offset?
+3) Handling HWB out of memory conditions
+
+4) Synchronization of BPL and bin batchbuffer access between HWB and
+   PRB.
+    --> Michel
+
+
+xx) Clean up HWZ DRM interface
+	- Remove anything related to high-priority PRB.
+	- Don't pass drawrect info members to render sub-ioctl explicitly.
+	- ...
+
+xx) Move HWZ DRM code to its own file.
+
+
 
 
 debug
