@@ -7,19 +7,9 @@ LIBNAME = i915tex_dri.so
 MINIGLX_SOURCES = server/intel_dri.c
 
 DRIVER_SOURCES = \
-	i915_debug.c \
-	intel_hwz.c \
-	intel_cmdstream.c \
-	intel_swz.c \
-	intel_swz_prims.c \
-	intel_clears.c \
-	intel_swapbuffers.c \
-	intel_frame_tracker.c \
-	intel_rotate_utils.c \
-	intel_rotate.c \
-	intel_lock.c \
 	i915_cache.c \
 	i915_context.c \
+	i915_debug.c \
 	i915_differencer.c \
 	i915_fpc.c \
 	i915_fpc_debug.c \
@@ -39,38 +29,48 @@ DRIVER_SOURCES = \
 	i915_state_vertex.c \
 	i915_tex_layout.c \
 	i915_vtbl.c \
-	intel_classic.c \
-	intel_swrast.c \
-	intel_vb.c \
-	intel_regions.c \
-	intel_buffer_objects.c \
 	intel_batchbuffer.c \
-	intel_mipmap_tree.c \
-	intel_tex_layout.c \
-	intel_tex_image.c \
-	intel_tex_subimage.c \
-	intel_tex_copy.c \
-	intel_tex_validate.c \
-	intel_tex_format.c \
-	intel_tex.c \
+	intel_batchpool.c \
+	intel_blit.c \
+	intel_buffer_objects.c \
+	intel_buffers.c \
+	intel_classic.c \
+	intel_clears.c \
+	intel_cmdstream.c \
+	intel_context.c \
+	intel_depthstencil.c \
+	intel_fbo.c \
+	intel_frame_tracker.c \
+	intel_hwz.c \
+	intel_ioctl.c \
+	intel_lock.c \
 	intel_metaops.c \
+	intel_mipmap_tree.c \
 	intel_pixel.c \
 	intel_pixel_copy.c \
-	intel_pixel_read.c \
 	intel_pixel_draw.c \
-	intel_buffers.c \
-	intel_blit.c \
-	intel_context.c \
-	intel_ioctl.c \
+	intel_pixel_read.c \
+	intel_regions.c \
+	intel_rotate.c \
+	intel_rotate_utils.c \
 	intel_screen.c \
 	intel_span.c \
 	intel_state.c \
 	intel_state_clip.c \
 	intel_state_pipeline.c \
 	intel_state_viewport.c \
-	intel_fbo.c \
-	intel_depthstencil.c \
-	intel_batchpool.c
+	intel_swapbuffers.c \
+	intel_swrast.c \
+	intel_swz.c \
+	intel_swz_prims.c \
+	intel_tex.c \
+	intel_tex_copy.c \
+	intel_tex_format.c \
+	intel_tex_image.c \
+	intel_tex_layout.c \
+	intel_tex_subimage.c \
+	intel_tex_validate.c \
+	intel_vb.c 
 
 
 C_SOURCES = \
