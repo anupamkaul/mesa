@@ -396,8 +396,12 @@ static void upload_DEPTHSCALE( struct intel_context *intel )
    /* _NEW_POLYGON, _NEW_BUFFERS 
     */
    {
+      GLfloat mrd = (intel->state.DrawBuffer ? 
+		     intel->state.DrawBuffer->_MRD : 
+		     1.0);
+
       ds[0].u = (_3DSTATE_DEPTH_OFFSET_SCALE);
-      ds[1].f = intel->state.Polygon->OffsetFactor * intel->state.DrawBuffer->_MRD;
+      ds[1].f = intel->state.Polygon->OffsetFactor * mrd;
    }
 
    set_dynamic_indirect( intel, 
