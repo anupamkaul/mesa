@@ -88,17 +88,6 @@ static void invalidate_bins( struct swz_render *swz )
       if (flags.dirty == 0)
 	 return;
 
-      /* XXX: this is insufficient!  probably need to make reloc list
-       * dynamic, as it is really hard to predict when it will fill
-       * up.
-       */
-      if (intel->batch->nr_relocs + 1000 > MAX_RELOCS) {
-	 intel_frame_flush_and_restart( intel->ft );
-	 invalidate_bins(swz);
-	 return;
-      }
-
-
       assert (swz->started_binning);
 
       /* Just mark the differences, state will be emitted per-zone later

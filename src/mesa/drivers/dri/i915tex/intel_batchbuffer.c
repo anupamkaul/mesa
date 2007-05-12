@@ -39,6 +39,8 @@
  */
 #include "i915_context.h"
 
+#include <unistd.h>
+#include <sys/mman.h>
 
 /* Relocations in kernel space:
  *    - pass dma buffer seperately
@@ -233,6 +235,14 @@ struct intel_batchbuffer *
 intel_batchbuffer_alloc(struct intel_context *intel)
 {
    struct intel_batchbuffer *batch = calloc(sizeof(*batch), 1);
+   int page_size = getpagesize();
+
+   batch->reloc = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
+		       MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+   assert (batch->reloc != MAP_FAILED);
+
+   batch->max_relocs = page_size / sizeof(struct buffer_reloc);
 
    //dump_foo(intel);
    (void) dump_foo;
@@ -323,8 +333,8 @@ intel_batchbuffer_free(struct intel_batchbuffer *batch)
    }
    driBOUnReference(batch->buffer);
    driBOFreeList(batch->list);
-   batch->state_buffer = NULL;
-   batch->buffer = NULL;
+   munmap(batch->reloc, (batch->max_relocs + 1) *
+	  sizeof(struct buffer_reloc) & ~(getpagesize() - 1));
    free(batch);
 }
 
@@ -538,10 +548,22 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
 			    struct _DriBufferObject *buffer,
 			    GLuint flags, GLuint mask, GLuint delta)
 {
-   assert(batch->nr_relocs < MAX_RELOCS);
    assert((offset & 3) == 0);
 
    driBOAddListItem(batch->list, buffer, flags, mask);
+
+   if (batch->nr_relocs == batch->max_relocs) {
+      int page_size = getpagesize();
+      int pages = (batch->max_relocs + 1) * sizeof(struct buffer_reloc) /
+	 page_size;
+
+      batch->reloc = mremap(batch->reloc, pages * page_size, (pages + 1) *
+			    page_size, MREMAP_MAYMOVE);
+
+      assert (batch->reloc != MAP_FAILED);
+
+      batch->max_relocs = (pages + 1) * page_size / sizeof(struct buffer_reloc);
+   }
 
    {
       struct buffer_reloc *r = &batch->reloc[batch->nr_relocs++];

@@ -10,8 +10,6 @@ struct intel_context;
 #define BATCH_SZ (3*SEGMENT_SZ)
 #define BATCH_RESERVED 16
 
-#define MAX_RELOCS 40000
-
 #define INTEL_BATCH_NO_CLIPRECTS     0x1
 #define INTEL_BATCH_CLIPRECTS        0x2
 #define INTEL_BATCH_HWZ              0x4 
@@ -48,8 +46,8 @@ struct intel_batchbuffer
    GLubyte *map;
    GLubyte *state_map;
 
-   struct buffer_reloc reloc[MAX_RELOCS];
-   GLuint nr_relocs;
+   struct buffer_reloc *reloc;
+   GLuint nr_relocs, max_relocs;
    GLuint size;
 
    /* Put all the different types of packets into one buffer for
@@ -142,8 +140,7 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
     */
    assert(sz < SEGMENT_SZ);
 
-   if (intel_batchbuffer_space(batch, segment) < sz ||
-       batch->nr_relocs + 10 > MAX_RELOCS || 
+   if (intel_batchbuffer_space(batch, segment) < sz || 
        (batch->flags != 0 && flags != 0 && batch->flags != flags))
       intel_batchbuffer_flush(batch, GL_FALSE);
 
