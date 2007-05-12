@@ -55,6 +55,12 @@
 #include "intel_tex.h"
 
 
+#define STATECHANGE( intelctx, flags ) 			\
+do {							\
+   (intelctx)->state.dirty.intel |= INTEL_NEW_MESA;	\
+   (intelctx)->state.dirty.mesa |= (flags);		\
+} while (0)
+
 #define DUP(i915, STRUCT, ATTRIB) 		\
 do {						\
    intel->metaops.state.ATTRIB = MALLOC_STRUCT(STRUCT);	\
@@ -67,13 +73,13 @@ do {						\
 #define INSTALL(intel, ATTRIB, STATE)		\
 do {						\
    intel->state.ATTRIB = intel->metaops.state.ATTRIB;	\
-   intel->state.dirty.mesa |= STATE;		\
+   STATECHANGE(intel, STATE);		\
 } while (0)
 
 #define RESTORE(intel, ATTRIB, STATE)			\
 do {							\
    intel->state.ATTRIB = &intel->ctx.ATTRIB;	\
-   intel->state.dirty.mesa |= STATE;			\
+   STATECHANGE(intel, STATE);			\
 } while (0)
 
 static void init_state( struct intel_context *intel )
@@ -151,22 +157,21 @@ static const char *fp_tex_prog =
 void intel_meta_flat_shade( struct intel_context *intel )
 {
    intel->metaops.state.Light->ShadeModel = GL_FLAT;
-   intel->state.dirty.mesa |= _NEW_LIGHT;
+   STATECHANGE(intel, _NEW_LIGHT);
 }
 
 
 void intel_meta_no_stencil_write( struct intel_context *intel )
 {
    intel->metaops.state.Stencil->Enabled = GL_FALSE;
-   intel->metaops.state.Stencil->WriteMask[0] = GL_FALSE; 
-   intel->state.dirty.mesa |= _NEW_STENCIL;
+   STATECHANGE(intel, _NEW_STENCIL);
 }
 
 void intel_meta_no_depth_write( struct intel_context *intel )
 {
    intel->metaops.state.Depth->Test = GL_FALSE;
    intel->metaops.state.Depth->Mask = GL_FALSE;
-   intel->state.dirty.mesa |= _NEW_DEPTH;
+   STATECHANGE(intel, _NEW_DEPTH);
 }
 
 
@@ -177,13 +182,13 @@ void intel_meta_depth_replace( struct intel_context *intel )
     */
    intel->metaops.state.Depth->Test = GL_TRUE;
    intel->metaops.state.Depth->Mask = GL_TRUE;
-   intel->state.dirty.mesa |= _NEW_DEPTH;
+   STATECHANGE(intel, _NEW_DEPTH);
 
    /* ctx->Driver.DepthFunc( ctx, GL_ALWAYS )
     */
    intel->metaops.state.Depth->Func = GL_ALWAYS;
 
-   intel->state.dirty.mesa |= _NEW_DEPTH;
+   STATECHANGE(intel, _NEW_DEPTH);
 }
 
 
@@ -199,7 +204,7 @@ void intel_meta_stencil_replace( struct intel_context *intel,
    intel->metaops.state.Stencil->FailFunc[0] = GL_REPLACE;
    intel->metaops.state.Stencil->ZPassFunc[0] = GL_REPLACE;
    intel->metaops.state.Stencil->ZFailFunc[0] = GL_REPLACE;
-   intel->state.dirty.mesa |= _NEW_STENCIL;
+   STATECHANGE(intel, _NEW_STENCIL);
 }
 
 
@@ -211,7 +216,7 @@ void intel_meta_color_mask( struct intel_context *intel, GLboolean state )
    else
       ASSIGN_4V(intel->metaops.state.Color->ColorMask, 0, 0, 0, 0);
 
-   intel->state.dirty.mesa |= _NEW_COLOR;
+   STATECHANGE(intel, _NEW_COLOR);
 }
 
 void intel_meta_no_texture( struct intel_context *intel )
@@ -224,7 +229,7 @@ void intel_meta_no_texture( struct intel_context *intel )
    intel->metaops.state.Texture->Unit[ 0 ].Enabled = 0;
    intel->metaops.state.Texture->Unit[ 0 ]._ReallyEnabled = 0;
 
-   intel->state.dirty.mesa |= _NEW_TEXTURE | _NEW_PROGRAM;
+   STATECHANGE(intel, _NEW_TEXTURE | _NEW_PROGRAM);
 }
 
 void intel_meta_texture_blend_replace(struct intel_context *intel)
@@ -241,7 +246,7 @@ void intel_meta_texture_blend_replace(struct intel_context *intel)
 /*    intel->metaops.state.Texture->Unit[ 0 ]._Current =  */
 /*       intel->metaops.texobj;  */
 
-   intel->state.dirty.mesa |= _NEW_TEXTURE | _NEW_PROGRAM;
+   STATECHANGE(intel, _NEW_TEXTURE | _NEW_PROGRAM);
 }
 
 void intel_meta_import_pixel_state(struct intel_context *intel)
@@ -325,7 +330,7 @@ void intel_meta_draw_region( struct intel_context *intel,
    intel->state.draw_region = draw_region;
    intel->state.depth_region = depth_region;
 
-   intel->state.dirty.mesa |= _NEW_BUFFERS;
+   STATECHANGE(intel, _NEW_BUFFERS);
 }
 
 
@@ -416,10 +421,12 @@ void intel_install_meta_state( struct intel_context *intel )
 {
    GLcontext *ctx = &intel->ctx;
 
+   assert(ctx->NewState == 0);
+
    install_state(intel);
    
    intel_meta_no_texture(intel);
-   intel_meta_flat_shade(intel);
+//   intel_meta_flat_shade(intel);
 
    intel->metaops.restore_draw_mask = ctx->DrawBuffer->_ColorDrawBufferMask[0]; 
    intel->metaops.restore_fp = ctx->FragmentProgram.Current; 
@@ -454,7 +461,7 @@ void intel_leave_meta_state( struct intel_context *intel )
       intel->metaops.texobj = 0;
    }
 
-   intel->state.dirty.mesa |= _NEW_BUFFERS;
+   STATECHANGE(intel, _NEW_BUFFERS);
    intel->state.dirty.intel |= INTEL_NEW_METAOPS;
 }
 
