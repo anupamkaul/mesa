@@ -265,47 +265,31 @@ intel_batchbuffer_alloc(struct intel_context *intel)
       driGenBuffers(intel->intelScreen->statePool, "state", 1,
 		    &batch->state_buffer, 4096, batch->state_memflags, 0);
 
-      batch->segment_start_offset[0] = 0;
+      batch->segment_max_offset[0] = BATCH_SZ - BATCH_RESERVED;
+
       batch->segment_start_offset[1] = 0;
-      batch->segment_start_offset[2] = 4096;
-
-      batch->segment_finish_offset[0] = batch->segment_start_offset[0];
-      batch->segment_finish_offset[1] = batch->segment_start_offset[1];
-      batch->segment_finish_offset[2] = batch->segment_start_offset[2];
-
-      batch->segment_max_offset[0] = 1 * SEGMENT_SZ - BATCH_RESERVED;
-      batch->segment_max_offset[1] = 4096;
-      batch->segment_max_offset[2] = 8192;
-
-      /* Manage a chunk of the much-abused batch buffer as pages for
-       * the swz binner:
-       */
-      if (_mesa_getenv("INTEL_SWZ"))
-	 intel_cmdstream_use_batch_range( intel, 
-					  0 * SEGMENT_SZ,
-					  3 * SEGMENT_SZ );      
    } else {
       batch->state_buffer = batch->buffer;
       batch->state_memtype = 1 << 14;
       batch->state_memflags = DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE;
 
-      batch->segment_start_offset[0] = 0 * SEGMENT_SZ;
-      batch->segment_start_offset[1] = 1 * SEGMENT_SZ;
-      batch->segment_start_offset[2] = 2 * SEGMENT_SZ;
+      batch->segment_start_offset[1] = BATCH_SZ - 2 * 4096;
 
-      batch->segment_finish_offset[0] = 0 * SEGMENT_SZ;
-      batch->segment_finish_offset[1] = 1 * SEGMENT_SZ;
-      batch->segment_finish_offset[2] = 2 * SEGMENT_SZ;
-
-      batch->segment_max_offset[0] = 1 * SEGMENT_SZ - BATCH_RESERVED;
-      batch->segment_max_offset[1] = 2 * SEGMENT_SZ;
-      batch->segment_max_offset[2] = 3 * SEGMENT_SZ;
-
-      /* Can't swz bin:
-       */
-      intel_cmdstream_use_batch_range( intel, 0, 0 );      
-
+      batch->segment_max_offset[0] = batch->segment_start_offset[1] -
+	 BATCH_RESERVED;
    }
+
+   batch->segment_max_offset[1] = batch->segment_start_offset[1] + 4096;
+   batch->segment_max_offset[2] = batch->segment_max_offset[1] + 4096;
+
+   batch->segment_start_offset[0] = 0;
+   batch->segment_start_offset[2] = batch->segment_max_offset[1];
+
+   /* Manage a chunk of the much-abused batch buffer as pages for
+    * the swz binner:
+    */
+   if (_mesa_getenv("INTEL_SWZ"))
+      intel_cmdstream_use_batch_range( intel, 0, batch->segment_max_offset[0] );
 
    intel_batchbuffer_reset(batch);
    return batch;
