@@ -273,13 +273,17 @@ static void upload_static(struct intel_context *intel)
 	    clearDepth = intel->ctx.Depth.Clear * 0xffffffff;
 	 }
 
-	 if (depth_region->cpp == 4 && (clearparams & BUFFER_BIT_STENCIL)) {
-	    statemask |= CLEARPARAM_WRITE_STENCIL;
-	    clearStencil = STENCIL_WRITE_MASK(intel->ctx.Stencil.Clear);
+	 if (depth_region->cpp == 4) {
 	    clearDepth &= 0xffffff00;
-	    clearDepth |= clearStencil;
-	 } else
+	    if (clearparams & BUFFER_BIT_STENCIL) {
+	       statemask |= CLEARPARAM_WRITE_STENCIL;
+	       clearStencil = STENCIL_WRITE_MASK(intel->ctx.Stencil.Clear);
+	       clearDepth |= clearStencil;
+	    }
+	 } 
+	 else {
 	    clearDepth = (clearDepth & 0xffff0000) | clearDepth >> 16;
+	 }
       }
 
       packet_dword( &packet, _3DSTATE_CLEAR_PARAMETERS );
