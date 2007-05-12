@@ -119,7 +119,6 @@ static void init_zones( struct swz_render *swz )
    space = intel->vtbl.get_state_emit_size( intel, 
 					    swz->initial_driver_flags );
 
-   _mesa_printf("draw origin: %d,%d\n", intel->drawX, intel->drawY);
 
    for (i = y = 0; y < swz->zone_height; y++)
    {
@@ -189,7 +188,7 @@ static void swz_start_render( struct intel_render *render,
    swz->nr_zones = swz->zone_width * swz->zone_height;
    assert(swz->nr_zones < MAX_ZONES);
    
-   if (1) _mesa_printf("%s %dx%d --> %dx%d\n", 
+   if (0) _mesa_printf("%s %dx%d --> %dx%d\n", 
 		       __FUNCTION__,
 		       intel->driDrawable->w,
 		       intel->driDrawable->h,
@@ -295,7 +294,7 @@ static void swz_flush( struct intel_render *render,
    GLuint i = 0;
    GLuint x, y;
 
-   _mesa_printf("%s finished: %d\n", __FUNCTION__, finished);
+   if (0) _mesa_printf("%s finished: %d\n", __FUNCTION__, finished);
 
    if (swz->started_binning) 
    {
@@ -432,7 +431,6 @@ static void swz_clear( struct intel_render *render,
    }
    else 
    {
-      _mesa_printf("%d, %d\n", x2, y2);
       swz_clear_rect( render, mask, x1, y1, x2, y2 );
    }
 
@@ -443,7 +441,6 @@ static void swz_clear( struct intel_render *render,
 static void swz_destroy_context( struct intel_render *render )
 {
    struct swz_render *swz = swz_render( render );
-   _mesa_printf("%s\n", __FUNCTION__);
 
    _mesa_free(swz->last_driver_state);
    _mesa_free(swz->initial_driver_state);

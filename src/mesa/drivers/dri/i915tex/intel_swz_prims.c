@@ -65,6 +65,20 @@ static void invalidate_bins( struct swz_render *swz )
 
    swz->draws++;
 
+   switch(intel->draw_state.cull_mode) {
+   case WINDING_NONE:
+   case WINDING_BOTH:
+      swz->cull = 0;
+      break;
+   case WINDING_CW:
+      swz->cull = -1;
+      break;
+   case WINDING_CCW:
+      swz->cull = 1;
+      break;
+   }
+      
+
    {
       /* XXX: only want to do this once per VB, not once per prim...
        */
@@ -174,25 +188,85 @@ static void tri( struct swz_render *swz,
    i1 += swz->vbo_offset;
    i2 += swz->vbo_offset;
 
-#if 0
-   GLfloat ex = v0[0] - v2[0];
-   GLfloat ey = v0[1] - v2[1];
-   GLfloat fx = v1[0] - v2[0];
-   GLfloat fy = v1[1] - v2[1];
+   x0 = v0[0];
+   x1 = v0[0];
+   y0 = v0[1];
+   y1 = v0[1];
+
+   if (x0 > v1[0]) x0 = v1[0];
+   if (x0 > v2[0]) x0 = v2[0];
+   if (y0 > v1[1]) y0 = v1[1];
+   if (y0 > v2[1]) y0 = v2[1];
+
+   if (x1 < v1[0]) x1 = v1[0];
+   if (x1 < v2[0]) x1 = v2[0];
+   if (y1 < v1[1]) y1 = v1[1];
+   if (y1 < v2[1]) y1 = v2[1];
+
+   zone_x0 = x0 + swz->xoff;
+   zone_x1 = x1 + swz->xoff;
+   zone_y0 = y0 + swz->yoff;
+   zone_y1 = y1 + swz->yoff;
+
+   zone_x0 /= ZONE_WIDTH;
+   zone_x1 /= ZONE_WIDTH;
+   zone_y0 /= ZONE_HEIGHT;
+   zone_y1 /= ZONE_HEIGHT;
+
+   if (zone_x0 < 0) zone_x0 = 0;
+   if (zone_y0 < 0) zone_y0 = 0;
+   if (zone_x1 >= swz->zone_width) zone_x1 = swz->zone_width-1;
+   if (zone_y1 >= swz->zone_height) zone_y1 = swz->zone_height-1;
    
-   GLfloat det = ex * fy - ey * fx;
 
-   if (det >= 0) 
-      return;
-#endif
+   if (0) _mesa_printf("tri (%f..%f)x(%f..%f) --> (%d..%d)x(%d..%d)\n", 
+		       x0, x1, y0, y1,
+		       zone_x0, zone_x1, zone_y0, zone_y1 );
 
-   /* Calculate bounds: NOTE: reading back from the vbo - must be
-    * declared with appropriate flags.
-    *
-    * Almost all of the slowdown of swz relative to other rendering is
-    * attributable to this calculation.  Need an optimized sse version
-    * to get performance back.
+
+   /* Emit to each zone:
     */
+   for (y = zone_y0; y <= zone_y1; y++) {
+      struct swz_zone *zone = &swz->zone[y * swz->zone_width + zone_x0];
+
+      for (x = zone_x0; x <= zone_x1; x++, zone++) {
+	 zone_update_state(swz, zone, ZONE_TRIS, ZONE_PRIM_SPACE );
+	 zone_emit_tri(zone, i0, i1, i2);
+	 ASSERT(intel_cmdstream_space(zone->ptr) >= ZONE_WRAP_SPACE);
+      }
+   }
+}
+
+
+static void cull_tri( struct swz_render *swz,
+		      GLuint i0, 
+		      GLuint i1, 
+		      GLuint i2 )
+{
+   GLfloat x0, x1, y0, y1;
+   GLint zone_x0, zone_x1, zone_y0, zone_y1;
+   GLint x,y;
+
+   const GLfloat *v0 = get_vertex(swz, i0);
+   const GLfloat *v1 = get_vertex(swz, i1);
+   const GLfloat *v2 = get_vertex(swz, i2);
+
+   i0 += swz->vbo_offset;
+   i1 += swz->vbo_offset;
+   i2 += swz->vbo_offset;
+
+   {
+      GLfloat ex = v0[0] - v2[0];
+      GLfloat ey = v0[1] - v2[1];
+      GLfloat fx = v1[0] - v2[0];
+      GLfloat fy = v1[1] - v2[1];
+   
+      GLfloat det = ex * fy - ey * fx;
+
+      if (det * swz->cull > 0) 
+	 return;
+   }
+
    x0 = v0[0];
    x1 = v0[0];
    y0 = v0[1];
@@ -377,7 +451,7 @@ void swz_clear_rect( struct intel_render *render,
    GLint zone_x0, zone_x1, zone_y0, zone_y1;
    GLint x, y;
 
-   _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
+   if (0) _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
    
    assert( swz->started_binning );
 
@@ -417,7 +491,7 @@ void swz_zone_init( struct intel_render *render,
    GLint zone_x0, zone_x1, zone_y0, zone_y1;
    GLint x, y;
 
-   _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
+   if (0) _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
 
    assert( swz->started_binning );
 
@@ -446,7 +520,8 @@ void swz_zone_init( struct intel_render *render,
 
 
 
-
+typedef void (*trifunc)( struct swz_render *swz,
+			 GLuint, GLuint, GLuint );
 
 
 static void swz_draw_prim( struct intel_render *render,
@@ -458,6 +533,8 @@ static void swz_draw_prim( struct intel_render *render,
    GLuint i;
 
    invalidate_bins( swz );
+
+   trifunc do_tri = swz->cull ? cull_tri : tri;
 
    switch (swz->prim) {
    case GL_POINTS:
@@ -477,7 +554,6 @@ static void swz_draw_prim( struct intel_render *render,
 
    case GL_LINE_STRIP:
       for (i = 0; i+1 < nr; i++) {
-	 _mesa_printf("line %d %d\n", i, i+1);
 	 line( swz, 
 	       start+i,
 	       start+i+1 );
@@ -486,7 +562,7 @@ static void swz_draw_prim( struct intel_render *render,
 
    case GL_TRIANGLES:
       for (i = 0; i+2 < nr; i += 3) {
-	 tri( swz, 
+	 do_tri( swz, 
 	      start+i,
 	      start+i+1,
 	      start+i+2 );
@@ -496,12 +572,12 @@ static void swz_draw_prim( struct intel_render *render,
    case GL_TRIANGLE_STRIP:
       for (i = 0; i+2 < nr; i++) {
 	 if (i & 1) 
-	    tri( swz, 
+	    do_tri( swz, 
 		 start+i+1,
 		 start+i+0,
 		 start+i+2 );
 	 else
-	    tri( swz, 
+	    do_tri( swz, 
 		 start+i+0,
 		 start+i+1,
 		 start+i+2 );
@@ -510,7 +586,7 @@ static void swz_draw_prim( struct intel_render *render,
 
    case GL_TRIANGLE_FAN:
       for (i = 0; i+2 < nr; i++) {
-	 tri( swz, 
+	 do_tri( swz, 
 	      start+0,
 	      start+i+1,
 	      start+i+2 );
@@ -519,7 +595,7 @@ static void swz_draw_prim( struct intel_render *render,
 
    case GL_POLYGON:
       for (i = 0; i+2 < nr; i++) {
-	 tri( swz, 
+	 do_tri( swz, 
 	      start+i+1,
 	      start+i+2,
 	      start+0 );
@@ -542,6 +618,8 @@ static void swz_draw_indexed_prim( struct intel_render *render,
    GLuint i;
 
    invalidate_bins( swz );
+
+   trifunc do_tri = swz->cull ? cull_tri : tri;
 
    switch (swz->prim) {
    case GL_POINTS:
@@ -569,7 +647,7 @@ static void swz_draw_indexed_prim( struct intel_render *render,
 
    case GL_TRIANGLES:
       for (i = 0; i+2 < nr; i += 3) {
-	 tri( swz, 
+	 do_tri( swz, 
 	      indices[i],
 	      indices[i+1],
 	      indices[i+2] );
@@ -579,12 +657,12 @@ static void swz_draw_indexed_prim( struct intel_render *render,
    case GL_TRIANGLE_STRIP:
       for (i = 0; i+2 < nr; i++) {
 	 if (i & 1) 
-	    tri( swz, 
+	    do_tri( swz, 
 		 indices[i+1],
 		 indices[i+0],
 		 indices[i+2] );
 	 else
-	    tri( swz, 
+	    do_tri( swz, 
 		 indices[i+0],
 		 indices[i+1],
 		 indices[i+2] );
@@ -593,7 +671,7 @@ static void swz_draw_indexed_prim( struct intel_render *render,
 
    case GL_TRIANGLE_FAN:
       for (i = 0; i+2 < nr; i++) {
-	 tri( swz, 
+	 do_tri( swz, 
 	      indices[0],
 	      indices[i+1],
 	      indices[i+2] );
@@ -602,7 +680,7 @@ static void swz_draw_indexed_prim( struct intel_render *render,
 
    case GL_POLYGON:
       for (i = 0; i+2 < nr; i++) {
-	 tri( swz, 
+	 do_tri( swz, 
 	      indices[i+1],
 	      indices[i+2],
 	      indices[0] );

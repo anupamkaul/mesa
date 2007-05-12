@@ -58,8 +58,9 @@ void intel_cmdstream_use_batch_range( struct intel_context *intel,
  */
 void intel_cmdstream_reset( struct intel_context *intel )
 {
-   _mesa_printf("%s used %x of %x\n", __FUNCTION__, 
-		intel->cmdstream.used, intel->cmdstream.size);
+   if (0) 
+      _mesa_printf("%s used %x of %x\n", __FUNCTION__, 
+		   intel->cmdstream.used, intel->cmdstream.size);
 
    intel->cmdstream.map = intel->batch->map + intel->cmdstream.offset;
    intel->cmdstream.used = 0;

@@ -82,9 +82,6 @@ static void *swrender_allocate_vertices( struct intel_render *render,
 
    assert(vertex_size == swrender->vf->vertex_stride);
 
-   _mesa_printf("%s %d %d %p\n", __FUNCTION__, vertex_size, nr_vertices,
-		swrender->hw_verts); 
-
    return swrender->hw_verts;
 }
 
@@ -246,7 +243,6 @@ static void swrender_draw_prim( struct intel_render *render,
 
    case GL_LINE_STRIP:
       for (i = 0; i+1 < nr; i++) {
-	 _mesa_printf("line %d %d\n", i, i+1);
 	 line( swrender, 
 	       get_vertex(swrender, start+i),
 	       get_vertex(swrender, start+i+1) );
@@ -408,7 +404,7 @@ static void swrender_start_render( struct intel_render *render,
    struct swrast_render *swrender = swrast_render( render );
    struct intel_context *intel = swrender->intel;
 
-   _mesa_printf("%s\n", __FUNCTION__);
+   //_mesa_printf("%s\n", __FUNCTION__);
 
    /* Wait for pending flip.
     */

@@ -80,6 +80,7 @@ struct swz_render {
    GLuint vbo_offset;
 
    GLfloat xoff, yoff;
+   GLfloat cull;
 
    struct intel_hw_dirty reset_state;
 
@@ -330,7 +331,7 @@ static INLINE void zone_loadreg_imm( struct swz_zone *zone,
 {
    GLuint *out = zone_get_dwords( zone, 3 );
 
-   _mesa_printf("zone_loadreg_imm: %x / %08x\n", reg, value);
+   //_mesa_printf("zone_loadreg_imm: %x / %08x\n", reg, value);
 
    out[0] = MI_LOAD_REGISTER_IMM;
    out[1] = reg;
@@ -354,7 +355,6 @@ static INLINE void zone_get_space( struct swz_render *swz,
    GLubyte *newptr = intel_cmdstream_alloc_block( swz->intel );
 
    if (newptr == NULL) {
-      _mesa_printf("FLUSHING ****************\n");
       intel_frame_flush_and_restart( swz->intel->ft );
    }
    else {
