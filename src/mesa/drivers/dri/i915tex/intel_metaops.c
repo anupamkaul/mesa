@@ -230,6 +230,7 @@ void intel_meta_no_texture( struct intel_context *intel )
    intel->metaops.state.Texture->Unit[ 0 ]._ReallyEnabled = 0;
 
    STATECHANGE(intel, _NEW_TEXTURE | _NEW_PROGRAM);
+   intel->state.dirty.intel |= INTEL_NEW_FRAGMENT_PROGRAM;
 }
 
 void intel_meta_texture_blend_replace(struct intel_context *intel)
@@ -247,6 +248,7 @@ void intel_meta_texture_blend_replace(struct intel_context *intel)
 /*       intel->metaops.texobj;  */
 
    STATECHANGE(intel, _NEW_TEXTURE | _NEW_PROGRAM);
+   intel->state.dirty.intel |= INTEL_NEW_FRAGMENT_PROGRAM;
 }
 
 void intel_meta_import_pixel_state(struct intel_context *intel)
@@ -463,6 +465,7 @@ void intel_leave_meta_state( struct intel_context *intel )
 
    STATECHANGE(intel, _NEW_BUFFERS);
    intel->state.dirty.intel |= INTEL_NEW_METAOPS;
+   intel->state.dirty.intel |= INTEL_NEW_FRAGMENT_PROGRAM;
 }
 
 
