@@ -22,9 +22,6 @@
 	   --> ???  back copy from frontbuffer ???
 	   --> then disable swz/hwz
 
-25) quake3
-	- clears don't seem to work right.
-
 30) need to update clearparams on clear depth change.
 
 
@@ -33,8 +30,6 @@
 35) Turn off stipple for clear rect clears.
 
 36) FBO apps are broken, eg tests/fbo*, demos/shadowtex
-
-37) gearbox clears are broken
 
 38) demos/streaming_rect is broken
 
@@ -66,12 +61,3 @@ xx) Clean up HWZ DRM interface
 	- ...
 
 xx) Move HWZ DRM code to its own file.
-
-
-
-
-debug
-	- buffer capture
-	- buffer replay - can this work???
-		 - force ttm upload at specific address???
-
