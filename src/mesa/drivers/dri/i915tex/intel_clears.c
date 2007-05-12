@@ -42,25 +42,27 @@ static void draw_quad( struct intel_context *intel,
 {
    struct intel_metaops_color_vertex vert[4];
 
+   if (0) _mesa_printf("%s %d..%d, %d..%d\n", __FUNCTION__, x1, x2, y1, y2);
+
    vert[0].xyz[0] = x1;
    vert[0].xyz[1] = y1;
    vert[0].xyz[2] = depth;
    vert[0].color.ui = color;
 
-   vert[0].xyz[0] = x2;
-   vert[0].xyz[1] = y1;
-   vert[0].xyz[2] = depth;
-   vert[0].color.ui = color;
+   vert[1].xyz[0] = x2;
+   vert[1].xyz[1] = y1;
+   vert[1].xyz[2] = depth;
+   vert[1].color.ui = color;
 
-   vert[0].xyz[0] = x2;
-   vert[0].xyz[1] = y2;
-   vert[0].xyz[2] = depth;
-   vert[0].color.ui = color;
+   vert[2].xyz[0] = x2;
+   vert[2].xyz[1] = y2;
+   vert[2].xyz[2] = depth;
+   vert[2].color.ui = color;
 
-   vert[0].xyz[0] = x1;
-   vert[0].xyz[1] = y2;
-   vert[0].xyz[2] = depth;
-   vert[0].color.ui = color;
+   vert[3].xyz[0] = x1;
+   vert[3].xyz[1] = y2;
+   vert[3].xyz[2] = depth;
+   vert[3].color.ui = color;
 
    intel_meta_draw_color_quad( intel, vert );
 }
@@ -225,6 +227,8 @@ void intelClear(GLcontext *ctx, GLbitfield mask)
       GLuint bufBit = 1 << i;
       if ((rect_mask | tri_mask) & bufBit) {
          if (!fb->Attachment[i].Renderbuffer->ClassID) {
+	    _mesa_printf("trying to clear attachment %d, bit 0x%x, ClassID %d\n",
+			 i, bufBit, fb->Attachment[i].Renderbuffer->ClassID);
             rect_mask &= ~bufBit;
             tri_mask &= ~bufBit;
             swrast_mask |= bufBit;
