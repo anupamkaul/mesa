@@ -84,8 +84,9 @@ void intel_update_software_state( struct intel_context *intel )
       intel->state._ColorDrawBufferMask0 = intel->ctx.DrawBuffer->_ColorDrawBufferMask[0];
    }
 
-   if (!intel->vtbl.check_indirect_space( intel ))
-      intel_batchbuffer_flush( intel->batch, GL_FALSE );
+   if (!intel->vtbl.check_indirect_space( intel )) {
+      intel_frame_flush_and_restart( intel->ft );
+   }
 
    if (INTEL_DEBUG) {
       /* Debug version which enforces various sanity checks on the
