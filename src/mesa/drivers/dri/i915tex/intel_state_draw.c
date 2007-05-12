@@ -148,7 +148,10 @@ static void update_draw_state( struct intel_context *intel )
    if (state.fill_cw != FILL_TRI ||
        state.fill_ccw != FILL_TRI)
    {
-      GLfloat mrd = intel->state.DrawBuffer->_MRD;
+      GLfloat mrd = (intel->state.DrawBuffer ? 
+		     intel->state.DrawBuffer->_MRD : 
+		     1.0);
+
       state.offset_units = intel->state.Polygon->OffsetFactor * mrd;
       state.offset_scale = (intel->state.Polygon->OffsetUnits * mrd *
 			    intel->polygon_offset_scale);

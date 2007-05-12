@@ -42,37 +42,42 @@
  */
 static void update_viewport( struct intel_context *intel )
 {
-   GLfloat yScale, yBias;
    const GLframebuffer *DrawBuffer = intel->state.DrawBuffer;
+   GLfloat yScale = 1.0;
+   GLfloat yBias = 0.0;
+   GLfloat depthScale = 1.0;
 
    /* _NEW_BUFFERS
     */
-   if (DrawBuffer->Name) {
-      /* User created FBO */
-      struct intel_renderbuffer *irb
-         = intel_renderbuffer(DrawBuffer->_ColorDrawBuffers[0][0]);
-      if (irb && !irb->RenderToTexture) {
-         /* y=0=top */
-         yScale = -1.0;
-         yBias = irb->Base.Height;
+   if (DrawBuffer) {
+      depthScale = 1.0F / DrawBuffer->_DepthMaxF;
+
+      if (DrawBuffer->Name) {
+	 /* User created FBO */
+	 struct intel_renderbuffer *irb
+	    = intel_renderbuffer(DrawBuffer->_ColorDrawBuffers[0][0]);
+	 if (irb && !irb->RenderToTexture) {
+	    /* y=0=top */
+	    yScale = -1.0;
+	    yBias = irb->Base.Height;
+	 }
+	 else {
+	    /* y=0=bottom */
+	    yScale = 1.0;
+	    yBias = 0.0;
+	 }
       }
       else {
-         /* y=0=bottom */
-         yScale = 1.0;
-         yBias = 0.0;
+	 /* window buffer, y=0=top */
+	 yScale = -1.0;
+	 yBias = DrawBuffer->Height;
       }
-   }
-   else {
-      /* window buffer, y=0=top */
-      yScale = -1.0;
-      yBias = DrawBuffer->Height;
    }
 
    {
       /* _NEW_VIEWPORT 
        */
       const GLfloat *v = intel->state.Viewport->_WindowMap.m;
-      const GLfloat depthScale = 1.0F / DrawBuffer->_DepthMaxF;
       GLfloat scale[4];
       GLfloat trans[4];
       
