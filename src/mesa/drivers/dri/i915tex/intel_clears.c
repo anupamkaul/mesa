@@ -74,6 +74,10 @@ intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
    GLcontext *ctx = &intel->ctx;
    struct gl_framebuffer *fb = ctx->DrawBuffer;
 
+   GLint h = fb->Height;
+   GLint y0 = h - fb->_Ymax;
+   GLint y1 = h - fb->_Ymin;
+
 
    {
       GLcontext *ctx = &intel->ctx;
@@ -91,8 +95,8 @@ intelClearWithClearRects(struct intel_context *intel, GLbitfield mask)
 
    intel->render->clear_rect( intel->render, 
 			      mask,
-			      fb->_Xmin, fb->_Ymin,
-			      fb->_Xmax, fb->_Ymax );
+			      fb->_Xmin, y0,
+			      fb->_Xmax, y1 );
 }
 
 /* A true meta version of this would be very simple and additionally
@@ -105,6 +109,10 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
    GLcontext *ctx = &intel->ctx;
    GLuint buf;
    struct gl_framebuffer *fb = ctx->DrawBuffer;
+
+   GLint h = fb->Height;
+   GLint y0 = h - fb->_Ymax;
+   GLint y1 = h - fb->_Ymin;
 
 
 /*    if (INTEL_DEBUG & DEBUG_BLIT) */
@@ -145,8 +153,8 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
 	 intel_meta_no_depth_write(intel);
 
       draw_quad( intel, 
-		 fb->_Xmin, fb->_Ymin,
-		 fb->_Xmax, fb->_Ymax,
+		 fb->_Xmin, y0,
+		 fb->_Xmax, y1,
 		 intel->ctx.Depth.Clear, 
 		 clearColor);
 
@@ -170,8 +178,8 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
 	 intel_meta_draw_region(intel, irbColor->region, NULL);
 	 
 	 draw_quad( intel, 
-		    fb->_Xmin, fb->_Ymin,
-		    fb->_Xmax, fb->_Ymax,
+		    fb->_Xmin, y0,
+		    fb->_Xmax, y1,
 		    intel->ctx.Depth.Clear, 
 		    clearColor);
 
@@ -195,7 +203,7 @@ void intelClear(GLcontext *ctx, GLbitfield mask)
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    GLuint i;
 
-   _mesa_printf("CLEAR %x\n", mask);
+   if (0) _mesa_printf("CLEAR %x\n", mask);
 
    intel_frame_note_clear( intel->ft, mask );
 
@@ -235,6 +243,9 @@ void intelClear(GLcontext *ctx, GLbitfield mask)
          }
       }
    }
+
+/*    tri_mask |= rect_mask; */
+/*    rect_mask = 0; */
 
    /* I really don't care.
     */
