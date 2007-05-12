@@ -372,6 +372,23 @@ intelCreatePools(intelScreenPrivate *intelScreen)
       return GL_TRUE;
 
    batchPoolSize /= intelScreen->maxBatchSize;
+
+   if (intelScreen->drmMinor >= 10 &&
+       ((intelScreen->deviceID != PCI_CHIP_I945_G &&
+	 intelScreen->deviceID != PCI_CHIP_I945_GM) ||
+	_mesa_getenv("INTEL_HWZ"))) {
+	 intelScreen->statePool = driBatchPoolInit(sPriv->fd,
+						   DRM_BO_FLAG_EXE |
+						   DRM_BO_FLAG_MEM_PRIV1,
+						   8192, batchPoolSize, 5);
+   }
+
+   if (!intelScreen->statePool && intelScreen->deviceID != PCI_CHIP_I945_G &&
+       intelScreen->deviceID != PCI_CHIP_I945_GM) {
+      fprintf(stderr, "This driver requires PRIV1 memory on this hardware.\n");
+      return GL_FALSE;
+   }
+
    intelScreen->regionPool = driDRMPoolInit(sPriv->fd);
 
    if (!intelScreen->regionPool)
@@ -393,15 +410,6 @@ intelCreatePools(intelScreenPrivate *intelScreen)
    if (!intelScreen->batchPool) {
       fprintf(stderr, "Failed to initialize batch pool - possible incorrect agpgart installed\n");
       return GL_FALSE;
-   }
-   
-   if (intelScreen->drmMinor >= 10) {
-      intelScreen->statePool = driBatchPoolInit(sPriv->fd,
-						DRM_BO_FLAG_EXE |
-						DRM_BO_FLAG_MEM_PRIV1,
-						8192, batchPoolSize, 5);
-
-      assert(intelScreen->statePool);
    }
 
    intel_recreate_static_regions(intelScreen);
