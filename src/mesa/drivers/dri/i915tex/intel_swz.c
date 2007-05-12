@@ -377,6 +377,7 @@ static void swz_flush( struct intel_render *render,
 			 CM0_RC_OP_FLUSH_ENABLE |
 			 CM0_DEPTH_WRITE_ENABLE) );
 
+      WAIT_VBLANK(intel);
 
       /* Tell the batchbuffer code about what we've emitted:
        */
