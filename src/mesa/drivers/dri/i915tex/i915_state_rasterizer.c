@@ -93,9 +93,11 @@ static void choose_rasterizer( struct intel_context *intel )
 	 render = intel->swrender;
       }
    }
+#if 0
    else if (check_hwz( intel )) {
       render = intel->hwz;
    }
+#endif
    else if (check_swz( intel )) {
       render = intel->swz;
    }
