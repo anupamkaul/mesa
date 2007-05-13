@@ -35,7 +35,12 @@
 #include "clip/clip_noop.h"
 #include "clip/clip_context.h"
 
-
+/* This is an optimized version of the clipping pipe when no
+ * operations are active.  It does however actually do a couple of
+ * things:
+ *    - translate away QUADS, QUADSTRIP and LINELOOP prims
+ *    - split up excessively long indexed prims.
+ */
 struct noop_render {
    struct clip_render render;
    struct clip_render *hw;
@@ -53,8 +58,8 @@ static void *noop_allocate_vertices( struct clip_render *render,
 				      GLuint vertex_size,
 				      GLuint nr_vertices )
 {
-   struct noop_render *quads = noop_render( render );
-   return quads->hw->allocate_vertices( quads->hw, vertex_size, nr_vertices );
+   struct noop_render *noop = noop_render( render );
+   return noop->hw->allocate_vertices( noop->hw, vertex_size, nr_vertices );
 }
 
 
@@ -62,92 +67,45 @@ static void *noop_allocate_vertices( struct clip_render *render,
 static void noop_set_prim( struct clip_render *render,
 			      GLenum mode )
 {
-   struct noop_render *quads = noop_render( render );
+   struct noop_render *noop = noop_render( render );
 
 //   _mesa_printf("%s: %d\n", __FUNCTION__, mode);
 
-   quads->gl_prim = mode;
+   noop->gl_prim = mode;
 
    switch (mode) {
    case GL_LINE_LOOP:
-      quads->hw->set_prim( quads->hw, GL_LINE_STRIP );
+      noop->hw->set_prim( noop->hw, GL_LINE_STRIP );
       break;
    case GL_QUADS:
    case GL_QUAD_STRIP:
-      quads->hw->set_prim( quads->hw, GL_TRIANGLES );
+      noop->hw->set_prim( noop->hw, GL_TRIANGLES );
       break;
    default:
-      quads->hw->set_prim( quads->hw, mode );
+      noop->hw->set_prim( noop->hw, mode );
       break;
    }
 }
 
 
-static GLuint split_prim_inplace(GLenum mode, GLuint *first, GLuint *incr)
-{
-   switch (mode) {
-   case GL_POINTS:
-      *first = 1;
-      *incr = 1;
-      return 0;
-   case GL_LINES:
-      *first = 2;
-      *incr = 2;
-      return 0;
-   case GL_LINE_STRIP:
-      *first = 2;
-      *incr = 1;
-      return 0;
-   case GL_LINE_LOOP:
-      *first = 2;
-      *incr = 1;
-      return 1;
-   case GL_TRIANGLES:
-      *first = 3;
-      *incr = 3;
-      return 0;
-   case GL_TRIANGLE_STRIP:
-      *first = 3;
-      *incr = 1;
-      return 0;
-   case GL_TRIANGLE_FAN:
-   case GL_POLYGON:
-      *first = 3;
-      *incr = 1;
-      return 1;
-   case GL_QUADS:
-      *first = 4;
-      *incr = 4;
-      return 0;
-   case GL_QUAD_STRIP:
-      *first = 4;
-      *incr = 2;
-      return 0;
-   default:
-      assert(0);
-      *first = 1;
-      *incr = 1;
-      return 0;
-   }
-}
 
 
 static void noop_draw_indexed_prim( struct clip_render *render,
 				     const GLuint *indices,
 				     GLuint length )
 {
-   struct noop_render *quads = noop_render( render );
+   struct noop_render *noop = noop_render( render );
 
-   switch (quads->gl_prim) {
+   switch (noop->gl_prim) {
    case GL_LINE_LOOP: {
       GLuint tmp_indices[2] = { indices[length],
 				indices[0] };
 
-      quads->hw->draw_indexed_prim( quads->hw, 
+      noop->hw->draw_indexed_prim( noop->hw, 
 				    indices, 
 				    length );
 
-      quads->hw->draw_indexed_prim( quads->hw,
+      noop->hw->draw_indexed_prim( noop->hw,
 				    tmp_indices, 
 				    2 );
       break;
@@ -169,7 +127,7 @@ static void noop_draw_indexed_prim( struct clip_render *render,
 	    tmp[j+5] = indices[i+3];
 	 }
 
-	 quads->hw->draw_indexed_prim( quads->hw, tmp, j );
+	 noop->hw->draw_indexed_prim( noop->hw, tmp, j );
 	 _mesa_free(tmp);
       }
       break;
@@ -188,18 +146,19 @@ static void noop_draw_indexed_prim( struct clip_render *render,
 	 tmp[j+5] = indices[i+3];
       }
 
-      quads->hw->draw_indexed_prim( quads->hw, tmp, j );
+      noop->hw->draw_indexed_prim( noop->hw, tmp, j );
       _mesa_free(tmp);
       break;
    }
 
    default:
-      quads->hw->draw_indexed_prim( quads->hw, 
+      noop->hw->draw_indexed_prim( noop->hw, 
 				   indices, 
 				   length );
       break;
    }
 }
+
 
 static GLuint trim( GLuint count, GLuint first, GLuint incr )
 {
@@ -207,26 +166,22 @@ static GLuint trim( GLuint count, GLuint first, GLuint incr )
 }
 
 
-
 static void noop_split_indexed_prim( struct clip_render *render,
 				      const GLuint *indices,
 				      GLuint count )
 {
-   struct noop_render *quads = noop_render( render );
-   GLuint first, incr;
-   GLuint fan_verts;
+   struct noop_render *noop = noop_render( render );
 
-   fan_verts = split_prim_inplace(quads->gl_prim, &first, &incr);
-   count = trim( count, first, incr );
-
-   if (count < quads->hw->limits.max_indices) 
+   if (count < noop->hw->limits.max_indices) 
    {
       noop_draw_indexed_prim( render, indices, count );
    }
    else 
    {
+      GLuint first, incr;
+      GLuint fan_verts = clip_prim_info(noop->gl_prim, &first, &incr);
       GLuint replay = first - incr;
-      GLuint max_step = quads->hw->limits.max_indices - (fan_verts + replay);
+      GLuint max_step = noop->hw->limits.max_indices - (fan_verts + replay);
       GLuint start;
 
       for (start = 0 ; start < count ; ) {
@@ -270,13 +225,13 @@ static void noop_draw_prim( struct clip_render *render,
 			     GLuint start,
 			     GLuint length )
 {
-   struct noop_render *quads = noop_render( render );
+   struct noop_render *noop = noop_render( render );
 
 //   _mesa_printf("%s (%s) %d/%d\n", __FUNCTION__, 
-//		_mesa_lookup_enum_by_nr(quads->gl_prim),
+//		_mesa_lookup_enum_by_nr(noop->gl_prim),
 //		start, length );
 
-   switch (quads->gl_prim) {
+   switch (noop->gl_prim) {
 
       /* Lineloop just doesn't work as a concept.  Should get
        * translated away by the vbo module and never disgrace the rest
@@ -287,8 +242,8 @@ static void noop_draw_prim( struct clip_render *render,
    case GL_LINE_LOOP: {
       GLuint indices[2] = { start + length - 1, start };
 
-      quads->hw->draw_prim( quads->hw, start, length );
-      quads->hw->draw_indexed_prim( quads->hw, indices, 2 );
+      noop->hw->draw_prim( noop->hw, start, length );
+      noop->hw->draw_indexed_prim( noop->hw, indices, 2 );
       break;
    }
 
@@ -308,7 +263,7 @@ static void noop_draw_prim( struct clip_render *render,
 	    tmp[j+5] = start+i+3;
 	 }
 
-	 quads->hw->draw_indexed_prim( quads->hw, tmp, j );
+	 noop->hw->draw_indexed_prim( noop->hw, tmp, j );
 	 _mesa_free(tmp);
       }
       break;
@@ -327,13 +282,13 @@ static void noop_draw_prim( struct clip_render *render,
 	 tmp[j+5] = start+i+3;
       }
 
-      quads->hw->draw_indexed_prim( quads->hw, tmp, j );
+      noop->hw->draw_indexed_prim( noop->hw, tmp, j );
       _mesa_free(tmp);
       break;
    }
 
    default:
-      quads->hw->draw_prim( quads->hw, start, length );
+      noop->hw->draw_prim( noop->hw, start, length );
       break;
    }
 }
@@ -342,33 +297,33 @@ static void noop_draw_prim( struct clip_render *render,
 static void noop_release_vertices( struct clip_render *render, 
 				    void *hw_verts)
 {
-   struct noop_render *quads = noop_render( render );
-   quads->hw->release_vertices( quads->hw, hw_verts );
+   struct noop_render *noop = noop_render( render );
+   noop->hw->release_vertices( noop->hw, hw_verts );
 }
 
 
 static void noop_destroy_context( struct clip_render *render )
 {
-   struct noop_render *quads = noop_render( render );
+   struct noop_render *noop = noop_render( render );
    _mesa_printf("%s\n", __FUNCTION__);
 
-   _mesa_free(quads);
+   _mesa_free(noop);
 }
 
 struct clip_render *clip_create_noop_render( struct clip_context *draw )
 {
-   struct noop_render *quads = CALLOC_STRUCT(noop_render);
+   struct noop_render *noop = CALLOC_STRUCT(noop_render);
 
-   quads->render.destroy = noop_destroy_context;
-   quads->render.start_render = NULL;
-   quads->render.allocate_vertices = noop_allocate_vertices;
-   quads->render.set_prim = noop_set_prim;
-   quads->render.draw_prim = noop_draw_prim;
-   quads->render.draw_indexed_prim = noop_split_indexed_prim;
-   quads->render.release_vertices = noop_release_vertices;
-   quads->render.flush = NULL;
-   quads->gl_prim = GL_POINTS;
-   return &quads->render;
+   noop->render.destroy = noop_destroy_context;
+   noop->render.start_render = NULL;
+   noop->render.allocate_vertices = noop_allocate_vertices;
+   noop->render.set_prim = noop_set_prim;
+   noop->render.draw_prim = noop_draw_prim;
+   noop->render.draw_indexed_prim = noop_split_indexed_prim;
+   noop->render.release_vertices = noop_release_vertices;
+   noop->render.flush = NULL;
+   noop->gl_prim = GL_POINTS;
+   return &noop->render;
 }
 
 /* Or, could just peer into the draw struct and update these values on
@@ -377,6 +332,6 @@ struct clip_render *clip_create_noop_render( struct clip_context *draw )
 void clip_noop_set_hw_render( struct clip_render *render,
 				struct clip_render *hw )
 {
-   struct noop_render *quads = noop_render( render );
-   quads->hw = hw;
+   struct noop_render *noop = noop_render( render );
+   noop->hw = hw;
 }

@@ -42,6 +42,8 @@ struct clip_vb_state {
 
 struct clip_render {
 
+   const char *name;
+
    struct {
       GLuint max_indices;
    } limits;
@@ -200,6 +202,9 @@ struct vertex_fetch *clip_get_hw_vf( struct clip_context *draw );
 
 void clip_vb(struct clip_context *draw, struct vertex_buffer *VB );
 
+
+GLuint clip_prim_info(GLenum mode, GLuint *first, GLuint *incr);
+
 /***********************************************************************
  * Private structs and functions:
  */
@@ -273,7 +278,6 @@ struct clip_context {
     */
    GLvector4f header;   
 };
-
 
 #endif
 #endif
