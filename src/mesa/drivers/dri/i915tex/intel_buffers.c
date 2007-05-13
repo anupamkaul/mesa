@@ -459,23 +459,19 @@ intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb)
 
    /*
     * Get the intel_renderbuffer for the colorbuffer we're drawing into.
-    * And set up cliprects.
     */
    if (fb->Name == 0) {
       /* drawing to window system buffer */
       if (front) {
-         intelSetFrontClipRects(intel);
          colorRegion = intel_get_rb_region(fb, BUFFER_FRONT_LEFT);
       }
       else {
-         intelSetBackClipRects(intel);
          colorRegion = intel_get_rb_region(fb, BUFFER_BACK_LEFT);
       }
    }
    else {
       /* drawing to user-created FBO */
       struct intel_renderbuffer *irb;
-      intelSetRenderbufferClipRects(intel);
       irb = intel_renderbuffer(fb->_ColorDrawBuffers[0][0]);
       colorRegion = (irb && irb->region) ? irb->region : NULL;
    }
@@ -530,6 +526,8 @@ intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb)
       intel_region_release(&intel->state.draw_region);
       intel_region_reference(&intel->state.draw_region, colorRegion);
 
+      intel_frame_set_mode(intel->ft, INTEL_FT_FLUSHED);
+
       /* Raise a state flag to ensure viewport, scissor get recalculated.
        */
       intel->state.dirty.intel |= INTEL_NEW_CBUF;
@@ -544,6 +542,22 @@ intel_draw_buffer(GLcontext * ctx, struct gl_framebuffer *fb)
       intel->state.dirty.intel |= INTEL_NEW_ZBUF;
    }
 
+   /*
+    * Set up cliprects.
+    */
+   if (fb->Name == 0) {
+      /* drawing to window system buffer */
+      if (front) {
+         intelSetFrontClipRects(intel);
+      }
+      else {
+         intelSetBackClipRects(intel);
+      }
+   }
+   else {
+      /* drawing to user-created FBO */
+      intelSetRenderbufferClipRects(intel);
+   }
 }
 
 

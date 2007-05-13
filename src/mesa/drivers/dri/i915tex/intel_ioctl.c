@@ -148,8 +148,12 @@ intel_cliprect_batch_ioctl(struct intel_context *intel,
    batch.cliprects = intel->pClipRects;
    batch.num_cliprects = intel->numClipRects;
    batch.DR1 = 0;
-   batch.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
-		(((GLuint) intel->drawY) << 16));
+   if (intel->state.DrawBuffer->Name == 0) {
+      batch.DR4 = ((((GLuint) intel->drawX) & 0xffff) |
+		   (((GLuint) intel->drawY) << 16));
+   } else {
+      batch.DR4 = 0;
+   }
 
 
    do {
