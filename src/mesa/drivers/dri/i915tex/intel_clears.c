@@ -30,6 +30,7 @@
 #include "intel_state.h"
 #include "intel_metaops.h"
 #include "intel_fbo.h"
+#include "intel_utils.h"
 #include "clip/clip_context.h"
 
 
@@ -211,6 +212,7 @@ void intelClear(GLcontext *ctx, GLbitfield mask)
     */
    if ((mask & BUFFER_BITS_COLOR) && 
        (colorMask != ~0 ||
+	count_bits(mask & BUFFER_BITS_COLOR) != 1 ||
 	(mask & BUFFER_BITS_COLOR) != ctx->DrawBuffer->_ColorDrawBufferMask[0])) 
    {
       tri_mask = mask & (BUFFER_BITS_COLOR|BUFFER_BIT_DEPTH|BUFFER_BIT_STENCIL);
@@ -244,8 +246,8 @@ void intelClear(GLcontext *ctx, GLbitfield mask)
       }
    }
 
-/*    tri_mask |= rect_mask; */
-/*    rect_mask = 0; */
+//    tri_mask |= rect_mask; 
+//    rect_mask = 0; 
 
    /* I really don't care.
     */

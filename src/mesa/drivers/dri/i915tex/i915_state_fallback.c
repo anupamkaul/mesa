@@ -61,7 +61,8 @@ static GLboolean do_check_fallback(struct intel_context *intel)
    /* _NEW_BUFFERS
     */
    if (intel->state._ColorDrawBufferMask0 != BUFFER_BIT_FRONT_LEFT &&
-       intel->state._ColorDrawBufferMask0 != BUFFER_BIT_BACK_LEFT) {
+       intel->state._ColorDrawBufferMask0 != BUFFER_BIT_BACK_LEFT &&
+       intel->state._ColorDrawBufferMask0 != BUFFER_BIT_COLOR0) {
       DBG("%s: _ColorDrawBufferMask0\n", __FUNCTION__);
       return GL_TRUE;
    }

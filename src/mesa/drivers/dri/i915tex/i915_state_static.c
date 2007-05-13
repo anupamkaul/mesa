@@ -258,7 +258,8 @@ static void upload_static(struct intel_context *intel)
       GLuint statemask = 0;
 
       if (color_region && (clearparams & (BUFFER_BIT_BACK_LEFT |
-					  BUFFER_BIT_FRONT_LEFT))) {
+					  BUFFER_BIT_FRONT_LEFT |
+					  BUFFER_BIT_COLOR0))) {
 	 statemask |= CLEARPARAM_WRITE_COLOR;
 	 if (color_region->cpp == 4) 
 	    clearColor = intel->ClearColor8888;
