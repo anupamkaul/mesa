@@ -285,14 +285,7 @@ intel_batchbuffer_free(struct intel_batchbuffer *batch)
       driFenceUnReference(batch->last_fence);
       batch->last_fence = NULL;
    }
-   if (batch->state_map && batch->state_map != batch->map) {
-      driBOUnmap(batch->state_buffer);
-      batch->state_map = NULL;
-   }
-   if (batch->map) {
-      driBOUnmap(batch->buffer);
-      batch->map = NULL;
-   }
+   intel_batchbuffer_unmap(batch);
    if (batch->state_buffer != batch->buffer) {
       driBOUnReference(batch->state_buffer);
    }
@@ -353,11 +346,7 @@ do_flush_locked( struct intel_batchbuffer *batch,
 
    }
 
-   if (batch->state_buffer != batch->buffer) {
-     driBOUnmap(batch->state_buffer);
-   }
-   driBOUnmap(batch->buffer);
-   batch->state_map = batch->map = NULL;
+   intel_batchbuffer_unmap(batch);
 
    if (batch->flags & (INTEL_BATCH_HWZ|INTEL_BATCH_CLIPRECTS)) {
       UPDATE_CLIPRECTS(intel);
@@ -416,6 +405,17 @@ do_flush_locked( struct intel_batchbuffer *batch,
    }
 }
 
+void
+intel_batchbuffer_unmap(struct intel_batchbuffer *batch)
+{
+   if (batch->state_buffer != batch->buffer) {
+      driBOUnmap(batch->state_buffer);
+   }
+
+   driBOUnmap(batch->buffer);
+
+   batch->state_map = batch->map = NULL;
+}
 
 struct _DriFenceObject *
 intel_batchbuffer_flush(struct intel_batchbuffer *batch, 
@@ -460,11 +460,7 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch,
       used += 8;
    }
 
-   if (batch->state_buffer != batch->buffer) {
-      driBOUnmap(batch->state_buffer);
-   }
-   driBOUnmap(batch->buffer);
-   batch->state_map = batch->map = NULL;
+   intel_batchbuffer_unmap(batch);
 
    /* TODO: Just pass the relocation list and dma buffer up to the
     * kernel.

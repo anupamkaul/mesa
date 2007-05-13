@@ -75,9 +75,6 @@ void UPDATE_CLIPRECTS(struct intel_context *intel)
        sarea->height != intel->height ||
        sarea->rotation != intel->current_rotation) {
       
-      void *batchMap = intel->batch->map;
-      void *stateMap = intel->batch->state_map;
-      
       /*
        * FIXME: Really only need to do this when drawing to a
        * common back- or front buffer.
@@ -89,24 +86,9 @@ void UPDATE_CLIPRECTS(struct intel_context *intel)
 //      intel_frame_set_mode( intel->ft, INTEL_FT_FLUSHED );
       assert(0);
 
-      if (stateMap != NULL && stateMap != batchMap) {
-	 driBOUnmap(intel->batch->state_buffer);
-      }
-      if (batchMap != NULL) {
-	 driBOUnmap(intel->batch->buffer);
-      }
-      intel->batch->state_map = intel->batch->map = NULL;
-
+      intel_batchbuffer_unmap(intel->batch);
       intel_batchbuffer_reset(intel->batch);
-
-      if (stateMap != NULL && stateMap != batchMap) {
-	 driBOUnmap(intel->batch->state_buffer);
-      }
-      if (batchMap == NULL) {
-	 driBOUnmap(intel->batch->buffer);
-      }
-      intel->batch->state_map = intel->batch->map = NULL;
-
+      intel_batchbuffer_unmap(intel->batch);
 
       /* re-emit all state */
       intel_lost_hardware(intel);

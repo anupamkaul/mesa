@@ -69,6 +69,8 @@ void intel_batchbuffer_free(struct intel_batchbuffer *batch);
 
 void intel_batchbuffer_finish(struct intel_batchbuffer *batch);
 
+void intel_batchbuffer_unmap(struct intel_batchbuffer *batch);
+
 struct _DriFenceObject *
 intel_batchbuffer_flush( struct intel_batchbuffer *batch,
 			 GLboolean forced );
