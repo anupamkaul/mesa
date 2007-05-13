@@ -133,6 +133,7 @@ intel_bufferobj_data(GLcontext * ctx,
 {
    struct intel_context *intel = intel_context(ctx);
    struct intel_buffer_object *intel_obj = intel_buffer_object(obj);
+   GLboolean was_locked = intel->locked;
 
    intel_obj->Base.Size = size;
    intel_obj->Base.Usage = usage;
@@ -140,9 +141,11 @@ intel_bufferobj_data(GLcontext * ctx,
    if (intel_obj->region)
       intel_bufferobj_release_region(intel, intel_obj);
 
-   LOCK_HARDWARE(intel);
+   if (!was_locked)
+      LOCK_HARDWARE(intel);
    driBOData(intel_obj->buffer, size, data, 0);
-   UNLOCK_HARDWARE(intel);
+   if (!was_locked)
+      UNLOCK_HARDWARE(intel);
 }
 
 
