@@ -335,7 +335,7 @@ intelWindowMoved(struct intel_context *intel)
       }
 
       /* Can ZONE_INIT primitives be used for clears with zone rendering? */
-      intel_fb->may_use_zone_init = GL_TRUE;
+      intel_fb->may_use_zone_init = intel->numClipRects > 0;
 
       for (i = 0; i < intel->numClipRects; i++) {
 	 drm_clip_rect_t *pRect = &intel->pClipRects[i];

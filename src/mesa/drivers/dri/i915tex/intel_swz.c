@@ -376,12 +376,32 @@ static void swz_flush( struct clip_render *render,
 			 CM0_RC_OP_FLUSH_ENABLE |
 			 CM0_DEPTH_WRITE_ENABLE) );
 
-      WAIT_VBLANK(intel);
+      WAIT_VBLANK( intel );
 
-      /* Tell the batchbuffer code about what we've emitted:
-       */
-      intel->batch->segment_finish_offset[0] = swz->pre_post.ptr - intel->batch->map;
-      intel_batchbuffer_flush( intel->batch, !finished );
+      LOCK_HARDWARE( intel );
+
+      if (intel->contended_lock)
+	 UPDATE_CLIPRECTS( intel );
+
+      if (intel->contended_lock &&
+	  (intel->numClipRects > 1 ||
+	   swz->xoff != (intel->drawX % 64) ||
+	   swz->yoff != (intel->drawY % 32) ||
+	   swz->zone_width != (align(intel->driDrawable->w + swz->xoff,
+				     ZONE_WIDTH) / ZONE_WIDTH) ||
+	   swz->zone_height != (align(intel->driDrawable->h + swz->yoff,
+				      ZONE_HEIGHT) / ZONE_HEIGHT))) {
+	 intel_batchbuffer_unmap(intel->batch);
+	 intel_batchbuffer_reset(intel->batch);
+      } else {
+	 /* Tell the batchbuffer code about what we've emitted:
+	  */
+	 intel->batch->segment_finish_offset[0] = swz->pre_post.ptr -
+	    intel->batch->map;
+	 intel_batchbuffer_flush( intel->batch, !finished );
+      }
+
+      UNLOCK_HARDWARE( intel );
    }
 
    memset(swz->zone, 0, sizeof(swz->zone));

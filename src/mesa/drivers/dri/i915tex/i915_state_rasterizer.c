@@ -64,7 +64,8 @@ static GLboolean check_swz( struct intel_context *intel )
     * be fixed)
     */
    if (intel->state.DrawBuffer == NULL ||
-       intel->state.DrawBuffer->Name != 0)
+       intel->state.DrawBuffer->Name != 0 ||
+       intel->numClipRects > 1)
       return GL_FALSE;
 
       return GL_TRUE;
