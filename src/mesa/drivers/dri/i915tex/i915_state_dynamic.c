@@ -87,6 +87,7 @@ void i915_dynamic_lost_hardware( struct intel_context *intel )
 {
    struct i915_context *i915 = i915_context(&intel->ctx);
    i915->dynamic.ptr = (GLuint *)4096-1;
+   memset(i915->dynamic.hardware, 0, sizeof(i915->dynamic.hardware));
 }
 
 static void emit_dynamic_indirect( struct intel_context *intel)
@@ -146,7 +147,7 @@ static void emit_dynamic_indirect( struct intel_context *intel)
 const struct intel_tracked_state i915_upload_dynamic_indirect = {
    .dirty = {
       .mesa = 0,
-      .intel = (I915_NEW_DYNAMIC_INDIRECT),
+      .intel = (I915_NEW_DYNAMIC_INDIRECT | INTEL_NEW_FENCE),
       .extra = 0
    },
    .update = emit_dynamic_indirect
