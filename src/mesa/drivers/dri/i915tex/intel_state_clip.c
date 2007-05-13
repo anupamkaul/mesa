@@ -58,7 +58,7 @@ static GLboolean get_offset_flag( GLuint fill_mode,
 
 static void update_clip_state( struct intel_context *intel )
 {
-   struct intel_clip_state state;
+   struct clip_state state;
 
    memset(&state, 0, sizeof(state));
    
@@ -159,7 +159,7 @@ static void update_clip_state( struct intel_context *intel )
       
 
    if (memcmp(&state, &intel->clip_state, sizeof(state)) != 0) {
-      intel_draw_set_state( intel->clip, &state );
+      clip_set_state( intel->clip, &state );
       memcpy( &intel->clip_state, &state, sizeof(state));
    }
 }
@@ -190,7 +190,7 @@ static void update_clip_userclip( struct intel_context *intel )
       }
    }
       
-   intel_draw_set_userclip(intel->clip, plane, nr);
+   clip_set_userclip(intel->clip, plane, nr);
 }
 
 
