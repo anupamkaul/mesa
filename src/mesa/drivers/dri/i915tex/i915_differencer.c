@@ -122,6 +122,9 @@ static void emit_indirect( struct intel_context *intel,
       if (force_reload)
 	 flag = SIS0_FORCE_LOAD;
 
+      if (dirty & (1<<I915_CACHE_STATIC))
+	 EMIT_DWORD(ptr, MI_FLUSH);
+
       /* No state size dword for dynamic state:
        */
       if (dirty & (1<<I915_CACHE_DYNAMIC))
@@ -169,6 +172,9 @@ static GLuint size_indirect( GLuint dirty )
    if (dirty) {
       GLuint nr = count_bits(dirty);
       GLuint size = nr * 2 + 1;
+
+      if (dirty & (1<<I915_CACHE_STATIC))
+	 size += 1;
       
       if (dirty & (1<<I915_CACHE_DYNAMIC))
 	 size -= 1;

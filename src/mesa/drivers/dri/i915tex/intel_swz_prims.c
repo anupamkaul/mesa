@@ -36,6 +36,7 @@
 #define INTEL_SWZ_PRIVATE
 #include "intel_swz.h"
 
+#define FILE_DEBUG_FLAG DEBUG_RENDER
 
 void swz_debug_zone( struct swz_render *swz,
 		     struct swz_zone *zone )
@@ -453,7 +454,7 @@ void swz_clear_rect( struct clip_render *render,
    GLint zone_x0, zone_x1, zone_y0, zone_y1;
    GLint x, y;
 
-   if (0) _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
+   DBG("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
    
    assert( swz->started_binning );
 
@@ -493,7 +494,7 @@ void swz_zone_init( struct clip_render *render,
    GLint zone_x0, zone_x1, zone_y0, zone_y1;
    GLint x, y;
 
-   if (0) _mesa_printf("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
+   DBG("%s %d..%d %d..%d\n", __FUNCTION__, x0, x1, y0, y1);
 
    assert( swz->started_binning );
 
@@ -532,6 +533,8 @@ static void swz_draw_prim( struct clip_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   DBG("%s (%d) %d/%d\n", __FUNCTION__, swz->prim, start, nr );
 
    invalidate_bins( swz );
 
@@ -615,6 +618,8 @@ static void swz_draw_indexed_prim( struct clip_render *render,
 {
    struct swz_render *swz = swz_render( render );
    GLuint i;
+
+   DBG("%s (%d) %d\n", __FUNCTION__, swz->prim,  nr );
 
    invalidate_bins( swz );
 

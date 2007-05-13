@@ -41,6 +41,8 @@
 #include "intel_utils.h"
 #include "clip/clip_context.h"
 
+#define FILE_DEBUG_FLAG DEBUG_RENDER
+
 struct classic_render {
    struct clip_render render;
    struct intel_context *intel;
@@ -95,6 +97,8 @@ static void classic_draw_indexed_prim( struct clip_render *render,
    const GLuint offset = crc->offset;
    GLuint j;
 
+   DBG("%s (%d) %d\n", __FUNCTION__, crc->hw_prim,  nr );
+
    if (nr == 0 || !intel_validate_vertices(crc->hw_prim, nr))
       return; 
 
@@ -135,7 +139,7 @@ static void classic_draw_prim( struct clip_render *render,
    GLuint dwords = 2;
    GLuint *ptr;
 
-//   _mesa_printf("%s (%d) %d/%d\n", __FUNCTION__, crc->hw_prim, start, nr );
+   DBG("%s (%d) %d/%d\n", __FUNCTION__, crc->hw_prim, start, nr );
 
    if (nr == 0 || !intel_validate_vertices(crc->hw_prim, nr))
       return; 
@@ -269,6 +273,8 @@ static void classic_clear_rect( struct clip_render *render,
    struct classic_render *crc = classic_render( render );
    struct intel_context *intel = crc->intel;
 
+   DBG("%s %d..%d %d..%d\n", __FUNCTION__, x1, x2, y1, y2);
+
    intel_frame_set_mode( intel->ft, INTEL_FT_CLASSIC );
 
    /* XXX: i915 only
@@ -301,6 +307,7 @@ struct clip_render *intel_create_classic_render( struct intel_context *intel )
 {
    struct classic_render *crc = CALLOC_STRUCT(classic_render);
 
+   crc->render.name = "crc";
    crc->render.limits.max_indices = (SEGMENT_SZ - 1024) / sizeof(GLushort);
 
    crc->render.destroy = classic_destroy_context;

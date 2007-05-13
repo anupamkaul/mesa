@@ -333,6 +333,65 @@ update_vb_state( struct clip_context *clip,
 
 
 
+GLuint clip_prim_info(GLenum mode, GLuint *first, GLuint *incr)
+{
+   switch (mode) {
+   case GL_POINTS:
+      *first = 1;
+      *incr = 1;
+      return 0;
+   case GL_LINES:
+      *first = 2;
+      *incr = 2;
+      return 0;
+   case GL_LINE_STRIP:
+      *first = 2;
+      *incr = 1;
+      return 0;
+   case GL_LINE_LOOP:
+      *first = 2;
+      *incr = 1;
+      return 1;
+   case GL_TRIANGLES:
+      *first = 3;
+      *incr = 3;
+      return 0;
+   case GL_TRIANGLE_STRIP:
+      *first = 3;
+      *incr = 1;
+      return 0;
+   case GL_TRIANGLE_FAN:
+   case GL_POLYGON:
+      *first = 3;
+      *incr = 1;
+      return 1;
+   case GL_QUADS:
+      *first = 4;
+      *incr = 4;
+      return 0;
+   case GL_QUAD_STRIP:
+      *first = 4;
+      *incr = 2;
+      return 0;
+   default:
+      assert(0);
+      *first = 1;
+      *incr = 1;
+      return 0;
+   }
+}
+
+
+static GLuint trim( GLuint count, GLuint first, GLuint incr )
+{
+   if (count < first)
+      return 0;
+   else
+      return count - (count - first) % incr; 
+}
+
+
+
 void clip_vb(struct clip_context *clip,
 	     struct vertex_buffer *VB )
 {
@@ -381,7 +440,12 @@ void clip_vb(struct clip_context *clip,
 
       GLenum mode = VB->Primitive[i].mode;
       GLuint start = VB->Primitive[i].start;
-      GLuint length = VB->Primitive[i].count;
+      GLuint length, first, incr;
+
+      /* Trim the primitive down to a legal size.  
+       */
+      clip_prim_info( mode, &first, &incr );
+      length = trim( VB->Primitive[i].count, first, incr );
 
       if (!length)
 	 continue;

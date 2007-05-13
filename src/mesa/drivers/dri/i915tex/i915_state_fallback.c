@@ -39,6 +39,8 @@
 #include "intel_fbo.h"
 #include "i915_context.h"
 
+#define FILE_DEBUG_FLAG DEBUG_FALLBACKS
+
 /* A place to check fallbacks that aren't calculated on the fly or in
  * callback functions.  
  */
@@ -51,19 +53,29 @@ static GLboolean do_check_fallback(struct intel_context *intel)
    if (intel->metaops.active)
       return GL_FALSE;
 
+#if 0
+   /* I think this is intended to catch GL_FRONT_AND_BACK rendering.
+    * It isn't quite right though and is catching FBO's & other stuff
+    * incorrectly.
+    */
    /* _NEW_BUFFERS
     */
    if (intel->state._ColorDrawBufferMask0 != BUFFER_BIT_FRONT_LEFT &&
-       intel->state._ColorDrawBufferMask0 != BUFFER_BIT_BACK_LEFT)
+       intel->state._ColorDrawBufferMask0 != BUFFER_BIT_BACK_LEFT) {
+      DBG("%s: _ColorDrawBufferMask0\n", __FUNCTION__);
       return GL_TRUE;
+   }
+#endif
 
    /* _NEW_RENDERMODE
     *
     * XXX: need to save/restore RenderMode in metaops state, or
     * somehow move to a new attribs pointer:
     */
-   if (intel->state.RenderMode != GL_RENDER)
+   if (intel->state.RenderMode != GL_RENDER) {
+      DBG("%s: RenderMode\n", __FUNCTION__);
       return GL_TRUE;
+   }
 
    /* _NEW_TEXTURE:
     */
@@ -72,11 +84,15 @@ static GLboolean do_check_fallback(struct intel_context *intel)
       if (texUnit->_ReallyEnabled) {
 	 struct intel_texture_object *intelObj = intel_texture_object(texUnit->_Current);
 	 struct gl_texture_image *texImage = intelObj->base.Image[0][intelObj->firstLevel];
-	 if (texImage->Border)
+	 if (texImage->Border) {
+	    DBG("%s: Texture Border\n", __FUNCTION__);
 	    return GL_TRUE;
+	 }
 
-	 if (!intel_finalize_mipmap_tree(intel, i)) 
+	 if (!intel_finalize_mipmap_tree(intel, i)) {
+	    DBG("%s: intel_finalize_mipmap_tree\n", __FUNCTION__);
 	    return GL_TRUE;
+	 }
       }
    }
    
@@ -90,11 +106,14 @@ static GLboolean do_check_fallback(struct intel_context *intel)
 
       intel->hw_stencil = irbStencil && irbStencil->region;
 
-      if (!intel->hw_stencil)
+      if (!intel->hw_stencil) {
+	 DBG("%s: hw_stencil\n", __FUNCTION__);
 	 return GL_TRUE;
+      }
    }
 
 
+   DBG("%s: no fallback\n", __FUNCTION__);
    return GL_FALSE;
 }
 

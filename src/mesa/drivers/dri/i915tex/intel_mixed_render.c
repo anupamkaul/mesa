@@ -100,6 +100,7 @@ static void mixed_draw_prim( struct clip_render *render,
 {
    /* Emit vertices to active renderer at this point. 
     */
+   DBG("%s (%d) %d/%d\n", __FUNCTION__, hwz->hw_prim, start, nr );
 
    mixed->active->draw_prim( mixed->active, start, nr );
 }
@@ -111,6 +112,7 @@ static void mixed_draw_indexed_prim( struct clip_render *render,
    /* Emit vertices to active renderer.  Use a vertex cache to
     * minimize duplication.
     */
+   DBG("%s (%d) %d\n", __FUNCTION__, hwz->hw_prim,  nr );
 
    mixed->active->draw_indexed_prim( mixed->active, out, out_nr );
 }
@@ -170,6 +172,7 @@ struct clip_render *intel_create_mixed_render( struct intel_context *intel )
 {
    struct mixed_render *mixed = CALLOC_STRUCT(mixed_render);
 
+   mixed->render.name = "mixed";
    mixed->render.limits.max_indices = (SEGMENT_SZ - 1024) / sizeof(GLushort);
 
    mixed->render.start_render = mixed_start_render;

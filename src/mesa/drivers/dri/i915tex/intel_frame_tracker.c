@@ -276,9 +276,10 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
    if (ft->mode == new_mode) 
       return;
 
-   if (0) _mesa_printf("transiton %s -> %s\n",
-		       mode_name[ft->mode],
-		       mode_name[new_mode]);
+   if (INTEL_DEBUG & (DEBUG_RENDER|DEBUG_FALLBACKS|DEBUG_FRAME)) 
+      _mesa_printf("transiton %s -> %s\n",
+		   mode_name[ft->mode],
+		   mode_name[new_mode]);
 
    switch (ft->mode) {
    case INTEL_FT_SWAP_BUFFERS:
@@ -365,6 +366,7 @@ struct intel_frame_tracker *intel_frame_tracker_create( struct intel_context *in
 {
    struct intel_frame_tracker *ft = CALLOC_STRUCT( intel_frame_tracker );
    ft->intel = intel;
+   ft->mode = INTEL_FT_SWAP_BUFFERS;
    return ft;
 }
 

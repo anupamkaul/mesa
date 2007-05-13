@@ -242,7 +242,7 @@ static const struct dri_debug_control debug_control[] = {
    {"fbo", DEBUG_FBO},
    {"lock", DEBUG_LOCK},
    {"idx", DEBUG_IDX},
-   {"tri", DEBUG_TRI},
+   {"rend", DEBUG_RENDER},
    {"sync", DEBUG_ALWAYS_SYNC},
    {"vbo", DEBUG_VBO},
    {"fram", DEBUG_FRAME},

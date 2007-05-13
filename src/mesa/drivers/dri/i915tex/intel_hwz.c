@@ -47,6 +47,8 @@
 #include "i915_context.h"
 #include "i915_state.h"
 
+#define FILE_DEBUG_FLAG DEBUG_RENDER
+
 struct hwz_render {
    struct clip_render render;
    struct intel_context *intel;
@@ -157,6 +159,8 @@ static void hwz_draw_indexed_prim( struct clip_render *render,
    const GLuint offset = hwz->offset;
    GLuint j;
 
+   DBG("%s (%d) %d\n", __FUNCTION__, hwz->hw_prim,  nr );
+
    if (nr == 0 || !intel_validate_vertices(hwz->hw_prim, nr))
       return; 
 
@@ -199,7 +203,7 @@ static void hwz_draw_prim( struct clip_render *render,
    GLuint dwords = 2;
    GLuint *ptr;
 
-//   _mesa_printf("%s (%d) %d/%d\n", __FUNCTION__, hwz->hw_prim, start, nr );
+   DBG("%s (%d) %d/%d\n", __FUNCTION__, hwz->hw_prim, start, nr );
 
    if (nr == 0 || !intel_validate_vertices(hwz->hw_prim, nr))
       return; 
@@ -331,6 +335,8 @@ static void hwz_clear_rect( struct clip_render *render,
    GLboolean do_stencil = !!(mask & BUFFER_BIT_STENCIL);
    union fi *ptr;
 
+   DBG("%s %d..%d %d..%d\n", __FUNCTION__, x1, x2, y1, y2);
+
    intel_frame_set_mode( intel->ft, INTEL_FT_HWZ );
 
    ptr = (union fi *)hwz_emit_hardware_state(hwz, 7, INTEL_BATCH_HWZ);
@@ -378,6 +384,7 @@ struct clip_render *intel_create_hwz_render( struct intel_context *intel )
 {
    struct hwz_render *hwz = CALLOC_STRUCT(hwz_render);
 
+   hwz->render.name = "hwz";
    hwz->render.limits.max_indices = (SEGMENT_SZ - 1024) / sizeof(GLushort);
 
    hwz->render.destroy = hwz_destroy_context;
