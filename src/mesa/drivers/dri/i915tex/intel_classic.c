@@ -33,6 +33,7 @@
 #include "intel_context.h"
 #include "intel_vb.h"
 #include "intel_batchbuffer.h"
+#include "intel_lock.h"
 #include "intel_reg.h"
 #include "intel_swapbuffers.h"
 #include "intel_frame_tracker.h"
@@ -212,7 +213,7 @@ static void classic_set_prim( struct clip_render *render,
       break;
    }
 
-//   _mesa_printf("%s %d -> %x\n", __FUNCTION__, mode, crc->hw_prim );
+   DBG("%s %d -> %x\n", __FUNCTION__, mode, crc->hw_prim );
 
    if (crc->intel->hw_reduced_prim != reduced_prim[mode]) {
       crc->intel->hw_reduced_prim = reduced_prim[mode];
@@ -230,7 +231,8 @@ static void classic_start_render( struct clip_render *render,
 				  GLboolean start_of_frame )
 {
    struct classic_render *crc = classic_render( render );
-//   _mesa_printf("%s\n", __FUNCTION__);
+
+   DBG("%s\n", __FUNCTION__);
 
    /* Should already be flushed!
     */
@@ -252,8 +254,10 @@ static void classic_flush( struct clip_render *render,
 
    struct intel_context *intel = crc->intel;
 
-   if (intel->batch->segment_finish_offset[0] != 0)
+   if (intel->batch->segment_finish_offset[0] != 0) {
+      WAIT_VBLANK(intel);
       intel_batchbuffer_flush(intel->batch, !finished_frame);
+   }
 }
 
 
@@ -290,7 +294,8 @@ static void classic_clear_rect( struct clip_render *render,
 static void classic_destroy_context( struct clip_render *render )
 {
    struct classic_render *crc = classic_render( render );
-   _mesa_printf("%s\n", __FUNCTION__);
+
+   DBG("%s\n", __FUNCTION__);
 
    _mesa_free(crc);
 }
