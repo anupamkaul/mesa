@@ -366,6 +366,7 @@ struct intel_frame_tracker *intel_frame_tracker_create( struct intel_context *in
 {
    struct intel_frame_tracker *ft = CALLOC_STRUCT( intel_frame_tracker );
    ft->intel = intel;
+   ft->mode = INTEL_FT_SWAP_BUFFERS;
    return ft;
 }
 
