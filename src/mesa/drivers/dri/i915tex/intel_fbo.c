@@ -323,7 +323,6 @@ intel_resize_framebuffer(GLcontext *ctx,
 			 GLuint width, 
 			 GLuint height)
 {
-   struct intel_framebuffer *intel_fb = (struct intel_framebuffer*)fb;
    int i;
 
    if (fb->Width == width &&
@@ -337,6 +336,8 @@ intel_resize_framebuffer(GLcontext *ctx,
    /* Make sure all window system renderbuffers are up to date 
     */
    if (fb->Name == 0) {
+      struct intel_framebuffer *intel_fb = (struct intel_framebuffer*)fb;
+
       for (i = 0; i < 3; i++) {
 	 struct gl_renderbuffer *rb = &intel_fb->color_rb[i]->Base;
 

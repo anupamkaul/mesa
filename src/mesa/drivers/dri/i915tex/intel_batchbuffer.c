@@ -323,7 +323,8 @@ do_flush_locked( struct intel_batchbuffer *batch,
 					 DRM_BO_HINT_ALLOW_UNFENCED_MAP);
    }
 
-   if (batch->zone_init_offset && !intel_fb->may_use_zone_init) {
+   if (batch->zone_init_offset &&
+       (intel_fb->Base.Name != 0 || !intel_fb->may_use_zone_init)) {
       *(GLuint*)(batch->map + batch->zone_init_offset) =
 	 (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
    }
@@ -354,8 +355,6 @@ do_flush_locked( struct intel_batchbuffer *batch,
       if (intel->numClipRects) {
 	 if (batch->flags & INTEL_BATCH_HWZ) {
 	    struct i915_state *state = &i915_context( &intel->ctx )->current;
-	    struct intel_framebuffer *intel_fb =
-	       (struct intel_framebuffer *) intel->ctx.DrawBuffer;
 
 	    intel_cliprect_hwz_ioctl(batch->intel,
 				     intel_fb->pf_current_page,
@@ -425,8 +424,7 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch,
    GLuint used = batch->segment_finish_offset[0] - batch->segment_start_offset[0];
    GLboolean was_locked = intel->locked;
    GLint *ptr = (GLint *)(batch->map + batch->segment_finish_offset[0]);
-   struct intel_framebuffer *intel_fb =
-      (struct intel_framebuffer*)intel->ctx.DrawBuffer;
+   struct intel_framebuffer *intel_fb = intel_get_fb(intel);
 
    if (used == 0)
       return batch->last_fence;
@@ -441,7 +439,7 @@ intel_batchbuffer_flush(struct intel_batchbuffer *batch,
    /* Add the MI_BATCH_BUFFER_END.  Always add an MI_FLUSH - this is a
     * performance drain that we would like to avoid.
     */
-   if (intel_fb->hwz) {
+   if (intel_fb->Base.Name == 0 && intel_fb->hwz) {
       *ptr++ = MI_BATCH_BUFFER_END;
       used += 4;
       if (used & 4) {

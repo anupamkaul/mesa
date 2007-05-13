@@ -342,7 +342,8 @@ static void hwz_clear_rect( struct clip_render *render,
 
    ptr = (union fi *)hwz_emit_hardware_state(hwz, 7, INTEL_BATCH_HWZ);
 
-   if (intel_fb->may_use_zone_init &&
+   if (intel_fb->Base.Name == 0 &&
+       intel_fb->may_use_zone_init &&
        hwz->start_of_frame &&
        x1 == 0 &&
        y1 == 0 &&

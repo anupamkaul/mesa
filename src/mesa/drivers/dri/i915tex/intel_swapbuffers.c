@@ -401,8 +401,7 @@ GLboolean
 intel_emit_wait_flips(struct intel_context *intel, 
 		      GLuint **ptr )
 {
-   struct intel_framebuffer *intel_fb =
-      (struct intel_framebuffer *) intel->ctx.DrawBuffer;
+   struct intel_framebuffer *intel_fb = intel_get_fb(intel);
    struct intel_renderbuffer *intel_rb =
       intel_get_renderbuffer(&intel_fb->Base,
 			     intel_fb->Base._ColorDrawBufferMask[0] ==

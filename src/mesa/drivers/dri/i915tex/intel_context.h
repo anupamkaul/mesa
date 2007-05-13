@@ -495,7 +495,7 @@ intel_texture_image(struct gl_texture_image *img)
 static INLINE struct intel_framebuffer *
 intel_get_fb( struct intel_context *intel )
 {
-   return (struct intel_framebuffer *) intel->driDrawable->driverPrivate;
+   return (struct intel_framebuffer *) intel->ctx.DrawBuffer;
 }
 
 extern struct intel_renderbuffer *

@@ -439,7 +439,8 @@ static void swz_clear( struct clip_render *render,
    if (do_depth && intel_frame_can_clear_stencil( intel->ft ))
       do_stencil = GL_TRUE;
 
-   if (intel_fb->may_use_zone_init &&
+   if (intel_fb->Base.Name == 0 &&
+       intel_fb->may_use_zone_init &&
        swz->clears == 0 && 
        swz->draws == 0 && 
        x1 == 0 &&

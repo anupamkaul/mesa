@@ -46,8 +46,7 @@ static GLboolean check_hwz( struct intel_context *intel )
 {
    /* _NEW_BUFFERS ???
     */
-   struct intel_framebuffer *intel_fb =
-      (struct intel_framebuffer *) intel->state.DrawBuffer;
+   struct intel_framebuffer *intel_fb = intel_get_fb( intel );
 
    return intel_fb && intel_fb->Base.Name == 0 && intel_fb->hwz;
 }

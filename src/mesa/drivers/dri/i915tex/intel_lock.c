@@ -114,13 +114,10 @@ void UPDATE_CLIPRECTS(struct intel_context *intel)
 
 void WAIT_VBLANK( struct intel_context *intel )
 {
-    struct intel_framebuffer *intel_fb = NULL;
+    struct intel_framebuffer *intel_fb = intel_get_fb(intel);
     struct intel_renderbuffer *intel_rb = NULL;
 
-    if (intel->driDrawable) {
-       intel_fb = intel->driDrawable->driverPrivate;
-
-       if (intel_fb)
+    if (intel_fb && intel_fb->Base.Name == 0) {
 	  intel_rb =
 	     intel_get_renderbuffer(&intel_fb->Base,
 				    intel_fb->Base._ColorDrawBufferMask[0] ==
