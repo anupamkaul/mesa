@@ -165,9 +165,9 @@ void WAIT_VBLANK( struct intel_context *intel )
 void LOCK_HARDWARE( struct intel_context *intel )
 {
     char __ret=0;
-    _glthread_LOCK_MUTEX(lockMutex);
     assert(!intel->locked);
 
+    _glthread_LOCK_MUTEX(lockMutex);
 
     DRM_CAS(intel->driHwLock, intel->hHWContext,
         (DRM_LOCK_HELD|intel->hHWContext), __ret);
