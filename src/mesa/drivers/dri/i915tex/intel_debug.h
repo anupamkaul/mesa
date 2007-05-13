@@ -52,7 +52,7 @@ extern int INTEL_DEBUG;
 #define DEBUG_FBO         0x800
 #define DEBUG_LOCK        0x1000
 #define DEBUG_IDX         0x2000
-#define DEBUG_TRI         0x4000
+#define DEBUG_RENDER      0x4000
 #define DEBUG_ALWAYS_SYNC 0x8000
 #define DEBUG_VBO         0x10000
 #define DEBUG_FRAME       0x20000
