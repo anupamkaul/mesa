@@ -49,7 +49,7 @@ static GLboolean check_hwz( struct intel_context *intel )
    struct intel_framebuffer *intel_fb =
       (struct intel_framebuffer *) intel->state.DrawBuffer;
 
-   return intel_fb && intel_fb->hwz;
+   return intel_fb && intel_fb->Base.Name == 0 && intel_fb->hwz;
 }
 
 
@@ -94,11 +94,9 @@ static void choose_rasterizer( struct intel_context *intel )
 	 render = intel->swrender;
       }
    }
-#if 0
    else if (check_hwz( intel )) {
       render = intel->hwz;
    }
-#endif
    else if (check_swz( intel )) {
       render = intel->swz;
    }
