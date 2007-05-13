@@ -122,6 +122,8 @@ void UPDATE_CLIPRECTS(struct intel_context *intel)
    /* Drawable changed?
     */
    if (dPriv && intel->lastStamp != dPriv->lastStamp) {
+      intel->state.dirty.intel |= INTEL_NEW_MESA;
+      intel->state.dirty.mesa |= _NEW_BUFFERS;
       intelWindowMoved(intel);
       intel->lastStamp = dPriv->lastStamp;
    }
