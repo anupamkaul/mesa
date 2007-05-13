@@ -149,6 +149,31 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
    batch->flags |= flags;
 }
 
+static INLINE GLubyte *
+intel_batchbuffer_get_space(struct intel_batchbuffer *batch, 
+			    GLuint segment,
+			    GLuint bytes, 
+			    GLuint flags )
+{
+   GLubyte *ptr;
+
+   intel_batchbuffer_require_space( batch, segment, bytes, flags );
+   ptr = batch->map + batch->segment_finish_offset[segment];
+
+   batch->segment_finish_offset[segment] += bytes;
+   return ptr;
+}
+
+
+static INLINE void
+intel_batchbuffer_put_back_space(struct intel_batchbuffer *batch, 
+			    GLuint segment,
+			    GLuint bytes )
+{
+   batch->segment_finish_offset[segment] -= bytes;
+}
+
+
 /* Here are the crusty old macros, to be removed:
  */
 #define BATCH_LOCALS

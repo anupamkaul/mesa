@@ -397,8 +397,9 @@ intelCopySubBuffer(__DRIdrawablePrivate * dPriv, int x, int y, int w, int h)
 
 
 /* Emit wait for pending flips */
-void
-intel_wait_flips(struct intel_context *intel, GLuint batch_flags)
+GLboolean
+intel_emit_wait_flips(struct intel_context *intel, 
+		      GLuint **ptr )
 {
    struct intel_framebuffer *intel_fb =
       (struct intel_framebuffer *) intel->ctx.DrawBuffer;
@@ -413,30 +414,49 @@ intel_wait_flips(struct intel_context *intel, GLuint batch_flags)
        intel_fb->pf_pipes) 
    {
       GLint pf_pipes = intel_fb->pf_pipes;
-      BATCH_LOCALS;
-
       /* Wait for pending flips to take effect */
-      BEGIN_BATCH(2, batch_flags);
-      OUT_BATCH(pf_pipes & 0x1 ? (MI_WAIT_FOR_EVENT | MI_WAIT_FOR_PLANE_A_FLIP)
-		: 0);
-      OUT_BATCH(pf_pipes & 0x2 ? (MI_WAIT_FOR_EVENT | MI_WAIT_FOR_PLANE_B_FLIP)
-		: 0);
-      ADVANCE_BATCH();
+      
+      (*ptr)[0] = ( (pf_pipes & 0x1) ? 
+		    (MI_WAIT_FOR_EVENT | MI_WAIT_FOR_PLANE_A_FLIP) :
+		    0 );
+
+      (*ptr)[1] = ( (pf_pipes & 0x2) ? 
+		    (MI_WAIT_FOR_EVENT | MI_WAIT_FOR_PLANE_B_FLIP) :
+		    0 );
+
+      *ptr += 2;
 
       intel_rb->pf_pending--;
+      return GL_TRUE;
    }
+
+   return GL_FALSE;
 }
 
+
+#define INTEL_WAIT_FLIP_BYTES (2*sizeof(int))
  
-void intel_do_wait_flips( struct intel_context *intel ) 
+void intel_wait_flips_batch( struct intel_context *intel,
+			     GLboolean do_flush ) 
 {
-   intel_wait_flips( intel, 0 );
+   GLuint bytes = INTEL_WAIT_FLIP_BYTES;
+   GLuint *ptr = (GLuint *)intel_batchbuffer_get_space( intel->batch, 
+							0, 
+							bytes,
+							0 );
 
-   /* Flush the batchbuffer.  Later call to intelSpanRenderStart will
-    * ensure we wait for completion.
-    */
-   if (intel->batch->segment_finish_offset[0] != 0)
-      intel_batchbuffer_flush(intel->batch, GL_TRUE);
-
-   intel_batchbuffer_wait_last_fence( intel->batch );
+   if (intel_emit_wait_flips( intel, &ptr ))
+   {
+      /* Flush the batchbuffer.  Later call to intelSpanRenderStart will
+       * ensure we wait for completion.
+       */
+      if (do_flush) {
+	 intel_batchbuffer_flush(intel->batch, GL_TRUE);
+	 intel_batchbuffer_wait_last_fence( intel->batch );
+      }
+   }
+   else {
+      intel_batchbuffer_put_back_space( intel->batch, 0,
+					INTEL_WAIT_FLIP_BYTES );
+   }
 }

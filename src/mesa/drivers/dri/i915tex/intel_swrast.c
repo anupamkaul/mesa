@@ -415,7 +415,7 @@ static void swrender_start_render( struct clip_render *render,
    /* Wait for pending flip.
     */
    if (start_of_frame)
-      intel_do_wait_flips(intel);
+      intel_wait_flips_batch(intel, GL_TRUE);
 
    /* Wait for last fence to clear:
     */

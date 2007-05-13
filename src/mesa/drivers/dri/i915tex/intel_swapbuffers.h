@@ -28,10 +28,11 @@
 #ifndef INTEL_SWAPBUFFERS_H
 #define INTEL_SWAPBUFFERS_H
 
-extern void intel_wait_flips(struct intel_context *intel, GLuint batch_flags);
-
 extern void intelSwapBuffers(__DRIdrawablePrivate * dPriv);
 
-extern void intel_do_wait_flips( struct intel_context *intel );
+GLboolean intel_emit_wait_flips(struct intel_context *intel, GLuint **ptr );
+
+void intel_wait_flips_batch( struct intel_context *intel,
+			     GLboolean do_flush );
 
 #endif

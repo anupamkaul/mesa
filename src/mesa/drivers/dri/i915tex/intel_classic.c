@@ -239,15 +239,7 @@ static void classic_start_render( struct clip_render *render,
    /* Start a new batchbuffer, emit wait for pending flip.
     */
    if (start_of_frame)
-      intel_wait_flips(crc->intel, 0);
-
-#if 0
-   /* Flush any non-cliprect batch now:
-    */
-   intel_batchbuffer_require_space( crc->intel->batch, 0, 
-				    SEGMENT_IMMEDIATE,
-				    INTEL_BATCH_CLIPRECTS );
-#endif
+      intel_wait_flips_batch(crc->intel, GL_FALSE);
 
    intel_update_software_state( crc->intel );
 }

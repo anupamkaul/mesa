@@ -197,10 +197,6 @@ static void swz_start_render( struct clip_render *render,
 		       swz->zone_height);
 
 
-   /* Goes to the main batchbuffer: 
-    */
-//   intel_wait_flips(intel, INTEL_BATCH_NO_CLIPRECTS);
-
    memcpy( swz->last_driver_state,
 	   intel->state.current,
 	   intel->state.driver_state_size );
@@ -304,6 +300,11 @@ static void swz_flush( struct clip_render *render,
 		 swz->vertices, 
 		 swz->nr_vertices * swz->vertex_stride );
 
+
+      /* Add wait-for-flip code to the preamble:
+       */
+      intel_emit_wait_flips( intel, 
+			     (GLuint **)&swz->pre_post.ptr );
 
       zone_mi_flush( &swz->pre_post, 0 );
 
