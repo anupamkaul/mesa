@@ -277,7 +277,7 @@ static void hwz_set_prim( struct clip_render *render,
       break;
    }
 
-//   _mesa_printf("%s %d -> %x\n", __FUNCTION__, mode, hwz->hw_prim );
+   DBG("%s %d -> %x\n", __FUNCTION__, mode, hwz->hw_prim );
 
    if (hwz->intel->hw_reduced_prim != reduced_prim[mode]) {
       hwz->intel->hw_reduced_prim = reduced_prim[mode];
@@ -295,7 +295,8 @@ static void hwz_start_render( struct clip_render *render,
 				  GLboolean start_of_frame )
 {
    struct hwz_render *hwz = hwz_render( render );
-   _mesa_printf("%s\n", __FUNCTION__);
+
+   DBG("%s\n", __FUNCTION__);
 
    assert(!hwz->started_binning);
 
@@ -375,7 +376,8 @@ static void hwz_clear_rect( struct clip_render *render,
 static void hwz_destroy_context( struct clip_render *render )
 {
    struct hwz_render *hwz = hwz_render( render );
-   _mesa_printf("%s\n", __FUNCTION__);
+
+   DBG("%s\n", __FUNCTION__);
 
    _mesa_free(hwz);
 }

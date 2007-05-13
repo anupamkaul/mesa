@@ -185,7 +185,7 @@ intel_cliprect_hwz_ioctl(struct intel_context *intel,
    assert(intel->locked);
    assert(used);
 
-   _mesa_printf("%s used %d offset %x..%x nr_cliprects %d\n",
+   DBG("%s used %d offset %x..%x nr_cliprects %d\n",
        __FUNCTION__,
        used, start_offset, start_offset + used, intel->numClipRects);
 
