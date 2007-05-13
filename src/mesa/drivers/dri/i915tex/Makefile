@@ -23,7 +23,6 @@ DRIVER_SOURCES = \
 	i915_state_immediate.c \
 	i915_state_map.c \
 	i915_state_program.c \
-	i915_state_rasterizer.c \
 	i915_state_sampler.c \
 	i915_state_static.c \
 	i915_state_vertex.c \
@@ -59,6 +58,7 @@ DRIVER_SOURCES = \
 	intel_state_clip.c \
 	intel_state_pipeline.c \
 	intel_state_viewport.c \
+	intel_state_render.c \
 	intel_swapbuffers.c \
 	intel_swrast.c \
 	intel_swz.c \

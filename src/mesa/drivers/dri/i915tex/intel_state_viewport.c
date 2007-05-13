@@ -99,7 +99,7 @@ static void update_viewport( struct intel_context *intel )
 }
 
 
-const struct intel_tracked_state intel_update_viewport = {
+const struct intel_tracked_state intel_update_clip_viewport = {
    .dirty = {
       .mesa = _NEW_BUFFERS | _NEW_VIEWPORT,
       .intel = INTEL_NEW_WINDOW_DIMENSIONS,

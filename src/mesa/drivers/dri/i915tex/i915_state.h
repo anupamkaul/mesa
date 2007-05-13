@@ -46,7 +46,6 @@ void i915_dynamic_lost_hardware( struct intel_context *intel );
 const struct intel_tracked_state i915_check_fallback;
 const struct intel_tracked_state i915_vertex_format;
 const struct intel_tracked_state i915_setup_vertex_format;
-const struct intel_tracked_state i915_choose_rasterizer;
 
 /* Immediate state: 
  */

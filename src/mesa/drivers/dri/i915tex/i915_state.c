@@ -46,14 +46,14 @@
 const struct intel_tracked_state *atoms[] =
 {
    &i915_upload_STIPPLE,
-
-
    &i915_check_fallback,
-   &i915_choose_rasterizer,
 
+   /* Update the clip/setup unit's various states:
+    */
+   &intel_update_clip_render,
    &intel_update_clip_state,
    &intel_update_clip_userclip,
-   &intel_update_viewport,
+   &intel_update_clip_viewport,
 
    /* Get compiled version of the fragment program.
     */

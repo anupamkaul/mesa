@@ -37,7 +37,6 @@
 
 #include "clip/clip_context.h"
 
-#include "i915_context.h"
 
 
 #define FILE_DEBUG_FLAG DEBUG_RENDER
@@ -74,7 +73,7 @@ static GLboolean check_swz( struct intel_context *intel )
 }
 
 
-static void choose_rasterizer( struct intel_context *intel )
+static void choose_render( struct intel_context *intel )
 {
    struct clip_render *render = NULL;
 
@@ -111,7 +110,7 @@ static void choose_rasterizer( struct intel_context *intel )
    }
 }
 
-const struct intel_tracked_state i915_choose_rasterizer = {
+const struct intel_tracked_state intel_update_clip_render = {
    .dirty = {
       .mesa = (_NEW_BUFFERS),
       .intel  = (INTEL_NEW_FALLBACK_PRIMS |
@@ -121,7 +120,7 @@ const struct intel_tracked_state i915_choose_rasterizer = {
 		 INTEL_NEW_FRAME),
       .extra = 0
    },
-   .update = choose_rasterizer
+   .update = choose_render
 };
 
 
