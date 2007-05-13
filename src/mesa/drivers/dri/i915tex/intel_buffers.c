@@ -366,6 +366,8 @@ intelWindowMoved(struct intel_context *intel)
 	 intel_fb->hwz = !drmCommandWrite(intel->driFd, DRM_I915_HWZ, &hwz,
 					  sizeof(hwz));
       }
+      else
+	 assert(intel_fb->hwz == 0);
    } else {
       intel_fb->vblank_flags &= ~VBLANK_FLAG_SECONDARY;
    }

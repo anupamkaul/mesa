@@ -40,6 +40,8 @@
 #include "i915_context.h"
 
 
+#define FILE_DEBUG_FLAG DEBUG_RENDER
+
 static GLboolean check_hwz( struct intel_context *intel )
 {
    /* _NEW_BUFFERS ???
@@ -102,6 +104,7 @@ static void choose_rasterizer( struct intel_context *intel )
    }
 
    if (render != intel->render) {
+      DBG("%s %s\n", __FUNCTION__, render->name);
       clip_set_render( intel->clip, render );
       intel->render = render;
    }

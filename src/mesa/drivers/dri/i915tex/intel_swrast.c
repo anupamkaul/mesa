@@ -43,6 +43,8 @@
 #include "intel_vb.h"
 #include "intel_state.h"
 
+#define FILE_DEBUG_FLAG DEBUG_RENDER
+
 
 struct swrast_render {
    struct clip_render render;
@@ -221,6 +223,8 @@ static void swrender_draw_prim( struct clip_render *render,
    struct intel_context *intel = swrender->intel;
    GLuint i;
 
+   DBG("%s (%d) %d/%d\n", __FUNCTION__, swrender->prim, start, nr );
+
    intel_frame_set_mode( intel->ft, INTEL_FT_SWRAST );
 
    intel_do_SpanRenderStart( intel );
@@ -307,6 +311,8 @@ static void swrender_draw_indexed_prim( struct clip_render *render,
    struct intel_context *intel = swrender->intel;
    GLcontext *ctx = &intel->ctx;
    GLuint i;
+
+   DBG("%s (%d) %d\n", __FUNCTION__, swrender->prim,  nr );
 
    intel_frame_set_mode( intel->ft, INTEL_FT_SWRAST );
 
@@ -423,7 +429,16 @@ static void swrender_clear_rect( struct clip_render *render,
 {
    struct intel_context *intel = swrast_render(render)->intel;
 
+   DBG("%s %d..%d %d..%d\n", __FUNCTION__, x1, x2, y1, y2);
+
+   /* We know that classic can handle this:
+    */
+   intel_frame_set_mode( intel->ft, INTEL_FT_CLASSIC );
    intel->classic->clear_rect( intel->classic, mask, x1, y1, x2, y2 );
+
+   /* Need to restore ourselves to SWRAST mode:
+    */
+   intel_frame_set_mode( intel->ft, INTEL_FT_SWRAST );
 }
 
 
@@ -446,6 +461,7 @@ struct clip_render *intel_create_swrast_render( struct intel_context *intel )
 {
    struct swrast_render *swrender = CALLOC_STRUCT(swrast_render);
 
+   swrender->render.name = "swrender";
    swrender->render.limits.max_indices = ~0;
 
    swrender->render.start_render = swrender_start_render;

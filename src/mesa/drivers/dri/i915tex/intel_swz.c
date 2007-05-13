@@ -48,6 +48,7 @@
 #include "intel_swz.h"
 
 
+#define FILE_DEBUG_FLAG DEBUG_RENDER
 
 
 
@@ -402,6 +403,7 @@ static void swz_clear( struct clip_render *render,
    GLboolean do_depth = !!(mask & BUFFER_BIT_DEPTH);
    GLboolean do_stencil = !!(mask & BUFFER_BIT_STENCIL);
 
+   DBG("%s %d..%d %d..%d\n", __FUNCTION__, x1, x2, y1, y2);
 
    if (mask == 0)
       return;
@@ -453,6 +455,7 @@ struct clip_render *intel_create_swz_render( struct intel_context *intel )
 {
    struct swz_render *swz = CALLOC_STRUCT(swz_render);
 
+   swz->render.name = "swz";
    swz->render.limits.max_indices = ~0;
    swz->render.destroy = swz_destroy_context;
    swz->render.start_render = swz_start_render;
