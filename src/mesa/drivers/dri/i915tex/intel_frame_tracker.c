@@ -46,10 +46,6 @@ struct intel_frame_tracker
    GLuint mode;
 
    GLboolean in_frame;
-   GLboolean in_draw;
-
-   GLboolean single_buffered;
-   GLboolean resize_flag;
 
    GLbitfield allclears;
    
@@ -57,6 +53,7 @@ struct intel_frame_tracker
     */
    GLuint flush_prediction;
    GLuint finish_prediction;
+   GLuint resize_prediction;
 
    /* Counters: 
     */
@@ -73,6 +70,12 @@ GLboolean intel_frame_predict_flush( struct intel_frame_tracker *ft )
 {
    return ft->flush_prediction != 0;
 }
+
+GLboolean intel_frame_predict_resize( struct intel_frame_tracker *ft )
+{
+   return ft->resize_prediction != 0;
+}
+
 
 /* These are worse than flushes.  If we think one is coming, we need
  * to try and aim for low latency over rendering performance, ie no
@@ -110,143 +113,41 @@ GLboolean intel_frame_can_clear_stencil( struct intel_frame_tracker *ft )
 
 
 
-/* Delay framebuffer size changes until after the end of the frame.
- * This is necessary for zone rendering but also clears up a whole
- * bunch of other code.
- */
-static void emit_resize( struct intel_frame_tracker *ft )
-{
-   struct intel_context *intel = ft->intel;
-   __DRIdrawablePrivate *dPriv = intel->driDrawable;
-   struct gl_framebuffer *fb = (struct gl_framebuffer *) dPriv->driverPrivate;
-
-   DBG("%s %dx%d\n", __FUNCTION__, dPriv->w, dPriv->h);
-
-   intel_resize_framebuffer(&intel->ctx, fb, dPriv->w, dPriv->h);
-   intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
-
-   ft->resize_flag = GL_FALSE;
-}
-
 static void finish_frame( struct intel_frame_tracker *ft )
 {
    ft->frame++;
    ft->in_frame = 0;
    ft->flush_prediction >>= 1;
-
-   if (ft->resize_flag && !ft->in_draw) 
-      emit_resize( ft );
+   ft->finish_prediction >>= 1;
+   ft->resize_prediction >>= 1;
+   ft->intel->state.dirty.intel |= INTEL_NEW_FRAME;
 }
 
 
 static void start_frame( struct intel_frame_tracker *ft )
 {
-   struct intel_context *intel = ft->intel;
-   
-   /* Update window dimensions for the coming frame???  This is
-    * bogus, but will do for now.
-    */
-   LOCK_HARDWARE(intel);
-   UPDATE_CLIPRECTS(intel);
-   UNLOCK_HARDWARE(intel);
-
-   if (ft->resize_flag) 
-      emit_resize( ft );
-
-
-   ft->in_frame = GL_TRUE;
+   ft->in_frame = 1;
 }
 
-
-/* Almost all bad events that we care about manifest themselves
- * firstly as a flush.  This includes stuff like fallbacks, blits
- * to/from the screen, readpixels, etc.  If there is a flush during
- * the frame, that's really the event that we care about.  
- * 
- * The only thing worst is a flush followed by a wait for idle, but
- * it's not clear what more we'd do in that case compared to what we
- * have to do for a regular flush.
- *
- * XXX: Want to distinguish between forced flushes due to client
- * events and internal flushes due to simply running out of
- * batchbuffer.  And then again, need to consider running out of batch
- * vs. running out of bin memory.
- */
-void intel_frame_note_flush( struct intel_frame_tracker *ft,
-			     GLboolean forced)
-{
-   DBG("%s forced %d in_frame %d\n", __FUNCTION__, forced, ft->in_frame);
-   if (ft->in_frame && forced) {
-      finish_frame( ft );
-      ft->flush_prediction |= (1<<8);
-   }
-}
 
 void intel_frame_note_clear( struct intel_frame_tracker *ft,
 			     GLbitfield mask )
 {
-   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
-   
-
-   if (!ft->in_frame) {
-      start_frame( ft );
-
-      if (!ft->intel->ctx.Scissor.Enabled)
-	 ft->allclears |= mask;
-   }
+   if (!ft->intel->ctx.Scissor.Enabled)
+      ft->allclears |= mask;
 }
 
 
-
-void intel_frame_note_swapbuffers( struct intel_frame_tracker *ft )
+void intel_frame_note_resize( struct intel_frame_tracker *ft )
 {
-   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
-
-   if (ft->in_frame) {
-      finish_frame( ft );
-   }
-   else
-      _mesa_printf("unexpected swapbuffers\n");
-}
-
-
-void intel_frame_note_window_resize( struct intel_frame_tracker *ft )
-{
-   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
-   ft->resize_flag = GL_TRUE;
-   if (!ft->in_frame) 
-      emit_resize(ft);
+   ft->resize_prediction |= (1<<10);
 }
 
 
 void intel_frame_note_window_rebind( struct intel_frame_tracker *ft )
 {
-   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
    assert (!ft->in_frame);
-   emit_resize(ft);
 }
-
-void intel_frame_note_draw_start( struct intel_frame_tracker *ft )
-{
-   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
-   assert(!ft->in_draw);
-   ft->in_draw = 1;
-   if (!ft->in_frame) {
-//      ft->draw_without_clears |= (1<<31);
-      ft->in_frame = 1;
-   }
-}
-
-void intel_frame_note_draw_end( struct intel_frame_tracker *ft )
-{
-   DBG("%s in_frame %d\n", __FUNCTION__, ft->in_frame);
-   assert(ft->in_draw);
-   ft->in_draw = 0;
-
-   if (ft->resize_flag && !ft->in_frame) 
-      emit_resize( ft );
-}
-
 
 GLuint  intel_frame_mode( const struct intel_frame_tracker *ft )
 {
@@ -258,6 +159,7 @@ static const char * mode_name[] =
 {
    "FLUSHED",
    "SWAP_BUFFERS",
+   "GL_FLUSH",
    "CLASSIC",
    "SWRAST",
    "SWZ",
@@ -270,8 +172,8 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
 			   GLuint new_mode )
 {
    struct intel_context *intel = ft->intel;
-   GLboolean finished = (new_mode == INTEL_FT_SWAP_BUFFERS);
-   GLboolean begin_frame = GL_FALSE;
+   GLboolean discard_z_buffer = (new_mode == INTEL_FT_SWAP_BUFFERS);
+   GLboolean ignore_buffer_contents = GL_FALSE;
 
    if (ft->mode == new_mode) 
       return;
@@ -283,26 +185,31 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
 
    switch (ft->mode) {
    case INTEL_FT_SWAP_BUFFERS:
-      begin_frame = GL_TRUE;
+      ignore_buffer_contents = GL_TRUE;
+      start_frame( ft );
+      break;
+
+   case INTEL_FT_GL_FLUSH:
+      start_frame( ft );
       break;
 	 
    case INTEL_FT_FLUSHED:
       break;
 
    case INTEL_FT_SWRAST:
-      intel->swrender->flush( intel->swrender, finished );
+      intel->swrender->flush( intel->swrender, discard_z_buffer );
       break;
 
    case INTEL_FT_CLASSIC:
-      intel->classic->flush( intel->classic, finished );
+      intel->classic->flush( intel->classic, discard_z_buffer );
       break;
 
    case INTEL_FT_SWZ:
-      intel->swz->flush( intel->swz, finished );
+      intel->swz->flush( intel->swz, discard_z_buffer );
       break;
 
    case INTEL_FT_HWZ:
-      intel->hwz->flush( intel->hwz, finished );
+      intel->hwz->flush( intel->hwz, discard_z_buffer );
       break;
 
    case INTEL_FT_BLITTER:
@@ -315,30 +222,30 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
    }
 
    ft->mode = INTEL_FT_FLUSHED;
-
-/*    if (ft->in_frame) */
-/*       intel_frame_no */
    
    switch (new_mode) {
+   case INTEL_FT_GL_FLUSH:
    case INTEL_FT_SWAP_BUFFERS:
+      finish_frame(ft);
       break;
+
    case INTEL_FT_FLUSHED:
       break;
 
    case INTEL_FT_SWRAST:
-      intel->swrender->start_render( intel->swrender, begin_frame );
+      intel->swrender->start_render( intel->swrender, ignore_buffer_contents );
       break;
 
    case INTEL_FT_CLASSIC:
-      intel->classic->start_render( intel->classic, begin_frame );
+      intel->classic->start_render( intel->classic, ignore_buffer_contents );
       break;
 
    case INTEL_FT_SWZ:
-      intel->swz->start_render( intel->swz, begin_frame );
+      intel->swz->start_render( intel->swz, ignore_buffer_contents );
       break;
 
    case INTEL_FT_HWZ:
-      intel->hwz->start_render( intel->hwz, begin_frame );
+      intel->hwz->start_render( intel->hwz, ignore_buffer_contents );
       break;
 
    case INTEL_FT_BLITTER:

@@ -178,6 +178,8 @@ static void swz_start_render( struct clip_render *render,
    assert(intel_frame_mode(intel->ft) == INTEL_FT_FLUSHED);
    assert(!swz->started_binning);
 
+   swz->resize = 0;
+
    /* Window size won't change during a frame (though cliprects may be
     * applied at the end).  
     */
@@ -382,22 +384,21 @@ static void swz_flush( struct clip_render *render,
 
       LOCK_HARDWARE( intel );
 
-      if (intel->contended_lock)
+      swz->started_binning = GL_FALSE;
+
+      if (intel->contended_lock) 
 	 UPDATE_CLIPRECTS( intel );
 
-      if (intel->contended_lock &&
-	  (intel->numClipRects > 1 ||
-	   swz->xoff != (intel->drawX % 64) ||
-	   swz->yoff != (intel->drawY % 32) ||
-	   swz->zone_width != (align(intel->driDrawable->w + swz->xoff,
-				     ZONE_WIDTH) / ZONE_WIDTH) ||
-	   swz->zone_height != (align(intel->driDrawable->h + swz->yoff,
-				      ZONE_HEIGHT) / ZONE_HEIGHT))) {
+      if (swz->resize) 
+      {
 	 intel_batchbuffer_unmap(intel->batch);
 	 intel_batchbuffer_reset(intel->batch);
-      } else {
+	 intel_lost_hardware( intel );
+      } 
+      else {
 	 /* Tell the batchbuffer code about what we've emitted:
 	  */
+	 assert(intel->numClipRects == 1);
 	 intel->batch->segment_finish_offset[0] = swz->pre_post.ptr -
 	    intel->batch->map;
 	 intel_batchbuffer_flush( intel->batch, !finished );
@@ -408,7 +409,6 @@ static void swz_flush( struct clip_render *render,
 
    memset(swz->zone, 0, sizeof(swz->zone));
    memset(swz->initial_ptr, 0, sizeof(swz->initial_ptr));
-   swz->started_binning = GL_FALSE;
 }
 
 
@@ -498,7 +498,17 @@ struct clip_render *intel_create_swz_render( struct intel_context *intel )
 }
 
 
-   
+void intel_swz_note_resize( struct clip_render *render )
+{
+   struct swz_render *swz = swz_render( render );
+
+   /* Only because nobody should be doing an UPDATE_CLIPRECTS while
+    * someone else is rendering:
+    */
+   assert(!swz->started_binning);
+
+   swz->resize = 1;
+}   
 
 
 

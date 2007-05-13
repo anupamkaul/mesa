@@ -36,11 +36,10 @@
 
 /* Dirty flags for software state update:
  */
-#define I915_NEW_INPUT_SIZES               (INTEL_NEW_DRIVER0<<0)
+#define I915_NEW_DYNAMIC_INDIRECT          (INTEL_NEW_DRIVER0<<0)
 #define I915_NEW_VERTEX_FORMAT             (INTEL_NEW_DRIVER0<<1)
 #define I915_NEW_POLY_STIPPLE_FALLBACK     (INTEL_NEW_DRIVER0<<2)
 #define I915_NEW_LOST_CACHE                (INTEL_NEW_DRIVER0<<3)
-#define I915_NEW_DYNAMIC_INDIRECT          (INTEL_NEW_DRIVER0<<4)
 
 /* Dirty flags for hardware emit
  */

@@ -109,7 +109,7 @@ extern void intelFallback(struct intel_context *intel, GLuint bit,
 #define INTEL_NEW_FRAGMENT_PROGRAM        0x2
 #define INTEL_NEW_VERTEX_SIZE             0x4
 #define INTEL_NEW_FRAG_ATTRIB_SIZES       0x8
-#define INTEL_NEW_CONTEXT                 0x10 /* Lost hardware? */
+#define INTEL_NEW_FRAME                   0x10
 #define INTEL_NEW_FALLBACK                0x20
 #define INTEL_NEW_FALLBACK_PRIMS          0x40
 #define INTEL_NEW_METAOPS                 0x80 /* not needed? */

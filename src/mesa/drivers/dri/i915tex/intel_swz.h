@@ -35,6 +35,9 @@
 struct intel_context;
 struct clip_render *intel_create_swz_render( struct intel_context *intel );
 
+void intel_swz_note_resize( struct clip_render *render );
+
+
 #define ZONE_WIDTH (1<<6)
 #define ZONE_HEIGHT (1<<5)
 
@@ -73,6 +76,7 @@ struct swz_render {
    struct swz_zone pre_post;
    
    GLboolean started_binning;
+   GLboolean resize;
 
    GLubyte *vbo_vertices;
    GLubyte *vertices;

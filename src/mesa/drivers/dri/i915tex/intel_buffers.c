@@ -372,10 +372,19 @@ intelWindowMoved(struct intel_context *intel)
       intel_fb->vblank_flags &= ~VBLANK_FLAG_SECONDARY;
    }
 
-   /* Delay resize notification until after the next flush or
-    * swapbuffers.
-    */
-   intel_frame_note_window_resize( intel->ft );
+   {
+      __DRIdrawablePrivate *dPriv = intel->driDrawable;
+      struct gl_framebuffer *fb = (struct gl_framebuffer *) dPriv->driverPrivate;
+      
+      _mesa_printf("%s %dx%d\n", __FUNCTION__, dPriv->w, dPriv->h);
+
+      intel_resize_framebuffer(&intel->ctx, fb, dPriv->w, dPriv->h);
+      intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
+
+
+      intel_swz_note_resize(intel->swz);
+      intel_frame_note_resize(intel->ft);
+   }      
 }
 
 

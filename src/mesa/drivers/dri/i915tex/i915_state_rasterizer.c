@@ -59,17 +59,18 @@ static GLboolean check_swz( struct intel_context *intel )
    if (!intel->cmdstream.size)
       return GL_FALSE;
 
-   /* _NEW_BUFFERS
+   /* _NEW_BUFFERS, INTEL_NEW_FRAME, INTEL_NEW_WINDOW_DIMENSIONS
     *
     * Requires a tiled surface, fbo's currently aren't (which should
     * be fixed)
     */
    if (intel->state.DrawBuffer == NULL ||
        intel->state.DrawBuffer->Name != 0 ||
-       intel->numClipRects > 1)
+       intel->numClipRects != 1 ||
+       intel_frame_predict_resize( intel->ft ))
       return GL_FALSE;
 
-      return GL_TRUE;
+   return GL_TRUE;
 }
 
 
@@ -115,9 +116,9 @@ const struct intel_tracked_state i915_choose_rasterizer = {
       .mesa = (_NEW_BUFFERS),
       .intel  = (INTEL_NEW_FALLBACK_PRIMS |
 		 INTEL_NEW_FALLBACK |
-		 INTEL_NEW_VB_STATE 
-/* 		 | INTEL_NEW_FRAME */
-	 ),
+		 INTEL_NEW_VB_STATE | 
+		 INTEL_NEW_WINDOW_DIMENSIONS | 
+		 INTEL_NEW_FRAME),
       .extra = 0
    },
    .update = choose_rasterizer

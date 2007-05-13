@@ -314,7 +314,8 @@ intelglFlush(GLcontext * ctx)
     * from frontbuffer rendering.
     */
    if (ctx->DrawBuffer->_ColorDrawBufferMask[0] == BUFFER_BIT_FRONT_LEFT) {
-      intelFlush(ctx);
+      struct intel_context *intel = intel_context( ctx );
+      intel_frame_set_mode( intel->ft, INTEL_FT_GL_FLUSH ); 
       intelCheckFrontRotate(ctx);
    }
 }
@@ -339,10 +340,6 @@ static void intelRunPipeline(GLcontext * ctx)
 {
    struct intel_context *intel = intel_context(ctx);
 
-   /* One of many places to note that we are drawing:
-    */
-   intel_frame_note_draw_start( intel->ft );
-
    _mesa_lock_context_textures(ctx);
    
    if (ctx->NewState)
@@ -353,7 +350,6 @@ static void intelRunPipeline(GLcontext * ctx)
    _tnl_run_pipeline(ctx);
 
    _mesa_unlock_context_textures(ctx);
-   intel_frame_note_draw_end( intel->ft );
 }
 
 
