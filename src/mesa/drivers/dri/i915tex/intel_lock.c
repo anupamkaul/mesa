@@ -53,6 +53,8 @@ void UPDATE_CLIPRECTS(struct intel_context *intel)
    if (!intel->contended_lock)
       return;
 
+   intel->contended_lock = 0;
+
    if (INTEL_DEBUG & DEBUG_LOCK)
       _mesa_printf("%s - got contended lock\n", __progname);
 
