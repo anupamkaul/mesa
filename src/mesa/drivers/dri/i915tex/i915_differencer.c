@@ -148,9 +148,12 @@ static void emit_indirect( struct intel_context *intel,
 
 	       /* No state size dword for dynamic state:
 		*/
+	       EMIT_DWORD( ptr, state->sizes[i]-1 );
+
 	       assert(state->sizes[i] > 0);
-	       EMIT_DWORD( ptr, 
-			   state->sizes[i]-1 );
+	       assert(intel->batch->segment_start_offset[2] <= state->offsets[i]);
+	       assert(intel->batch->segment_finish_offset[2] >= 
+		      state->offsets[i] + state->sizes[i]*4 );
 	    }
 	    else {
 	       assert( (state->offsets[i] & 4095) >= 4 );
@@ -161,6 +164,9 @@ static void emit_indirect( struct intel_context *intel,
 			   intel->batch->state_memflags,
 			   DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
 			   ( (state->offsets[i] - 4) | flag | SIS0_BUFFER_VALID ) );
+
+	       assert(intel->batch->segment_start_offset[1] <= state->offsets[i]);
+	       assert(intel->batch->segment_finish_offset[1] >= state->offsets[i]);
 	    }
 	 }
       }
