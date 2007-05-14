@@ -50,6 +50,8 @@
 #include "vblank.h"
 
 
+#define FILE_DEBUG_FLAG DEBUG_LOCK
+
 
 /**
  * XXX move this into a new dri/common/cliprects.c file.
@@ -376,7 +378,7 @@ intelWindowMoved(struct intel_context *intel)
       __DRIdrawablePrivate *dPriv = intel->driDrawable;
       struct gl_framebuffer *fb = (struct gl_framebuffer *) dPriv->driverPrivate;
       
-      _mesa_printf("%s %dx%d\n", __FUNCTION__, dPriv->w, dPriv->h);
+      DBG("%s %dx%d\n", __FUNCTION__, dPriv->w, dPriv->h);
 
       intel_resize_framebuffer(&intel->ctx, fb, dPriv->w, dPriv->h);
       intel->state.dirty.intel |= INTEL_NEW_WINDOW_DIMENSIONS;
