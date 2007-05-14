@@ -62,7 +62,7 @@ struct swz_zone {
    GLubyte *ptr;
 };
 
-#define MAX_ZONES 1024
+#define MAX_ZONES 2048
 
 struct swz_render {
    struct clip_render render;
