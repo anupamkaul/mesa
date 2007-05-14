@@ -174,7 +174,7 @@ intel_cliprect_hwz_ioctl(struct intel_context *intel,
 			 GLuint pf_current_page, 
 			 GLuint start_offset,
 			 GLuint used,
-			 GLuint state_offset,
+			 GLuint state_start,
 			 GLuint state_size )
 {
    struct intel_framebuffer *intel_fb = intel_get_fb(intel);
@@ -195,9 +195,8 @@ intel_cliprect_hwz_ioctl(struct intel_context *intel,
 
 
    hwz.op = DRM_I915_HWZ_RENDER;
-   hwz.arg.render.bpl_num = pf_current_page;
    hwz.arg.render.batch_start = start_offset;
-   hwz.arg.render.static_state_offset = state_offset;
+   hwz.arg.render.static_state_start = state_start;
    hwz.arg.render.static_state_size = state_size;
    hwz.arg.render.DR1 = 0;
    hwz.arg.render.DR4 = ((((GLuint) intel->drawX) & 0xffff) |

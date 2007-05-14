@@ -43,35 +43,6 @@
 
 #include "intel_debug.h"
 
-#ifndef DRM_I915_HWZ
-
-#define DRM_I915_HWZ		0x11
-
-#define DRM_I915_HWZ_ALLOC	2
-#define DRM_I915_HWZ_RENDER	3
-
-typedef struct drm_i915_hwz {
-	unsigned int op;
-	union {
-		struct drm_i915_hwz_alloc {
-			unsigned int num_buffers;
-			unsigned int num_cliprects;
-			uint64_t cliprects;
-		} alloc;
-		struct drm_i915_hwz_render {
-			unsigned int bpl_num;
-			unsigned int batch_start;
-			int DR1;
-			int DR4;
-			unsigned int static_state_offset;
-			unsigned int static_state_size;
-			unsigned int wait_flips;
-		} render;
-	} arg;
-} drm_i915_hwz_t;
-
-#endif
-
 #define DV_PF_555  (1<<8)
 #define DV_PF_565  (2<<8)
 #define DV_PF_8888 (3<<8)
