@@ -206,6 +206,8 @@ MAIN_FILES = \
 	$(DIRECTORY)/src/mesa/main/*.[chS]				\
 	$(DIRECTORY)/src/mesa/main/descrip.mms				\
 	$(DIRECTORY)/src/mesa/main/sources				\
+	$(DIRECTORY)/src/mesa/clip/*.[chS]				\
+	$(DIRECTORY)/src/mesa/clip/descrip.mms				\
 	$(DIRECTORY)/src/mesa/glapi/*.[chS]				\
 	$(DIRECTORY)/src/mesa/glapi/descrip.mms				\
 	$(DIRECTORY)/src/mesa/glapi/sources				\
@@ -230,6 +232,8 @@ MAIN_FILES = \
 	$(DIRECTORY)/src/mesa/swrast_setup/sources			\
 	$(DIRECTORY)/src/mesa/vbo/*.[chS]				\
 	$(DIRECTORY)/src/mesa/vbo/descrip.mms				\
+	$(DIRECTORY)/src/mesa/vf/*.[chS]				\
+	$(DIRECTORY)/src/mesa/vf/descrip.mms				\
 	$(DIRECTORY)/src/mesa/tnl/*.[chS]				\
 	$(DIRECTORY)/src/mesa/tnl/descrip.mms				\
 	$(DIRECTORY)/src/mesa/tnl/sources				\
