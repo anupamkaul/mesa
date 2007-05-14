@@ -222,9 +222,3 @@ void intel_state_init( struct intel_context *intel )
    intel->state.hardware = malloc( intel->state.driver_state_size );
    memset( intel->state.hardware, 0, intel->state.driver_state_size );
 }
-
-
-void intel_state_destroy( struct intel_context *intel )
-{
-   free( intel->state.hardware );
-}
