@@ -5,33 +5,20 @@
 
 15) cache_mode_0
 		+(1<<9) ??
-
-17) Software cull triangles
+   ---> Probably only useful with tiled textures?
 
 19) pageflip lockups
+   ---> Still reproducible?
 
 21) zEvict if initial clear wasn't a clear rect
-
-23) window resizes / moves
-	   --> abandon frame
-	   --> disable SWZ, translate away zone_init, fixup draw_rects??
-
-24) SWZ cliprects
-	   --> ???  back copy from frontbuffer ???
-	   --> then disable swz/hwz
-
 
 34) MI_FLUSH'es for clearparam state and some other STATIC state.
 
 35) Turn off stipple for clear rect clears.
 
-36) FBO apps are broken, eg tests/fbo*, demos/shadowtex
-
 38) demos/streaming_rect is broken
 
 39) demos/glutfx  >1024 zones
-
-40) torcs crash
 
 
 ======================================================================
@@ -51,12 +38,11 @@ Postpone:
 
 4) Synchronization of BPL and bin batchbuffer access between HWB and
    PRB.
-    --> Michel
-
 
 xx) Clean up HWZ DRM interface
 	- Remove anything related to high-priority PRB.
-	- Don't pass drawrect info members to render sub-ioctl explicitly.
+	- Don't pass BPL number to render sub-ioctl but just do round robin
+	  internally.
 	- ...
 
 xx) Move HWZ DRM code to its own file.
