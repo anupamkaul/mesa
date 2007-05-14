@@ -11,14 +11,11 @@
    ---> Still reproducible?
 
 21) zEvict if initial clear wasn't a clear rect
-
-34) MI_FLUSH'es for clearparam state and some other STATIC state.
+    -- Acutally zEvict currently disabled.
 
 35) Turn off stipple for clear rect clears.
 
 38) demos/streaming_rect is broken
-
-39) demos/glutfx  >1024 zones
 
 
 ======================================================================
@@ -45,4 +42,3 @@ xx) Clean up HWZ DRM interface
 	  internally.
 	- ...
 
-xx) Move HWZ DRM code to its own file.
