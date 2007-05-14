@@ -71,6 +71,10 @@ GLboolean intel_frame_predict_flush( struct intel_frame_tracker *ft )
    return ft->flush_prediction != 0;
 }
 
+
+/* Resize prediction should be based on elapsed time, not a count of
+ * swapbuffers.
+ */
 GLboolean intel_frame_predict_resize( struct intel_frame_tracker *ft )
 {
    return ft->resize_prediction != 0;
@@ -140,7 +144,7 @@ void intel_frame_note_clear( struct intel_frame_tracker *ft,
 
 void intel_frame_note_resize( struct intel_frame_tracker *ft )
 {
-   ft->resize_prediction |= (1<<10);
+   ft->resize_prediction |= (1<<16);
 }
 
 
