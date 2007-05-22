@@ -333,17 +333,21 @@ do_flush_locked( struct intel_batchbuffer *batch,
 	 (_3DPRIMITIVE | PRIM3D_CLEAR_RECT | 5);
    }
 
+   for (i = 0; i < batch->nr_local; i++) {
+      batch->local_list[i].offset = driBOOffset(batch->local_list[i].buffer);
+   }
+
    for (i = 0; i < batch->nr_relocs; i++) {
       struct buffer_reloc *r = &batch->reloc[i];
 
       ptr = r->segment ? state_ptr : batch_ptr;
 
-      ptr[r->offset / 4] = driBOOffset(r->buf) + r->delta;
+      ptr[r->offset / 4] = batch->local_list[r->slot].offset + r->delta;
       
       if (INTEL_DEBUG & DEBUG_BATCH) 
 	 _mesa_printf("reloc in %s buffer %p offset %x value 0x%x + 0x%x\n",
 		      r->segment ? "state" : "batch",
-		      ptr, r->offset, driBOOffset(r->buf), r->delta);
+		      ptr, r->offset, batch->local_list[r->slot].offset, r->delta);
    }
 
    if (INTEL_DEBUG & DEBUG_BATCH) {
@@ -504,7 +508,7 @@ intel_batchbuffer_finish(struct intel_batchbuffer *batch)
 }
 
 
-static void check_buffers( struct intel_batchbuffer *batch,
+static GLuint check_buffers( struct intel_batchbuffer *batch,
 			   struct _DriBufferObject *buffer,
 			   GLuint flags,
 			   GLuint mask )
@@ -517,7 +521,7 @@ static void check_buffers( struct intel_batchbuffer *batch,
 		 (batch->local_list[i].mask & flags) );
 	 batch->local_list[i].flags |= flags;
 	 batch->local_list[i].mask |= mask;
-	 return;
+	 return i;
       }
    }
    
@@ -538,7 +542,7 @@ static void check_buffers( struct intel_batchbuffer *batch,
    batch->local_list[batch->nr_local].buffer = buffer;
    batch->local_list[batch->nr_local].flags = flags;
    batch->local_list[batch->nr_local].mask = mask;
-   batch->nr_local++;
+   return batch->nr_local++;
 }
 
 
@@ -550,9 +554,11 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
 			    struct _DriBufferObject *buffer,
 			    GLuint flags, GLuint mask, GLuint delta)
 {
+   GLuint slot;
+
    assert((offset & 3) == 0);
 
-   check_buffers(batch, buffer, flags, mask);
+   slot = check_buffers(batch, buffer, flags, mask);
 
 
    if (batch->nr_relocs == batch->max_relocs) {
@@ -570,7 +576,7 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
 
    {
       struct buffer_reloc *r = &batch->reloc[batch->nr_relocs++];
-      r->buf = buffer;
+      r->slot = slot;
       r->offset = offset;
       r->delta = delta;
       r->segment = segment;

@@ -16,7 +16,7 @@ struct intel_context;
 
 struct buffer_reloc
 {
-   struct _DriBufferObject *buf;
+   GLuint slot;
    GLuint offset;
    GLuint delta;                /* not needed? */
    GLuint segment;
@@ -50,9 +50,11 @@ struct intel_batchbuffer
     */
    struct {
       struct _DriBufferObject *buffer;
+      unsigned long offset;
       GLuint flags;		/* needed? */
       GLuint mask;
    } *local_list;
+
    GLuint nr_local;
    GLuint max_local;
 
