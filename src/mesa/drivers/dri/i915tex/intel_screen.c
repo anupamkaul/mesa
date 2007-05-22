@@ -380,7 +380,7 @@ intelCreatePools(intelScreenPrivate *intelScreen)
 	 intelScreen->statePool = driBatchPoolInit(sPriv->fd,
 						   DRM_BO_FLAG_EXE |
 						   DRM_BO_FLAG_MEM_PRIV1,
-						   8192, batchPoolSize, 5);
+						   8192, 8192 * 20, 5);
    }
 
    if (!intelScreen->statePool && intelScreen->deviceID != PCI_CHIP_I945_G &&
