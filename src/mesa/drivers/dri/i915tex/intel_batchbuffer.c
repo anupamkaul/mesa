@@ -175,14 +175,14 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
     * Unreference buffers previously on the relocation list.
     */
 
-   for (i = 0; i < batch->nr_relocs; i++) {
-      struct buffer_reloc *r = &batch->reloc[i];
-      driBOUnReference(r->buf);
+   for (i = 0; i < batch->nr_local; i++) {
+      driBOUnReference(batch->local_list[i].buffer);
    }
 
    batch->list_count = 0;
    batch->nr_relocs = 0;
    batch->flags = 0;
+   batch->nr_local = 0;
 
    /*
     * We don't refcount the batchbuffer itself since we can't destroy it
@@ -235,6 +235,10 @@ intel_batchbuffer_alloc(struct intel_context *intel)
                  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE, 0);
    batch->last_fence = NULL;
    batch->list = driBOCreateList(20);
+
+   batch->max_local = 20;
+   batch->local_list = malloc( batch->max_local * sizeof(batch->local_list[0]) );
+
 
    if (intel->intelScreen->statePool /*drmMinor >= 10*/) {
 
@@ -500,6 +504,44 @@ intel_batchbuffer_finish(struct intel_batchbuffer *batch)
 }
 
 
+static void check_buffers( struct intel_batchbuffer *batch,
+			   struct _DriBufferObject *buffer,
+			   GLuint flags,
+			   GLuint mask )
+{
+   GLuint i;
+
+   for (i = 0; i < batch->nr_local; i++) {
+      if (batch->local_list[i].buffer == buffer) {
+	 assert( (batch->local_list[i].flags & mask) == 
+		 (batch->local_list[i].mask & flags) );
+	 batch->local_list[i].flags |= flags;
+	 batch->local_list[i].mask |= mask;
+	 return;
+      }
+   }
+   
+   if (batch->nr_local == batch->max_local) {
+      batch->max_local *= 2;
+
+      /* _mesa_realloc should just call realloc, but it doesn't:
+       */
+      batch->local_list = realloc( batch->local_list, 
+				   batch->max_local * sizeof(batch->local_list[0]) );
+   }
+
+   /* Single call to add to lists and increment refcount.  Reduces
+    * locking.
+    */
+   driBOAddListItemAndReference(batch->list, buffer, flags, mask);
+
+   batch->local_list[batch->nr_local].buffer = buffer;
+   batch->local_list[batch->nr_local].flags = flags;
+   batch->local_list[batch->nr_local].mask = mask;
+   batch->nr_local++;
+}
+
+
 /*  This is the only way buffers get added to the validate list.
  */
 GLboolean
@@ -510,7 +552,8 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
 {
    assert((offset & 3) == 0);
 
-   driBOAddListItem(batch->list, buffer, flags, mask);
+   check_buffers(batch, buffer, flags, mask);
+
 
    if (batch->nr_relocs == batch->max_relocs) {
       int page_size = getpagesize();
@@ -527,7 +570,6 @@ intel_batchbuffer_set_reloc(struct intel_batchbuffer *batch,
 
    {
       struct buffer_reloc *r = &batch->reloc[batch->nr_relocs++];
-      driBOReference(buffer);
       r->buf = buffer;
       r->offset = offset;
       r->delta = delta;
