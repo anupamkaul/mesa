@@ -508,6 +508,31 @@ driBOAddListItem(struct _DriBufferList * list, struct _DriBufferObject *buf,
    _glthread_UNLOCK_MUTEX(buf->mutex);
 }
 
+
+void
+driBOAddListItemAndReference(struct _DriBufferList * list, 
+			     struct _DriBufferObject *buf,
+			     unsigned flags, unsigned mask)
+{
+   int newItem;
+
+   _glthread_LOCK_MUTEX(buf->mutex);
+   _glthread_LOCK_MUTEX(bmMutex);
+   BM_CKFATAL(drmAddValidateItem(&list->drmBuffers, driBOKernel(buf),
+                                 flags, mask, &newItem));
+   if (buf->pool->validate)
+       BM_CKFATAL(drmAddValidateItem(&list->driBuffers, (drmBO *) buf,
+				     flags, mask, &newItem));
+
+   if (++buf->refCount == 1) {
+      BM_CKFATAL(-EINVAL);
+   }
+
+   _glthread_UNLOCK_MUTEX(bmMutex);
+   _glthread_UNLOCK_MUTEX(buf->mutex);
+}
+
+
 void
 driBOFence(struct _DriBufferObject *buf, struct _DriFenceObject *fence)
 {

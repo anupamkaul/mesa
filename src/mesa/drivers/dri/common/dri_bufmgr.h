@@ -87,6 +87,11 @@ extern void driBOResetList(struct _DriBufferList * list);
 extern void driBOAddListItem(struct _DriBufferList * list, 
 			     struct _DriBufferObject *buf,
                              unsigned flags, unsigned mask);
+
+extern void driBOAddListItemAndReference(struct _DriBufferList * list, 
+					 struct _DriBufferObject *buf,
+					 unsigned flags, unsigned mask);
+
 extern void driBOValidateList(int fd, struct _DriBufferList * list);
 extern void driBOFreeList(struct _DriBufferList * list);
 
