@@ -83,7 +83,25 @@ translate_texture_format(GLuint mesa_format)
    }
 }
 
+/* Update references, try and avoid driBO* calls and associated locking.
+ */
+static void 
+set_tex_buffer( struct i915_context *i915,
+		GLuint i,
+		struct _DriBufferObject *buffer,
+		GLuint offset )
+{
+   if (i915->state.tex_buffer[i] != buffer) 
+   {
+      if (i915->state.tex_buffer[i] != NULL)
+	 driBOUnReference(i915->state.tex_buffer[i]);
 
+      if (buffer != NULL)
+	 i915->state.tex_buffer[i] = driBOReference(buffer);
+   }
+
+   i915->state.tex_offset[i] = offset;
+}
 
 
 
@@ -95,12 +113,6 @@ upload_maps( struct intel_context *intel )
    GLuint i, dirty = 0, nr = 0;
 
    for (i = 0; i < I915_TEX_UNITS; i++) {
-      /* Decrement refcounts on old buffers
-       */
-      if (i915->state.tex_buffer[i] != NULL) {
-	 driBOUnReference(i915->state.tex_buffer[i]);
-	 i915->state.tex_buffer[i] = NULL;
-      }
 
       if (intel->state.Texture->Unit[i]._ReallyEnabled) {
 	 struct gl_texture_object *tObj = intel->state.Texture->Unit[i]._Current;
@@ -110,9 +122,10 @@ upload_maps( struct intel_context *intel )
 	    
 	 /* Reference new buffers
 	  */
-	 i915->state.tex_buffer[i] = driBOReference(intelObj->mt->region->buffer);
-	 i915->state.tex_offset[i] = intel_miptree_image_offset(intelObj->mt, 0,
-								intelObj-> firstLevel);
+	 set_tex_buffer(i915, i, 
+			intelObj->mt->region->buffer,
+			intel_miptree_image_offset(intelObj->mt, 0,
+						   intelObj-> firstLevel) );
 
 	 /* Get first image here, since intelObj->firstLevel will get set in
 	  * the intel_finalize_mipmap_tree() call above.
@@ -133,6 +146,10 @@ upload_maps( struct intel_context *intel )
 
 	 dirty |= (1<<i);
 	 nr++;
+      }
+      else
+      {
+	 set_tex_buffer(i915, i, NULL, 0 );
       }
    }
 
