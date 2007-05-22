@@ -6,7 +6,7 @@
 
 struct intel_context;
 
-#define SEGMENT_SZ (512*1024)
+#define SEGMENT_SZ (256*1024)
 #define BATCH_SZ (3*SEGMENT_SZ)
 #define BATCH_RESERVED 16
 
@@ -45,6 +45,16 @@ struct intel_batchbuffer
    GLuint list_count;
    GLubyte *map;
    GLubyte *state_map;
+
+   /* Local list of buffers referenced by relocs.
+    */
+   struct {
+      struct _DriBufferObject *buffer;
+      GLuint flags;		/* needed? */
+      GLuint mask;
+   } *local_list;
+   GLuint nr_local;
+   GLuint max_local;
 
    struct buffer_reloc *reloc;
    GLuint nr_relocs, max_relocs;
