@@ -93,8 +93,10 @@ set_tex_buffer( struct i915_context *i915,
 {
    if (i915->state.tex_buffer[i] != buffer) 
    {
-      if (i915->state.tex_buffer[i] != NULL)
+      if (i915->state.tex_buffer[i] != NULL) {
 	 driBOUnReference(i915->state.tex_buffer[i]);
+	 i915->state.tex_buffer[i] = NULL;
+      }
 
       if (buffer != NULL)
 	 i915->state.tex_buffer[i] = driBOReference(buffer);
