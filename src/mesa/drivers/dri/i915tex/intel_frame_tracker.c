@@ -181,16 +181,19 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
    struct intel_context *intel = ft->intel;
    GLboolean discard_z_buffer = (new_mode == INTEL_FT_SWAP_BUFFERS);
    GLboolean ignore_buffer_contents = GL_FALSE;
+   GLuint old_mode = ft->mode;
 
-   if (ft->mode == new_mode) 
+   if (old_mode == new_mode) 
       return;
 
    if (INTEL_DEBUG & (DEBUG_RENDER|DEBUG_FALLBACKS|DEBUG_FRAME)) 
       _mesa_printf("transiton %s -> %s\n",
-		   mode_name[ft->mode],
+		   mode_name[old_mode],
 		   mode_name[new_mode]);
 
-   switch (ft->mode) {
+   ft->mode = INTEL_FT_FLUSHED;
+   
+   switch (old_mode) {
    case INTEL_FT_SWAP_BUFFERS:
       ignore_buffer_contents = GL_TRUE;
       start_frame( ft );
@@ -228,8 +231,6 @@ void intel_frame_set_mode( struct intel_frame_tracker *ft,
       break;
    }
 
-   ft->mode = INTEL_FT_FLUSHED;
-   
    switch (new_mode) {
    case INTEL_FT_GL_FLUSH:
    case INTEL_FT_SWAP_BUFFERS:
