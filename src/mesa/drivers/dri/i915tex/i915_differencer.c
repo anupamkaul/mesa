@@ -138,12 +138,18 @@ static void emit_indirect( struct intel_context *intel,
       for (i = 0; i < I915_MAX_CACHE; i++) {
 	 if (dirty & (1<<i)) {
 	    if (i != I915_CACHE_DYNAMIC) {
+#if DO_PRELOC
+	       EMIT_DWORD( ptr, ((intel->batch->state_offset + state->offsets[i]) | 
+				 flag | 
+				 SIS0_BUFFER_VALID) );
+#else
 	       EMIT_RELOC( intel, 
 			   ptr,
 			   intel->batch->state_buffer, 
 			   intel->batch->state_memflags,
 			   DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
 			   ( state->offsets[i] | flag | SIS0_BUFFER_VALID ) );
+#endif
 
 	       /* No state size dword for dynamic state:
 		*/
@@ -156,13 +162,18 @@ static void emit_indirect( struct intel_context *intel,
 	    }
 	    else {
 	       assert( (state->offsets[i] & 4095) >= 4 );
-
+#if DO_PRELOC
+	       EMIT_DWORD( ptr, ((intel->batch->state_offset + state->offsets[i] - 4) | 
+				 flag | 
+				 SIS0_BUFFER_VALID) );
+#else
 	       EMIT_RELOC( intel, 
 			   ptr,
 			   intel->batch->state_buffer, 
 			   intel->batch->state_memflags,
 			   DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,
 			   ( (state->offsets[i] - 4) | flag | SIS0_BUFFER_VALID ) );
+#endif
 
 	       assert(intel->batch->segment_start_offset[1] <= state->offsets[i]);
 	       assert(intel->batch->segment_finish_offset[1] >= state->offsets[i]);

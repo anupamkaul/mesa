@@ -14,6 +14,11 @@ struct intel_context;
 #define INTEL_BATCH_CLIPRECTS        0x2
 #define INTEL_BATCH_HWZ              0x4 
 
+/* Prelocations - pre-assign an offset to the batch and state buffers
+ * to eliminate most of the relocation overhead on zone rendering.
+ */
+#define DO_PRELOC 1
+
 struct buffer_reloc
 {
    GLuint slot;
@@ -40,6 +45,9 @@ struct intel_batchbuffer
    GLuint flags;
    GLuint state_memtype;
    GLuint state_memflags;
+
+   GLuint batch_offset;		/* DO_PRELOC only */
+   GLuint state_offset;		/* DO_PRELOC only */
 
    struct _DriBufferList *list;
    GLuint list_count;

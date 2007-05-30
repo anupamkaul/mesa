@@ -205,6 +205,29 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
       batch->state_map = driBOMap(batch->state_buffer, DRM_BO_FLAG_WRITE, 0);
    }
 
+
+   if (DO_PRELOC) {
+      GLboolean was_locked = batch->intel->locked;
+      if (!was_locked)
+	 LOCK_HARDWARE(batch->intel);
+
+      driBOValidate(batch->intel->driFd, batch->buffer,
+                    DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE | DRM_BO_FLAG_NO_MOVE,
+                    DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE | DRM_BO_FLAG_NO_MOVE, 
+		    DRM_BO_HINT_DONT_FENCE);
+
+      driBOValidate(batch->intel->driFd, batch->state_buffer,
+                    DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE | DRM_BO_FLAG_NO_MOVE,
+                    DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE | DRM_BO_FLAG_NO_MOVE, 
+		    DRM_BO_HINT_DONT_FENCE);
+
+      if (!was_locked)
+	 UNLOCK_HARDWARE(batch->intel);
+
+      batch->state_offset = driBOOffset(batch->state_buffer);
+      batch->batch_offset = driBOOffset(batch->buffer);
+   }
+
    batch->segment_finish_offset[0] = batch->segment_start_offset[0];
    batch->segment_finish_offset[1] = batch->segment_start_offset[1];
    batch->segment_finish_offset[2] = batch->segment_start_offset[2];

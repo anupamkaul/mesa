@@ -261,6 +261,10 @@ static INLINE void zone_begin_batch( struct swz_render *swz,
 
    /* Both out and newptr are assumed to be in the batchbuffer!!
     */
+#if DO_PRELOC
+   *out++ = (swz->intel->batch->batch_offset + 
+	     newptr - swz->intel->batch->map);
+#else
    intel_batchbuffer_set_reloc( swz->intel->batch,
 				SEGMENT_IMMEDIATE,
 				((GLubyte *)out) - swz->intel->batch->map,
@@ -268,6 +272,7 @@ static INLINE void zone_begin_batch( struct swz_render *swz,
 				DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE,
 				DRM_BO_MASK_MEM | DRM_BO_FLAG_EXE,			 
 				newptr - swz->intel->batch->map );
+#endif
 }
 
 
