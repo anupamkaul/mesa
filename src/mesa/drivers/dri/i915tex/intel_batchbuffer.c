@@ -536,9 +536,12 @@ static GLuint check_buffers( struct intel_batchbuffer *batch,
 			   GLuint flags,
 			   GLuint mask )
 {
-   GLuint i;
+   GLint i;
 
-   for (i = 0; i < batch->nr_local; i++) {
+   /* Most likely to be identical to the most recently received
+    * buffer(s):
+    */
+   for (i = batch->nr_local; --i >= 0; ) {
       if (batch->local_list[i].buffer == buffer) {
 	 assert( (batch->local_list[i].flags & mask) == 
 		 (batch->local_list[i].mask & flags) );
