@@ -243,6 +243,7 @@ intel_batchbuffer_alloc(struct intel_context *intel)
 {
    struct intel_batchbuffer *batch = calloc(sizeof(*batch), 1);
    int page_size = getpagesize();
+   int state_size;
 
    batch->reloc = mmap(NULL, page_size, PROT_READ | PROT_WRITE,
 		       MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
@@ -267,6 +268,9 @@ intel_batchbuffer_alloc(struct intel_context *intel)
 
       _mesa_printf("using statePool for state buffer\n");
 
+      /* XXX: We need to be able to allocate more of these on the fly.
+       */
+      state_size = 4096;
       batch->state_memtype = 0 << 14;
       batch->state_memflags = DRM_BO_FLAG_MEM_PRIV1 | DRM_BO_FLAG_EXE;
 
@@ -277,18 +281,24 @@ intel_batchbuffer_alloc(struct intel_context *intel)
 
       batch->segment_start_offset[1] = 0;
    } else {
+      /* Allocate a reasonably large area for indirect state.  Would
+       * still like to be able to get more without flushing.  In fact
+       * there's no need to flush when we run out of batch - we could
+       * just get another batchbuffer without firing the old one...
+       */
+      state_size = 16 * 4096;
       batch->state_buffer = batch->buffer;
       batch->state_memtype = 1 << 14;
       batch->state_memflags = DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE;
 
-      batch->segment_start_offset[1] = BATCH_SZ - 2 * 4096;
+      batch->segment_start_offset[1] = BATCH_SZ - 2 * state_size;
 
       batch->segment_max_offset[0] = batch->segment_start_offset[1] -
 	 BATCH_RESERVED;
    }
 
-   batch->segment_max_offset[1] = batch->segment_start_offset[1] + 4096;
-   batch->segment_max_offset[2] = batch->segment_max_offset[1] + 4096;
+   batch->segment_max_offset[1] = batch->segment_start_offset[1] + state_size;
+   batch->segment_max_offset[2] = batch->segment_max_offset[1] + state_size;
 
    batch->segment_start_offset[0] = 0;
    batch->segment_start_offset[2] = batch->segment_max_offset[1];
