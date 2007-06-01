@@ -65,6 +65,7 @@ const struct intel_tracked_state i915_upload_FOGMODE;
 const struct intel_tracked_state i915_upload_IAB;
 const struct intel_tracked_state i915_upload_MODES4;
 const struct intel_tracked_state i915_upload_STIPPLE;
+const struct intel_tracked_state i915_upload_SCISSOR;
 const struct intel_tracked_state i915_upload_dynamic_indirect;
 
 /* Other indirect:

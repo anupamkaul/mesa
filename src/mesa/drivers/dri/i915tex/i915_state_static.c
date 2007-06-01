@@ -124,15 +124,12 @@ static void upload_static(struct intel_context *intel)
    struct intel_region *color_region = intel->state.draw_region;
    struct intel_region *depth_region = intel->state.depth_region;
    struct i915_cache_packet packet;
-   GLboolean scissor = (intel->state.Scissor->Enabled && 
-			intel->state.DrawBuffer);
    GLuint clearparams = intel->state.clearparams;
    GLuint i;
 
    GLuint dwords = ((color_region ? 3 : 0) + 
 		    (depth_region ? 3 : 0) + 
 		    2 +		/* DV */
-		    (scissor      ? 4 : 1) +
 		    (clearparams ? 14 : 0) +
 		    Elements(invarient_state));
 
@@ -143,7 +140,9 @@ static void upload_static(struct intel_context *intel)
    packet_init( &packet, I915_CACHE_STATIC, dwords, relocs );
    
    /***********************************************************************
-    * Misc invarient state packets
+    * Misc invarient state packets.  These are maybe special and
+    * should just be handled as a batchbufffer preamble like they used
+    * to be.
     */
    for (i = 0; i < Elements(invarient_state); i++)
       packet_dword( &packet, invarient_state[i] );
@@ -197,56 +196,6 @@ static void upload_static(struct intel_context *intel)
 			    ? DEPTH_FRMT_24_FIXED_8_OTHER
 			    : DEPTH_FRMT_16_FIXED)) );
 
-
-   /***********************************************************************
-    * Scissor.  
-    *
-    * Is it static or dynamic???  It is not understood by the hardware
-    * binner, so if we ever implement HWZ, it would be static under that
-    * scheme, or somehow not handled, or perhaps we would have to
-    * manually clip primitives to the scissor region.  For now, we call
-    * it static.
-    */
-
-   /* _NEW_SCISSOR, _NEW_BUFFERS 
-    */
-   if (scissor) {
-      
-      GLint x = intel->state.Scissor->X;
-      GLint y = intel->state.Scissor->Y;
-      GLint w = intel->state.Scissor->Width;
-      GLint h = intel->state.Scissor->Height;
-      
-      GLint x1, y1, x2, y2;
-
-      if (intel->state.DrawBuffer->Name == 0) {
-	 x1 = x;
-	 y1 = intel->state.DrawBuffer->Height - (y + h);
-	 x2 = x + w - 1;
-	 y2 = y1 + h - 1;
-      }
-      else {
-	 /* FBO - not inverted
-	  */
-	 x1 = x;
-	 y1 = y;
-	 x2 = x + w - 1;
-	 y2 = y + h - 1;
-      }
-   
-      x1 = CLAMP(x1, 0, intel->state.DrawBuffer->Width - 1);
-      y1 = CLAMP(y1, 0, intel->state.DrawBuffer->Height - 1);
-      x2 = CLAMP(x2, 0, intel->state.DrawBuffer->Width - 1);
-      y2 = CLAMP(y2, 0, intel->state.DrawBuffer->Height - 1);
-
-      packet_dword( &packet,_3DSTATE_SCISSOR_ENABLE_CMD | ENABLE_SCISSOR_RECT);
-      packet_dword( &packet,_3DSTATE_SCISSOR_RECT_0_CMD);
-      packet_dword( &packet,(y1 << 16) | (x1 & 0xffff));
-      packet_dword( &packet,(y2 << 16) | (x2 & 0xffff));
-   }
-   else {
-      packet_dword( &packet,_3DSTATE_SCISSOR_ENABLE_CMD | DISABLE_SCISSOR_RECT);
-   }
 
 
    /* INTEL_NEW_CLEAR_PARAMS, _NEW_DEPTH
@@ -310,7 +259,7 @@ static void upload_static(struct intel_context *intel)
 
 const struct intel_tracked_state i915_upload_static = {
    .dirty = {
-      .mesa = _NEW_SCISSOR | _NEW_BUFFERS | _NEW_COLOR | _NEW_DEPTH | _NEW_STENCIL,
+      .mesa =  _NEW_COLOR | _NEW_DEPTH | _NEW_STENCIL,
       .intel = INTEL_NEW_CBUF | INTEL_NEW_ZBUF | INTEL_NEW_FENCE | INTEL_NEW_CLEAR_PARAMS,
       .extra = 0
    },

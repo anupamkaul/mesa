@@ -97,7 +97,11 @@ struct i915_fragment_program
 #define I915_DYNAMIC_BFO_1        7
 #define I915_DYNAMIC_STP_0        8 
 #define I915_DYNAMIC_STP_1        9 
-#define I915_MAX_DYNAMIC          10
+#define I915_DYNAMIC_SC_0         10 
+#define I915_DYNAMIC_SC_1         11 
+#define I915_DYNAMIC_SC_2         12 
+#define I915_DYNAMIC_SC_3         13 
+#define I915_MAX_DYNAMIC          14
 
 
 #define I915_IMMEDIATE_S0         0

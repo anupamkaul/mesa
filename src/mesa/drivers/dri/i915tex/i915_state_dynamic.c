@@ -103,6 +103,7 @@ static void emit_dynamic_indirect( struct intel_context *intel)
    CHECK( I915_DYNAMIC_BC_0, 2 ); 
    CHECK( I915_DYNAMIC_BFO_0, 2 ); 
    CHECK( I915_DYNAMIC_STP_0, 2 ); 
+   CHECK( I915_DYNAMIC_SC_0, 4 ); 
 
    if (!dirty) 
       return;
@@ -502,4 +503,81 @@ const struct intel_tracked_state i915_upload_STIPPLE = {
       .extra = 0
    },
    .update = upload_STIPPLE
+};
+
+
+
+/***********************************************************************
+ * Scissor.  
+ *
+ * Is it static or dynamic???  It is not understood by the hardware
+ * binner, so if we ever implement HWZ, it would be static under that
+ * scheme, or somehow not handled, or perhaps we would have to
+ * manually clip primitives to the scissor region.  For now, we call
+ * it static.
+ */
+static void upload_SCISSOR( struct intel_context *intel )
+{
+   GLuint sc[4];
+
+   GLboolean scissor = (intel->state.Scissor->Enabled && 
+			intel->state.DrawBuffer);
+
+   /* _NEW_SCISSOR, _NEW_BUFFERS 
+    */
+   if (scissor) 
+      sc[0] = _3DSTATE_SCISSOR_ENABLE_CMD | ENABLE_SCISSOR_RECT;
+   else
+      sc[0] = _3DSTATE_SCISSOR_ENABLE_CMD | DISABLE_SCISSOR_RECT;
+         
+   {
+      GLint x = intel->state.Scissor->X;
+      GLint y = intel->state.Scissor->Y;
+      GLint w = intel->state.Scissor->Width;
+      GLint h = intel->state.Scissor->Height;
+      
+      GLint x1, y1, x2, y2;
+
+      if (intel->state.DrawBuffer->Name == 0) {
+	 x1 = x;
+	 y1 = intel->state.DrawBuffer->Height - (y + h);
+	 x2 = x + w - 1;
+	 y2 = y1 + h - 1;
+      }
+      else {
+	 /* FBO - not inverted
+	  */
+	 x1 = x;
+	 y1 = y;
+	 x2 = x + w - 1;
+	 y2 = y + h - 1;
+      }
+   
+      x1 = CLAMP(x1, 0, intel->state.DrawBuffer->Width - 1);
+      y1 = CLAMP(y1, 0, intel->state.DrawBuffer->Height - 1);
+      x2 = CLAMP(x2, 0, intel->state.DrawBuffer->Width - 1);
+      y2 = CLAMP(y2, 0, intel->state.DrawBuffer->Height - 1);
+
+      sc[1] = _3DSTATE_SCISSOR_RECT_0_CMD;
+      sc[2] = (y1 << 16) | (x1 & 0xffff);
+      sc[3] = (y2 << 16) | (x2 & 0xffff);
+   }
+
+   /* XXX: For hwz, we would need to flush and restart when this
+    * changes, according to docs at least.
+    */
+   set_dynamic_indirect( intel, 
+			 I915_DYNAMIC_SC_0,
+			 &sc[0],
+			 4 );
+}
+
+
+const struct intel_tracked_state i915_upload_SCISSOR = {
+   .dirty = {
+      .mesa = _NEW_SCISSOR | _NEW_BUFFERS,
+      .intel = 0,
+      .extra = 0
+   },
+   .update = upload_SCISSOR
 };
