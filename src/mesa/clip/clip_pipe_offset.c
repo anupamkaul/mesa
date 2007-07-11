@@ -64,6 +64,7 @@ static void offset_begin( struct clip_pipe_stage *stage )
    else
       offset->hw_data_offset = 0;	
 
+   /* note that MRD should have already been applied to the units value */
    offset->units = stage->pipe->draw->state.offset_units;
    offset->scale = stage->pipe->draw->state.offset_scale;
 
@@ -79,31 +80,26 @@ static void do_offset_tri( struct clip_pipe_stage *stage,
 {
    struct offset_stage *offset = offset_stage(stage);
    GLuint hw_data_offset = offset->hw_data_offset;
-   
+
    GLfloat inv_det = 1.0 / header->det;
 
    GLfloat *v0 = (GLfloat *)&(header->v[0]->data[hw_data_offset]);
    GLfloat *v1 = (GLfloat *)&(header->v[1]->data[hw_data_offset]);
    GLfloat *v2 = (GLfloat *)&(header->v[2]->data[hw_data_offset]);
    
-   GLfloat ex = v0[0] - v2[2];
-   GLfloat fx = v1[0] - v2[2];
-   GLfloat ey = v0[1] - v2[2];
-   GLfloat fy = v1[1] - v2[2];
+   GLfloat ex = v0[0] - v2[0];
+   GLfloat ey = v0[1] - v2[1];
    GLfloat ez = v0[2] - v2[2];
+   GLfloat fx = v1[0] - v2[0];
+   GLfloat fy = v1[1] - v2[1];
    GLfloat fz = v1[2] - v2[2];
 
    GLfloat a = ey*fz - ez*fy;
    GLfloat b = ez*fx - ex*fz;
 
-   GLfloat ac = a * inv_det;
-   GLfloat bc = b * inv_det;
-   GLfloat zoffset;
-
-   if ( ac < 0.0f ) ac = -ac;
-   if ( bc < 0.0f ) bc = -bc;
-
-   zoffset = offset->units + MAX2( ac, bc ) * offset->scale;
+   GLfloat dzdx = FABSF(a * inv_det);
+   GLfloat dzdy = FABSF(b * inv_det);
+   GLfloat zoffset = offset->units + MAX2( dzdx, dzdy ) * offset->scale;
 
    v0[2] += zoffset;
    v1[2] += zoffset;

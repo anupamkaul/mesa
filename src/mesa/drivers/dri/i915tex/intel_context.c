@@ -485,7 +485,9 @@ intelInitContext(struct intel_context *intel,
 
    /* XXX FBO: recalculate on bind */
    switch (mesaVis->depthBits) {
-   case 0:                     /* what to do in this case? */
+   case 0:
+      intel->polygon_offset_scale = 0.0;
+      break;
    case 16:
       intel->polygon_offset_scale = 1.0 / 0xffff;
       break;
