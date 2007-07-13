@@ -80,14 +80,11 @@ static void update_clip_state( struct intel_context *intel )
       state.flatshade = 1;
 
    /* _NEW_LIGHT 
-    *
-    * Not sure about the light->enabled requirement - does this still
-    * apply??
     */
-   if (intel->state.Light->Enabled && 
-       intel->state.Light->Model.TwoSide)
-      state.light_twoside = 1;
-
+   if (intel->state.VertexProgram->_Enabled)
+      state.light_twoside = intel->state.VertexProgram->TwoSideEnabled;
+   else if (intel->state.Light->Enabled)
+      state.light_twoside = intel->state.Light->Model.TwoSide;
 
    /* _NEW_POLYGON
     */
