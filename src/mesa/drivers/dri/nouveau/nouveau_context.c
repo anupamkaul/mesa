@@ -180,7 +180,7 @@ GLboolean nouveauCreateContext( const __GLcontextModes *glVisual,
 	driParseConfigFiles (&nmesa->optionCache, &screen->optionCache,
 			screen->driScreen->myNum, "nouveau");
 
-	nmesa->sarea = (drm_nouveau_sarea_t *)((char *)sPriv->pSAREA +
+	nmesa->sarea = (struct drm_nouveau_sarea *)((char *)sPriv->pSAREA +
 			screen->sarea_priv_offset);
 
 	/* Enable any supported extensions */
@@ -224,6 +224,8 @@ GLboolean nouveauCreateContext( const __GLcontextModes *glVisual,
 			nv04TriInitFunctions( ctx );
 			break;
 		case NV_10:
+		case NV_11:
+		case NV_17:
 		case NV_20:
 		case NV_30:
 		case NV_40:
@@ -313,21 +315,24 @@ GLboolean nouveauUnbindContext( __DRIcontextPrivate *driContextPriv )
 	return GL_TRUE;
 }
 
-static void nouveauDoSwapBuffers(nouveauContextPtr nmesa,
-				 __DRIdrawablePrivate *dPriv)
+void
+nouveauDoSwapBuffers(nouveauContextPtr nmesa, __DRIdrawablePrivate *dPriv)
 {
 	struct gl_framebuffer *fb;
-	nouveau_renderbuffer *src, *dst;
+	nouveauScreenPtr screen = dPriv->driScreenPriv->private;
+	nouveau_renderbuffer_t *src;
 	drm_clip_rect_t *box;
 	int nbox, i;
 
 	fb = (struct gl_framebuffer *)dPriv->driverPrivate;
-	dst = (nouveau_renderbuffer*)
-		fb->Attachment[BUFFER_FRONT_LEFT].Renderbuffer;
-	src = (nouveau_renderbuffer*)
-		fb->Attachment[BUFFER_BACK_LEFT].Renderbuffer;
+	if (fb->_ColorDrawBufferMask[0] == BUFFER_BIT_FRONT_LEFT) {
+		src = (nouveau_renderbuffer_t *)
+			fb->Attachment[BUFFER_FRONT_LEFT].Renderbuffer;
+	} else {
+		src = (nouveau_renderbuffer_t *)
+			fb->Attachment[BUFFER_BACK_LEFT].Renderbuffer;
+	}
 
-#ifdef ALLOW_MULTI_SUBCHANNEL
 	LOCK_HARDWARE(nmesa);
 	nbox = dPriv->numClipRects;
 	box  = dPriv->pClipRects;
@@ -339,9 +344,10 @@ static void nouveauDoSwapBuffers(nouveauContextPtr nmesa,
 			OUT_RING       (6); /* X8R8G8B8 */
 		else
 			OUT_RING       (4); /* R5G6B5 */
-		OUT_RING       ((dst->pitch << 16) | src->pitch);
-		OUT_RING       (src->offset);
-		OUT_RING       (dst->offset);
+		OUT_RING(((screen->frontPitch * screen->fbFormat) << 16) |
+			  src->pitch);
+		OUT_RING(src->offset);
+		OUT_RING(screen->frontOffset);
 	}
 
 	for (i=0; i<nbox; i++, box++) {
@@ -355,7 +361,6 @@ static void nouveauDoSwapBuffers(nouveauContextPtr nmesa,
 	FIRE_RING();
 
 	UNLOCK_HARDWARE(nmesa);
-#endif
 }
 
 void nouveauSwapBuffers(__DRIdrawablePrivate *dPriv)

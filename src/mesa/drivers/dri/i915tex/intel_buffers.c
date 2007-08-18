@@ -250,7 +250,8 @@ intelWindowMoved(struct intel_context *intel)
 	 flags = intel_fb->vblank_flags & ~VBLANK_FLAG_SECONDARY;
       }
 
-      if (flags != intel_fb->vblank_flags) {
+      if (flags != intel_fb->vblank_flags && intel_fb->vblank_flags &&
+	  !(intel_fb->vblank_flags & VBLANK_FLAG_NO_IRQ)) {
 	 drmVBlank vbl;
 	 int i;
 
@@ -261,7 +262,9 @@ intelWindowMoved(struct intel_context *intel)
 	 }
 
 	 for (i = 0; i < intel_fb->pf_num_pages; i++) {
-	    if (!intel_fb->color_rb[i])
+	    if (!intel_fb->color_rb[i] ||
+		(intel_fb->vbl_waited - intel_fb->color_rb[i]->vbl_pending) <=
+		(1<<23))
 	       continue;
 
 	    vbl.request.sequence = intel_fb->color_rb[i]->vbl_pending;

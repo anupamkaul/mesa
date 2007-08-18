@@ -28,17 +28,17 @@
 #include "glheader.h"
 #include "macros.h"
 #include "enums.h"
-#include "prog_parameter.h"
-#include "prog_instruction.h"
-#include "prog_print.h"
-#include "prog_statevars.h"
+#include "shader/prog_parameter.h"
+#include "shader/prog_instruction.h"
+#include "shader/prog_print.h"
+#include "shader/prog_statevars.h"
 #include "texenvprogram.h"
 
 /**
  * According to Glean's texCombine test, no more than 21 instructions
  * are needed.  Allow a few extra just in case.
  */
-#define MAX_INSTRUCTIONS 24
+#define MAX_INSTRUCTIONS ((MAX_TEXTURE_UNITS * 6) + 10) /* see bug 9829 */
 
 #define DISASSEM (MESA_VERBOSE & VERBOSE_DISASSEM)
 

@@ -111,9 +111,62 @@ static void nv10BlendFuncSeparate(GLcontext *ctx, GLenum sfactorRGB, GLenum dfac
 	OUT_RING_CACHE(dfactorRGB);
 }
 
+static void nv10ClearBuffer(GLcontext *ctx, nouveau_renderbuffer_t *buffer, int fill, int mask)
+{
+	nouveauContextPtr nmesa = NOUVEAU_CONTEXT(ctx);
+	int dimensions;
+
+	if (!buffer) {
+		return;
+	}
+
+	/* Surface that we will work on */
+	nouveauObjectOnSubchannel(nmesa, NvSubCtxSurf2D, NvCtxSurf2D);
+
+	BEGIN_RING_SIZE(NvSubCtxSurf2D, NV10_CONTEXT_SURFACES_2D_FORMAT, 4);
+	OUT_RING(0x0b); /* Y32 color format */
+	OUT_RING((buffer->pitch<<16)|buffer->pitch);
+	OUT_RING(buffer->offset);
+	OUT_RING(buffer->offset);
+
+	/* Now clear a rectangle */
+	dimensions = ((buffer->mesa.Height)<<16) | (buffer->mesa.Width);
+
+	nouveauObjectOnSubchannel(nmesa, NvSubGdiRectText, NvGdiRectText);
+
+	BEGIN_RING_SIZE(NvSubGdiRectText, NV04_GDI_RECTANGLE_TEXT_OPERATION, 1);
+	OUT_RING(3);	/* SRCCOPY */
+
+	BEGIN_RING_SIZE(NvSubGdiRectText, NV04_GDI_RECTANGLE_TEXT_BLOCK_LEVEL1_TL, 5);
+	OUT_RING(0);	/* top left */
+	OUT_RING(dimensions);	/* bottom right */
+	OUT_RING(fill);
+	OUT_RING(0);	/* top left */
+	OUT_RING(dimensions);	/* bottom right */
+}
+
 static void nv10Clear(GLcontext *ctx, GLbitfield mask)
 {
-	/* TODO */
+	nouveauContextPtr nmesa = NOUVEAU_CONTEXT(ctx);
+
+	if (mask & (BUFFER_BIT_FRONT_LEFT)) {
+		nv10ClearBuffer(ctx, nmesa->color_buffer[0],
+			nmesa->clear_color_value, 0xffffffff);
+	}
+	if (mask & (BUFFER_BIT_BACK_LEFT)) {
+		nv10ClearBuffer(ctx, nmesa->color_buffer[1],
+			nmesa->clear_color_value, 0xffffffff);
+	}
+	/* FIXME: check depth bits */
+	if (mask & (BUFFER_BIT_DEPTH)) {
+		nv10ClearBuffer(ctx, nmesa->depth_buffer,
+			nmesa->clear_value, 0xffffff00);
+	}
+	/* FIXME: check about stencil? */
+	if (mask & (BUFFER_BIT_STENCIL)) {
+		nv10ClearBuffer(ctx, nmesa->depth_buffer,
+			nmesa->clear_value, 0x000000ff);
+	}
 }
 
 static void nv10ClearColor(GLcontext *ctx, const GLfloat color[4])
@@ -697,8 +750,7 @@ static GLboolean nv10InitCard(nouveauContextPtr nmesa)
 	BEGIN_RING_SIZE(NvSub3D, 0x03f4, 1);
 	OUT_RING(0);
 
-	/* not for nv10, only for >= nv11 */
-	if ((nmesa->screen->card->id>>4) >= 0x11) {
+	if (nmesa->screen->card->type >= NV_11) {
 	        BEGIN_RING_SIZE(NvSub3D, 0x120, 3);
         	OUT_RING(0);
 	        OUT_RING(1);
@@ -710,11 +762,16 @@ static GLboolean nv10InitCard(nouveauContextPtr nmesa)
 
 /* Update buffer offset/pitch/format */
 static GLboolean nv10BindBuffers(nouveauContextPtr nmesa, int num_color,
-				 nouveau_renderbuffer **color,
-				 nouveau_renderbuffer *depth)
+				 nouveau_renderbuffer_t **color,
+				 nouveau_renderbuffer_t *depth)
 {
 	GLuint x, y, w, h;
 	GLuint pitch, format, depth_pitch;
+
+	/* Store buffer pointers in context */
+	nmesa->color_buffer[0] = color[0];
+	nmesa->color_buffer[1] = color[1];
+	nmesa->depth_buffer = depth;
 
 	w = color[0]->mesa.Width;
 	h = color[0]->mesa.Height;
@@ -739,11 +796,11 @@ static GLboolean nv10BindBuffers(nouveauContextPtr nmesa, int num_color,
 	OUT_RING_CACHE(depth ? depth->offset : color[0]->offset);
 
 	/* Always set to bottom left of buffer */
-	BEGIN_RING_CACHE(NvSub3D, NV10_TCL_PRIMITIVE_3D_VIEWPORT_ORIGIN_X, 4);
+	/*BEGIN_RING_CACHE(NvSub3D, NV10_TCL_PRIMITIVE_3D_VIEWPORT_ORIGIN_X, 4);
 	OUT_RING_CACHEf (0.0);
 	OUT_RING_CACHEf ((GLfloat) h);
 	OUT_RING_CACHEf (0.0);
-	OUT_RING_CACHEf (0.0);
+	OUT_RING_CACHEf (0.0);*/
 
 	return GL_TRUE;
 }

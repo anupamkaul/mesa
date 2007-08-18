@@ -7,10 +7,10 @@
 GLboolean nouveauCreateContextObject(nouveauContextPtr nmesa,
 				     uint32_t handle, int class)
 {
-	drm_nouveau_grobj_alloc_t cto;
+	struct drm_nouveau_grobj_alloc cto;
 	int ret;
 
-	cto.channel = nmesa->fifo.channel;
+	cto.channel = nmesa->fifo.drm.channel;
 	cto.handle  = handle;
 	cto.class   = class;
 	ret = drmCommandWrite(nmesa->driFd, DRM_NOUVEAU_GROBJ_ALLOC,
@@ -34,15 +34,22 @@ void nouveauObjectInit(nouveauContextPtr nmesa)
 	nouveauCreateContextObject(nmesa, Nv3D, nmesa->screen->card->class_3d);
 	if (nmesa->screen->card->type>=NV_10) {
 		nouveauCreateContextObject(nmesa, NvCtxSurf2D, NV10_CONTEXT_SURFACES_2D);
-		nouveauCreateContextObject(nmesa, NvImageBlit, NV10_IMAGE_BLIT);
 	} else {
 		nouveauCreateContextObject(nmesa, NvCtxSurf2D, NV04_CONTEXT_SURFACES_2D);
 		nouveauCreateContextObject(nmesa, NvCtxSurf3D, NV04_CONTEXT_SURFACES_3D);
+	}
+	if (nmesa->screen->card->type>=NV_11) {
+		nouveauCreateContextObject(nmesa, NvImageBlit, NV10_IMAGE_BLIT);
+	} else {
 		nouveauCreateContextObject(nmesa, NvImageBlit, NV_IMAGE_BLIT);
+	}
+	if ((nmesa->screen->card->type>=NV_10) && (nmesa->screen->card->type<NV_20)) {
+		nouveauCreateContextObject(nmesa, NvGdiRectText, NV04_GDI_RECTANGLE_TEXT);
+		nouveauCreateContextObject(nmesa, NvRasterOp, NV03_PRIMITIVE_RASTER_OP);
+		nouveauCreateContextObject(nmesa, NvPattern, NV04_IMAGE_PATTERN);
 	}
 	nouveauCreateContextObject(nmesa, NvMemFormat, NV_MEMORY_TO_MEMORY_FORMAT);
 
-#ifdef ALLOW_MULTI_SUBCHANNEL
 	nouveauObjectOnSubchannel(nmesa, NvSubCtxSurf2D, NvCtxSurf2D);
 	BEGIN_RING_SIZE(NvSubCtxSurf2D, NV10_CONTEXT_SURFACES_2D_SET_DMA_IN_MEMORY0, 2);
 	OUT_RING(NvDmaFB);
@@ -54,8 +61,35 @@ void nouveauObjectInit(nouveauContextPtr nmesa)
 	BEGIN_RING_SIZE(NvSubImageBlit, NV10_IMAGE_BLIT_SET_OPERATION, 1);
 	OUT_RING(3); /* SRCCOPY */
 
+	if ((nmesa->screen->card->type>=NV_10) && (nmesa->screen->card->type<NV_20)) {
+		nouveauObjectOnSubchannel(nmesa, NvSubPattern, NvPattern);
+
+		BEGIN_RING_SIZE(NvSubPattern, NV04_IMAGE_PATTERN_COLOR_FORMAT, 4);
+		OUT_RING(1);	/* A16R5G6B5 */
+		OUT_RING(1);	/* little endian */
+		OUT_RING(0);	/* 8x8 */
+		OUT_RING(1);	/* monochrome */
+
+		nouveauObjectOnSubchannel(nmesa, NvSubRasterOp, NvRasterOp);
+
+		BEGIN_RING_SIZE(NvSubRasterOp, NV03_PRIMITIVE_RASTER_OP_DMA_NOTIFY, 1);
+		OUT_RING(NvDmaFB);
+
+		nouveauObjectOnSubchannel(nmesa, NvSubGdiRectText, NvGdiRectText);
+
+		BEGIN_RING_SIZE(NvSubGdiRectText, NV04_GDI_RECTANGLE_TEXT_SET_DMA_NOTIFY, 1);
+		OUT_RING(NvDmaFB);
+		BEGIN_RING_SIZE(NvSubGdiRectText, NV04_GDI_RECTANGLE_TEXT_PATTERN, 2);
+		OUT_RING(NvPattern);
+		OUT_RING(NvRasterOp);
+		BEGIN_RING_SIZE(NvSubGdiRectText, NV04_GDI_RECTANGLE_TEXT_SURFACE, 1);
+		OUT_RING(NvCtxSurf2D);
+		BEGIN_RING_SIZE(NvSubGdiRectText, NV04_GDI_RECTANGLE_TEXT_FORMAT, 2);
+		OUT_RING(1);	/* X1R5G5B5 */
+		OUT_RING(1);	/* little endian */
+	}
+
 	nouveauObjectOnSubchannel(nmesa, NvSubMemFormat, NvMemFormat);
-#endif
 
 	nouveauObjectOnSubchannel(nmesa, NvSub3D, Nv3D);
 }

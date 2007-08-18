@@ -28,36 +28,36 @@
 #include "vblank.h" /* for DO_USLEEP */
 
 #include "nouveau_context.h"
-#include "nouveau_buffers.h"
-#include "nouveau_object.h"
 #include "nouveau_fifo.h"
-#include "nouveau_reg.h"
+#include "nouveau_mem.h"
 #include "nouveau_msg.h"
+#include "nouveau_object.h"
+#include "nouveau_reg.h"
 #include "nouveau_sync.h"
 
 #define NOTIFIER(__v) \
 	nouveauContextPtr nmesa = NOUVEAU_CONTEXT(ctx); \
-	volatile uint32_t *__v = (void*)nmesa->notifier_block + notifier->offset
+	volatile uint32_t *__v = (void*)nmesa->fifo.notifier_block + \
+				 notifier->offset
 
-drm_nouveau_notifier_alloc_t *
+struct drm_nouveau_notifierobj_alloc *
 nouveau_notifier_new(GLcontext *ctx, GLuint handle, GLuint count)
 {
 	nouveauContextPtr nmesa = NOUVEAU_CONTEXT(ctx);
-	drm_nouveau_notifier_alloc_t *notifier;
+	struct drm_nouveau_notifierobj_alloc *notifier;
 	int ret;
 
 #ifdef NOUVEAU_RING_DEBUG
 	return NULL;
 #endif
-
-	notifier = CALLOC_STRUCT(drm_nouveau_notifier_alloc);
+	notifier = CALLOC_STRUCT(drm_nouveau_notifierobj_alloc);
 	if (!notifier)
 		return NULL;
 
-	notifier->channel = nmesa->fifo.channel;
+	notifier->channel = nmesa->fifo.drm.channel;
 	notifier->handle  = handle;
 	notifier->count   = count;
-	ret = drmCommandWriteRead(nmesa->driFd, DRM_NOUVEAU_NOTIFIER_ALLOC,
+	ret = drmCommandWriteRead(nmesa->driFd, DRM_NOUVEAU_NOTIFIEROBJ_ALLOC,
 				  notifier, sizeof(*notifier));
 	if (ret) {
 		MESSAGE("Failed to create notifier 0x%08x: %d\n", handle, ret);
@@ -69,14 +69,16 @@ nouveau_notifier_new(GLcontext *ctx, GLuint handle, GLuint count)
 }
 
 void
-nouveau_notifier_destroy(GLcontext *ctx, drm_nouveau_notifier_alloc_t *notifier)
+nouveau_notifier_destroy(GLcontext *ctx,
+			 struct drm_nouveau_notifierobj_alloc *notifier)
 {
 	/*XXX: free notifier object.. */
 	FREE(notifier);
 }
 
 void
-nouveau_notifier_reset(GLcontext *ctx, drm_nouveau_notifier_alloc_t *notifier,
+nouveau_notifier_reset(GLcontext *ctx,
+		       struct drm_nouveau_notifierobj_alloc *notifier,
 		       GLuint id)
 {
 	NOTIFIER(n);
@@ -93,7 +95,8 @@ nouveau_notifier_reset(GLcontext *ctx, drm_nouveau_notifier_alloc_t *notifier,
 }
 
 GLuint
-nouveau_notifier_status(GLcontext *ctx, drm_nouveau_notifier_alloc_t *notifier,
+nouveau_notifier_status(GLcontext *ctx,
+			struct drm_nouveau_notifierobj_alloc *notifier,
 			GLuint id)
 {
 	NOTIFIER(n);
@@ -103,7 +106,8 @@ nouveau_notifier_status(GLcontext *ctx, drm_nouveau_notifier_alloc_t *notifier,
 
 GLuint
 nouveau_notifier_return_val(GLcontext *ctx,
-			    drm_nouveau_notifier_alloc_t *notifier, GLuint id)
+			    struct drm_nouveau_notifierobj_alloc *notifier,
+			    GLuint id)
 {
 	NOTIFIER(n);
 
@@ -112,8 +116,8 @@ nouveau_notifier_return_val(GLcontext *ctx,
 
 GLboolean
 nouveau_notifier_wait_status(GLcontext *ctx,
-			     drm_nouveau_notifier_alloc_t *notifier, GLuint id,
-			     GLuint status, GLuint timeout)
+			     struct drm_nouveau_notifierobj_alloc *notifier,
+			     GLuint id, GLuint status, GLuint timeout)
 {
 	NOTIFIER(n);
 	unsigned int time = 0;
@@ -146,7 +150,8 @@ nouveau_notifier_wait_status(GLcontext *ctx,
 
 void
 nouveau_notifier_wait_nop(GLcontext *ctx,
-			  drm_nouveau_notifier_alloc_t *notifier, GLuint subc)
+			  struct drm_nouveau_notifierobj_alloc *notifier,
+			  GLuint subc)
 {
 	NOTIFIER(n);
 	GLboolean ret;
@@ -184,11 +189,9 @@ GLboolean nouveauSyncInitFuncs(GLcontext *ctx)
 	 */
 	BEGIN_RING_CACHE(NvSub3D, 0x180, 1);
 	OUT_RING_CACHE  (NvSyncNotify);
-#ifdef ALLOW_MULTI_SUBCHANNEL
 	BEGIN_RING_SIZE(NvSubMemFormat,
 	      		NV_MEMORY_TO_MEMORY_FORMAT_DMA_NOTIFY, 1);
 	OUT_RING       (NvSyncNotify);
-#endif
 
 	return GL_TRUE;
 }

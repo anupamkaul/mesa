@@ -226,10 +226,10 @@ do_blit_bitmap( GLcontext *ctx,
       dsty = dPriv->y + (dPriv->h - dsty - height);  
       dstx = dPriv->x + dstx;
 
-      dest_rect.x1 = dstx;
-      dest_rect.y1 = dsty;
-      dest_rect.x2 = dstx + width;
-      dest_rect.y2 = dsty + height;
+      dest_rect.x1 = dstx < 0 ? 0 : dstx;
+      dest_rect.y1 = dsty < 0 ? 0 : dsty;
+      dest_rect.x2 = dstx + width < 0 ? 0 : dstx + width;
+      dest_rect.y2 = dsty + height < 0 ? 0 : dsty + height;
 
       for (i = 0; i < nbox; i++) {
          drm_clip_rect_t rect;
@@ -260,7 +260,9 @@ do_blit_bitmap( GLcontext *ctx,
 	       int h = MIN2(DY, box_h - py);
 	       int w = MIN2(DX, box_w - px); 
 	       GLuint sz = align(align(w,8) * h, 64)/8;
-	    
+	       GLenum logic_op = ctx->Color.ColorLogicOpEnabled ?
+		  ctx->Color.LogicOp : GL_COPY;
+
 	       assert(sz <= sizeof(stipple));
 	       memset(stipple, 0, sz);
 
@@ -288,7 +290,8 @@ do_blit_bitmap( GLcontext *ctx,
 						  dst->tiled,
 						  rect.x1 + px,
 						  rect.y2 - (py + h),
-						  w, h);
+						  w, h,
+						  logic_op);
 	    } 
 	 } 
       }
