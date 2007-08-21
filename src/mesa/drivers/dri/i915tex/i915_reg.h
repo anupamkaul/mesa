@@ -112,6 +112,13 @@
 /* 3DSTATE_CHROMA_KEY */
 
 /* 3DSTATE_CLEAR_PARAMETERS, p150 */
+/* 
+ * Sets the color, depth and stencil clear values used by the
+ * CLEAR_RECT and ZONE_INIT primitive types, respectively.  These
+ * primitives set override most 3d state and only take a minimal x/y
+ * vertex.  The color/z/stencil information is supplied here and
+ * therefore cannot vary per vertex.
+ */
 #define _3DSTATE_CLEAR_PARAMETERS	(CMD_3D | (0x1d<<24) | (0x9c<<16) | 5)
 /* Dword 1 */
 #define CLEARPARAM_CLEAR_RECT		(1 << 16)
@@ -432,7 +439,8 @@
 #define S7_DEPTH_OFFSET_CONST_MASK     ~0
 
 
-
+/* Helper macros for blend factors
+ */
 #define DST_BLND_FACT(f) ((f)<<S6_CBUF_DST_BLEND_FACT_SHIFT)
 #define SRC_BLND_FACT(f) ((f)<<S6_CBUF_SRC_BLEND_FACT_SHIFT)
 #define DST_ABLND_FACT(f) ((f)<<IAB_DST_FACTOR_SHIFT)
