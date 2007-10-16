@@ -41,7 +41,7 @@
 #include "intel_regions.h"
 #include "intel_structs.h"
 
-#include "bufmgr.h"
+#include "dri_bufmgr.h"
 
 
 
@@ -65,8 +65,13 @@ void intelCopyBuffer( const __DRIdrawablePrivate *dPriv,
    intel = (struct intel_context *) dPriv->driContextPriv->driverPrivate;
    intelFlush( &intel->ctx );
 
-
-   bmFinishFenceLock(intel, intel->last_swap_fence);
+   if (intel->last_swap_fence) {
+      dri_fence_wait(intel->last_swap_fence);
+      dri_fence_unreference(intel->last_swap_fence);
+      intel->last_swap_fence = NULL;
+   }
+   intel->last_swap_fence = intel->first_swap_fence;
+   intel->first_swap_fence = NULL;
 
    /* The LOCK_HARDWARE is required for the cliprects.  Buffer offsets
     * should work regardless.
@@ -92,13 +97,13 @@ void intelCopyBuffer( const __DRIdrawablePrivate *dPriv,
       int src_pitch, dst_pitch;
 
       if (intel->sarea->pf_current_page == 0) {
-	 dst = intel->front_region;
-	 src = intel->back_region;
+	 dst = intelScreen->front_region;
+	 src = intelScreen->back_region;
       }
       else {
 	 assert(0);
-	 src = intel->front_region;
-	 dst = intel->back_region;
+	 src = intelScreen->front_region;
+	 dst = intelScreen->back_region;
       }
 
       src_pitch = src->pitch * src->cpp;
@@ -152,9 +157,11 @@ void intelCopyBuffer( const __DRIdrawablePrivate *dPriv,
       }
    }
 
-   intel_batchbuffer_flush( intel->batch );
-   intel->second_last_swap_fence = intel->last_swap_fence;
-   intel->last_swap_fence = bmSetFenceLock( intel );
+   if (intel->first_swap_fence)
+      dri_fence_unreference(intel->first_swap_fence);
+   intel_batchbuffer_flush(intel->batch);
+   intel->first_swap_fence = intel->batch->last_fence;
+   dri_fence_reference(intel->first_swap_fence);
    UNLOCK_HARDWARE( intel );
 
    if (!rect)
@@ -177,7 +184,7 @@ void intelCopyBuffer( const __DRIdrawablePrivate *dPriv,
 void intelEmitFillBlit( struct intel_context *intel,
 			GLuint cpp,
 			GLshort dst_pitch,
-			struct buffer *dst_buffer,
+			dri_bo *dst_buffer,
 			GLuint dst_offset,
 			GLboolean dst_tiled,
 			GLshort x, GLshort y, 
@@ -248,11 +255,11 @@ static GLuint translate_raster_op(GLenum logicop)
 void intelEmitCopyBlit( struct intel_context *intel,
 			GLuint cpp,
 			GLshort src_pitch,
-			struct buffer *src_buffer,
+			dri_bo *src_buffer,
 			GLuint  src_offset,
 			GLboolean src_tiled,
 			GLshort dst_pitch,
-			struct buffer *dst_buffer,
+			dri_bo *dst_buffer,
 			GLuint  dst_offset,
 			GLboolean dst_tiled,
 			GLshort src_x, GLshort src_y,
@@ -359,9 +366,9 @@ void intelClearWithBlit(GLcontext *ctx, GLbitfield flags)
    GLint cpp = intelScreen->cpp;
    GLboolean all;
    GLint i;
-   struct intel_region *front = intel->front_region;
-   struct intel_region *back = intel->back_region;
-   struct intel_region *depth = intel->depth_region;
+   struct intel_region *front = intelScreen->front_region;
+   struct intel_region *back = intelScreen->back_region;
+   struct intel_region *depth = intelScreen->depth_region;
    GLuint BR13, FRONT_CMD, BACK_CMD, DEPTH_CMD;
    GLuint front_pitch;
    GLuint back_pitch;
@@ -417,12 +424,12 @@ void intelClearWithBlit(GLcontext *ctx, GLbitfield flags)
 
       /* adjust for page flipping */
       if ( intel->sarea->pf_current_page == 0 ) {
-	 front = intel->front_region;
-	 back = intel->back_region;
+	 front = intelScreen->front_region;
+	 back = intelScreen->back_region;
       } 
       else {
-	 back = intel->front_region;
-	 front = intel->back_region;
+	 back = intelScreen->front_region;
+	 front = intelScreen->back_region;
       }
       
       front_pitch = front->pitch * front->cpp;
@@ -525,7 +532,7 @@ intelEmitImmediateColorExpandBlit(struct intel_context *intel,
 				  GLubyte *src_bits, GLuint src_size,
 				  GLuint fg_color,
 				  GLshort dst_pitch,
-				  struct buffer *dst_buffer,
+				  dri_bo *dst_buffer,
 				  GLuint dst_offset,
 				  GLboolean dst_tiled,
 				  GLshort x, GLshort y, 

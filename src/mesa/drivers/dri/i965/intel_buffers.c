@@ -52,9 +52,9 @@ struct intel_region *intel_drawbuf_region( struct intel_context *intel )
 {
    switch (intel->ctx.DrawBuffer->_ColorDrawBufferMask[0]) {
    case BUFFER_BIT_FRONT_LEFT:
-      return intel->front_region;
+      return intel->intelScreen->front_region;
    case BUFFER_BIT_BACK_LEFT:
-      return intel->back_region;
+      return intel->intelScreen->back_region;
    default:
       /* Not necessary to fallback - could handle either NONE or
        * FRONT_AND_BACK cases below.
@@ -72,9 +72,9 @@ struct intel_region *intel_readbuf_region( struct intel_context *intel )
     */
    switch (ctx->ReadBuffer->_ColorReadBufferIndex) {
    case BUFFER_FRONT_LEFT:
-      return intel->front_region;
+      return intel->intelScreen->front_region;
    case BUFFER_BACK_LEFT:
-      return intel->back_region;
+      return intel->intelScreen->back_region;
    default:
       assert(0);
       return NULL;
@@ -253,8 +253,8 @@ static void intelClearWithTris(struct intel_context *intel,
        */
       if (mask & (BUFFER_BIT_BACK_LEFT|BUFFER_BIT_STENCIL|BUFFER_BIT_DEPTH)) { 
 	 intel->vtbl.meta_draw_region(intel, 
-				      intel->back_region,
-				      intel->depth_region );
+				      intel->intelScreen->back_region,
+				      intel->intelScreen->depth_region );
 
 	 if (mask & BUFFER_BIT_BACK_LEFT)
 	    intel->vtbl.meta_color_mask(intel, GL_TRUE );
@@ -294,8 +294,8 @@ static void intelClearWithTris(struct intel_context *intel,
 	 intel->vtbl.meta_no_stencil_write(intel);
 	 intel->vtbl.meta_color_mask(intel, GL_TRUE );
 	 intel->vtbl.meta_draw_region(intel, 
-				      intel->front_region,
-				      intel->depth_region);
+				      intel->intelScreen->front_region,
+				      intel->intelScreen->depth_region);
 
 	 /* XXX: Using INTEL_BATCH_NO_CLIPRECTS here is dangerous as the
 	  * drawing origin may not be correctly emitted.
@@ -355,7 +355,7 @@ static void intelClear(GLcontext *ctx, GLbitfield mask)
 	 swrast_mask |= BUFFER_BIT_STENCIL;
       }
       else if ((ctx->Stencil.WriteMask[0] & 0xff) != 0xff ||
-	       intel->depth_region->tiled) {
+	       intel->intelScreen->depth_region->tiled) {
 	 tri_mask |= BUFFER_BIT_STENCIL;
       } 
       else {
@@ -368,7 +368,7 @@ static void intelClear(GLcontext *ctx, GLbitfield mask)
     */
    if (mask & BUFFER_BIT_DEPTH) {
       if ((tri_mask & BUFFER_BIT_STENCIL) ||
-	  intel->depth_region->tiled)
+	  intel->intelScreen->depth_region->tiled)
 	 tri_mask |= BUFFER_BIT_DEPTH;
       else 
 	 blit_mask |= BUFFER_BIT_DEPTH;
@@ -509,20 +509,22 @@ static void intelDrawBuffer(GLcontext *ctx, GLenum mode )
 
 
    if (front) {
-      if (intel->draw_region != intel->front_region) {
+      if (intel->draw_region != intel->intelScreen->front_region) {
 	 intel_region_release(intel, &intel->draw_region);
-	 intel_region_reference(&intel->draw_region, intel->front_region);
+	 intel_region_reference(&intel->draw_region,
+				intel->intelScreen->front_region);
       }
    } else {
-      if (intel->draw_region != intel->back_region) {
+      if (intel->draw_region != intel->intelScreen->back_region) {
 	 intel_region_release(intel, &intel->draw_region);
-	 intel_region_reference(&intel->draw_region, intel->back_region);
+	 intel_region_reference(&intel->draw_region,
+				intel->intelScreen->back_region);
       }
    }
 
    intel->vtbl.set_draw_region( intel, 
 				intel->draw_region,
-				intel->depth_region);
+				intel->intelScreen->depth_region);
 }
 
 static void intelReadBuffer( GLcontext *ctx, GLenum mode )

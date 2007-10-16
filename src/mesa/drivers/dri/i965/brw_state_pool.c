@@ -34,7 +34,7 @@
 #include "imports.h"
 
 #include "intel_ioctl.h"
-#include "bufmgr.h"
+#include "dri_bufmgr.h"
 
 GLboolean brw_pool_alloc( struct brw_mem_pool *pool,
 			  GLuint size,
@@ -64,26 +64,11 @@ void brw_invalidate_pool( struct intel_context *intel,
 {
    if (INTEL_DEBUG & DEBUG_STATE)
       _mesa_printf("\n\n\n %s \n\n\n", __FUNCTION__);
-   
-   bmBufferData(intel,
-		pool->buffer,
-		pool->size,
-		NULL,
-		0); 
 
    pool->offset = 0;
 
    brw_clear_all_caches(pool->brw);
 }
-
-static void brw_invalidate_pool_cb( struct intel_context *intel, void *ptr )
-{
-   struct brw_mem_pool *pool = (struct brw_mem_pool *) ptr;
-
-   pool->offset = 0;
-   brw_clear_all_caches(pool->brw);
-}
-
 
 
 static void brw_init_pool( struct brw_context *brw,
@@ -94,30 +79,18 @@ static void brw_init_pool( struct brw_context *brw,
 
    pool->size = size;   
    pool->brw = brw;
-   
-   bmGenBuffers(&brw->intel, "pool", 1, &pool->buffer, 12);
 
-   /* Also want to say not to wait on fences when data is presented
-    */
-   bmBufferSetInvalidateCB(&brw->intel, pool->buffer, 
-			   brw_invalidate_pool_cb, 
-			   pool,
-			   GL_TRUE);   
-
-   bmBufferData(&brw->intel,
-		pool->buffer,
-		pool->size,
-		NULL,
-		0); 
-
+   /* XXX: We significantly overallocate these buffers. */
+   pool->buffer = dri_bo_alloc(brw->intel.intelScreen->bufmgr, "pool",
+			       size, 4096, DRM_BO_FLAG_MEM_TT);
 }
 
 static void brw_destroy_pool( struct brw_context *brw,
 			      GLuint pool_id )
 {
    struct brw_mem_pool *pool = &brw->pool[pool_id];
-   
-   bmDeleteBuffers(&brw->intel, 1, &pool->buffer);
+
+   dri_bo_unreference(pool->buffer);
 }
 
 

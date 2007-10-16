@@ -34,18 +34,11 @@
 #include "brw_context.h"
 #include "brw_state.h"
 #include "brw_defines.h"
-#include "bufmgr.h"
+#include "dri_bufmgr.h"
 
 /***********************************************************************
  * WM unit - fragment programs and rasterization
  */
-
-static void invalidate_scratch_cb( struct intel_context *intel,
-				   void *unused )
-{
-   /* nothing */
-}
-
 
 static void upload_wm_unit(struct brw_context *brw )
 {
@@ -76,26 +69,20 @@ static void upload_wm_unit(struct brw_context *brw )
 
       /* Scratch space -- just have to make sure there is sufficient
        * allocated for the active program and current number of threads.
-       */      
-
+       */
+      brw->wm.scratch_buffer_size = total;
+      if (brw->wm.scratch_buffer &&
+	  brw->wm.scratch_buffer_size > brw->wm.scratch_buffer->size) {
+	 dri_bo_unreference(brw->wm.scratch_buffer);
+	 brw->wm.scratch_buffer = NULL;
+      }
       if (!brw->wm.scratch_buffer) {
-	 bmGenBuffers(intel, "wm scratch", 1, &brw->wm.scratch_buffer, 12);
-	 bmBufferSetInvalidateCB(intel,
-				 brw->wm.scratch_buffer,
-				 invalidate_scratch_cb,
-				 NULL,
-				 GL_FALSE);
+	 brw->wm.scratch_buffer = dri_bo_alloc(intel->intelScreen->bufmgr,
+					       "wm scratch",
+					       brw->wm.scratch_buffer_size,
+					       4096, DRM_BO_FLAG_MEM_TT);
       }
 
-      if (total > brw->wm.scratch_buffer_size) {
-	 brw->wm.scratch_buffer_size = total;
-	 bmBufferData(intel,
-		      brw->wm.scratch_buffer,
-		      brw->wm.scratch_buffer_size,
-		      NULL,
-		      0);
-      }
-		   
       assert(per_thread <= 12 * 1024);
       wm.thread2.per_thread_scratch_space = (per_thread / 1024) - 1;
 

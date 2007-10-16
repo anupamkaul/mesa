@@ -159,9 +159,9 @@ struct intel_context
    GLuint Fallback;
    GLuint NewGLState;
    
-   GLuint last_swap_fence;
-   GLuint second_last_swap_fence;
-   
+   dri_fence *first_swap_fence;
+   dri_fence *last_swap_fence;
+
    GLuint stats_wm;
 
    struct intel_batchbuffer *batch;
@@ -178,29 +178,17 @@ struct intel_context
    GLboolean hw_stencil;
    GLboolean hw_stipple;
    GLboolean depth_buffer_is_float;
-   GLboolean no_hw;
    GLboolean no_rast;
-   GLboolean thrashing;
    GLboolean locked;
    GLboolean strict_conformance;
    GLboolean need_flush;
-
-
-   
-   /* AGP memory buffer manager:
-    */
-   struct bufmgr *bm;
-
 
    /* State for intelvb.c and inteltris.c.
     */
    GLenum render_primitive;
    GLenum reduced_primitive;
 
-   struct intel_region *front_region;
-   struct intel_region *back_region;
    struct intel_region *draw_region;
-   struct intel_region *depth_region;
 
    /* These refer to the current draw (front vs. back) buffer:
     */
@@ -358,6 +346,12 @@ extern int INTEL_DEBUG;
 #define DEBUG_URB       0x20000
 #define DEBUG_VS        0x40000
 #define DEBUG_BATCH	0x80000
+#define DEBUG_BUFMGR	0x100000
+
+#define DBG(...) do {						\
+	if (INTEL_DEBUG & DEBUG_BUFMGR)				\
+		_mesa_printf(__VA_ARGS__);			\
+} while(0)
 
 /* ================================================================
  * intel_context.c:

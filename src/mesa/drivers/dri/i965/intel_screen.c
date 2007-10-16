@@ -42,6 +42,7 @@
 #include "intel_tex.h"
 #include "intel_span.h"
 #include "intel_ioctl.h"
+#include "intel_regions.h"
 
 #include "i830_dri.h"
 
@@ -126,6 +127,106 @@ intelMapScreenRegions(__DRIscreenPrivate *sPriv)
    return GL_TRUE;
 }
 
+/** Driver-specific fence emit implementation for the fake memory manager. */
+static unsigned int
+intel_fence_emit(void *private)
+{
+   intelScreenPrivate *intelScreen = (intelScreenPrivate *)private;
+   unsigned int fence;
+
+   /* XXX: Need to emit a flush, if we haven't already (at least with the
+    * current batchbuffer implementation, we have).
+    */
+
+   fence = intelEmitIrqLocked(intelScreen);
+
+   return fence;
+}
+
+/** Driver-specific fence wait implementation for the fake memory manager. */
+static int
+intel_fence_wait(void *private, unsigned int cookie)
+{
+   intelScreenPrivate *intelScreen = (intelScreenPrivate *)private;
+
+   intelWaitIrq(intelScreen, cookie);
+
+   return 0;
+}
+
+static struct intel_region *
+intel_recreate_static(intelScreenPrivate *intelScreen,
+		      struct intel_region *region,
+		      intelRegion *region_desc,
+		      GLuint mem_type)
+{
+  if (region) {
+    intel_region_update_static(intelScreen, region, mem_type,
+			       region_desc->bo_handle, region_desc->offset,
+			       region_desc->map, intelScreen->cpp,
+			       region_desc->pitch / intelScreen->cpp,
+			       intelScreen->height);
+  } else {
+    region = intel_region_create_static(intelScreen, mem_type,
+					region_desc->bo_handle,
+					region_desc->offset,
+					region_desc->map, intelScreen->cpp,
+					region_desc->pitch / intelScreen->cpp,
+					intelScreen->height);
+  }
+
+  assert(region->buffer != NULL);
+
+  return region;
+}
+    
+
+/* Create intel_region structs to describe the static front,back,depth
+ * buffers created by the xserver. 
+ *
+ * Although FBO's mean we now no longer use these as render targets in
+ * all circumstances, they won't go away until the back and depth
+ * buffers become private, and the front and rotated buffers will
+ * remain even then.
+ *
+ * Note that these don't allocate video memory, just describe
+ * allocations alread made by the X server.
+ */
+static void
+intel_recreate_static_regions(intelScreenPrivate *intelScreen)
+{
+   intelScreen->front_region =
+      intel_recreate_static(intelScreen,
+			    intelScreen->front_region,
+			    &intelScreen->front,
+			    DRM_BO_FLAG_MEM_TT);
+
+   /* The rotated region is only used for old DDXes that didn't handle rotation
+    * on their own.
+    */
+   if (intelScreen->driScrnPriv->ddx_version.minor < 8) {
+      intelScreen->rotated_region =
+	 intel_recreate_static(intelScreen,
+			       intelScreen->rotated_region,
+			       &intelScreen->rotated,
+			       DRM_BO_FLAG_MEM_TT);
+   }
+
+   intelScreen->back_region =
+      intel_recreate_static(intelScreen,
+			    intelScreen->back_region,
+			    &intelScreen->back,
+			    DRM_BO_FLAG_MEM_TT);
+
+   /* Still assumes front.cpp == depth.cpp.  We can kill this when we move to
+    * private buffers.
+    */
+   intelScreen->depth_region =
+      intel_recreate_static(intelScreen,
+			    intelScreen->depth_region,
+			    &intelScreen->depth,
+			    DRM_BO_FLAG_MEM_TT);
+}
 
 void
 intelUnmapScreenRegions(intelScreenPrivate *intelScreen)
@@ -357,7 +458,19 @@ static GLboolean intelInitDriver(__DRIscreenPrivate *sPriv)
    }
 
    sPriv->extensions = intelExtensions;
-   
+
+   intelScreen->bufmgr = dri_bufmgr_fake_init(intelScreen->tex.offset,
+					      intelScreen->tex.map,
+					      intelScreen->tex.size,
+					      intel_fence_emit,
+					      intel_fence_wait,
+					      intelScreen);
+   intelScreen->ttm = GL_FALSE;
+
+   intel_recreate_static_regions(intelScreen);
+
+   intelScreen->no_hw = getenv("INTEL_NO_HW") != NULL;
+
    return GL_TRUE;
 }
 

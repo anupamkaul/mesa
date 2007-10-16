@@ -274,7 +274,7 @@ static void upload_depthbuffer(struct brw_context *brw)
     * XMAJOR tiling...  
     */
    bd.dword1.bits.tile_walk = BRW_TILEWALK_YMAJOR;
-   bd.dword1.bits.tiled_surface = intel->depth_region->tiled;
+   bd.dword1.bits.tiled_surface = intel->intelScreen->depth_region->tiled;
    bd.dword1.bits.surface_type = BRW_SURFACE_2D;
 
    /* BRW_NEW_LOCK */

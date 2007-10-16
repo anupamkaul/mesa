@@ -33,7 +33,7 @@
 
 #include "brw_context.h"
 #include "brw_state.h"
-#include "bufmgr.h"
+#include "dri_bufmgr.h"
 #include "intel_batchbuffer.h"
 
 /* This is used to initialize brw->state.atoms[].  We could use this
@@ -216,7 +216,7 @@ void brw_validate_state( struct brw_context *brw )
     */
    (void)bmBufferOffset(&brw->intel, brw->pool[BRW_GS_POOL].buffer);
    (void)bmBufferOffset(&brw->intel, brw->pool[BRW_SS_POOL].buffer);
-   (void)bmBufferOffset(&brw->intel, brw->intel.batch->buffer);
+   (void)bmBufferOffset(&brw->intel, brw->intel.batch->buf);
 
    if (INTEL_DEBUG) {
       /* Debug version which enforces various sanity checks on the

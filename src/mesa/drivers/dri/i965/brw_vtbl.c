@@ -97,7 +97,7 @@ static void brw_lost_hardware( struct intel_context *intel )
 
    /* Which means there shouldn't be any commands already queued:
     */
-   assert(intel->batch->ptr == intel->batch->map + intel->batch->offset);
+   assert(intel->batch->ptr == intel->batch->map);
 
    brw->state.dirty.mesa |= ~0;
    brw->state.dirty.brw |= ~0;

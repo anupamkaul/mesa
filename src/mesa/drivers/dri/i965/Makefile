@@ -5,7 +5,6 @@ include $(TOP)/configs/current
 LIBNAME = i965_dri.so
 
 DRIVER_SOURCES = \
-	bufmgr_fake.c \
 	intel_batchbuffer.c \
 	intel_blit.c \
 	intel_buffer_objects.c \
