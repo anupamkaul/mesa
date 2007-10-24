@@ -144,7 +144,6 @@ void brw_update_texture_surface( GLcontext *ctx,
 				 GLuint unit,
 				 struct brw_surface_state *surf )
 {
-   struct intel_context *intel = intel_context(ctx);
    struct brw_context *brw = brw_context(ctx);
    struct gl_texture_object *tObj = brw->attribs.Texture->Unit[unit]._Current;
    struct intel_texture_object *intelObj = intel_texture_object(tObj);
@@ -161,8 +160,7 @@ void brw_update_texture_surface( GLcontext *ctx,
 /*    surf->ss0.data_return_format = BRW_SURFACERETURNFORMAT_S1; */
 
    /* BRW_NEW_LOCK */
-   surf->ss1.base_addr = bmBufferOffset(intel,
-					intelObj->mt->region->buffer);
+   surf->ss1.base_addr = intelObj->mt->region->buffer->offset;
 
    surf->ss2.mip_count = intelObj->lastLevel - intelObj->firstLevel;
    surf->ss2.width = firstImage->Width - 1;
@@ -183,6 +181,15 @@ void brw_update_texture_surface( GLcontext *ctx,
       surf->ss0.cube_neg_y = 1;
       surf->ss0.cube_neg_z = 1;
    }
+   brw->wm.bind.surf_ss_offset[unit + 1] =
+      brw_cache_data( &brw->cache[BRW_SS_SURFACE], &surf );
+
+   dri_emit_reloc(brw->cache[BRW_SS_SURFACE].pool->buffer,
+		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
+		  0,
+		  brw->wm.bind.surf_ss_offset[unit + 1] +
+		  ((char *)surf->ss1.base_addr - (char *)surf),
+		  intelObj->mt->region->buffer);
 }
 
 
@@ -223,8 +230,7 @@ static void upload_wm_surfaces(struct brw_context *brw )
       surf.ss0.writedisable_alpha = !brw->attribs.Color->ColorMask[3];
 
       /* BRW_NEW_LOCK */
-      surf.ss1.base_addr = bmBufferOffset(&brw->intel, region->buffer);
-
+      surf.ss1.base_addr = region->buffer->offset;
 
       surf.ss2.width = region->pitch - 1; /* XXX: not really! */
       surf.ss2.height = region->height - 1;
@@ -233,6 +239,12 @@ static void upload_wm_surfaces(struct brw_context *brw )
       surf.ss3.pitch = (region->pitch * region->cpp) - 1;
 
       brw->wm.bind.surf_ss_offset[0] = brw_cache_data( &brw->cache[BRW_SS_SURFACE], &surf );
+      dri_emit_reloc(brw->cache[BRW_SS_SURFACE].pool->buffer,
+		     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
+		     0,
+		     brw->wm.bind.surf_ss_offset[0] +
+		     ((char *)&surf.ss1.base_addr - (char *)&surf),
+		     region->buffer);
       brw->wm.nr_surfaces = 1;
    }
 
@@ -249,7 +261,6 @@ static void upload_wm_surfaces(struct brw_context *brw )
 
 	 brw_update_texture_surface(ctx, i, &surf);
 
-	 brw->wm.bind.surf_ss_offset[i+1] = brw_cache_data( &brw->cache[BRW_SS_SURFACE], &surf );
 	 brw->wm.nr_surfaces = i+2;
       }
       else if( texUnit->_ReallyEnabled &&

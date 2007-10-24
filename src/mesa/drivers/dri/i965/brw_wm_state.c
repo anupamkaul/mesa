@@ -45,6 +45,7 @@ static void upload_wm_unit(struct brw_context *brw )
    struct intel_context *intel = &brw->intel;
    struct brw_wm_unit_state wm;
    GLuint max_threads;
+   GLuint per_thread;
 
    if (INTEL_DEBUG & DEBUG_SINGLE_THREAD)
       max_threads = 0; 
@@ -63,8 +64,10 @@ static void upload_wm_unit(struct brw_context *brw )
 
    wm.wm5.max_threads = max_threads;      
 
+   per_thread = ALIGN(brw->wm.prog_data->total_scratch, 1024);
+   assert(per_thread <= 12 * 1024);
+
    if (brw->wm.prog_data->total_scratch) {
-      GLuint per_thread = ALIGN(brw->wm.prog_data->total_scratch, 1024);
       GLuint total = per_thread * (max_threads + 1);
 
       /* Scratch space -- just have to make sure there is sufficient
@@ -82,15 +85,6 @@ static void upload_wm_unit(struct brw_context *brw )
 					       brw->wm.scratch_buffer_size,
 					       4096, DRM_BO_FLAG_MEM_TT);
       }
-
-      assert(per_thread <= 12 * 1024);
-      wm.thread2.per_thread_scratch_space = (per_thread / 1024) - 1;
-
-      /* XXX: could make this dynamic as this is so rarely active:
-       */
-      /* BRW_NEW_LOCK */
-      wm.thread2.scratch_space_base_pointer = 
-	 bmBufferOffset(intel, brw->wm.scratch_buffer) >> 10;
    }
 
    /* CACHE_NEW_SURFACE */
@@ -159,6 +153,17 @@ static void upload_wm_unit(struct brw_context *brw )
       wm.wm4.stats_enable = 1;
 
    brw->wm.state_gs_offset = brw_cache_data( &brw->cache[BRW_WM_UNIT], &wm );
+
+   if (brw->wm.prog_data->total_scratch) {
+      dri_emit_reloc(brw->cache[BRW_WM_UNIT].pool->buffer,
+		     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
+		     (per_thread / 1024) - 1,
+		     brw->wm.state_gs_offset +
+		     ((char *)&wm.thread2 - (char *)&wm),
+		     brw->wm.scratch_buffer);
+   } else {
+      wm.thread2.scratch_space_base_pointer = 0;
+   }
 }
 
 const struct brw_tracked_state brw_wm_unit = {

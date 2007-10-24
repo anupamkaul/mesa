@@ -447,12 +447,12 @@ void brw_draw_prims( GLcontext *ctx,
    }
 }
 
-
+#if 0
 static void brw_invalidate_vbo_cb( struct intel_context *intel, void *ptr )
 {
    /* nothing to do, we don't rely on the contents being preserved */
 }
-
+#endif
 
 void brw_draw_init( struct brw_context *brw )
 {
@@ -468,7 +468,8 @@ void brw_draw_init( struct brw_context *brw )
 
    for (i = 0; i < BRW_NR_UPLOAD_BUFS; i++) {
       brw->vb.upload.vbo[i] = ctx->Driver.NewBufferObject(ctx, 1, GL_ARRAY_BUFFER_ARB);
-      
+
+#if 0
       /* NOTE:  These are set to no-backing-store.
        */
       bmBufferSetInvalidateCB(&brw->intel,
@@ -476,6 +477,7 @@ void brw_draw_init( struct brw_context *brw )
 			      brw_invalidate_vbo_cb,
 			      &brw->intel,
 			      GL_TRUE);
+#endif
    }
 
    ctx->Driver.BufferData( ctx, 

@@ -278,7 +278,7 @@ static void upload_depthbuffer(struct brw_context *brw)
    bd.dword1.bits.surface_type = BRW_SURFACE_2D;
 
    /* BRW_NEW_LOCK */
-   bd.dword2_base_addr = bmBufferOffset(intel, region->buffer);    
+   bd.dword2_base_addr = region->buffer->offset;
 
    bd.dword3.bits.mipmap_layout = BRW_SURFACE_MIPMAPLAYOUT_BELOW;
    bd.dword3.bits.lod = 0;
@@ -288,7 +288,14 @@ static void upload_depthbuffer(struct brw_context *brw)
    bd.dword4.bits.min_array_element = 0;
    bd.dword4.bits.depth = 0;
       
-   BRW_CACHED_BATCH_STRUCT(brw, &bd);
+   BRW_BATCH_STRUCT(brw, &bd);
+
+   dri_emit_reloc(intel->batch->buf,
+		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
+		  0,
+		  (intel->batch->ptr - intel->batch->map) +
+		  ((char *)&bd.dword2_base_addr - (char *)&bd),
+		  region->buffer);
 }
 
 const struct brw_tracked_state brw_depthbuffer = {
@@ -507,19 +514,27 @@ static void upload_state_base_address( struct brw_context *brw )
    sba.header.opcode = CMD_STATE_BASE_ADDRESS;
    sba.header.length = 0x4;
 
-   /* BRW_NEW_LOCK */
-   sba.bits0.general_state_address = bmBufferOffset(intel, brw->pool[BRW_GS_POOL].buffer) >> 5;
    sba.bits0.modify_enable = 1;
-
-   /* BRW_NEW_LOCK */
-   sba.bits1.surface_state_address = bmBufferOffset(intel, brw->pool[BRW_SS_POOL].buffer) >> 5;
    sba.bits1.modify_enable = 1;
-
    sba.bits2.modify_enable = 1;
    sba.bits3.modify_enable = 1;
    sba.bits4.modify_enable = 1;
 
-   BRW_CACHED_BATCH_STRUCT(brw, &sba);
+   BRW_BATCH_STRUCT(brw, &sba);
+
+   dri_emit_reloc(intel->batch->buf,
+		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
+		  1,
+		  (intel->batch->ptr - intel->batch->map) +
+		  ((char *)&sba.bits0 - (char *)&sba),
+		  brw->pool[BRW_GS_POOL].buffer);
+
+   dri_emit_reloc(intel->batch->buf,
+		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
+		  1,
+		  (intel->batch->ptr - intel->batch->map) +
+		  ((char *)&sba.bits1 - (char *)&sba),
+		  brw->pool[BRW_SS_POOL].buffer);
 }
 
 

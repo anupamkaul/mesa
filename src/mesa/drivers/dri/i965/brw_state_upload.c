@@ -210,14 +210,6 @@ void brw_validate_state( struct brw_context *brw )
    if (brw->state.dirty.brw & BRW_NEW_CONTEXT)
       brw_clear_batch_cache_flush(brw);
 
-
-   /* Make an early reference to the state pools, as we don't cope
-    * well with them being evicted from here down.
-    */
-   (void)bmBufferOffset(&brw->intel, brw->pool[BRW_GS_POOL].buffer);
-   (void)bmBufferOffset(&brw->intel, brw->pool[BRW_SS_POOL].buffer);
-   (void)bmBufferOffset(&brw->intel, brw->intel.batch->buf);
-
    if (INTEL_DEBUG) {
       /* Debug version which enforces various sanity checks on the
        * state flags which are generated and checked to help ensure
