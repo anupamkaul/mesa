@@ -116,6 +116,7 @@ void intel_region_release( struct intel_context *intel,
 
 
 struct intel_region *intel_region_create_static(intelScreenPrivate *intelScreen,
+						char *name,
 						GLuint mem_type,
 						unsigned int bo_handle,
 						GLuint offset,
@@ -136,11 +137,11 @@ struct intel_region *intel_region_create_static(intelScreenPrivate *intelScreen,
    if (intelScreen->ttm) {
       assert(bo_handle != -1);
       region->buffer = intel_ttm_bo_create_from_handle(intelScreen->bufmgr,
-						     "static region",
+						     name,
 						     bo_handle);
    } else {
       region->buffer = dri_bo_alloc_static(intelScreen->bufmgr,
-					   "static region",
+					   name,
 					   offset, pitch * cpp * height,
 					   virtual,
 					   DRM_BO_FLAG_MEM_TT);

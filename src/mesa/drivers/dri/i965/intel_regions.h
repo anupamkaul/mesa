@@ -74,6 +74,7 @@ void intel_region_release(struct intel_context *intel,
  */
 struct intel_region *
 intel_region_create_static(intelScreenPrivate *intelScreen,
+			   char *name,
 			   GLuint mem_type,
 			   unsigned int bo_handle,
 			   GLuint offset,
