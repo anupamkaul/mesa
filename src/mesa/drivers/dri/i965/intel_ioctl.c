@@ -158,10 +158,6 @@ void intel_batch_ioctl( struct intel_context *intel,
 	 UNLOCK_HARDWARE(intel);
 	 exit(1);
       }
-
-      if (INTEL_DEBUG & DEBUG_SYNC) {
-	intelWaitIdleLocked(intel);
-      }
    }
 }
 
@@ -219,40 +215,4 @@ intel_exec_ioctl(struct intel_context *intel,
     */
    intel->vtbl.lost_hardware(intel);
 
-}
-
-void intel_cmd_ioctl( struct intel_context *intel, 
-		      char *buf,
-		      GLuint used)
-{
-   drmI830CmdBuffer cmd;
-
-   assert(intel->locked);
-   assert(used);
-
-   cmd.buf = buf;
-   cmd.sz = used;
-   cmd.cliprects = intel->pClipRects;
-   cmd.num_cliprects = 0;
-   cmd.DR1 = 0;
-   cmd.DR4 = 0;
-      
-   if (INTEL_DEBUG & DEBUG_DMA)
-      fprintf(stderr, "%s: 0x%x..0x%x\n",
-	      __FUNCTION__, 
-	      0, 
-	      0 + cmd.sz);
-
-   if (!intel->intelScreen->no_hw) {
-      if (drmCommandWrite (intel->driFd, DRM_I830_CMDBUFFER, &cmd, 
-			   sizeof(cmd))) {
-	 fprintf(stderr, "DRM_I830_CMDBUFFER: %d\n",  -errno);
-	 UNLOCK_HARDWARE(intel);
-	 exit(1);
-      }
-
-      if (INTEL_DEBUG & DEBUG_SYNC) {
-	intelWaitIdleLocked(intel);
-      }
-   }
 }

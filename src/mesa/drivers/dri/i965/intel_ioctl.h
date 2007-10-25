@@ -43,8 +43,4 @@ void intel_exec_ioctl(struct intel_context *intel,
 		      GLboolean ignore_cliprects, GLboolean allow_unlock,
 		      void *start, GLuint count, dri_fence **fence);
 
-void intel_cmd_ioctl( struct intel_context *intel, 
-		      char *buf,
-		      GLuint used);
-
 #endif
