@@ -188,7 +188,7 @@ void brw_update_texture_surface( GLcontext *ctx,
 		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
 		  0,
 		  brw->wm.bind.surf_ss_offset[unit + 1] +
-		  ((char *)surf->ss1.base_addr - (char *)surf),
+		  ((char *)&surf->ss1.base_addr - (char *)surf),
 		  intelObj->mt->region->buffer);
 }
 
