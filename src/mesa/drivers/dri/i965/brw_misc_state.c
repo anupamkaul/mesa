@@ -293,7 +293,7 @@ static void upload_depthbuffer(struct brw_context *brw)
    dri_emit_reloc(intel->batch->buf,
 		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
 		  0,
-		  (intel->batch->ptr - intel->batch->map) +
+		  (intel->batch->ptr - intel->batch->map) - sizeof(bd)  +
 		  ((char *)&bd.dword2_base_addr - (char *)&bd),
 		  region->buffer);
 }
@@ -526,13 +526,13 @@ static void upload_state_base_address( struct brw_context *brw )
 		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
 		  1,
 		  (intel->batch->ptr - intel->batch->map) +
-		  ((char *)&sba.bits0 - (char *)&sba),
+		  ((char *)&sba.bits0 - (char *)&sba) - sizeof(sba) ,
 		  brw->pool[BRW_GS_POOL].buffer);
 
    dri_emit_reloc(intel->batch->buf,
 		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
 		  1,
-		  (intel->batch->ptr - intel->batch->map) +
+		  (intel->batch->ptr - intel->batch->map) - sizeof(sba) +
 		  ((char *)&sba.bits1 - (char *)&sba),
 		  brw->pool[BRW_SS_POOL].buffer);
 }
