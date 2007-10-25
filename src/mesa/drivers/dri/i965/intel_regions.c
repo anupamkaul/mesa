@@ -121,7 +121,7 @@ struct intel_region *intel_region_create_static(intelScreenPrivate *intelScreen,
 						GLuint offset,
 						void *virtual,
 						GLuint cpp, GLuint pitch,
-						GLuint height)
+						GLuint height, GLboolean tiled)
 {
    struct intel_region *region = calloc(sizeof(*region), 1);
 
@@ -131,6 +131,7 @@ struct intel_region *intel_region_create_static(intelScreenPrivate *intelScreen,
    region->pitch = pitch;
    region->height = height; 	/* needed? */
    region->refcount = 1;
+   region->tiled = tiled;
 
    if (intelScreen->ttm) {
       assert(bo_handle != -1);
@@ -155,13 +156,15 @@ intel_region_update_static(intelScreenPrivate *intelScreen,
 			   unsigned int bo_handle,
                            GLuint offset,
                            void *virtual,
-                           GLuint cpp, GLuint pitch, GLuint height)
+                           GLuint cpp, GLuint pitch, GLuint height,
+			   GLboolean tiled)
 {
    DBG("%s\n", __FUNCTION__);
 
    region->cpp = cpp;
    region->pitch = pitch;
    region->height = height;     /* needed? */
+   region->tiled = tiled;
 
    /*
     * We use a "shared" buffer type to indicate buffers created and

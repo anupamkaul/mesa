@@ -165,14 +165,15 @@ intel_recreate_static(intelScreenPrivate *intelScreen,
 			       region_desc->bo_handle, region_desc->offset,
 			       region_desc->map, intelScreen->cpp,
 			       region_desc->pitch / intelScreen->cpp,
-			       intelScreen->height);
+			       intelScreen->height, region_desc->tiled);
   } else {
     region = intel_region_create_static(intelScreen, mem_type,
 					region_desc->bo_handle,
 					region_desc->offset,
 					region_desc->map, intelScreen->cpp,
 					region_desc->pitch / intelScreen->cpp,
-					intelScreen->height);
+					intelScreen->height,
+					region_desc->tiled);
   }
 
   assert(region->buffer != NULL);

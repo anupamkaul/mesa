@@ -79,7 +79,7 @@ intel_region_create_static(intelScreenPrivate *intelScreen,
 			   GLuint offset,
 			   void *virtual,
 			   GLuint cpp,
-			   GLuint pitch, GLuint height);
+			   GLuint pitch, GLuint height, GLboolean tiled);
 void
 intel_region_update_static(intelScreenPrivate *intelScreen,
 			   struct intel_region *region,
@@ -87,7 +87,8 @@ intel_region_update_static(intelScreenPrivate *intelScreen,
 			   unsigned int bo_handle,
 			   GLuint offset,
 			   void *virtual,
-			   GLuint cpp, GLuint pitch, GLuint height);
+			   GLuint cpp, GLuint pitch, GLuint height,
+			   GLboolean tiled);
 
 /* Map/unmap regions.  This is refcounted also: 
  */
