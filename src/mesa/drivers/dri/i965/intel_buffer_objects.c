@@ -54,11 +54,9 @@ static struct gl_buffer_object *intel_bufferobj_alloc( GLcontext *ctx,
 						       GLuint name, 
 						       GLenum target )
 {
-   struct intel_buffer_object *obj = MALLOC_STRUCT(intel_buffer_object);
+   struct intel_buffer_object *obj = CALLOC_STRUCT(intel_buffer_object);
 
    _mesa_initialize_buffer_object(&obj->Base, name, target);
-
-   assert(obj->buffer);
 
    return &obj->Base;
 }
