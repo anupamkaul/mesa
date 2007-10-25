@@ -161,7 +161,8 @@ void intelCopyBuffer( const __DRIdrawablePrivate *dPriv,
       dri_fence_unreference(intel->first_swap_fence);
    intel_batchbuffer_flush(intel->batch);
    intel->first_swap_fence = intel->batch->last_fence;
-   dri_fence_reference(intel->first_swap_fence);
+   if (intel->first_swap_fence != NULL)
+      dri_fence_reference(intel->first_swap_fence);
    UNLOCK_HARDWARE( intel );
 
    if (!rect)
