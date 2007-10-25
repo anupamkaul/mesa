@@ -995,7 +995,7 @@ dri_fake_process_relocs(dri_bo *batch_buf, GLuint *count_p)
       dri_bo_fake *target_fake = (dri_bo_fake *)r->target_buf;
 
       assert(r->relocated);
-      DBG(stderr, "%s@0x%08x + 0x%08x -> %s@0x%08x + 0x%08x\n",
+      DBG("%s@0x%08x + 0x%08x -> %s@0x%08x + 0x%08x\n",
 	  reloc_fake->name, (uint32_t)r->reloc_buf->offset, r->offset,
 	  target_fake->name, (uint32_t)r->target_buf->offset, r->delta);
 
