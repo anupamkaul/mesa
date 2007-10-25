@@ -554,6 +554,8 @@ dri_fake_bo_alloc(dri_bufmgr *bufmgr, const char *name,
 
    bufmgr_fake = (dri_bufmgr_fake *)bufmgr;
 
+   assert(size != 0);
+
    bo_fake = calloc(1, sizeof(*bo_fake));
    if (!bo_fake)
       return NULL;
@@ -589,6 +591,8 @@ dri_fake_bo_alloc_static(dri_bufmgr *bufmgr, const char *name,
    dri_bo_fake *bo_fake;
 
    bufmgr_fake = (dri_bufmgr_fake *)bufmgr;
+
+   assert(size != 0);
 
    bo_fake = calloc(1, sizeof(*bo_fake));
    if (!bo_fake)
@@ -915,11 +919,9 @@ dri_fake_process_relocs(dri_bo *batch_buf, GLuint *count_p)
 {
    dri_bufmgr_fake *bufmgr_fake = (dri_bufmgr_fake *)batch_buf->bufmgr;
    GLuint i;
-   GLuint *ptr;
    GLuint count = 0;
+   int ret;
    GLboolean cont;
-   assert(batch_buf->virtual != NULL);
-   ptr = batch_buf->virtual;
 
    bufmgr_fake->performed_rendering = GL_FALSE;
 
@@ -944,8 +946,6 @@ dri_fake_process_relocs(dri_bo *batch_buf, GLuint *count_p)
 	     * clear the unfenced list and bail out.
 	     */
 	    if (!target_fake->validated) {
-	       int ret;
-
 	       ret = dri_fake_bo_validate(r->target_buf,
 					  target_fake->validate_flags);
 	       if (ret != 0) {
@@ -985,18 +985,24 @@ dri_fake_process_relocs(dri_bo *batch_buf, GLuint *count_p)
       }
    } while (cont);
 
+   ret = dri_fake_bo_validate(batch_buf, DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE);
+   assert(ret == 0);
+
    /* Clean up the validation list. */
    for (i = 0; i < bufmgr_fake->nr_relocs; i++) {
       struct fake_buffer_reloc *r = &bufmgr_fake->reloc[i];
       dri_bo_fake *reloc_fake = (dri_bo_fake *)r->reloc_buf;
       dri_bo_fake *target_fake = (dri_bo_fake *)r->target_buf;
 
+      assert(r->relocated);
+      DBG(stderr, "%s@0x%08x + 0x%08x -> %s@0x%08x + 0x%08x\n",
+	  reloc_fake->name, (uint32_t)r->reloc_buf->offset, r->offset,
+	  target_fake->name, (uint32_t)r->target_buf->offset, r->delta);
+
       reloc_fake->validate_flags = 0;
       target_fake->validated = GL_FALSE;
       r->relocated = GL_FALSE;
    }
-
-   dri_fake_bo_validate(batch_buf, DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE);
 
    *count_p = count;
    bufmgr_fake->nr_relocs = 0;

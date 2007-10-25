@@ -402,6 +402,7 @@ static GLboolean intelInitDriver(__DRIscreenPrivate *sPriv)
          (((GLubyte *)sPriv->pSAREA)+intelScreen->sarea_priv_offset);
 
    intelScreen->deviceID = gDRIPriv->deviceID;
+   intelScreen->maxBatchSize = 16 * 1024;
    intelScreen->mem = gDRIPriv->mem;
    intelScreen->cpp = gDRIPriv->cpp;
 
