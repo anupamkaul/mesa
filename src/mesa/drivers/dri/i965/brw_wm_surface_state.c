@@ -159,7 +159,7 @@ void brw_update_texture_surface( GLcontext *ctx,
     */
 /*    surf->ss0.data_return_format = BRW_SURFACERETURNFORMAT_S1; */
 
-   /* BRW_NEW_LOCK */
+   /* Updated in emit_reloc */
    surf->ss1.base_addr = intelObj->mt->region->buffer->offset;
 
    surf->ss2.mip_count = intelObj->lastLevel - intelObj->firstLevel;
@@ -183,13 +183,6 @@ void brw_update_texture_surface( GLcontext *ctx,
    }
    brw->wm.bind.surf_ss_offset[unit + 1] =
       brw_cache_data( &brw->cache[BRW_SS_SURFACE], &surf );
-
-   dri_emit_reloc(brw->cache[BRW_SS_SURFACE].pool->buffer,
-		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
-		  0,
-		  brw->wm.bind.surf_ss_offset[unit + 1] +
-		  ((char *)&surf->ss1.base_addr - (char *)surf),
-		  intelObj->mt->region->buffer);
 }
 
 
@@ -201,11 +194,8 @@ static void upload_wm_surfaces(struct brw_context *brw )
 {
    GLcontext *ctx = &brw->intel.ctx;
    struct intel_context *intel = &brw->intel;
-   struct brw_surface_binding_table bind;
    GLuint i;
 
-   memcpy(&bind, &brw->wm.bind, sizeof(bind));
-      
    {
       struct brw_surface_state surf;
       struct intel_region *region = brw->state.draw_region;
@@ -229,7 +219,7 @@ static void upload_wm_surfaces(struct brw_context *brw )
       surf.ss0.writedisable_blue =  !brw->attribs.Color->ColorMask[2];
       surf.ss0.writedisable_alpha = !brw->attribs.Color->ColorMask[3];
 
-      /* BRW_NEW_LOCK */
+      /* Updated in emit_reloc */
       surf.ss1.base_addr = region->buffer->offset;
 
       surf.ss2.width = region->pitch - 1; /* XXX: not really! */
@@ -239,12 +229,7 @@ static void upload_wm_surfaces(struct brw_context *brw )
       surf.ss3.pitch = (region->pitch * region->cpp) - 1;
 
       brw->wm.bind.surf_ss_offset[0] = brw_cache_data( &brw->cache[BRW_SS_SURFACE], &surf );
-      dri_emit_reloc(brw->cache[BRW_SS_SURFACE].pool->buffer,
-		     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
-		     0,
-		     brw->wm.bind.surf_ss_offset[0] +
-		     ((char *)&surf.ss1.base_addr - (char *)&surf),
-		     region->buffer);
+
       brw->wm.nr_surfaces = 1;
    }
 
@@ -278,14 +263,43 @@ static void upload_wm_surfaces(struct brw_context *brw )
 					    &brw->wm.bind );
 }
 
+static void emit_reloc_wm_surfaces(struct brw_context *brw)
+{
+   int unit;
+
+   /* Emit framebuffer relocation */
+   dri_emit_reloc(brw_cache_buffer(brw, BRW_SS_SURFACE),
+		  DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
+		  0,
+		  brw->wm.bind.surf_ss_offset[0] +
+		  offsetof(struct brw_surface_state, ss1),
+		  brw->state.draw_region->buffer);
+
+   /* Emit relocations for texture buffers */
+   for (unit = 0; unit < BRW_MAX_TEX_UNIT; unit++) {
+      struct gl_texture_unit *texUnit = &brw->attribs.Texture->Unit[unit];
+      struct gl_texture_object *tObj = texUnit->_Current;
+      struct intel_texture_object *intelObj = intel_texture_object(tObj);
+
+      if (texUnit->_ReallyEnabled && intelObj->mt != NULL) {
+	 dri_emit_reloc(brw_cache_buffer(brw, BRW_SS_SURFACE),
+			DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ,
+			0,
+			brw->wm.bind.surf_ss_offset[unit + 1] +
+			offsetof(struct brw_surface_state, ss1),
+			intelObj->mt->region->buffer);
+      }
+   }
+}
+
 const struct brw_tracked_state brw_wm_surfaces = {
    .dirty = {
       .mesa = _NEW_COLOR | _NEW_TEXTURE | _NEW_BUFFERS,
-      .brw = (BRW_NEW_CONTEXT | 
-	      BRW_NEW_LOCK),	/* required for bmBufferOffset */
+      .brw = BRW_NEW_CONTEXT,
       .cache = 0
    },
-   .update = upload_wm_surfaces
+   .update = upload_wm_surfaces,
+   .emit_reloc = emit_reloc_wm_surfaces,
 };
 
 

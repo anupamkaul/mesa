@@ -86,6 +86,15 @@ static void upload_wm_unit(struct brw_context *brw )
 					       4096, DRM_BO_FLAG_MEM_TT);
       }
    }
+   /* XXX: Scratch buffers are not implemented correectly.
+    *
+    * The scratch offset to be programmed into wm is relative to the general
+    * state base address.  However, using dri_bo_alloc/dri_bo_emit_reloc (or
+    * the previous bmGenBuffers scheme), we get an offset relative to the
+    * start of framebuffer.  Even before then, it was broken in other ways,
+    * so just fail for now if we hit that path.
+    */
+   assert(brw->wm.prog_data->total_scratch == 0);
 
    /* CACHE_NEW_SURFACE */
    wm.thread1.binding_table_entry_count = brw->wm.nr_surfaces;
@@ -155,12 +164,14 @@ static void upload_wm_unit(struct brw_context *brw )
    brw->wm.state_gs_offset = brw_cache_data( &brw->cache[BRW_WM_UNIT], &wm );
 
    if (brw->wm.prog_data->total_scratch) {
+      /*
       dri_emit_reloc(brw->cache[BRW_WM_UNIT].pool->buffer,
 		     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
 		     (per_thread / 1024) - 1,
 		     brw->wm.state_gs_offset +
 		     ((char *)&wm.thread2 - (char *)&wm),
 		     brw->wm.scratch_buffer);
+      */
    } else {
       wm.thread2.scratch_space_base_pointer = 0;
    }

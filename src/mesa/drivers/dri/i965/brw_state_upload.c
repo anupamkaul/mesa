@@ -225,14 +225,17 @@ void brw_validate_state( struct brw_context *brw )
 
 	 assert(atom->dirty.mesa ||
 		atom->dirty.brw ||
-		atom->dirty.cache);
+		atom->dirty.cache ||
+		atom->always_update);
 	 assert(atom->update);
 
-	 if (check_state(state, &atom->dirty)) {
-	    brw->state.atoms[i]->update( brw );
+	 if (check_state(state, &atom->dirty) || atom->always_update) {
+	    atom->update( brw );
 	    
 /* 	    emit_foo(brw); */
 	 }
+	 if (atom->emit_reloc != NULL)
+	    atom->emit_reloc(brw);
 
 	 accumulate_state(&examined, &atom->dirty);
 
@@ -247,8 +250,12 @@ void brw_validate_state( struct brw_context *brw )
    }
    else {
       for (i = 0; i < Elements(atoms); i++) {	 
-	 if (check_state(state, &brw->state.atoms[i]->dirty))
-	    brw->state.atoms[i]->update( brw );
+	 const struct brw_tracked_state *atom = brw->state.atoms[i];
+
+	 if (check_state(state, &atom->dirty) || atom->always_update)
+	    atom->update( brw );
+	 if (atom->emit_reloc != NULL)
+	    atom->emit_reloc(brw);
       }
    }
 

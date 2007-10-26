@@ -310,6 +310,8 @@ struct brw_state_pointers {
 struct brw_tracked_state {
    struct brw_state_flags dirty;
    void (*update)( struct brw_context *brw );
+   void (*emit_reloc)( struct brw_context *brw );
+   GLboolean always_update;
 };
 
 
@@ -596,9 +598,10 @@ struct brw_context
       GLuint input_size_masks[4];
 
 
-      /* State structs
+      /**
+       * Array of sampler state uploaded at sampler_gs_offset of BRW_SAMPLER
+       * cache
        */
-      struct brw_sampler_default_color sdc[BRW_MAX_TEX_UNIT];
       struct brw_sampler_state sampler[BRW_MAX_TEX_UNIT];
 
       GLuint render_surf;
