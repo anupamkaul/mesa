@@ -151,8 +151,7 @@ struct intel_context
 			     GLfloat s0, GLfloat s1,
 			     GLfloat t0, GLfloat t1);
 
-
-
+      void (*debug_batch)(struct intel_context *intel);
    } vtbl;
 
    GLint refcount;   

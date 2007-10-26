@@ -662,6 +662,10 @@ void brw_init_state( struct brw_context *brw );
 void brw_destroy_state( struct brw_context *brw );
 
 
+/*======================================================================
+ * brw_state_dump.c
+ */
+void brw_debug_batch(struct intel_context *intel);
 
 /*======================================================================
  * brw_tex.c

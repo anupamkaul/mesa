@@ -49,7 +49,7 @@
 #include "brw_state.h"
 #include "brw_fallback.h"
 #include "brw_vs.h"
-
+#include <stdarg.h>
 
 
 /* called from intelDestroyContext()
@@ -153,9 +153,6 @@ static GLuint brw_flush_cmd( void )
    return *(GLuint *)&flush;
 }
 
-
-
-
 static void brw_invalidate_state( struct intel_context *intel, GLuint new_state )
 {
    /* nothing */
@@ -178,5 +175,6 @@ void brwInitVtbl( struct brw_context *brw )
    brw->intel.vtbl.set_draw_region = brw_set_draw_region;
    brw->intel.vtbl.flush_cmd = brw_flush_cmd;
    brw->intel.vtbl.emit_flush = brw_emit_flush;
+   brw->intel.vtbl.debug_batch = brw_debug_batch;
 }
 
