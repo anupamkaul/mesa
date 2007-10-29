@@ -43,7 +43,9 @@
 #include "intel_span.h"
 #include "intel_ioctl.h"
 #include "intel_regions.h"
+#include "intel_bufmgr_ttm.h"
 
+#include "i915_drm.h"
 #include "i830_dri.h"
 
 PUBLIC const char __driConfigOptions[] =
@@ -345,6 +347,16 @@ intelUpdateScreenFromSAREA(intelScreenPrivate *intelScreen,
    intelScreen->depth.size = sarea->depth_size;
    intelScreen->depth.tiled = sarea->depth_tiled;
 
+   if (intelScreen->driScrnPriv->ddx_version.minor >= 9) {
+      intelScreen->front.bo_handle = sarea->front_bo_handle;
+      intelScreen->back.bo_handle = sarea->back_bo_handle;
+      intelScreen->depth.bo_handle = sarea->depth_bo_handle;
+   } else {
+      intelScreen->front.bo_handle = -1;
+      intelScreen->back.bo_handle = -1;
+      intelScreen->depth.bo_handle = -1;
+   }
+
    intelScreen->tex.offset = sarea->tex_offset;
    intelScreen->logTextureGranularity = sarea->log_tex_granularity;
    intelScreen->tex.handle = sarea->tex_handle;
@@ -461,13 +473,34 @@ static GLboolean intelInitDriver(__DRIscreenPrivate *sPriv)
 
    sPriv->extensions = intelExtensions;
 
-   intelScreen->bufmgr = dri_bufmgr_fake_init(intelScreen->tex.offset,
-					      intelScreen->tex.map,
-					      intelScreen->tex.size,
-					      intel_fence_emit,
-					      intel_fence_wait,
-					      intelScreen);
-   intelScreen->ttm = GL_FALSE;
+   if (getenv("INTEL_NO_TTM") == NULL &&
+       intelScreen->driScrnPriv->ddx_version.minor >= 9 &&
+       intelScreen->drmMinor >= 11 &&
+       intelScreen->front.bo_handle != -1) {
+      intelScreen->bufmgr = intel_bufmgr_ttm_init(sPriv->fd,
+						  DRM_FENCE_TYPE_EXE,
+						  DRM_FENCE_TYPE_EXE |
+						  DRM_I915_FENCE_TYPE_RW,
+						  intelScreen->maxBatchSize);
+      if (intelScreen->bufmgr != NULL)
+	 intelScreen->ttm = GL_TRUE;
+   }
+   /* Otherwise, use the classic buffer manager. */
+   if (intelScreen->bufmgr == NULL) {
+      if (intelScreen->tex.size == 0) {
+	 fprintf(stderr, "[%s:%u] Error initializing buffer manager.\n",
+		 __func__, __LINE__);
+	 return GL_FALSE;
+      }
+      fprintf(stderr, "[%s:%u] Failed to init TTM buffer manager, falling back"
+	      " to classic.\n", __func__, __LINE__);
+      intelScreen->bufmgr = dri_bufmgr_fake_init(intelScreen->tex.offset,
+						 intelScreen->tex.map,
+						 intelScreen->tex.size,
+						 intel_fence_emit,
+						 intel_fence_wait,
+						 intelScreen);
+   }
 
    intel_recreate_static_regions(intelScreen);
 
