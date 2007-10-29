@@ -35,6 +35,7 @@
 #include "brw_state.h"
 #include "brw_defines.h"
 #include "dri_bufmgr.h"
+#include "brw_wm.h"
 
 /***********************************************************************
  * WM unit - fragment programs and rasterization
@@ -124,9 +125,13 @@ static void upload_wm_unit(struct brw_context *brw )
       if (fp->UsesKill || 
 	  brw->attribs.Color->AlphaEnabled) 
 	 wm.wm5.program_uses_killpixel = 1; 
+      
+      if (brw_wm_is_glsl(fp))
+	  wm.wm5.enable_8_pix = 1;
+      else
+	  wm.wm5.enable_16_pix = 1;
    }
 
-   wm.wm5.enable_16_pix = 1;
    wm.wm5.thread_dispatch_enable = 1;	/* AKA: color_write */
    wm.wm5.legacy_line_rast = 0;
    wm.wm5.legacy_global_depth_bias = 0;
