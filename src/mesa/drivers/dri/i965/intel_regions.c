@@ -247,6 +247,7 @@ GLboolean intel_region_data(struct intel_context *intel,
                    dst->cpp,
                    dst->pitch,
                    dstx, dsty, width, height, src, src_pitch, srcx, srcy);
+   intel_region_unmap(intel, dst);
 
    return GL_TRUE;
 }
