@@ -784,6 +784,32 @@ decode_3d(uint32_t *data, int count, uint32_t hw_offset, int *failures)
     return 1;
 }
 
+static const char *
+get_965_surfacetype(unsigned int surfacetype)
+{
+    switch (surfacetype) {
+    case 0: return "1D";
+    case 1: return "2D";
+    case 2: return "3D";
+    case 3: return "CUBE";
+    case 4: return "BUFFER";
+    case 7: return "NULL";
+    default: return "unknown";
+    }
+}
+
+static const char *
+get_965_depthformat(unsigned int depthformat)
+{
+    switch (depthformat) {
+    case 0: return "s8_z24float";
+    case 1: return "z32float";
+    case 2: return "z24s8";
+    case 5: return "z16";
+    default: return "unknown";
+    }
+}
+
 static int
 decode_3d_965(uint32_t *data, int count, uint32_t hw_offset, int *failures)
 {
@@ -891,6 +917,27 @@ decode_3d_965(uint32_t *data, int count, uint32_t hw_offset, int *failures)
 	instr_out(data, hw_offset, 5, "WM binding table\n");
 
 	return len;
+
+    case 0x7905:
+	if (len != 5)
+	    fprintf(out, "Bad count in 3DSTATE_DEPTH_BUFFER\n");
+	if (count < 5)
+	    BUFFER_FAIL(count, len, "3DSTATE_DEPTH_BUFFER");
+
+	instr_out(data, hw_offset, 0,
+		  "3DSTATE_DEPTH_BUFFER\n");
+	instr_out(data, hw_offset, 1, "%s, %s, pitch = %d bytes, %stiled\n",
+		  get_965_surfacetype(data[1] >> 29),
+		  get_965_depthformat((data[1] >> 18) & 0x7),
+		  (data[1] & 0x0001ffff) + 1,
+		  data[1] & (1 << 27) ? "" : "not ");
+	instr_out(data, hw_offset, 2, "depth offset\n");
+	instr_out(data, hw_offset, 3, "%dx%d\n",
+		  ((data[3] & 0x0007ffc0) >> 6) + 1,
+		  ((data[3] & 0xfff80000) >> 19) + 1);
+	instr_out(data, hw_offset, 4, "volume depth\n");
+
+	return len;
     }
 
     for (opcode = 0; opcode < sizeof(opcodes_3d) / sizeof(opcodes_3d[0]);
@@ -936,7 +983,7 @@ intel_decode(uint32_t *data, int count, uint32_t hw_offset, uint32_t devid)
     int index = 0;
     int failures = 0;
 
-    out = stdout;
+    out = stderr;
 
     while (index < count) {
 	switch ((data[index] & 0xe0000000) >> 29) {

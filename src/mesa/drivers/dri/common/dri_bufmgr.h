@@ -148,7 +148,7 @@ struct _dri_bufmgr {
     *	     - DRM_BO_FLAG_MEM_TT: The buffer should be validated in TT memory.
     *	     - DRM_BO_FLAG_MEM_VRAM: The buffer should be validated in video
     *	       memory.
-    * \param delta Constant value to be added to the relocation
+    * \param delta Constant value to be added to the relocation target's offset.
     * \param offset Byte offset within batch_buf of the relocated pointer.
     * \param target Buffer whose offset should be written into the relocation
     *	     entry.

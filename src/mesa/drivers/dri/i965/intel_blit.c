@@ -43,13 +43,12 @@
 
 #include "dri_bufmgr.h"
 
-
-
+#define FILE_DEBUG_FLAG DEBUG_BLIT
 
 /*
  * Copy the back buffer to the front buffer. 
  */
-void intelCopyBuffer( const __DRIdrawablePrivate *dPriv,
+void intelCopyBuffer( __DRIdrawablePrivate *dPriv,
 		      const drm_clip_rect_t *rect ) 
 {
    struct intel_context *intel;
@@ -81,8 +80,7 @@ void intelCopyBuffer( const __DRIdrawablePrivate *dPriv,
    if (!rect)
    {
        UNLOCK_HARDWARE( intel );
-       driWaitForVBlank( dPriv, &dPriv->vblSeq, dPriv->vblFlags,
-			 &missed_target );
+       driWaitForVBlank( dPriv, &missed_target );
        LOCK_HARDWARE( intel );
    }
 

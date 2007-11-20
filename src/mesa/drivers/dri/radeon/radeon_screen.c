@@ -339,6 +339,11 @@ static const __DRIallocateExtension r200AllocateExtension = {
     r200FreeMemoryMESA,
     r200GetMemoryOffsetMESA
 };
+
+static const __DRItexOffsetExtension r200texOffsetExtension = {
+    { __DRI_TEX_OFFSET, __DRI_TEX_OFFSET_VERSION },
+   r200SetTexOffset,
+};
 #endif
 
 #if RADEON_COMMON && defined(RADEON_COMMON_FOR_R300)
@@ -715,8 +720,7 @@ radeonCreateScreen( __DRIscreenPrivate *sPriv )
    screen->depthPitch	= dri_priv->depthPitch;
 
    /* Check if ddx has set up a surface reg to cover depth buffer */
-   screen->depthHasSurface = ((sPriv->ddx_version.major > 4) &&
-      (screen->chip_flags & RADEON_CHIPSET_TCL));
+   screen->depthHasSurface = (sPriv->ddx_version.major > 4);
 
    if ( dri_priv->textureSize == 0 ) {
       screen->texOffset[RADEON_LOCAL_TEX_HEAP] = screen->gart_texture_offset;
@@ -758,6 +762,8 @@ radeonCreateScreen( __DRIscreenPrivate *sPriv )
 #if RADEON_COMMON && defined(RADEON_COMMON_FOR_R200)
    if (IS_R200_CLASS(screen))
        screen->extensions[i++] = &r200AllocateExtension.base;
+
+   screen->extensions[i++] = &r200texOffsetExtension.base;
 #endif
 
 #if RADEON_COMMON && defined(RADEON_COMMON_FOR_R300)
@@ -984,7 +990,6 @@ static const struct __DriverAPIRec r200API = {
    .WaitForSBC      = NULL,
    .SwapBuffersMSC  = NULL,
    .CopySubBuffer   = r200CopySubBuffer,
-   .setTexOffset    = r200SetTexOffset
 };
 #endif
 

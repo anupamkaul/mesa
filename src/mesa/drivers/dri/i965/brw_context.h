@@ -671,7 +671,6 @@ void brw_debug_batch(struct intel_context *intel);
  * brw_tex.c
  */
 void brwUpdateTextureState( struct intel_context *intel );
-void brwInitTextureFuncs( struct dd_function_table *functions );
 void brw_FrameBufferTexInit( struct brw_context *brw );
 void brw_FrameBufferTexDestroy( struct brw_context *brw );
 

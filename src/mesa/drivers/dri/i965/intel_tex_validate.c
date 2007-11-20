@@ -124,30 +124,6 @@ static void intel_texture_invalidate_cb( struct intel_context *intel,
 }
 #endif
 
-#include "texformat.h"
-static GLuint intel_compressed_num_bytes(GLenum mesaFormat)
-{
-    GLuint bytes = 0;
-
-    switch (mesaFormat) {
-    case MESA_FORMAT_RGB_FXT1:
-    case MESA_FORMAT_RGBA_FXT1:
-    case MESA_FORMAT_RGB_DXT1:
-    case MESA_FORMAT_RGBA_DXT1:
-        bytes = 2;
-        break;
-
-    case MESA_FORMAT_RGBA_DXT3:
-    case MESA_FORMAT_RGBA_DXT5:
-        bytes = 4;
-    
-    default:
-        break;
-    }
-
-    return bytes;
-}
-
 /*  
  */
 GLuint intel_finalize_mipmap_tree( struct intel_context *intel,

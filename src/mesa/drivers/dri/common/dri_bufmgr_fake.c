@@ -66,7 +66,7 @@ struct fake_buffer_reloc
    dri_bo *reloc_buf;
    dri_bo *target_buf;
    GLuint offset;
-   GLuint delta;                /* not needed? */
+   GLuint delta;
    GLuint validate_flags;
    GLboolean relocated;
 };
@@ -75,10 +75,19 @@ struct block {
    struct block *next, *prev;
    struct mem_block *mem;	/* BM_MEM_AGP */
 
+   /**
+    * Marks that the block is currently in the aperture and has yet to be
+    * fenced.
+    */
    unsigned on_hardware:1;
+   /**
+    * Marks that the block is currently fenced (being used by rendering) and
+    * can't be freed until @fence is passed.
+    */
    unsigned fenced:1;
 
-   unsigned fence;		/* BM_MEM_AGP, Split to read_fence, write_fence */
+   /** Fence cookie for the block. */
+   unsigned fence; /* Split to read_fence, write_fence */
 
    dri_bo *bo;
    void *virtual;
@@ -662,6 +671,7 @@ dri_fake_bo_unreference(dri_bo *bo)
       free_backing_store(bo);
       _glthread_UNLOCK_MUTEX(bufmgr_fake->mutex);
       free(bo);
+      DBG("drm_bo_unreference: free %s\n", bo_fake->name);
       return;
    }
    _glthread_UNLOCK_MUTEX(bufmgr_fake->mutex);
@@ -945,8 +955,8 @@ dri_fake_process_relocs(dri_bo *batch_buf, GLuint *count_p)
    dri_bufmgr_fake *bufmgr_fake = (dri_bufmgr_fake *)batch_buf->bufmgr;
    GLuint i;
    GLuint count = 0;
-   int ret;
    GLboolean cont;
+   int ret;
 
    bufmgr_fake->performed_rendering = GL_FALSE;
    bufmgr_fake->in_relocation = GL_TRUE;
@@ -1045,6 +1055,28 @@ dri_fake_process_relocs(dri_bo *batch_buf, GLuint *count_p)
    ret = dri_fake_bo_validate(batch_buf, DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_EXE);
    assert(ret == 0);
 
+   *count_p = count;
+   bufmgr_fake->in_relocation = GL_FALSE;
+ done:
+   return NULL;
+}
+
+static void
+dri_fake_post_submit(dri_bo *batch_buf, dri_fence **last_fence)
+{
+   dri_bufmgr_fake *bufmgr_fake = (dri_bufmgr_fake *)batch_buf->bufmgr;
+   dri_fence *fo;
+   int i;
+
+   fo = dri_fake_fence_validated(batch_buf->bufmgr, "Batch fence", GL_TRUE);
+
+   if (bufmgr_fake->performed_rendering) {
+      dri_fence_unreference(*last_fence);
+      *last_fence = fo;
+   } else {
+      dri_fence_unreference(fo);
+   }
+
    /* Clean up the validation list. */
    for (i = 0; i < bufmgr_fake->nr_relocs; i++) {
       struct fake_buffer_reloc *r = &bufmgr_fake->reloc[i];
@@ -1060,29 +1092,9 @@ dri_fake_process_relocs(dri_bo *batch_buf, GLuint *count_p)
       reloc_fake->validate_flags = 0;
       target_fake->validated = GL_FALSE;
       r->relocated = GL_FALSE;
+      dri_bo_unreference(r->target_buf);
    }
-
-   *count_p = count;
    bufmgr_fake->nr_relocs = 0;
-   bufmgr_fake->in_relocation = GL_FALSE;
- done:
-   return NULL;
-}
-
-static void
-dri_fake_post_submit(dri_bo *batch_buf, dri_fence **last_fence)
-{
-   dri_bufmgr_fake *bufmgr_fake = (dri_bufmgr_fake *)batch_buf->bufmgr;
-   dri_fence *fo;
-
-   fo = dri_fake_fence_validated(batch_buf->bufmgr, "Batch fence", GL_TRUE);
-
-   if (bufmgr_fake->performed_rendering) {
-      dri_fence_unreference(*last_fence);
-      *last_fence = fo;
-   } else {
-      dri_fence_unreference(fo);
-   }
 }
 
 dri_bufmgr *

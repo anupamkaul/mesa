@@ -240,6 +240,9 @@ static const struct dri_debug_control debug_control[] =
     { "wm",    DEBUG_WM },
     { "vs",    DEBUG_VS },
     { "bat",   DEBUG_BATCH },
+    { "blit",  DEBUG_BLIT},
+    { "mip",   DEBUG_MIPTREE},
+    { "reg",   DEBUG_REGION},
     { NULL,    0 }
 };
 
@@ -552,19 +555,21 @@ GLboolean intelMakeCurrent(__DRIcontextPrivate *driContextPriv,
    if (driContextPriv) {
       struct intel_context *intel = (struct intel_context *) driContextPriv->driverPrivate;
 
-      driDrawPriv->vblFlags = (intel->intelScreen->irq_active != 0)
-	  ? driGetDefaultVBlankFlags(&intel->optionCache) : VBLANK_FLAG_NO_IRQ;
-
-
       if (intel->driReadDrawable != driReadPriv) {
           intel->driReadDrawable = driReadPriv;
       }
 
       if ( intel->driDrawable != driDrawPriv ) {
+	 if (driDrawPriv->swap_interval == (unsigned)-1) {
+	    driDrawPriv->vblFlags = (intel->intelScreen->irq_active != 0)
+	       ? driGetDefaultVBlankFlags(&intel->optionCache)
+	       : VBLANK_FLAG_NO_IRQ;
+	    driDrawableInitVBlank( driDrawPriv );
+	 }
+
 	 intel->driDrawable = driDrawPriv;
 	 intelWindowMoved( intel );
 	 /* Shouldn't the readbuffer be stored also? */
-	 driDrawableInitVBlank( driDrawPriv );
       }
 
       _mesa_make_current(&intel->ctx,
@@ -604,7 +609,10 @@ static void intelContendedLock( struct intel_context *intel, GLuint flags )
    /* Lost context?
     */
    if (sarea->ctxOwner != me) {
-      DBG("Lost Context: sarea->ctxOwner %x me %x\n", sarea->ctxOwner, me);
+      if (INTEL_DEBUG & DEBUG_BUFMGR) {
+	 fprintf(stderr, "Lost Context: sarea->ctxOwner %x me %x\n",
+		 sarea->ctxOwner, me);
+      }
       sarea->ctxOwner = me;
       intel->vtbl.lost_hardware( intel );
    }
@@ -619,6 +627,10 @@ static void intelContendedLock( struct intel_context *intel, GLuint flags )
       dri_bufmgr_fake_contended_lock_take(intel->intelScreen->bufmgr);
       if (INTEL_DEBUG & DEBUG_BATCH)
 	 intel_decode_context_reset();
+      if (INTEL_DEBUG & DEBUG_BUFMGR) {
+	 fprintf(stderr, "Lost Textures: sarea->texAge %x hw context %x\n",
+		 sarea->ctxOwner, intel->hHWContext);
+      }
    }
 
    /* Drawable changed?
