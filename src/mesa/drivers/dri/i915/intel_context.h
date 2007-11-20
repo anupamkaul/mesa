@@ -179,6 +179,7 @@ struct intel_context
 
       void (*assert_not_dirty) (struct intel_context *intel);
 
+      void (*debug_batch)(struct intel_context *intel);
    } vtbl;
 
    GLint refcount;
