@@ -447,13 +447,6 @@ void brw_draw_prims( GLcontext *ctx,
    }
 }
 
-#if 0
-static void brw_invalidate_vbo_cb( struct intel_context *intel, void *ptr )
-{
-   /* nothing to do, we don't rely on the contents being preserved */
-}
-#endif
-
 void brw_draw_init( struct brw_context *brw )
 {
    GLcontext *ctx = &brw->intel.ctx;
@@ -469,23 +462,24 @@ void brw_draw_init( struct brw_context *brw )
    for (i = 0; i < BRW_NR_UPLOAD_BUFS; i++) {
       brw->vb.upload.vbo[i] = ctx->Driver.NewBufferObject(ctx, 1, GL_ARRAY_BUFFER_ARB);
 
-#if 0
-      /* NOTE:  These are set to no-backing-store.
-       */
-      bmBufferSetInvalidateCB(&brw->intel,
-			      intel_bufferobj_buffer(intel_buffer_object(brw->vb.upload.vbo[i])),
-			      brw_invalidate_vbo_cb,
-			      &brw->intel,
-			      GL_TRUE);
-#endif
-   }
+      ctx->Driver.BufferData(ctx,
+			     GL_ARRAY_BUFFER_ARB,
+			     BRW_UPLOAD_INIT_SIZE,
+			     NULL,
+			     GL_DYNAMIC_DRAW_ARB,
+			     brw->vb.upload.vbo[i]);
 
-   ctx->Driver.BufferData( ctx, 
-			   GL_ARRAY_BUFFER_ARB, 
-			   BRW_UPLOAD_INIT_SIZE,
-			   NULL,
-			   GL_DYNAMIC_DRAW_ARB,
-			   brw->vb.upload.vbo[0] );
+      /* Set the internal VBOs to no-backing-store.  We only use them as a
+       * temporary within a brw_try_draw_prims while the lock is held.
+       */
+      if (!brw->intel.intelScreen->ttm) {
+	 struct intel_buffer_object *intel_bo =
+	    intel_buffer_object(brw->vb.upload.vbo[i]);
+
+	 dri_bo_fake_disable_backing_store(intel_bufferobj_buffer(intel_bo),
+					   NULL, NULL);
+      }
+   }
 }
 
 void brw_draw_destroy( struct brw_context *brw )

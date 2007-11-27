@@ -70,6 +70,14 @@ void brw_invalidate_pool( struct intel_context *intel,
    brw_clear_all_caches(pool->brw);
 }
 
+static void
+brw_invalidate_pool_cb(dri_bo *bo, void *ptr)
+{
+   struct brw_mem_pool *pool = ptr;
+   struct brw_context *brw = pool->brw;
+
+   brw_invalidate_pool(&brw->intel, pool);
+}
 
 static void brw_init_pool( struct brw_context *brw,
 			   GLuint pool_id,
@@ -84,6 +92,16 @@ static void brw_init_pool( struct brw_context *brw,
    pool->buffer = dri_bo_alloc(brw->intel.intelScreen->bufmgr,
 			       (pool_id == BRW_GS_POOL) ? "GS pool" : "SS pool",
 			       size, 4096, DRM_BO_FLAG_MEM_TT);
+
+   /* Disable the backing store for the state cache.  It's not worth the
+    * cost of keeping a backing store copy, since we can just regenerate
+    * the contents at approximately the same cost as the memcpy, and only
+    * if the contents are lost.
+    */
+   if (!brw->intel.intelScreen->ttm) {
+      dri_bo_fake_disable_backing_store(pool->buffer, brw_invalidate_pool_cb,
+					pool);
+   }
 }
 
 static void brw_destroy_pool( struct brw_context *brw,
