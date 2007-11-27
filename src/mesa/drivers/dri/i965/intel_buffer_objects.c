@@ -109,11 +109,13 @@ static void intel_bufferobj_data( GLcontext *ctx,
       dri_bo_unreference(intel_obj->buffer);
       intel_obj->buffer = NULL;
    }
+   if (size != 0) {
+      if (intel_obj->buffer == NULL)
+	 intel_bufferobj_alloc_buffer(intel, intel_obj);
 
-   intel_bufferobj_alloc_buffer(intel, intel_obj);
-
-   if (data != NULL)
-      dri_bo_subdata(intel_obj->buffer, 0, size, data);
+      if (data != NULL)
+	 dri_bo_subdata(intel_obj->buffer, 0, size, data);
+   }
 }
 
 
