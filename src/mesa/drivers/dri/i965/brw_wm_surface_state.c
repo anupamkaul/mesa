@@ -140,8 +140,7 @@ static GLuint translate_tex_format( GLuint mesa_format )
 }
 
 static
-void brw_update_texture_surface( GLcontext *ctx, 
-				 GLuint unit )
+void brw_update_texture_surface( GLcontext *ctx, GLuint unit )
 {
    struct brw_context *brw = brw_context(ctx);
    struct gl_texture_object *tObj = brw->attribs.Texture->Unit[unit]._Current;
@@ -151,7 +150,7 @@ void brw_update_texture_surface( GLcontext *ctx,
 
    memset(&surf, 0, sizeof(surf));
 
-   surf.ss0.mipmap_layout_mode = BRW_SURFACE_MIPMAPLAYOUT_BELOW;   
+   surf.ss0.mipmap_layout_mode = BRW_SURFACE_MIPMAPLAYOUT_BELOW;
    surf.ss0.surface_type = translate_tex_target(tObj->Target);
    surf.ss0.surface_format = translate_tex_format(firstImage->TexFormat->MesaFormat);
 
@@ -241,10 +240,9 @@ static void upload_wm_surfaces(struct brw_context *brw )
       /* _NEW_TEXTURE, BRW_NEW_TEXDATA 
        */
       if (texUnit->_ReallyEnabled &&
-	  intel_finalize_mipmap_tree(intel,texUnit->_Current)) {
-
+	  intel_finalize_mipmap_tree(intel,texUnit->_Current))
+      {
 	 brw_update_texture_surface(ctx, i);
-
 	 brw->wm.nr_surfaces = i+2;
       }
       else if( texUnit->_ReallyEnabled &&

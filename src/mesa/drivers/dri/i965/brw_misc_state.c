@@ -152,7 +152,7 @@ const struct brw_tracked_state brw_binding_table_pointers = {
       .brw = 0,
       .cache = CACHE_NEW_SURF_BIND 
    },
-   .update = upload_binding_table_pointers,
+   .update = upload_binding_table_pointers
 };
 
 
