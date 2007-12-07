@@ -234,18 +234,18 @@ static void NAME(GLcontext *ctx, const SWvertex *v0,
    /* compute area, oneOverArea and perform backface culling */
    {
       const GLfloat area = eMaj.dx * eBot.dy - eBot.dx * eMaj.dy;
-      /* Do backface culling */
-      if (area * bf < 0.0)
-         return;
 
       if (IS_INF_OR_NAN(area) || area == 0.0F)
          return;
 
+      if (area * bf * swrast->_BackfaceCullSign < 0.0)
+         return;
+
       oneOverArea = 1.0F / area;
+
+      /* 0 = front, 1 = back */
+      span.facing = oneOverArea * bf > 0.0F;
    }
-
-
-   span.facing = ctx->_Facing; /* for 2-sided stencil test */
 
    /* Edge setup.  For a triangle strip these could be reused... */
    {

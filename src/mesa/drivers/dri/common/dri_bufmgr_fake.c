@@ -41,11 +41,10 @@
 #include "mm.h"
 #include "imports.h"
 
-#if 0
-#define DBG(...) _mesa_printf(__VA_ARGS__)
-#else
-#define DBG(...)
-#endif
+#define DBG(...) do {					\
+   if (bufmgr_fake->debug)				\
+      _mesa_printf(__VA_ARGS__);			\
+} while (0)
 
 /* Internal flags:
  */
@@ -67,7 +66,7 @@ struct fake_buffer_reloc
    dri_bo *target_buf;
    GLuint offset;
    GLuint delta;
-   GLuint validate_flags;
+   uint64_t validate_flags;
    GLboolean relocated;
 };
 
@@ -129,6 +128,7 @@ typedef struct _bufmgr_fake {
    /** Driver-supplied argument to driver callbacks */
    void *driver_priv;
 
+   GLboolean debug;
 
    /** fake relocation list */
    struct fake_buffer_reloc reloc[MAX_RELOCS];
@@ -161,7 +161,7 @@ typedef struct _dri_bo_fake {
     * DRM_BO_NO_BACKING_STORE and BM_NO_FENCE_SUBDATA, which are the first two
     * driver private flags.
     */
-   unsigned int flags;
+   uint64_t flags;
    unsigned int alignment;
    GLboolean is_static, validated;
    unsigned int map_count;
@@ -329,6 +329,7 @@ free_backing_store(dri_bo *bo)
 static void
 set_dirty(dri_bo *bo)
 {
+   dri_bufmgr_fake *bufmgr_fake = (dri_bufmgr_fake *)bo->bufmgr;
    dri_bo_fake *bo_fake = (dri_bo_fake *)bo;
 
    if (bo_fake->flags & BM_NO_BACKING_STORE && bo_fake->invalidate_cb != NULL)
@@ -575,7 +576,7 @@ dri_bufmgr_fake_contended_lock_take(dri_bufmgr *bufmgr)
 static dri_bo *
 dri_fake_bo_alloc(dri_bufmgr *bufmgr, const char *name,
 		  unsigned long size, unsigned int alignment,
-		  unsigned int location_mask)
+		  uint64_t location_mask)
 {
    dri_bufmgr_fake *bufmgr_fake;
    dri_bo_fake *bo_fake;
@@ -613,7 +614,7 @@ dri_fake_bo_alloc(dri_bufmgr *bufmgr, const char *name,
 static dri_bo *
 dri_fake_bo_alloc_static(dri_bufmgr *bufmgr, const char *name,
 			 unsigned long offset, unsigned long size,
-			 void *virtual, unsigned int location_mask)
+			 void *virtual, uint64_t location_mask)
 {
    dri_bufmgr_fake *bufmgr_fake;
    dri_bo_fake *bo_fake;
@@ -790,6 +791,7 @@ dri_fake_bo_unmap(dri_bo *bo)
       return 0;
 
    _glthread_LOCK_MUTEX(bufmgr_fake->mutex);
+   assert(bo_fake->map_count != 0);
    if (--bo_fake->map_count != 0) {
       _glthread_UNLOCK_MUTEX(bufmgr_fake->mutex);
       return 0;
@@ -806,7 +808,7 @@ dri_fake_bo_unmap(dri_bo *bo)
 }
 
 static int
-dri_fake_bo_validate(dri_bo *bo, unsigned int flags)
+dri_fake_bo_validate(dri_bo *bo, uint64_t flags)
 {
    dri_bufmgr_fake *bufmgr_fake;
    dri_bo_fake *bo_fake = (dri_bo_fake *)bo;
@@ -814,13 +816,19 @@ dri_fake_bo_validate(dri_bo *bo, unsigned int flags)
    /* XXX: Sanity-check whether we've already validated this one under
     * different flags.  See drmAddValidateItem().
     */
+   bufmgr_fake = (dri_bufmgr_fake *)bo->bufmgr;
 
    DBG("drm_bo_validate: (buf %d: %s, %d kb)\n", bo_fake->id, bo_fake->name,
        bo_fake->bo.size / 1024);
-   bufmgr_fake = (dri_bufmgr_fake *)bo->bufmgr;
 
    _glthread_LOCK_MUTEX(bufmgr_fake->mutex);
    {
+      /* Sanity check: Buffers should be unmapped before being validated.
+       * This is not so much of a problem for bufmgr_fake, but TTM refuses,
+       * and the problem is harder to debug there.
+       */
+      assert(bo_fake->map_count == 0);
+
       if (bo_fake->is_static) {
 	 /* Add it to the needs-fence list */
 	 bufmgr_fake->need_fence = 1;
@@ -950,7 +958,7 @@ dri_fake_destroy(dri_bufmgr *bufmgr)
 }
 
 static void
-dri_fake_emit_reloc(dri_bo *reloc_buf, GLuint flags, GLuint delta,
+dri_fake_emit_reloc(dri_bo *reloc_buf, uint64_t flags, GLuint delta,
 		    GLuint offset, dri_bo *target_buf)
 {
    dri_bufmgr_fake *bufmgr_fake = (dri_bufmgr_fake *)reloc_buf->bufmgr;
@@ -1131,6 +1139,14 @@ dri_fake_post_submit(dri_bo *batch_buf, dri_fence **last_fence)
       dri_bo_unreference(r->target_buf);
    }
    bufmgr_fake->nr_relocs = 0;
+}
+
+void
+dri_bufmgr_fake_set_debug(dri_bufmgr *bufmgr, GLboolean enable_debug)
+{
+   dri_bufmgr_fake *bufmgr_fake = (dri_bufmgr_fake *)bufmgr;
+
+   bufmgr_fake->debug = enable_debug;
 }
 
 dri_bufmgr *

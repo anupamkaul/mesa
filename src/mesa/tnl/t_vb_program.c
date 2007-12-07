@@ -1,6 +1,6 @@
 /*
  * Mesa 3-D graphics library
- * Version:  6.5.3
+ * Version:  7.1
  *
  * Copyright (C) 1999-2007  Brian Paul   All Rights Reserved.
  *
@@ -30,20 +30,20 @@
  */
 
 
-#include "glheader.h"
-#include "colormac.h"
-#include "context.h"
-#include "macros.h"
-#include "imports.h"
+#include "main/glheader.h"
+#include "main/colormac.h"
+#include "main/context.h"
+#include "main/macros.h"
+#include "main/imports.h"
 #include "shader/prog_instruction.h"
 #include "shader/prog_statevars.h"
 #include "shader/prog_execute.h"
 #include "swrast/s_context.h"
 #include "swrast/s_texfilter.h"
 
-#include "tnl.h"
-#include "t_context.h"
-#include "t_pipeline.h"
+#include "tnl/tnl.h"
+#include "tnl/t_context.h"
+#include "tnl/t_pipeline.h"
 
 
 
@@ -63,18 +63,12 @@ struct vp_stage_data {
 #define VP_STAGE_DATA(stage) ((struct vp_stage_data *)(stage->privatePtr))
 
 
-/**
- * XXX the texture sampling code in this module is a bit of a hack.
- * The texture sampling code is in swrast, though it doesn't have any
- * real dependencies on the rest of swrast.  It should probably be
- * moved into main/ someday.
- */
-
-static void userclip( GLcontext *ctx,
-		      GLvector4f *clip,
-		      GLubyte *clipmask,
-		      GLubyte *clipormask,
-		      GLubyte *clipandmask )
+static void
+userclip( GLcontext *ctx,
+          GLvector4f *clip,
+          GLubyte *clipmask,
+          GLubyte *clipormask,
+          GLubyte *clipandmask )
 {
    GLuint p;
 
@@ -172,6 +166,12 @@ do_ndc_cliptest(GLcontext *ctx, struct vp_stage_data *store)
 }
 
 
+/**
+ * XXX the texture sampling code in this module is a bit of a hack.
+ * The texture sampling code is in swrast, though it doesn't have any
+ * real dependencies on the rest of swrast.  It should probably be
+ * moved into main/ someday.
+ */
 static void
 vp_fetch_texel(GLcontext *ctx, const GLfloat texcoord[4], GLfloat lambda,
                GLuint unit, GLfloat color[4])
@@ -246,92 +246,44 @@ init_machine(GLcontext *ctx, struct gl_program_machine *machine)
 
 
 /**
- * Copy the 16 elements of a matrix into four consecutive program
- * registers starting at 'pos'.
+ * Map the texture images which the vertex program will access (if any).
  */
 static void
-load_matrix(GLfloat registers[][4], GLuint pos, const GLfloat mat[16])
+map_textures(GLcontext *ctx, const struct gl_vertex_program *vp)
 {
-   GLuint i;
-   for (i = 0; i < 4; i++) {
-      registers[pos + i][0] = mat[0 + i];
-      registers[pos + i][1] = mat[4 + i];
-      registers[pos + i][2] = mat[8 + i];
-      registers[pos + i][3] = mat[12 + i];
+   GLuint u;
+
+   if (!ctx->Driver.MapTexture)
+      return;
+
+   for (u = 0; u < ctx->Const.MaxVertexTextureImageUnits; u++) {
+      if (vp->Base.TexturesUsed[u]) {
+         /* Note: _Current *should* correspond to the target indicated
+          * in TexturesUsed[u].
+          */
+         ctx->Driver.MapTexture(ctx, ctx->Texture.Unit[u]._Current);
+      }
    }
 }
 
 
 /**
- * As above, but transpose the matrix.
+ * Unmap the texture images which were used by the vertex program (if any).
  */
 static void
-load_transpose_matrix(GLfloat registers[][4], GLuint pos,
-                      const GLfloat mat[16])
+unmap_textures(GLcontext *ctx, const struct gl_vertex_program *vp)
 {
-   MEMCPY(registers[pos], mat, 16 * sizeof(GLfloat));
-}
+   GLuint u;
 
+   if (!ctx->Driver.MapTexture)
+      return;
 
-/**
- * Load current vertex program's parameter registers with tracked
- * matrices (if NV program).  This only needs to be done per
- * glBegin/glEnd, not per-vertex.
- */
-void
-_mesa_load_tracked_matrices(GLcontext *ctx)
-{
-   GLuint i;
-
-   for (i = 0; i < MAX_NV_VERTEX_PROGRAM_PARAMS / 4; i++) {
-      /* point 'mat' at source matrix */
-      GLmatrix *mat;
-      if (ctx->VertexProgram.TrackMatrix[i] == GL_MODELVIEW) {
-         mat = ctx->ModelviewMatrixStack.Top;
-      }
-      else if (ctx->VertexProgram.TrackMatrix[i] == GL_PROJECTION) {
-         mat = ctx->ProjectionMatrixStack.Top;
-      }
-      else if (ctx->VertexProgram.TrackMatrix[i] == GL_TEXTURE) {
-         mat = ctx->TextureMatrixStack[ctx->Texture.CurrentUnit].Top;
-      }
-      else if (ctx->VertexProgram.TrackMatrix[i] == GL_COLOR) {
-         mat = ctx->ColorMatrixStack.Top;
-      }
-      else if (ctx->VertexProgram.TrackMatrix[i]==GL_MODELVIEW_PROJECTION_NV) {
-         /* XXX verify the combined matrix is up to date */
-         mat = &ctx->_ModelProjectMatrix;
-      }
-      else if (ctx->VertexProgram.TrackMatrix[i] >= GL_MATRIX0_NV &&
-               ctx->VertexProgram.TrackMatrix[i] <= GL_MATRIX7_NV) {
-         GLuint n = ctx->VertexProgram.TrackMatrix[i] - GL_MATRIX0_NV;
-         ASSERT(n < MAX_PROGRAM_MATRICES);
-         mat = ctx->ProgramMatrixStack[n].Top;
-      }
-      else {
-         /* no matrix is tracked, but we leave the register values as-is */
-         assert(ctx->VertexProgram.TrackMatrix[i] == GL_NONE);
-         continue;
-      }
-
-      /* load the matrix values into sequential registers */
-      if (ctx->VertexProgram.TrackMatrixTransform[i] == GL_IDENTITY_NV) {
-         load_matrix(ctx->VertexProgram.Parameters, i*4, mat->m);
-      }
-      else if (ctx->VertexProgram.TrackMatrixTransform[i] == GL_INVERSE_NV) {
-         _math_matrix_analyse(mat); /* update the inverse */
-         ASSERT(!_math_matrix_is_dirty(mat));
-         load_matrix(ctx->VertexProgram.Parameters, i*4, mat->inv);
-      }
-      else if (ctx->VertexProgram.TrackMatrixTransform[i] == GL_TRANSPOSE_NV) {
-         load_transpose_matrix(ctx->VertexProgram.Parameters, i*4, mat->m);
-      }
-      else {
-         assert(ctx->VertexProgram.TrackMatrixTransform[i]
-                == GL_INVERSE_TRANSPOSE_NV);
-         _math_matrix_analyse(mat); /* update the inverse */
-         ASSERT(!_math_matrix_is_dirty(mat));
-         load_transpose_matrix(ctx->VertexProgram.Parameters, i*4, mat->inv);
+   for (u = 0; u < ctx->Const.MaxVertexTextureImageUnits; u++) {
+      if (vp->Base.TexturesUsed[u]) {
+         /* Note: _Current *should* correspond to the target indicated
+          * in TexturesUsed[u].
+          */
+         ctx->Driver.UnmapTexture(ctx, ctx->Texture.Unit[u]._Current);
       }
    }
 }
@@ -362,12 +314,15 @@ run_vp( GLcontext *ctx, struct tnl_pipeline_stage *stage )
       _mesa_load_state_parameters(ctx, program->Base.Parameters);
    }
 
+   /* make list of outputs to save some time below */
    numOutputs = 0;
    for (i = 0; i < VERT_RESULT_MAX; i++) {
       if (program->Base.OutputsWritten & (1 << i)) {
          outputs[numOutputs++] = i;
       }
    }
+
+   map_textures(ctx, program);
 
    for (i = 0; i < VB->Count; i++) {
       GLuint attr;
@@ -420,6 +375,8 @@ run_vp( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 #endif
    }
 
+   unmap_textures(ctx, program);
+
    /* Fixup fog and point size results if needed */
    if (program->IsNVProgram) {
       if (ctx->Fog.Enabled &&
@@ -439,8 +396,9 @@ run_vp( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 
    if (program->IsPositionInvariant) {
       /* We need the exact same transform as in the fixed function path here
-         to guarantee invariance, depending on compiler optimization flags results
-         could be different otherwise */
+       * to guarantee invariance, depending on compiler optimization flags
+       * results could be different otherwise.
+       */
       VB->ClipPtr = TransformRaw( &store->results[0],
 				  &ctx->_ModelProjectMatrix,
 				  VB->AttribPtr[0] );
@@ -460,16 +418,15 @@ run_vp( GLcontext *ctx, struct tnl_pipeline_stage *stage )
 	 break;
       }
    }
-
-
-   /* Setup the VB pointers so that the next pipeline stages get
-    * their data from the right place (the program output arrays).
-    */
    else {
+      /* Setup the VB pointers so that the next pipeline stages get
+       * their data from the right place (the program output arrays).
+       */
       VB->ClipPtr = &store->results[VERT_RESULT_HPOS];
       VB->ClipPtr->size = 4;
       VB->ClipPtr->count = VB->Count;
    }
+
    VB->ColorPtr[0] = &store->results[VERT_RESULT_COL0];
    VB->ColorPtr[1] = &store->results[VERT_RESULT_BFC0];
    VB->SecondaryColorPtr[0] = &store->results[VERT_RESULT_COL1];

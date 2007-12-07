@@ -194,7 +194,8 @@ static __DRIdriver *OpenDriver(const char *driverName)
    /* First, search Drivers list to see if we've already opened this driver */
    for (driver = Drivers; driver; driver = driver->next) {
       if (strcmp(driver->name, driverName) == 0) {
-         /* found it */
+         /* found it, increment library refcount & return */
+         dlopen(driver->libpath, RTLD_NOW | RTLD_GLOBAL);
          return driver;
       }
    }
@@ -238,7 +239,12 @@ static __DRIdriver *OpenDriver(const char *driverName)
             break; /* out of memory! */
          /* init the struct */
          driver->name = __glXstrdup(driverName);
-         if (!driver->name) {
+         driver->libpath = __glXstrdup(realDriverName);
+         if (!driver->name || !driver->libpath) {
+            if (driver->name)
+               Xfree(driver->name);
+            if (driver->libpath)
+               Xfree(driver->libpath);
             Xfree(driver);
             driver = NULL;
             break; /* out of memory! */
@@ -401,6 +407,7 @@ static void driDestroyDisplay(Display *dpy, void *private)
 		       Drivers = driver->next;
 
 		    Xfree(driver->name);
+		    Xfree(driver->libpath);
 		    Xfree(driver);
 		    break;
 		 }
