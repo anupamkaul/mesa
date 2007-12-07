@@ -205,6 +205,12 @@ struct intel_context
    drmLock *driHwLock;
    int driFd;
 
+   /* Cached values from the screen private. */
+   dri_bufmgr *bufmgr;
+   struct intel_region *front_region;
+   struct intel_region *back_region;
+   struct intel_region *depth_region;
+
    __DRIdrawablePrivate *driDrawable;
    __DRIdrawablePrivate *driReadDrawable;
    __DRIscreenPrivate *driScreen;

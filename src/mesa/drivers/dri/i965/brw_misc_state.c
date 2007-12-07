@@ -264,7 +264,7 @@ static void upload_depthbuffer(struct brw_context *brw)
    OUT_BATCH(((region->pitch * region->cpp) - 1) |
 	     (format << 18) |
 	     (BRW_TILEWALK_YMAJOR << 26) |
-	     (intel->intelScreen->depth_region->tiled << 27) |
+	     (region->tiled << 27) |
 	     (BRW_SURFACE_2D << 29));
    OUT_RELOC(region->buffer,
 	     DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 0);

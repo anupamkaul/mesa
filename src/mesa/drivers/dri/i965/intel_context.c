@@ -340,7 +340,23 @@ void intelInitDriverFunctions( struct dd_function_table *functions )
    intelInitBufferFuncs( functions );
 }
 
+static void
+intel_update_screen_regions(struct intel_context *intel)
+{
+   intel->bufmgr = intel->intelScreen->bufmgr;
 
+   intel_region_release(intel, &intel->front_region);
+   intel_region_reference(&intel->front_region,
+			  intel->intelScreen->front_region);
+
+   intel_region_release(intel, &intel->back_region);
+   intel_region_reference(&intel->back_region,
+			  intel->intelScreen->back_region);
+
+   intel_region_release(intel, &intel->depth_region);
+   intel_region_reference(&intel->depth_region,
+			  intel->intelScreen->depth_region);
+}
 
 GLboolean intelInitContext( struct intel_context *intel,
 			    const __GLcontextModes *mesaVis,
@@ -454,6 +470,9 @@ GLboolean intelInitContext( struct intel_context *intel,
 
    INTEL_DEBUG  = driParseDebugString( getenv( "INTEL_DEBUG" ),
 				       debug_control );
+
+   intel_update_screen_regions(intel);
+
    intel_bufferobj_init( intel );
    intel->batch = intel_batchbuffer_alloc( intel );
    intel->last_swap_fence = NULL;

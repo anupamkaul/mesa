@@ -52,7 +52,7 @@ void brw_FrameBufferTexInit( struct brw_context *brw )
 {
    struct intel_context *intel = &brw->intel;
    GLcontext *ctx = &intel->ctx;
-   struct intel_region *region = intel->intelScreen->front_region;
+   struct intel_region *region = intel->front_region;
    struct gl_texture_object *obj;
    struct gl_texture_image *img;
    

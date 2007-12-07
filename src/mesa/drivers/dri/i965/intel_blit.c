@@ -96,13 +96,13 @@ void intelCopyBuffer( __DRIdrawablePrivate *dPriv,
       int src_pitch, dst_pitch;
 
       if (intel->sarea->pf_current_page == 0) {
-	 dst = intelScreen->front_region;
-	 src = intelScreen->back_region;
+	 dst = intel->front_region;
+	 src = intel->back_region;
       }
       else {
 	 assert(0);
-	 src = intelScreen->front_region;
-	 dst = intelScreen->back_region;
+	 src = intel->front_region;
+	 dst = intel->back_region;
       }
 
       src_pitch = src->pitch * src->cpp;
@@ -366,9 +366,9 @@ void intelClearWithBlit(GLcontext *ctx, GLbitfield flags)
    GLint cpp = intelScreen->cpp;
    GLboolean all;
    GLint i;
-   struct intel_region *front = intelScreen->front_region;
-   struct intel_region *back = intelScreen->back_region;
-   struct intel_region *depth = intelScreen->depth_region;
+   struct intel_region *front = intel->front_region;
+   struct intel_region *back = intel->back_region;
+   struct intel_region *depth = intel->depth_region;
    GLuint BR13, FRONT_CMD, BACK_CMD, DEPTH_CMD;
    GLuint front_pitch;
    GLuint back_pitch;
@@ -424,12 +424,12 @@ void intelClearWithBlit(GLcontext *ctx, GLbitfield flags)
 
       /* adjust for page flipping */
       if ( intel->sarea->pf_current_page == 0 ) {
-	 front = intelScreen->front_region;
-	 back = intelScreen->back_region;
+	 front = intel->front_region;
+	 back = intel->back_region;
       } 
       else {
-	 back = intelScreen->front_region;
-	 front = intelScreen->back_region;
+	 back = intel->front_region;
+	 front = intel->back_region;
       }
       
       front_pitch = front->pitch * front->cpp;

@@ -223,9 +223,9 @@ void intelSpanRenderStart( GLcontext *ctx )
    /* Just map the framebuffer and all textures.  Bufmgr code will
     * take care of waiting on the necessary fences:
     */
-   intel_region_map(intel, intel->intelScreen->front_region);
-   intel_region_map(intel, intel->intelScreen->back_region);
-   intel_region_map(intel, intel->intelScreen->depth_region);
+   intel_region_map(intel, intel->front_region);
+   intel_region_map(intel, intel->back_region);
+   intel_region_map(intel, intel->depth_region);
 }
 
 void intelSpanRenderFinish( GLcontext *ctx )
@@ -236,9 +236,9 @@ void intelSpanRenderFinish( GLcontext *ctx )
 
    /* Now unmap the framebuffer:
     */
-   intel_region_unmap(intel, intel->intelScreen->front_region);
-   intel_region_unmap(intel, intel->intelScreen->back_region);
-   intel_region_unmap(intel, intel->intelScreen->depth_region);
+   intel_region_unmap(intel, intel->front_region);
+   intel_region_unmap(intel, intel->back_region);
+   intel_region_unmap(intel, intel->depth_region);
 
    UNLOCK_HARDWARE( intel );
 }

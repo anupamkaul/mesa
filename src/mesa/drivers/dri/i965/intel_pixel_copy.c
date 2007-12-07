@@ -51,9 +51,8 @@ copypix_src_region(struct intel_context *intel, GLenum type)
    case GL_DEPTH:
       /* Don't think this is really possible execpt at 16bpp, when we have no stencil.
        */
-      if (intel->intelScreen->depth_region &&
-	  intel->intelScreen->depth_region->cpp == 2)
-         return intel->intelScreen->depth_region;
+      if (intel->depth_region && intel->depth_region->cpp == 2)
+         return intel->depth_region;
    case GL_STENCIL:
       /* Don't think this is really possible. 
        */
@@ -61,7 +60,7 @@ copypix_src_region(struct intel_context *intel, GLenum type)
    case GL_DEPTH_STENCIL_EXT:
       /* Does it matter whether it is stencil/depth or depth/stencil?
        */
-      return intel->intelScreen->depth_region;
+      return intel->depth_region;
    default:
       break;
    }
@@ -167,7 +166,7 @@ do_texture_copypixels(GLcontext * ctx,
 
    /* Set the 3d engine to draw into the destination region:
     */
-   intel->vtbl.meta_draw_region(intel, dst, intel->intelScreen->depth_region);
+   intel->vtbl.meta_draw_region(intel, dst, intel->depth_region);
 
    intel->vtbl.meta_import_pixel_state(intel);
 
