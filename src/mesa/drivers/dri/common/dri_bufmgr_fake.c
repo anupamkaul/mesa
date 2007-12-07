@@ -680,9 +680,6 @@ dri_fake_bo_unreference(dri_bo *bo)
 /**
  * Set the buffer as not requiring backing store, and instead get the callback
  * invoked whenever it would be set dirty.
- *
- * \param dont_fence_subdata Disables waiting for idle before mapping the
- *	  buffer.
  */
 void dri_bo_fake_disable_backing_store(dri_bo *bo,
 				       void (*invalidate_cb)(dri_bo *bo,
