@@ -88,7 +88,6 @@ static void brw_init_pool( struct brw_context *brw,
    pool->size = size;   
    pool->brw = brw;
 
-   /* XXX: We significantly overallocate these buffers. */
    pool->buffer = dri_bo_alloc(brw->intel.intelScreen->bufmgr,
 			       (pool_id == BRW_GS_POOL) ? "GS pool" : "SS pool",
 			       size, 4096, DRM_BO_FLAG_MEM_TT);
