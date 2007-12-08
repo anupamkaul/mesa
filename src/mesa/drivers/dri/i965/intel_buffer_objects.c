@@ -105,6 +105,12 @@ static void intel_bufferobj_data( GLcontext *ctx,
    obj->Size = size;
    obj->Usage = usage;
 
+   /* While it would seem to make sense to always reallocate the buffer here,
+    * since it should allow us better concurrency between rendering and
+    * map-cpu write-unmap, doing so was a minor (~10%) performance loss
+    * for both classic and TTM mode with openarena.  That may change with
+    * improved buffer manager algorithms.
+    */
    if (intel_obj->buffer != NULL && intel_obj->buffer->size != size) {
       dri_bo_unreference(intel_obj->buffer);
       intel_obj->buffer = NULL;
