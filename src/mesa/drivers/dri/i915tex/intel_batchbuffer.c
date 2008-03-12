@@ -318,8 +318,16 @@ do_flush_locked(struct intel_batchbuffer *batch,
       abort();
 
    if (ea.fence_arg.error != 0) {
-      //      i915_error_batch(batch);
-      return NULL;
+
+     /*
+      * The hardware has been idled by the kernel.
+      * Don't fence the driBOs.
+      */
+
+       if (batch->last_fence)
+	   driFenceUnReference(batch->last_fence);
+       batch->last_fence = NULL;
+       return NULL;
    }
 
    fence.handle = ea.fence_arg.handle;
