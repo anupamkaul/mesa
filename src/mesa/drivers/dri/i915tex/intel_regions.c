@@ -90,7 +90,6 @@ intel_region_alloc(intelScreenPrivate *intelScreen,
                    GLuint cpp, GLuint pitch, GLuint height)
 {
    struct intel_region *region = calloc(sizeof(*region), 1);
-   struct intel_context *intel = intelScreenContext(intelScreen);
 
    DBG("%s\n", __FUNCTION__);
 
@@ -364,8 +363,6 @@ void
 intel_region_release_pbo(intelScreenPrivate *intelScreen,
                          struct intel_region *region)
 {
-   struct intel_context *intel = intelScreenContext(intelScreen);
-
    assert(region->buffer == region->pbo->buffer);
    region->pbo->region = NULL;
    region->pbo = NULL;
