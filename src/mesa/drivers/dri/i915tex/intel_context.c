@@ -271,7 +271,7 @@ intelFlush(GLcontext * ctx)
    INTEL_FIREVERTICES(intel);
 
    if (intel->batch->map != intel->batch->ptr)
-      intel_batchbuffer_flush(intel->batch);
+     driFenceUnReference(intel_batchbuffer_flush(intel->batch));
 
    /* XXX: Need to do an MI_FLUSH here.
     */
@@ -290,10 +290,6 @@ intelCheckFrontRotate(GLcontext * ctx)
    if (intel->ctx.DrawBuffer->_ColorDrawBufferMask[0] ==
        BUFFER_BIT_FRONT_LEFT) {
       intelScreenPrivate *screen = intel->intelScreen;
-      if (screen->current_rotation != 0) {
-         __DRIdrawablePrivate *dPriv = intel->driDrawable;
-         intelRotateWindow(intel, dPriv, BUFFER_BIT_FRONT_LEFT);
-      }
    }
 }
 
@@ -314,8 +310,8 @@ intelFinish(GLcontext * ctx)
    struct intel_context *intel = intel_context(ctx);
    intelFlush(ctx);
    if (intel->batch->last_fence) {
-      driFenceFinish(intel->batch->last_fence,
-                     DRM_FENCE_TYPE_EXE | DRM_I915_FENCE_TYPE_RW, GL_FALSE);
+      driFenceFinish(intel->batch->last_fence, 
+		     driFenceType(intel->batch->last_fence), GL_FALSE);
       driFenceUnReference(intel->batch->last_fence);
       intel->batch->last_fence = NULL;
    }
@@ -379,7 +375,6 @@ intelInitContext(struct intel_context *intel,
 
    intel->width = intelScreen->width;
    intel->height = intelScreen->height;
-   intel->current_rotation = intelScreen->current_rotation;
 
    if (!lockMutexInit) {
       lockMutexInit = GL_TRUE;
@@ -481,6 +476,7 @@ intelInitContext(struct intel_context *intel,
    intel->batch = intel_batchbuffer_alloc(intel);
    intel->last_swap_fence = NULL;
    intel->first_swap_fence = NULL;
+   intel->second_swap_fence = NULL;
 
    intel_bufferobj_init(intel);
    intel_fbo_init(intel);
@@ -672,8 +668,7 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
       DRI_VALIDATE_DRAWABLE_INFO(sPriv, dPriv);
 
    if (sarea->width != intelScreen->width ||
-       sarea->height != intelScreen->height ||
-       sarea->rotation != intelScreen->current_rotation) {
+       sarea->height != intelScreen->height) {
 
       intelUpdateScreenRotation(sPriv, sarea);
    }
@@ -699,7 +694,7 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
       INTEL_FIREVERTICES(intel);
 
       if (intel->batch->map != intel->batch->ptr)
-	 intel_batchbuffer_flush(intel->batch);
+	driFenceUnReference(intel_batchbuffer_flush(intel->batch));
 
       intel->numClipRects = numClipRects;
 
@@ -742,6 +737,7 @@ void LOCK_HARDWARE( struct intel_context *intel )
 				    BUFFER_BACK_LEFT);
     }
 
+#if 0
     if (intel_rb && intel_fb->vblank_flags &&
 	!(intel_fb->vblank_flags & VBLANK_FLAG_NO_IRQ) &&
 	(intel_fb->vbl_waited - intel_rb->vbl_pending) > (1<<23)) {
@@ -757,6 +753,7 @@ void LOCK_HARDWARE( struct intel_context *intel )
 	drmWaitVBlank(intel->driFd, &vbl);
 	intel_fb->vbl_waited = vbl.reply.sequence;
     }
+#endif
 
     DRM_CAS(intel->driHwLock, intel->hHWContext,
         (DRM_LOCK_HELD|intel->hHWContext), __ret);

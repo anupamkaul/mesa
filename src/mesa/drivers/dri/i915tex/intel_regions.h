@@ -137,5 +137,11 @@ void intel_region_cow(intelScreenPrivate *intelScreen,
 struct _DriBufferObject *intel_region_buffer(intelScreenPrivate *intelScreen,
                                              struct intel_region *region,
                                              GLuint flag);
+struct intel_region *
+intel_region_alloc_by_ref(intelScreenPrivate *intelScreen,
+			  struct intel_region *region,
+			  GLuint cpp, GLuint pitch, GLuint height,
+			  unsigned long handle,
+			  char *name);
 
 #endif

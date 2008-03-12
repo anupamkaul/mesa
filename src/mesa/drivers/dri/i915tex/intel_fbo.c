@@ -444,12 +444,6 @@ intel_create_renderbuffer(GLenum intFormat, GLsizei width, GLsizei height,
    irb->pfMap = map;
    irb->pfPitch = pitch / cpp;	/* in pixels */
 
-#if 00
-   irb->region = intel_region_create_static(intel,
-                                            DRM_MM_TT,
-                                            offset, map, cpp, width, height);
-#endif
-
    return irb;
 }
 

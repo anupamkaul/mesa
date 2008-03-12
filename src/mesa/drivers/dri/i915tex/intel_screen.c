@@ -46,7 +46,7 @@
 #include "intel_fbo.h"
 
 #include "i830_dri.h"
-#include "dri_bufpool.h"
+#include "ws_dri_bufpool.h"
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
 
@@ -130,33 +130,10 @@ intelMapScreenRegions(__DRIscreenPrivate * sPriv)
       return GL_FALSE;
    }
 #endif
-   if (0)
-      printf("Mappings:  front: %p  back: %p  third: %p  depth: %p  tex: %p\n",
-             intelScreen->front.map,
-             intelScreen->back.map, intelScreen->third.map,
-             intelScreen->depth.map, intelScreen->tex.map);
+
    return GL_TRUE;
 }
 
-
-static struct intel_region *
-intel_recreate_static(intelScreenPrivate *intelScreen,
-		      struct intel_region *region,
-		      GLuint mem_type,
-		      GLuint offset,
-		      void *virtual,
-		      GLuint cpp, GLuint pitch, GLuint height)
-{
-  if (region) {
-    intel_region_update_static(intelScreen, region, mem_type, offset,
-			       virtual, cpp, pitch, height);
-  } else {
-    region = intel_region_create_static(intelScreen, mem_type, offset,
-					virtual, cpp, pitch, height);
-  }
-  return region;
-}
-    
 
 /* Create intel_region structs to describe the static front,back,depth
  * buffers created by the xserver. 
@@ -173,59 +150,39 @@ static void
 intel_recreate_static_regions(intelScreenPrivate *intelScreen)
 {
    intelScreen->front_region =
-      intel_recreate_static(intelScreen,
-			    intelScreen->front_region,
-			    DRM_BO_FLAG_MEM_TT,
-			    intelScreen->front.offset,
-			    intelScreen->front.map,
-			    intelScreen->cpp,
-			    intelScreen->front.pitch / intelScreen->cpp,
-			    intelScreen->height);
-
-   intelScreen->rotated_region =
-      intel_recreate_static(intelScreen,
-			    intelScreen->rotated_region,
-			    DRM_BO_FLAG_MEM_TT,
-			    intelScreen->rotated.offset,
-			    intelScreen->rotated.map,
-			    intelScreen->cpp,
-			    intelScreen->rotated.pitch /
-			    intelScreen->cpp, intelScreen->height);
-
-
-   intelScreen->back_region =
-      intel_recreate_static(intelScreen,
-			    intelScreen->back_region,
-			    DRM_BO_FLAG_MEM_TT,
-			    intelScreen->back.offset,
-			    intelScreen->back.map,
-			    intelScreen->cpp,
-			    intelScreen->back.pitch / intelScreen->cpp,
-			    intelScreen->height);
+     intel_region_alloc_by_ref(intelScreen, intelScreen->front_region,
+			       intelScreen->cpp,
+			       intelScreen->front.pitch / intelScreen->cpp,
+			       intelScreen->height,
+			       intelScreen->front.bo_handle,
+			       "front");
+    intelScreen->back_region =
+      intel_region_alloc_by_ref(intelScreen, intelScreen->back_region,
+				intelScreen->cpp,
+				intelScreen->back.pitch / intelScreen->cpp,
+				intelScreen->height,
+				intelScreen->back.bo_handle,
+				"back");
 
    if (intelScreen->third.handle) {
       intelScreen->third_region =
-	 intel_recreate_static(intelScreen,
-			       intelScreen->third_region,
-			       DRM_BO_FLAG_MEM_TT,
-			       intelScreen->third.offset,
-			       intelScreen->third.map,
-			       intelScreen->cpp,
-			       intelScreen->third.pitch / intelScreen->cpp,
-			       intelScreen->height);
+	intel_region_alloc_by_ref(intelScreen, intelScreen->third_region,
+				  intelScreen->cpp,
+				  intelScreen->third.pitch / intelScreen->cpp,
+				  intelScreen->height,
+				  intelScreen->third.bo_handle,
+				  "third");
    }
 
    /* Still assuming front.cpp == depth.cpp
     */
    intelScreen->depth_region =
-      intel_recreate_static(intelScreen,
-			    intelScreen->depth_region,
-			    DRM_BO_FLAG_MEM_TT,
-			    intelScreen->depth.offset,
-			    intelScreen->depth.map,
-			    intelScreen->cpp,
-			    intelScreen->depth.pitch / intelScreen->cpp,
-			    intelScreen->height);
+	intel_region_alloc_by_ref(intelScreen, intelScreen->depth_region,
+				  intelScreen->cpp,
+				  intelScreen->depth.pitch / intelScreen->cpp,
+				  intelScreen->height,
+				  intelScreen->depth.bo_handle,
+				  "depth");
 }
 
 /**
@@ -277,12 +234,6 @@ intelUnmapScreenRegions(intelScreenPrivate * intelScreen)
       intelScreen->depth.map = NULL;
 #endif
    }
-   if (intelScreen->tex.map) {
-#if REALLY_UNMAP
-      drmUnmap(intelScreen->tex.map, intelScreen->tex.size);
-      intelScreen->tex.map = NULL;
-#endif
-   }
 }
 
 
@@ -299,11 +250,6 @@ intelPrintDRIInfo(intelScreenPrivate * intelScreen,
    fprintf(stderr, "*** Depth size:   0x%x  offset: 0x%x  pitch: %d\n",
            intelScreen->depth.size, intelScreen->depth.offset,
            intelScreen->depth.pitch);
-   fprintf(stderr, "*** Rotated size: 0x%x  offset: 0x%x  pitch: %d\n",
-           intelScreen->rotated.size, intelScreen->rotated.offset,
-           intelScreen->rotated.pitch);
-   fprintf(stderr, "*** Texture size: 0x%x  offset: 0x%x\n",
-           intelScreen->tex.size, intelScreen->tex.offset);
    fprintf(stderr, "*** Memory : 0x%x\n", gDRIPriv->mem);
 }
 
@@ -368,19 +314,17 @@ intelUpdateScreenFromSAREA(intelScreenPrivate * intelScreen,
    intelScreen->depth.handle = sarea->depth_handle;
    intelScreen->depth.size = sarea->depth_size;
 
-   intelScreen->tex.offset = sarea->tex_offset;
-   intelScreen->logTextureGranularity = sarea->log_tex_granularity;
-   intelScreen->tex.handle = sarea->tex_handle;
-   intelScreen->tex.size = sarea->tex_size;
-
-   intelScreen->rotated.offset = sarea->rotated_offset;
-   intelScreen->rotated.pitch = sarea->rotated_pitch * intelScreen->cpp;
-   intelScreen->rotated.size = sarea->rotated_size;
-   intelScreen->current_rotation = sarea->rotation;
-   matrix23Rotate(&intelScreen->rotMatrix,
-                  sarea->width, sarea->height, sarea->rotation);
-   intelScreen->rotatedWidth = sarea->virtualX;
-   intelScreen->rotatedHeight = sarea->virtualY;
+   if (intelScreen->driScrnPriv->ddxMinor >= 9) {
+       intelScreen->front.bo_handle = sarea->front_bo_handle;
+       intelScreen->back.bo_handle = sarea->back_bo_handle;
+       intelScreen->third.bo_handle = sarea->third_bo_handle;
+       intelScreen->depth.bo_handle = sarea->depth_bo_handle;
+   } else {
+       intelScreen->front.bo_handle = -1;
+       intelScreen->back.bo_handle = -1;
+       intelScreen->third.bo_handle = -1;
+       intelScreen->depth.bo_handle = -1;
+   }
 
    if (0)
       intelPrintSAREA(sarea);
@@ -401,11 +345,6 @@ intelCreatePools(intelScreenPrivate *intelScreen)
    if (!intelScreen->regionPool)
       return GL_FALSE;
 
-   intelScreen->staticPool = driDRMStaticPoolInit(sPriv->fd);
-
-   if (!intelScreen->staticPool)
-      return GL_FALSE;
-
    intelScreen->texPool = intelScreen->regionPool;
 
    intelScreen->batchPool = driBatchPoolInit(sPriv->fd,
@@ -413,9 +352,16 @@ intelCreatePools(intelScreenPrivate *intelScreen)
                                              DRM_BO_FLAG_MEM_TT |
                                              DRM_BO_FLAG_MEM_LOCAL,
                                              intelScreen->maxBatchSize, 
-					     batchPoolSize, 5);
+					     batchPoolSize, 5, 0,
+					     "Batch Pool");
    if (!intelScreen->batchPool) {
-      fprintf(stderr, "Failed to initialize batch pool - possible incorrect agpgart installed\n");
+      fprintf(stderr, "Failed to initialize batch pool.\n");
+      return GL_FALSE;
+   }
+
+   intelScreen->mallocPool = driMallocPoolInit();
+   if (!intelScreen->mallocPool) {
+      fprintf(stderr, "Failed to initialize malloc pool.\n");
       return GL_FALSE;
    }
    
@@ -489,23 +435,6 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
       return GL_FALSE;
    }
 
-#if 0
-
-   /*
-    * FIXME: Remove this code and its references.
-    */
-
-   intelScreen->tex.offset = gDRIPriv->textureOffset;
-   intelScreen->logTextureGranularity = gDRIPriv->logTextureGranularity;
-   intelScreen->tex.handle = gDRIPriv->textures;
-   intelScreen->tex.size = gDRIPriv->textureSize;
-
-#else
-   intelScreen->tex.offset = 0;
-   intelScreen->logTextureGranularity = 0;
-   intelScreen->tex.handle = 0;
-   intelScreen->tex.size = 0;
-#endif
 
    intelScreen->sarea_priv_offset = gDRIPriv->sarea_priv_offset;
 
@@ -567,7 +496,6 @@ intelDestroyScreen(__DRIscreenPrivate * sPriv)
 
    if (intelScreen->havePools) {
       driPoolTakeDown(intelScreen->regionPool);
-      driPoolTakeDown(intelScreen->staticPool);
       driPoolTakeDown(intelScreen->batchPool);
    }
    FREE(intelScreen);
@@ -896,7 +824,7 @@ __driCreateNewScreen_20050727(__DRInativeDisplay * dpy, int scrn,
    __DRIscreenPrivate *psp;
    static const __DRIversion ddx_expected = { 1, 5, 0 };
    static const __DRIversion dri_expected = { 4, 0, 0 };
-   static const __DRIversion drm_expected = { 1, 7, 0 };
+   static const __DRIversion drm_expected = { 1, 13, 0 };
 
    dri_interface = interface;
 
@@ -928,7 +856,7 @@ __driCreateNewScreen_20050727(__DRInativeDisplay * dpy, int scrn,
        */
       driInitExtensions(NULL, card_extensions, GL_FALSE);
    }
-
+   
    return (void *) psp;
 }
 

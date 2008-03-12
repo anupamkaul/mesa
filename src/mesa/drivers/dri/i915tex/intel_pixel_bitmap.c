@@ -294,7 +294,7 @@ x      if (ctx->Scissor.Enabled)
       }
       intel->need_flush = GL_TRUE;
    out:
-      intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
    }
    UNLOCK_HARDWARE(intel);
 

@@ -30,10 +30,9 @@
 
 #include <sys/time.h>
 #include "dri_util.h"
-#include "intel_rotate.h"
 #include "i830_common.h"
 #include "xmlconfig.h"
-#include "dri_bufpool.h"
+#include "ws_dri_bufpool.h"
 
 /* XXX: change name or eliminate to avoid conflict with "struct
  * intel_region"!!!
@@ -45,6 +44,7 @@ typedef struct
    char *map;                   /* memory map */
    int offset;                  /* from start of video mem, in bytes */
    int pitch;                   /* row stride, in bytes */
+    unsigned int bo_handle;
 } intelRegion;
 
 typedef struct
@@ -52,15 +52,12 @@ typedef struct
    intelRegion front;
    intelRegion back;
    intelRegion third;
-   intelRegion rotated;
    intelRegion depth;
-   intelRegion tex;
 
    struct intel_region *front_region;
    struct intel_region *back_region;
    struct intel_region *third_region;
    struct intel_region *depth_region;
-   struct intel_region *rotated_region;
 
    int deviceID;
    int width;
@@ -81,22 +78,18 @@ typedef struct
    int irq_active;
    int allow_batchbuffer;
 
-   struct matrix23 rotMatrix;
-
-   int current_rotation;        /* 0, 90, 180 or 270 */
-   int rotatedWidth, rotatedHeight;
-
    /**
    * Configuration cache with default values for all contexts
    */
+
    driOptionCache optionCache;
    struct _DriBufferPool *batchPool;
    struct _DriBufferPool *texPool;
    struct _DriBufferPool *regionPool;
-   struct _DriBufferPool *staticPool;
+   struct _DriBufferPool *mallocPool;
    unsigned int maxBatchSize;
-   unsigned batch_id;
    GLboolean havePools;
+   unsigned batch_id;
 } intelScreenPrivate;
 
 
@@ -123,11 +116,13 @@ extern void intelSwapBuffers(__DRIdrawablePrivate * dPriv);
 extern void
 intelCopySubBuffer(__DRIdrawablePrivate * dPriv, int x, int y, int w, int h);
 
-extern struct _DriBufferPool *driBatchPoolInit(int fd, unsigned flags,
+extern struct _DriBufferPool *driBatchPoolInit(int fd, uint64_t flags,
                                                unsigned long bufSize,
                                                unsigned numBufs,
-                                               unsigned checkDelayed);
-
+                                               unsigned checkDelayed,
+					       unsigned pageAlignment,
+					       const char *name);
+extern struct _DriBufferPool *driMallocPoolInit(void);
 extern struct intel_context *intelScreenContext(intelScreenPrivate *intelScreen);
 
 extern void

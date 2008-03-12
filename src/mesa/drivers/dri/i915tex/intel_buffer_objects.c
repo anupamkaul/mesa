@@ -33,14 +33,83 @@
 #include "intel_context.h"
 #include "intel_buffer_objects.h"
 #include "intel_regions.h"
-#include "dri_bufmgr.h"
+#include "ws_dri_bufmgr.h"
 
-/**
- * There is some duplication between mesa's bufferobjects and our
- * bufmgr buffers.  Both have an integer handle and a hashtable to
- * lookup an opaque structure.  It would be nice if the handles and
- * internal structure where somehow shared.
- */
+
+static void
+intel_bufferobj_select(struct intel_context *intel,
+		       GLenum target, GLenum usage,
+		       struct intel_buffer_object *obj)
+{
+    switch (target) {
+    case GL_ARRAY_BUFFER:
+    case GL_ELEMENT_ARRAY_BUFFER:
+	/*
+	 * All vertex processing done in software. Use the malloc pool
+	 * to optimize away TTM maps / unmaps. Otherwise we could've 
+	 * used the drm pool with cache-coherent memory.
+	 */
+	obj->pool = intel->intelScreen->mallocPool;
+	obj->flags = DRM_BO_FLAG_MEM_LOCAL | DRM_BO_FLAG_READ |
+	    DRM_BO_FLAG_WRITE;
+	break;
+    default:
+	/*
+	 * Pixel buffer objects.
+	 */
+	obj->pool = intel->intelScreen->regionPool;
+	switch(usage) {
+	case GL_STREAM_DRAW:
+	    /*
+	     * For streaming, we prioritize fast buffer creation, 
+	     * so try VRAM. 
+	     * Otherwise, fall back to cache-coherent TT if possible.
+	     */
+	    obj->flags = DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_MEM_TT | 
+		DRM_BO_FLAG_READ | DRM_BO_FLAG_CACHED;
+	    break;
+	case GL_STREAM_READ:
+	case GL_STATIC_READ:
+	case GL_DYNAMIC_READ:
+	    /*
+	     * For reading, we really want cache-coherent memory.
+	     * Buffers will be created quickly.
+	     */
+	    obj->flags = DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_WRITE | 
+		DRM_BO_FLAG_CACHED;
+	    break;
+	case GL_STREAM_COPY:
+	case GL_STATIC_COPY:
+	case GL_DYNAMIC_COPY:
+	    /*
+	     * We really want VRAM here for fast buffer object creation.
+	     * The alternative is a user-space buffer pool.
+	     */
+	    obj->flags = DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_MEM_TT |
+		DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE;
+	    break;
+	case GL_STATIC_DRAW:
+	case GL_DYNAMIC_DRAW:
+	    /*
+	     * Same as the above, but don't allow GPU writing.
+	     */
+	    obj->flags = DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_MEM_TT |
+		DRM_BO_FLAG_READ;
+	    break;
+	default:
+	    /*
+	     * Choose a usage pattern that perhaps 
+	     * isn't optimal, but never
+	     * completely drains perfomance.
+	     */
+	    obj->flags = DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_WRITE |
+		DRM_BO_FLAG_READ | DRM_BO_FLAG_CACHED;
+	    break;
+	}
+    }
+}
+	    
+
 static struct gl_buffer_object *
 intel_bufferobj_alloc(GLcontext * ctx, GLuint name, GLenum target)
 {
@@ -48,11 +117,10 @@ intel_bufferobj_alloc(GLcontext * ctx, GLuint name, GLenum target)
    struct intel_buffer_object *obj = CALLOC_STRUCT(intel_buffer_object);
 
    _mesa_initialize_buffer_object(&obj->Base, name, target);
-
-   driGenBuffers(intel->intelScreen->regionPool,
+   intel_bufferobj_select(intel, target, 0, obj);
+   driGenBuffers(obj->pool,
                  "bufferobj", 1, &obj->buffer, 64,
-		 DRM_BO_FLAG_MEM_LOCAL |
-		 DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE,
+		 obj->flags,
 		 0);
 
    return &obj->Base;
@@ -74,11 +142,9 @@ intel_bufferobj_release_region(struct intel_context *intel,
    /* This leads to a large number of buffer deletion/creation events.
     * Currently the drm doesn't like that:
     */
-   driGenBuffers(intel->intelScreen->regionPool,
-                 "buffer object", 1, &intel_obj->buffer, 64, 0, 0);
-   LOCK_HARDWARE(intel);
-   driBOData(intel_obj->buffer, intel_obj->Base.Size, NULL, 0);
-   UNLOCK_HARDWARE(intel);
+
+   driBOData(intel_obj->buffer, intel_obj->Base.Size, NULL, 
+	     intel_obj->pool, intel_obj->flags);
 }
 
 /* Break the COW tie to the region.  Both the pbo and the region end
@@ -139,9 +205,9 @@ intel_bufferobj_data(GLcontext * ctx,
    if (intel_obj->region)
       intel_bufferobj_release_region(intel, intel_obj);
 
-   LOCK_HARDWARE(intel);
-   driBOData(intel_obj->buffer, size, data, 0);
-   UNLOCK_HARDWARE(intel);
+   intel_bufferobj_select(intel, target, usage, intel_obj);
+   driBOData(intel_obj->buffer, size, data, intel_obj->pool, 
+	     intel_obj->flags);
 }
 
 

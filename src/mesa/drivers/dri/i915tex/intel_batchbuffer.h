@@ -2,24 +2,18 @@
 #define INTEL_BATCHBUFFER_H
 
 #include "mtypes.h"
-#include "dri_bufmgr.h"
+#include "ws_dri_bufmgr.h"
 
 struct intel_context;
 
 #define BATCH_SZ 16384
 #define BATCH_RESERVED 16
 
-#define MAX_RELOCS 400
+#define INTEL_DEFAULT_RELOCS 100
+#define INTEL_MAX_RELOCS 400
 
 #define INTEL_BATCH_NO_CLIPRECTS 0x1
 #define INTEL_BATCH_CLIPRECTS    0x2
-
-struct buffer_reloc
-{
-   struct _DriBufferObject *buf;
-   GLuint offset;
-   GLuint delta;                /* not needed? */
-};
 
 struct intel_batchbuffer
 {
@@ -30,17 +24,24 @@ struct intel_batchbuffer
    struct _DriFenceObject *last_fence;
    GLuint flags;
 
-   drmBOList list;
+   struct _DriBufferList *list;
    GLuint list_count;
    GLubyte *map;
    GLubyte *ptr;
 
-   struct buffer_reloc reloc[MAX_RELOCS];
+   uint32_t *reloc;
+   GLuint reloc_size;
    GLuint nr_relocs;
+
    GLuint size;
 
    GLuint dirty_state;
    GLuint id;
+
+  uint32_t poolOffset;
+  uint8_t *drmBOVirtual;
+  struct _drmBONode *node; /* Validation list node for this buffer */
+  int dest_location;     /* Validation list sequence for this buffer */
 };
 
 struct intel_batchbuffer *intel_batchbuffer_alloc(struct intel_context
@@ -67,10 +68,12 @@ void intel_batchbuffer_data(struct intel_batchbuffer *batch,
 void intel_batchbuffer_release_space(struct intel_batchbuffer *batch,
                                      GLuint bytes);
 
-GLboolean intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
-                                       struct _DriBufferObject *buffer,
-                                       GLuint flags,
-                                       GLuint mask, GLuint offset);
+void
+intel_offset_relocation(struct intel_batchbuffer *batch,
+			unsigned pre_add,
+			struct _DriBufferObject *driBO,
+			uint64_t val_flags,
+			uint64_t val_mask);
 
 /* Inline functions - might actually be better off with these
  * non-inlined.  Certainly better off switching all command packets to
@@ -100,7 +103,7 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
    assert(sz < batch->size - 8);
    if (intel_batchbuffer_space(batch) < sz ||
        (batch->flags != 0 && flags != 0 && batch->flags != flags))
-      intel_batchbuffer_flush(batch);
+       driFenceUnReference(intel_batchbuffer_flush(batch));
 
    batch->flags |= flags;
 }
@@ -118,7 +121,7 @@ intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
 
 #define OUT_RELOC(buf,flags,mask,delta) do { 				\
    assert((delta) >= 0);							\
-   intel_batchbuffer_emit_reloc(intel->batch, buf, flags, mask, delta);	\
+   intel_offset_relocation(intel->batch, delta, buf, flags, mask); \
 } while (0)
 
 #define ADVANCE_BATCH() do { } while(0)

@@ -34,8 +34,8 @@
 #include <errno.h>
 #include "imports.h"
 #include "glthread.h"
-#include "dri_bufpool.h"
-#include "dri_bufmgr.h"
+#include "ws_dri_bufpool.h"
+#include "ws_dri_bufmgr.h"
 #include "intel_screen.h"
 
 typedef struct
@@ -57,18 +57,20 @@ typedef struct _BPool
    unsigned numTot;
    unsigned numDelayed;
    unsigned checkDelayed;
+   unsigned fenceType;
    drmMMListHead free;
    drmMMListHead delayed;
    drmMMListHead head;
    drmBO kernelBO;
    void *virtual;
    BBuf *bufs;
+   const char *name;
 } BPool;
 
 
 static BPool *
-createBPool(int fd, unsigned long bufSize, unsigned numBufs, unsigned flags,
-            unsigned checkDelayed)
+createBPool(int fd, unsigned long bufSize, unsigned numBufs, uint64_t flags,
+            unsigned checkDelayed, unsigned pageAlignment, const char *name)
 {
    BPool *p = (BPool *) malloc(sizeof(*p));
    BBuf *buf;
@@ -92,10 +94,11 @@ createBPool(int fd, unsigned long bufSize, unsigned numBufs, unsigned flags,
    p->bufSize = bufSize;
    p->numDelayed = 0;
    p->checkDelayed = checkDelayed;
+   p->name = name;
 
    _glthread_INIT_MUTEX(p->mutex);
 
-   if (drmBOCreate(fd, 0, numBufs * bufSize, 0, NULL, drm_bo_type_dc,
+   if (drmBOCreate(fd, numBufs * bufSize, pageAlignment, NULL,
                    flags, DRM_BO_HINT_DONT_FENCE, &p->kernelBO)) {
       free(p->bufs);
       free(p);
@@ -103,7 +106,7 @@ createBPool(int fd, unsigned long bufSize, unsigned numBufs, unsigned flags,
    }
    if (drmBOMap(fd, &p->kernelBO, DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 0,
                 &p->virtual)) {
-      drmBODestroy(fd, &p->kernelBO);
+      drmBOUnreference(fd, &p->kernelBO);
       free(p->bufs);
       free(p);
       return NULL;
@@ -116,6 +119,7 @@ createBPool(int fd, unsigned long bufSize, unsigned numBufs, unsigned flags,
     */
 
    drmBOUnmap(fd, &p->kernelBO);
+   p->fenceType = p->kernelBO.fenceFlags;
 
    buf = p->bufs;
    for (i = 0; i < numBufs; ++i) {
@@ -142,6 +146,8 @@ pool_checkFree(BPool * p, int wait)
 
    list = p->delayed.next;
 
+   /* Only examine the oldest 1/3 of delayed buffers:
+    */
    if (p->numDelayed > 3) {
       for (i = 0; i < p->numDelayed; i += 3) {
          list = list->next;
@@ -155,11 +161,11 @@ pool_checkFree(BPool * p, int wait)
 
       if (!signaled) {
          if (wait) {
-            driFenceFinish(buf->fence, DRM_FENCE_TYPE_EXE, 1);
+            driFenceFinish(buf->fence, p->kernelBO.fenceFlags, 0);
             signaled = 1;
          }
          else {
-            signaled = driFenceSignaled(buf->fence, DRM_FENCE_TYPE_EXE);
+            signaled = driFenceSignaled(buf->fence, p->kernelBO.fenceFlags);
          }
       }
 
@@ -177,7 +183,7 @@ pool_checkFree(BPool * p, int wait)
 
 static void *
 pool_create(struct _DriBufferPool *pool,
-            unsigned long size, unsigned flags, unsigned hint,
+            unsigned long size, uint64_t flags, unsigned hint,
             unsigned alignment)
 {
    BPool *p = (BPool *) pool->data;
@@ -189,19 +195,30 @@ pool_create(struct _DriBufferPool *pool,
 
    _glthread_LOCK_MUTEX(p->mutex);
 
-   if (p->numFree == 0)
-      pool_checkFree(p, GL_TRUE);
+   if (size > p->bufSize) {
+      _mesa_printf( "Requested size %lu, but fixed buffer size is %lu.\n",
+	      size, p->bufSize);
+      _glthread_UNLOCK_MUTEX(p->mutex);
+      return NULL;
+   }
 
    if (p->numFree == 0) {
-      fprintf(stderr, "Out of fixed size buffer objects\n");
-      BM_CKFATAL(-ENOMEM);
+      pool_checkFree(p, GL_TRUE);
+   }
+
+   if (p->numFree == 0) {
+      _mesa_printf( "Out of fixed size buffer objects: %s\n", p->name);
+      _glthread_UNLOCK_MUTEX(p->mutex);
+      return NULL;
    }
 
    item = p->free.next;
 
    if (item == &p->free) {
-      fprintf(stderr, "Fixed size buffer pool corruption\n");
+      _mesa_printf( "Fixed size buffer pool corruption\n");
+      abort();
    }
+
 
    DRMLISTDEL(item);
    --p->numFree;
@@ -236,6 +253,18 @@ pool_destroy(struct _DriBufferPool *pool, void *private)
    return 0;
 }
 
+static int
+pool_waitIdle(struct _DriBufferPool *pool, void *private, int lazy)
+{
+   BBuf *buf = (BBuf *) private;
+   BPool *p = (BPool *) pool->data;
+
+   driFenceFinish(buf->fence, p->kernelBO.fenceFlags, lazy);
+   driFenceUnReference(buf->fence);
+   buf->fence = NULL;
+
+   return 0;
+}
 
 static int
 pool_map(struct _DriBufferPool *pool, void *private, unsigned flags,
@@ -245,7 +274,6 @@ pool_map(struct _DriBufferPool *pool, void *private, unsigned flags,
    BBuf *buf = (BBuf *) private;
    BPool *p = buf->parent;
 
-   _glthread_LOCK_MUTEX(p->mutex);
 
    /*
     * Currently Mesa doesn't have any condition variables to resolve this
@@ -254,35 +282,21 @@ pool_map(struct _DriBufferPool *pool, void *private, unsigned flags,
     */
 
    if (buf->mapped) {
-      fprintf(stderr, "Trying to map already mapped buffer object\n");
+      _mesa_printf( "Trying to map already mapped buffer object\n");
       BM_CKFATAL(-EINVAL);
    }
-
-#if 0
-   if (buf->unfenced && !(hint & DRM_BO_HINT_ALLOW_UNFENCED_MAP)) {
-      fprintf(stderr, "Trying to map an unfenced buffer object 0x%08x"
-              " 0x%08x %d\n", hint, flags, buf->start);
-      BM_CKFATAL(-EINVAL);
-   }
-
-#endif
 
    if (buf->fence) {
-      _glthread_UNLOCK_MUTEX(p->mutex);
-      return -EBUSY;
+       if (hint & DRM_BO_HINT_DONT_BLOCK)
+	   return -EBUSY;
+       else
+	   pool_waitIdle(pool, private, 0);
    }
 
    buf->mapped = GL_TRUE;
+   _glthread_LOCK_MUTEX(p->mutex);
    *virtual = (unsigned char *) p->virtual + buf->start;
    _glthread_UNLOCK_MUTEX(p->mutex);
-   return 0;
-}
-
-static int
-pool_waitIdle(struct _DriBufferPool *pool, void *private, int lazy)
-{
-   BBuf *buf = (BBuf *) private;
-   driFenceFinish(buf->fence, 0, lazy);
    return 0;
 }
 
@@ -300,16 +314,35 @@ pool_offset(struct _DriBufferPool *pool, void *private)
 {
    BBuf *buf = (BBuf *) private;
    BPool *p = buf->parent;
+   unsigned long offset;
 
-   return p->kernelBO.offset + buf->start;
+   driReadLockKernelBO();
+   assert(p->kernelBO.flags & DRM_BO_FLAG_NO_MOVE);
+   offset = p->kernelBO.offset + buf->start;
+   driReadUnlockKernelBO();
+
+   return offset;
 }
 
-static unsigned
+static unsigned long
+pool_poolOffset(struct _DriBufferPool *pool, void *private)
+{
+   BBuf *buf = (BBuf *) private;
+
+   return buf->start;
+}
+
+static uint64_t
 pool_flags(struct _DriBufferPool *pool, void *private)
 {
    BPool *p = (BPool *) pool->data;
+   uint64_t flags;
 
-   return p->kernelBO.flags;
+   driReadLockKernelBO();
+   flags  = p->kernelBO.flags;
+   driReadUnlockKernelBO();
+
+   return flags;
 }
 
 static unsigned long
@@ -377,7 +410,10 @@ pool_takedown(struct _DriBufferPool *pool)
       _glthread_LOCK_MUTEX(p->mutex);
    }
 
-   drmBODestroy(pool->fd, &p->kernelBO);
+   driReadLockKernelBO();
+   drmBOUnreference(pool->fd, &p->kernelBO);
+   driReadUnlockKernelBO();
+
    free(p->bufs);
    _glthread_UNLOCK_MUTEX(p->mutex);
    free(p);
@@ -386,9 +422,11 @@ pool_takedown(struct _DriBufferPool *pool)
 
 
 struct _DriBufferPool *
-driBatchPoolInit(int fd, unsigned flags,
+driBatchPoolInit(int fd, uint64_t flags,
                  unsigned long bufSize,
-                 unsigned numBufs, unsigned checkDelayed)
+                 unsigned numBufs, unsigned checkDelayed, 
+		 unsigned pageAlignment,
+		 const char *name)
 {
    struct _DriBufferPool *pool;
 
@@ -396,7 +434,8 @@ driBatchPoolInit(int fd, unsigned flags,
    if (!pool)
       return NULL;
 
-   pool->data = createBPool(fd, bufSize, numBufs, flags, checkDelayed);
+   pool->data = createBPool(fd, bufSize, numBufs, flags, checkDelayed,
+			    pageAlignment, name);
    if (!pool->data)
       return NULL;
 
@@ -405,6 +444,7 @@ driBatchPoolInit(int fd, unsigned flags,
    pool->unmap = &pool_unmap;
    pool->destroy = &pool_destroy;
    pool->offset = &pool_offset;
+   pool->poolOffset = &pool_poolOffset;
    pool->flags = &pool_flags;
    pool->size = &pool_size;
    pool->create = &pool_create;
@@ -412,7 +452,6 @@ driBatchPoolInit(int fd, unsigned flags,
    pool->kernel = &pool_kernel;
    pool->validate = &pool_validate;
    pool->waitIdle = &pool_waitIdle;
-   pool->setstatic = NULL;
    pool->takeDown = &pool_takedown;
    return pool;
 }

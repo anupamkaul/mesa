@@ -43,7 +43,7 @@
 #include "intel_regions.h"
 #include "intel_blit.h"
 #include "intel_buffer_objects.h"
-#include "dri_bufmgr.h"
+#include "ws_dri_bufmgr.h"
 #include "intel_batchbuffer.h"
 
 #define FILE_DEBUG_FLAG DEBUG_REGION
@@ -100,17 +100,8 @@ intel_region_alloc(intelScreenPrivate *intelScreen,
    region->refcount = 1;
 
    driGenBuffers(intelScreen->regionPool,
-                 "region", 1, &region->buffer, 64,
-#ifdef TEST_CACHED_TEXTURES		 
-		 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_BIND_CACHED |
-		 DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 
-#else
-		 0,
-#endif
-		 0);
-   LOCK_HARDWARE(intel);
-   driBOData(region->buffer, pitch * cpp * height, NULL, 0);
-   UNLOCK_HARDWARE(intel);
+                 "region", 1, &region->buffer, 64, 0, 0);
+   driBOData(region->buffer, pitch * cpp * height, NULL, NULL, 0);
    return region;
 }
 
@@ -147,65 +138,45 @@ intel_region_release(struct intel_region **region)
    *region = NULL;
 }
 
-
 struct intel_region *
-intel_region_create_static(intelScreenPrivate *intelScreen,
-                           GLuint mem_type,
-                           GLuint offset,
-                           void *virtual,
-                           GLuint cpp, GLuint pitch, GLuint height)
+intel_region_alloc_by_ref(intelScreenPrivate *intelScreen,
+			  struct intel_region *region,
+			  GLuint cpp, GLuint pitch, GLuint height,
+			  unsigned long handle,
+			  char *name)
 {
-   struct intel_region *region = calloc(sizeof(*region), 1);
-   DBG("%s\n", __FUNCTION__);
+   unsigned long size;
+
+   if (!region) {
+      region = calloc(sizeof(*region), 1);
+
+      if (!region)
+	 return NULL;
+
+      region->refcount = 1;
+   }
+
+   if (region->buffer) {
+     driBOUnReference(region->buffer);
+     region->buffer = NULL;
+   }
 
    region->cpp = cpp;
    region->pitch = pitch;
-   region->height = height;     /* needed? */
-   region->refcount = 1;
+   region->height = height;
 
+   driGenBuffers(intelScreen->regionPool,
+                 name, 1, &region->buffer, 64,
+		 0, 0);
+   driBOSetReferenced(region->buffer, handle);
    /*
-    * We use a "shared" buffer type to indicate buffers created and
-    * shared by others.
+    * Check size of shared buffer.
     */
-
-   driGenBuffers(intelScreen->staticPool, "static region", 1,
-                 &region->buffer, 64,
-                 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_NO_MOVE |
-                 DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 0);
-   driBOSetStatic(region->buffer, offset, pitch * cpp * height, virtual, 0);
-
+   size = driBOSize(region->buffer);
+   _mesa_printf("Buffer %s has size %d, handle 0x%08x\n", name, size,
+		handle);
    return region;
-}
-
-
-
-void
-intel_region_update_static(intelScreenPrivate *intelScreen,
-			   struct intel_region *region,
-                           GLuint mem_type,
-                           GLuint offset,
-                           void *virtual,
-                           GLuint cpp, GLuint pitch, GLuint height)
-{
-   DBG("%s\n", __FUNCTION__);
-
-   region->cpp = cpp;
-   region->pitch = pitch;
-   region->height = height;     /* needed? */
-
-   /*
-    * We use a "shared" buffer type to indicate buffers created and
-    * shared by others.
-    */
-
-   driDeleteBuffers(1, &region->buffer);
-   driGenBuffers(intelScreen->staticPool, "static region", 1,
-                 &region->buffer, 64,
-                 DRM_BO_FLAG_MEM_TT | DRM_BO_FLAG_NO_MOVE |
-                 DRM_BO_FLAG_READ | DRM_BO_FLAG_WRITE, 0);
-   driBOSetStatic(region->buffer, offset, pitch * cpp * height, virtual, 0);
-
-}
+}   
 
 
 
@@ -406,10 +377,8 @@ intel_region_release_pbo(intelScreenPrivate *intelScreen,
    driGenBuffers(intelScreen->regionPool,
                  "region", 1, &region->buffer, 64, 0, 0);
    
-   LOCK_HARDWARE(intel);
    driBOData(region->buffer,
-             region->cpp * region->pitch * region->height, NULL, 0);
-   UNLOCK_HARDWARE(intel);
+             region->cpp * region->pitch * region->height, NULL, NULL, 0);
 }
 
 /* Break the COW tie to the pbo.  Both the pbo and the region end up
@@ -433,7 +402,7 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
    /* Now blit from the texture buffer to the new buffer: 
     */
 
-   intel_batchbuffer_flush(intel->batch);
+   driFenceUnReference(intel_batchbuffer_flush(intel->batch));
 
    if (!intel->locked) {
       LOCK_HARDWARE(intel);
@@ -447,7 +416,7 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
 			region->pitch, region->height,
 			GL_COPY);
       
-      intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
       UNLOCK_HARDWARE(intel);
    }
    else {
@@ -461,7 +430,7 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
 			region->pitch, region->height,
 			GL_COPY);
       
-      intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
    }
 }
 

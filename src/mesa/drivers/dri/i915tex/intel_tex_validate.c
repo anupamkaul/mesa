@@ -212,7 +212,7 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
    }
 
    if (need_flush)
-      intel_batchbuffer_flush(intel->batch);
+     driFenceUnReference(intel_batchbuffer_flush(intel->batch));
 
    return GL_TRUE;
 }

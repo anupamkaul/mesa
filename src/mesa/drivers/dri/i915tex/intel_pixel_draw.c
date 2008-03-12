@@ -179,7 +179,7 @@ do_texture_drawpixels(GLcontext * ctx,
                            srcx, srcx + width, srcy + height, srcy);
     out:
       intel->vtbl.leave_meta_state(intel);
-      intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
    }
    UNLOCK_HARDWARE(intel);
    return GL_TRUE;
@@ -325,12 +325,11 @@ do_blit_drawpixels(GLcontext * ctx,
 			   ctx->Color.LogicOp : GL_COPY);
       }
       fence = intel_batchbuffer_flush(intel->batch);
-      driFenceReference(fence);
    }
    UNLOCK_HARDWARE(intel);
 
    if (fence) {
-      driFenceFinish(fence, DRM_FENCE_TYPE_EXE | DRM_I915_FENCE_TYPE_RW, GL_FALSE);
+      driFenceFinish(fence, driFenceType(fence), GL_FALSE);
       driFenceUnReference(fence);
    }
 

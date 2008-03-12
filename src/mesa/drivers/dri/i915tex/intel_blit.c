@@ -71,7 +71,8 @@ intelCopyBuffer(const __DRIdrawablePrivate * dPriv,
       driFenceUnReference(intel->last_swap_fence);
       intel->last_swap_fence = NULL;
    }
-   intel->last_swap_fence = intel->first_swap_fence;
+   intel->last_swap_fence = intel->second_swap_fence;
+   intel->second_swap_fence = intel->first_swap_fence;
    intel->first_swap_fence = NULL;
 
    /* The LOCK_HARDWARE is required for the cliprects.  Buffer offsets
@@ -155,8 +156,6 @@ intelCopyBuffer(const __DRIdrawablePrivate * dPriv,
       if (intel->first_swap_fence)
 	 driFenceUnReference(intel->first_swap_fence);
       intel->first_swap_fence = intel_batchbuffer_flush(intel->batch);
-      if (intel->first_swap_fence)
-	 driFenceReference(intel->first_swap_fence);
    }
 
    UNLOCK_HARDWARE(intel);
@@ -510,7 +509,7 @@ intelClearWithBlit(GLcontext * ctx, GLbitfield mask)
             }
          }
       }
-      intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
    }
 
    UNLOCK_HARDWARE(intel);

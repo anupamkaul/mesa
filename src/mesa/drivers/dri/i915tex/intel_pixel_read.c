@@ -276,14 +276,12 @@ do_blit_readpixels(GLcontext * ctx,
       }
 
       fence = intel_batchbuffer_flush(intel->batch);
-      driFenceReference(fence);
 
    }
    UNLOCK_HARDWARE(intel);
 
    if (fence) {
-      driFenceFinish(fence, DRM_FENCE_TYPE_EXE | DRM_I915_FENCE_TYPE_RW, 
-		     GL_FALSE);
+      driFenceFinish(fence, driFenceType(fence), GL_FALSE);
       driFenceUnReference(fence);
    }
 

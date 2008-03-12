@@ -88,7 +88,6 @@ intelStartInlinePrimitive(struct intel_context *intel,
                           GLuint prim, GLuint batch_flags)
 {
    BATCH_LOCALS;
-
    intel->vtbl.emit_state(intel);
 
    /* Need to make sure at the very least that we don't wrap
@@ -97,7 +96,7 @@ intelStartInlinePrimitive(struct intel_context *intel,
     * preamble.
     */
    if (intel_batchbuffer_space(intel->batch) < 100) {
-      intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
       intel->vtbl.emit_state(intel);
    }
 
@@ -132,7 +131,7 @@ intelWrapInlinePrimitive(struct intel_context *intel)
    GLuint batchflags = intel->batch->flags;
 
    intel_flush_inline_primitive(intel);
-   intel_batchbuffer_flush(intel->batch);
+   driFenceUnReference(intel_batchbuffer_flush(intel->batch));
    intelStartInlinePrimitive(intel, prim, batchflags);  /* ??? */
 }
 

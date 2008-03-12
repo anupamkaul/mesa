@@ -230,7 +230,7 @@ do_texture_copypixels(GLcontext * ctx,
 
     out:
       intel->vtbl.leave_meta_state(intel);
-      intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
    }
    UNLOCK_HARDWARE(intel);
 
@@ -353,7 +353,7 @@ do_blit_copypixels(GLcontext * ctx,
       }
 
     out:
-      intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
    }
    UNLOCK_HARDWARE(intel);
 
