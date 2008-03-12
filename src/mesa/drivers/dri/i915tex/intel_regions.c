@@ -173,8 +173,6 @@ intel_region_alloc_by_ref(intelScreenPrivate *intelScreen,
     * Check size of shared buffer.
     */
    size = driBOSize(region->buffer);
-   _mesa_printf("Buffer %s has size %d, handle 0x%08x\n", name, size,
-		handle);
    return region;
 }   
 

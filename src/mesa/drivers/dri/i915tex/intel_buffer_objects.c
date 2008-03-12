@@ -59,6 +59,11 @@ intel_bufferobj_select(struct intel_context *intel,
 	 */
 	obj->pool = intel->intelScreen->regionPool;
 	switch(usage) {
+      /*
+       * Enable when performance-tested more thoroughly, and / or when
+       * we really have a memory type with VRAM-like semantics.
+       */
+#if 0 
 	case GL_STREAM_DRAW:
 	    /*
 	     * For streaming, we prioritize fast buffer creation, 
@@ -96,6 +101,7 @@ intel_bufferobj_select(struct intel_context *intel,
 	    obj->flags = DRM_BO_FLAG_MEM_VRAM | DRM_BO_FLAG_MEM_TT |
 		DRM_BO_FLAG_READ;
 	    break;
+#endif
 	default:
 	    /*
 	     * Choose a usage pattern that perhaps 
