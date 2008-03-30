@@ -311,11 +311,10 @@ do_flush_locked(struct intel_batchbuffer *batch,
    if (!(intel->numClipRects == 0 && !ignore_cliprects)) {
       ret = i915_execbuf(batch, used, ignore_cliprects, boList, &ea);
    } else {
-     driBOUnrefUserList(batch->list);
      driPutdrmBOList(batch->list);
-     return NULL;
+     fo = NULL;
+     goto out;
    }
-
    driPutdrmBOList(batch->list);
    if (ret)
       abort();
@@ -331,7 +330,8 @@ do_flush_locked(struct intel_batchbuffer *batch,
 	   driFenceUnReference(&batch->last_fence);
        _mesa_printf("fence error\n");
        batch->last_fence = NULL;
-       return NULL;
+       fo = NULL;
+       goto out;
    }
 
    fence.handle = ea.fence_arg.handle;
@@ -352,6 +352,7 @@ do_flush_locked(struct intel_batchbuffer *batch,
        batch->last_fence = fo;
        driFenceReference(fo);
    } 
+ out:
    intel->vtbl.lost_hardware(intel);
    return fo;
 }
