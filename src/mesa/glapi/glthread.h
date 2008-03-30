@@ -119,7 +119,7 @@ typedef pthread_mutex_t _glthread_Mutex;
 typedef pthread_cond_t _glthread_Cond;
 
 #define _glthread_DECLARE_STATIC_COND(name) \
-   static _glthread_Mutex name = PTHREAD_COND_INITIALIZER
+   static _glthread_Cond name = PTHREAD_COND_INITIALIZER
 
 #define _glthread_INIT_COND(cond)			\
    pthread_cond_init(&(cond), NULL)

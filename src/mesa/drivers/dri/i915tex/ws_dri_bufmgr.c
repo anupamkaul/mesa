@@ -50,6 +50,8 @@
  */
 
 _glthread_DECLARE_STATIC_MUTEX(bmMutex);
+_glthread_DECLARE_STATIC_COND(bmCond);
+
 static int kernelReaders = 0;
 
 static drmBO *drmBOListBuf(void *iterator)
@@ -235,23 +237,14 @@ static int drmBOResetList(drmBOList *list)
 
 void driWriteLockKernelBO(void)
 {
-    do {
-	_glthread_LOCK_MUTEX(bmMutex);
-	if (kernelReaders == 0) 
-	    break;
-
-	/*
-	 * No condition variables in Mesa yet...
-	 */
-
-	_glthread_UNLOCK_MUTEX(bmMutex);
-	sched_yield();
-    } while (1);
+    _glthread_LOCK_MUTEX(bmMutex);
+    while(kernelReaders != 0)
+	_glthread_COND_WAIT(bmCond, bmMutex);
 }
     
 void driWriteUnlockKernelBO(void)
 {
-	_glthread_UNLOCK_MUTEX(bmMutex);
+    _glthread_UNLOCK_MUTEX(bmMutex);
 }    
 
 void driReadLockKernelBO(void)
@@ -264,7 +257,8 @@ void driReadLockKernelBO(void)
 void driReadUnlockKernelBO(void)
 {
     _glthread_LOCK_MUTEX(bmMutex);
-    kernelReaders--;
+    if (--kernelReaders == 0)
+        _glthread_COND_BROADCAST(bmCond);
     _glthread_UNLOCK_MUTEX(bmMutex);
 }
 
