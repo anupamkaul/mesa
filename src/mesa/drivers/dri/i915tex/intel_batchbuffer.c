@@ -70,9 +70,9 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
     * Add the batchbuffer to the validate list.
     */
 
-   driBOAddListItem(batch->list, batch->buffer, 
-		    DRM_BO_FLAG_WRITE | DRM_BO_FLAG_MEM_TT,
-		    DRM_BO_FLAG_WRITE | DRM_BO_MASK_MEM,
+   driBOAddListItem(batch->list, batch->buffer,
+		    DRM_BO_FLAG_EXE | DRM_BO_FLAG_MEM_TT,
+		    DRM_BO_FLAG_EXE | DRM_BO_MASK_MEM,
 		    &batch->dest_location, &batch->node);
 
    req = &batch->node->bo_arg.d.req.bo_req;
@@ -138,8 +138,7 @@ intel_batchbuffer_free(struct intel_batchbuffer *batch)
    if (batch->last_fence) {
       driFenceFinish(batch->last_fence,
 		     DRM_FENCE_TYPE_EXE, GL_FALSE);
-      driFenceUnReference(batch->last_fence);
-      batch->last_fence = NULL;
+      driFenceUnReference(&batch->last_fence);
    }
    if (batch->map) {
       driBOUnmap(batch->buffer);
@@ -325,7 +324,7 @@ do_flush_locked(struct intel_batchbuffer *batch,
       */
 
        if (batch->last_fence)
-	   driFenceUnReference(batch->last_fence);
+	   driFenceUnReference(&batch->last_fence);
        batch->last_fence = NULL;
        return NULL;
    }
@@ -336,12 +335,12 @@ do_flush_locked(struct intel_batchbuffer *batch,
    fence.flags = ea.fence_arg.flags;
    fence.signaled = ea.fence_arg.signaled;
 
-   fo = driBOFenceUserList(batch->intel->driFd, batch->list,
+   fo = driBOFenceUserList(batch->intel->intelScreen->mgr, batch->list,
 			   "SuperFence", &fence);
 
    if (driFenceType(fo) & DRM_I915_FENCE_TYPE_RW) {
        if (batch->last_fence)
-	   driFenceUnReference(batch->last_fence);
+	   driFenceUnReference(&batch->last_fence);
        /*
 	* FIXME: Context last fence??
 	*/
@@ -406,7 +405,7 @@ intel_batchbuffer_finish(struct intel_batchbuffer *batch)
 {
    struct _DriFenceObject *fence = intel_batchbuffer_flush(batch);
    driFenceFinish(fence, driFenceType(fence), GL_FALSE);
-   driFenceUnReference(fence);
+   driFenceUnReference(&fence);
 }
 
 void

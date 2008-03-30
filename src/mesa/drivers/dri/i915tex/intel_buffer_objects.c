@@ -57,7 +57,7 @@ intel_bufferobj_select(struct intel_context *intel,
 	/*
 	 * Pixel buffer objects.
 	 */
-	obj->pool = intel->intelScreen->regionPool;
+	obj->pool = intel->intelScreen->drmPool;
 	switch(usage) {
       /*
        * Enable when performance-tested more thoroughly, and / or when

@@ -226,7 +226,7 @@ try_pbo_upload(struct intel_context *intel,
       struct _DriBufferObject *dst_buffer =
          intel_region_buffer(intel->intelScreen, intelImage->mt->region,
                              INTEL_WRITE_FULL);
-
+      struct _DriFenceObject *fence;
 
       intelEmitCopyBlit(intel,
                         intelImage->mt->cpp,
@@ -235,7 +235,8 @@ try_pbo_upload(struct intel_context *intel,
                         0, 0, 0, 0, width, height,
 			GL_COPY);
 
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
    }
    UNLOCK_HARDWARE(intel);
 

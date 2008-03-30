@@ -34,6 +34,7 @@
 #define _PSB_BUFMGR_H_
 #include <xf86mm.h>
 #include "i915_drm.h"
+#include "ws_dri_fencemgr.h"
 
 typedef struct _drmBONode
 {
@@ -57,16 +58,6 @@ struct _DriFenceObject;
 struct _DriBufferObject;
 struct _DriBufferPool;
 struct _DriBufferList;
-
-extern struct _DriFenceObject *driFenceReference(struct _DriFenceObject *fence);
-
-extern void driFenceUnReference(struct _DriFenceObject *fence);
-
-extern int
-driFenceFinish(struct _DriFenceObject *fence, unsigned type, int lazy);
-
-extern int driFenceSignaled(struct _DriFenceObject *fence, unsigned type);
-extern unsigned driFenceType(struct _DriFenceObject *fence);
 
 /*
  * Return a pointer to the libdrm buffer object this DriBufferObject
@@ -110,7 +101,7 @@ extern void driBOAddListItem(struct _DriBufferList * list,
 
 extern void driBOValidateList(int fd, struct _DriBufferList * list);
 extern void driBOFreeList(struct _DriBufferList * list);
-extern struct _DriFenceObject *driBOFenceUserList(int fd, 
+extern struct _DriFenceObject *driBOFenceUserList(struct _DriFenceMgr *mgr,
 						  struct _DriBufferList *list,
 						  const char *name,
 						  drmFence *kFence);

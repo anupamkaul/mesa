@@ -68,8 +68,7 @@ intelCopyBuffer(const __DRIdrawablePrivate * dPriv,
 
    if (intel->last_swap_fence) {
       driFenceFinish(intel->last_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);
-      driFenceUnReference(intel->last_swap_fence);
-      intel->last_swap_fence = NULL;
+      driFenceUnReference(&intel->last_swap_fence);
    }
    intel->last_swap_fence = intel->second_swap_fence;
    intel->second_swap_fence = intel->first_swap_fence;
@@ -154,7 +153,7 @@ intelCopyBuffer(const __DRIdrawablePrivate * dPriv,
       }
 
       if (intel->first_swap_fence)
-	 driFenceUnReference(intel->first_swap_fence);
+	 driFenceUnReference(&intel->first_swap_fence);
       intel->first_swap_fence = intel_batchbuffer_flush(intel->batch);
    }
 
@@ -380,6 +379,7 @@ intelClearWithBlit(GLcontext * ctx, GLbitfield mask)
       GLint cx, cy, cw, ch;
       drm_clip_rect_t clear;
       int i;
+      struct _DriFenceObject *fence;
 
       /* Get clear bounds after locking */
       cx = fb->_Xmin;
@@ -509,7 +509,8 @@ intelClearWithBlit(GLcontext * ctx, GLbitfield mask)
             }
          }
       }
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
    }
 
    UNLOCK_HARDWARE(intel);

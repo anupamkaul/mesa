@@ -111,10 +111,9 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
    GLuint face, i;
    GLuint nr_faces = 0;
    struct intel_texture_image *firstImage;
-
    GLboolean need_flush = GL_FALSE;
 
-   /* We know/require this is true by now: 
+   /* We know/require this is true by now:
     */
    assert(intelObj->base.Complete);
 
@@ -211,8 +210,10 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
       }
    }
 
-   if (need_flush)
-     driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+   if (need_flush) {
+     struct _DriFenceObject *fence = intel_batchbuffer_flush(intel->batch);
+     driFenceUnReference(&fence);
+   }
 
    return GL_TRUE;
 }

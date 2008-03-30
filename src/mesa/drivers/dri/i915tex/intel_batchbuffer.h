@@ -100,10 +100,14 @@ static INLINE void
 intel_batchbuffer_require_space(struct intel_batchbuffer *batch,
                                 GLuint sz, GLuint flags)
 {
+   struct _DriFenceObject *fence;
+
    assert(sz < batch->size - 8);
    if (intel_batchbuffer_space(batch) < sz ||
-       (batch->flags != 0 && flags != 0 && batch->flags != flags))
-       driFenceUnReference(intel_batchbuffer_flush(batch));
+       (batch->flags != 0 && flags != 0 && batch->flags != flags)) {
+      fence = intel_batchbuffer_flush(batch);
+      driFenceUnReference(&fence);
+   }
 
    batch->flags |= flags;
 }

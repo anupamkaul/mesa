@@ -38,6 +38,7 @@
 #include "string.h"
 #include "imports.h"
 #include "ws_dri_bufpool.h"
+#include "ws_dri_fencemgr.h"
 
 /*
  * This lock is here to protect drmBO structs changing underneath us during a
@@ -275,15 +276,6 @@ void driReadUnlockKernelBO(void)
  * buffer object pools.
  */
 
-typedef struct _DriFenceObject
-{
-   int fd;
-   _glthread_Mutex mutex;
-   int refCount;
-   const char *name;
-   drmFence fence;
-} DriFenceObject;
-
 typedef struct _DriBufferObject
 {
    DriBufferPool *pool;
@@ -318,92 +310,19 @@ bmError(int val, const char *file, const char *function, int line)
 #endif
 }
 
-unsigned 
-driFenceType(DriFenceObject * fence)
-{
-    unsigned ret;
-
-    _glthread_LOCK_MUTEX(fence->mutex);
-    ret = fence->fence.type;
-    _glthread_UNLOCK_MUTEX(fence->mutex);
-    
-    return ret;
-}
-
-
-DriFenceObject *
-driFenceReference(DriFenceObject * fence)
-{
-   _glthread_LOCK_MUTEX(fence->mutex);
-   ++fence->refCount;
-   
-   _glthread_UNLOCK_MUTEX(fence->mutex);
-   
-   return fence;
-}
-
-void
-driFenceUnReference(DriFenceObject * fence)
-{
-   if (!fence)
-      return;
-
-   _glthread_LOCK_MUTEX(fence->mutex);
-   if (--fence->refCount == 0) {
-
-     /*
-      * At this point nothing can be waiting on the fence mutex.
-      * However, unlock it before destroying.
-      */
-
-      _glthread_UNLOCK_MUTEX(fence->mutex);
-      drmFenceUnreference(fence->fd, &fence->fence);
-      free(fence);
-      return;
-   }
-   _glthread_UNLOCK_MUTEX(fence->mutex);
-}
-
-int
-driFenceFinish(DriFenceObject * fence, unsigned type, int lazy)
-{
-   int ret;
-   unsigned flags = (lazy) ? DRM_FENCE_FLAG_WAIT_LAZY : 0;
-
-   _glthread_LOCK_MUTEX(fence->mutex);
-   ret = drmFenceWait(fence->fd, flags, &fence->fence, type);
-   _glthread_UNLOCK_MUTEX(fence->mutex);
-   return ret;
-}
-
-int
-driFenceSignaled(DriFenceObject * fence, unsigned type)
-{
-   int signaled;
-   int ret;
-
-   if (fence == NULL)
-      return GL_TRUE;
-
-   _glthread_LOCK_MUTEX(fence->mutex);
-   ret = drmFenceSignaled(fence->fd, &fence->fence, type, &signaled);
-   _glthread_UNLOCK_MUTEX(fence->mutex);
-   BM_CKFATAL(ret);
-   return signaled;
-}
-
-
 extern drmBO *
 driBOKernel(struct _DriBufferObject *buf)
 {
    drmBO *ret;
 
+   driReadLockKernelBO();
    _glthread_LOCK_MUTEX(buf->mutex);
    assert(buf->private != NULL);
    ret = buf->pool->kernel(buf->pool, buf->private);
    if (!ret)
       BM_CKFATAL(-EINVAL);
    _glthread_UNLOCK_MUTEX(buf->mutex);
+   driReadUnlockKernelBO();
 
    return ret;
 }
@@ -427,11 +346,6 @@ driBOMap(struct _DriBufferObject *buf, unsigned flags, unsigned hint)
 {
    void *virtual;
    int retval;
-
-  /*
-   * This function may block. Is it sane to keep the mutex held during
-   * that time??
-   */
 
    _glthread_LOCK_MUTEX(buf->mutex);
    assert(buf->private != NULL);
@@ -483,9 +397,11 @@ driBOFlags(struct _DriBufferObject *buf)
 
    assert(buf->private != NULL);
 
+   driReadLockKernelBO();
    _glthread_LOCK_MUTEX(buf->mutex);
    ret = buf->pool->flags(buf->pool, buf->private);
    _glthread_UNLOCK_MUTEX(buf->mutex);
+   driReadUnlockKernelBO();
    return ret;
 }
 
@@ -572,10 +488,9 @@ driBOData(struct _DriBufferObject *buf,
        if (buf->private)
 	   buf->pool->destroy(buf->pool, buf->private);
 
-       buf->pool = newPool;
        pool = newPool;
-
-      buf->private = pool->create(pool, size, flags, DRM_BO_HINT_DONT_FENCE,
+       buf->pool = newPool;
+       buf->private = pool->create(pool, size, flags, DRM_BO_HINT_DONT_FENCE,
 				  buf->alignment);
       if (!buf->private)
 	  retval = -ENOMEM;
@@ -918,24 +833,17 @@ driBOUnrefUserList(struct _DriBufferList *list)
 }
 
 struct _DriFenceObject *
-driBOFenceUserList(int fd, struct _DriBufferList *list, const char *name,
+driBOFenceUserList(struct _DriFenceMgr *mgr,
+		   struct _DriBufferList *list, const char *name,
 		   drmFence *kFence)
 {
-    DriFenceObject *fence = (DriFenceObject *) malloc(sizeof(*fence));
+    struct _DriFenceObject *fence;
     struct _DriBufferObject *buf;
     void *curBuf;
 
-   if (!fence)
-      BM_CKFATAL(-EINVAL);
-   
-   fence->refCount = 1;
-   fence->name = name;
-   fence->fd = fd;
-   fence->fence = *kFence;
-
-   _glthread_INIT_MUTEX(fence->mutex);
-
-   curBuf = drmBOListIterator(&list->driBuffers);
+    fence = driFenceCreate(mgr, kFence->fence_class, kFence->type,
+			   kFence, sizeof(*kFence));
+    curBuf = drmBOListIterator(&list->driBuffers);
 
    /*
     * User-space fencing callbacks.

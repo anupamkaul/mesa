@@ -51,9 +51,10 @@ DRIVER_SOURCES = \
 	intel_tris.c \
 	intel_fbo.c \
 	intel_depthstencil.c \
-	ws_dri_batchpool.c  \
 	ws_dri_drmpool.c    \
 	ws_dri_mallocpool.c \
+	ws_dri_slabpool.c \
+	ws_dri_fencemgr.c \
 	ws_dri_bufmgr.c
 
 C_SOURCES = \

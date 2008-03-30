@@ -330,45 +330,76 @@ intelUpdateScreenFromSAREA(intelScreenPrivate * intelScreen,
       intelPrintSAREA(sarea);
 }
 
-GLboolean
+static GLboolean
 intelCreatePools(intelScreenPrivate *intelScreen)
 {
-   unsigned batchPoolSize = 1024*1024;
    __DRIscreenPrivate * sPriv = intelScreen->driScrnPriv;
 
-   if (intelScreen->havePools)
-      return GL_TRUE;
+   intelScreen->drmPool = driDRMPoolInit(sPriv->fd);
+   if (!intelScreen->drmPool) {
+       _mesa_printf("Failed creating DRM buffer object pool.\n");
+       return GL_FALSE;
+   }
 
-   batchPoolSize /= intelScreen->maxBatchSize;
-   intelScreen->regionPool = driDRMPoolInit(sPriv->fd);
+   /*
+    * Create 6 size buckets with sizes
+    * 64, 128, 256, 512, 1024, 2048 bytes.
+    * Make slabs one page in size. Larger buffers will have a
+    * unique drmBO of their own.
+    */
 
-   if (!intelScreen->regionPool)
-      return GL_FALSE;
+   intelScreen->surfacePool = driSlabPoolInit(sPriv->fd,
+					      DRM_BO_FLAG_READ |
+					      DRM_BO_FLAG_WRITE |
+					      DRM_BO_FLAG_MEM_TT,
+					      DRM_BO_FLAG_READ |
+					      DRM_BO_FLAG_WRITE |
+					      DRM_BO_FLAG_MEM_TT,
+					      64, 6, 16, 4096, 0,
+					      intelScreen->fMan);
+   if (!intelScreen->surfacePool) {
+       _mesa_printf("Failed creating Surface buffer object pool.\n");
+       goto out_err0;
+   }
 
-   intelScreen->texPool = intelScreen->regionPool;
+   /*
+    * Create a single size bucket. Buffer sizes are
+    * intelScreen->maxBatchSize. Slab sizes are 256 kB. This will
+    * waste on average 128kB per application, which should be rather OK.
+    * Smaller sizes will have a CPU impact due to more frequent
+    * slab allocation and freeing. Could be retested with linux
+    * 2.6.25 and upwards.
+    */
 
-   intelScreen->batchPool = driBatchPoolInit(sPriv->fd,
-                                             DRM_BO_FLAG_EXE |
-                                             DRM_BO_FLAG_MEM_TT |
-                                             DRM_BO_FLAG_MEM_LOCAL,
-                                             intelScreen->maxBatchSize, 
-					     batchPoolSize, 5, 0,
-					     "Batch Pool");
+   intelScreen->batchPool = driSlabPoolInit(sPriv->fd,
+					    DRM_BO_FLAG_EXE |
+					    DRM_BO_FLAG_MEM_TT,
+					    DRM_BO_FLAG_EXE |
+					    DRM_BO_FLAG_MEM_TT,
+					    intelScreen->maxBatchSize,
+					    1, 40, 16*16384, 0,
+					    intelScreen->fMan);
    if (!intelScreen->batchPool) {
-      fprintf(stderr, "Failed to initialize batch pool.\n");
-      return GL_FALSE;
+       _mesa_printf("Failed creating Batch buffer object pool.\n");
+       goto out_err1;
    }
 
    intelScreen->mallocPool = driMallocPoolInit();
    if (!intelScreen->mallocPool) {
-      fprintf(stderr, "Failed to initialize malloc pool.\n");
-      return GL_FALSE;
+       _mesa_printf("Failed creating Vertex buffer object pool.\n");
+       goto out_err2;
    }
-   
-   intel_recreate_static_regions(intelScreen);
-   intelScreen->havePools = GL_TRUE;
 
+   intel_recreate_static_regions(intelScreen);
    return GL_TRUE;
+
+  out_err2:
+   driPoolTakeDown(intelScreen->batchPool);
+  out_err1:
+   driPoolTakeDown(intelScreen->surfacePool);
+  out_err0:
+   driPoolTakeDown(intelScreen->drmPool);
+   return GL_FALSE;
 }
 
 
@@ -483,6 +514,20 @@ intelInitDriver(__DRIscreenPrivate * sPriv)
       (*glx_enable_extension) (psc, "GLX_SGI_make_current_read");
    }
 
+   intelScreen->mgr = driFenceMgrTTMInit(sPriv->fd);
+   if (!intelScreen->mgr) {
+      fprintf(stderr, "Failed to create fence manager.\n");
+      return GL_FALSE;
+   }
+   intelScreen->fMan = driInitFreeSlabManager(10, 10);
+   if (!intelScreen->mgr) {
+      fprintf(stderr, "Failed to create free slab manager.\n");
+      return GL_FALSE;
+   }
+
+   if (!intelCreatePools(intelScreen))
+      return GL_FALSE;
+
    return GL_TRUE;
 }
 
@@ -494,10 +539,13 @@ intelDestroyScreen(__DRIscreenPrivate * sPriv)
 
    intelUnmapScreenRegions(intelScreen);
 
-   if (intelScreen->havePools) {
-      driPoolTakeDown(intelScreen->regionPool);
-      driPoolTakeDown(intelScreen->batchPool);
-   }
+   driPoolTakeDown(intelScreen->mallocPool);
+   driPoolTakeDown(intelScreen->batchPool);
+   driPoolTakeDown(intelScreen->surfacePool);
+   driPoolTakeDown(intelScreen->drmPool);
+
+   driFinishFreeSlabManager(intelScreen->fMan);
+   driFenceMgrUnReference(&intelScreen->mgr);
    FREE(intelScreen);
    sPriv->private = NULL;
 }

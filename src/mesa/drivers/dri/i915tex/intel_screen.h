@@ -84,12 +84,14 @@ typedef struct
 
    driOptionCache optionCache;
    struct _DriBufferPool *batchPool;
-   struct _DriBufferPool *texPool;
-   struct _DriBufferPool *regionPool;
+   struct _DriBufferPool *surfacePool;
+   struct _DriBufferPool *drmPool;
    struct _DriBufferPool *mallocPool;
    unsigned int maxBatchSize;
-   GLboolean havePools;
    unsigned batch_id;
+
+   struct _DriFenceMgr *mgr;
+   struct _DriFreeSlabManager *fMan;
 } intelScreenPrivate;
 
 
@@ -116,18 +118,9 @@ extern void intelSwapBuffers(__DRIdrawablePrivate * dPriv);
 extern void
 intelCopySubBuffer(__DRIdrawablePrivate * dPriv, int x, int y, int w, int h);
 
-extern struct _DriBufferPool *driBatchPoolInit(int fd, uint64_t flags,
-                                               unsigned long bufSize,
-                                               unsigned numBufs,
-                                               unsigned checkDelayed,
-					       unsigned pageAlignment,
-					       const char *name);
-extern struct _DriBufferPool *driMallocPoolInit(void);
 extern struct intel_context *intelScreenContext(intelScreenPrivate *intelScreen);
 
 extern void
 intelUpdateScreenRotation(__DRIscreenPrivate * sPriv, drmI830Sarea * sarea);
-extern GLboolean
-intelCreatePools(intelScreenPrivate *intelScreen);
 
 #endif

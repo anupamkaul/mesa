@@ -282,7 +282,7 @@ do_blit_readpixels(GLcontext * ctx,
 
    if (fence) {
       driFenceFinish(fence, driFenceType(fence), GL_FALSE);
-      driFenceUnReference(fence);
+      driFenceUnReference(&fence);
    }
 
    if (INTEL_DEBUG & DEBUG_PIXEL)

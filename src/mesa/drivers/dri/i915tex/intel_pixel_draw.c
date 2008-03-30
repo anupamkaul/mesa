@@ -59,6 +59,7 @@ do_texture_drawpixels(GLcontext * ctx,
    struct intel_buffer_object *src = intel_buffer_object(unpack->BufferObj);
    GLuint rowLength = unpack->RowLength ? unpack->RowLength : width;
    GLuint src_offset;
+   struct _DriFenceObject *fence;
 
    if (INTEL_DEBUG & DEBUG_PIXEL)
       fprintf(stderr, "%s\n", __FUNCTION__);
@@ -179,7 +180,8 @@ do_texture_drawpixels(GLcontext * ctx,
                            srcx, srcx + width, srcy + height, srcy);
     out:
       intel->vtbl.leave_meta_state(intel);
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
    }
    UNLOCK_HARDWARE(intel);
    return GL_TRUE;
@@ -330,7 +332,7 @@ do_blit_drawpixels(GLcontext * ctx,
 
    if (fence) {
       driFenceFinish(fence, driFenceType(fence), GL_FALSE);
-      driFenceUnReference(fence);
+      driFenceUnReference(&fence);
    }
 
    if (INTEL_DEBUG & DEBUG_PIXEL)

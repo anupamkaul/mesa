@@ -96,7 +96,9 @@ intelStartInlinePrimitive(struct intel_context *intel,
     * preamble.
     */
    if (intel_batchbuffer_space(intel->batch) < 100) {
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      struct _DriFenceObject *fence;
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
       intel->vtbl.emit_state(intel);
    }
 
@@ -129,9 +131,11 @@ intelWrapInlinePrimitive(struct intel_context *intel)
 {
    GLuint prim = intel->prim.primitive;
    GLuint batchflags = intel->batch->flags;
+   struct _DriFenceObject *fence;
 
    intel_flush_inline_primitive(intel);
-   driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+   fence = intel_batchbuffer_flush(intel->batch);
+   driFenceUnReference(&fence);
    intelStartInlinePrimitive(intel, prim, batchflags);  /* ??? */
 }
 

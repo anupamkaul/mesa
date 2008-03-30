@@ -98,8 +98,8 @@ intel_region_alloc(intelScreenPrivate *intelScreen,
    region->height = height;     /* needed? */
    region->refcount = 1;
 
-   driGenBuffers(intelScreen->regionPool,
-                 "region", 1, &region->buffer, 64, 0, 0);
+   driGenBuffers(intelScreen->surfacePool,
+                 "surface", 1, &region->buffer, 64, 0, 0);
    driBOData(region->buffer, pitch * cpp * height, NULL, NULL, 0);
    return region;
 }
@@ -164,7 +164,7 @@ intel_region_alloc_by_ref(intelScreenPrivate *intelScreen,
    region->pitch = pitch;
    region->height = height;
 
-   driGenBuffers(intelScreen->regionPool,
+   driGenBuffers(intelScreen->drmPool,
                  name, 1, &region->buffer, 64,
 		 0, 0);
    driBOSetReferenced(region->buffer, handle);
@@ -369,7 +369,7 @@ intel_region_release_pbo(intelScreenPrivate *intelScreen,
    driBOUnReference(region->buffer);
    region->buffer = NULL;
 
-   driGenBuffers(intelScreen->regionPool,
+   driGenBuffers(intelScreen->surfacePool,
                  "region", 1, &region->buffer, 64, 0, 0);
    
    driBOData(region->buffer,
@@ -384,6 +384,7 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
 {
    struct intel_context *intel = intelScreenContext(intelScreen);
    struct intel_buffer_object *pbo = region->pbo;
+   struct _DriFenceObject *fence;
 
    if (intel == NULL)
       return;
@@ -397,7 +398,8 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
    /* Now blit from the texture buffer to the new buffer: 
     */
 
-   driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+   fence = intel_batchbuffer_flush(intel->batch);
+   driFenceUnReference(&fence);
 
    if (!intel->locked) {
       LOCK_HARDWARE(intel);
@@ -411,7 +413,8 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
 			region->pitch, region->height,
 			GL_COPY);
       
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
       UNLOCK_HARDWARE(intel);
    }
    else {
@@ -425,7 +428,8 @@ intel_region_cow(intelScreenPrivate *intelScreen, struct intel_region *region)
 			region->pitch, region->height,
 			GL_COPY);
       
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
    }
 }
 

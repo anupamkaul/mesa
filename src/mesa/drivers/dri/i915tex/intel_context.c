@@ -264,14 +264,17 @@ void
 intelFlush(GLcontext * ctx)
 {
    struct intel_context *intel = intel_context(ctx);
+   struct _DriFenceObject *fence;
 
    if (intel->Fallback)
       _swrast_flush(ctx);
 
    INTEL_FIREVERTICES(intel);
 
-   if (intel->batch->map != intel->batch->ptr)
-     driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+   if (intel->batch->map != intel->batch->ptr) {
+     fence = intel_batchbuffer_flush(intel->batch);
+     driFenceUnReference(&fence);
+   }
 
    /* XXX: Need to do an MI_FLUSH here.
     */
@@ -310,10 +313,9 @@ intelFinish(GLcontext * ctx)
    struct intel_context *intel = intel_context(ctx);
    intelFlush(ctx);
    if (intel->batch->last_fence) {
-      driFenceFinish(intel->batch->last_fence, 
+      driFenceFinish(intel->batch->last_fence,
 		     driFenceType(intel->batch->last_fence), GL_FALSE);
-      driFenceUnReference(intel->batch->last_fence);
-      intel->batch->last_fence = NULL;
+      driFenceUnReference(&intel->batch->last_fence);
    }
    intelCheckFrontRotate(ctx);
 }
@@ -354,15 +356,7 @@ intelInitContext(struct intel_context *intel,
    drmI830Sarea *saPriv = (drmI830Sarea *)
       (((GLubyte *) sPriv->pSAREA) + intelScreen->sarea_priv_offset);
    int fthrottle_mode;
-   GLboolean havePools;
 
-   DRM_LIGHT_LOCK(sPriv->fd, &sPriv->pSAREA->lock, driContextPriv->hHWContext);
-   havePools = intelCreatePools(intelScreen);
-   DRM_UNLOCK(sPriv->fd, &sPriv->pSAREA->lock, driContextPriv->hHWContext);
-
-   if (!havePools)
-      return GL_FALSE;
-     
    if (!_mesa_initialize_context(&intel->ctx,
                                  mesaVis, shareCtx,
                                  functions, (void *) intel))
@@ -530,13 +524,11 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
 
       if (intel->last_swap_fence) {
 	 driFenceFinish(intel->last_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);
-	 driFenceUnReference(intel->last_swap_fence);
-	 intel->last_swap_fence = NULL;
+	 driFenceUnReference(&intel->last_swap_fence);
       }
       if (intel->first_swap_fence) {
 	 driFenceFinish(intel->first_swap_fence, DRM_FENCE_TYPE_EXE, GL_TRUE);
-	 driFenceUnReference(intel->first_swap_fence);
-	 intel->first_swap_fence = NULL;
+	 driFenceUnReference(&intel->first_swap_fence);
       }
 
 
@@ -677,6 +669,7 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
        sarea->height != intel->height ||
        sarea->rotation != intel->current_rotation) {
       int numClipRects = intel->numClipRects;
+      struct _DriFenceObject *fence;
 
       /*
        * FIXME: Really only need to do this when drawing to a
@@ -693,8 +686,10 @@ intelContendedLock(struct intel_context *intel, GLuint flags)
 
       INTEL_FIREVERTICES(intel);
 
-      if (intel->batch->map != intel->batch->ptr)
-	driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      if (intel->batch->map != intel->batch->ptr) {
+	fence = intel_batchbuffer_flush(intel->batch);
+	driFenceUnReference(&fence);
+      }
 
       intel->numClipRects = numClipRects;
 

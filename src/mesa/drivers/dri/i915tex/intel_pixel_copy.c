@@ -114,8 +114,9 @@ do_texture_copypixels(GLcontext * ctx,
    struct intel_region *src = copypix_src_region(intel, type);
    GLenum src_format;
    GLenum src_type;
+   struct _DriFenceObject *fence;
 
-   DBG("%s %d,%d %dx%d --> %d,%d\n", __FUNCTION__, 
+   DBG("%s %d,%d %dx%d --> %d,%d\n", __FUNCTION__,
        srcx, srcy, width, height, dstx, dsty);
 
    if (!src || !dst || type != GL_COLOR)
@@ -230,7 +231,8 @@ do_texture_copypixels(GLcontext * ctx,
 
     out:
       intel->vtbl.leave_meta_state(intel);
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
    }
    UNLOCK_HARDWARE(intel);
 
@@ -254,6 +256,7 @@ do_blit_copypixels(GLcontext * ctx,
    struct intel_context *intel = intel_context(ctx);
    struct intel_region *dst = intel_drawbuf_region(intel);
    struct intel_region *src = copypix_src_region(intel, type);
+   struct _DriFenceObject *fence;
 
    /* Copypixels can be more than a straight copy.  Ensure all the
     * extra operations are disabled:
@@ -353,7 +356,8 @@ do_blit_copypixels(GLcontext * ctx,
       }
 
     out:
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
    }
    UNLOCK_HARDWARE(intel);
 

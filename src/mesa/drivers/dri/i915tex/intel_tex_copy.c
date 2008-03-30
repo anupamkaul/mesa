@@ -109,6 +109,7 @@ do_copy_texsubimage(struct intel_context *intel,
       const GLint orig_x = x;
       const GLint orig_y = y;
       const struct gl_framebuffer *fb = ctx->DrawBuffer;
+      struct _DriFenceObject *fence;
 
       if (_mesa_clip_to_region(fb->_Xmin, fb->_Ymin, fb->_Xmax, fb->_Ymax,
                                &x, &y, &width, &height)) {
@@ -148,7 +149,8 @@ do_copy_texsubimage(struct intel_context *intel,
                            x, y + height, dstx, dsty, width, height,
 			   GL_COPY); /* ? */
 
-         driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+         fence = intel_batchbuffer_flush(intel->batch);
+	 driFenceUnReference(&fence);
       }
    }
 

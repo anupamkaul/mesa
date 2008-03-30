@@ -375,6 +375,7 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
    GLcontext *ctx = &intel->ctx;
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    drm_clip_rect_t clear;
+   struct _DriFenceObject *fence;
 
    if (INTEL_DEBUG & DEBUG_BLIT)
       _mesa_printf("%s 0x%x\n", __FUNCTION__, mask);
@@ -467,7 +468,8 @@ intelClearWithTris(struct intel_context *intel, GLbitfield mask)
       }
 
       intel->vtbl.leave_meta_state(intel);
-      driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+      fence = intel_batchbuffer_flush(intel->batch);
+      driFenceUnReference(&fence);
    }
    UNLOCK_HARDWARE(intel);
 }
@@ -684,6 +686,7 @@ intelScheduleSwap(const __DRIdrawablePrivate * dPriv, GLboolean *missed_target)
    unsigned int target;
    drm_i915_vblank_swap_t swap;
    GLboolean ret;
+   struct _DriFenceObject *fence;
 
    if (!intel_fb->vblank_flags ||
        (intel_fb->vblank_flags & VBLANK_FLAG_NO_IRQ) ||
@@ -707,7 +710,8 @@ intelScheduleSwap(const __DRIdrawablePrivate * dPriv, GLboolean *missed_target)
 
    LOCK_HARDWARE(intel);
 
-   driFenceUnReference(intel_batchbuffer_flush(intel->batch));
+   fence = intel_batchbuffer_flush(intel->batch);
+   driFenceUnReference(&fence);
 
    if ( intel_fb->pf_active ) {
       swap.seqtype |= DRM_VBLANK_FLIP;

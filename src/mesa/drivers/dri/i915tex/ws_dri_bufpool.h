@@ -81,6 +81,20 @@ extern void bmError(int val, const char *file, const char *function,
  */
 
 extern struct _DriBufferPool *driDRMPoolInit(int fd);
-extern struct _DriBufferPool *driDRMStaticPoolInit(int fd);
+extern struct _DriBufferPool *driMallocPoolInit(void);
+
+struct _DriFreeSlabManager;
+extern struct _DriBufferPool * driSlabPoolInit(int fd, uint64_t flags,
+					       uint64_t validMask,
+					       uint32_t smallestSize,
+					       uint32_t numSizes,
+					       uint32_t desiredNumBuffers,
+					       uint32_t maxSlabSize,
+					       uint32_t pageAlignment,
+					       struct _DriFreeSlabManager *fMan);
+extern void driFinishFreeSlabManager(struct _DriFreeSlabManager *fMan);
+extern struct _DriFreeSlabManager *
+driInitFreeSlabManager(uint32_t checkIntervalMsec, uint32_t slabTimeoutMsec);
+
 
 #endif
