@@ -337,7 +337,7 @@ driBOWaitIdle(struct _DriBufferObject *buf, int lazy)
    */
 
    _glthread_LOCK_MUTEX(buf->mutex);
-   BM_CKFATAL(buf->pool->waitIdle(buf->pool, buf->private, lazy));
+   BM_CKFATAL(buf->pool->waitIdle(buf->pool, buf->private, &buf->mutex, lazy));
    _glthread_UNLOCK_MUTEX(buf->mutex);
 }
 
@@ -349,7 +349,8 @@ driBOMap(struct _DriBufferObject *buf, unsigned flags, unsigned hint)
 
    _glthread_LOCK_MUTEX(buf->mutex);
    assert(buf->private != NULL);
-   retval = buf->pool->map(buf->pool, buf->private, flags, hint, &virtual);
+   retval = buf->pool->map(buf->pool, buf->private, flags, hint, 
+			   &buf->mutex, &virtual);
    _glthread_UNLOCK_MUTEX(buf->mutex);
 
    return retval == 0 ? virtual : NULL;
@@ -498,9 +499,9 @@ driBOData(struct _DriBufferObject *buf,
       if (retval == 0)
 	  retval = pool->map(pool, buf->private,
 			     DRM_BO_FLAG_WRITE,
-			     DRM_BO_HINT_DONT_BLOCK, &virtual);
+			     DRM_BO_HINT_DONT_BLOCK, &buf->mutex, &virtual);
    } else if (pool->map(pool, buf->private, DRM_BO_FLAG_WRITE,
-			DRM_BO_HINT_DONT_BLOCK, &virtual)) {
+			DRM_BO_HINT_DONT_BLOCK, &buf->mutex, &virtual)) {
        /*
 	* Buffer is busy. need to create a new one.
 	*/
@@ -515,7 +516,7 @@ driBOData(struct _DriBufferObject *buf,
        }
 
        retval = pool->map(pool, buf->private,
-			  DRM_BO_FLAG_WRITE, 0, &virtual);
+			  DRM_BO_FLAG_WRITE, 0, &buf->mutex, &virtual);
    } else {
        uint64_t flag_diff = flags ^ buf->flags;
        
@@ -532,7 +533,7 @@ driBOData(struct _DriBufferObject *buf,
 	     goto out;
 
 	   retval = pool->map(pool, buf->private,
-			      DRM_BO_FLAG_WRITE, 0, &virtual);
+			      DRM_BO_FLAG_WRITE, 0, &buf->mutex, &virtual);
        }
    }
 
@@ -558,7 +559,8 @@ driBOSubData(struct _DriBufferObject *buf,
    _glthread_LOCK_MUTEX(buf->mutex);
    if (size && data) {
       BM_CKFATAL(buf->pool->map(buf->pool, buf->private,
-                                DRM_BO_FLAG_WRITE, 0, &virtual));
+                                DRM_BO_FLAG_WRITE, 0, &buf->mutex,
+				&virtual));
       memcpy((unsigned char *) virtual + offset, data, size);
       BM_CKFATAL(buf->pool->unmap(buf->pool, buf->private));
    }
@@ -574,7 +576,7 @@ driBOGetSubData(struct _DriBufferObject *buf,
    _glthread_LOCK_MUTEX(buf->mutex);
    if (size && data) {
       BM_CKFATAL(buf->pool->map(buf->pool, buf->private,
-                                DRM_BO_FLAG_READ, 0, &virtual));
+                                DRM_BO_FLAG_READ, 0, &buf->mutex, &virtual));
       memcpy(data, (unsigned char *) virtual + offset, size);
       BM_CKFATAL(buf->pool->unmap(buf->pool, buf->private));
    }
@@ -876,7 +878,7 @@ driBOValidateUserList(struct _DriBufferList * list)
 	buf = (struct _DriBufferObject *) drmBOListBuf(curBuf);
 	_glthread_LOCK_MUTEX(buf->mutex);
 	if (buf->pool->validate)
-	    BM_CKFATAL(buf->pool->validate(buf->pool, buf->private));
+	    BM_CKFATAL(buf->pool->validate(buf->pool, buf->private, &buf->mutex));
 	_glthread_UNLOCK_MUTEX(buf->mutex);
 	curBuf = drmBOListNext(&list->driBuffers, curBuf);
     }

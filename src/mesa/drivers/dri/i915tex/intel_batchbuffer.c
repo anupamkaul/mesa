@@ -325,6 +325,7 @@ do_flush_locked(struct intel_batchbuffer *batch,
 
        if (batch->last_fence)
 	   driFenceUnReference(&batch->last_fence);
+       _mesa_printf("fence error\n");
        batch->last_fence = NULL;
        return NULL;
    }

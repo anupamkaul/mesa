@@ -52,6 +52,8 @@ struct _DriSlabBuffer {
     uint32_t mapCount;
     uint32_t start;
     uint32_t fenceType;
+    int unFenced;
+    _glthread_Cond event;
 };
 
 struct _DriKernelBO {
@@ -349,6 +351,7 @@ driAllocSlab(struct _DriSlabSizeHeader *header)
 	buf->start = i* header->bufSize;
 	buf->mapCount = 0;
 	buf->isSlabBuffer = 1;
+	_glthread_INIT_COND(buf->event);
 	DRMLISTADDTAIL(&buf->head, &slab->freeBuffers);
 	slab->numFree++;
 	buf++;
@@ -593,6 +596,8 @@ pool_destroy(struct _DriBufferPool *driPool, void *private)
     header = slab->header;
 
     _glthread_LOCK_MUTEX(header->mutex);
+    buf->unFenced = 0;
+    buf->mapCount = 0;
 
     if (buf->fence && !driFenceSignaledCached(buf->fence, buf->fenceType)) {
 	DRMLISTADDTAIL(&buf->head, &header->delayedBuffers);
@@ -606,12 +611,17 @@ pool_destroy(struct _DriBufferPool *driPool, void *private)
 }
 
 static int
-pool_waitIdle(struct _DriBufferPool *driPool, void *private, int lazy)
+pool_waitIdle(struct _DriBufferPool *driPool, void *private, 
+	      _glthread_Mutex *mutex, int lazy)
 {
    struct _DriSlabBuffer *buf = (struct _DriSlabBuffer *) private;
 
+   while(buf->unFenced)
+       _glthread_COND_WAIT(buf->event, *mutex);
+
    if (!buf->fence)
      return 0;
+
    driFenceFinish(buf->fence, buf->fenceType, lazy);
    driFenceUnReference(&buf->fence);
 
@@ -620,13 +630,13 @@ pool_waitIdle(struct _DriBufferPool *driPool, void *private, int lazy)
 
 static int
 pool_map(struct _DriBufferPool *pool, void *private, unsigned flags,
-         int hint, void **virtual)
+         int hint, _glthread_Mutex *mutex, void **virtual)
 {
    struct _DriSlabBuffer *buf = (struct _DriSlabBuffer *) private;
    int busy;
 
    if (buf->isSlabBuffer)
-       busy = buf->fence && !driFenceSignaledCached(buf->fence, buf->fenceType);
+       busy = buf->unFenced || (buf->fence && !driFenceSignaledCached(buf->fence, buf->fenceType));
    else
        busy = buf->fence && !driFenceSignaled(buf->fence, buf->fenceType);
 
@@ -634,8 +644,9 @@ pool_map(struct _DriBufferPool *pool, void *private, unsigned flags,
    if (busy) {
        if (hint & DRM_BO_HINT_DONT_BLOCK)
 	   return -EBUSY;
-       else
-	   (void) pool_waitIdle(pool, private, 0);
+       else {
+	   (void) pool_waitIdle(pool, private, mutex, 0);
+       }
    }
 
    ++buf->mapCount;
@@ -652,6 +663,9 @@ pool_unmap(struct _DriBufferPool *pool, void *private)
    struct _DriSlabBuffer *buf = (struct _DriSlabBuffer *) private;
 
    --buf->mapCount;
+   if (buf->mapCount == 0 && buf->isSlabBuffer) 
+       _glthread_COND_BROADCAST(buf->event);
+
    return 0;
 }
 
@@ -720,6 +734,9 @@ pool_fence(struct _DriBufferPool *pool, void *private,
      buf->bo;
    buf->fenceType = bo->fenceFlags;
 
+   buf->unFenced = 0;
+   _glthread_COND_BROADCAST(buf->event);
+
    return 0;
 }
 
@@ -732,8 +749,18 @@ pool_kernel(struct _DriBufferPool *pool, void *private)
 }
 
 static int
-pool_validate(struct _DriBufferPool *pool, void *private)
+pool_validate(struct _DriBufferPool *pool, void *private, 
+	      _glthread_Mutex *mutex)
 {
+   struct _DriSlabBuffer *buf = (struct _DriSlabBuffer *) private;
+
+   if (!buf->isSlabBuffer) 
+       return 0;
+   
+   while(buf->mapCount != 0)
+       _glthread_COND_WAIT(buf->event, *mutex);
+
+   buf->unFenced = 1;
    return 0;
 }
 

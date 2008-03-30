@@ -33,13 +33,15 @@
 #define _PSB_BUFPOOL_H_
 
 #include <xf86drm.h>
+#include <glthread.h>
 struct _DriFenceObject;
 
 typedef struct _DriBufferPool
 {
    int fd;
    int (*map) (struct _DriBufferPool * pool, void *private,
-               unsigned flags, int hint, void **virtual);
+               unsigned flags, int hint, _glthread_Mutex *mutex, 
+	       void **virtual);
    int (*unmap) (struct _DriBufferPool * pool, void *private);
    int (*destroy) (struct _DriBufferPool * pool, void *private);
    unsigned long (*offset) (struct _DriBufferPool * pool, void *private);
@@ -53,8 +55,8 @@ typedef struct _DriBufferPool
    int (*fence) (struct _DriBufferPool * pool, void *private,
                  struct _DriFenceObject * fence);
    drmBO *(*kernel) (struct _DriBufferPool * pool, void *private);
-   int (*validate) (struct _DriBufferPool * pool, void *private);
-   int (*waitIdle) (struct _DriBufferPool *pool, void *private,
+   int (*validate) (struct _DriBufferPool * pool, void *private, _glthread_Mutex *mutex);
+   int (*waitIdle) (struct _DriBufferPool *pool, void *private, _glthread_Mutex *mutex,
 		    int lazy);
    int (*setStatus)  (struct _DriBufferPool *pool, void *private,
 		      uint64_t flag_diff, uint64_t old_flags);

@@ -60,14 +60,15 @@ pool_destroy(struct _DriBufferPool *pool, void *private)
 }
 
 static int
-pool_waitIdle(struct _DriBufferPool *pool, void *private, int lazy)
+pool_waitIdle(struct _DriBufferPool *pool, void *private, 
+	      _glthread_Mutex *mutex, int lazy)
 {
     return 0;
 }
 
 static int
 pool_map(struct _DriBufferPool *pool, void *private, unsigned flags,
-         int hint, void **virtual)
+         int hint, _glthread_Mutex *mutex, void **virtual)
 {
     *virtual = (void *)((unsigned long *)private + 2);
     return 0;
@@ -126,13 +127,6 @@ pool_kernel(struct _DriBufferPool *pool, void *private)
     return NULL;
 }
 
-static int
-pool_validate(struct _DriBufferPool *pool, void *private)
-{
-    abort();
-    return 0;
-}
-
 static void
 pool_takedown(struct _DriBufferPool *pool)
 {
@@ -161,7 +155,7 @@ driMallocPoolInit(void)
    pool->create = &pool_create;
    pool->fence = &pool_fence;
    pool->kernel = &pool_kernel;
-   pool->validate = &pool_validate;
+   pool->validate = NULL;
    pool->waitIdle = &pool_waitIdle;
    pool->takeDown = &pool_takedown;
    return pool;
