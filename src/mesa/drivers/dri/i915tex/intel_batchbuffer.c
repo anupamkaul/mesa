@@ -310,6 +310,10 @@ do_flush_locked(struct intel_batchbuffer *batch,
    
    if (!(intel->numClipRects == 0 && !ignore_cliprects)) {
       ret = i915_execbuf(batch, used, ignore_cliprects, boList, &ea);
+   } else {
+     driBOUnrefUserList(batch->list);
+     driPutdrmBOList(batch->list);
+     return NULL;
    }
 
    driPutdrmBOList(batch->list);
