@@ -53,6 +53,7 @@ _glthread_DECLARE_STATIC_MUTEX(bmMutex);
 _glthread_DECLARE_STATIC_COND(bmCond);
 
 static int kernelReaders = 0;
+static int kernelLocked = 0;
 
 static drmBO *drmBOListBuf(void *iterator)
 {
@@ -83,11 +84,13 @@ static void *drmBOListNext(drmBOList *list, void *iterator)
 }
 
 static drmBONode *drmAddListItem(drmBOList *list, drmBO *item, 
+				 uint32_t hash,
 				 uint64_t arg0,
 				 uint64_t arg1)
 {
     drmBONode *node;
     drmMMListHead *l;
+    drmMMListHead *hashHead;
 
     l = list->free.next;
     if (l == &list->free) {
@@ -104,29 +107,57 @@ static drmBONode *drmAddListItem(drmBOList *list, drmBO *item,
     node->buf = item;
     node->arg0 = arg0;
     node->arg1 = arg1;
-    DRMLISTADD(&node->head, &list->list);
+    node->listItem = list->numOnList;
+    DRMLISTADDTAIL(&node->head, &list->list);
     list->numOnList++;
+    hashHead = list->hashTable + hash;
+    DRMLISTADDTAIL(&node->hashHead, hashHead);
+
     return node;
 }
   
+static uint32_t driHashFunc(uint8_t *key, uint32_t len)
+{
+    uint32_t hash, i;
+
+    return 0;
+    for (hash = 0, i = 0; i<len; ++i) {
+	hash += *key++;
+	hash += (hash << 10);
+	hash ^= (hash >> 6);
+    }
+
+    hash += (hash << 3);
+    hash ^= (hash >> 11);
+    hash += (hash << 15);
+
+    return hash & DRI_LIST_HASHTAB_MASK;
+}
+	
+
 static int drmAddValidateItem(drmBOList *list, drmBO *buf, uint64_t flags, 
 			      uint64_t mask, int *newItem)
 {
     drmBONode *node, *cur;
     drmMMListHead *l;
+    drmMMListHead *hashHead;
+    uint32_t hash;
 
     *newItem = 0;
     cur = NULL;
 
-    for (l = list->list.next; l != &list->list; l = l->next) {
-	node = DRMLISTENTRY(drmBONode, l, head);
+    hash = driHashFunc((uint8_t *) buf, (sizeof(buf)));
+    hashHead = list->hashTable + hash;
+
+    for (l = hashHead->next; l != hashHead; l = l->next) {
+	node = DRMLISTENTRY(drmBONode, l, hashHead);
 	if (node->buf == buf) {
 	    cur = node;
 	    break;
 	}
     }
     if (!cur) {
-	cur = drmAddListItem(list, buf, flags, mask);
+        cur = drmAddListItem(list, buf, hash, flags, mask);
 	if (!cur) {
 	    return -ENOMEM;
 	}
@@ -162,6 +193,7 @@ static void drmBOFreeList(drmBOList *list)
     while(l != &list->list) {
 	DRMLISTDEL(l);
 	node = DRMLISTENTRY(drmBONode, l, head);
+	DRMLISTDEL(&node->hashHead);
 	free(node);
 	l = list->list.next;
 	list->numCurrent--;
@@ -208,6 +240,12 @@ static int drmAdjustListNodes(drmBOList *list)
 
 static int drmBOCreateList(int numTarget, drmBOList *list)
 {
+    int
+	i;
+
+    for (i=0; i<DRI_LIST_HASHTAB_SIZE; ++i) 
+	DRMINITLISTHEAD(&list->hashTable[i]);
+
     DRMINITLISTHEAD(&list->list);
     DRMINITLISTHEAD(&list->free);
     list->numTarget = numTarget;
@@ -219,6 +257,7 @@ static int drmBOCreateList(int numTarget, drmBOList *list)
 static int drmBOResetList(drmBOList *list)
 {
     drmMMListHead *l;
+    drmBONode *node;
     int ret;
 
     ret = drmAdjustListNodes(list);
@@ -228,6 +267,8 @@ static int drmBOResetList(drmBOList *list)
     l = list->list.next;
     while (l != &list->list) {
 	DRMLISTDEL(l);
+	node = DRMLISTENTRY(drmBONode, l, head);
+	DRMLISTDEL(&node->hashHead);
 	DRMLISTADD(l, &list->free);
 	list->numOnList--;
 	l = list->list.next;
@@ -240,25 +281,30 @@ void driWriteLockKernelBO(void)
     _glthread_LOCK_MUTEX(bmMutex);
     while(kernelReaders != 0)
 	_glthread_COND_WAIT(bmCond, bmMutex);
+    kernelLocked = 1;
 }
     
 void driWriteUnlockKernelBO(void)
 {
+    kernelLocked = 0;
     _glthread_UNLOCK_MUTEX(bmMutex);
 }    
 
 void driReadLockKernelBO(void)
 {
     _glthread_LOCK_MUTEX(bmMutex);
-    kernelReaders++;
+    if (kernelReaders++ == 0)
+	kernelLocked = 1;
     _glthread_UNLOCK_MUTEX(bmMutex);
 }
 
 void driReadUnlockKernelBO(void)
 {
     _glthread_LOCK_MUTEX(bmMutex);
-    if (--kernelReaders == 0)
+    if (--kernelReaders == 0) {
+	kernelLocked = 0;
         _glthread_COND_BROADCAST(bmCond);
+    }
     _glthread_UNLOCK_MUTEX(bmMutex);
 }
 
@@ -309,17 +355,36 @@ driBOKernel(struct _DriBufferObject *buf)
 {
    drmBO *ret;
 
-   driReadLockKernelBO();
    _glthread_LOCK_MUTEX(buf->mutex);
    assert(buf->private != NULL);
+   assert(kernelLocked == 1);
    ret = buf->pool->kernel(buf->pool, buf->private);
    if (!ret)
       BM_CKFATAL(-EINVAL);
    _glthread_UNLOCK_MUTEX(buf->mutex);
-   driReadUnlockKernelBO();
 
    return ret;
 }
+
+extern uint32_t driBOHandle(struct _DriBufferObject *buf)
+{
+  drmBO *bo;
+
+     /*
+      * Doesn't need the kernelBO lock since the 
+      * kernelBO handle is always constant.
+      */
+
+   _glthread_LOCK_MUTEX(buf->mutex);
+   assert(buf->private != NULL);
+   bo = buf->pool->kernel(buf->pool, buf->private);
+   if (!bo)
+      BM_CKFATAL(-EINVAL);
+   _glthread_UNLOCK_MUTEX(buf->mutex);
+
+   return bo->handle;
+}  
+
 
 void
 driBOWaitIdle(struct _DriBufferObject *buf, int lazy)
@@ -367,6 +432,7 @@ driBOOffset(struct _DriBufferObject *buf)
    assert(buf->private != NULL);
 
    _glthread_LOCK_MUTEX(buf->mutex);
+   assert(kernelLocked == 1);
    ret = buf->pool->offset(buf->pool, buf->private);
    _glthread_UNLOCK_MUTEX(buf->mutex);
    return ret;
@@ -392,11 +458,10 @@ driBOFlags(struct _DriBufferObject *buf)
 
    assert(buf->private != NULL);
 
-   driReadLockKernelBO();
    _glthread_LOCK_MUTEX(buf->mutex);
+   assert(kernelLocked == 1);
    ret = buf->pool->flags(buf->pool, buf->private);
    _glthread_UNLOCK_MUTEX(buf->mutex);
-   driReadUnlockKernelBO();
    return ret;
 }
 
@@ -506,11 +571,17 @@ driBOData(struct _DriBufferObject *buf,
 			     buf->alignment);
        if (newBuf) {
 	   buf->pool->destroy(buf->pool, buf->private);
+	   buf->pool = newPool;
 	   buf->private = newBuf;
        }
 
-       retval = pool->map(pool, buf->private,
-			  DRM_BO_FLAG_WRITE, 0, &buf->mutex, &virtual);
+       if (!buf->private)
+	   retval = -ENOMEM;
+
+       if (retval == 0)
+	   retval = pool->map(pool, buf->private,
+			      DRM_BO_FLAG_WRITE, 0, &buf->mutex, &virtual);
+       
    } else {
        uint64_t flag_diff = flags ^ buf->flags;
        
@@ -520,22 +591,28 @@ driBOData(struct _DriBufferObject *buf,
 
        if (flag_diff){
 	   assert(pool->setStatus != NULL);
-	   BM_CKFATAL(pool->unmap(pool, buf->private));
-	   BM_CKFATAL(pool->setStatus(pool, buf->private, flag_diff,
-				      buf->flags));
-	   if (!data)
+	   (void) pool->unmap(pool, buf->private);
+	   retval = pool->setStatus(pool, buf->private, flag_diff,
+				    buf->flags);
+	   if (retval)
 	     goto out;
+       
+	   if (!data) {
+	       buf->flags = flags;
+	       goto out;
+	   }
 
 	   retval = pool->map(pool, buf->private,
 			      DRM_BO_FLAG_WRITE, 0, &buf->mutex, &virtual);
-       }
+       } 
    }
 
    if (retval == 0) {
       if (data)
 	 memcpy(virtual, data, size);
 
-      BM_CKFATAL(pool->unmap(pool, buf->private));
+      (void) pool->unmap(pool, buf->private);
+      buf->flags = flags;
    }
 
  out:
@@ -695,10 +772,11 @@ driBOFreeList(struct _DriBufferList * list)
 
 static drmBONode *
 driAddListItem(drmBOList * list, drmBO * item,
-	       uint64_t arg0, uint64_t arg1)
+	       uint32_t hash, uint64_t arg0, uint64_t arg1)
 {
     drmBONode *node;
     drmMMListHead *l;
+    drmMMListHead *hashHead;
 
     l = list->free.next;
     if (l == &list->free) {
@@ -715,7 +793,10 @@ driAddListItem(drmBOList * list, drmBO * item,
     node->buf = item;
     node->arg0 = arg0;
     node->arg1 = arg1;
+    node->listItem = list->numOnList;
     DRMLISTADDTAIL(&node->head, &list->list);
+    hashHead = list->hashTable + hash;
+    DRMLISTADDTAIL(&node->hashHead, hashHead);
     list->numOnList++;
     return node;
 }
@@ -732,20 +813,23 @@ driAddValidateItem(drmBOList * list, drmBO * buf, uint64_t flags,
 {
     drmBONode *node, *cur;
     drmMMListHead *l;
-    int count = 0;
+    drmMMListHead *hashHead;
+    uint32_t hash;
 
     cur = NULL;
 
-    for (l = list->list.next; l != &list->list; l = l->next) {
-	node = DRMLISTENTRY(drmBONode, l, head);
+    hash = driHashFunc((uint8_t *) buf, (sizeof(buf)));
+    hashHead = list->hashTable + hash;
+
+    for (l = hashHead->next; l != hashHead; l = l->next) {
+	node = DRMLISTENTRY(drmBONode, l, hashHead);
 	if (node->buf == buf) {
 	    cur = node;
 	    break;
 	}
-	count++;
     }
     if (!cur) {
-	cur = driAddListItem(list, buf, flags, mask);
+        cur = driAddListItem(list, buf, hash, flags, mask);
 	if (!cur)
 	    return -ENOMEM;
 
@@ -767,7 +851,7 @@ driAddValidateItem(drmBOList * list, drmBO * buf, uint64_t flags,
 	    return -EINVAL;
 	}
     }
-    *itemLoc = count;
+    *itemLoc = cur->listItem;
     *pnode = cur;
     return 0;
 }

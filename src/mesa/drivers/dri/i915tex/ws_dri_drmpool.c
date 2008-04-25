@@ -92,10 +92,8 @@ pool_destroy(struct _DriBufferPool *pool, void *private)
 {
    int ret;
    drmBO *buf = (drmBO *) private;
-   driReadLockKernelBO();
    ret = drmBOUnreference(pool->fd, buf);
    free(buf);
-   driReadUnlockKernelBO();
    return ret;
 }
 
@@ -104,10 +102,8 @@ pool_unreference(struct _DriBufferPool *pool, void *private)
 {
    int ret;
    drmBO *buf = (drmBO *) private;
-   driReadLockKernelBO();
    ret = drmBOUnreference(pool->fd, buf);
    free(buf);
-   driReadUnlockKernelBO();
    return ret;
 }
 
@@ -118,9 +114,7 @@ pool_map(struct _DriBufferPool *pool, void *private, unsigned flags,
    drmBO *buf = (drmBO *) private;
    int ret;
    
-   driReadLockKernelBO();
    ret = drmBOMap(pool->fd, buf, flags, hint, virtual);
-   driReadUnlockKernelBO();
    return ret;
 }
 
@@ -130,9 +124,7 @@ pool_unmap(struct _DriBufferPool *pool, void *private)
    drmBO *buf = (drmBO *) private;
    int ret;
 
-   driReadLockKernelBO();
    ret = drmBOUnmap(pool->fd, buf);
-   driReadUnlockKernelBO();
    
    return ret;
 }
@@ -143,10 +135,8 @@ pool_offset(struct _DriBufferPool *pool, void *private)
    drmBO *buf = (drmBO *) private;
    unsigned long offset;
 
-   driReadLockKernelBO();
    assert(buf->flags & DRM_BO_FLAG_NO_MOVE);   
    offset = buf->offset;
-   driReadUnlockKernelBO();
 
    return buf->offset;
 }
@@ -163,9 +153,7 @@ pool_flags(struct _DriBufferPool *pool, void *private)
    drmBO *buf = (drmBO *) private;
    uint64_t flags;
 
-   driReadLockKernelBO();
    flags = buf->flags;
-   driReadUnlockKernelBO();
 
    return flags;
 }
@@ -177,9 +165,7 @@ pool_size(struct _DriBufferPool *pool, void *private)
    drmBO *buf = (drmBO *) private;
    unsigned long size;
 
-   driReadLockKernelBO();
    size = buf->size;
-   driReadUnlockKernelBO();
 
    return buf->size;
 }
@@ -208,9 +194,7 @@ pool_waitIdle(struct _DriBufferPool *pool, void *private, _glthread_Mutex *mutex
    drmBO *buf = (drmBO *) private;
    int ret;
 
-   driReadLockKernelBO();
    ret = drmBOWaitIdle(pool->fd, buf, (lazy) ? DRM_BO_HINT_WAIT_LAZY:0);
-   driReadUnlockKernelBO();
 
    return ret;
 }
@@ -230,10 +214,8 @@ pool_setStatus(struct _DriBufferPool *pool, void *private,
    uint64_t new_flags = old_flags ^ flag_diff;
    int ret;
 
-   driReadLockKernelBO();
    ret = drmBOSetStatus(pool->fd, buf, new_flags, flag_diff,
 			0, 0, 0);
-   driReadUnlockKernelBO();
    return ret;
 }
 
@@ -242,7 +224,7 @@ driDRMPoolInit(int fd)
 {
    struct _DriBufferPool *pool;
 
-   pool = (struct _DriBufferPool *) malloc(sizeof(*pool));
+   pool = (struct _DriBufferPool *) calloc(1, sizeof(*pool));
 
    if (!pool)
       return NULL;
@@ -263,6 +245,7 @@ driDRMPoolInit(int fd)
    pool->takeDown = &pool_takedown;
    pool->reference = &pool_reference;
    pool->unreference = &pool_unreference;
+   pool->setStatus = &pool_setStatus;
    pool->data = NULL;
    return pool;
 }

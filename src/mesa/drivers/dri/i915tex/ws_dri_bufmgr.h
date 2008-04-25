@@ -36,9 +36,15 @@
 #include "i915_drm.h"
 #include "ws_dri_fencemgr.h"
 
+#define DRI_LIST_HASHTAB_SIZE 256
+#define DRI_LIST_HASHTAB_MASK 0xff
+
 typedef struct _drmBONode
 {
+    uint32_t hash;
     drmMMListHead head;
+    drmMMListHead hashHead;
+    int listItem;
     drmBO *buf;
     struct drm_i915_op_arg bo_arg;
     uint64_t arg0;
@@ -51,6 +57,7 @@ typedef struct _drmBOList {
     unsigned numOnList;
     drmMMListHead list;
     drmMMListHead free;
+    drmMMListHead hashTable[DRI_LIST_HASHTAB_SIZE];
 } drmBOList;
 
 
@@ -64,6 +71,7 @@ struct _DriBufferList;
  * uses.
  */
 
+extern uint32_t driBOHandle(struct _DriBufferObject *buf);
 extern drmBO *driBOKernel(struct _DriBufferObject *buf);
 extern void *driBOMap(struct _DriBufferObject *buf, unsigned flags,
                       unsigned hint);

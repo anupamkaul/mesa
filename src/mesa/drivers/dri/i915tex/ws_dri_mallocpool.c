@@ -139,7 +139,7 @@ driMallocPoolInit(void)
 {
    struct _DriBufferPool *pool;
 
-   pool = (struct _DriBufferPool *) malloc(sizeof(*pool));
+   pool = (struct _DriBufferPool *) calloc(1, sizeof(*pool));
    if (!pool)
        return NULL;
 
