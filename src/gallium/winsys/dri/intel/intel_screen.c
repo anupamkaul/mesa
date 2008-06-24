@@ -677,7 +677,7 @@ __DRIconfig **intelInitScreen2(__DRIscreenPrivate *psp)
 
    psp->extensions = intelScreenExtensions;
 
-   intel_be_init_device(&intelScreen->base, psp->fd);
+   intel_be_init_device(&intelScreen->base, psp->fd, intelScreen->deviceID);
    intelScreen->base.base.flush_frontbuffer = intel_flush_frontbuffer;
    intelScreen->base.base.get_name = intel_get_name;
 
