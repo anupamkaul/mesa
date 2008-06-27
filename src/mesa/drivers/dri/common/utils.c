@@ -527,7 +527,7 @@ driCreateConfigs(GLenum fb_format, GLenum fb_type,
 		 const uint8_t * depth_bits, const uint8_t * stencil_bits,
 		 unsigned num_depth_stencil_bits,
 		 const GLenum * db_modes, unsigned num_db_modes,
-		 const uint8_t * msaa_samples, unsigned num_msaa_modes)
+	 	 const uint8_t * msaa_samples, unsigned num_msaa_modes)
 {
    static const uint8_t bits_table[4][4] = {
      /* R  G  B  A */
@@ -587,7 +587,7 @@ driCreateConfigs(GLenum fb_format, GLenum fb_type,
    int index;
    __DRIconfig **configs, **c;
    __GLcontextModes *modes;
-   unsigned i, j, k, l;
+   unsigned i, j, k, h;
    unsigned num_modes;
    unsigned num_accum_bits = 2;
 
@@ -686,7 +686,7 @@ driCreateConfigs(GLenum fb_format, GLenum fb_type,
 		    modes->rgbBits   = modes->redBits + modes->greenBits
 		    	+ modes->blueBits + modes->alphaBits;
 
-	 	    modes->accumRedBits   = 16 * j;
+		    modes->accumRedBits   = 16 * j;
 		    modes->accumGreenBits = 16 * j;
 		    modes->accumBlueBits  = 16 * j;
 		    modes->accumAlphaBits = (masks[3] != 0) ? 16 * j : 0;
