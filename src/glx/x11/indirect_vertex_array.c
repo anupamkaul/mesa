@@ -85,6 +85,8 @@ static GLboolean validate_mode(__GLXcontext *gc, GLenum mode);
 static GLboolean validate_count(__GLXcontext *gc, GLsizei count);
 static GLboolean validate_type(__GLXcontext *gc, GLenum type);
 
+static void __glXVertexAttribPointer(struct array_state *a);
+
 
 /**
  * Table of sizes, in bytes, of a GL types.  All of the type enums are be in 
@@ -1054,6 +1056,38 @@ void __indirect_glMultiDrawElementsEXT(GLenum mode, const GLsizei *count,
 }
 
 
+/**
+ * Send array pointer information to the server
+ */
+#define X_GLsop_VertexAttribPointer 176
+void
+__glXVertexAttribPointer(struct array_state *a)
+{
+    __GLXcontext *const gc = __glXGetCurrentContext();
+    Display *const dpy = gc->currentDpy;
+    const GLuint cmdlen = 32;
+
+    if (__builtin_expect(dpy != NULL, 1)) {
+        GLubyte const *pc =
+            __glXSetupSingleRequest(gc, X_GLsop_VertexAttribPointer, cmdlen);
+        const uint64_t offset = (uint64_t) a->data;
+
+        (void) memcpy((void *) (pc +  0), (void *) (&a->key), 4);
+        (void) memcpy((void *) (pc +  4), (void *) (&a->index), 4);
+        (void) memcpy((void *) (pc +  8), (void *) (&a->count), 4);
+        (void) memcpy((void *) (pc + 12), (void *) (&a->data_type), 4);
+        (void) memset((void *) (pc + 16), 0, 4);
+        (void) memcpy((void *) (pc + 16), (void *) (&a->normalized), 1);
+        (void) memcpy((void *) (pc + 20), (void *) (&a->user_stride), 4);
+        (void) memcpy((void *) (pc + 24), (void *) (&offset), 8);
+
+        UnlockDisplay(dpy);
+        SyncHandle();
+   }
+    return;
+}
+
+
 #define COMMON_ARRAY_DATA_INIT(a, PTR, TYPE, STRIDE, COUNT, NORMALIZED, HDR_SIZE, OPCODE, BUFFER) \
     do { \
 	(a)->data = PTR; \
@@ -1118,6 +1152,8 @@ void __indirect_glVertexPointer( GLint size, GLenum type, GLsizei stride,
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
@@ -1155,6 +1191,8 @@ void __indirect_glNormalPointer( GLenum type, GLsizei stride,
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
@@ -1219,6 +1257,8 @@ void __indirect_glColorPointer( GLint size, GLenum type, GLsizei stride,
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
@@ -1256,6 +1296,8 @@ void __indirect_glIndexPointer( GLenum type, GLsizei stride,
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
@@ -1281,6 +1323,8 @@ void __indirect_glEdgeFlagPointer( GLsizei stride, const GLvoid * pointer )
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
@@ -1363,6 +1407,8 @@ void __indirect_glTexCoordPointer( GLint size, GLenum type, GLsizei stride,
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
@@ -1407,6 +1453,8 @@ void __indirect_glSecondaryColorPointerEXT( GLint size, GLenum type, GLsizei str
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
@@ -1445,6 +1493,8 @@ void __indirect_glFogCoordPointerEXT( GLenum type, GLsizei stride,
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
@@ -1542,6 +1592,8 @@ void __indirect_glVertexAttribPointerARB(GLuint index, GLint size,
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
     }
+
+    __glXVertexAttribPointer(a);
 }
 
 
