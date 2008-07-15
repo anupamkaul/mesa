@@ -202,6 +202,31 @@ typedef struct __GLXattributeRec {
      * DrawArrays data sent to the server.
      */
     struct array_state_vector * array_state;
+
+    /**
+     * State tracking for all currently bound buffer objects.
+     *
+     * \note
+     * In order to maintain proper error semantics, user queries of buffer
+     * bindings (i.e., calls to \c glGetIntegerv with the
+     * \c GL_ARRAY_BUFFER_BINDING must \b not use these values.  Such calls
+     * must make the round-trip to the server.
+     *
+     * \bug
+     * State related to pixel buffer objects, TexBOs, and other buffer object
+     * bindings is not yet tracked.
+     */
+    struct {
+        /**
+         * Buffer object currently bound to GL_ARRAY_BUFFER.
+         */
+        GLuint array;
+
+        /**
+         * Buffer object currently bound to GL_ELEMENT_BUFFER.
+         */
+        GLuint element;
+    } buffer_bindings;
 } __GLXattribute;
 
 typedef struct __GLXattributeMachineRec {

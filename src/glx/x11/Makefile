@@ -14,6 +14,7 @@ SOURCES = \
 	  glxext.c \
 	  glxextensions.c \
 	  indirect.c \
+	  indirect_buffer_object.c \
 	  indirect_init.c \
 	  indirect_size.c \
 	  indirect_window_pos.c \
