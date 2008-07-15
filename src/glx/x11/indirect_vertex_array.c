@@ -1054,13 +1054,14 @@ void __indirect_glMultiDrawElementsEXT(GLenum mode, const GLsizei *count,
 }
 
 
-#define COMMON_ARRAY_DATA_INIT(a, PTR, TYPE, STRIDE, COUNT, NORMALIZED, HDR_SIZE, OPCODE) \
+#define COMMON_ARRAY_DATA_INIT(a, PTR, TYPE, STRIDE, COUNT, NORMALIZED, HDR_SIZE, OPCODE, BUFFER) \
     do { \
 	(a)->data = PTR; \
 	(a)->data_type = TYPE; \
 	(a)->user_stride = STRIDE; \
 	(a)->count = COUNT; \
 	(a)->normalized = NORMALIZED; \
+	(a)->buffer = BUFFER; \
 	\
 	(a)->element_size = __glXTypeSize( TYPE ) * COUNT; \
 	(a)->true_stride = (STRIDE == 0) \
@@ -1111,8 +1112,8 @@ void __indirect_glVertexPointer( GLint size, GLenum type, GLsizei stride,
 
     a = get_array_entry( arrays, GL_VERTEX_ARRAY, 0 );
     assert( a != NULL );
-    COMMON_ARRAY_DATA_INIT( a, pointer, type, stride, size, GL_FALSE, 4,
-			    opcode );
+    COMMON_ARRAY_DATA_INIT(a, pointer, type, stride, size, GL_FALSE, 4,
+                           opcode, state->buffer_bindings.array);
 
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
@@ -1148,8 +1149,8 @@ void __indirect_glNormalPointer( GLenum type, GLsizei stride,
 
     a = get_array_entry( arrays, GL_NORMAL_ARRAY, 0 );
     assert( a != NULL );
-    COMMON_ARRAY_DATA_INIT( a, pointer, type, stride, 3, GL_TRUE, 4,
-			    opcode );
+    COMMON_ARRAY_DATA_INIT(a, pointer, type, stride, 3, GL_TRUE, 4,
+                           opcode, state->buffer_bindings.array);
 
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
@@ -1212,8 +1213,8 @@ void __indirect_glColorPointer( GLint size, GLenum type, GLsizei stride,
 
     a = get_array_entry( arrays, GL_COLOR_ARRAY, 0 );
     assert( a != NULL );
-    COMMON_ARRAY_DATA_INIT( a, pointer, type, stride, size, GL_TRUE, 4,
-			    opcode );
+    COMMON_ARRAY_DATA_INIT(a, pointer, type, stride, size, GL_TRUE, 4,
+                           opcode, state->buffer_bindings.array);
 
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
@@ -1249,8 +1250,8 @@ void __indirect_glIndexPointer( GLenum type, GLsizei stride,
 
     a = get_array_entry( arrays, GL_INDEX_ARRAY, 0 );
     assert( a != NULL );
-    COMMON_ARRAY_DATA_INIT( a, pointer, type, stride, 1, GL_FALSE, 4,
-			    opcode );
+    COMMON_ARRAY_DATA_INIT(a, pointer, type, stride, 1, GL_FALSE, 4,
+                           opcode, state->buffer_bindings.array);
 
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
@@ -1274,8 +1275,8 @@ void __indirect_glEdgeFlagPointer( GLsizei stride, const GLvoid * pointer )
 
     a = get_array_entry( arrays, GL_EDGE_FLAG_ARRAY, 0 );
     assert( a != NULL );
-    COMMON_ARRAY_DATA_INIT( a, pointer, GL_UNSIGNED_BYTE, stride, 1, GL_FALSE,
-			    4, X_GLrop_EdgeFlagv );
+    COMMON_ARRAY_DATA_INIT(a, pointer, GL_UNSIGNED_BYTE, stride, 1, GL_FALSE,
+                           4, X_GLrop_EdgeFlagv, state->buffer_bindings.array);
 
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
@@ -1356,8 +1357,8 @@ void __indirect_glTexCoordPointer( GLint size, GLenum type, GLsizei stride,
 
     a = get_array_entry( arrays, GL_TEXTURE_COORD_ARRAY, index );
     assert( a != NULL );
-    COMMON_ARRAY_DATA_INIT( a, pointer, type, stride, size, GL_FALSE,
-			    header_size, opcode );
+    COMMON_ARRAY_DATA_INIT(a, pointer, type, stride, size, GL_FALSE,
+                           header_size, opcode, state->buffer_bindings.array);
 
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
@@ -1400,8 +1401,8 @@ void __indirect_glSecondaryColorPointerEXT( GLint size, GLenum type, GLsizei str
         return;
     }
 
-    COMMON_ARRAY_DATA_INIT( a, pointer, type, stride, size, GL_TRUE, 4,
-			    opcode );
+    COMMON_ARRAY_DATA_INIT(a, pointer, type, stride, size, GL_TRUE, 4,
+                           opcode, state->buffer_bindings.array);
 
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
@@ -1438,8 +1439,8 @@ void __indirect_glFogCoordPointerEXT( GLenum type, GLsizei stride,
         return;
     }
 
-    COMMON_ARRAY_DATA_INIT( a, pointer, type, stride, 1, GL_FALSE, 4,
-			    opcode );
+    COMMON_ARRAY_DATA_INIT(a, pointer, type, stride, 1, GL_FALSE, 4,
+                           opcode, state->buffer_bindings.array);
 
     if ( a->enabled ) {
 	arrays->array_info_cache_valid = GL_FALSE;
@@ -1531,8 +1532,8 @@ void __indirect_glVertexAttribPointerARB(GLuint index, GLint size,
         return;
     }
 
-    COMMON_ARRAY_DATA_INIT( a, pointer, type, stride, size, normalized, 8,
-			    opcode );
+    COMMON_ARRAY_DATA_INIT(a, pointer, type, stride, size, normalized, 8,
+                           opcode, state->buffer_bindings.array);
 
     true_immediate_size = __glXTypeSize(type) * true_immediate_count;
     ((uint16_t *) (a)->header)[0] = __GLX_PAD(a->header_size 

@@ -85,6 +85,11 @@ struct array_state {
     GLboolean normalized;
 
     /**
+     * Buffer object that backs this array.
+     */
+    GLuint buffer;
+
+    /**
      * Pre-calculated GLX protocol command header.
      */
     uint32_t header[2];
@@ -244,7 +249,7 @@ struct array_state_vector {
     GLboolean old_DrawArrays_possible;
 
     /**
-     * Is it possible to use the new GL X.X / ARB_vertex_buffer_object
+     * Is it possible to use the new GL 1.5 / ARB_vertex_buffer_object
      * protocol?
      * 
      * \todo
