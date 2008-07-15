@@ -7358,10 +7358,22 @@
     <type name="intptrARB"   size="4"                  glx_name="CARD32"/>
     <type name="sizeiptrARB" size="4"  unsigned="true" glx_name="CARD32"/>
 
+    <!-- WARNING: THESE ARE *NOT* THE OFFICIAL PROTOCOL OPCODES
+         ASSIGNED BY THE OPENGL ARB OR KHRONOS!  THEY ARE PLACEHOLDERS
+         WHILE THE PROTOCOL IS DEVELOPED AND TESTED!!!
+      -->
+
     <function name="BindBufferARB" offset="assign">
         <param name="target" type="GLenum"/>
         <param name="buffer" type="GLuint"/>
-        <glx ignore="true"/>
+
+        <!-- This function is hand-coded on the client because the client
+             needs to track the currently bound buffer.  The buffer handle is
+             captured at each gl*Pointer call.  This is done because different
+             protocol is used for glDrawArrays depending on whether or not
+            server-side array (or element) data will be sourced. -->
+
+        <glx rop="235" handcode="client"/>
     </function>
 
     <function name="BufferDataARB" offset="assign">
@@ -7369,7 +7381,7 @@
         <param name="size" type="GLsizeiptrARB" counter="true"/>
         <param name="data" type="const GLvoid *" count="size" img_null_flag="true"/>
         <param name="usage" type="GLenum"/>
-        <glx ignore="true"/>
+        <glx rop="236" large="true"/>
     </function>
 
     <function name="BufferSubDataARB" offset="assign">
@@ -7377,26 +7389,26 @@
         <param name="offset" type="GLintptrARB"/>
         <param name="size" type="GLsizeiptrARB" counter="true"/>
         <param name="data" type="const GLvoid *" count="size"/>
-        <glx ignore="true"/>
+        <glx rop="237" large="true"/>
     </function>
 
     <function name="DeleteBuffersARB" offset="assign">
         <param name="n" type="GLsizei" counter="true"/>
         <param name="buffer" type="const GLuint *" count="n"/>
-        <glx ignore="true"/>
+        <glx sop="167"/>
     </function>
 
     <function name="GenBuffersARB" offset="assign">
         <param name="n" type="GLsizei" counter="true"/>
         <param name="buffer" type="GLuint *" output="true" count="n"/>
-        <glx ignore="true"/>
+        <glx sop="168"/>
     </function>
 
     <function name="GetBufferParameterivARB" offset="assign">
         <param name="target" type="GLenum"/>
         <param name="pname" type="GLenum"/>
         <param name="params" type="GLint *" output="true" variable_param="pname"/>
-        <glx ignore="true"/>
+        <glx sop="169" ignore="true"/>
     </function>
 
     <function name="GetBufferPointervARB" offset="assign">
@@ -7411,27 +7423,40 @@
         <param name="offset" type="GLintptrARB"/>
         <param name="size" type="GLsizeiptrARB" counter="true"/>
         <param name="data" type="GLvoid *" output="true" count="size"/>
-        <glx ignore="true"/>
+        <glx sop="170"/>
     </function>
 
     <function name="IsBufferARB" offset="assign">
         <param name="buffer" type="GLuint"/>
         <return type="GLboolean"/>
-        <glx ignore="true"/>
+        <glx sop="171"/>
     </function>
 
     <function name="MapBufferARB" offset="assign">
         <param name="target" type="GLenum"/>
         <param name="access" type="GLenum"/>
         <return type="GLvoid *"/>
-        <glx ignore="true"/>
+        <glx sop="172" ignore="true"/>
     </function>
 
     <function name="UnmapBufferARB" offset="assign">
         <param name="target" type="GLenum"/>
         <return type="GLboolean"/>
-        <glx ignore="true"/>
+        <glx sop="173" ignore="true"/>
     </function>
+    
+    <!-- In addition, the following opcode are used by buffer object
+         related protocol:
+
+         SOP 174 - enable vertex attribute array
+         SOP 175 - enable vertex attribute array
+         SOP 176 - set array pointer state
+         SOP 177 - get server-side element range
+
+         ROP 237 - draw arrays w/buffer objects and client arrays
+         ROP 238 - draw elements w/buffer objects only
+         ROP 239 - draw range elements w/buffer objects and client arrays
+      -->
 </category>
 
 <category name="GL_ARB_occlusion_query" number="29">

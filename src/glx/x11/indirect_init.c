@@ -573,6 +573,16 @@ __GLapi * __glXNewIndirectAPI( void )
     glAPI->VertexAttrib4usvARB = __indirect_glVertexAttrib4usvARB;
     glAPI->VertexAttribPointerARB = __indirect_glVertexAttribPointerARB;
 
+    /*  28. GL_ARB_vertex_buffer_object */
+
+    glAPI->BindBufferARB = __indirect_glBindBufferARB;
+    glAPI->BufferDataARB = __indirect_glBufferDataARB;
+    glAPI->BufferSubDataARB = __indirect_glBufferSubDataARB;
+    glAPI->DeleteBuffersARB = __indirect_glDeleteBuffersARB;
+    glAPI->GenBuffersARB = __indirect_glGenBuffersARB;
+    glAPI->GetBufferSubDataARB = __indirect_glGetBufferSubDataARB;
+    glAPI->IsBufferARB = __indirect_glIsBufferARB;
+
     /*  29. GL_ARB_occlusion_query */
 
     glAPI->BeginQueryARB = __indirect_glBeginQueryARB;

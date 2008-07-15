@@ -563,6 +563,13 @@ extern HIDDEN void __indirect_glVertexAttrib4ubvARB(GLuint index, const GLubyte 
 extern HIDDEN void __indirect_glVertexAttrib4uivARB(GLuint index, const GLuint * v);
 extern HIDDEN void __indirect_glVertexAttrib4usvARB(GLuint index, const GLushort * v);
 extern HIDDEN void __indirect_glVertexAttribPointerARB(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid * pointer);
+extern HIDDEN void __indirect_glBindBufferARB(GLenum target, GLuint buffer);
+extern HIDDEN void __indirect_glBufferDataARB(GLenum target, GLsizeiptrARB size, const GLvoid * data, GLenum usage);
+extern HIDDEN void __indirect_glBufferSubDataARB(GLenum target, GLintptrARB offset, GLsizeiptrARB size, const GLvoid * data);
+extern HIDDEN void __indirect_glDeleteBuffersARB(GLsizei n, const GLuint * buffer);
+extern HIDDEN void __indirect_glGenBuffersARB(GLsizei n, GLuint * buffer);
+extern HIDDEN void __indirect_glGetBufferSubDataARB(GLenum target, GLintptrARB offset, GLsizeiptrARB size, GLvoid * data);
+extern HIDDEN GLboolean __indirect_glIsBufferARB(GLuint buffer);
 extern HIDDEN void __indirect_glBeginQueryARB(GLenum target, GLuint id);
 extern HIDDEN void __indirect_glDeleteQueriesARB(GLsizei n, const GLuint * ids);
 extern HIDDEN void __indirect_glEndQueryARB(GLenum target);
