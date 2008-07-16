@@ -1653,6 +1653,9 @@ void __indirect_glClientActiveTextureARB(GLenum texture)
 }
 
 
+#define X_GLsop_EnableVertexAttribArray 174
+#define X_GLsop_DisableVertexAttribArray 175
+
 /**
  * Modify the enable state for the selected array
  */
@@ -1671,14 +1674,38 @@ __glXSetArrayEnable(__GLXattribute *state, GLenum key, unsigned index,
         index = arrays->active_texture_unit;
     }
 
-    a = get_array_entry( arrays, key, index );
-
-    if ( (a != NULL) && (a->enabled != enable) ) {
-	a->enabled = enable;
-	arrays->array_info_cache_valid = GL_FALSE;
+    a = get_array_entry(arrays, key, index);
+    if (a == NULL) {
+        return GL_FALSE;
     }
 
-    return (a != NULL);
+    if (a->enabled != enable) {
+        a->enabled = enable;
+        arrays->array_info_cache_valid = GL_FALSE;
+    }
+  
+     
+    /* If the VBO GLX protocol is supported, the server must also be notified
+     * of any enables or disables of array state.  This is another case where,
+     * to ensure correct propogation of errors, we have to blindly send
+     * redundant messages to the server.
+     */
+    if (1) {
+        __GLXcontext *const gc = __glXGetCurrentContext();
+        Display *const dpy = gc->currentDpy;
+        const GLuint cmdlen = 8;
+        const GLint sop = (enable) 
+            ? X_GLsop_EnableVertexAttribArray
+            : X_GLsop_DisableVertexAttribArray;
+        GLubyte const *pc = __glXSetupSingleRequest(gc, sop, cmdlen);
+
+        (void) memcpy((void *) (pc + 0), (void *) (&key), 4);
+        (void) memcpy((void *) (pc + 4), (void *) (&index), 4);
+        UnlockDisplay(dpy);
+        SyncHandle();
+    }
+
+    return GL_TRUE;
 }
 
 
