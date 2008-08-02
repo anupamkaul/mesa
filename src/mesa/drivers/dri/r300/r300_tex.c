@@ -433,97 +433,6 @@ static const struct gl_texture_format *r300ChooseTextureFormat(GLcontext * ctx,
 	return NULL;		/* never get here */
 }
 
-static GLboolean
-r300ValidateClientStorage(GLcontext * ctx, GLenum target,
-			  GLint internalFormat,
-			  GLint srcWidth, GLint srcHeight,
-			  GLenum format, GLenum type, const void *pixels,
-			  const struct gl_pixelstore_attrib *packing,
-			  struct gl_texture_object *texObj,
-			  struct gl_texture_image *texImage)
-{
-	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-
-	if (RADEON_DEBUG & DEBUG_TEXTURE)
-		fprintf(stderr, "intformat %s format %s type %s\n",
-			_mesa_lookup_enum_by_nr(internalFormat),
-			_mesa_lookup_enum_by_nr(format),
-			_mesa_lookup_enum_by_nr(type));
-
-	if (!ctx->Unpack.ClientStorage)
-		return 0;
-
-	if (ctx->_ImageTransferState ||
-	    texImage->IsCompressed || texObj->GenerateMipmap)
-		return 0;
-
-	/* This list is incomplete, may be different on ppc???
-	 */
-	switch (internalFormat) {
-	case GL_RGBA:
-		if (format == GL_BGRA && type == GL_UNSIGNED_INT_8_8_8_8_REV) {
-			texImage->TexFormat = _dri_texformat_argb8888;
-		} else
-			return 0;
-		break;
-
-	case GL_RGB:
-		if (format == GL_RGB && type == GL_UNSIGNED_SHORT_5_6_5) {
-			texImage->TexFormat = _dri_texformat_rgb565;
-		} else
-			return 0;
-		break;
-
-	case GL_YCBCR_MESA:
-		if (format == GL_YCBCR_MESA &&
-		    type == GL_UNSIGNED_SHORT_8_8_REV_APPLE) {
-			texImage->TexFormat = &_mesa_texformat_ycbcr_rev;
-		} else if (format == GL_YCBCR_MESA &&
-			   (type == GL_UNSIGNED_SHORT_8_8_APPLE ||
-			    type == GL_UNSIGNED_BYTE)) {
-			texImage->TexFormat = &_mesa_texformat_ycbcr;
-		} else
-			return 0;
-		break;
-
-	default:
-		return 0;
-	}
-
-	/* Could deal with these packing issues, but currently don't:
-	 */
-	if (packing->SkipPixels ||
-	    packing->SkipRows || packing->SwapBytes || packing->LsbFirst) {
-		return 0;
-	}
-
-	GLint srcRowStride = _mesa_image_row_stride(packing, srcWidth,
-						    format, type);
-
-	if (RADEON_DEBUG & DEBUG_TEXTURE)
-		fprintf(stderr, "%s: srcRowStride %d/%x\n",
-			__FUNCTION__, srcRowStride, srcRowStride);
-
-	/* Could check this later in upload, pitch restrictions could be
-	 * relaxed, but would need to store the image pitch somewhere,
-	 * as packing details might change before image is uploaded:
-	 */
-	if (!r300IsGartMemory(rmesa, pixels, srcHeight * srcRowStride)
-	    || (srcRowStride & 63))
-		return 0;
-
-	/* Have validated that _mesa_transfer_teximage would be a straight
-	 * memcpy at this point.  NOTE: future calls to TexSubImage will
-	 * overwrite the client data.  This is explicitly mentioned in the
-	 * extension spec.
-	 */
-	texImage->Data = (void *)pixels;
-	texImage->IsClientData = GL_TRUE;
-	texImage->RowStride = srcRowStride / texImage->TexFormat->TexelBytes;
-
-	return 1;
-}
-
 static void r300TexImage1D(GLcontext * ctx, GLenum target, GLint level,
 			   GLint internalFormat,
 			   GLint width, GLint border,
@@ -620,31 +529,21 @@ static void r300TexImage2D(GLcontext * ctx, GLenum target, GLint level,
 
 	texImage->IsClientData = GL_FALSE;
 
-	if (r300ValidateClientStorage(ctx, target,
-				      internalFormat,
-				      width, height,
-				      format, type, pixels,
-				      packing, texObj, texImage)) {
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: Using client storage\n",
-				__FUNCTION__);
-	} else {
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: Using normal storage\n",
-				__FUNCTION__);
+	if (RADEON_DEBUG & DEBUG_TEXTURE)
+		fprintf(stderr, "%s: Using normal storage\n",
+			__FUNCTION__);
 
-		/* Normal path: copy (to cached memory) and eventually upload
-		 * via another copy to GART memory and then a blit...  Could
-		 * eliminate one copy by going straight to (permanent) GART.
-		 *
-		 * Note, this will call r300ChooseTextureFormat.
-		 */
-		_mesa_store_teximage2d(ctx, target, level, internalFormat,
-				       width, height, border, format, type,
-				       pixels, &ctx->Unpack, texObj, texImage);
+	/* Normal path: copy (to cached memory) and eventually upload
+	 * via another copy to GART memory and then a blit...  Could
+	 * eliminate one copy by going straight to (permanent) GART.
+	 *
+	 * Note, this will call r300ChooseTextureFormat.
+	 */
+	_mesa_store_teximage2d(ctx, target, level, internalFormat,
+				width, height, border, format, type,
+				pixels, &ctx->Unpack, texObj, texImage);
 
-		t->dirty_images[face] |= (1 << level);
-	}
+	t->dirty_images[face] |= (1 << level);
 }
 
 static void r300TexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
@@ -732,36 +631,22 @@ static void r300CompressedTexImage2D(GLcontext * ctx, GLenum target,
 
 	texImage->IsClientData = GL_FALSE;
 
-	/* can't call this, different parameters. Would never evaluate to true anyway currently */
-#if 0
-	if (r300ValidateClientStorage(ctx, target,
-				      internalFormat,
-				      width, height,
-				      format, type, pixels,
-				      packing, texObj, texImage)) {
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: Using client storage\n",
-				__FUNCTION__);
-	} else
-#endif
-	{
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: Using normal storage\n",
-				__FUNCTION__);
+	if (RADEON_DEBUG & DEBUG_TEXTURE)
+		fprintf(stderr, "%s: Using normal storage\n",
+			__FUNCTION__);
 
-		/* Normal path: copy (to cached memory) and eventually upload
-		 * via another copy to GART memory and then a blit...  Could
-		 * eliminate one copy by going straight to (permanent) GART.
-		 *
-		 * Note, this will call r300ChooseTextureFormat.
-		 */
-		_mesa_store_compressed_teximage2d(ctx, target, level,
-						  internalFormat, width, height,
-						  border, imageSize, data,
-						  texObj, texImage);
+	/* Normal path: copy (to cached memory) and eventually upload
+	 * via another copy to GART memory and then a blit...  Could
+	 * eliminate one copy by going straight to (permanent) GART.
+	 *
+	 * Note, this will call r300ChooseTextureFormat.
+	 */
+	_mesa_store_compressed_teximage2d(ctx, target, level,
+						internalFormat, width, height,
+						border, imageSize, data,
+						texObj, texImage);
 
-		t->dirty_images[face] |= (1 << level);
-	}
+	t->dirty_images[face] |= (1 << level);
 }
 
 static void r300CompressedTexSubImage2D(GLcontext * ctx, GLenum target,
@@ -833,35 +718,22 @@ static void r300TexImage3D(GLcontext * ctx, GLenum target, GLint level,
 
 	texImage->IsClientData = GL_FALSE;
 
-#if 0
-	if (r300ValidateClientStorage(ctx, target,
-				      internalFormat,
-				      width, height,
-				      format, type, pixels,
-				      packing, texObj, texImage)) {
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: Using client storage\n",
-				__FUNCTION__);
-	} else
-#endif
-	{
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: Using normal storage\n",
-				__FUNCTION__);
+	if (RADEON_DEBUG & DEBUG_TEXTURE)
+		fprintf(stderr, "%s: Using normal storage\n",
+			__FUNCTION__);
 
-		/* Normal path: copy (to cached memory) and eventually upload
-		 * via another copy to GART memory and then a blit...  Could
-		 * eliminate one copy by going straight to (permanent) GART.
-		 *
-		 * Note, this will call r300ChooseTextureFormat.
-		 */
-		_mesa_store_teximage3d(ctx, target, level, internalFormat,
-				       width, height, depth, border,
-				       format, type, pixels,
-				       &ctx->Unpack, texObj, texImage);
+	/* Normal path: copy (to cached memory) and eventually upload
+	 * via another copy to GART memory and then a blit...  Could
+	 * eliminate one copy by going straight to (permanent) GART.
+	 *
+	 * Note, this will call r300ChooseTextureFormat.
+	 */
+	_mesa_store_teximage3d(ctx, target, level, internalFormat,
+				width, height, depth, border,
+				format, type, pixels,
+				&ctx->Unpack, texObj, texImage);
 
-		t->dirty_images[0] |= (1 << level);
-	}
+	t->dirty_images[0] |= (1 << level);
 }
 
 static void

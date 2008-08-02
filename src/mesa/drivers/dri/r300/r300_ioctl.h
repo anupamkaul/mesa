@@ -39,9 +39,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_context.h"
 #include "radeon_drm.h"
 
-extern GLboolean r300IsGartMemory(r300ContextPtr rmesa,
-				  const GLvoid * pointer, GLint size);
-
 extern GLuint r300GartOffsetFromVirtual(r300ContextPtr rmesa,
 					const GLvoid * pointer);
 

@@ -442,21 +442,10 @@ int r300EmitArrays(GLcontext * ctx)
 			swizzle[i][ci] = ci;
 		}
 
-		if (r300IsGartMemory(rmesa, vb->AttribPtr[tab[i]]->data, 4)) {
-			if (vb->AttribPtr[tab[i]]->stride % 4) {
-				return R300_FALLBACK_TCL;
-			}
-			rmesa->state.aos[i].address = (void *)(vb->AttribPtr[tab[i]]->data);
-			rmesa->state.aos[i].start = 0;
-			rmesa->state.aos[i].aos_offset = r300GartOffsetFromVirtual(rmesa, vb->AttribPtr[tab[i]]->data);
-			rmesa->state.aos[i].aos_stride = vb->AttribPtr[tab[i]]->stride / 4;
-			rmesa->state.aos[i].aos_size = vb->AttribPtr[tab[i]]->size;
-		} else {
-			r300EmitVec(ctx, &rmesa->state.aos[i],
-				    vb->AttribPtr[tab[i]]->data,
-				    vb->AttribPtr[tab[i]]->size,
-				    vb->AttribPtr[tab[i]]->stride, count);
-		}
+		r300EmitVec(ctx, &rmesa->state.aos[i],
+				vb->AttribPtr[tab[i]]->data,
+				vb->AttribPtr[tab[i]]->size,
+				vb->AttribPtr[tab[i]]->stride, count);
 
 		rmesa->state.aos[i].aos_size = vb->AttribPtr[tab[i]]->size;
 

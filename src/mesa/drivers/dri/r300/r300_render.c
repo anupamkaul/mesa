@@ -178,18 +178,6 @@ static void r300EmitElts(GLcontext * ctx, void *elts, unsigned long n_elts)
 	struct r300_dma_region *rvb = &rmesa->state.elt_dma;
 	void *out;
 
-	if (r300IsGartMemory(rmesa, elts, n_elts * 4)) {
-		rvb->address = rmesa->radeon.radeonScreen->gartTextures.map;
-		rvb->start = ((char *)elts) - rvb->address;
-		rvb->aos_offset =
-		    rmesa->radeon.radeonScreen->gart_texture_offset +
-		    rvb->start;
-		return;
-	} else if (r300IsGartMemory(rmesa, elts, 1)) {
-		WARN_ONCE("Pointer not within GART memory!\n");
-		_mesa_exit(-1);
-	}
-
 	r300AllocDmaRegion(rmesa, rvb, n_elts * 4, 4);
 	rvb->aos_offset = GET_START(rvb);
 

@@ -625,24 +625,6 @@ void r300AllocDmaRegion(r300ContextPtr rmesa,
 	assert(rmesa->dma.current.ptr <= rmesa->dma.current.end);
 }
 
-
-GLboolean r300IsGartMemory(r300ContextPtr rmesa, const GLvoid * pointer,
-			   GLint size)
-{
-	int offset =
-	    (char *)pointer -
-	    (char *)rmesa->radeon.radeonScreen->gartTextures.map;
-	int valid = (size >= 0 && offset >= 0
-		     && offset + size <
-		     rmesa->radeon.radeonScreen->gartTextures.size);
-
-	if (RADEON_DEBUG & DEBUG_IOCTL)
-		fprintf(stderr, "r300IsGartMemory( %p ) : %d\n", pointer,
-			valid);
-
-	return valid;
-}
-
 GLuint r300GartOffsetFromVirtual(r300ContextPtr rmesa, const GLvoid * pointer)
 {
 	int offset =
