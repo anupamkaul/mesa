@@ -391,23 +391,23 @@ static int bufmgr_classic_bo_unmap(dri_bo *buf)
 static void bufmgr_classic_bo_use(dri_bo* buf)
 {
 	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(buf->bufmgr);
+	BATCH_LOCALS(bufmgr->rmesa);
 	radeon_bo_classic *bo = get_bo_classic(buf);
-	drm_r300_cmd_header_t *cmd;
+	drm_r300_cmd_header_t cmd;
 	uint64_t ull;
 
-	cmd = (drm_r300_cmd_header_t *) r300AllocCmdBuf(bufmgr->rmesa,
-			2 + sizeof(ull) / 4,  __FUNCTION__);
-	cmd[0].scratch.cmd_type = R300_CMD_SCRATCH;
-	cmd[0].scratch.reg = 2; /* Scratch register 2 corresponds to what radeonGetAge polls */
-	cmd[0].scratch.n_bufs = 1;
-	cmd[0].scratch.flags = 0;
-	cmd++;
-
+	cmd.scratch.cmd_type = R300_CMD_SCRATCH;
+	cmd.scratch.reg = 2; /* Scratch register 2 corresponds to what radeonGetAge polls */
+	cmd.scratch.n_bufs = 1;
+	cmd.scratch.flags = 0;
 	ull = (uint64_t) (intptr_t) &bo->pending_age;
-	_mesa_memcpy(cmd, &ull, sizeof(ull));
-	cmd += sizeof(ull) / 4;
 
-	cmd[0].u = 0;
+	BEGIN_BATCH(4);
+	OUT_BATCH(cmd.u);
+	OUT_BATCH(ull & 0xffffffff);
+	OUT_BATCH(ull >> 32);
+	OUT_BATCH(0);
+	END_BATCH();
 
 	bo->pending_count++;
 

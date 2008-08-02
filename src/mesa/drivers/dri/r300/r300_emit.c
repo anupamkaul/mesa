@@ -505,6 +505,7 @@ int r300EmitArrays(GLcontext * ctx)
 void r300UseArrays(GLcontext * ctx)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
+	BATCH_LOCALS(rmesa);
 	int i;
 
 	if (rmesa->state.elt_dma.bo)
@@ -514,6 +515,9 @@ void r300UseArrays(GLcontext * ctx)
 		if (rmesa->state.aos[i].bo)
 			rmesa->bufmgr->bo_use(rmesa->state.aos[i].bo);
 	}
+
+	/* Temporary kludge until buffer objects are marked as used via relocations */
+	COMMIT_BATCH();
 }
 
 void r300ReleaseArrays(GLcontext * ctx)
