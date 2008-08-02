@@ -244,11 +244,11 @@ static INLINE uint32_t cmdpacify(void)
  */
 void static INLINE end_3d(r300ContextPtr rmesa)
 {
-	drm_radeon_cmd_header_t *cmd = NULL;
+	BATCH_LOCALS(rmesa);
 
-	cmd =
-	    (drm_radeon_cmd_header_t *) r300AllocCmdBuf(rmesa, 1, __FUNCTION__);
-	cmd[0].header.cmd_type = R300_CMD_END3D;
+	BEGIN_BATCH(1);
+	OUT_BATCH(cmdpacify());
+	END_BATCH();
 }
 
 void static INLINE cp_delay(r300ContextPtr rmesa, unsigned short count)
