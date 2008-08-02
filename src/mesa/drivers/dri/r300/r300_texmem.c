@@ -189,26 +189,7 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 		width *= texFormat->TexelBytes;
 	}
 
-	if (rmesa->prefer_gart_client_texturing && texImage->IsClientData) {
-		/* In this case, could also use GART texturing.  This is
-		 * currently disabled, but has been tested & works.
-		 */
-		t->offset = r300GartOffsetFromVirtual(rmesa, texImage->Data);
-		t->pitch = texImage->RowStride * texFormat->TexelBytes - 32;
-
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr,
-				"Using GART texturing for rectangular client texture\n");
-
-		/* Release FB memory allocated for this image:
-		 */
-		/* FIXME This may not be correct as driSwapOutTextureObject sets
-		 * FIXME dirty_images.  It may be fine, though.
-		 */
-		if (t->base.memBlock) {
-			driSwapOutTextureObject((driTextureObject *) t);
-		}
-	} else if (texImage->IsClientData) {
+	if (texImage->IsClientData) {
 		/* Data already in GART memory, with usable pitch.
 		 */
 		GLuint srcPitch;

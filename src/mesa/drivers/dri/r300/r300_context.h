@@ -898,7 +898,6 @@ struct r300_context {
 	/* Vertex buffers
 	 */
 	struct r300_dma dma;
-	GLboolean save_on_next_unlock;
 	GLuint NewGLState;
 
 	/* Texture object bookkeeping
@@ -908,10 +907,6 @@ struct r300_context {
 	driTextureObject swapped;
 	int texture_depth;
 	float initialMaxAnisotropy;
-
-	/* Clientdata textures;
-	 */
-	GLuint prefer_gart_client_texturing;
 
 	struct r300_memory_manager *rmm;
 

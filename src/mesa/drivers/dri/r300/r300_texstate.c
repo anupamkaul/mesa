@@ -540,8 +540,7 @@ static GLboolean r300EnableTextureRect(GLcontext * ctx, int unit)
 
 		r300SetTexImages(rmesa, tObj);
 		r300UploadTexImages(rmesa, (r300TexObjPtr) tObj->DriverData, 0);
-		if (!t->base.memBlock && !t->image_override &&
-		    !rmesa->prefer_gart_client_texturing)
+		if (!t->base.memBlock && !t->image_override)
 			return GL_FALSE;
 	}
 
