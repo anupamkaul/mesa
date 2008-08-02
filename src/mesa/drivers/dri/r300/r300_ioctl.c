@@ -545,7 +545,6 @@ void r300Flush(GLcontext * ctx)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 }
 
-#ifdef USER_BUFFERS
 #include "r300_mem.h"
 
 void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
@@ -561,9 +560,7 @@ void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 	}
 
 	if (rmesa->dma.current.buf) {
-#ifdef USER_BUFFERS
 		r300_mem_use(rmesa, rmesa->dma.current.buf->id);
-#endif
 		r300ReleaseDmaRegion(rmesa, &rmesa->dma.current, __FUNCTION__);
 	}
 	if (rmesa->dma.nr_released_bufs > 4)
@@ -657,152 +654,6 @@ void r300AllocDmaRegion(r300ContextPtr rmesa,
 	assert(rmesa->dma.current.ptr <= rmesa->dma.current.end);
 }
 
-#else
-static void r300RefillCurrentDmaRegion(r300ContextPtr rmesa)
-{
-	struct r300_dma_buffer *dmabuf;
-	int fd = rmesa->radeon.dri.fd;
-	int index = 0;
-	int size = 0;
-	drmDMAReq dma;
-	int ret;
-
-	if (RADEON_DEBUG & (DEBUG_IOCTL | DEBUG_DMA))
-		fprintf(stderr, "%s\n", __FUNCTION__);
-
-	if (rmesa->dma.flush) {
-		rmesa->dma.flush(rmesa);
-	}
-
-	if (rmesa->dma.current.buf)
-		r300ReleaseDmaRegion(rmesa, &rmesa->dma.current, __FUNCTION__);
-
-	if (rmesa->dma.nr_released_bufs > 4)
-		r300FlushCmdBuf(rmesa, __FUNCTION__);
-
-	dma.context = rmesa->radeon.dri.hwContext;
-	dma.send_count = 0;
-	dma.send_list = NULL;
-	dma.send_sizes = NULL;
-	dma.flags = 0;
-	dma.request_count = 1;
-	dma.request_size = RADEON_BUFFER_SIZE;
-	dma.request_list = &index;
-	dma.request_sizes = &size;
-	dma.granted_count = 0;
-
-	LOCK_HARDWARE(&rmesa->radeon);	/* no need to validate */
-
-	ret = drmDMA(fd, &dma);
-
-	if (ret != 0) {
-		/* Try to release some buffers and wait until we can't get any more */
-		if (rmesa->dma.nr_released_bufs) {
-			r300FlushCmdBufLocked(rmesa, __FUNCTION__);
-		}
-
-		if (RADEON_DEBUG & DEBUG_DMA)
-			fprintf(stderr, "Waiting for buffers\n");
-
-		radeonWaitForIdleLocked(&rmesa->radeon);
-		ret = drmDMA(fd, &dma);
-
-		if (ret != 0) {
-			UNLOCK_HARDWARE(&rmesa->radeon);
-			fprintf(stderr,
-				"Error: Could not get dma buffer... exiting\n");
-			_mesa_exit(-1);
-		}
-	}
-
-	UNLOCK_HARDWARE(&rmesa->radeon);
-
-	if (RADEON_DEBUG & DEBUG_DMA)
-		fprintf(stderr, "Allocated buffer %d\n", index);
-
-	dmabuf = CALLOC_STRUCT(r300_dma_buffer);
-	dmabuf->buf = &rmesa->radeon.radeonScreen->buffers->list[index];
-	dmabuf->refcount = 1;
-
-	rmesa->dma.current.buf = dmabuf;
-	rmesa->dma.current.address = dmabuf->buf->address;
-	rmesa->dma.current.end = dmabuf->buf->total;
-	rmesa->dma.current.start = 0;
-	rmesa->dma.current.ptr = 0;
-}
-
-void r300ReleaseDmaRegion(r300ContextPtr rmesa,
-			  struct r300_dma_region *region, const char *caller)
-{
-	if (RADEON_DEBUG & DEBUG_IOCTL)
-		fprintf(stderr, "%s from %s\n", __FUNCTION__, caller);
-
-	if (!region->buf)
-		return;
-
-	if (rmesa->dma.flush)
-		rmesa->dma.flush(rmesa);
-
-	if (--region->buf->refcount == 0) {
-		drm_radeon_cmd_header_t *cmd;
-
-		if (RADEON_DEBUG & (DEBUG_IOCTL | DEBUG_DMA))
-			fprintf(stderr, "%s -- DISCARD BUF %d\n",
-				__FUNCTION__, region->buf->buf->idx);
-		cmd =
-		    (drm_radeon_cmd_header_t *) r300AllocCmdBuf(rmesa,
-								sizeof
-								(*cmd) / 4,
-								__FUNCTION__);
-		cmd->dma.cmd_type = R300_CMD_DMA_DISCARD;
-		cmd->dma.buf_idx = region->buf->buf->idx;
-
-		FREE(region->buf);
-		rmesa->dma.nr_released_bufs++;
-	}
-
-	region->buf = 0;
-	region->start = 0;
-}
-
-/* Allocates a region from rmesa->dma.current.  If there isn't enough
- * space in current, grab a new buffer (and discard what was left of current)
- */
-void r300AllocDmaRegion(r300ContextPtr rmesa,
-			struct r300_dma_region *region,
-			int bytes, int alignment)
-{
-	if (RADEON_DEBUG & DEBUG_IOCTL)
-		fprintf(stderr, "%s %d\n", __FUNCTION__, bytes);
-
-	if (rmesa->dma.flush)
-		rmesa->dma.flush(rmesa);
-
-	if (region->buf)
-		r300ReleaseDmaRegion(rmesa, region, __FUNCTION__);
-
-	alignment--;
-	rmesa->dma.current.start = rmesa->dma.current.ptr =
-	    (rmesa->dma.current.ptr + alignment) & ~alignment;
-
-	if (rmesa->dma.current.ptr + bytes > rmesa->dma.current.end)
-		r300RefillCurrentDmaRegion(rmesa);
-
-	region->start = rmesa->dma.current.start;
-	region->ptr = rmesa->dma.current.start;
-	region->end = rmesa->dma.current.start + bytes;
-	region->address = rmesa->dma.current.address;
-	region->buf = rmesa->dma.current.buf;
-	region->buf->refcount++;
-
-	rmesa->dma.current.ptr += bytes;	/* bug - if alignment > 7 */
-	rmesa->dma.current.start =
-	    rmesa->dma.current.ptr = (rmesa->dma.current.ptr + 0x7) & ~0x7;
-
-	assert(rmesa->dma.current.ptr <= rmesa->dma.current.end);
-}
-
-#endif
 
 GLboolean r300IsGartMemory(r300ContextPtr rmesa, const GLvoid * pointer,
 			   GLint size)

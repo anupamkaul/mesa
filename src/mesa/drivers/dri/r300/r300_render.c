@@ -324,9 +324,7 @@ static GLboolean r300RunRender(GLcontext * ctx,
 
 	r300EmitCacheFlush(rmesa);
 
-#ifdef USER_BUFFERS
 	r300UseArrays(ctx);
-#endif
 
 	r300ReleaseArrays(ctx);
 

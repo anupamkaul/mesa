@@ -39,8 +39,6 @@
 #include "r300_mem.h"
 #include "radeon_ioctl.h"
 
-#ifdef USER_BUFFERS
-
 static void resize_u_list(r300ContextPtr rmesa)
 {
 	void *temp;
@@ -382,4 +380,3 @@ void r300_mem_free(r300ContextPtr rmesa, int id)
 
 	rmesa->rmm->u_list[id].pending = 1;
 }
-#endif

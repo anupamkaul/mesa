@@ -51,9 +51,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_emit.h"
 #include "r300_ioctl.h"
 
-#ifdef USER_BUFFERS
 #include "r300_mem.h"
-#endif
 
 #if SWIZZLE_X != R300_INPUT_ROUTE_SELECT_X || \
     SWIZZLE_Y != R300_INPUT_ROUTE_SELECT_Y || \
@@ -515,7 +513,6 @@ int r300EmitArrays(GLcontext * ctx)
 	return R300_FALLBACK_NONE;
 }
 
-#ifdef USER_BUFFERS
 void r300UseArrays(GLcontext * ctx)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
@@ -529,7 +526,6 @@ void r300UseArrays(GLcontext * ctx)
 			r300_mem_use(rmesa, rmesa->state.aos[i].buf->id);
 	}
 }
-#endif
 
 void r300ReleaseArrays(GLcontext * ctx)
 {

@@ -53,9 +53,7 @@ SOFTWARE.
 #include "r300_ioctl.h"
 #include <unistd.h>		/* for usleep() */
 
-#ifdef USER_BUFFERS
 #include "r300_mem.h"
-#endif
 
 /**
  * Destroy any device-dependent state associated with the texture.  This may
@@ -269,9 +267,7 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 				     t->bufAddr, 0, 0, 0, done, width, lines);
 
 			r300EmitWait(rmesa, R300_WAIT_2D);
-#ifdef USER_BUFFERS
 			r300_mem_use(rmesa, region.buf->id);
-#endif
 
 			r300ReleaseDmaRegion(rmesa, &region, __FUNCTION__);
 			done += lines;

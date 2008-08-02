@@ -65,9 +65,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_emit.h"
 #include "r300_swtcl.h"
 
-#ifdef USER_BUFFERS
 #include "r300_mem.h"
-#endif
 
 #include "vblank.h"
 #include "utils.h"
@@ -222,9 +220,7 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 	r300InitTextureFuncs(&functions);
 	r300InitShaderFuncs(&functions);
 
-#ifdef USER_BUFFERS
 	r300_mem_init(r300);
-#endif
 
 	if (!radeonInitContext(&r300->radeon, &functions,
 			       glVisual, driContextPriv,
@@ -299,12 +295,10 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 	ctx->Const.MaxLineWidth = R300_LINESIZE_MAX;
 	ctx->Const.MaxLineWidthAA = R300_LINESIZE_MAX;
 
-#ifdef USER_BUFFERS
 	/* Needs further modifications */
 #if 0
 	ctx->Const.MaxArrayLockSize =
 	    ( /*512 */ RADEON_BUFFER_SIZE * 16 * 1024) / (4 * 4);
-#endif
 #endif
 
 	/* Initialize the software rasterizer and helper modules.
@@ -414,7 +408,6 @@ static void r300FreeGartAllocations(r300ContextPtr r300)
 
 	memfree.region = RADEON_MEM_REGION_GART;
 
-#ifdef USER_BUFFERS
 	for (i = r300->rmm->u_last; i > 0; i--) {
 		if (r300->rmm->u_list[i].ptr == NULL) {
 			continue;
@@ -470,7 +463,6 @@ static void r300FreeGartAllocations(r300ContextPtr r300)
 		}
 	}
 	r300->rmm->u_head = i;
-#endif				/* USER_BUFFERS */
 }
 
 /* Destroy the device specific context.
@@ -509,9 +501,6 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 		if (r300->dma.current.buf) {
 			r300ReleaseDmaRegion(r300, &r300->dma.current,
 					     __FUNCTION__);
-#ifndef USER_BUFFERS
-			r300FlushCmdBuf(r300, __FUNCTION__);
-#endif
 		}
 		r300FreeGartAllocations(r300);
 		r300DestroyCmdBuf(r300);
@@ -537,12 +526,10 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 
 		radeonCleanupContext(&r300->radeon);
 
-#ifdef USER_BUFFERS
 		/* the memory manager might be accessed when Mesa frees the shared
 		 * state, so don't destroy it earlier
 		 */
 		r300_mem_destroy(r300);
-#endif
 
 		/* free the option cache */
 		driDestroyOptionCache(&r300->radeon.optionCache);

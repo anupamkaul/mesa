@@ -47,8 +47,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "mtypes.h"
 #include "colormac.h"
 
-#define USER_BUFFERS
-
 struct r300_context;
 typedef struct r300_context r300ContextRec;
 typedef struct r300_context *r300ContextPtr;
@@ -130,13 +128,8 @@ struct r300_dma_buffer {
 	int id;
 };
 #undef GET_START
-#ifdef USER_BUFFERS
 #define GET_START(rvb) (r300GartOffsetFromVirtual(rmesa, (rvb)->address+(rvb)->start))
-#else
-#define GET_START(rvb) (rmesa->radeon.radeonScreen->gart_buffer_offset +		\
-			(rvb)->address - rmesa->dma.buf0_address +	\
-			(rvb)->start)
-#endif
+
 /* A retained region, eg vertices for indexed vertices.
  */
 struct r300_dma_region {
@@ -920,9 +913,7 @@ struct r300_context {
 	 */
 	GLuint prefer_gart_client_texturing;
 
-#ifdef USER_BUFFERS
 	struct r300_memory_manager *rmm;
-#endif
 
 	GLvector4f dummy_attrib[_TNL_ATTRIB_MAX];
 	GLvector4f *temp_attrib[_TNL_ATTRIB_MAX];
