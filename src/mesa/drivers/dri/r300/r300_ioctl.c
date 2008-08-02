@@ -542,7 +542,7 @@ void r300Flush(GLcontext * ctx)
 	if (rmesa->dma.flush)
 		rmesa->dma.flush( rmesa );
 
-	if (rmesa->cmdbuf.used > rmesa->cmdbuf.reemit)
+	if (rmesa->cmdbuf.committed > rmesa->cmdbuf.reemit)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 }
 

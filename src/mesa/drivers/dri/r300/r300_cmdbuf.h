@@ -45,29 +45,75 @@ extern void r300EmitState(r300ContextPtr r300);
 
 extern void r300InitCmdBuf(r300ContextPtr r300);
 extern void r300DestroyCmdBuf(r300ContextPtr r300);
+extern void r300EnsureCmdBufSpace(r300ContextPtr r300, int dwords, const char *caller);
+
+extern void r300BeginBatch(r300ContextPtr r300, int n, GLboolean autostate, const char* function, int line);
 
 /**
- * Make sure that enough space is available in the command buffer
- * by flushing if necessary.
- *
- * \param dwords The number of dwords we need to be free on the command buffer
+ * Every function writing to the command buffer needs to declare this
+ * to get the necessary local variables.
  */
-static INLINE void r300EnsureCmdBufSpace(r300ContextPtr r300,
-					     int dwords, const char *caller)
-{
-	assert(dwords < r300->cmdbuf.size);
-
-	if (r300->cmdbuf.used + dwords > r300->cmdbuf.size)
-		r300FlushCmdBuf(r300, caller);
-}
+#define BATCH_LOCALS(r300) \
+	const r300ContextPtr b_l_r300 = r300
 
 /**
- * Allocate the given number of dwords in the command buffer and return
- * a pointer to the allocated area.
- * When necessary, these functions cause a flush. r300AllocCmdBuf() also
- * causes state reemission after a flush. This is necessary to ensure
- * correct hardware state after an unlock.
+ * Prepare writing n dwords to the command buffer,
+ * including producing any necessary state emits on buffer wraparound.
  */
+#define BEGIN_BATCH(n) r300BeginBatch(b_l_r300, n, GL_TRUE, __FUNCTION__, __LINE__)
+
+/**
+ * Same as BEGIN_BATCH, but do not cause automatic state emits.
+ */
+#define BEGIN_BATCH_NO_AUTOSTATE(n) r300BeginBatch(b_l_r300, n, GL_FALSE, __FUNCTION__, __LINE__)
+
+/**
+ * Write one dword to the command buffer.
+ */
+#define OUT_BATCH(data) \
+	do { \
+		if (b_l_r300->cmdbuf.written < b_l_r300->cmdbuf.reserved) { \
+			((uint32_t*)b_l_r300->cmdbuf.buf->virtual)[b_l_r300->cmdbuf.written++] = data; \
+		} else { \
+			_mesa_problem(b_l_r300->radeon.glCtx, "%s:%i: OUT_BATCH mismatch", __FUNCTION__, __LINE__); \
+		} \
+	} while(0)
+
+/**
+ * Write n dwords from ptr to the command buffer.
+ */
+#define OUT_BATCH_TABLE(ptr,n) \
+	do { \
+		int _n = n; \
+		if (b_l_r300->cmdbuf.written+_n <= b_l_r300->cmdbuf.reserved) { \
+			memcpy((uint32_t*)b_l_r300->cmdbuf.buf->virtual + b_l_r300->cmdbuf.written, (ptr), 4*_n); \
+			b_l_r300->cmdbuf.written += _n; \
+		} else { \
+			_mesa_problem(b_l_r300->radeon.glCtx, "%s:%i: OUT_BATCH_TABLE mismatch", __FUNCTION__, __LINE__); \
+		} \
+	} while(0)
+
+/**
+ * Finish writing dwords to the command buffer.
+ * The number of (direct or indirect) OUT_BATCH calls between the previous
+ * BEGIN_BATCH and END_BATCH must match the number specified at BEGIN_BATCH time.
+ */
+#define END_BATCH() \
+	do { \
+		if (b_l_r300->cmdbuf.written != b_l_r300->cmdbuf.reserved) \
+			_mesa_problem(b_l_r300->radeon.glCtx, "%s:%i: END_BATCH mismatch", __FUNCTION__, __LINE__); \
+	} while(0)
+
+/**
+ * After the last END_BATCH() of rendering, this indicates that flushing
+ * the command buffer now is okay.
+ */
+#define COMMIT_BATCH() \
+	do { \
+		assert(b_l_r300->cmdbuf.written == b_l_r300->cmdbuf.reserved); \
+		b_l_r300->cmdbuf.committed = b_l_r300->cmdbuf.written; \
+	} while(0)
+
 static INLINE uint32_t *r300RawAllocCmdBuf(r300ContextPtr r300,
 					       int dwords, const char *caller)
 {
@@ -75,8 +121,9 @@ static INLINE uint32_t *r300RawAllocCmdBuf(r300ContextPtr r300,
 
 	r300EnsureCmdBufSpace(r300, dwords, caller);
 
-	ptr = (uint32_t*)r300->cmdbuf.buf->virtual + r300->cmdbuf.used;
-	r300->cmdbuf.used += dwords;
+	ptr = (uint32_t*)r300->cmdbuf.buf->virtual + r300->cmdbuf.written;
+	r300->cmdbuf.written += dwords;
+	r300->cmdbuf.reserved = r300->cmdbuf.committed = r300->cmdbuf.written;
 	return ptr;
 }
 
@@ -87,15 +134,16 @@ static INLINE uint32_t *r300AllocCmdBuf(r300ContextPtr r300,
 
 	r300EnsureCmdBufSpace(r300, dwords, caller);
 
-	if (!r300->cmdbuf.used) {
+	if (!r300->cmdbuf.written) {
 		if (RADEON_DEBUG & DEBUG_IOCTL)
 			fprintf(stderr,
 				"Reemit state after flush (from %s)\n", caller);
 		r300EmitState(r300);
 	}
 
-	ptr = (uint32_t*)r300->cmdbuf.buf->virtual + r300->cmdbuf.used;
-	r300->cmdbuf.used += dwords;
+	ptr = (uint32_t*)r300->cmdbuf.buf->virtual + r300->cmdbuf.written;
+	r300->cmdbuf.written += dwords;
+	r300->cmdbuf.reserved = r300->cmdbuf.committed = r300->cmdbuf.written;
 	return ptr;
 }
 

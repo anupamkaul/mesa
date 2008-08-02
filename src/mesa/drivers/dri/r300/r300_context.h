@@ -546,9 +546,12 @@ struct r300_hw_state {
  */
 struct r300_cmdbuf {
 	dri_bo *buf;
-	int reemit; /** # of dwords in reemit sequence */
-	int used; /** # of dwords used so far */
+	int reemit; /** # of dwords in reemit sequence (is always <= committed) */
 	int size; /** # of dwords total */
+
+	int committed; /** # of dwords that we have committed to */
+	int written; /** # of dwords written (is always >= committed) */
+	int reserved; /** # of dwords reserved up to previous BEGIN_BATCH */
 };
 
 /**

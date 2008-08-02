@@ -77,17 +77,26 @@ int r300FlushCmdBufLocked(r300ContextPtr r300, const char *caller)
 		fprintf(stderr, "%s from %s - %i cliprects\n",
 			__FUNCTION__, caller, r300->radeon.numClipRects);
 
-		if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_VERBOSE)
-			for (i = start; i < r300->cmdbuf.used; ++i)
+		if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_VERBOSE) {
+			fprintf(stderr, "written: %d  committed: %d\n", r300->cmdbuf.written, r300->cmdbuf.committed);
+			for (i = start; i < r300->cmdbuf.written; ++i)
 				fprintf(stderr, "%d: %08x\n", i,
 					((uint32_t*)r300->cmdbuf.buf->virtual)[i]);
+		}
+	}
+
+	if (r300->cmdbuf.written != r300->cmdbuf.committed) {
+		_mesa_problem(r300->radeon.glCtx,
+			"Command buffer contains %d uncommitted dwords\n"
+			"in r300FlushCmdBufLocked called from %s.\n",
+			r300->cmdbuf.written - r300->cmdbuf.committed, caller);
 	}
 
 	dri_bo_unmap(r300->cmdbuf.buf);
 	dri_process_relocs(r300->cmdbuf.buf, 0);
 
 	cmd.buf = (char *)r300->cmdbuf.buf->virtual + 4*start;
-	cmd.bufsz = (r300->cmdbuf.used - start) * 4;
+	cmd.bufsz = (r300->cmdbuf.committed - start) * 4;
 
 	if (r300->radeon.state.scissor.enabled) {
 		cmd.nbox = r300->radeon.state.scissor.numClipRects;
@@ -113,7 +122,9 @@ int r300FlushCmdBufLocked(r300ContextPtr r300, const char *caller)
 	r300->dma.nr_released_bufs = 0;
 	r300->cmdbuf.buf = dri_bo_alloc(&r300->bufmgr->base, "cmdbuf",
 		r300->cmdbuf.size*4, 16, DRM_BO_MEM_CMDBUF);
-	r300->cmdbuf.used = 0;
+	r300->cmdbuf.written = 0;
+	r300->cmdbuf.reserved = 0;
+	r300->cmdbuf.committed = 0;
 	r300->cmdbuf.reemit = 0;
 	dri_bo_map(r300->cmdbuf.buf, GL_TRUE);
 
@@ -125,9 +136,7 @@ int r300FlushCmdBuf(r300ContextPtr r300, const char *caller)
 	int ret;
 
 	LOCK_HARDWARE(&r300->radeon);
-
 	ret = r300FlushCmdBufLocked(r300, caller);
-
 	UNLOCK_HARDWARE(&r300->radeon);
 
 	if (ret) {
@@ -136,6 +145,41 @@ int r300FlushCmdBuf(r300ContextPtr r300, const char *caller)
 	}
 
 	return ret;
+}
+
+/**
+ * Make sure that enough space is available in the command buffer
+ * by flushing if necessary.
+ *
+ * \param dwords The number of dwords we need to be free on the command buffer
+ */
+void r300EnsureCmdBufSpace(r300ContextPtr r300, int dwords, const char *caller)
+{
+	assert(dwords < r300->cmdbuf.size);
+
+	if (r300->cmdbuf.written + dwords > r300->cmdbuf.size)
+		r300FlushCmdBuf(r300, caller);
+}
+
+void r300BeginBatch(r300ContextPtr r300, int n, GLboolean autostate, const char* function, int line)
+{
+	assert(r300->cmdbuf.written == r300->cmdbuf.reserved);
+
+	r300EnsureCmdBufSpace(r300, n, function);
+
+	if (autostate && !r300->cmdbuf.written) {
+		if (RADEON_DEBUG & DEBUG_IOCTL)
+			fprintf(stderr,
+				"Reemit state after flush (from %s)\n", function);
+		r300EmitState(r300);
+	}
+
+	r300->cmdbuf.reserved += n;
+	assert(r300->cmdbuf.reserved < r300->cmdbuf.size);
+
+	if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_IOCTL)
+		fprintf(stderr, "BEGIN_BATCH(%d) at %d, from %s:%i\n",
+			n, r300->cmdbuf.written, function, line);
 }
 
 static void r300PrintStateAtom(r300ContextPtr r300, struct r300_state_atom *state)
@@ -211,22 +255,21 @@ void r300EmitState(r300ContextPtr r300)
 	if (RADEON_DEBUG & (DEBUG_STATE | DEBUG_PRIMS))
 		fprintf(stderr, "%s\n", __FUNCTION__);
 
-	if (r300->cmdbuf.used && !r300->hw.is_dirty
+	if (r300->cmdbuf.written && !r300->hw.is_dirty
 	    && !r300->hw.all_dirty)
 		return;
 
 	/* To avoid going across the entire set of states multiple times, just check
-	 * for enough space for the case of emitting all state, and inline the
-	 * r300AllocCmdBuf code here without all the checks.
+	 * for enough space for the case of emitting all state.
 	 */
 	r300EnsureCmdBufSpace(r300, r300->hw.max_state_size, __FUNCTION__);
 
-	if (!r300->cmdbuf.used) {
+	if (!r300->cmdbuf.written) {
 		if (RADEON_DEBUG & DEBUG_STATE)
 			fprintf(stderr, "Begin reemit state\n");
 
 		r300EmitAtoms(r300, GL_FALSE);
-		r300->cmdbuf.reemit = r300->cmdbuf.used;
+		r300->cmdbuf.reemit = r300->cmdbuf.committed;
 	}
 
 	if (RADEON_DEBUG & DEBUG_STATE)
@@ -234,7 +277,7 @@ void r300EmitState(r300ContextPtr r300)
 
 	r300EmitAtoms(r300, GL_TRUE);
 
-	assert(r300->cmdbuf.used < r300->cmdbuf.size);
+	assert(r300->cmdbuf.written < r300->cmdbuf.size);
 
 	r300->hw.is_dirty = GL_FALSE;
 	r300->hw.all_dirty = GL_FALSE;
@@ -600,7 +643,9 @@ void r300InitCmdBuf(r300ContextPtr r300)
 	r300->cmdbuf.buf = dri_bo_alloc(&r300->bufmgr->base, "cmdbuf",
 		size*4, 16, DRM_BO_MEM_CMDBUF);
 	r300->cmdbuf.size = size;
-	r300->cmdbuf.used = 0;
+	r300->cmdbuf.written = 0;
+	r300->cmdbuf.reserved = 0;
+	r300->cmdbuf.committed = 0;
 	r300->cmdbuf.reemit = 0;
 	dri_bo_map(r300->cmdbuf.buf, GL_TRUE);
 }

@@ -59,7 +59,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define R300_FIREVERTICES( r300 )			\
 do {							\
     \
-   if ( (r300)->cmdbuf.used || (r300)->dma.flush ) {	\
+   if ( (r300)->cmdbuf.committed || (r300)->dma.flush ) {	\
       r300Flush( (r300)->radeon.glCtx );		\
    }							\
     \
