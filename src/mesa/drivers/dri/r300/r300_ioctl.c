@@ -167,12 +167,8 @@ static void r300EmitClearState(GLcontext * ctx)
 {
 	r300ContextPtr r300 = R300_CONTEXT(ctx);
 	BATCH_LOCALS(r300);
-	r300ContextPtr rmesa = r300;
 	__DRIdrawablePrivate *dPriv = r300->radeon.dri.drawable;
 	int i;
-	int cmd_reserved = 0;
-	int cmd_written = 0;
-	drm_radeon_cmd_header_t *cmd = NULL;
 	int has_tcl = 1;
 	int is_r500 = 0;
 	GLuint vap_cntl;
@@ -183,32 +179,30 @@ static void r300EmitClearState(GLcontext * ctx)
         if (r300->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515)
                 is_r500 = 1;
 
-
-	/* FIXME: the values written to R300_VAP_INPUT_ROUTE_0_0 and
-	 * R300_VAP_INPUT_ROUTE_0_1 are in fact known, however, the values are
-	 * quite complex; see the functions in r300_emit.c.
-	 *
-	 * I believe it would be a good idea to extend the functions in
-	 * r300_emit.c so that they can be used to setup the default values for
-	 * these registers, as well as the actual values used for rendering.
-	 */
 	R300_STATECHANGE(r300, vir[0]);
-	reg_start(R300_VAP_PROG_STREAM_CNTL_0, 0);
+	R300_STATECHANGE(r300, fogs);
+	R300_STATECHANGE(r300, vir[1]);
+	R300_STATECHANGE(r300, vic);
+	R300_STATECHANGE(r300, vte);
+	R300_STATECHANGE(r300, vof);
+	R300_STATECHANGE(r300, txe);
+	R300_STATECHANGE(r300, vpt);
+	R300_STATECHANGE(r300, at);
+	R300_STATECHANGE(r300, bld);
+	R300_STATECHANGE(r300, ps);
+
+	BEGIN_BATCH_NO_AUTOSTATE(31);
+	OUT_BATCH_REGSEQ(R300_VAP_PROG_STREAM_CNTL_0, 1);
 	if (!has_tcl)
-	    e32(((((0 << R300_DST_VEC_LOC_SHIFT) | R300_DATA_TYPE_FLOAT_4) << R300_DATA_TYPE_0_SHIFT) |
+		OUT_BATCH(((((0 << R300_DST_VEC_LOC_SHIFT) | R300_DATA_TYPE_FLOAT_4) << R300_DATA_TYPE_0_SHIFT) |
 		 ((R300_LAST_VEC | (2 << R300_DST_VEC_LOC_SHIFT) | R300_DATA_TYPE_FLOAT_4) << R300_DATA_TYPE_1_SHIFT)));
 	else
-	    e32(((((0 << R300_DST_VEC_LOC_SHIFT) | R300_DATA_TYPE_FLOAT_4) << R300_DATA_TYPE_0_SHIFT) |
+		OUT_BATCH(((((0 << R300_DST_VEC_LOC_SHIFT) | R300_DATA_TYPE_FLOAT_4) << R300_DATA_TYPE_0_SHIFT) |
 		 ((R300_LAST_VEC | (1 << R300_DST_VEC_LOC_SHIFT) | R300_DATA_TYPE_FLOAT_4) << R300_DATA_TYPE_1_SHIFT)));
 
-	/* disable fog */
-	R300_STATECHANGE(r300, fogs);
-	reg_start(R300_FG_FOG_BLEND, 0);
-	e32(0x0);
-
-	R300_STATECHANGE(r300, vir[1]);
-	reg_start(R300_VAP_PROG_STREAM_CNTL_EXT_0, 0);
-	e32(((((R300_SWIZZLE_SELECT_X << R300_SWIZZLE_SELECT_X_SHIFT) |
+	OUT_BATCH_REGVAL(R300_FG_FOG_BLEND, 0);
+	OUT_BATCH_REGVAL(R300_VAP_PROG_STREAM_CNTL_EXT_0,
+	   ((((R300_SWIZZLE_SELECT_X << R300_SWIZZLE_SELECT_X_SHIFT) |
 	       (R300_SWIZZLE_SELECT_Y << R300_SWIZZLE_SELECT_Y_SHIFT) |
 	       (R300_SWIZZLE_SELECT_Z << R300_SWIZZLE_SELECT_Z_SHIFT) |
 	       (R300_SWIZZLE_SELECT_W << R300_SWIZZLE_SELECT_W_SHIFT) |
@@ -222,61 +216,55 @@ static void r300EmitClearState(GLcontext * ctx)
 	      << R300_SWIZZLE1_SHIFT)));
 
 	/* R300_VAP_INPUT_CNTL_0, R300_VAP_INPUT_CNTL_1 */
-	R300_STATECHANGE(r300, vic);
-	reg_start(R300_VAP_VTX_STATE_CNTL, 1);
-	e32((R300_SEL_USER_COLOR_0 << R300_COLOR_0_ASSEMBLY_SHIFT));
-	e32(R300_INPUT_CNTL_POS | R300_INPUT_CNTL_COLOR | R300_INPUT_CNTL_TC0);
+	OUT_BATCH_REGSEQ(R300_VAP_VTX_STATE_CNTL, 2);
+	OUT_BATCH((R300_SEL_USER_COLOR_0 << R300_COLOR_0_ASSEMBLY_SHIFT));
+	OUT_BATCH(R300_INPUT_CNTL_POS | R300_INPUT_CNTL_COLOR | R300_INPUT_CNTL_TC0);
 
-	R300_STATECHANGE(r300, vte);
 	/* comes from fglrx startup of clear */
-	reg_start(R300_SE_VTE_CNTL, 1);
-	e32(R300_VTX_W0_FMT | R300_VPORT_X_SCALE_ENA |
-	    R300_VPORT_X_OFFSET_ENA | R300_VPORT_Y_SCALE_ENA |
-	    R300_VPORT_Y_OFFSET_ENA | R300_VPORT_Z_SCALE_ENA |
-	    R300_VPORT_Z_OFFSET_ENA);
-	e32(0x8);
+	OUT_BATCH_REGSEQ(R300_SE_VTE_CNTL, 2);
+	OUT_BATCH(R300_VTX_W0_FMT | R300_VPORT_X_SCALE_ENA |
+		  R300_VPORT_X_OFFSET_ENA | R300_VPORT_Y_SCALE_ENA |
+		  R300_VPORT_Y_OFFSET_ENA | R300_VPORT_Z_SCALE_ENA |
+		  R300_VPORT_Z_OFFSET_ENA);
+	OUT_BATCH(0x8);
 
-	reg_start(R300_VAP_PSC_SGN_NORM_CNTL, 0);
-	e32(0xaaaaaaaa);
+	OUT_BATCH_REGVAL(R300_VAP_PSC_SGN_NORM_CNTL, 0xaaaaaaaa);
 
-	R300_STATECHANGE(r300, vof);
-	reg_start(R300_VAP_OUTPUT_VTX_FMT_0, 1);
-	e32(R300_VAP_OUTPUT_VTX_FMT_0__POS_PRESENT |
-	    R300_VAP_OUTPUT_VTX_FMT_0__COLOR_0_PRESENT);
-	e32(0x0);		/* no textures */
+	OUT_BATCH_REGSEQ(R300_VAP_OUTPUT_VTX_FMT_0, 2);
+	OUT_BATCH(R300_VAP_OUTPUT_VTX_FMT_0__POS_PRESENT |
+		  R300_VAP_OUTPUT_VTX_FMT_0__COLOR_0_PRESENT);
+	OUT_BATCH(0); /* no textures */
 
-	R300_STATECHANGE(r300, txe);
-	reg_start(R300_TX_ENABLE, 0);
-	e32(0x0);
+	OUT_BATCH_REGVAL(R300_TX_ENABLE, 0);
 
-	R300_STATECHANGE(r300, vpt);
-	reg_start(R300_SE_VPORT_XSCALE, 5);
-	efloat(1.0);
-	efloat(dPriv->x);
-	efloat(1.0);
-	efloat(dPriv->y);
-	efloat(1.0);
-	efloat(0.0);
+	OUT_BATCH_REGSEQ(R300_SE_VPORT_XSCALE, 6);
+	OUT_BATCH_FLOAT32(1.0);
+	OUT_BATCH_FLOAT32(dPriv->x);
+	OUT_BATCH_FLOAT32(1.0);
+	OUT_BATCH_FLOAT32(dPriv->y);
+	OUT_BATCH_FLOAT32(1.0);
+	OUT_BATCH_FLOAT32(0.0);
 
-	R300_STATECHANGE(r300, at);
-	reg_start(R300_FG_ALPHA_FUNC, 0);
-	e32(0x0);
+	OUT_BATCH_REGVAL(R300_FG_ALPHA_FUNC, 0);
 
-	R300_STATECHANGE(r300, bld);
-	reg_start(R300_RB3D_CBLEND, 1);
-	e32(0x0);
-	e32(0x0);
+	OUT_BATCH_REGSEQ(R300_RB3D_CBLEND, 2);
+	OUT_BATCH(0x0);
+	OUT_BATCH(0x0);
+	END_BATCH();
 
 	if (has_tcl) {
-	    R300_STATECHANGE(r300, vap_clip_cntl);
-	    reg_start(R300_VAP_CLIP_CNTL, 0);
-	    e32(R300_PS_UCP_MODE_CLIP_AS_TRIFAN | R300_CLIP_DISABLE);
+		R300_STATECHANGE(r300, vap_clip_cntl);
+
+		BEGIN_BATCH_NO_AUTOSTATE(2);
+		OUT_BATCH_REGVAL(R300_VAP_CLIP_CNTL, R300_PS_UCP_MODE_CLIP_AS_TRIFAN | R300_CLIP_DISABLE);
+		END_BATCH();
         }
 
-	R300_STATECHANGE(r300, ps);
-	reg_start(R300_GA_POINT_SIZE, 0);
-	e32(((dPriv->w * 6) << R300_POINTSIZE_X_SHIFT) |
-	    ((dPriv->h * 6) << R300_POINTSIZE_Y_SHIFT));
+	BEGIN_BATCH_NO_AUTOSTATE(2);
+	OUT_BATCH_REGVAL(R300_GA_POINT_SIZE,
+		((dPriv->w * 6) << R300_POINTSIZE_X_SHIFT) |
+		((dPriv->h * 6) << R300_POINTSIZE_Y_SHIFT));
+	END_BATCH();
 
 	if (!is_r500) {
 		R300_STATECHANGE(r300, ri);
