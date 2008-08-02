@@ -121,6 +121,7 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 	/* Data not in GART memory, or bad pitch.
 	 */
 	for (done = 0; done < height;) {
+		BATCH_LOCALS(rmesa);
 		struct r300_dma_region region;
 		int lines =
 			MIN2(height - done, RADEON_BUFFER_SIZE / dstPitch);
@@ -155,7 +156,7 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 			}
 		}
 
-		r300EmitWait(rmesa, R300_WAIT_3D);
+		cp_wait(rmesa, R300_WAIT_3D);
 
 		/* Blit to framebuffer
 			*/
@@ -165,8 +166,9 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 				dstPitch | (t->tile_bits >> 16),
 				t->bufAddr, 0, 0, 0, done, width, lines);
 
-		r300EmitWait(rmesa, R300_WAIT_2D);
+		cp_wait(rmesa, R300_WAIT_2D);
 		rmesa->bufmgr->bo_use(region.bo);
+		COMMIT_BATCH();
 
 		r300ReleaseDmaRegion(rmesa, &region, __FUNCTION__);
 		done += lines;
