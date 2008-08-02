@@ -48,6 +48,7 @@ SOFTWARE.
 #include "r300_context.h"
 #include "r300_state.h"
 #include "r300_cmdbuf.h"
+#include "r300_emit.h"
 #include "radeon_ioctl.h"
 #include "r300_tex.h"
 #include "r300_ioctl.h"

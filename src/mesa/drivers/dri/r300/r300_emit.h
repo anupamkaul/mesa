@@ -263,4 +263,15 @@ extern GLuint r300VAPInputCntl1(GLcontext * ctx, GLuint InputsRead);
 extern GLuint r300VAPOutputCntl0(GLcontext * ctx, GLuint OutputsWritten);
 extern GLuint r300VAPOutputCntl1(GLcontext * ctx, GLuint OutputsWritten);
 
+extern void r300EmitBlit(r300ContextPtr rmesa,
+			 GLuint color_fmt,
+			 GLuint src_pitch,
+			 GLuint src_offset,
+			 GLuint dst_pitch,
+			 GLuint dst_offset,
+			 GLint srcx, GLint srcy,
+			 GLint dstx, GLint dsty, GLuint w, GLuint h);
+
+extern void r300EmitWait(r300ContextPtr rmesa, GLuint flags);
+
 #endif

@@ -542,3 +542,60 @@ void r300EmitCacheFlush(r300ContextPtr rmesa)
 	e32(R300_ZB_ZCACHE_CTLSTAT_ZC_FLUSH_FLUSH_AND_FREE |
 	    R300_ZB_ZCACHE_CTLSTAT_ZC_FREE_FREE);
 }
+
+void r300EmitBlit(r300ContextPtr rmesa,
+		  GLuint color_fmt,
+		  GLuint src_pitch,
+		  GLuint src_offset,
+		  GLuint dst_pitch,
+		  GLuint dst_offset,
+		  GLint srcx, GLint srcy,
+		  GLint dstx, GLint dsty, GLuint w, GLuint h)
+{
+	drm_r300_cmd_header_t *cmd;
+
+	if (RADEON_DEBUG & DEBUG_IOCTL)
+		fprintf(stderr,
+			"%s src %x/%x %d,%d dst: %x/%x %d,%d sz: %dx%d\n",
+			__FUNCTION__, src_pitch, src_offset, srcx, srcy,
+			dst_pitch, dst_offset, dstx, dsty, w, h);
+
+	assert((src_pitch & 63) == 0);
+	assert((dst_pitch & 63) == 0);
+	assert((src_offset & 1023) == 0);
+	assert((dst_offset & 1023) == 0);
+	assert(w < (1 << 16));
+	assert(h < (1 << 16));
+
+	cmd = (drm_r300_cmd_header_t *) r300AllocCmdBuf(rmesa, 8, __FUNCTION__);
+
+	cmd[0].header.cmd_type = R300_CMD_PACKET3;
+	cmd[0].header.pad0 = R300_CMD_PACKET3_RAW;
+	cmd[1].u = R300_CP_CMD_BITBLT_MULTI | (5 << 16);
+	cmd[2].u = (RADEON_GMC_SRC_PITCH_OFFSET_CNTL |
+		    RADEON_GMC_DST_PITCH_OFFSET_CNTL |
+		    RADEON_GMC_BRUSH_NONE |
+		    (color_fmt << 8) |
+		    RADEON_GMC_SRC_DATATYPE_COLOR |
+		    RADEON_ROP3_S |
+		    RADEON_DP_SRC_SOURCE_MEMORY |
+		    RADEON_GMC_CLR_CMP_CNTL_DIS | RADEON_GMC_WR_MSK_DIS);
+
+	cmd[3].u = ((src_pitch / 64) << 22) | (src_offset >> 10);
+	cmd[4].u = ((dst_pitch / 64) << 22) | (dst_offset >> 10);
+	cmd[5].u = (srcx << 16) | srcy;
+	cmd[6].u = (dstx << 16) | dsty;	/* dst */
+	cmd[7].u = (w << 16) | h;
+}
+
+void r300EmitWait(r300ContextPtr rmesa, GLuint flags)
+{
+	drm_r300_cmd_header_t *cmd;
+
+	assert(!(flags & ~(R300_WAIT_2D | R300_WAIT_3D)));
+
+	cmd = (drm_r300_cmd_header_t *) r300AllocCmdBuf(rmesa, 1, __FUNCTION__);
+	cmd[0].u = 0;
+	cmd[0].wait.cmd_type = R300_CMD_WAIT;
+	cmd[0].wait.flags = flags;
+}
