@@ -245,6 +245,8 @@ static void r300SetVertexFormat( GLcontext *ctx )
  */
 static void flush_last_swtcl_prim( r300ContextPtr rmesa  )
 {
+	BATCH_LOCALS(rmesa);
+
 	if (RADEON_DEBUG & DEBUG_IOCTL)
 		fprintf(stderr, "%s\n", __FUNCTION__);
 
@@ -273,6 +275,7 @@ static void flush_last_swtcl_prim( r300ContextPtr rmesa  )
 					  rmesa->swtcl.numverts);
 
 			r300EmitCacheFlush(rmesa);
+			COMMIT_BATCH();
 		}
 
 		rmesa->swtcl.numverts = 0;
@@ -667,31 +670,30 @@ void r300DestroySwtcl(GLcontext *ctx)
 
 void r300EmitVertexAOS(r300ContextPtr rmesa, GLuint vertex_size, GLuint offset)
 {
-	int cmd_reserved = 0;
-	int cmd_written = 0;
+	BATCH_LOCALS(rmesa);
 
-	drm_radeon_cmd_header_t *cmd = NULL;
 	if (RADEON_DEBUG & DEBUG_VERTS)
-	  fprintf(stderr, "%s:  vertex_size %d, offset 0x%x \n",
-		  __FUNCTION__, vertex_size, offset);
+		fprintf(stderr, "%s:  vertex_size %d, offset 0x%x \n",
+			__FUNCTION__, vertex_size, offset);
 
-	start_packet3(CP_PACKET3(R300_PACKET3_3D_LOAD_VBPNTR, 2), 2);
-	e32(1);
-	e32(vertex_size | (vertex_size << 8));
-	e32(offset);
+	BEGIN_BATCH(5);
+	OUT_BATCH_PACKET3(R300_PACKET3_3D_LOAD_VBPNTR, 2);
+	OUT_BATCH(1);
+	OUT_BATCH(vertex_size | (vertex_size << 8));
+	OUT_BATCH(offset);
+	END_BATCH();
 }
 
 void r300EmitVbufPrim(r300ContextPtr rmesa, GLuint primitive, GLuint vertex_nr)
 {
-
-	int cmd_reserved = 0;
-	int cmd_written = 0;
+	BATCH_LOCALS(rmesa);
 	int type, num_verts;
-	drm_radeon_cmd_header_t *cmd = NULL;
 
 	type = r300PrimitiveType(rmesa, primitive);
 	num_verts = r300NumVerts(rmesa, vertex_nr, primitive);
 
-	start_packet3(CP_PACKET3(R300_PACKET3_3D_DRAW_VBUF_2, 0), 0);
-	e32(R300_VAP_VF_CNTL__PRIM_WALK_VERTEX_LIST | (num_verts << 16) | type);
+	BEGIN_BATCH(3);
+	OUT_BATCH_PACKET3(R300_PACKET3_3D_DRAW_VBUF_2, 0);
+	OUT_BATCH(R300_VAP_VF_CNTL__PRIM_WALK_VERTEX_LIST | (num_verts << 16) | type);
+	END_BATCH();
 }
