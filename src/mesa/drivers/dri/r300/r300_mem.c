@@ -41,6 +41,8 @@
 
 typedef struct _radeon_bufmgr_classic radeon_bufmgr_classic;
 typedef struct _radeon_bo_classic radeon_bo_classic;
+typedef struct _radeon_bo_functions radeon_bo_functions;
+typedef struct _radeon_reloc radeon_reloc;
 
 struct _radeon_bufmgr_classic {
 	radeon_bufmgr base;
@@ -52,8 +54,30 @@ struct _radeon_bufmgr_classic {
 	radeon_bo_classic **pending_tail;
 };
 
+struct _radeon_reloc {
+	uint64_t flags;
+	GLuint offset; /**< Offset (in bytes) into command buffer to relocated dword */
+	radeon_bo_classic *target;
+	GLuint delta;
+};
+
+struct _radeon_bo_functions {
+	/**
+	 * Free a buffer object. Caller has verified that the object is not
+	 * referenced or pending.
+	 */
+	void (*free)(radeon_bo_classic*);
+
+	/**
+	 * Validate the given buffer. Must set the validated flag to 1.
+	 */
+	void (*validate)(radeon_bo_classic*);
+};
+
 struct _radeon_bo_classic {
 	dri_bo base;
+
+	const radeon_bo_functions *functions;
 
 	radeon_bo_classic *next; /** Unsorted linked list of all buffer objects */
 	radeon_bo_classic **pprev;
@@ -66,6 +90,9 @@ struct _radeon_bo_classic {
 	unsigned int refcount;
 	unsigned int mapcount; /** mmap count; mutually exclusive to being pending */
 
+	unsigned int validated:1; /** whether the buffer is validated for hardware use right now */
+	unsigned int used:1; /* only for communication between process_relocs and post_submit */
+
 	unsigned int pending:1;
 	radeon_bo_classic *pending_next; /** Age-sorted linked list of pending buffer objects */
 	radeon_bo_classic **pending_pprev;
@@ -76,6 +103,10 @@ struct _radeon_bo_classic {
 	 */
 	uint32_t pending_age; /** Buffer object pending until this age is reached, written by the DRM */
 	uint32_t pending_count; /** Number of pending R300_CMD_SCRATCH references to this object */
+
+	radeon_reloc *relocs; /** Array of relocations in this buffer */
+	GLuint relocs_used; /** # of relocations in relocation array */
+	GLuint relocs_size; /** # of reloc records reserved in relocation array */
 };
 
 static radeon_bufmgr_classic* get_bufmgr_classic(dri_bufmgr *bufmgr_ctx)
@@ -93,31 +124,23 @@ static radeon_bo_classic* get_bo_classic(dri_bo *bo_base)
  */
 static void bo_free(radeon_bo_classic *bo)
 {
-	radeon_bufmgr_classic* bufmgr = get_bufmgr_classic(bo->base.bufmgr);
-	drm_radeon_mem_free_t memfree;
-	int ret;
-
 	assert(!bo->refcount);
 	assert(!bo->pending);
 	assert(!bo->mapcount);
+
+	if (bo->relocs) {
+		int i;
+		for(i = 0; i < bo->relocs_used; ++i)
+			dri_bo_unreference(&bo->relocs[i].target->base);
+		free(bo->relocs);
+		bo->relocs = 0;
+	}
 
 	*bo->pprev = bo->next;
 	if (bo->next)
 		bo->next->pprev = bo->pprev;
 
-	memfree.region = RADEON_MEM_REGION_GART;
-	memfree.region_offset = bo->base.offset;
-	memfree.region_offset -= bufmgr->rmesa->radeon.radeonScreen->gart_texture_offset;
-
-	ret = drmCommandWrite(bufmgr->rmesa->radeon.radeonScreen->driScreen->fd,
-		DRM_RADEON_FREE, &memfree, sizeof(memfree));
-	if (ret) {
-		fprintf(stderr, "Failed to free bo[%p] at %08x\n", bo, memfree.region_offset);
-		fprintf(stderr, "ret = %s\n", strerror(-ret));
-		exit(1);
-	}
-
-	free(bo);
+	bo->functions->free(bo);
 }
 
 
@@ -150,12 +173,56 @@ static void track_pending_buffers(radeon_bufmgr_classic *bufmgr)
 	}
 }
 
+/**
+ * Initialize common buffer object data.
+ */
+static void init_buffer(radeon_bufmgr_classic *bufmgr, radeon_bo_classic *bo, unsigned long size)
+{
+	bo->base.bufmgr = &bufmgr->base.base;
+	bo->base.size = size;
+	bo->refcount = 1;
+
+	bo->pprev = &bufmgr->buffers;
+	bo->next = bufmgr->buffers;
+	if (bo->next)
+		bo->next->pprev = &bo->next;
+	bufmgr->buffers = bo;
+}
+
+
+/**
+ * Free a DMA-based buffer.
+ */
+static void dma_free(radeon_bo_classic *bo)
+{
+	radeon_bufmgr_classic* bufmgr = get_bufmgr_classic(bo->base.bufmgr);
+	drm_radeon_mem_free_t memfree;
+	int ret;
+
+	memfree.region = RADEON_MEM_REGION_GART;
+	memfree.region_offset = bo->base.offset;
+	memfree.region_offset -= bufmgr->rmesa->radeon.radeonScreen->gart_texture_offset;
+
+	ret = drmCommandWrite(bufmgr->rmesa->radeon.radeonScreen->driScreen->fd,
+		DRM_RADEON_FREE, &memfree, sizeof(memfree));
+	if (ret) {
+		fprintf(stderr, "Failed to free bo[%p] at %08x\n", bo, memfree.region_offset);
+		fprintf(stderr, "ret = %s\n", strerror(-ret));
+		exit(1);
+	}
+
+	free(bo);
+}
+
+static const radeon_bo_functions dma_bo_functions = {
+	.free = &dma_free
+};
 
 /**
  * Call the DRM to allocate GART memory for the given (incomplete)
  * buffer object.
  */
-static int try_alloc(radeon_bufmgr_classic *bufmgr, radeon_bo_classic *bo,
+static int try_dma_alloc(radeon_bufmgr_classic *bufmgr, radeon_bo_classic *bo,
 		unsigned long size, unsigned int alignment)
 {
 	drm_radeon_mem_alloc_t alloc;
@@ -181,43 +248,82 @@ static int try_alloc(radeon_bufmgr_classic *bufmgr, radeon_bo_classic *bo,
 	return 1;
 }
 
+/**
+ * Allocate a DMA buffer.
+ */
+static dri_bo *dma_alloc(radeon_bufmgr_classic *bufmgr, const char *name,
+		unsigned long size, unsigned int alignment)
+{
+	radeon_bo_classic* bo = (radeon_bo_classic*)calloc(1, sizeof(radeon_bo_classic));
+
+	bo->functions = &dma_bo_functions;
+
+	track_pending_buffers(bufmgr);
+	if (!try_dma_alloc(bufmgr, bo, size, alignment)) {
+		if (RADEON_DEBUG & DEBUG_MEMORY)
+			fprintf(stderr, "Failed to allocate %ld bytes, finishing command buffer...\n", size);
+		radeonFinish(bufmgr->rmesa->radeon.glCtx);
+		track_pending_buffers(bufmgr);
+		if (!try_dma_alloc(bufmgr, bo, size, alignment)) {
+			WARN_ONCE(
+				"Ran out of GART memory (for %ld)!\n"
+				"Please consider adjusting GARTSize option.\n",
+				size);
+			free(bo);
+			return 0;
+		}
+	}
+
+	init_buffer(bufmgr, bo, size);
+	bo->validated = 1; /* DMA buffer offsets are always valid */
+
+	return &bo->base;
+}
+
+/**
+ * Free a command buffer
+ */
+static void cmdbuf_free(radeon_bo_classic *bo)
+{
+	free(bo->base.virtual);
+	free(bo);
+}
+
+static const radeon_bo_functions cmdbuf_bo_functions = {
+	.free = cmdbuf_free
+};
+
+/**
+ * Allocate a command buffer.
+ *
+ * Command buffers are really just malloc'ed buffers. They are managed by
+ * the bufmgr to enable relocations.
+ */
+static dri_bo *cmdbuf_alloc(radeon_bufmgr_classic *bufmgr, const char *name,
+		unsigned long size)
+{
+	radeon_bo_classic* bo = (radeon_bo_classic*)calloc(1, sizeof(radeon_bo_classic));
+
+	bo->functions = &cmdbuf_bo_functions;
+	bo->base.virtual = malloc(size);
+
+	init_buffer(bufmgr, bo, size);
+	return &bo->base;
+}
+
 static dri_bo *bufmgr_classic_bo_alloc(dri_bufmgr *bufmgr_ctx, const char *name,
 		unsigned long size, unsigned int alignment,
 		uint64_t location_mask)
 {
 	radeon_bufmgr_classic* bufmgr = get_bufmgr_classic(bufmgr_ctx);
-	radeon_bo_classic* bo = (radeon_bo_classic*)calloc(1, sizeof(radeon_bo_classic));
 
-	bo->base.bufmgr = bufmgr_ctx;
-	bo->base.size = size;
-	bo->refcount = 1;
+	if (location_mask & DRM_BO_MEM_CMDBUF) {
+		return cmdbuf_alloc(bufmgr, name, size);
+	} else {
+		assert(location_mask & DRM_BO_MEM_DMA);
 
-	track_pending_buffers(bufmgr);
-
-	if (!try_alloc(bufmgr, bo, size, alignment)) {
-		if (RADEON_DEBUG & DEBUG_MEMORY)
-			fprintf(stderr, "Failed to allocate %ld bytes, finishing command buffer...\n", size);
-		radeonFinish(bufmgr->rmesa->radeon.glCtx);
-		track_pending_buffers(bufmgr);
-		if (!try_alloc(bufmgr, bo, size, alignment)) {
-			WARN_ONCE(
-				"Ran out of GART memory (for %ld)!\n"
-				"Please consider adjusting GARTSize option.\n",
-				size);
-			goto fail;
-		}
+		return dma_alloc(bufmgr, name, size, alignment);
 	}
-
-	bo->pprev = &bufmgr->buffers;
-	bo->next = bufmgr->buffers;
-	if (bo->next)
-		bo->next->pprev = &bo->next;
-	bufmgr->buffers = bo;
-
-	return &bo->base;
-fail:
-	free(bo);
-	return 0;
 }
 
 
@@ -320,6 +426,72 @@ static void bufmgr_classic_bo_use(dri_bo* buf)
 	bufmgr->pending_tail = &bo->pending_next;
 }
 
+static int bufmgr_classic_emit_reloc(dri_bo *batch_buf, uint64_t flags, GLuint delta,
+			GLuint offset, dri_bo *target)
+{
+	radeon_bo_classic *bo = get_bo_classic(batch_buf);
+	radeon_reloc *reloc;
+
+	if (bo->relocs_used >= bo->relocs_size) {
+		bo->relocs_size *= 2;
+		if (bo->relocs_size < 32)
+			bo->relocs_size = 32;
+
+		bo->relocs = (radeon_reloc*)realloc(bo->relocs, bo->relocs_size*sizeof(radeon_reloc));
+	}
+
+	reloc = &bo->relocs[bo->relocs_used++];
+	reloc->flags = flags;
+	reloc->offset = offset;
+	reloc->delta = delta;
+	reloc->target = get_bo_classic(target);
+	dri_bo_reference(target);
+	return 0;
+}
+
+/* process_relocs is called just before the given command buffer
+ * is executed. It ensures that all referenced buffers are in
+ * the right GPU domain.
+ */
+static void *bufmgr_classic_process_relocs(dri_bo *batch_buf, GLuint *count)
+{
+	radeon_bo_classic *batch_bo = get_bo_classic(batch_buf);
+	int i;
+
+	dri_bo_map(batch_buf, GL_TRUE);
+	for(i = 0; i < batch_bo->relocs_used; ++i) {
+		radeon_reloc *reloc = &batch_bo->relocs[i];
+		uint32_t *dest = (uint32_t*)((char*)batch_buf->virtual + reloc->offset);
+
+		if (!reloc->target->validated)
+			reloc->target->functions->validate(reloc->target);
+		reloc->target->used = 1;
+
+		*dest = reloc->target->base.offset + reloc->delta;
+	}
+	dri_bo_unmap(batch_buf);
+	return 0;
+}
+
+/* post_submit is called just after the given command buffer
+ * is executed. It ensures that buffers are properly marked as
+ * pending.
+ */
+static void bufmgr_classic_post_submit(dri_bo *batch_buf, dri_fence **fence)
+{
+	radeon_bo_classic *batch_bo = get_bo_classic(batch_buf);
+	int i;
+
+	for(i = 0; i < batch_bo->relocs_used; ++i) {
+		radeon_reloc *reloc = &batch_bo->relocs[i];
+
+		if (reloc->target->used) {
+			bufmgr_classic_bo_use(&reloc->target->base);
+			reloc->target->used = 0;
+		}
+	}
+}
+
 static void bufmgr_classic_destroy(dri_bufmgr *bufmgr_ctx)
 {
 	radeon_bufmgr_classic* bufmgr = get_bufmgr_classic(bufmgr_ctx);
@@ -353,6 +525,9 @@ radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
 	bufmgr->base.base.bo_unreference = &bufmgr_classic_bo_unreference;
 	bufmgr->base.base.bo_map = &bufmgr_classic_bo_map;
 	bufmgr->base.base.bo_unmap = &bufmgr_classic_bo_unmap;
+	bufmgr->base.base.emit_reloc = &bufmgr_classic_emit_reloc;
+	bufmgr->base.base.process_relocs = &bufmgr_classic_process_relocs;
+	bufmgr->base.base.post_submit = &bufmgr_classic_post_submit;
 	bufmgr->base.base.destroy = &bufmgr_classic_destroy;
 	bufmgr->base.bo_use = &bufmgr_classic_bo_use;
 

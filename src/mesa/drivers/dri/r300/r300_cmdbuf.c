@@ -51,6 +51,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_reg.h"
 #include "r300_cmdbuf.h"
 #include "r300_emit.h"
+#include "r300_mem.h"
 #include "r300_state.h"
 
 // Set this to 1 for extremely verbose debugging of command buffers
@@ -70,20 +71,23 @@ int r300FlushCmdBufLocked(r300ContextPtr r300, const char *caller)
 		start = 0;
 		r300->radeon.lost_context = GL_FALSE;
 	} else
-		start = r300->cmdbuf.count_reemit;
+		start = r300->cmdbuf.reemit;
 
 	if (RADEON_DEBUG & DEBUG_IOCTL) {
 		fprintf(stderr, "%s from %s - %i cliprects\n",
 			__FUNCTION__, caller, r300->radeon.numClipRects);
 
 		if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_VERBOSE)
-			for (i = start; i < r300->cmdbuf.count_used; ++i)
+			for (i = start; i < r300->cmdbuf.used; ++i)
 				fprintf(stderr, "%d: %08x\n", i,
-					r300->cmdbuf.cmd_buf[i]);
+					((uint32_t*)r300->cmdbuf.buf->virtual)[i]);
 	}
 
-	cmd.buf = (char *)(r300->cmdbuf.cmd_buf + start);
-	cmd.bufsz = (r300->cmdbuf.count_used - start) * 4;
+	dri_bo_unmap(r300->cmdbuf.buf);
+	dri_process_relocs(r300->cmdbuf.buf, 0);
+
+	cmd.buf = (char *)r300->cmdbuf.buf->virtual + 4*start;
+	cmd.bufsz = (r300->cmdbuf.used - start) * 4;
 
 	if (r300->radeon.state.scissor.enabled) {
 		cmd.nbox = r300->radeon.state.scissor.numClipRects;
@@ -103,9 +107,15 @@ int r300FlushCmdBufLocked(r300ContextPtr r300, const char *caller)
 		radeonWaitForIdleLocked(&r300->radeon);
 	}
 
+	dri_post_submit(r300->cmdbuf.buf, 0);
+	dri_bo_unreference(r300->cmdbuf.buf);
+
 	r300->dma.nr_released_bufs = 0;
-	r300->cmdbuf.count_used = 0;
-	r300->cmdbuf.count_reemit = 0;
+	r300->cmdbuf.buf = dri_bo_alloc(&r300->bufmgr->base, "cmdbuf",
+		r300->cmdbuf.size*4, 16, DRM_BO_MEM_CMDBUF);
+	r300->cmdbuf.used = 0;
+	r300->cmdbuf.reemit = 0;
+	dri_bo_map(r300->cmdbuf.buf, GL_TRUE);
 
 	return ret;
 }
@@ -156,26 +166,17 @@ static INLINE void r300EmitAtoms(r300ContextPtr r300, GLboolean dirty)
 	uint32_t *dest;
 	int dwords;
 
-	dest = r300->cmdbuf.cmd_buf + r300->cmdbuf.count_used;
+	dest = r300RawAllocCmdBuf(r300, 4, __FUNCTION__);
 
 	/* Emit WAIT */
-	*dest = cmdwait(R300_WAIT_3D | R300_WAIT_3D_CLEAN);
-	dest++;
-	r300->cmdbuf.count_used++;
+	*dest++ = cmdwait(R300_WAIT_3D | R300_WAIT_3D_CLEAN);
 
 	/* Emit cache flush */
-	*dest = cmdpacket0(R300_TX_INVALTAGS, 1);
-	dest++;
-	r300->cmdbuf.count_used++;
-
-	*dest = R300_TX_FLUSH;
-	dest++;
-	r300->cmdbuf.count_used++;
+	*dest++ = cmdpacket0(R300_TX_INVALTAGS, 1);
+	*dest++ = R300_TX_FLUSH;
 
 	/* Emit END3D */
-	*dest = cmdpacify();
-	dest++;
-	r300->cmdbuf.count_used++;
+	*dest++ = cmdpacify();
 
 	/* Emit actual atoms */
 
@@ -186,9 +187,8 @@ static INLINE void r300EmitAtoms(r300ContextPtr r300, GLboolean dirty)
 				if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_STATE) {
 					r300PrintStateAtom(r300, atom);
 				}
+				dest = r300RawAllocCmdBuf(r300, dwords, __FUNCTION__);
 				memcpy(dest, atom->cmd, dwords * 4);
-				dest += dwords;
-				r300->cmdbuf.count_used += dwords;
 				atom->dirty = GL_FALSE;
 			} else {
 				if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_STATE) {
@@ -211,7 +211,7 @@ void r300EmitState(r300ContextPtr r300)
 	if (RADEON_DEBUG & (DEBUG_STATE | DEBUG_PRIMS))
 		fprintf(stderr, "%s\n", __FUNCTION__);
 
-	if (r300->cmdbuf.count_used && !r300->hw.is_dirty
+	if (r300->cmdbuf.used && !r300->hw.is_dirty
 	    && !r300->hw.all_dirty)
 		return;
 
@@ -221,12 +221,12 @@ void r300EmitState(r300ContextPtr r300)
 	 */
 	r300EnsureCmdBufSpace(r300, r300->hw.max_state_size, __FUNCTION__);
 
-	if (!r300->cmdbuf.count_used) {
+	if (!r300->cmdbuf.used) {
 		if (RADEON_DEBUG & DEBUG_STATE)
 			fprintf(stderr, "Begin reemit state\n");
 
 		r300EmitAtoms(r300, GL_FALSE);
-		r300->cmdbuf.count_reemit = r300->cmdbuf.count_used;
+		r300->cmdbuf.reemit = r300->cmdbuf.used;
 	}
 
 	if (RADEON_DEBUG & DEBUG_STATE)
@@ -234,7 +234,7 @@ void r300EmitState(r300ContextPtr r300)
 
 	r300EmitAtoms(r300, GL_TRUE);
 
-	assert(r300->cmdbuf.count_used < r300->cmdbuf.size);
+	assert(r300->cmdbuf.used < r300->cmdbuf.size);
 
 	r300->hw.is_dirty = GL_FALSE;
 	r300->hw.all_dirty = GL_FALSE;
@@ -597,10 +597,12 @@ void r300InitCmdBuf(r300ContextPtr r300)
 			size * 4, r300->hw.max_state_size * 4);
 	}
 
+	r300->cmdbuf.buf = dri_bo_alloc(&r300->bufmgr->base, "cmdbuf",
+		size*4, 16, DRM_BO_MEM_CMDBUF);
 	r300->cmdbuf.size = size;
-	r300->cmdbuf.cmd_buf = (uint32_t *) CALLOC(size * 4);
-	r300->cmdbuf.count_used = 0;
-	r300->cmdbuf.count_reemit = 0;
+	r300->cmdbuf.used = 0;
+	r300->cmdbuf.reemit = 0;
+	dri_bo_map(r300->cmdbuf.buf, GL_TRUE);
 }
 
 /**
@@ -610,7 +612,8 @@ void r300DestroyCmdBuf(r300ContextPtr r300)
 {
 	struct r300_state_atom *atom;
 
-	FREE(r300->cmdbuf.cmd_buf);
+	dri_bo_unmap(r300->cmdbuf.buf);
+	dri_bo_unreference(r300->cmdbuf.buf);
 
 	foreach(atom, &r300->hw.atomlist) {
 		FREE(atom->cmd);

@@ -542,7 +542,7 @@ void r300Flush(GLcontext * ctx)
 	if (rmesa->dma.flush)
 		rmesa->dma.flush( rmesa );
 
-	if (rmesa->cmdbuf.count_used > rmesa->cmdbuf.count_reemit)
+	if (rmesa->cmdbuf.used > rmesa->cmdbuf.reemit)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 }
 
@@ -564,7 +564,8 @@ void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 	if (rmesa->dma.nr_released_bufs > 4)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 
-	rmesa->dma.current.bo = dri_bo_alloc(&rmesa->bufmgr->base, "DMA regions", size, 4, 0);
+	rmesa->dma.current.bo = dri_bo_alloc(&rmesa->bufmgr->base, "DMA regions",
+		size, 4, DRM_BO_MEM_DMA);
 	rmesa->dma.current.address = rmesa->dma.current.bo->virtual; // TODO: proper use of dri_bo_map!
 	rmesa->dma.current.end = size;
 	rmesa->dma.current.start = 0;

@@ -16,6 +16,9 @@ struct _radeon_bufmgr {
 	void (*bo_use)(dri_bo* buf);
 };
 
+#define DRM_BO_MEM_DMA DRM_BO_MEM_PRIV0 /** Use for transient buffers (texture upload, vertex buffers...) */
+#define DRM_BO_MEM_CMDBUF DRM_BO_MEM_PRIV1 /** Use for command buffers */
+
 radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa);
 
 #endif

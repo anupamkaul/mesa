@@ -547,10 +547,10 @@ struct r300_hw_state {
  * otherwise.
  */
 struct r300_cmdbuf {
-	int size;		/* DWORDs allocated for buffer */
-	uint32_t *cmd_buf;
-	int count_used;		/* DWORDs filled so far */
-	int count_reemit;	/* size of re-emission batch */
+	dri_bo *buf;
+	int reemit; /** # of dwords in reemit sequence */
+	int used; /** # of dwords used so far */
+	int size; /** # of dwords total */
 };
 
 /**

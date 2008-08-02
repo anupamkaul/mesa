@@ -57,7 +57,7 @@ static INLINE void r300EnsureCmdBufSpace(r300ContextPtr r300,
 {
 	assert(dwords < r300->cmdbuf.size);
 
-	if (r300->cmdbuf.count_used + dwords > r300->cmdbuf.size)
+	if (r300->cmdbuf.used + dwords > r300->cmdbuf.size)
 		r300FlushCmdBuf(r300, caller);
 }
 
@@ -75,8 +75,8 @@ static INLINE uint32_t *r300RawAllocCmdBuf(r300ContextPtr r300,
 
 	r300EnsureCmdBufSpace(r300, dwords, caller);
 
-	ptr = &r300->cmdbuf.cmd_buf[r300->cmdbuf.count_used];
-	r300->cmdbuf.count_used += dwords;
+	ptr = (uint32_t*)r300->cmdbuf.buf->virtual + r300->cmdbuf.used;
+	r300->cmdbuf.used += dwords;
 	return ptr;
 }
 
@@ -87,15 +87,15 @@ static INLINE uint32_t *r300AllocCmdBuf(r300ContextPtr r300,
 
 	r300EnsureCmdBufSpace(r300, dwords, caller);
 
-	if (!r300->cmdbuf.count_used) {
+	if (!r300->cmdbuf.used) {
 		if (RADEON_DEBUG & DEBUG_IOCTL)
 			fprintf(stderr,
 				"Reemit state after flush (from %s)\n", caller);
 		r300EmitState(r300);
 	}
 
-	ptr = &r300->cmdbuf.cmd_buf[r300->cmdbuf.count_used];
-	r300->cmdbuf.count_used += dwords;
+	ptr = (uint32_t*)r300->cmdbuf.buf->virtual + r300->cmdbuf.used;
+	r300->cmdbuf.used += dwords;
 	return ptr;
 }
 
