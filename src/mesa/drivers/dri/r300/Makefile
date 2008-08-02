@@ -11,15 +11,6 @@ ifeq ($(USING_EGL), 1)
 EGL_SOURCES = server/radeon_egl.c
 endif
 
-COMMON_SOURCES = \
-	../../common/driverfuncs.c \
-	../common/mm.c \
-	../common/utils.c \
-	../common/texmem.c \
-	../common/vblank.c \
-	../common/xmlconfig.c \
-	../common/dri_util.c
-
 DRIVER_SOURCES = \
 		 radeon_screen.c \
 		 radeon_context.c \
@@ -51,7 +42,7 @@ DRIVER_SOURCES = \
 		 r300_swtcl.c \
 		 $(EGL_SOURCES)
 
-C_SOURCES = $(COMMON_SOURCES) $(DRIVER_SOURCES)
+C_SOURCES = $(COMMON_SOURCES) $(COMMON_BM_SOURCES) $(DRIVER_SOURCES)
 
 DRIVER_DEFINES = -DCOMPILE_R300 -DR200_MERGED=0 \
 	-DRADEON_COMMON=1 -DRADEON_COMMON_FOR_R300

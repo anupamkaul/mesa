@@ -518,12 +518,12 @@ void r300UseArrays(GLcontext * ctx)
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	int i;
 
-	if (rmesa->state.elt_dma.buf)
-		r300_mem_use(rmesa, rmesa->state.elt_dma.buf->id);
+	if (rmesa->state.elt_dma.bo)
+		rmesa->bufmgr->bo_use(rmesa->state.elt_dma.bo);
 
 	for (i = 0; i < rmesa->state.aos_count; i++) {
-		if (rmesa->state.aos[i].buf)
-			r300_mem_use(rmesa, rmesa->state.aos[i].buf->id);
+		if (rmesa->state.aos[i].bo)
+			rmesa->bufmgr->bo_use(rmesa->state.aos[i].bo);
 	}
 }
 

@@ -1,37 +1,21 @@
 #ifndef __R300_MEM_H__
 #define __R300_MEM_H__
 
-//#define R300_MEM_PDL 0
-#define R300_MEM_UL 1
+#include "glheader.h"
+#include "dri_bufmgr.h"
 
-#define R300_MEM_R 1
-#define R300_MEM_W 2
-#define R300_MEM_RW (R300_MEM_R | R300_MEM_W)
+#include "r300_context.h"
 
-#define R300_MEM_SCRATCH 2
+struct _radeon_bufmgr {
+	dri_bufmgr base;
 
-struct r300_memory_manager {
-	struct {
-		void *ptr;
-		uint32_t size;
-		uint32_t age;
-		uint32_t h_pending;
-		int pending;
-		int mapped;
-	} *u_list;
-	int u_head, u_size, u_last;
-
+	/**
+	 * Call this after writing command buffer instructions that use
+	 * the given buffer. Marks the buffer as pending on hardware.
+	 */
+	void (*bo_use)(dri_bo* buf);
 };
 
-extern void r300_mem_init(r300ContextPtr rmesa);
-extern void r300_mem_destroy(r300ContextPtr rmesa);
-extern void *r300_mem_ptr(r300ContextPtr rmesa, int id);
-extern int r300_mem_find(r300ContextPtr rmesa, void *ptr);
-extern int r300_mem_alloc(r300ContextPtr rmesa, int alignment, int size);
-extern void r300_mem_use(r300ContextPtr rmesa, int id);
-extern unsigned long r300_mem_offset(r300ContextPtr rmesa, int id);
-extern void *r300_mem_map(r300ContextPtr rmesa, int id, int access);
-extern void r300_mem_unmap(r300ContextPtr rmesa, int id);
-extern void r300_mem_free(r300ContextPtr rmesa, int id);
+radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa);
 
 #endif

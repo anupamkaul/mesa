@@ -40,6 +40,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "tnl/t_vertex.h"
 #include "drm.h"
 #include "radeon_drm.h"
+#include "dri_bufmgr.h"
 #include "dri_util.h"
 #include "texmem.h"
 
@@ -50,6 +51,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 struct r300_context;
 typedef struct r300_context r300ContextRec;
 typedef struct r300_context *r300ContextPtr;
+typedef struct _radeon_bufmgr radeon_bufmgr;
 
 #include "radeon_lock.h"
 #include "mm.h"
@@ -120,20 +122,13 @@ static INLINE uint32_t r300PackFloat24(float f)
 
 /************ DMA BUFFERS **************/
 
-/* Need refcounting on dma buffers:
- */
-struct r300_dma_buffer {
-	int refcount;		/**< the number of retained regions in buf */
-	drmBufPtr buf;
-	int id;
-};
 #undef GET_START
 #define GET_START(rvb) (r300GartOffsetFromVirtual(rmesa, (rvb)->address+(rvb)->start))
 
 /* A retained region, eg vertices for indexed vertices.
  */
 struct r300_dma_region {
-	struct r300_dma_buffer *buf;
+	dri_bo *bo;
 	char *address;		/* == buf->address */
 	int start, end, ptr;	/* offsets from start of buf */
 
@@ -907,7 +902,7 @@ struct r300_context {
 	int texture_depth;
 	float initialMaxAnisotropy;
 
-	struct r300_memory_manager *rmm;
+	radeon_bufmgr *bufmgr;
 
 	GLvector4f dummy_attrib[_TNL_ATTRIB_MAX];
 	GLvector4f *temp_attrib[_TNL_ATTRIB_MAX];

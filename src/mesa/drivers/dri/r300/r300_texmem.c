@@ -248,7 +248,7 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 				     t->bufAddr, 0, 0, 0, done, width, lines);
 
 			r300EmitWait(rmesa, R300_WAIT_2D);
-			r300_mem_use(rmesa, region.buf->id);
+			rmesa->bufmgr->bo_use(region.bo);
 
 			r300ReleaseDmaRegion(rmesa, &region, __FUNCTION__);
 			done += lines;

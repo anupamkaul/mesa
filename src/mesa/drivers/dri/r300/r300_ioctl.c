@@ -55,6 +55,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_reg.h"
 #include "r300_emit.h"
 #include "r300_fragprog.h"
+#include "r300_mem.h"
 
 #include "vblank.h"
 
@@ -545,11 +546,8 @@ void r300Flush(GLcontext * ctx)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 }
 
-#include "r300_mem.h"
-
 void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 {
-	struct r300_dma_buffer *dmabuf;
 	size = MAX2(size, RADEON_BUFFER_SIZE * 16);
 
 	if (RADEON_DEBUG & (DEBUG_IOCTL | DEBUG_DMA))
@@ -559,37 +557,15 @@ void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 		rmesa->dma.flush(rmesa);
 	}
 
-	if (rmesa->dma.current.buf) {
-		r300_mem_use(rmesa, rmesa->dma.current.buf->id);
+	if (rmesa->dma.current.bo) {
+		rmesa->bufmgr->bo_use(rmesa->dma.current.bo);
 		r300ReleaseDmaRegion(rmesa, &rmesa->dma.current, __FUNCTION__);
 	}
 	if (rmesa->dma.nr_released_bufs > 4)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 
-	dmabuf = CALLOC_STRUCT(r300_dma_buffer);
-	dmabuf->buf = (void *)1;	/* hack */
-	dmabuf->refcount = 1;
-
-	dmabuf->id = r300_mem_alloc(rmesa, 4, size);
-	if (dmabuf->id == 0) {
-		LOCK_HARDWARE(&rmesa->radeon);	/* no need to validate */
-
-		r300FlushCmdBufLocked(rmesa, __FUNCTION__);
-		radeonWaitForIdleLocked(&rmesa->radeon);
-
-		dmabuf->id = r300_mem_alloc(rmesa, 4, size);
-
-		UNLOCK_HARDWARE(&rmesa->radeon);
-
-		if (dmabuf->id == 0) {
-			fprintf(stderr,
-				"Error: Could not get dma buffer... exiting\n");
-			_mesa_exit(-1);
-		}
-	}
-
-	rmesa->dma.current.buf = dmabuf;
-	rmesa->dma.current.address = r300_mem_ptr(rmesa, dmabuf->id);
+	rmesa->dma.current.bo = dri_bo_alloc(&rmesa->bufmgr->base, "DMA regions", size, 4, 0);
+	rmesa->dma.current.address = rmesa->dma.current.bo->virtual; // TODO: proper use of dri_bo_map!
 	rmesa->dma.current.end = size;
 	rmesa->dma.current.start = 0;
 	rmesa->dma.current.ptr = 0;
@@ -601,19 +577,14 @@ void r300ReleaseDmaRegion(r300ContextPtr rmesa,
 	if (RADEON_DEBUG & DEBUG_IOCTL)
 		fprintf(stderr, "%s from %s\n", __FUNCTION__, caller);
 
-	if (!region->buf)
+	if (!region->bo)
 		return;
 
 	if (rmesa->dma.flush)
 		rmesa->dma.flush(rmesa);
 
-	if (--region->buf->refcount == 0) {
-		r300_mem_free(rmesa, region->buf->id);
-		FREE(region->buf);
-		rmesa->dma.nr_released_bufs++;
-	}
-
-	region->buf = 0;
+	dri_bo_unreference(region->bo);
+	region->bo = 0;
 	region->start = 0;
 }
 
@@ -630,7 +601,7 @@ void r300AllocDmaRegion(r300ContextPtr rmesa,
 	if (rmesa->dma.flush)
 		rmesa->dma.flush(rmesa);
 
-	if (region->buf)
+	if (region->bo)
 		r300ReleaseDmaRegion(rmesa, region, __FUNCTION__);
 
 	alignment--;
@@ -644,8 +615,8 @@ void r300AllocDmaRegion(r300ContextPtr rmesa,
 	region->ptr = rmesa->dma.current.start;
 	region->end = rmesa->dma.current.start + bytes;
 	region->address = rmesa->dma.current.address;
-	region->buf = rmesa->dma.current.buf;
-	region->buf->refcount++;
+	region->bo = rmesa->dma.current.bo;
+	dri_bo_reference(region->bo);
 
 	rmesa->dma.current.ptr += bytes;	/* bug - if alignment > 7 */
 	rmesa->dma.current.start =

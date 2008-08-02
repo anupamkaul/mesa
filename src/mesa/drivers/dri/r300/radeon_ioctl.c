@@ -315,7 +315,7 @@ void radeonPageFlip(__DRIdrawablePrivate * dPriv)
 	radeon->swap_count++;
 	(void)(*psp->systemTime->getUST) (&radeon->swap_ust);
 
-        driFlipRenderbuffers(radeon->glCtx->WinSysDrawBuffer, 
+        driFlipRenderbuffers(radeon->glCtx->WinSysDrawBuffer,
                              radeon->sarea->pfCurrentPage);
 
 	if (radeon->sarea->pfCurrentPage == 1) {
@@ -329,15 +329,15 @@ void radeonPageFlip(__DRIdrawablePrivate * dPriv)
 	if (IS_R300_CLASS(radeon->radeonScreen)) {
 		r300ContextPtr r300 = (r300ContextPtr)radeon;
 		R300_STATECHANGE(r300, cb);
-		r300->hw.cb.cmd[R300_CB_OFFSET] = r300->radeon.state.color.drawOffset + 
+		r300->hw.cb.cmd[R300_CB_OFFSET] = r300->radeon.state.color.drawOffset +
 						r300->radeon.radeonScreen->fbLocation;
 		r300->hw.cb.cmd[R300_CB_PITCH] = r300->radeon.state.color.drawPitch;
-		
+
 		if (r300->radeon.radeonScreen->cpp == 4)
 			r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_FORMAT_ARGB8888;
 		else
 			r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_FORMAT_RGB565;
-	
+
 		if (r300->radeon.sarea->tiling_enabled)
 			r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_TILE_ENABLE;
 	}

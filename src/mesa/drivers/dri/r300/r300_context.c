@@ -220,7 +220,7 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 	r300InitTextureFuncs(&functions);
 	r300InitShaderFuncs(&functions);
 
-	r300_mem_init(r300);
+	r300->bufmgr = radeonBufmgrClassicInit(r300);
 
 	if (!radeonInitContext(&r300->radeon, &functions,
 			       glVisual, driContextPriv,
@@ -401,70 +401,6 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 	return GL_TRUE;
 }
 
-static void r300FreeGartAllocations(r300ContextPtr r300)
-{
-	int i, ret, tries = 0, done_age, in_use = 0;
-	drm_radeon_mem_free_t memfree;
-
-	memfree.region = RADEON_MEM_REGION_GART;
-
-	for (i = r300->rmm->u_last; i > 0; i--) {
-		if (r300->rmm->u_list[i].ptr == NULL) {
-			continue;
-		}
-
-		/* check whether this buffer is still in use */
-		if (r300->rmm->u_list[i].pending) {
-			in_use++;
-		}
-	}
-	/* Cannot flush/lock if no context exists. */
-	if (in_use)
-		r300FlushCmdBuf(r300, __FUNCTION__);
-
-	done_age = radeonGetAge((radeonContextPtr) r300);
-
-	for (i = r300->rmm->u_last; i > 0; i--) {
-		if (r300->rmm->u_list[i].ptr == NULL) {
-			continue;
-		}
-
-		/* check whether this buffer is still in use */
-		if (!r300->rmm->u_list[i].pending) {
-			continue;
-		}
-
-		assert(r300->rmm->u_list[i].h_pending == 0);
-
-		tries = 0;
-		while (r300->rmm->u_list[i].age > done_age && tries++ < 1000) {
-			usleep(10);
-			done_age = radeonGetAge((radeonContextPtr) r300);
-		}
-		if (tries >= 1000) {
-			WARN_ONCE("Failed to idle region!");
-		}
-
-		memfree.region_offset = (char *)r300->rmm->u_list[i].ptr -
-		    (char *)r300->radeon.radeonScreen->gartTextures.map;
-
-		ret = drmCommandWrite(r300->radeon.radeonScreen->driScreen->fd,
-				      DRM_RADEON_FREE, &memfree,
-				      sizeof(memfree));
-		if (ret) {
-			fprintf(stderr, "Failed to free at %p\nret = %s\n",
-				r300->rmm->u_list[i].ptr, strerror(-ret));
-		} else {
-			if (i == r300->rmm->u_last)
-				r300->rmm->u_last--;
-
-			r300->rmm->u_list[i].pending = 0;
-			r300->rmm->u_list[i].ptr = NULL;
-		}
-	}
-	r300->rmm->u_head = i;
-}
-
 /* Destroy the device specific context.
  */
 void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
@@ -498,11 +434,11 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 		_vbo_DestroyContext(r300->radeon.glCtx);
 		_swrast_DestroyContext(r300->radeon.glCtx);
 
-		if (r300->dma.current.buf) {
+		if (r300->dma.current.bo) {
 			r300ReleaseDmaRegion(r300, &r300->dma.current,
 					     __FUNCTION__);
 		}
-		r300FreeGartAllocations(r300);
+		r300FlushCmdBuf(r300, __FUNCTION__);
 		r300DestroyCmdBuf(r300);
 
 		if (radeon->state.scissor.pClipRects) {
@@ -529,7 +465,8 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 		/* the memory manager might be accessed when Mesa frees the shared
 		 * state, so don't destroy it earlier
 		 */
-		r300_mem_destroy(r300);
+		dri_bufmgr_destroy(&r300->bufmgr->base);
+		r300->bufmgr = 0;
 
 		/* free the option cache */
 		driDestroyOptionCache(&r300->radeon.optionCache);
