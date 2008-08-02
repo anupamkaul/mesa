@@ -468,6 +468,7 @@ static void r300EmitClearState(GLcontext * ctx)
 static void r300Clear(GLcontext * ctx, GLbitfield mask)
 {
 	r300ContextPtr r300 = R300_CONTEXT(ctx);
+	BATCH_LOCALS(r300);
 	__DRIdrawablePrivate *dPriv = r300->radeon.dri.drawable;
 	int flags = 0;
 	int bits = 0;
@@ -530,6 +531,7 @@ static void r300Clear(GLcontext * ctx, GLbitfield mask)
 	if (bits)
 		r300ClearBuffer(r300, bits, 0);
 
+	COMMIT_BATCH();
 }
 
 void r300Flush(GLcontext * ctx)
