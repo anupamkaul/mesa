@@ -873,8 +873,6 @@ struct r300_swtcl_info {
     * Should Mesa project vertex data or will the hardware do it?
     */
    GLboolean needproj;
-
-   struct r300_dma_region indexed_verts;
 };
 
 
