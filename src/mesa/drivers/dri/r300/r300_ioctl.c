@@ -395,37 +395,42 @@ static void r300EmitClearState(GLcontext * ctx)
 		END_BATCH();
 	}
 
-	reg_start(R300_VAP_PVS_STATE_FLUSH_REG, 0);
-	e32(0x00000000);
+	BEGIN_BATCH(2);
+	OUT_BATCH_REGVAL(R300_VAP_PVS_STATE_FLUSH_REG, 0);
+	END_BATCH();
+
 	if (has_tcl) {
-	    vap_cntl = ((10 << R300_PVS_NUM_SLOTS_SHIFT) |
+		vap_cntl = ((10 << R300_PVS_NUM_SLOTS_SHIFT) |
 			(5 << R300_PVS_NUM_CNTLRS_SHIFT) |
 			(12 << R300_VF_MAX_VTX_NUM_SHIFT));
-	    if (r300->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515)
-		vap_cntl |= R500_TCL_STATE_OPTIMIZATION;
-	} else
-	    vap_cntl = ((10 << R300_PVS_NUM_SLOTS_SHIFT) |
+		if (r300->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515)
+			vap_cntl |= R500_TCL_STATE_OPTIMIZATION;
+	} else {
+		vap_cntl = ((10 << R300_PVS_NUM_SLOTS_SHIFT) |
 			(5 << R300_PVS_NUM_CNTLRS_SHIFT) |
 			(5 << R300_VF_MAX_VTX_NUM_SHIFT));
+	}
 
 	if (r300->radeon.radeonScreen->chip_family == CHIP_FAMILY_RV515)
-	    vap_cntl |= (2 << R300_PVS_NUM_FPUS_SHIFT);
+		vap_cntl |= (2 << R300_PVS_NUM_FPUS_SHIFT);
 	else if ((r300->radeon.radeonScreen->chip_family == CHIP_FAMILY_RV530) ||
 		 (r300->radeon.radeonScreen->chip_family == CHIP_FAMILY_RV560) ||
 		 (r300->radeon.radeonScreen->chip_family == CHIP_FAMILY_RV570))
-	    vap_cntl |= (5 << R300_PVS_NUM_FPUS_SHIFT);
+		vap_cntl |= (5 << R300_PVS_NUM_FPUS_SHIFT);
 	else if ((r300->radeon.radeonScreen->chip_family == CHIP_FAMILY_RV410) ||
 		 (r300->radeon.radeonScreen->chip_family == CHIP_FAMILY_R420))
-	    vap_cntl |= (6 << R300_PVS_NUM_FPUS_SHIFT);
+		vap_cntl |= (6 << R300_PVS_NUM_FPUS_SHIFT);
 	else if ((r300->radeon.radeonScreen->chip_family == CHIP_FAMILY_R520) ||
 		 (r300->radeon.radeonScreen->chip_family == CHIP_FAMILY_R580))
-	    vap_cntl |= (8 << R300_PVS_NUM_FPUS_SHIFT);
+		vap_cntl |= (8 << R300_PVS_NUM_FPUS_SHIFT);
 	else
-	    vap_cntl |= (4 << R300_PVS_NUM_FPUS_SHIFT);
+		vap_cntl |= (4 << R300_PVS_NUM_FPUS_SHIFT);
 
-	R300_STATECHANGE(rmesa, vap_cntl);
-	reg_start(R300_VAP_CNTL, 0);
-	e32(vap_cntl);
+	R300_STATECHANGE(r300, vap_cntl);
+
+	BEGIN_BATCH(2);
+	OUT_BATCH_REGVAL(R300_VAP_CNTL, vap_cntl);
+	END_BATCH();
 
 	if (has_tcl) {
 		R300_STATECHANGE(r300, pvs);
