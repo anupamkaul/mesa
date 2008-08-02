@@ -230,9 +230,6 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 	}
 
 	/* Init r300 context data */
-	r300->dma.buf0_address =
-	    r300->radeon.radeonScreen->buffers->list[0].address;
-
 	(void)memset(r300->texture_heaps, 0, sizeof(r300->texture_heaps));
 	make_empty_list(&r300->swapped);
 
