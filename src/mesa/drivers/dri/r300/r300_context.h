@@ -815,7 +815,6 @@ struct r300_state {
 	GLuint *Elts;
 	struct r300_dma_region elt_dma;
 
-	struct r300_dma_region swtcl_dma;
 	DECLARE_RENDERINPUTS(render_inputs_bitset);	/* actual render inputs that R300 was configured for.
 							   They are the same as tnl->render_inputs for fixed pipeline */
 
