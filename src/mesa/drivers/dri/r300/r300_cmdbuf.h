@@ -80,6 +80,19 @@ extern void r300BeginBatch(r300ContextPtr r300, int n, GLboolean autostate, cons
 	} while(0)
 
 /**
+ * Write a relocated dword to the command buffer.
+ */
+#define OUT_BATCH_RELOC(data, bo, offset, flags) \
+	do { \
+		if (b_l_r300->cmdbuf.written < b_l_r300->cmdbuf.reserved) { \
+			dri_emit_reloc(b_l_r300->cmdbuf.buf, flags, offset, 4*b_l_r300->cmdbuf.written, bo); \
+			((uint32_t*)b_l_r300->cmdbuf.buf->virtual)[b_l_r300->cmdbuf.written++] = data; \
+		} else { \
+			_mesa_problem(b_l_r300->radeon.glCtx, "%s:%i: OUT_BATCH mismatch", __FUNCTION__, __LINE__); \
+		} \
+	} while(0)
+
+/**
  * Write n dwords from ptr to the command buffer.
  */
 #define OUT_BATCH_TABLE(ptr,n) \

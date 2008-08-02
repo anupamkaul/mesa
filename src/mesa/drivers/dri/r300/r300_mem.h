@@ -16,8 +16,13 @@ struct _radeon_bufmgr {
 	void (*bo_use)(dri_bo* buf);
 };
 
-#define DRM_BO_MEM_DMA DRM_BO_MEM_PRIV0 /** Use for transient buffers (texture upload, vertex buffers...) */
-#define DRM_BO_MEM_CMDBUF DRM_BO_MEM_PRIV1 /** Use for command buffers */
+/* Note: The following flags should probably be ultimately eliminated,
+ * or replaced by something else.
+ */
+#define DRM_BO_MEM_DMA (1 << 27) /** Use for transient buffers (texture upload, vertex buffers...) */
+#define DRM_BO_MEM_CMDBUF (1 << 28) /** Use for command buffers */
+
+#define DRM_RELOC_BLITTER (1 << 23) /** Offset overwrites lower 22 bits (used with blit packet3) */
 
 radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa);
 

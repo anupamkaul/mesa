@@ -158,11 +158,10 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 
 		cp_wait(rmesa, R300_WAIT_3D);
 
-		/* Blit to framebuffer
-			*/
+		/* Blit to framebuffer */
 		r300EmitBlit(rmesa,
 				blit_format,
-				dstPitch, GET_START(&region),
+				dstPitch, region.bo, region.start,
 				dstPitch | (t->tile_bits >> 16),
 				t->bufAddr, 0, 0, 0, done, width, lines);
 

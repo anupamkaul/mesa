@@ -549,7 +549,7 @@ void r300EmitCacheFlush(r300ContextPtr rmesa)
 void r300EmitBlit(r300ContextPtr rmesa,
 		  GLuint color_fmt,
 		  GLuint src_pitch,
-		  GLuint src_offset,
+		  dri_bo *src_bo, int src_offset,
 		  GLuint dst_pitch,
 		  GLuint dst_offset,
 		  GLint srcx, GLint srcy,
@@ -580,7 +580,7 @@ void r300EmitBlit(r300ContextPtr rmesa,
 		  RADEON_ROP3_S |
 		  RADEON_DP_SRC_SOURCE_MEMORY |
 		  RADEON_GMC_CLR_CMP_CNTL_DIS | RADEON_GMC_WR_MSK_DIS);
-	OUT_BATCH(((src_pitch / 64) << 22) | (src_offset >> 10));
+	OUT_BATCH_RELOC((src_pitch / 64) << 22, src_bo, src_offset, DRM_RELOC_BLITTER);
 	OUT_BATCH(((dst_pitch / 64) << 22) | (dst_offset >> 10));
 	OUT_BATCH((srcx << 16) | srcy);
 	OUT_BATCH((dstx << 16) | dsty);

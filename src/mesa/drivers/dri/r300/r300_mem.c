@@ -462,12 +462,17 @@ static void *bufmgr_classic_process_relocs(dri_bo *batch_buf, GLuint *count)
 	for(i = 0; i < batch_bo->relocs_used; ++i) {
 		radeon_reloc *reloc = &batch_bo->relocs[i];
 		uint32_t *dest = (uint32_t*)((char*)batch_buf->virtual + reloc->offset);
+		uint32_t offset;
 
 		if (!reloc->target->validated)
 			reloc->target->functions->validate(reloc->target);
 		reloc->target->used = 1;
+		offset = reloc->target->base.offset + reloc->delta;
 
-		*dest = reloc->target->base.offset + reloc->delta;
+		if (reloc->flags & DRM_RELOC_BLITTER)
+			*dest = (*dest & 0xffc00000) | (offset >> 10);
+		else
+			*dest = offset;
 	}
 	dri_bo_unmap(batch_buf);
 	return 0;

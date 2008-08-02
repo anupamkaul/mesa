@@ -202,7 +202,7 @@ extern GLuint r300VAPOutputCntl1(GLcontext * ctx, GLuint OutputsWritten);
 extern void r300EmitBlit(r300ContextPtr rmesa,
 			 GLuint color_fmt,
 			 GLuint src_pitch,
-			 GLuint src_offset,
+			 dri_bo *src_bo, int src_offset,
 			 GLuint dst_pitch,
 			 GLuint dst_offset,
 			 GLint srcx, GLint srcy,
