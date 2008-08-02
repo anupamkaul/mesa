@@ -206,24 +206,18 @@ static void r300PrintStateAtom(r300ContextPtr r300, struct r300_state_atom *stat
  */
 static INLINE void r300EmitAtoms(r300ContextPtr r300, GLboolean dirty)
 {
+	BATCH_LOCALS(r300);
 	struct r300_state_atom *atom;
-	uint32_t *dest;
 	int dwords;
 
-	dest = r300RawAllocCmdBuf(r300, 4, __FUNCTION__);
-
-	/* Emit WAIT */
-	*dest++ = cmdwait(R300_WAIT_3D | R300_WAIT_3D_CLEAN);
-
-	/* Emit cache flush */
-	*dest++ = cmdpacket0(R300_TX_INVALTAGS, 1);
-	*dest++ = R300_TX_FLUSH;
-
-	/* Emit END3D */
-	*dest++ = cmdpacify();
+	BEGIN_BATCH_NO_AUTOSTATE(4);
+	OUT_BATCH(cmdwait(R300_WAIT_3D | R300_WAIT_3D_CLEAN));
+	OUT_BATCH(cmdpacket0(R300_TX_INVALTAGS, 1));
+	OUT_BATCH(R300_TX_FLUSH);
+	OUT_BATCH(cmdpacify());
+	END_BATCH();
 
 	/* Emit actual atoms */
-
 	foreach(atom, &r300->hw.atomlist) {
 		if ((atom->dirty || r300->hw.all_dirty) == dirty) {
 			dwords = (*atom->check) (r300, atom);
@@ -231,8 +225,9 @@ static INLINE void r300EmitAtoms(r300ContextPtr r300, GLboolean dirty)
 				if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_STATE) {
 					r300PrintStateAtom(r300, atom);
 				}
-				dest = r300RawAllocCmdBuf(r300, dwords, __FUNCTION__);
-				memcpy(dest, atom->cmd, dwords * 4);
+				BEGIN_BATCH_NO_AUTOSTATE(dwords);
+				OUT_BATCH_TABLE(atom->cmd, dwords);
+				END_BATCH();
 				atom->dirty = GL_FALSE;
 			} else {
 				if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_STATE) {
@@ -242,6 +237,8 @@ static INLINE void r300EmitAtoms(r300ContextPtr r300, GLboolean dirty)
 			}
 		}
 	}
+
+	COMMIT_BATCH();
 }
 
 /**
