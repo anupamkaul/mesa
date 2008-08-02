@@ -123,7 +123,7 @@ static INLINE uint32_t r300PackFloat24(float f)
 /************ DMA BUFFERS **************/
 
 #undef GET_START
-#define GET_START(rvb) (r300GartOffsetFromVirtual(rmesa, (rvb)->address+(rvb)->start))
+#define GET_START(rvb) ((rvb)->bo->offset+(rvb)->start)
 
 /* A retained region, eg vertices for indexed vertices.
  */

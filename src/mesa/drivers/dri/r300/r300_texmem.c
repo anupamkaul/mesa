@@ -79,78 +79,6 @@ void r300DestroyTexObj(r300ContextPtr rmesa, r300TexObjPtr t)
  * Texture image conversions
  */
 
-static void r300UploadGARTClientSubImage(r300ContextPtr rmesa,
-					 r300TexObjPtr t,
-					 struct gl_texture_image *texImage,
-					 GLint hwlevel,
-					 GLint x, GLint y,
-					 GLint width, GLint height)
-{
-	const struct gl_texture_format *texFormat = texImage->TexFormat;
-	GLuint srcPitch, dstPitch;
-	int blit_format;
-	int srcOffset;
-
-	/*
-	 * XXX it appears that we always upload the full image, not a subimage.
-	 * I.e. x==0, y==0, width=texWidth, height=texWidth.  If this is ever
-	 * changed, the src pitch will have to change.
-	 */
-	switch (texFormat->TexelBytes) {
-	case 1:
-		blit_format = R300_CP_COLOR_FORMAT_CI8;
-		srcPitch = t->image[0][0].width * texFormat->TexelBytes;
-		dstPitch = t->image[0][0].width * texFormat->TexelBytes;
-		break;
-	case 2:
-		blit_format = R300_CP_COLOR_FORMAT_RGB565;
-		srcPitch = t->image[0][0].width * texFormat->TexelBytes;
-		dstPitch = t->image[0][0].width * texFormat->TexelBytes;
-		break;
-	case 4:
-		blit_format = R300_CP_COLOR_FORMAT_ARGB8888;
-		srcPitch = t->image[0][0].width * texFormat->TexelBytes;
-		dstPitch = t->image[0][0].width * texFormat->TexelBytes;
-		break;
-	case 8:
-	case 16:
-		blit_format = R300_CP_COLOR_FORMAT_CI8;
-		srcPitch = t->image[0][0].width * texFormat->TexelBytes;
-		dstPitch = t->image[0][0].width * texFormat->TexelBytes;
-		break;
-	default:
-		return;
-	}
-
-	t->image[0][hwlevel].data = texImage->Data;
-	srcOffset = r300GartOffsetFromVirtual(rmesa, texImage->Data);
-
-	assert(srcOffset != ~0);
-
-	/* Don't currently need to cope with small pitches?
-	 */
-	width = texImage->Width;
-	height = texImage->Height;
-
-	if (texFormat->TexelBytes > 4) {
-		width *= texFormat->TexelBytes;
-	}
-
-	r300EmitWait(rmesa, R300_WAIT_3D);
-
-	r300EmitBlit(rmesa, blit_format,
-		     srcPitch,
-		     srcOffset,
-		     dstPitch,
-		     t->bufAddr,
-		     x,
-		     y,
-		     t->image[0][hwlevel].x + x,
-		     t->image[0][hwlevel].y + y, width, height);
-
-	r300EmitWait(rmesa, R300_WAIT_2D);
-}
-
 static void r300UploadRectSubImage(r300ContextPtr rmesa,
 				   r300TexObjPtr t,
 				   struct gl_texture_image *texImage,
@@ -189,70 +117,58 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 		width *= texFormat->TexelBytes;
 	}
 
-	if (texImage->IsClientData) {
-		/* Data already in GART memory, with usable pitch.
-		 */
-		GLuint srcPitch;
-		srcPitch = texImage->RowStride * texFormat->TexelBytes;
-		r300EmitBlit(rmesa,
-			     blit_format,
-			     srcPitch,
-			     r300GartOffsetFromVirtual(rmesa, texImage->Data),
-			     dstPitch, t->bufAddr, 0, 0, 0, 0, width, height);
-	} else {
-		/* Data not in GART memory, or bad pitch.
-		 */
-		for (done = 0; done < height;) {
-			struct r300_dma_region region;
-			int lines =
-			    MIN2(height - done, RADEON_BUFFER_SIZE / dstPitch);
-			int src_pitch;
-			char *tex;
+	/* Data not in GART memory, or bad pitch.
+	 */
+	for (done = 0; done < height;) {
+		struct r300_dma_region region;
+		int lines =
+			MIN2(height - done, RADEON_BUFFER_SIZE / dstPitch);
+		int src_pitch;
+		char *tex;
 
-			src_pitch = texImage->RowStride * texFormat->TexelBytes;
+		src_pitch = texImage->RowStride * texFormat->TexelBytes;
 
-			tex = (char *)texImage->Data + done * src_pitch;
+		tex = (char *)texImage->Data + done * src_pitch;
 
-			memset(&region, 0, sizeof(region));
-			r300AllocDmaRegion(rmesa, &region, lines * dstPitch,
-					   1024);
+		memset(&region, 0, sizeof(region));
+		r300AllocDmaRegion(rmesa, &region, lines * dstPitch,
+					1024);
 
-			/* Copy texdata to dma:
-			 */
-			if (RADEON_DEBUG & DEBUG_TEXTURE)
-				fprintf(stderr,
-					"%s: src_pitch %d dst_pitch %d\n",
-					__FUNCTION__, src_pitch, dstPitch);
+		/* Copy texdata to dma:
+			*/
+		if (RADEON_DEBUG & DEBUG_TEXTURE)
+			fprintf(stderr,
+				"%s: src_pitch %d dst_pitch %d\n",
+				__FUNCTION__, src_pitch, dstPitch);
 
-			if (src_pitch == dstPitch) {
-				memcpy(region.address + region.start, tex,
-				       lines * src_pitch);
-			} else {
-				char *buf = region.address + region.start;
-				int i;
-				for (i = 0; i < lines; i++) {
-					memcpy(buf, tex, src_pitch);
-					buf += dstPitch;
-					tex += src_pitch;
-				}
+		if (src_pitch == dstPitch) {
+			memcpy(region.address + region.start, tex,
+				lines * src_pitch);
+		} else {
+			char *buf = region.address + region.start;
+			int i;
+			for (i = 0; i < lines; i++) {
+				memcpy(buf, tex, src_pitch);
+				buf += dstPitch;
+				tex += src_pitch;
 			}
-
-			r300EmitWait(rmesa, R300_WAIT_3D);
-
-			/* Blit to framebuffer
-			 */
-			r300EmitBlit(rmesa,
-				     blit_format,
-				     dstPitch, GET_START(&region),
-				     dstPitch | (t->tile_bits >> 16),
-				     t->bufAddr, 0, 0, 0, done, width, lines);
-
-			r300EmitWait(rmesa, R300_WAIT_2D);
-			rmesa->bufmgr->bo_use(region.bo);
-
-			r300ReleaseDmaRegion(rmesa, &region, __FUNCTION__);
-			done += lines;
 		}
+
+		r300EmitWait(rmesa, R300_WAIT_3D);
+
+		/* Blit to framebuffer
+			*/
+		r300EmitBlit(rmesa,
+				blit_format,
+				dstPitch, GET_START(&region),
+				dstPitch | (t->tile_bits >> 16),
+				t->bufAddr, 0, 0, 0, done, width, lines);
+
+		r300EmitWait(rmesa, R300_WAIT_2D);
+		rmesa->bufmgr->bo_use(region.bo);
+
+		r300ReleaseDmaRegion(rmesa, &region, __FUNCTION__);
+		done += lines;
 	}
 }
 
@@ -310,14 +226,6 @@ static void r300UploadSubImage(r300ContextPtr rmesa, r300TexObjPtr t,
 			fprintf(stderr, "%s: image data is rectangular\n",
 				__FUNCTION__);
 		r300UploadRectSubImage(rmesa, t, texImage, x, y, width, height);
-		return;
-	} else if (texImage->IsClientData) {
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr,
-				"%s: image data is in GART client storage\n",
-				__FUNCTION__);
-		r300UploadGARTClientSubImage(rmesa, t, texImage, hwlevel, x, y,
-					     width, height);
 		return;
 	} else if (RADEON_DEBUG & DEBUG_TEXTURE)
 		fprintf(stderr, "%s: image data is in normal memory\n",
@@ -507,10 +415,8 @@ int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t, GLuint face)
 		    + t->base.memBlock->ofs;
 		t->offset = t->bufAddr;
 
-		if (!(t->base.tObj->Image[0][0]->IsClientData)) {
-			/* hope it's safe to add that here... */
-			t->offset |= t->tile_bits;
-		}
+		/* hope it's safe to add that here... */
+		t->offset |= t->tile_bits;
 	}
 
 	/* Let the world know we've used this memory recently.

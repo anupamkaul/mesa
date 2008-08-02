@@ -625,21 +625,6 @@ void r300AllocDmaRegion(r300ContextPtr rmesa,
 	assert(rmesa->dma.current.ptr <= rmesa->dma.current.end);
 }
 
-GLuint r300GartOffsetFromVirtual(r300ContextPtr rmesa, const GLvoid * pointer)
-{
-	int offset =
-	    (char *)pointer -
-	    (char *)rmesa->radeon.radeonScreen->gartTextures.map;
-
-	//fprintf(stderr, "offset=%08x\n", offset);
-
-	if (offset < 0
-	    || offset > rmesa->radeon.radeonScreen->gartTextures.size)
-		return ~0;
-	else
-		return rmesa->radeon.radeonScreen->gart_texture_offset + offset;
-}
-
 void r300InitIoctlFuncs(struct dd_function_table *functions)
 {
 	functions->Clear = r300Clear;

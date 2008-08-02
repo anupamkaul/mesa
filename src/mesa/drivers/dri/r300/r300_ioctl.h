@@ -39,9 +39,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_context.h"
 #include "radeon_drm.h"
 
-extern GLuint r300GartOffsetFromVirtual(r300ContextPtr rmesa,
-					const GLvoid * pointer);
-
 extern void r300Flush(GLcontext * ctx);
 
 extern void r300ReleaseDmaRegion(r300ContextPtr rmesa,
