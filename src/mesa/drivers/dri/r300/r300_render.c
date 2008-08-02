@@ -256,6 +256,12 @@ static void r300RunRenderPrimitive(r300ContextPtr rmesa, GLcontext * ctx,
 	if (type < 0 || num_verts <= 0)
 		return;
 
+	/* Make space for at least 64 dwords.
+	 * This is supposed to ensure that we can get all rendering
+	 * commands into a single command buffer.
+	 */
+	r300EnsureCmdBufSpace(rmesa, 64, __FUNCTION__);
+
 	if (vb->Elts) {
 		if (num_verts > 65535) {
 			/* not implemented yet */
