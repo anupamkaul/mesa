@@ -127,6 +127,30 @@ static INLINE uint32_t cmdpacify(void)
 	return cmd.u;
 }
 
+
+/** Single register write to command buffer; requires 2 dwords. */
+#define OUT_BATCH_REGVAL(reg, val) \
+	OUT_BATCH(cmdpacket0((reg), 1)); \
+	OUT_BATCH((val))
+
+/** Continuous register range write to command buffer; requires 1 dword,
+ * expects count dwords afterwards for register contents. */
+#define OUT_BATCH_REGSEQ(reg, count) \
+	OUT_BATCH(cmdpacket0((reg), (count)));
+
+/** Write a 32 bit float to the ring; requires 1 dword. */
+#define OUT_BATCH_FLOAT32(f) \
+	OUT_BATCH(r300PackFloat32((f)));
+
+/**
+ * Write the header of a packet3 to the command buffer.
+ * Outputs 2 dwords and expects (num_extra+1) additional dwords afterwards.
+ */
+#define OUT_BATCH_PACKET3(packet, num_extra) do {\
+	OUT_BATCH(cmdpacket3(R300_CMD_PACKET3_RAW)); \
+	OUT_BATCH(CP_PACKET3((packet), (num_extra))); \
+	} while(0)
+
 /**
  * Prepare to write a register value to register at address reg.
  * If num_extra > 0 then the following extra values are written
