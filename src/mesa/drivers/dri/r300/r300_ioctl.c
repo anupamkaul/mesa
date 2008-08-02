@@ -65,13 +65,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 static void r300ClearBuffer(r300ContextPtr r300, int flags, int buffer)
 {
+	BATCH_LOCALS(r300);
 	GLcontext *ctx = r300->radeon.glCtx;
 	__DRIdrawablePrivate *dPriv = r300->radeon.dri.drawable;
 	GLuint cboffset, cbpitch;
-	drm_r300_cmd_header_t *cmd2;
-	int cmd_reserved = 0;
-	int cmd_written = 0;
-	drm_radeon_cmd_header_t *cmd = NULL;
 	r300ContextPtr rmesa = r300;
 
 	if (RADEON_DEBUG & DEBUG_IOCTL)
@@ -89,13 +86,6 @@ static void r300ClearBuffer(r300ContextPtr r300, int flags, int buffer)
 
 	cboffset += r300->radeon.radeonScreen->fbLocation;
 
-	cp_wait(r300, R300_WAIT_3D | R300_WAIT_3D_CLEAN);
-	end_3d(rmesa);
-
-	R300_STATECHANGE(r300, cb);
-	reg_start(R300_RB3D_COLOROFFSET0, 0);
-	e32(cboffset);
-
 	if (r300->radeon.radeonScreen->cpp == 4)
 		cbpitch |= R300_COLOR_FORMAT_ARGB8888;
 	else
@@ -104,23 +94,24 @@ static void r300ClearBuffer(r300ContextPtr r300, int flags, int buffer)
 	if (r300->radeon.sarea->tiling_enabled)
 		cbpitch |= R300_COLOR_TILE_ENABLE;
 
-	reg_start(R300_RB3D_COLORPITCH0, 0);
-	e32(cbpitch);
+	cp_wait(r300, R300_WAIT_3D | R300_WAIT_3D_CLEAN);
+	end_3d(rmesa);
 
-	R300_STATECHANGE(r300, cmk);
-	reg_start(RB3D_COLOR_CHANNEL_MASK, 0);
+	BEGIN_BATCH(19);
+	OUT_BATCH_REGVAL(R300_RB3D_COLOROFFSET0, cboffset);
+	OUT_BATCH_REGVAL(R300_RB3D_COLORPITCH0, cbpitch);
 
+	OUT_BATCH_REGSEQ(RB3D_COLOR_CHANNEL_MASK, 1);
 	if (flags & CLEARBUFFER_COLOR) {
-		e32((ctx->Color.ColorMask[BCOMP] ? RB3D_COLOR_CHANNEL_MASK_BLUE_MASK0 : 0) |
-		    (ctx->Color.ColorMask[GCOMP] ? RB3D_COLOR_CHANNEL_MASK_GREEN_MASK0 : 0) |
-		    (ctx->Color.ColorMask[RCOMP] ? RB3D_COLOR_CHANNEL_MASK_RED_MASK0 : 0) |
-		    (ctx->Color.ColorMask[ACOMP] ? RB3D_COLOR_CHANNEL_MASK_ALPHA_MASK0 : 0));
+		OUT_BATCH((ctx->Color.ColorMask[BCOMP] ? RB3D_COLOR_CHANNEL_MASK_BLUE_MASK0 : 0) |
+			  (ctx->Color.ColorMask[GCOMP] ? RB3D_COLOR_CHANNEL_MASK_GREEN_MASK0 : 0) |
+			  (ctx->Color.ColorMask[RCOMP] ? RB3D_COLOR_CHANNEL_MASK_RED_MASK0 : 0) |
+			  (ctx->Color.ColorMask[ACOMP] ? RB3D_COLOR_CHANNEL_MASK_ALPHA_MASK0 : 0));
 	} else {
-		e32(0x0);
+		OUT_BATCH(0);
 	}
 
-	R300_STATECHANGE(r300, zs);
-	reg_start(R300_ZB_CNTL, 2);
+	OUT_BATCH_REGSEQ(R300_ZB_CNTL, 3);
 
 	{
 		uint32_t t1, t2;
@@ -147,26 +138,29 @@ static void r300ClearBuffer(r300ContextPtr r300, int flags, int buffer)
 			     R300_S_FRONT_ZFAIL_OP_SHIFT);
 		}
 
-		e32(t1);
-		e32(t2);
-		e32(((ctx->Stencil.WriteMask[0] & R300_STENCILREF_MASK) << R300_STENCILWRITEMASK_SHIFT) |
-		    (ctx->Stencil.Clear & R300_STENCILREF_MASK));
+		OUT_BATCH(t1);
+		OUT_BATCH(t2);
+		OUT_BATCH(((ctx->Stencil.WriteMask[0] & R300_STENCILREF_MASK) << R300_STENCILWRITEMASK_SHIFT) |
+			  (ctx->Stencil.Clear & R300_STENCILREF_MASK));
 	}
 
-	cmd2 = (drm_r300_cmd_header_t *) r300AllocCmdBuf(r300, 9, __FUNCTION__);
-	cmd2[0].packet3.cmd_type = R300_CMD_PACKET3;
-	cmd2[0].packet3.packet = R300_CMD_PACKET3_CLEAR;
-	cmd2[1].u = r300PackFloat32(dPriv->w / 2.0);
-	cmd2[2].u = r300PackFloat32(dPriv->h / 2.0);
-	cmd2[3].u = r300PackFloat32(ctx->Depth.Clear);
-	cmd2[4].u = r300PackFloat32(1.0);
-	cmd2[5].u = r300PackFloat32(ctx->Color.ClearColor[0]);
-	cmd2[6].u = r300PackFloat32(ctx->Color.ClearColor[1]);
-	cmd2[7].u = r300PackFloat32(ctx->Color.ClearColor[2]);
-	cmd2[8].u = r300PackFloat32(ctx->Color.ClearColor[3]);
+	OUT_BATCH(cmdpacket3(R300_CMD_PACKET3_CLEAR));
+	OUT_BATCH_FLOAT32(dPriv->w / 2.0);
+	OUT_BATCH_FLOAT32(dPriv->h / 2.0);
+	OUT_BATCH_FLOAT32(ctx->Depth.Clear);
+	OUT_BATCH_FLOAT32(1.0);
+	OUT_BATCH_FLOAT32(ctx->Color.ClearColor[0]);
+	OUT_BATCH_FLOAT32(ctx->Color.ClearColor[1]);
+	OUT_BATCH_FLOAT32(ctx->Color.ClearColor[2]);
+	OUT_BATCH_FLOAT32(ctx->Color.ClearColor[3]);
+	END_BATCH();
 
 	r300EmitCacheFlush(rmesa);
 	cp_wait(rmesa, R300_WAIT_3D | R300_WAIT_3D_CLEAN);
+
+	R300_STATECHANGE(r300, cb);
+	R300_STATECHANGE(r300, cmk);
+	R300_STATECHANGE(r300, zs);
 }
 
 static void r300EmitClearState(GLcontext * ctx)
