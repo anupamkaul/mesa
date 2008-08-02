@@ -253,20 +253,20 @@ void static INLINE end_3d(r300ContextPtr rmesa)
 
 void static INLINE cp_delay(r300ContextPtr rmesa, unsigned short count)
 {
-	drm_radeon_cmd_header_t *cmd = NULL;
+	BATCH_LOCALS(rmesa);
 
-	cmd =
-	    (drm_radeon_cmd_header_t *) r300AllocCmdBuf(rmesa, 1, __FUNCTION__);
-	cmd[0].i = cmdcpdelay(count);
+	BEGIN_BATCH(1);
+	OUT_BATCH(cmdcpdelay(count));
+	END_BATCH();
 }
 
 void static INLINE cp_wait(r300ContextPtr rmesa, unsigned char flags)
 {
-	drm_radeon_cmd_header_t *cmd = NULL;
+	BATCH_LOCALS(rmesa);
 
-	cmd =
-	    (drm_radeon_cmd_header_t *) r300AllocCmdBuf(rmesa, 1, __FUNCTION__);
-	cmd[0].i = cmdwait(flags);
+	BEGIN_BATCH(1);
+	OUT_BATCH(cmdwait(flags));
+	END_BATCH();
 }
 
 extern int r300EmitArrays(GLcontext * ctx);
@@ -295,7 +295,5 @@ extern void r300EmitBlit(r300ContextPtr rmesa,
 			 GLuint dst_offset,
 			 GLint srcx, GLint srcy,
 			 GLint dstx, GLint dsty, GLuint w, GLuint h);
-
-extern void r300EmitWait(r300ContextPtr rmesa, GLuint flags);
 
 #endif
