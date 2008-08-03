@@ -176,9 +176,25 @@ static void r300EmitClearState(GLcontext * ctx)
 	if (!(r300->radeon.radeonScreen->chip_flags & RADEON_CHIPSET_TCL))
 		has_tcl = 0;
 
-        if (r300->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515)
-                is_r500 = 1;
+	if (r300->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515)
+		is_r500 = 1;
 
+	/* State atom dirty tracking is a little subtle here.
+	 *
+	 * On the one hand, we need to make sure base state is emitted
+	 * here if we start with an empty batch buffer, otherwise clear
+	 * works incorrectly with multiple processes. Therefore, the first
+	 * BEGIN_BATCH cannot be a BEGIN_BATCH_NO_AUTOSTATE.
+	 *
+	 * On the other hand, implicit state emission clears the state atom
+	 * dirty bits, so we have to call R300_STATECHANGE later than the
+	 * first BEGIN_BATCH.
+	 *
+	 * The final trickiness is that, because we change state, we need
+	 * to ensure that any stored swtcl primitives are flushed properly
+	 * before we start changing state. See the R300_NEWPRIM in r300Clear
+	 * for this.
+	 */
 	BEGIN_BATCH(31);
 	OUT_BATCH_REGSEQ(R300_VAP_PROG_STREAM_CNTL_0, 1);
 	if (!has_tcl)
@@ -468,6 +484,12 @@ static void r300Clear(GLcontext * ctx, GLbitfield mask)
 		if (dPriv->numClipRects == 0)
 			return;
 	}
+
+	/* Flush swtcl vertices if necessary, because we will change hardware
+	 * state during clear. See also the state-related comment in
+	 * r300EmitClearState.
+	 */
+	R300_NEWPRIM(r300);
 
 	if (mask & BUFFER_BIT_FRONT_LEFT) {
 		flags |= BUFFER_BIT_FRONT_LEFT;
