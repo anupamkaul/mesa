@@ -148,8 +148,7 @@ void r300SetDepthTexMode(struct gl_texture_object *tObj)
 	if (!tObj)
 		return;
 
-	t = (r300TexObjPtr) tObj->DriverData;
-
+	t = r300_tex_obj(tObj);
 
 	switch (tObj->Image[0][tObj->BaseLevel]->TexFormat->MesaFormat) {
 	case MESA_FORMAT_Z16:
@@ -202,13 +201,13 @@ static void compute_tex_image_offset(
 	GLint level,
 	GLint* curOffset)
 {
-	r300TexObjPtr t = (r300TexObjPtr) tObj->DriverData;
+	r300TexObjPtr t = r300_tex_obj(tObj);
 	const struct gl_texture_image* texImage;
 	GLuint blitWidth = R300_BLIT_WIDTH_BYTES;
 	GLuint texelBytes;
 	GLuint size;
 
-	texImage = tObj->Image[0][level + t->base.firstLevel];
+	texImage = tObj->Image[0][level + r300_dri_texture(t)->firstLevel];
 	if (!texImage)
 		return;
 
@@ -294,7 +293,6 @@ static void compute_tex_image_offset(
 }
 
 
-
 /**
  * This function computes the number of bytes of storage needed for
  * the given texture object (all mipmap levels, all cube faces).
@@ -309,9 +307,10 @@ static void compute_tex_image_offset(
 static void r300SetTexImages(r300ContextPtr rmesa,
 			     struct gl_texture_object *tObj)
 {
-	r300TexObjPtr t = (r300TexObjPtr) tObj->DriverData;
+	r300TexObjPtr t = r300_tex_obj(tObj);
 	const struct gl_texture_image *baseImage =
 	    tObj->Image[0][tObj->BaseLevel];
+	driTextureObject *dritex = r300_dri_texture(t);
 	GLint curOffset;
 	GLint i, texelBytes;
 	GLint numLevels;
@@ -336,14 +335,23 @@ static void r300SetTexImages(r300ContextPtr rmesa,
 
 	texelBytes = baseImage->TexFormat->TexelBytes;
 
+	if (!dritex) {
+		dritex = (driTextureObject*)CALLOC(sizeof(driTextureObject));
+		dritex->tObj = &t->base;
+		t->base.DriverData = dritex;
+		make_empty_list(dritex);
+
+		memset(dritex->dirty_images, 0xff, sizeof(dritex->dirty_images));
+	}
+
 	/* Compute which mipmap levels we really want to send to the hardware.
 	 */
-	driCalculateTextureFirstLastLevel((driTextureObject *) t);
-	log2Width = tObj->Image[0][t->base.firstLevel]->WidthLog2;
-	log2Height = tObj->Image[0][t->base.firstLevel]->HeightLog2;
-	log2Depth = tObj->Image[0][t->base.firstLevel]->DepthLog2;
+	driCalculateTextureFirstLastLevel(dritex);
+	log2Width = tObj->Image[0][dritex->firstLevel]->WidthLog2;
+	log2Height = tObj->Image[0][dritex->firstLevel]->HeightLog2;
+	log2Depth = tObj->Image[0][dritex->firstLevel]->DepthLog2;
 
-	numLevels = t->base.lastLevel - t->base.firstLevel + 1;
+	numLevels = dritex->lastLevel - dritex->firstLevel + 1;
 
 	assert(numLevels <= RADEON_MAX_TEXTURE_LEVELS);
 
@@ -398,13 +406,12 @@ static void r300SetTexImages(r300ContextPtr rmesa,
 
 	/* Align the total size of texture memory block.
 	 */
-	t->base.totalSize =
-	    (curOffset + RADEON_OFFSET_MASK) & ~RADEON_OFFSET_MASK;
+	dritex->totalSize = (curOffset + RADEON_OFFSET_MASK) & ~RADEON_OFFSET_MASK;
 
 	t->size =
-	    (((tObj->Image[0][t->base.firstLevel]->Width -
+	    (((tObj->Image[0][dritex->firstLevel]->Width -
 	       1) << R300_TX_WIDTHMASK_SHIFT)
-	     | ((tObj->Image[0][t->base.firstLevel]->Height - 1) <<
+	     | ((tObj->Image[0][dritex->firstLevel]->Height - 1) <<
 		R300_TX_HEIGHTMASK_SHIFT))
 	    | ((numLevels - 1) << R300_TX_MAX_MIP_LEVEL_SHIFT);
 
@@ -416,26 +423,26 @@ static void r300SetTexImages(r300ContextPtr rmesa,
 	 */
 	if (baseImage->IsCompressed) {
 		t->pitch |=
-		    (tObj->Image[0][t->base.firstLevel]->Width + 63) & ~(63);
+		    (tObj->Image[0][dritex->firstLevel]->Width + 63) & ~(63);
 	} else if (tObj->Target == GL_TEXTURE_RECTANGLE_NV) {
 		unsigned int align = (64 / texelBytes) - 1;
-		t->pitch |= ((tObj->Image[0][t->base.firstLevel]->Width *
+		t->pitch |= ((tObj->Image[0][dritex->firstLevel]->Width *
 			     texelBytes) + 63) & ~(63);
 		t->size |= R300_TX_SIZE_TXPITCH_EN;
 		if (!t->image_override)
 			t->pitch_reg =
-			    (((tObj->Image[0][t->base.firstLevel]->Width) +
+			    (((tObj->Image[0][dritex->firstLevel]->Width) +
 			      align) & ~align) - 1;
 	} else {
 		t->pitch |=
-		    ((tObj->Image[0][t->base.firstLevel]->Width *
+		    ((tObj->Image[0][dritex->firstLevel]->Width *
 		      texelBytes) + 63) & ~(63);
 	}
 
 	if (rmesa->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515) {
-	    if (tObj->Image[0][t->base.firstLevel]->Width > 2048)
+	    if (tObj->Image[0][dritex->firstLevel]->Width > 2048)
 		t->pitch_reg |= R500_TXWIDTH_BIT11;
-	    if (tObj->Image[0][t->base.firstLevel]->Height > 2048)
+	    if (tObj->Image[0][dritex->firstLevel]->Height > 2048)
 		t->pitch_reg |= R500_TXHEIGHT_BIT11;
 	}
 }
@@ -449,17 +456,16 @@ static GLboolean r300EnableTexture2D(GLcontext * ctx, int unit)
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = (r300TexObjPtr) tObj->DriverData;
+	r300TexObjPtr t = r300_tex_obj(tObj);
+	driTextureObject *dritex = r300_dri_texture(t);
 
 	ASSERT(tObj->Target == GL_TEXTURE_2D || tObj->Target == GL_TEXTURE_1D);
 
-	if (t->base.dirty_images[0]) {
+	if (!dritex || dritex->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 
 		r300SetTexImages(rmesa, tObj);
-		r300UploadTexImages(rmesa, (r300TexObjPtr) tObj->DriverData, 0);
-		if (!t->base.memBlock && !t->image_override)
-			return GL_FALSE;
+		r300UploadTexImages(rmesa, t, 0);
 	}
 
 	return GL_TRUE;
@@ -470,7 +476,8 @@ static GLboolean r300EnableTexture3D(GLcontext * ctx, int unit)
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = (r300TexObjPtr) tObj->DriverData;
+	r300TexObjPtr t = r300_tex_obj(tObj);
+	driTextureObject *dritex = r300_dri_texture(t);
 
 	ASSERT(tObj->Target == GL_TEXTURE_3D);
 
@@ -479,12 +486,10 @@ static GLboolean r300EnableTexture3D(GLcontext * ctx, int unit)
 		return GL_FALSE;
 	}
 
-	if (t->base.dirty_images[0]) {
+	if (!dritex || dritex->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 		r300SetTexImages(rmesa, tObj);
-		r300UploadTexImages(rmesa, (r300TexObjPtr) tObj->DriverData, 0);
-		if (!t->base.memBlock)
-			return GL_FALSE;
+		r300UploadTexImages(rmesa, t, 0);
 	}
 
 	return GL_TRUE;
@@ -495,32 +500,28 @@ static GLboolean r300EnableTextureCube(GLcontext * ctx, int unit)
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = (r300TexObjPtr) tObj->DriverData;
+	r300TexObjPtr t = r300_tex_obj(tObj);
+	driTextureObject *dritex = r300_dri_texture(t);
 	GLuint face;
 
 	ASSERT(tObj->Target == GL_TEXTURE_CUBE_MAP);
 
-	if (t->base.dirty_images[0] || t->base.dirty_images[1] ||
-	    t->base.dirty_images[2] || t->base.dirty_images[3] ||
-	    t->base.dirty_images[4] || t->base.dirty_images[5]) {
+	if (!dritex ||
+	    dritex->dirty_images[0] || dritex->dirty_images[1] ||
+	    dritex->dirty_images[2] || dritex->dirty_images[3] ||
+	    dritex->dirty_images[4] || dritex->dirty_images[5]) {
 		/* flush */
 		R300_FIREVERTICES(rmesa);
 		/* layout memory space, once for all faces */
 		r300SetTexImages(rmesa, tObj);
+		dritex = r300_dri_texture(t);
 	}
 
 	/* upload (per face) */
 	for (face = 0; face < 6; face++) {
-		if (t->base.dirty_images[face]) {
-			r300UploadTexImages(rmesa,
-					    (r300TexObjPtr) tObj->DriverData,
-					    face);
+		if (dritex->dirty_images[face]) {
+			r300UploadTexImages(rmesa, t, face);
 		}
-	}
-
-	if (!t->base.memBlock) {
-		/* texmem alloc failed, use s/w fallback */
-		return GL_FALSE;
 	}
 
 	return GL_TRUE;
@@ -531,17 +532,16 @@ static GLboolean r300EnableTextureRect(GLcontext * ctx, int unit)
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = (r300TexObjPtr) tObj->DriverData;
+	r300TexObjPtr t = r300_tex_obj(tObj);
+	driTextureObject *dritex = r300_dri_texture(t);
 
 	ASSERT(tObj->Target == GL_TEXTURE_RECTANGLE_NV);
 
-	if (t->base.dirty_images[0]) {
+	if (!dritex || dritex->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 
 		r300SetTexImages(rmesa, tObj);
-		r300UploadTexImages(rmesa, (r300TexObjPtr) tObj->DriverData, 0);
-		if (!t->base.memBlock && !t->image_override)
-			return GL_FALSE;
+		r300UploadTexImages(rmesa, t, 0);
 	}
 
 	return GL_TRUE;
@@ -552,10 +552,15 @@ static GLboolean r300UpdateTexture(GLcontext * ctx, int unit)
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = (r300TexObjPtr) tObj->DriverData;
+	r300TexObjPtr t = r300_tex_obj(tObj);
+	driTextureObject *dritex = r300_dri_texture(t);
 
 	/* Fallback if there's a texture border */
 	if (tObj->Image[0][tObj->BaseLevel]->Border > 0)
+		return GL_FALSE;
+
+	/* Fallback if memory upload didn't work */
+	if (!dritex || !dritex->memBlock)
 		return GL_FALSE;
 
 	/* Update state if this is a different texture object to last
@@ -567,13 +572,13 @@ static GLboolean r300UpdateTexture(GLcontext * ctx, int unit)
 			 * Mark it as such.
 			 */
 
-			rmesa->state.texture.unit[unit].texobj->base.bound &=
+			r300_dri_texture(rmesa->state.texture.unit[unit].texobj)->bound &=
 			    ~(1 << unit);
 		}
 
 		rmesa->state.texture.unit[unit].texobj = t;
-		t->base.bound |= (1 << unit);
-		driUpdateTextureLRU((driTextureObject *) t);	/* XXX: should be locked! */
+		dritex->bound |= (1 << unit);
+		driUpdateTextureLRU(dritex);	/* XXX: should be locked! */
 	}
 
 	return GL_TRUE;
@@ -585,13 +590,11 @@ void r300SetTexOffset(__DRIcontext * pDRICtx, GLint texname,
 	r300ContextPtr rmesa = pDRICtx->driverPrivate;
 	struct gl_texture_object *tObj =
 	    _mesa_lookup_texture(rmesa->radeon.glCtx, texname);
-	r300TexObjPtr t;
+	r300TexObjPtr t = r300_tex_obj(tObj);
 	uint32_t pitch_val;
 
 	if (!tObj)
 		return;
-
-	t = (r300TexObjPtr) tObj->DriverData;
 
 	t->image_override = GL_TRUE;
 

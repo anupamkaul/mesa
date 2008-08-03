@@ -1532,7 +1532,7 @@ static void r300SetupTextures(GLcontext * ctx)
 			 */
 			r300->hw.tex.filter_1.cmd[R300_TEX_VALUE_0 + hw_tmu] =
 				t->filter_1 |
-				translate_lod_bias(ctx->Texture.Unit[i].LodBias + t->base.tObj->LodBias);
+				translate_lod_bias(ctx->Texture.Unit[i].LodBias + t->base.LodBias);
 			r300->hw.tex.size.cmd[R300_TEX_VALUE_0 + hw_tmu] =
 			    t->size;
 			r300->hw.tex.format.cmd[R300_TEX_VALUE_0 +

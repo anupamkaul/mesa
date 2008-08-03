@@ -78,7 +78,7 @@ static unsigned int translate_wrap_mode(GLenum wrapmode)
  */
 static void r300UpdateTexWrap(r300TexObjPtr t)
 {
-	struct gl_texture_object *tObj = t->base.tObj;
+	struct gl_texture_object *tObj = &t->base;
 
 	t->filter &=
 	    ~(R300_TX_WRAP_S_MASK | R300_TX_WRAP_T_MASK | R300_TX_WRAP_R_MASK);
@@ -173,38 +173,6 @@ static void r300SetTexFilter(r300TexObjPtr t, GLenum minf, GLenum magf, GLfloat 
 static void r300SetTexBorderColor(r300TexObjPtr t, GLubyte c[4])
 {
 	t->pp_border_color = PACK_COLOR_8888(c[3], c[0], c[1], c[2]);
-}
-
-/**
- * Allocate space for and load the mesa images into the texture memory block.
- * This will happen before drawing with a new texture, or drawing with a
- * texture after it was swapped out or teximaged again.
- */
-
-static r300TexObjPtr r300AllocTexObj(struct gl_texture_object *texObj)
-{
-	r300TexObjPtr t;
-
-	t = CALLOC_STRUCT(r300_tex_obj);
-	texObj->DriverData = t;
-	if (t != NULL) {
-		if (RADEON_DEBUG & DEBUG_TEXTURE) {
-			fprintf(stderr, "%s( %p, %p )\n", __FUNCTION__,
-				(void *)texObj, (void *)t);
-		}
-
-		/* Initialize non-image-dependent parts of the state:
-		 */
-		t->base.tObj = texObj;
-
-		make_empty_list(&t->base);
-
-		r300UpdateTexWrap(t);
-		r300SetTexFilter(t, texObj->MinFilter, texObj->MagFilter, texObj->MaxAnisotropy);
-		r300SetTexBorderColor(t, texObj->_BorderChan);
-	}
-
-	return t;
 }
 
 /* try to find a format which will only need a memcopy */
@@ -432,6 +400,17 @@ static const struct gl_texture_format *r300ChooseTextureFormat(GLcontext * ctx,
 	return NULL;		/* never get here */
 }
 
+/**
+ * Marks the given face/level pair as dirty.
+ * This will cause an appropriate texture reupload the next time this
+ * texture is validated.
+ */
+static void mark_texture_image_dirty(r300TexObj *t, int face, int level)
+{
+	if (r300_dri_texture(t))
+		r300_dri_texture(t)->dirty_images[face] |= 1 << level;
+}
+
 static void r300TexImage1D(GLcontext * ctx, GLenum target, GLint level,
 			   GLint internalFormat,
 			   GLint width, GLint border,
@@ -440,24 +419,13 @@ static void r300TexImage1D(GLcontext * ctx, GLenum target, GLint level,
 			   struct gl_texture_object *texObj,
 			   struct gl_texture_image *texImage)
 {
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
+	r300TexObj* t = r300_tex_obj(texObj);
 
-	if (t) {
-		driSwapOutTextureObject(t);
-	} else {
-		t = (driTextureObject *) r300AllocTexObj(texObj);
-		if (!t) {
-			_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage1D");
-			return;
-		}
-	}
-
-	/* Note, this will call ChooseTextureFormat */
 	_mesa_store_teximage1d(ctx, target, level, internalFormat,
 			       width, border, format, type, pixels,
 			       &ctx->Unpack, texObj, texImage);
 
-	t->dirty_images[0] |= (1 << level);
+	mark_texture_image_dirty(t, 0, level);
 }
 
 static void r300TexSubImage1D(GLcontext * ctx, GLenum target, GLint level,
@@ -469,24 +437,13 @@ static void r300TexSubImage1D(GLcontext * ctx, GLenum target, GLint level,
 			      struct gl_texture_object *texObj,
 			      struct gl_texture_image *texImage)
 {
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
-
-	assert(t);		/* this _should_ be true */
-	if (t) {
-		driSwapOutTextureObject(t);
-	} else {
-		t = (driTextureObject *) r300AllocTexObj(texObj);
-		if (!t) {
-			_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage1D");
-			return;
-		}
-	}
+	r300TexObj* t = r300_tex_obj(texObj);
 
 	_mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
 				  format, type, pixels, packing, texObj,
 				  texImage);
 
-	t->dirty_images[0] |= (1 << level);
+	mark_texture_image_dirty(t, 0, level);
 }
 
 static void r300TexImage2D(GLcontext * ctx, GLenum target, GLint level,
@@ -497,7 +454,7 @@ static void r300TexImage2D(GLcontext * ctx, GLenum target, GLint level,
 			   struct gl_texture_object *texObj,
 			   struct gl_texture_image *texImage)
 {
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
+	r300TexObj* t = r300_tex_obj(texObj);
 	GLuint face;
 
 	/* which cube face or ordinary 2D image */
@@ -514,16 +471,6 @@ static void r300TexImage2D(GLcontext * ctx, GLenum target, GLint level,
 		break;
 	default:
 		face = 0;
-	}
-
-	if (t != NULL) {
-		driSwapOutTextureObject(t);
-	} else {
-		t = (driTextureObject *) r300AllocTexObj(texObj);
-		if (!t) {
-			_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
-			return;
-		}
 	}
 
 	texImage->IsClientData = GL_FALSE;
@@ -542,7 +489,7 @@ static void r300TexImage2D(GLcontext * ctx, GLenum target, GLint level,
 				width, height, border, format, type,
 				pixels, &ctx->Unpack, texObj, texImage);
 
-	t->dirty_images[face] |= (1 << level);
+	mark_texture_image_dirty(t, face, level);
 }
 
 static void r300TexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
@@ -554,7 +501,7 @@ static void r300TexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
 			      struct gl_texture_object *texObj,
 			      struct gl_texture_image *texImage)
 {
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
+	r300TexObj* t = r300_tex_obj(texObj);
 	GLuint face;
 
 	/* which cube face or ordinary 2D image */
@@ -573,22 +520,11 @@ static void r300TexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
 		face = 0;
 	}
 
-	assert(t);		/* this _should_ be true */
-	if (t) {
-		driSwapOutTextureObject(t);
-	} else {
-		t = (driTextureObject *) r300AllocTexObj(texObj);
-		if (!t) {
-			_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage2D");
-			return;
-		}
-	}
-
 	_mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
 				  height, format, type, pixels, packing, texObj,
 				  texImage);
 
-	t->dirty_images[face] |= (1 << level);
+	mark_texture_image_dirty(t, face, level);
 }
 
 static void r300CompressedTexImage2D(GLcontext * ctx, GLenum target,
@@ -598,7 +534,7 @@ static void r300CompressedTexImage2D(GLcontext * ctx, GLenum target,
 				     struct gl_texture_object *texObj,
 				     struct gl_texture_image *texImage)
 {
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
+	r300TexObj* t = r300_tex_obj(texObj);
 	GLuint face;
 
 	/* which cube face or ordinary 2D image */
@@ -615,17 +551,6 @@ static void r300CompressedTexImage2D(GLcontext * ctx, GLenum target,
 		break;
 	default:
 		face = 0;
-	}
-
-	if (t != NULL) {
-		driSwapOutTextureObject(t);
-	} else {
-		t = (driTextureObject *) r300AllocTexObj(texObj);
-		if (!t) {
-			_mesa_error(ctx, GL_OUT_OF_MEMORY,
-				    "glCompressedTexImage2D");
-			return;
-		}
 	}
 
 	texImage->IsClientData = GL_FALSE;
@@ -645,7 +570,7 @@ static void r300CompressedTexImage2D(GLcontext * ctx, GLenum target,
 						border, imageSize, data,
 						texObj, texImage);
 
-	t->dirty_images[face] |= (1 << level);
+	mark_texture_image_dirty(t, face, level);
 }
 
 static void r300CompressedTexSubImage2D(GLcontext * ctx, GLenum target,
@@ -656,7 +581,7 @@ static void r300CompressedTexSubImage2D(GLcontext * ctx, GLenum target,
 					struct gl_texture_object *texObj,
 					struct gl_texture_image *texImage)
 {
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
+	r300TexObj* t = r300_tex_obj(texObj);
 	GLuint face;
 
 	/* which cube face or ordinary 2D image */
@@ -675,23 +600,11 @@ static void r300CompressedTexSubImage2D(GLcontext * ctx, GLenum target,
 		face = 0;
 	}
 
-	assert(t);		/* this _should_ be true */
-	if (t) {
-		driSwapOutTextureObject(t);
-	} else {
-		t = (driTextureObject *) r300AllocTexObj(texObj);
-		if (!t) {
-			_mesa_error(ctx, GL_OUT_OF_MEMORY,
-				    "glCompressedTexSubImage3D");
-			return;
-		}
-	}
-
 	_mesa_store_compressed_texsubimage2d(ctx, target, level, xoffset,
 					     yoffset, width, height, format,
 					     imageSize, data, texObj, texImage);
 
-	t->dirty_images[face] |= (1 << level);
+	mark_texture_image_dirty(t, face, level);
 }
 
 static void r300TexImage3D(GLcontext * ctx, GLenum target, GLint level,
@@ -703,17 +616,7 @@ static void r300TexImage3D(GLcontext * ctx, GLenum target, GLint level,
 			   struct gl_texture_object *texObj,
 			   struct gl_texture_image *texImage)
 {
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
-
-	if (t) {
-		driSwapOutTextureObject(t);
-	} else {
-		t = (driTextureObject *) r300AllocTexObj(texObj);
-		if (!t) {
-			_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage3D");
-			return;
-		}
-	}
+	r300TexObj* t = r300_tex_obj(texObj);
 
 	texImage->IsClientData = GL_FALSE;
 
@@ -732,7 +635,7 @@ static void r300TexImage3D(GLcontext * ctx, GLenum target, GLint level,
 				format, type, pixels,
 				&ctx->Unpack, texObj, texImage);
 
-	t->dirty_images[0] |= (1 << level);
+	mark_texture_image_dirty(t, 0, level);
 }
 
 static void
@@ -745,28 +648,14 @@ r300TexSubImage3D(GLcontext * ctx, GLenum target, GLint level,
 		  struct gl_texture_object *texObj,
 		  struct gl_texture_image *texImage)
 {
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
-
-/*     fprintf(stderr, "%s\n", __FUNCTION__); */
-
-	assert(t);		/* this _should_ be true */
-	if (t) {
-		driSwapOutTextureObject(t);
-	} else {
-		t = (driTextureObject *) r300AllocTexObj(texObj);
-		if (!t) {
-			_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage3D");
-			return;
-		}
-		texObj->DriverData = t;
-	}
+	r300TexObj* t = r300_tex_obj(texObj);
 
 	_mesa_store_texsubimage3d(ctx, target, level, xoffset, yoffset, zoffset,
 				  width, height, depth,
 				  format, type, pixels, packing, texObj,
 				  texImage);
 
-	t->dirty_images[0] |= (1 << level);
+	mark_texture_image_dirty(t, 0, level);
 }
 
 /**
@@ -778,7 +667,7 @@ static void r300TexParameter(GLcontext * ctx, GLenum target,
 			     struct gl_texture_object *texObj,
 			     GLenum pname, const GLfloat * params)
 {
-	r300TexObjPtr t = (r300TexObjPtr) texObj->DriverData;
+	r300TexObj* t = r300_tex_obj(texObj);
 
 	if (RADEON_DEBUG & (DEBUG_STATE | DEBUG_TEXTURE)) {
 		fprintf(stderr, "%s( %s )\n", __FUNCTION__,
@@ -811,7 +700,7 @@ static void r300TexParameter(GLcontext * ctx, GLenum target,
 		 * we just have to rely on loading the right subset of mipmap levels
 		 * to simulate a clamped LOD.
 		 */
-		driSwapOutTextureObject((driTextureObject *) t);
+		driDestroyTextureObject(r300_dri_texture(t));
 		break;
 
 	case GL_DEPTH_TEXTURE_MODE:
@@ -834,27 +723,10 @@ static void r300TexParameter(GLcontext * ctx, GLenum target,
 	}
 }
 
-static void r300BindTexture(GLcontext * ctx, GLenum target,
-			    struct gl_texture_object *texObj)
-{
-	if (RADEON_DEBUG & (DEBUG_STATE | DEBUG_TEXTURE)) {
-		fprintf(stderr, "%s( %p ) unit=%d\n", __FUNCTION__,
-			(void *)texObj, ctx->Texture.CurrentUnit);
-	}
-
-	if ((target == GL_TEXTURE_1D)
-	    || (target == GL_TEXTURE_2D)
-	    || (target == GL_TEXTURE_3D)
-	    || (target == GL_TEXTURE_CUBE_MAP)
-	    || (target == GL_TEXTURE_RECTANGLE_NV)) {
-		assert(texObj->DriverData != NULL);
-	}
-}
-
 static void r300DeleteTexture(GLcontext * ctx, struct gl_texture_object *texObj)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	driTextureObject *t = (driTextureObject *) texObj->DriverData;
+	r300TexObj* t = r300_tex_obj(texObj);
 
 	if (RADEON_DEBUG & (DEBUG_STATE | DEBUG_TEXTURE)) {
 		fprintf(stderr, "%s( %p (target = %s) )\n", __FUNCTION__,
@@ -862,14 +734,18 @@ static void r300DeleteTexture(GLcontext * ctx, struct gl_texture_object *texObj)
 			_mesa_lookup_enum_by_nr(texObj->Target));
 	}
 
-	if (t != NULL) {
-		if (rmesa) {
-			R300_FIREVERTICES(rmesa);
-		}
+	if (rmesa) {
+		int i;
 
-		driDestroyTextureObject(t);
+		R300_FIREVERTICES(rmesa);
+
+		for (i = 0; i < rmesa->radeon.glCtx->Const.MaxTextureUnits; i++) {
+			if (rmesa->state.texture.unit[i].texobj == t)
+				rmesa->state.texture.unit[i].texobj = NULL;
+		}
 	}
-	/* Free mipmap images and the texture object itself */
+
+	driDestroyTextureObject(r300_dri_texture(t));
 	_mesa_delete_texture_object(ctx, texObj);
 }
 
@@ -878,8 +754,6 @@ static void r300DeleteTexture(GLcontext * ctx, struct gl_texture_object *texObj)
  * Called via ctx->Driver.NewTextureObject.
  * Note: this function will be called during context creation to
  * allocate the default texture objects.
- * Note: we could use containment here to 'derive' the driver-specific
- * texture object from the core mesa gl_texture_object.  Not done at this time.
  * Fixup MaxAnisotropy according to user preference.
  */
 static struct gl_texture_object *r300NewTextureObject(GLcontext * ctx,
@@ -887,14 +761,23 @@ static struct gl_texture_object *r300NewTextureObject(GLcontext * ctx,
 						      GLenum target)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	struct gl_texture_object *obj;
-	obj = _mesa_new_texture_object(ctx, name, target);
-	if (!obj)
-		return NULL;
-	obj->MaxAnisotropy = rmesa->initialMaxAnisotropy;
+	r300TexObj* t = CALLOC_STRUCT(r300_tex_obj);
 
-	r300AllocTexObj(obj);
-	return obj;
+
+	if (RADEON_DEBUG & (DEBUG_STATE | DEBUG_TEXTURE)) {
+		fprintf(stderr, "%s( %p (target = %s) )\n", __FUNCTION__,
+			t, _mesa_lookup_enum_by_nr(target));
+	}
+
+	_mesa_initialize_texture_object(&t->base, name, target);
+	t->base.MaxAnisotropy = rmesa->initialMaxAnisotropy;
+
+	/* Initialize hardware state */
+	r300UpdateTexWrap(t);
+	r300SetTexFilter(t, t->base.MinFilter, t->base.MagFilter, t->base.MaxAnisotropy);
+	r300SetTexBorderColor(t, t->base._BorderChan);
+
+	return &t->base;
 }
 
 void r300InitTextureFuncs(struct dd_function_table *functions)
@@ -910,7 +793,6 @@ void r300InitTextureFuncs(struct dd_function_table *functions)
 	functions->TexSubImage2D = r300TexSubImage2D;
 	functions->TexSubImage3D = r300TexSubImage3D;
 	functions->NewTextureObject = r300NewTextureObject;
-	functions->BindTexture = r300BindTexture;
 	functions->DeleteTexture = r300DeleteTexture;
 	functions->IsTextureResident = driIsTextureResident;
 

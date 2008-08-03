@@ -56,24 +56,10 @@ SOFTWARE.
 
 #include "r300_mem.h"
 
-/**
- * Destroy any device-dependent state associated with the texture.  This may
- * include NULLing out hardware state that points to the texture.
- */
+/** Called by texmem.c when the hardware memory gets released. */
 void r300DestroyTexObj(r300ContextPtr rmesa, r300TexObjPtr t)
 {
-	int i;
-
-	if (RADEON_DEBUG & DEBUG_TEXTURE) {
-		fprintf(stderr, "%s( %p, %p )\n", __FUNCTION__,
-			(void *)t, (void *)t->base.tObj);
-	}
-
-	for (i = 0; i < rmesa->radeon.glCtx->Const.MaxTextureUnits; i++) {
-		if (rmesa->state.texture.unit[i].texobj == t) {
-			rmesa->state.texture.unit[i].texobj = NULL;
-		}
-	}
+	/* No-op; we depend on t->base.DriverData being reset to NULL */
 }
 
 /* ------------------------------------------------------------
@@ -188,12 +174,12 @@ static void r300UploadSubImage(r300ContextPtr rmesa, r300TexObjPtr t,
 	GLint ret;
 	drm_radeon_texture_t tex;
 	drm_radeon_tex_image_t tmp;
-	const int level = hwlevel + t->base.firstLevel;
+	const int level = hwlevel + r300_dri_texture(t)->firstLevel;
 
 	if (RADEON_DEBUG & DEBUG_TEXTURE) {
 		fprintf(stderr,
-			"%s( %p, %p ) level/width/height/face = %d/%d/%d/%u\n",
-			__FUNCTION__, (void *)t, (void *)t->base.tObj, level,
+			"%s( %p ) level/width/height/face = %d/%d/%d/%u\n",
+			__FUNCTION__, (void *)t, level,
 			width, height, face);
 	}
 
@@ -205,7 +191,7 @@ static void r300UploadSubImage(r300ContextPtr rmesa, r300TexObjPtr t,
 		return;
 	}
 
-	texImage = t->base.tObj->Image[face][level];
+	texImage = t->base.Image[face][level];
 
 	if (!texImage) {
 		if (RADEON_DEBUG & DEBUG_TEXTURE)
@@ -220,7 +206,7 @@ static void r300UploadSubImage(r300ContextPtr rmesa, r300TexObjPtr t,
 		return;
 	}
 
-	if (t->base.tObj->Target == GL_TEXTURE_RECTANGLE_NV) {
+	if (t->base.Target == GL_TEXTURE_RECTANGLE_NV) {
 		assert(level == 0);
 		assert(hwlevel == 0);
 		if (RADEON_DEBUG & DEBUG_TEXTURE)
@@ -379,19 +365,20 @@ static void r300UploadSubImage(r300ContextPtr rmesa, r300TexObjPtr t,
 
 int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t, GLuint face)
 {
-	const int numLevels = t->base.lastLevel - t->base.firstLevel + 1;
+	driTextureObject *dritex = r300_dri_texture(t);
+	const int numLevels = dritex->lastLevel - dritex->firstLevel + 1;
 
 	if (t->image_override)
 		return 0;
 
 	if (RADEON_DEBUG & (DEBUG_TEXTURE | DEBUG_IOCTL)) {
 		fprintf(stderr, "%s( %p, %p ) sz=%d lvls=%d-%d\n", __FUNCTION__,
-			(void *)rmesa->radeon.glCtx, (void *)t->base.tObj,
-			t->base.totalSize, t->base.firstLevel,
-			t->base.lastLevel);
+			(void *)rmesa->radeon.glCtx, t,
+			dritex->totalSize, dritex->firstLevel,
+			dritex->lastLevel);
 	}
 
-	if (t->base.totalSize == 0)
+	if (dritex->totalSize == 0)
 		return 0;
 
 	if (RADEON_DEBUG & DEBUG_SYNC) {
@@ -401,11 +388,11 @@ int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t, GLuint face)
 
 	LOCK_HARDWARE(&rmesa->radeon);
 
-	if (t->base.memBlock == NULL) {
+	if (!dritex->memBlock) {
 		int heap;
 
 		heap = driAllocateTexture(rmesa->texture_heaps, rmesa->nr_heaps,
-					  (driTextureObject *) t);
+					  dritex);
 		if (heap == -1) {
 			UNLOCK_HARDWARE(&rmesa->radeon);
 			return -1;
@@ -413,7 +400,7 @@ int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t, GLuint face)
 
 		/* Set the base offset of the texture image */
 		t->bufAddr = rmesa->radeon.radeonScreen->texOffset[heap]
-		    + t->base.memBlock->ofs;
+		    + dritex->memBlock->ofs;
 		t->offset = t->bufAddr;
 
 		/* hope it's safe to add that here... */
@@ -426,12 +413,12 @@ int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t, GLuint face)
 	UNLOCK_HARDWARE(&rmesa->radeon);
 
 	/* Upload any images that are new */
-	if (t->base.dirty_images[face]) {
+	if (dritex->dirty_images[face]) {
 		int i;
 		for (i = 0; i < numLevels; i++) {
-			if ((t->base.
+			if ((dritex->
 			     dirty_images[face] & (1 <<
-						   (i + t->base.firstLevel))) !=
+						   (i + dritex->firstLevel))) !=
 			    0) {
 				r300UploadSubImage(rmesa, t, i, 0, 0,
 						   t->image[face][i].width,
@@ -439,7 +426,7 @@ int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t, GLuint face)
 						   face);
 			}
 		}
-		t->base.dirty_images[face] = 0;
+		dritex->dirty_images[face] = 0;
 	}
 
 	if (RADEON_DEBUG & DEBUG_SYNC) {

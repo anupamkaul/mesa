@@ -151,7 +151,7 @@ typedef struct r300_tex_obj r300TexObj, *r300TexObjPtr;
 /* Texture object in locally shared texture space.
  */
 struct r300_tex_obj {
-	driTextureObject base;
+	struct gl_texture_object base;
 
 	GLuint bufAddr;		/* Offset to start of locally
 				   shared texture block */
@@ -176,6 +176,16 @@ struct r300_tex_obj {
 
 	GLuint tile_bits;	/* hw texture tile bits used on this texture */
 };
+
+static INLINE r300TexObj* r300_tex_obj(struct gl_texture_object *texObj)
+{
+	return (r300TexObj*)texObj;
+}
+
+static INLINE driTextureObject* r300_dri_texture(r300TexObj *t)
+{
+	return (driTextureObject*)t->base.DriverData;
+}
 
 struct r300_texture_env_state {
 	r300TexObjPtr texobj;
