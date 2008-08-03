@@ -152,12 +152,8 @@ typedef struct r300_tex_obj r300TexObj, *r300TexObjPtr;
  */
 struct r300_tex_obj {
 	struct gl_texture_object base;
-
-	GLuint bufAddr;		/* Offset to start of locally
-				   shared texture block */
-
-	drm_radeon_tex_image_t image[6][RADEON_MAX_TEXTURE_LEVELS];
-	/* Six, for the cube faces */
+	struct _r300_mipmap_tree *mt;
+	GLuint dirty_images[6];
 
 	GLboolean image_override;	/* Image overridden by GLX_EXT_tfp */
 
@@ -182,10 +178,6 @@ static INLINE r300TexObj* r300_tex_obj(struct gl_texture_object *texObj)
 	return (r300TexObj*)texObj;
 }
 
-static INLINE driTextureObject* r300_dri_texture(r300TexObj *t)
-{
-	return (driTextureObject*)t->base.DriverData;
-}
 
 struct r300_texture_env_state {
 	r300TexObjPtr texobj;

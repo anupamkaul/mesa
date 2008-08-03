@@ -27,6 +27,7 @@ DRIVER_SOURCES = \
 		 r300_texmem.c \
 		 r300_tex.c \
 		 r300_texstate.c \
+		 r300_mipmap_tree.c \
 		 radeon_program.c \
 		 radeon_program_alu.c \
 		 radeon_program_pair.c \

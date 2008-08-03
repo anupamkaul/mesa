@@ -49,6 +49,7 @@ SOFTWARE.
 #include "r300_state.h"
 #include "r300_cmdbuf.h"
 #include "r300_emit.h"
+#include "r300_mipmap_tree.h"
 #include "radeon_ioctl.h"
 #include "r300_tex.h"
 #include "r300_ioctl.h"
@@ -56,303 +57,6 @@ SOFTWARE.
 
 #include "r300_mem.h"
 
-/** Called by texmem.c when the hardware memory gets released. */
-void r300DestroyTexObj(r300ContextPtr rmesa, r300TexObjPtr t)
-{
-	/* No-op; we depend on t->base.DriverData being reset to NULL */
-}
-
-/* ------------------------------------------------------------
- * Texture image conversions
- */
-
-static void r300UploadRectSubImage(r300ContextPtr rmesa,
-				   r300TexObjPtr t,
-				   struct gl_texture_image *texImage,
-				   GLint x, GLint y, GLint width, GLint height)
-{
-	const struct gl_texture_format *texFormat = texImage->TexFormat;
-	int blit_format, dstPitch, done;
-
-	switch (texFormat->TexelBytes) {
-	case 1:
-		blit_format = R300_CP_COLOR_FORMAT_CI8;
-		break;
-	case 2:
-		blit_format = R300_CP_COLOR_FORMAT_RGB565;
-		break;
-	case 4:
-		blit_format = R300_CP_COLOR_FORMAT_ARGB8888;
-		break;
-	case 8:
-	case 16:
-		blit_format = R300_CP_COLOR_FORMAT_CI8;
-		break;
-	default:
-		return;
-	}
-
-	t->image[0][0].data = texImage->Data;
-
-	/* Currently don't need to cope with small pitches.
-	 */
-	width = texImage->Width;
-	height = texImage->Height;
-	dstPitch = t->pitch;
-
-	if (texFormat->TexelBytes > 4) {
-		width *= texFormat->TexelBytes;
-	}
-
-	/* Data not in GART memory, or bad pitch.
-	 */
-	for (done = 0; done < height;) {
-		BATCH_LOCALS(rmesa);
-		dri_bo *bo;
-		int bo_offset;
-		int lines =
-			MIN2(height - done, RADEON_BUFFER_SIZE / dstPitch);
-		int src_pitch;
-		char *tex;
-
-		src_pitch = texImage->RowStride * texFormat->TexelBytes;
-
-		tex = (char *)texImage->Data + done * src_pitch;
-
-		r300AllocDmaRegion(rmesa, &bo, &bo_offset,
-				   lines * dstPitch, 1024);
-
-		/* Copy texdata to dma:
-			*/
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr,
-				"%s: src_pitch %d dst_pitch %d\n",
-				__FUNCTION__, src_pitch, dstPitch);
-
-		if (src_pitch == dstPitch) {
-			memcpy(bo->virtual + bo_offset, tex,
-				lines * src_pitch);
-		} else {
-			char *buf = bo->virtual + bo_offset;
-			int i;
-			for (i = 0; i < lines; i++) {
-				memcpy(buf, tex, src_pitch);
-				buf += dstPitch;
-				tex += src_pitch;
-			}
-		}
-
-		cp_wait(rmesa, R300_WAIT_3D);
-
-		/* Blit to framebuffer */
-		r300EmitBlit(rmesa,
-				blit_format,
-				dstPitch, bo, bo_offset,
-				dstPitch | (t->tile_bits >> 16),
-				t->bufAddr, 0, 0, 0, done, width, lines);
-
-		cp_wait(rmesa, R300_WAIT_2D);
-		COMMIT_BATCH();
-
-		dri_bo_unreference(bo);
-		done += lines;
-	}
-}
-
-/**
- * Upload the texture image associated with texture \a t at the specified
- * level at the address relative to \a start.
- */
-static void r300UploadSubImage(r300ContextPtr rmesa, r300TexObjPtr t,
-			       GLint hwlevel,
-			       GLint x, GLint y, GLint width, GLint height,
-			       GLuint face)
-{
-	struct gl_texture_image *texImage = NULL;
-	GLuint offset;
-	GLint imageWidth, imageHeight;
-	GLint ret;
-	drm_radeon_texture_t tex;
-	drm_radeon_tex_image_t tmp;
-	const int level = hwlevel + r300_dri_texture(t)->firstLevel;
-
-	if (RADEON_DEBUG & DEBUG_TEXTURE) {
-		fprintf(stderr,
-			"%s( %p ) level/width/height/face = %d/%d/%d/%u\n",
-			__FUNCTION__, (void *)t, level,
-			width, height, face);
-	}
-
-	ASSERT(face < 6);
-
-	/* Ensure we have a valid texture to upload */
-	if ((hwlevel < 0) || (hwlevel >= RADEON_MAX_TEXTURE_LEVELS)) {
-		_mesa_problem(NULL, "bad texture level in %s", __FUNCTION__);
-		return;
-	}
-
-	texImage = t->base.Image[face][level];
-
-	if (!texImage) {
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: texImage %d is NULL!\n",
-				__FUNCTION__, level);
-		return;
-	}
-	if (!texImage->Data) {
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: image data is NULL!\n",
-				__FUNCTION__);
-		return;
-	}
-
-	if (t->base.Target == GL_TEXTURE_RECTANGLE_NV) {
-		assert(level == 0);
-		assert(hwlevel == 0);
-		if (RADEON_DEBUG & DEBUG_TEXTURE)
-			fprintf(stderr, "%s: image data is rectangular\n",
-				__FUNCTION__);
-		r300UploadRectSubImage(rmesa, t, texImage, x, y, width, height);
-		return;
-	} else if (RADEON_DEBUG & DEBUG_TEXTURE)
-		fprintf(stderr, "%s: image data is in normal memory\n",
-			__FUNCTION__);
-
-	imageWidth = texImage->Width;
-	imageHeight = texImage->Height;
-
-	offset = t->bufAddr;
-
-	if (RADEON_DEBUG & (DEBUG_TEXTURE | DEBUG_IOCTL)) {
-		GLint imageX = 0;
-		GLint imageY = 0;
-		GLint blitX = t->image[face][hwlevel].x;
-		GLint blitY = t->image[face][hwlevel].y;
-		GLint blitWidth = t->image[face][hwlevel].width;
-		GLint blitHeight = t->image[face][hwlevel].height;
-		fprintf(stderr, "   upload image: %d,%d at %d,%d\n",
-			imageWidth, imageHeight, imageX, imageY);
-		fprintf(stderr, "   upload  blit: %d,%d at %d,%d\n",
-			blitWidth, blitHeight, blitX, blitY);
-		fprintf(stderr, "       blit ofs: 0x%07x level: %d/%d\n",
-			(GLuint) offset, hwlevel, level);
-	}
-
-	t->image[face][hwlevel].data = texImage->Data;
-
-	/* Init the DRM_RADEON_TEXTURE command / drm_radeon_texture_t struct.
-	 * NOTE: we're always use a 1KB-wide blit and I8 texture format.
-	 * We used to use 1, 2 and 4-byte texels and used to use the texture
-	 * width to dictate the blit width - but that won't work for compressed
-	 * textures. (Brian)
-	 * NOTE: can't do that with texture tiling. (sroland)
-	 */
-	tex.offset = offset;
-	tex.image = &tmp;
-	/* copy (x,y,width,height,data) */
-	memcpy(&tmp, &t->image[face][hwlevel], sizeof(tmp));
-
-	if (texImage->TexFormat->TexelBytes > 4) {
-		const int log2TexelBytes =
-		    (3 + (texImage->TexFormat->TexelBytes >> 4));
-		tex.format = RADEON_TXFORMAT_I8;	/* any 1-byte texel format */
-		tex.pitch =
-		    MAX2((texImage->Width * texImage->TexFormat->TexelBytes) /
-			 64, 1);
-		tex.height = imageHeight;
-		tex.width = imageWidth << log2TexelBytes;
-		tex.offset += (tmp.x << log2TexelBytes) & ~1023;
-		tmp.x = tmp.x % (1024 >> log2TexelBytes);
-		tmp.width = tmp.width << log2TexelBytes;
-	} else if (texImage->TexFormat->TexelBytes) {
-		/* use multi-byte upload scheme */
-		tex.height = imageHeight;
-		tex.width = imageWidth;
-		switch (texImage->TexFormat->TexelBytes) {
-		case 1:
-			tex.format = RADEON_TXFORMAT_I8;
-			break;
-		case 2:
-			tex.format = RADEON_TXFORMAT_AI88;
-			break;
-		case 4:
-			tex.format = RADEON_TXFORMAT_ARGB8888;
-			break;
-		}
-		tex.pitch =
-		    MAX2((texImage->Width * texImage->TexFormat->TexelBytes) /
-			 64, 1);
-		tex.offset += tmp.x & ~1023;
-		tmp.x = tmp.x % 1024;
-
-		if (t->tile_bits & R300_TXO_MICRO_TILE) {
-			/* need something like "tiled coordinates" ? */
-			tmp.y = tmp.x / (tex.pitch * 128) * 2;
-			tmp.x =
-			    tmp.x % (tex.pitch * 128) / 2 /
-			    texImage->TexFormat->TexelBytes;
-			tex.pitch |= RADEON_DST_TILE_MICRO >> 22;
-		} else {
-			tmp.x = tmp.x >> (texImage->TexFormat->TexelBytes >> 1);
-		}
-#if 1
-		if ((t->tile_bits & R300_TXO_MACRO_TILE) &&
-		    (texImage->Width * texImage->TexFormat->TexelBytes >= 256)
-		    && ((!(t->tile_bits & R300_TXO_MICRO_TILE)
-			 && (texImage->Height >= 8))
-			|| (texImage->Height >= 16))) {
-			/* weird: R200 disables macro tiling if mip width is smaller than 256 bytes,
-			   OR if height is smaller than 8 automatically, but if micro tiling is active
-			   the limit is height 16 instead ? */
-			tex.pitch |= RADEON_DST_TILE_MACRO >> 22;
-		}
-#endif
-	} else {
-		/* In case of for instance 8x8 texture (2x2 dxt blocks),
-		   padding after the first two blocks is needed (only
-		   with dxt1 since 2 dxt3/dxt5 blocks already use 32 Byte). */
-		/* set tex.height to 1/4 since 1 "macropixel" (dxt-block)
-		   has 4 real pixels. Needed so the kernel module reads
-		   the right amount of data. */
-		tex.format = RADEON_TXFORMAT_I8;	/* any 1-byte texel format */
-		tex.pitch = (R300_BLIT_WIDTH_BYTES / 64);
-		tex.height = (imageHeight + 3) / 4;
-		tex.width = (imageWidth + 3) / 4;
-		if ((t->format & R300_TX_FORMAT_DXT1) == R300_TX_FORMAT_DXT1) {
-			tex.width *= 8;
-		} else {
-			tex.width *= 16;
-		}
-	}
-
-	LOCK_HARDWARE(&rmesa->radeon);
-	do {
-		ret =
-		    drmCommandWriteRead(rmesa->radeon.dri.fd,
-					DRM_RADEON_TEXTURE, &tex,
-					sizeof(drm_radeon_texture_t));
-		if (ret) {
-			if (RADEON_DEBUG & DEBUG_IOCTL)
-				fprintf(stderr,
-					"DRM_RADEON_TEXTURE:  again!\n");
-			usleep(1);
-		}
-	} while (ret == -EAGAIN);
-
-	UNLOCK_HARDWARE(&rmesa->radeon);
-
-	if (ret) {
-		fprintf(stderr, "DRM_RADEON_TEXTURE: return = %d\n", ret);
-		fprintf(stderr, "   offset=0x%08x\n", offset);
-		fprintf(stderr, "   image width=%d height=%d\n",
-			imageWidth, imageHeight);
-		fprintf(stderr, "    blit width=%d height=%d data=%p\n",
-			t->image[face][hwlevel].width,
-			t->image[face][hwlevel].height,
-			t->image[face][hwlevel].data);
-		_mesa_exit(-1);
-	}
-}
 
 /**
  * Upload the texture images associated with texture \a t.  This might
@@ -365,68 +69,32 @@ static void r300UploadSubImage(r300ContextPtr rmesa, r300TexObjPtr t,
 
 int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t, GLuint face)
 {
-	driTextureObject *dritex = r300_dri_texture(t);
-	const int numLevels = dritex->lastLevel - dritex->firstLevel + 1;
-
 	if (t->image_override)
+		return 0;
+	if (!r300_miptree_is_validated(t->mt))
 		return 0;
 
 	if (RADEON_DEBUG & (DEBUG_TEXTURE | DEBUG_IOCTL)) {
-		fprintf(stderr, "%s( %p, %p ) sz=%d lvls=%d-%d\n", __FUNCTION__,
+		fprintf(stderr, "%s( %p, %p ) lvls=%d-%d\n", __FUNCTION__,
 			(void *)rmesa->radeon.glCtx, t,
-			dritex->totalSize, dritex->firstLevel,
-			dritex->lastLevel);
+			t->mt->firstLevel, t->mt->lastLevel);
 	}
-
-	if (dritex->totalSize == 0)
-		return 0;
 
 	if (RADEON_DEBUG & DEBUG_SYNC) {
 		fprintf(stderr, "%s: Syncing\n", __FUNCTION__);
 		radeonFinish(rmesa->radeon.glCtx);
 	}
 
-	LOCK_HARDWARE(&rmesa->radeon);
-
-	if (!dritex->memBlock) {
-		int heap;
-
-		heap = driAllocateTexture(rmesa->texture_heaps, rmesa->nr_heaps,
-					  dritex);
-		if (heap == -1) {
-			UNLOCK_HARDWARE(&rmesa->radeon);
-			return -1;
-		}
-
-		/* Set the base offset of the texture image */
-		t->bufAddr = rmesa->radeon.radeonScreen->texOffset[heap]
-		    + dritex->memBlock->ofs;
-		t->offset = t->bufAddr;
-
-		/* hope it's safe to add that here... */
-		t->offset |= t->tile_bits;
-	}
-
-	/* Let the world know we've used this memory recently.
-	 */
-	driUpdateTextureLRU((driTextureObject *) t);
-	UNLOCK_HARDWARE(&rmesa->radeon);
-
 	/* Upload any images that are new */
-	if (dritex->dirty_images[face]) {
-		int i;
+	if (t->dirty_images[face]) {
+		int i, numLevels = t->mt->lastLevel - t->mt->firstLevel + 1;
 		for (i = 0; i < numLevels; i++) {
-			if ((dritex->
-			     dirty_images[face] & (1 <<
-						   (i + dritex->firstLevel))) !=
-			    0) {
-				r300UploadSubImage(rmesa, t, i, 0, 0,
-						   t->image[face][i].width,
-						   t->image[face][i].height,
-						   face);
+			if (t->dirty_images[face] & (1 << (i + t->mt->firstLevel))) {
+				r300_miptree_upload_image(t->mt, face, t->mt->firstLevel + i,
+					t->base.Image[face][t->mt->firstLevel + i]);
 			}
 		}
-		dritex->dirty_images[face] = 0;
+		t->dirty_images[face] = 0;
 	}
 
 	if (RADEON_DEBUG & DEBUG_SYNC) {

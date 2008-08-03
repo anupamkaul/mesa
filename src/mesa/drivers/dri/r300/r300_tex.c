@@ -48,6 +48,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_context.h"
 #include "r300_state.h"
 #include "r300_ioctl.h"
+#include "r300_mipmap_tree.h"
 #include "r300_tex.h"
 
 #include "xmlpool.h"
@@ -407,8 +408,7 @@ static const struct gl_texture_format *r300ChooseTextureFormat(GLcontext * ctx,
  */
 static void mark_texture_image_dirty(r300TexObj *t, int face, int level)
 {
-	if (r300_dri_texture(t))
-		r300_dri_texture(t)->dirty_images[face] |= 1 << level;
+	t->dirty_images[face] |= 1 << level;
 }
 
 static void r300TexImage1D(GLcontext * ctx, GLenum target, GLint level,
@@ -700,7 +700,10 @@ static void r300TexParameter(GLcontext * ctx, GLenum target,
 		 * we just have to rely on loading the right subset of mipmap levels
 		 * to simulate a clamped LOD.
 		 */
-		driDestroyTextureObject(r300_dri_texture(t));
+		if (t->mt) {
+			r300_miptree_destroy(t->mt);
+			t->mt = 0;
+		}
 		break;
 
 	case GL_DEPTH_TEXTURE_MODE:
@@ -745,7 +748,10 @@ static void r300DeleteTexture(GLcontext * ctx, struct gl_texture_object *texObj)
 		}
 	}
 
-	driDestroyTextureObject(r300_dri_texture(t));
+	if (t->mt) {
+		r300_miptree_destroy(t->mt);
+		t->mt = 0;
+	}
 	_mesa_delete_texture_object(ctx, texObj);
 }
 

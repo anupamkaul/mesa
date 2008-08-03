@@ -46,8 +46,6 @@ extern void r300UpdateTextureState(GLcontext * ctx);
 extern int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t,
 			       GLuint face);
 
-extern void r300DestroyTexObj(r300ContextPtr rmesa, r300TexObjPtr t);
-
 extern void r300InitTextureFuncs(struct dd_function_table *functions);
 
 #endif				/* __r300_TEX_H__ */

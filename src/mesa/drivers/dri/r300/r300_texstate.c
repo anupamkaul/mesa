@@ -48,6 +48,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_state.h"
 #include "r300_ioctl.h"
 #include "radeon_ioctl.h"
+#include "r300_mipmap_tree.h"
 #include "r300_tex.h"
 #include "r300_reg.h"
 
@@ -188,117 +189,59 @@ void r300SetDepthTexMode(struct gl_texture_object *tObj)
 }
 
 
-/**
- * Compute sizes and fill in offset and blit information for the given
- * image (determined by \p face and \p level).
- *
- * \param curOffset points to the offset at which the image is to be stored
- * and is updated by this function according to the size of the image.
- */
-static void compute_tex_image_offset(
-	struct gl_texture_object *tObj,
-	GLuint face,
-	GLint level,
-	GLint* curOffset)
+static void calculate_first_last_level(struct gl_texture_object *tObj,
+				       GLuint *pfirstLevel, GLuint *plastLevel)
 {
-	r300TexObjPtr t = r300_tex_obj(tObj);
-	const struct gl_texture_image* texImage;
-	GLuint blitWidth = R300_BLIT_WIDTH_BYTES;
-	GLuint texelBytes;
-	GLuint size;
+	const struct gl_texture_image * const baseImage =
+		tObj->Image[0][tObj->BaseLevel];
 
-	texImage = tObj->Image[0][level + r300_dri_texture(t)->firstLevel];
-	if (!texImage)
-		return;
+	/* These must be signed values.  MinLod and MaxLod can be negative numbers,
+	* and having firstLevel and lastLevel as signed prevents the need for
+	* extra sign checks.
+	*/
+	int   firstLevel;
+	int   lastLevel;
 
-	texelBytes = texImage->TexFormat->TexelBytes;
-
-	/* find image size in bytes */
-	if (texImage->IsCompressed) {
-		if ((t->format & R300_TX_FORMAT_DXT1) ==
-			R300_TX_FORMAT_DXT1) {
-			// fprintf(stderr,"DXT 1 %d %08X\n", texImage->Width, t->format);
-			if ((texImage->Width + 3) < 8)	/* width one block */
-				size = texImage->CompressedSize * 4;
-			else if ((texImage->Width + 3) < 16)
-				size = texImage->CompressedSize * 2;
-			else
-				size = texImage->CompressedSize;
+	/* Yes, this looks overly complicated, but it's all needed.
+	*/
+	switch (tObj->Target) {
+	case GL_TEXTURE_1D:
+	case GL_TEXTURE_2D:
+	case GL_TEXTURE_3D:
+	case GL_TEXTURE_CUBE_MAP:
+		if (tObj->MinFilter == GL_NEAREST || tObj->MinFilter == GL_LINEAR) {
+			/* GL_NEAREST and GL_LINEAR only care about GL_TEXTURE_BASE_LEVEL.
+			*/
+			firstLevel = lastLevel = tObj->BaseLevel;
 		} else {
-			/* DXT3/5, 16 bytes per block */
-			WARN_ONCE
-				("DXT 3/5 suffers from multitexturing problems!\n");
-			// fprintf(stderr,"DXT 3/5 %d\n", texImage->Width);
-			if ((texImage->Width + 3) < 8)
-				size = texImage->CompressedSize * 2;
-			else
-				size = texImage->CompressedSize;
+			firstLevel = tObj->BaseLevel + (GLint)(tObj->MinLod + 0.5);
+			firstLevel = MAX2(firstLevel, tObj->BaseLevel);
+			firstLevel = MIN2(firstLevel, tObj->BaseLevel + baseImage->MaxLog2);
+			lastLevel = tObj->BaseLevel + (GLint)(tObj->MaxLod + 0.5);
+			lastLevel = MAX2(lastLevel, tObj->BaseLevel);
+			lastLevel = MIN2(lastLevel, tObj->BaseLevel + baseImage->MaxLog2);
+			lastLevel = MIN2(lastLevel, tObj->MaxLevel);
+			lastLevel = MAX2(firstLevel, lastLevel); /* need at least one level */
 		}
-	} else if (tObj->Target == GL_TEXTURE_RECTANGLE_NV) {
-		size =
-			((texImage->Width * texelBytes +
-			63) & ~63) * texImage->Height;
-		blitWidth = 64 / texelBytes;
-	} else if (t->tile_bits & R300_TXO_MICRO_TILE) {
-		/* tile pattern is 16 bytes x2. mipmaps stay 32 byte aligned,
-			though the actual offset may be different (if texture is less than
-			32 bytes width) to the untiled case */
-		int w = (texImage->Width * texelBytes * 2 + 31) & ~31;
-		size =
-			(w * ((texImage->Height + 1) / 2)) *
-			texImage->Depth;
-		blitWidth = MAX2(texImage->Width, 64 / texelBytes);
-	} else {
-		int w = (texImage->Width * texelBytes + 31) & ~31;
-		size = w * texImage->Height * texImage->Depth;
-		blitWidth = MAX2(texImage->Width, 64 / texelBytes);
-	}
-	assert(size > 0);
-
-	if (RADEON_DEBUG & DEBUG_TEXTURE)
-		fprintf(stderr, "w=%d h=%d d=%d tb=%d intFormat=%d\n",
-			texImage->Width, texImage->Height,
-			texImage->Depth,
-			texImage->TexFormat->TexelBytes,
-			texImage->InternalFormat);
-
-	/* All images are aligned to a 32-byte offset */
-	*curOffset = (*curOffset + 0x1f) & ~0x1f;
-
-	if (texelBytes) {
-		/* fix x and y coords up later together with offset */
-		t->image[face][level].x = *curOffset;
-		t->image[face][level].y = 0;
-		t->image[face][level].width =
-			MIN2(size / texelBytes, blitWidth);
-		t->image[face][level].height =
-			(size / texelBytes) / t->image[face][level].width;
-	} else {
-		t->image[face][level].x = *curOffset % R300_BLIT_WIDTH_BYTES;
-		t->image[face][level].y = *curOffset / R300_BLIT_WIDTH_BYTES;
-		t->image[face][level].width =
-			MIN2(size, R300_BLIT_WIDTH_BYTES);
-		t->image[face][level].height = size / t->image[face][level].width;
+		break;
+	case GL_TEXTURE_RECTANGLE_NV:
+	case GL_TEXTURE_4D_SGIS:
+		firstLevel = lastLevel = 0;
+		break;
+	default:
+		return;
 	}
 
-	if (RADEON_DEBUG & DEBUG_TEXTURE)
-		fprintf(stderr,
-			"level %d, face %d: %dx%d x=%d y=%d w=%d h=%d size=%d at %d\n",
-			level, face, texImage->Width, texImage->Height,
-			t->image[face][level].x, t->image[face][level].y,
-			t->image[face][level].width, t->image[face][level].height,
-			size, *curOffset);
-
-	*curOffset += size;
+	/* save these values */
+	*pfirstLevel = firstLevel;
+	*plastLevel = lastLevel;
 }
 
 
 /**
- * This function computes the number of bytes of storage needed for
- * the given texture object (all mipmap levels, all cube faces).
- * The \c image[face][level].x/y/width/height parameters for upload/blitting
- * are computed here.  \c filter, \c format, etc. will be set here
- * too.
+ * This function ensures a validated miptree is available.
+ *
+ * Additionally, some texture format bits are configured here.
  *
  * \param rmesa Context pointer
  * \param tObj GL texture object whose images are to be posted to
@@ -310,11 +253,10 @@ static void r300SetTexImages(r300ContextPtr rmesa,
 	r300TexObjPtr t = r300_tex_obj(tObj);
 	const struct gl_texture_image *baseImage =
 	    tObj->Image[0][tObj->BaseLevel];
-	driTextureObject *dritex = r300_dri_texture(t);
-	GLint curOffset;
-	GLint i, texelBytes;
-	GLint numLevels;
-	GLint log2Width, log2Height, log2Depth;
+	GLint texelBytes;
+	GLuint firstLevel = 0, lastLevel = 0;
+
+	calculate_first_last_level(tObj, &firstLevel, &lastLevel);
 
 	/* Set the hardware texture format
 	 */
@@ -334,115 +276,52 @@ static void r300SetTexImages(r300ContextPtr rmesa,
 	}
 
 	texelBytes = baseImage->TexFormat->TexelBytes;
-
-	if (!dritex) {
-		dritex = (driTextureObject*)CALLOC(sizeof(driTextureObject));
-		dritex->tObj = &t->base;
-		t->base.DriverData = dritex;
-		make_empty_list(dritex);
-
-		memset(dritex->dirty_images, 0xff, sizeof(dritex->dirty_images));
-	}
-
-	/* Compute which mipmap levels we really want to send to the hardware.
-	 */
-	driCalculateTextureFirstLastLevel(dritex);
-	log2Width = tObj->Image[0][dritex->firstLevel]->WidthLog2;
-	log2Height = tObj->Image[0][dritex->firstLevel]->HeightLog2;
-	log2Depth = tObj->Image[0][dritex->firstLevel]->DepthLog2;
-
-	numLevels = dritex->lastLevel - dritex->firstLevel + 1;
-
-	assert(numLevels <= RADEON_MAX_TEXTURE_LEVELS);
-
-	/* Calculate mipmap offsets and dimensions for blitting (uploading)
-	 * The idea is that we lay out the mipmap levels within a block of
-	 * memory organized as a rectangle of width BLIT_WIDTH_BYTES.
-	 */
 	t->tile_bits = 0;
 
-	/* figure out if this texture is suitable for tiling. */
-#if 0				/* Disabled for now */
-	if (texelBytes) {
-		if ((tObj->Target != GL_TEXTURE_RECTANGLE_NV) &&
-		    /* texrect might be able to use micro tiling too in theory? */
-		    (baseImage->Height > 1)) {
-
-			/* allow 32 (bytes) x 1 mip (which will use two times the space
-			   the non-tiled version would use) max if base texture is large enough */
-			if ((numLevels == 1) ||
-			    (((baseImage->Width * texelBytes /
-			       baseImage->Height) <= 32)
-			     && (baseImage->Width * texelBytes > 64))
-			    ||
-			    ((baseImage->Width * texelBytes /
-			      baseImage->Height) <= 16)) {
-				t->tile_bits |= R300_TXO_MICRO_TILE;
-			}
-		}
-
-		if (tObj->Target != GL_TEXTURE_RECTANGLE_NV) {
-			/* we can set macro tiling even for small textures, they will be untiled anyway */
-			t->tile_bits |= R300_TXO_MACRO_TILE;
-		}
-	}
-#endif
-
-	curOffset = 0;
-
-	if (tObj->Target == GL_TEXTURE_CUBE_MAP) {
-		ASSERT(log2Width == log2Height);
+	if (tObj->Target == GL_TEXTURE_CUBE_MAP)
 		t->format |= R300_TX_FORMAT_CUBIC_MAP;
 
-		for(i = 0; i < numLevels; i++) {
-			GLuint face;
-			for(face = 0; face < 6; face++)
-				compute_tex_image_offset(tObj, face, i, &curOffset);
+	if (!t->image_override) {
+		if (!t->mt) {
+			t->mt = r300_miptree_create(rmesa, t, tObj->Target,
+				firstLevel, lastLevel,
+				baseImage->Width, baseImage->Height, baseImage->Depth,
+				texelBytes, t->tile_bits,
+				baseImage->IsCompressed ? baseImage->TexFormat->MesaFormat : 0);
 		}
-	} else {
-		for (i = 0; i < numLevels; i++)
-			compute_tex_image_offset(tObj, 0, i, &curOffset);
+
+		if (!r300_miptree_is_validated(t->mt)) {
+			r300_miptree_validate(t->mt);
+			if (!r300_miptree_is_validated(t->mt)) {
+				_mesa_problem(rmesa->radeon.glCtx, "Failed to validate miptree");
+				return;
+			}
+			memset(t->dirty_images, 0xff, sizeof(t->dirty_images));
+		}
 	}
 
-	/* Align the total size of texture memory block.
-	 */
-	dritex->totalSize = (curOffset + RADEON_OFFSET_MASK) & ~RADEON_OFFSET_MASK;
-
-	t->size =
-	    (((tObj->Image[0][dritex->firstLevel]->Width -
-	       1) << R300_TX_WIDTHMASK_SHIFT)
-	     | ((tObj->Image[0][dritex->firstLevel]->Height - 1) <<
-		R300_TX_HEIGHTMASK_SHIFT))
-	    | ((numLevels - 1) << R300_TX_MAX_MIP_LEVEL_SHIFT);
-
+	t->size = (((tObj->Image[0][firstLevel]->Width - 1) << R300_TX_WIDTHMASK_SHIFT)
+		| ((tObj->Image[0][firstLevel]->Height - 1) << R300_TX_HEIGHTMASK_SHIFT))
+		| ((lastLevel - firstLevel) << R300_TX_MAX_MIP_LEVEL_SHIFT);
 	t->pitch = 0;
 
-	/* Only need to round to nearest 32 for textures, but the blitter
-	 * requires 64-byte aligned pitches, and we may/may not need the
-	 * blitter.   NPOT only!
-	 */
 	if (baseImage->IsCompressed) {
-		t->pitch |=
-		    (tObj->Image[0][dritex->firstLevel]->Width + 63) & ~(63);
+		t->pitch |= (tObj->Image[0][firstLevel]->Width + 63) & ~(63);
 	} else if (tObj->Target == GL_TEXTURE_RECTANGLE_NV) {
 		unsigned int align = (64 / texelBytes) - 1;
-		t->pitch |= ((tObj->Image[0][dritex->firstLevel]->Width *
+		t->pitch |= ((tObj->Image[0][firstLevel]->Width *
 			     texelBytes) + 63) & ~(63);
 		t->size |= R300_TX_SIZE_TXPITCH_EN;
 		if (!t->image_override)
-			t->pitch_reg =
-			    (((tObj->Image[0][dritex->firstLevel]->Width) +
-			      align) & ~align) - 1;
+			t->pitch_reg = (((tObj->Image[0][firstLevel]->Width) + align) & ~align) - 1;
 	} else {
-		t->pitch |=
-		    ((tObj->Image[0][dritex->firstLevel]->Width *
-		      texelBytes) + 63) & ~(63);
+		t->pitch |= ((tObj->Image[0][firstLevel]->Width * texelBytes) + 63) & ~(63);
 	}
 
 	if (rmesa->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515) {
-	    if (tObj->Image[0][dritex->firstLevel]->Width > 2048)
+	    if (tObj->Image[0][firstLevel]->Width > 2048)
 		t->pitch_reg |= R500_TXWIDTH_BIT11;
-	    if (tObj->Image[0][dritex->firstLevel]->Height > 2048)
+	    if (tObj->Image[0][firstLevel]->Height > 2048)
 		t->pitch_reg |= R500_TXHEIGHT_BIT11;
 	}
 }
@@ -457,11 +336,10 @@ static GLboolean r300EnableTexture2D(GLcontext * ctx, int unit)
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
 	r300TexObjPtr t = r300_tex_obj(tObj);
-	driTextureObject *dritex = r300_dri_texture(t);
 
 	ASSERT(tObj->Target == GL_TEXTURE_2D || tObj->Target == GL_TEXTURE_1D);
 
-	if (!dritex || dritex->dirty_images[0]) {
+	if (!r300_miptree_is_validated(t->mt) || t->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 
 		r300SetTexImages(rmesa, tObj);
@@ -477,7 +355,6 @@ static GLboolean r300EnableTexture3D(GLcontext * ctx, int unit)
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
 	r300TexObjPtr t = r300_tex_obj(tObj);
-	driTextureObject *dritex = r300_dri_texture(t);
 
 	ASSERT(tObj->Target == GL_TEXTURE_3D);
 
@@ -486,7 +363,7 @@ static GLboolean r300EnableTexture3D(GLcontext * ctx, int unit)
 		return GL_FALSE;
 	}
 
-	if (!dritex || dritex->dirty_images[0]) {
+	if (!r300_miptree_is_validated(t->mt) || t->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 		r300SetTexImages(rmesa, tObj);
 		r300UploadTexImages(rmesa, t, 0);
@@ -501,25 +378,23 @@ static GLboolean r300EnableTextureCube(GLcontext * ctx, int unit)
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
 	r300TexObjPtr t = r300_tex_obj(tObj);
-	driTextureObject *dritex = r300_dri_texture(t);
 	GLuint face;
 
 	ASSERT(tObj->Target == GL_TEXTURE_CUBE_MAP);
 
-	if (!dritex ||
-	    dritex->dirty_images[0] || dritex->dirty_images[1] ||
-	    dritex->dirty_images[2] || dritex->dirty_images[3] ||
-	    dritex->dirty_images[4] || dritex->dirty_images[5]) {
+	if (!r300_miptree_is_validated(t->mt) ||
+	    t->dirty_images[0] || t->dirty_images[1] ||
+	    t->dirty_images[2] || t->dirty_images[3] ||
+	    t->dirty_images[4] || t->dirty_images[5]) {
 		/* flush */
 		R300_FIREVERTICES(rmesa);
 		/* layout memory space, once for all faces */
 		r300SetTexImages(rmesa, tObj);
-		dritex = r300_dri_texture(t);
 	}
 
 	/* upload (per face) */
 	for (face = 0; face < 6; face++) {
-		if (dritex->dirty_images[face]) {
+		if (t->dirty_images[face]) {
 			r300UploadTexImages(rmesa, t, face);
 		}
 	}
@@ -533,11 +408,10 @@ static GLboolean r300EnableTextureRect(GLcontext * ctx, int unit)
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
 	r300TexObjPtr t = r300_tex_obj(tObj);
-	driTextureObject *dritex = r300_dri_texture(t);
 
 	ASSERT(tObj->Target == GL_TEXTURE_RECTANGLE_NV);
 
-	if (!dritex || dritex->dirty_images[0]) {
+	if (!r300_miptree_is_validated(t->mt) || t->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 
 		r300SetTexImages(rmesa, tObj);
@@ -553,15 +427,16 @@ static GLboolean r300UpdateTexture(GLcontext * ctx, int unit)
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
 	r300TexObjPtr t = r300_tex_obj(tObj);
-	driTextureObject *dritex = r300_dri_texture(t);
 
 	/* Fallback if there's a texture border */
 	if (tObj->Image[0][tObj->BaseLevel]->Border > 0)
 		return GL_FALSE;
 
 	/* Fallback if memory upload didn't work */
-	if (!dritex || !dritex->memBlock)
+	if (!r300_miptree_is_validated(t->mt))
 		return GL_FALSE;
+
+	t->offset = r300_miptree_get_offset(t->mt) | t->tile_bits;
 
 	/* Update state if this is a different texture object to last
 	 * time.
@@ -571,14 +446,13 @@ static GLboolean r300UpdateTexture(GLcontext * ctx, int unit)
 			/* The old texture is no longer bound to this texture unit.
 			 * Mark it as such.
 			 */
-
-			r300_dri_texture(rmesa->state.texture.unit[unit].texobj)->bound &=
-			    ~(1 << unit);
+			if (rmesa->state.texture.unit[unit].texobj->mt)
+				rmesa->state.texture.unit[unit].texobj->mt->base.bound &= ~(1 << unit);
 		}
 
 		rmesa->state.texture.unit[unit].texobj = t;
-		dritex->bound |= (1 << unit);
-		driUpdateTextureLRU(dritex);	/* XXX: should be locked! */
+		t->mt->base.bound |= (1 << unit);
+		driUpdateTextureLRU(&t->mt->base);	/* XXX: should be locked! */
 	}
 
 	return GL_TRUE;

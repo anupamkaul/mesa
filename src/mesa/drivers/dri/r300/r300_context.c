@@ -59,6 +59,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_span.h"
 #include "r300_context.h"
 #include "r300_cmdbuf.h"
+#include "r300_mipmap_tree.h"
 #include "r300_state.h"
 #include "r300_ioctl.h"
 #include "r300_tex.h"
@@ -247,11 +248,8 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 							       &r300->radeon.sarea->
 							       tex_age[i],
 							       &r300->swapped,
-							       sizeof
-							       (r300TexObj),
-							       (destroy_texture_object_t
-								*)
-							       r300DestroyTexObj);
+							       sizeof(r300_mipmap_tree),
+							       r300_miptree_destroy_callback);
 		/* *INDENT-ON* */
 	}
 	r300->texture_depth = driQueryOptioni(&r300->radeon.optionCache,
