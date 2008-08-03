@@ -57,6 +57,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 // Set this to 1 for extremely verbose debugging of command buffers
 #define DEBUG_CMDBUF		0
 
+/** # of dwords reserved for additional instructions that may need to be written
+ * during flushing.
+ */
+#define SPACE_FOR_FLUSHING	4
+
 /**
  * Send the current command buffer via ioctl to the hardware.
  */
@@ -66,6 +71,12 @@ int r300FlushCmdBufLocked(r300ContextPtr r300, const char *caller)
 	int i;
 	drm_radeon_cmd_buffer_t cmd;
 	int start;
+
+	if (r300->cmdbuf.flushing) {
+		fprintf(stderr, "Recursive call into r300FlushCmdBufLocked!\n");
+		exit(-1);
+	}
+	r300->cmdbuf.flushing = 1;
 
 	if (r300->radeon.lost_context) {
 		start = 0;
@@ -128,6 +139,8 @@ int r300FlushCmdBufLocked(r300ContextPtr r300, const char *caller)
 	r300->cmdbuf.reemit = 0;
 	dri_bo_map(r300->cmdbuf.buf, GL_TRUE);
 
+	r300->cmdbuf.flushing = 0;
+
 	return ret;
 }
 
@@ -156,6 +169,9 @@ int r300FlushCmdBuf(r300ContextPtr r300, const char *caller)
 void r300EnsureCmdBufSpace(r300ContextPtr r300, int dwords, const char *caller)
 {
 	assert(dwords < r300->cmdbuf.size);
+
+	if (!r300->cmdbuf.flushing)
+		dwords += SPACE_FOR_FLUSHING;
 
 	if (r300->cmdbuf.written + dwords > r300->cmdbuf.size)
 		r300FlushCmdBuf(r300, caller);

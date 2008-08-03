@@ -84,11 +84,9 @@ do {						\
 } while (0)
 #endif
 
-static void r300EmitVec4(GLcontext * ctx, struct r300_dma_region *rvb,
-			 GLvoid * data, int stride, int count)
+static void r300EmitVec4(uint32_t *out, GLvoid * data, int stride, int count)
 {
 	int i;
-	int *out = (int *)(rvb->address + rvb->start);
 
 	if (RADEON_DEBUG & DEBUG_VERTS)
 		fprintf(stderr, "%s count %d stride %d out %p data %p\n",
@@ -104,11 +102,9 @@ static void r300EmitVec4(GLcontext * ctx, struct r300_dma_region *rvb,
 		}
 }
 
-static void r300EmitVec8(GLcontext * ctx, struct r300_dma_region *rvb,
-			 GLvoid * data, int stride, int count)
+static void r300EmitVec8(uint32_t *out, GLvoid * data, int stride, int count)
 {
 	int i;
-	int *out = (int *)(rvb->address + rvb->start);
 
 	if (RADEON_DEBUG & DEBUG_VERTS)
 		fprintf(stderr, "%s count %d stride %d out %p data %p\n",
@@ -125,11 +121,9 @@ static void r300EmitVec8(GLcontext * ctx, struct r300_dma_region *rvb,
 		}
 }
 
-static void r300EmitVec12(GLcontext * ctx, struct r300_dma_region *rvb,
-			  GLvoid * data, int stride, int count)
+static void r300EmitVec12(uint32_t *out, GLvoid * data, int stride, int count)
 {
 	int i;
-	int *out = (int *)(rvb->address + rvb->start);
 
 	if (RADEON_DEBUG & DEBUG_VERTS)
 		fprintf(stderr, "%s count %d stride %d out %p data %p\n",
@@ -147,11 +141,9 @@ static void r300EmitVec12(GLcontext * ctx, struct r300_dma_region *rvb,
 		}
 }
 
-static void r300EmitVec16(GLcontext * ctx, struct r300_dma_region *rvb,
-			  GLvoid * data, int stride, int count)
+static void r300EmitVec16(uint32_t *out, GLvoid * data, int stride, int count)
 {
 	int i;
-	int *out = (int *)(rvb->address + rvb->start);
 
 	if (RADEON_DEBUG & DEBUG_VERTS)
 		fprintf(stderr, "%s count %d stride %d out %p data %p\n",
@@ -170,35 +162,35 @@ static void r300EmitVec16(GLcontext * ctx, struct r300_dma_region *rvb,
 		}
 }
 
-static void r300EmitVec(GLcontext * ctx, struct r300_dma_region *rvb,
+
+static void r300EmitVec(GLcontext * ctx, struct r300_aos *aos,
 			GLvoid * data, int size, int stride, int count)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
+	struct r300_dma_region dma;
+	uint32_t *out;
 
+	dma.bo = 0;
 	if (stride == 0) {
-		r300AllocDmaRegion(rmesa, rvb, size * 4, 4);
+		r300AllocDmaRegion(rmesa, &dma, size * 4, 32);
 		count = 1;
-		rvb->aos_offset = GET_START(rvb);
-		rvb->aos_stride = 0;
+		aos->stride = 0;
 	} else {
-		r300AllocDmaRegion(rmesa, rvb, size * count * 4, 4);
-		rvb->aos_offset = GET_START(rvb);
-		rvb->aos_stride = size;
+		r300AllocDmaRegion(rmesa, &dma, size * count * 4, 32);
+		aos->stride = size;
 	}
 
+	aos->bo = dma.bo; /* Steal reference to bo from dma region */
+	aos->offset = dma.start;
+	aos->components = size;
+	aos->count = count;
+
+	out = (uint32_t*)((char*)aos->bo->virtual + aos->offset);
 	switch (size) {
-	case 1:
-		r300EmitVec4(ctx, rvb, data, stride, count);
-		break;
-	case 2:
-		r300EmitVec8(ctx, rvb, data, stride, count);
-		break;
-	case 3:
-		r300EmitVec12(ctx, rvb, data, stride, count);
-		break;
-	case 4:
-		r300EmitVec16(ctx, rvb, data, stride, count);
-		break;
+	case 1: r300EmitVec4(out, data, stride, count); break;
+	case 2: r300EmitVec8(out, data, stride, count); break;
+	case 3: r300EmitVec12(out, data, stride, count); break;
+	case 4: r300EmitVec16(out, data, stride, count); break;
 	default:
 		assert(0);
 		break;
@@ -431,7 +423,7 @@ int r300EmitArrays(GLcontext * ctx)
 	}
 
 	for (i = 0; i < nr; i++) {
-		int ci, fix, found = 0;
+		int ci;
 
 		swizzle[i][0] = SWIZZLE_ZERO;
 		swizzle[i][1] = SWIZZLE_ZERO;
@@ -446,33 +438,6 @@ int r300EmitArrays(GLcontext * ctx)
 				vb->AttribPtr[tab[i]]->data,
 				vb->AttribPtr[tab[i]]->size,
 				vb->AttribPtr[tab[i]]->stride, count);
-
-		rmesa->state.aos[i].aos_size = vb->AttribPtr[tab[i]]->size;
-
-		for (fix = 0; fix <= 4 - vb->AttribPtr[tab[i]]->size; fix++) {
-			if ((rmesa->state.aos[i].aos_offset - _mesa_sizeof_type(GL_FLOAT) * fix) % 4) {
-				continue;
-			}
-			found = 1;
-			break;
-		}
-
-		if (found) {
-			if (fix > 0) {
-				WARN_ONCE("Feeling lucky?\n");
-			}
-			rmesa->state.aos[i].aos_offset -= _mesa_sizeof_type(GL_FLOAT) * fix;
-			for (ci = 0; ci < vb->AttribPtr[tab[i]]->size; ci++) {
-				swizzle[i][ci] += fix;
-			}
-		} else {
-			WARN_ONCE
-			    ("Cannot handle offset %x with stride %d, comp %d\n",
-			     rmesa->state.aos[i].aos_offset,
-			     rmesa->state.aos[i].aos_stride,
-			     vb->AttribPtr[tab[i]]->size);
-			return R300_FALLBACK_TCL;
-		}
 	}
 
 	/* Setup INPUT_ROUTE. */
@@ -506,15 +471,9 @@ void r300UseArrays(GLcontext * ctx)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	BATCH_LOCALS(rmesa);
-	int i;
 
 	if (rmesa->state.elt_dma.bo)
 		rmesa->bufmgr->bo_use(rmesa->state.elt_dma.bo);
-
-	for (i = 0; i < rmesa->state.aos_count; i++) {
-		if (rmesa->state.aos[i].bo)
-			rmesa->bufmgr->bo_use(rmesa->state.aos[i].bo);
-	}
 
 	/* Temporary kludge until buffer objects are marked as used via relocations */
 	COMMIT_BATCH();
@@ -527,7 +486,10 @@ void r300ReleaseArrays(GLcontext * ctx)
 
 	r300ReleaseDmaRegion(rmesa, &rmesa->state.elt_dma, __FUNCTION__);
 	for (i = 0; i < rmesa->state.aos_count; i++) {
-		r300ReleaseDmaRegion(rmesa, &rmesa->state.aos[i], __FUNCTION__);
+		if (rmesa->state.aos[i].bo) {
+			dri_bo_unreference(rmesa->state.aos[i].bo);
+			rmesa->state.aos[i].bo = 0;
+		}
 	}
 }
 

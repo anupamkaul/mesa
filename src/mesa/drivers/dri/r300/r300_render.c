@@ -216,19 +216,22 @@ static void r300EmitAOS(r300ContextPtr rmesa, GLuint nr, GLuint offset)
 	OUT_BATCH(nr);
 
 	for (i = 0; i + 1 < nr; i += 2) {
-		OUT_BATCH((rmesa->state.aos[i].aos_size << 0) |
-			  (rmesa->state.aos[i].aos_stride << 8) |
-			  (rmesa->state.aos[i + 1].aos_size << 16) |
-			  (rmesa->state.aos[i + 1].aos_stride << 24));
+		OUT_BATCH((rmesa->state.aos[i].components << 0) |
+			  (rmesa->state.aos[i].stride << 8) |
+			  (rmesa->state.aos[i + 1].components << 16) |
+			  (rmesa->state.aos[i + 1].stride << 24));
 
-		OUT_BATCH(rmesa->state.aos[i].aos_offset + offset * 4 * rmesa->state.aos[i].aos_stride);
-		OUT_BATCH(rmesa->state.aos[i + 1].aos_offset + offset * 4 * rmesa->state.aos[i + 1].aos_stride);
+		OUT_BATCH_RELOC(0, rmesa->state.aos[i].bo,
+			rmesa->state.aos[i].offset + offset * 4 * rmesa->state.aos[i].stride, 0);
+		OUT_BATCH_RELOC(0, rmesa->state.aos[i+1].bo,
+			rmesa->state.aos[i+1].offset + offset * 4 * rmesa->state.aos[i + 1].stride, 0);
 	}
 
 	if (nr & 1) {
-		OUT_BATCH((rmesa->state.aos[nr - 1].aos_size << 0) |
-			  (rmesa->state.aos[nr - 1].aos_stride << 8));
-		OUT_BATCH(rmesa->state.aos[nr - 1].aos_offset + offset * 4 * rmesa->state.aos[nr - 1].aos_stride);
+		OUT_BATCH((rmesa->state.aos[nr - 1].components << 0) |
+			  (rmesa->state.aos[nr - 1].stride << 8));
+		OUT_BATCH_RELOC(0, rmesa->state.aos[nr - 1].bo,
+			rmesa->state.aos[nr - 1].offset + offset * 4 * rmesa->state.aos[nr - 1].stride, 0);
 	}
 	END_BATCH();
 }

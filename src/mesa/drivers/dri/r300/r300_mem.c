@@ -369,7 +369,7 @@ static int bufmgr_classic_bo_map(dri_bo *bo_base, GLboolean write_enable)
 			track_pending_buffers(bufmgr);
 			if (bo->pending) {
 				fprintf(stderr, "Internal error or hardware lockup: bo_map: buffer is still pending.\n");
-				exit(-1);
+				abort();
 			}
 		}
 	}
@@ -388,11 +388,38 @@ static int bufmgr_classic_bo_unmap(dri_bo *buf)
 	return 0;
 }
 
-static void bufmgr_classic_bo_use(dri_bo* buf)
+/**
+ * Mark the given buffer as pending and move it to the tail
+ * of the pending list.
+ * The caller is responsible for setting up pending_count and pending_age.
+ */
+static void move_to_pending_tail(radeon_bo_classic *bo)
 {
-	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(buf->bufmgr);
+	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(bo->base.bufmgr);
+
+	if (bo->pending) {
+		*bo->pending_pprev = bo->pending_next;
+		if (bo->pending_next)
+			bo->pending_next->pending_pprev = bo->pending_pprev;
+		else
+			bufmgr->pending_tail = bo->pending_pprev;
+	}
+
+	bo->pending = 1;
+	bo->pending_pprev = bufmgr->pending_tail;
+	bo->pending_next = 0;
+	*bufmgr->pending_tail = bo;
+	bufmgr->pending_tail = &bo->pending_next;
+}
+
+/**
+ * Emit commands to the batch buffer that cause the guven buffer's
+ * pending_count and pending_age to be updated.
+ */
+static void emit_age_for_buffer(radeon_bo_classic* bo)
+{
+	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(bo->base.bufmgr);
 	BATCH_LOCALS(bufmgr->rmesa);
-	radeon_bo_classic *bo = get_bo_classic(buf);
 	drm_r300_cmd_header_t cmd;
 	uint64_t ull;
 
@@ -408,22 +435,20 @@ static void bufmgr_classic_bo_use(dri_bo* buf)
 	OUT_BATCH(ull >> 32);
 	OUT_BATCH(0);
 	END_BATCH();
+	COMMIT_BATCH();
 
 	bo->pending_count++;
+}
 
-	if (bo->pending) {
-		*bo->pending_pprev = bo->pending_next;
-		if (bo->pending_next)
-			bo->pending_next->pending_pprev = bo->pending_pprev;
-		else
-			bufmgr->pending_tail = bo->pending_pprev;
-	}
+//TODO: deprecate this
+static void bufmgr_classic_bo_use(dri_bo* buf)
+{
+	radeon_bo_classic *bo = get_bo_classic(buf);
 
-	bo->pending = 1;
-	bo->pending_pprev = bufmgr->pending_tail;
-	bo->pending_next = 0;
-	*bufmgr->pending_tail = bo;
-	bufmgr->pending_tail = &bo->pending_next;
+	assert(!bo->mapcount);
+
+	emit_age_for_buffer(bo);
+	move_to_pending_tail(bo);
 }
 
 static int bufmgr_classic_emit_reloc(dri_bo *batch_buf, uint64_t flags, GLuint delta,
@@ -458,6 +483,10 @@ static void *bufmgr_classic_process_relocs(dri_bo *batch_buf, GLuint *count)
 	radeon_bo_classic *batch_bo = get_bo_classic(batch_buf);
 	int i;
 
+	// Warning: At this point, we append something to the batch buffer
+	// during flush.
+	emit_age_for_buffer(batch_bo);
+
 	dri_bo_map(batch_buf, GL_TRUE);
 	for(i = 0; i < batch_bo->relocs_used; ++i) {
 		radeon_reloc *reloc = &batch_bo->relocs[i];
@@ -487,12 +516,16 @@ static void bufmgr_classic_post_submit(dri_bo *batch_buf, dri_fence **fence)
 	radeon_bo_classic *batch_bo = get_bo_classic(batch_buf);
 	int i;
 
+	assert(!batch_bo->pending_count);
+
 	for(i = 0; i < batch_bo->relocs_used; ++i) {
 		radeon_reloc *reloc = &batch_bo->relocs[i];
 
 		if (reloc->target->used) {
-			bufmgr_classic_bo_use(&reloc->target->base);
 			reloc->target->used = 0;
+			assert(!reloc->target->pending_count);
+			reloc->target->pending_age = batch_bo->pending_age;
+			move_to_pending_tail(reloc->target);
 		}
 	}
 }

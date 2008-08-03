@@ -552,6 +552,7 @@ struct r300_cmdbuf {
 	int committed; /** # of dwords that we have committed to */
 	int written; /** # of dwords written (is always >= committed) */
 	int reserved; /** # of dwords reserved up to previous BEGIN_BATCH */
+	unsigned int flushing:1; /** whether we're currently in FlushCmdBufLocked */
 };
 
 /**
@@ -800,12 +801,20 @@ struct r500_fragment_program {
 #define REG_COLOR0	1
 #define REG_TEX0	2
 
+struct r300_aos {
+	dri_bo *bo; /** Buffer object where vertex data is stored */
+	int offset; /** Offset into buffer object, in bytes */
+	int components; /** Number of components per vertex */
+	int stride; /** Stride in dwords (may be 0 for repeating) */
+	int count; /** Number of vertices */
+};
+
 struct r300_state {
 	struct r300_depthbuffer_state depth;
 	struct r300_texture_state texture;
 	int sw_tcl_inputs[VERT_ATTRIB_MAX];
 	struct r300_vertex_shader_state vertex_shader;
-	struct r300_dma_region aos[R300_MAX_AOS_ARRAYS];
+	struct r300_aos aos[R300_MAX_AOS_ARRAYS];
 	int aos_count;
 
 	GLuint *Elts;
