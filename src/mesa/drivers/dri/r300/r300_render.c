@@ -175,18 +175,19 @@ int r300NumVerts(r300ContextPtr rmesa, int num_verts, int prim)
 static void r300EmitElts(GLcontext * ctx, void *elts, unsigned long n_elts)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	struct r300_dma_region *rvb = &rmesa->state.elt_dma;
+	struct r300_dma_region dma;
 	void *out;
 
-	r300AllocDmaRegion(rmesa, rvb, n_elts * 4, 4);
-	rvb->aos_offset = GET_START(rvb);
+	dma.bo = 0;
+	r300AllocDmaRegion(rmesa, &dma, n_elts * 4, 4);
+	rmesa->state.elt_dma_bo = dma.bo; /* Steal bo reference from dma region */
+	rmesa->state.elt_dma_offset = dma.start;
 
-	out = rvb->address + rvb->start;
+	out = rmesa->state.elt_dma_bo->virtual + rmesa->state.elt_dma_offset;
 	memcpy(out, elts, n_elts * 4);
 }
 
-static void r300FireEB(r300ContextPtr rmesa, unsigned long addr,
-		       int vertex_count, int type)
+static void r300FireEB(r300ContextPtr rmesa, int vertex_count, int type)
 {
 	BATCH_LOCALS(rmesa);
 
@@ -196,7 +197,7 @@ static void r300FireEB(r300ContextPtr rmesa, unsigned long addr,
 
 	OUT_BATCH_PACKET3(R300_PACKET3_INDX_BUFFER, 2);
 	OUT_BATCH(R300_EB_UNK1 | (0 << 16) | R300_EB_UNK2);
-	OUT_BATCH(addr);
+	OUT_BATCH_RELOC(0, rmesa->state.elt_dma_bo, rmesa->state.elt_dma_offset, 0);
 	OUT_BATCH(vertex_count);
 	END_BATCH();
 }
@@ -285,7 +286,7 @@ static void r300RunRenderPrimitive(r300ContextPtr rmesa, GLcontext * ctx,
 		 */
 		r300EmitElts(ctx, vb->Elts, num_verts);
 		r300EmitAOS(rmesa, rmesa->state.aos_count, start);
-		r300FireEB(rmesa, rmesa->state.elt_dma.aos_offset, num_verts, type);
+		r300FireEB(rmesa, num_verts, type);
 	} else {
 		r300EmitAOS(rmesa, rmesa->state.aos_count, start);
 		r300FireAOS(rmesa, num_verts, type);
@@ -322,8 +323,6 @@ static GLboolean r300RunRender(GLcontext * ctx,
 	}
 
 	r300EmitCacheFlush(rmesa);
-
-	r300UseArrays(ctx);
 
 	r300ReleaseArrays(ctx);
 

@@ -183,8 +183,6 @@ void static INLINE cp_wait(r300ContextPtr rmesa, unsigned char flags)
 
 extern int r300EmitArrays(GLcontext * ctx);
 
-void r300UseArrays(GLcontext * ctx);
-
 extern void r300ReleaseArrays(GLcontext * ctx);
 extern int r300PrimitiveType(r300ContextPtr rmesa, int prim);
 extern int r300NumVerts(r300ContextPtr rmesa, int num_verts, int prim);

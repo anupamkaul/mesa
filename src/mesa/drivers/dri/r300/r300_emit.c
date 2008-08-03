@@ -467,24 +467,15 @@ int r300EmitArrays(GLcontext * ctx)
 	return R300_FALLBACK_NONE;
 }
 
-void r300UseArrays(GLcontext * ctx)
-{
-	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	BATCH_LOCALS(rmesa);
-
-	if (rmesa->state.elt_dma.bo)
-		rmesa->bufmgr->bo_use(rmesa->state.elt_dma.bo);
-
-	/* Temporary kludge until buffer objects are marked as used via relocations */
-	COMMIT_BATCH();
-}
-
 void r300ReleaseArrays(GLcontext * ctx)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	int i;
 
-	r300ReleaseDmaRegion(rmesa, &rmesa->state.elt_dma, __FUNCTION__);
+	if (rmesa->state.elt_dma_bo) {
+		dri_bo_unreference(rmesa->state.elt_dma_bo);
+		rmesa->state.elt_dma_bo = 0;
+	}
 	for (i = 0; i < rmesa->state.aos_count; i++) {
 		if (rmesa->state.aos[i].bo) {
 			dri_bo_unreference(rmesa->state.aos[i].bo);

@@ -817,7 +817,8 @@ struct r300_state {
 	struct r300_aos aos[R300_MAX_AOS_ARRAYS];
 	int aos_count;
 
-	struct r300_dma_region elt_dma;
+	dri_bo *elt_dma_bo; /** Buffer object that contains element indices */
+	int elt_dma_offset; /** Offset into this buffer object, in bytes */
 
 	DECLARE_RENDERINPUTS(render_inputs_bitset);	/* actual render inputs that R300 was configured for.
 							   They are the same as tnl->render_inputs for fixed pipeline */
@@ -876,11 +877,6 @@ struct r300_swtcl_info {
     * Offset of the 3UB specular color data within a hardware (swtcl) vertex.
     */
    GLuint specoffset;
-
-   /**
-    * Should Mesa project vertex data or will the hardware do it?
-    */
-   GLboolean needproj;
 };
 
 
