@@ -440,17 +440,6 @@ static void emit_age_for_buffer(radeon_bo_classic* bo)
 	bo->pending_count++;
 }
 
-//TODO: deprecate this
-static void bufmgr_classic_bo_use(dri_bo* buf)
-{
-	radeon_bo_classic *bo = get_bo_classic(buf);
-
-	assert(!bo->mapcount);
-
-	emit_age_for_buffer(bo);
-	move_to_pending_tail(bo);
-}
-
 static int bufmgr_classic_emit_reloc(dri_bo *batch_buf, uint64_t flags, GLuint delta,
 			GLuint offset, dri_bo *target)
 {
@@ -567,7 +556,6 @@ radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
 	bufmgr->base.base.process_relocs = &bufmgr_classic_process_relocs;
 	bufmgr->base.base.post_submit = &bufmgr_classic_post_submit;
 	bufmgr->base.base.destroy = &bufmgr_classic_destroy;
-	bufmgr->base.bo_use = &bufmgr_classic_bo_use;
 
 	bufmgr->pending_tail = &bufmgr->pending;
 

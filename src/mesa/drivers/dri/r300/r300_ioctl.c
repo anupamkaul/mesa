@@ -567,7 +567,6 @@ void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 	}
 
 	if (rmesa->dma.current) {
-		rmesa->bufmgr->bo_use(rmesa->dma.current); //TODO: remove
 		dri_bo_unreference(rmesa->dma.current);
 		rmesa->dma.current = 0;
 	}

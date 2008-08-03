@@ -8,12 +8,6 @@
 
 struct _radeon_bufmgr {
 	dri_bufmgr base;
-
-	/**
-	 * Call this after writing command buffer instructions that use
-	 * the given buffer. Marks the buffer as pending on hardware.
-	 */
-	void (*bo_use)(dri_bo* buf);
 };
 
 /* Note: The following flags should probably be ultimately eliminated,
