@@ -142,8 +142,15 @@ struct r300_dma {
 	 * regions come from here.  Also used for emitting random vertices,
 	 * these may be flushed by calling flush_current();
 	 */
-	struct r300_dma_region current;
+	dri_bo *current; /** Buffer that DMA memory is allocated from */
+	int current_used; /** Number of bytes allocated and forgotten about */
+	int current_vertexptr; /** End of active vertex region */
 
+	/**
+	 * If current_vertexptr != current_used then flush must be non-zero.
+	 * flush must be called before non-active vertex allocations can be
+	 * performed.
+	 */
 	void (*flush) (r300ContextPtr);
 
 	/* Number of "in-flight" DMA buffers, i.e. the number of buffers

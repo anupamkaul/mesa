@@ -566,19 +566,18 @@ void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 		rmesa->dma.flush(rmesa);
 	}
 
-	if (rmesa->dma.current.bo) {
-		rmesa->bufmgr->bo_use(rmesa->dma.current.bo);
-		r300ReleaseDmaRegion(rmesa, &rmesa->dma.current, __FUNCTION__);
+	if (rmesa->dma.current) {
+		rmesa->bufmgr->bo_use(rmesa->dma.current); //TODO: remove
+		dri_bo_unreference(rmesa->dma.current);
+		rmesa->dma.current = 0;
 	}
 	if (rmesa->dma.nr_released_bufs > 4)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 
-	rmesa->dma.current.bo = dri_bo_alloc(&rmesa->bufmgr->base, "DMA regions",
+	rmesa->dma.current = dri_bo_alloc(&rmesa->bufmgr->base, "DMA regions",
 		size, 4, DRM_BO_MEM_DMA);
-	rmesa->dma.current.address = rmesa->dma.current.bo->virtual; // TODO: proper use of dri_bo_map!
-	rmesa->dma.current.end = size;
-	rmesa->dma.current.start = 0;
-	rmesa->dma.current.ptr = 0;
+	rmesa->dma.current_used = 0;
+	rmesa->dma.current_vertexptr = 0;
 }
 
 void r300ReleaseDmaRegion(r300ContextPtr rmesa,
@@ -611,28 +610,29 @@ void r300AllocDmaRegion(r300ContextPtr rmesa,
 	if (rmesa->dma.flush)
 		rmesa->dma.flush(rmesa);
 
+	assert(rmesa->dma.current_used == rmesa->dma.current_vertexptr);
+
 	if (region->bo)
 		r300ReleaseDmaRegion(rmesa, region, __FUNCTION__);
 
 	alignment--;
-	rmesa->dma.current.start = rmesa->dma.current.ptr =
-	    (rmesa->dma.current.ptr + alignment) & ~alignment;
+	rmesa->dma.current_used = (rmesa->dma.current_used + alignment) & ~alignment;
 
-	if (rmesa->dma.current.ptr + bytes > rmesa->dma.current.end)
-		r300RefillCurrentDmaRegion(rmesa, (bytes + 0x7) & ~0x7);
+	if (!rmesa->dma.current || rmesa->dma.current_used + bytes > rmesa->dma.current->size)
+		r300RefillCurrentDmaRegion(rmesa, (bytes + 15) & ~15);
 
-	region->start = rmesa->dma.current.start;
-	region->ptr = rmesa->dma.current.start;
-	region->end = rmesa->dma.current.start + bytes;
-	region->address = rmesa->dma.current.address;
-	region->bo = rmesa->dma.current.bo;
+	region->start = rmesa->dma.current_used;
+	region->ptr = rmesa->dma.current_used;
+	region->end = rmesa->dma.current_used + bytes;
+	region->address = rmesa->dma.current->virtual;
+	region->bo = rmesa->dma.current;
 	dri_bo_reference(region->bo);
 
-	rmesa->dma.current.ptr += bytes;	/* bug - if alignment > 7 */
-	rmesa->dma.current.start =
-	    rmesa->dma.current.ptr = (rmesa->dma.current.ptr + 0x7) & ~0x7;
+	/* Always align to at least 16 bytes */
+	rmesa->dma.current_used = (rmesa->dma.current_used + bytes + 15) & ~15;
+	rmesa->dma.current_vertexptr = rmesa->dma.current_used;
 
-	assert(rmesa->dma.current.ptr <= rmesa->dma.current.end);
+	assert(rmesa->dma.current_used <= rmesa->dma.current->size);
 }
 
 void r300InitIoctlFuncs(struct dd_function_table *functions)

@@ -431,9 +431,9 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 		_vbo_DestroyContext(r300->radeon.glCtx);
 		_swrast_DestroyContext(r300->radeon.glCtx);
 
-		if (r300->dma.current.bo) {
-			r300ReleaseDmaRegion(r300, &r300->dma.current,
-					     __FUNCTION__);
+		if (r300->dma.current) {
+			dri_bo_unreference(r300->dma.current);
+			r300->dma.current = 0;
 		}
 		r300FlushCmdBuf(r300, __FUNCTION__);
 		r300DestroyCmdBuf(r300);

@@ -61,7 +61,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 static void flush_last_swtcl_prim( r300ContextPtr rmesa  );
 
 
-void r300EmitVertexAOS(r300ContextPtr rmesa, GLuint vertex_size, GLuint offset);
+void r300EmitVertexAOS(r300ContextPtr rmesa, GLuint vertex_size, dri_bo *bo, GLuint offset);
 void r300EmitVbufPrim(r300ContextPtr rmesa, GLuint primitive, GLuint vertex_nr);
 #define EMIT_ATTR( ATTR, STYLE )					\
 do {									\
@@ -252,15 +252,15 @@ static void flush_last_swtcl_prim( r300ContextPtr rmesa  )
 
 	rmesa->dma.flush = NULL;
 
-	if (rmesa->dma.current.bo) {
-		struct r300_dma_region *current = &rmesa->dma.current;
-		GLuint current_offset = GET_START(current);
+	if (rmesa->dma.current) {
+		GLuint current_offset = rmesa->dma.current_used;
 
-		assert (current->start +
+		assert (rmesa->dma.current_used +
 			rmesa->swtcl.numverts * rmesa->swtcl.vertex_size * 4 ==
-			current->ptr);
+			rmesa->dma.current_vertexptr);
 
-		if (rmesa->dma.current.start != rmesa->dma.current.ptr) {
+		if (rmesa->dma.current_used != rmesa->dma.current_vertexptr) {
+			rmesa->dma.current_used = rmesa->dma.current_vertexptr;
 
 			r300EnsureCmdBufSpace( rmesa, rmesa->hw.max_state_size + (12*sizeof(int)), __FUNCTION__);
 
@@ -268,7 +268,7 @@ static void flush_last_swtcl_prim( r300ContextPtr rmesa  )
 
 			r300EmitVertexAOS( rmesa,
 					   rmesa->swtcl.vertex_size,
-					   current_offset);
+					   rmesa->dma.current, current_offset);
 
 			r300EmitVbufPrim( rmesa,
 					  rmesa->swtcl.hw_primitive,
@@ -279,7 +279,6 @@ static void flush_last_swtcl_prim( r300ContextPtr rmesa  )
 		}
 
 		rmesa->swtcl.numverts = 0;
-		current->start = current->ptr;
 	}
 }
 
@@ -290,7 +289,7 @@ r300AllocDmaLowVerts( r300ContextPtr rmesa, int nverts, int vsize )
 {
 	GLuint bytes = vsize * nverts;
 
-	if ( rmesa->dma.current.ptr + bytes > rmesa->dma.current.end )
+	if (!rmesa->dma.current || rmesa->dma.current_vertexptr + bytes > rmesa->dma.current->size)
 		r300RefillCurrentDmaRegion( rmesa, bytes);
 
 	if (!rmesa->dma.flush) {
@@ -300,13 +299,13 @@ r300AllocDmaLowVerts( r300ContextPtr rmesa, int nverts, int vsize )
 
 	ASSERT( vsize == rmesa->swtcl.vertex_size * 4 );
 	ASSERT( rmesa->dma.flush == flush_last_swtcl_prim );
-	ASSERT( rmesa->dma.current.start +
+	ASSERT( rmesa->dma.current_used +
 		rmesa->swtcl.numverts * rmesa->swtcl.vertex_size * 4 ==
-		rmesa->dma.current.ptr );
+		rmesa->dma.current_vertexptr );
 
 	{
-		GLubyte *head = (GLubyte *) (rmesa->dma.current.address + rmesa->dma.current.ptr);
-		rmesa->dma.current.ptr += bytes;
+		GLubyte *head = (GLubyte *) (rmesa->dma.current->virtual + rmesa->dma.current_vertexptr);
+		rmesa->dma.current_vertexptr += bytes;
 		rmesa->swtcl.numverts += nverts;
 		return head;
 	}
@@ -668,7 +667,7 @@ void r300DestroySwtcl(GLcontext *ctx)
 {
 }
 
-void r300EmitVertexAOS(r300ContextPtr rmesa, GLuint vertex_size, GLuint offset)
+void r300EmitVertexAOS(r300ContextPtr rmesa, GLuint vertex_size, dri_bo *bo, GLuint offset)
 {
 	BATCH_LOCALS(rmesa);
 
@@ -680,7 +679,7 @@ void r300EmitVertexAOS(r300ContextPtr rmesa, GLuint vertex_size, GLuint offset)
 	OUT_BATCH_PACKET3(R300_PACKET3_3D_LOAD_VBPNTR, 2);
 	OUT_BATCH(1);
 	OUT_BATCH(vertex_size | (vertex_size << 8));
-	OUT_BATCH(offset);
+	OUT_BATCH_RELOC(0, bo, offset, 0);
 	END_BATCH();
 }
 
