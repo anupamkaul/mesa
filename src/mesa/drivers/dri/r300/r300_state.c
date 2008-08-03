@@ -1499,14 +1499,9 @@ static void r300SetupTextures(GLcontext * ctx)
 	/* We cannot let disabled tmu offsets pass DRM */
 	for (i = 0; i < mtu; i++) {
 		if (ctx->Texture.Unit[i]._ReallyEnabled) {
-
-#if 0				/* Enables old behaviour */
-			hw_tmu = i;
-#endif
 			tmu_mappings[i] = hw_tmu;
 
-			t = r300->state.texture.unit[i].texobj;
-			/* XXX questionable fix for bug 9170: */
+			t = r300_tex_obj(ctx->Texture.Unit[i]._Current);
 			if (!t)
 				continue;
 
@@ -1539,14 +1534,13 @@ static void r300SetupTextures(GLcontext * ctx)
 						hw_tmu] = t->format;
 			r300->hw.tex.pitch.cmd[R300_TEX_VALUE_0 + hw_tmu] =
 			    t->pitch_reg;
-			r300->hw.tex.offset.cmd[R300_TEX_VALUE_0 +
-						hw_tmu] = t->offset;
+			r300->hw.textures[hw_tmu] = t;
 
-			if (t->offset & R300_TXO_MACRO_TILE) {
+			if (t->tile_bits & R300_TXO_MACRO_TILE) {
 				WARN_ONCE("macro tiling enabled!\n");
 			}
 
-			if (t->offset & R300_TXO_MICRO_TILE) {
+			if (t->tile_bits & R300_TXO_MICRO_TILE) {
 				WARN_ONCE("micro tiling enabled!\n");
 			}
 

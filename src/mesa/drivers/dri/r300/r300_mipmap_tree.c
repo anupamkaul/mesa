@@ -34,6 +34,8 @@
 #include "texcompress.h"
 #include "texformat.h"
 
+#include "r300_mem.h"
+
 static GLuint r300_compressed_texture_size(GLcontext *ctx,
 		GLsizei width, GLsizei height, GLsizei depth,
 		GLuint mesaFormat)
@@ -122,7 +124,7 @@ static void calculate_miptree_layout(r300_mipmap_tree *mt)
 	}
 
 	/* Note the required size in memory */
-	mt->base.totalSize = (curOffset + RADEON_OFFSET_MASK) & ~RADEON_OFFSET_MASK;
+	mt->totalsize = (curOffset + RADEON_OFFSET_MASK) & ~RADEON_OFFSET_MASK;
 }
 
 
@@ -136,7 +138,6 @@ r300_mipmap_tree* r300_miptree_create(r300ContextPtr rmesa, r300TexObj *t,
 {
 	r300_mipmap_tree *mt = CALLOC_STRUCT(_r300_mipmap_tree);
 
-	make_empty_list(&mt->base);
 	mt->r300 = rmesa;
 	mt->t = t;
 	mt->target = target;
@@ -152,6 +153,8 @@ r300_mipmap_tree* r300_miptree_create(r300ContextPtr rmesa, r300TexObj *t,
 
 	calculate_miptree_layout(mt);
 
+	mt->bo = dri_bo_alloc(&rmesa->bufmgr->base, "texture", mt->totalsize, 1024, 0);
+
 	return mt;
 }
 
@@ -160,49 +163,43 @@ r300_mipmap_tree* r300_miptree_create(r300ContextPtr rmesa, r300TexObj *t,
  */
 void r300_miptree_destroy(r300_mipmap_tree *mt)
 {
-	driDestroyTextureObject(&mt->base);
+	dri_bo_unreference(mt->bo);
+	free(mt);
 }
 
-/** Callback function called by texmem.c */
-void r300_miptree_destroy_callback(void* data, driTextureObject *t)
-{
-	r300_mipmap_tree *mt = (r300_mipmap_tree*)t;
-
-	if (mt->t && mt->t->mt == mt)
-		mt->t->mt = 0;
-}
-
-/**
- * Returns \c true if memory for this mipmap tree has been allocated.
+/*
+ * XXX Move this into core Mesa?
  */
-GLboolean r300_miptree_is_validated(r300_mipmap_tree *mt)
+static void
+_mesa_copy_rect(GLubyte * dst,
+                GLuint cpp,
+                GLuint dst_pitch,
+                GLuint dst_x,
+                GLuint dst_y,
+                GLuint width,
+                GLuint height,
+                const GLubyte * src,
+                GLuint src_pitch, GLuint src_x, GLuint src_y)
 {
-	if (!mt)
-		return GL_FALSE;
+   GLuint i;
 
-	if (!mt->base.memBlock)
-		return GL_FALSE;
+   dst_pitch *= cpp;
+   src_pitch *= cpp;
+   dst += dst_x * cpp;
+   src += src_x * cpp;
+   dst += dst_y * dst_pitch;
+   src += src_y * dst_pitch;
+   width *= cpp;
 
-	return GL_TRUE;
-}
-
-/**
- * Allocate memory for this mipmap tree.
- */
-void r300_miptree_validate(r300_mipmap_tree *mt)
-{
-	if (mt->base.memBlock)
-		return;
-
-	driAllocateTexture(mt->r300->texture_heaps, mt->r300->nr_heaps, &mt->base);
-}
-
-GLuint r300_miptree_get_offset(r300_mipmap_tree *mt)
-{
-	if (!mt->base.memBlock)
-		return 0;
-
-	return mt->r300->radeon.radeonScreen->texOffset[0] + mt->base.memBlock->ofs;
+   if (width == dst_pitch && width == src_pitch)
+      memcpy(dst, src, height * width);
+   else {
+      for (i = 0; i < height; i++) {
+         memcpy(dst, src, width);
+         dst += dst_pitch;
+         src += src_pitch;
+      }
+   }
 }
 
 /**
@@ -213,135 +210,39 @@ void r300_miptree_upload_image(r300_mipmap_tree *mt, GLuint face, GLuint level,
 			       struct gl_texture_image *texImage)
 {
 	GLuint hwlevel = level - mt->firstLevel;
-	r300_mipmap_level *lvl;
-	drm_radeon_texture_t tex;
-	drm_radeon_tex_image_t tmp;
-	GLuint offset;
-	int ret;
+	r300_mipmap_level *lvl = &mt->levels[hwlevel];
+	void *dest;
 
 	assert(face < mt->faces);
 	assert(level >= mt->firstLevel && level <= mt->lastLevel);
 	assert(texImage && texImage->Data);
-
-	if (!mt->base.memBlock)
-		return;
-
-	lvl = &mt->levels[hwlevel];
 	assert(texImage->Width == lvl->width);
 	assert(texImage->Height == lvl->height);
 	assert(texImage->Depth == lvl->depth);
 
-	offset = mt->r300->radeon.radeonScreen->texOffset[0] + mt->base.memBlock->ofs;
+	dri_bo_map(mt->bo, GL_TRUE);
 
-	tex.offset = offset;
-	tex.image = &tmp;
+	dest = mt->bo->virtual + lvl->faces[face].offset;
 
-	if (texImage->TexFormat->TexelBytes) {
-		GLuint blitWidth;
+	if (mt->tilebits)
+		WARN_ONCE("%s: tiling not supported yet", __FUNCTION__);
 
-		if (mt->target == GL_TEXTURE_RECTANGLE_NV) {
-			blitWidth = 64 / texImage->TexFormat->TexelBytes;
-		} else {
-			blitWidth = MAX2(texImage->Width, 64 / texImage->TexFormat->TexelBytes);
-		}
+	if (!mt->compressed) {
+		GLuint dst_align;
+		GLuint dst_pitch = lvl->width;
+		GLuint src_pitch = lvl->width;
 
-		tmp.x = lvl->faces[face].offset;
-		tmp.y = 0;
-		tmp.width = MIN2(lvl->size / texImage->TexFormat->TexelBytes, blitWidth);
-		tmp.height = (lvl->size / texImage->TexFormat->TexelBytes) / tmp.width;
+		if (mt->target == GL_TEXTURE_RECTANGLE_NV)
+			dst_align = 64 / mt->bpp;
+		else
+			dst_align = 32 / mt->bpp;
+		dst_pitch = (dst_pitch + dst_align - 1) & ~(dst_align - 1);
+
+		_mesa_copy_rect(dest, mt->bpp, dst_pitch, 0, 0, lvl->width, lvl->height,
+				texImage->Data, src_pitch, 0, 0);
 	} else {
-		tmp.x = lvl->faces[face].offset % R300_BLIT_WIDTH_BYTES;
-		tmp.y = lvl->faces[face].offset / R300_BLIT_WIDTH_BYTES;
-		tmp.width = MIN2(lvl->size, R300_BLIT_WIDTH_BYTES);
-		tmp.height = lvl->size / tmp.width;
-	}
-	tmp.data = texImage->Data;
-
-	if (texImage->TexFormat->TexelBytes > 4) {
-		const int log2TexelBytes =
-		    (3 + (texImage->TexFormat->TexelBytes >> 4));
-		tex.format = RADEON_TXFORMAT_I8;	/* any 1-byte texel format */
-		tex.pitch =
-		    MAX2((texImage->Width * texImage->TexFormat->TexelBytes) /
-			 64, 1);
-		tex.height = texImage->Height;
-		tex.width = texImage->Width << log2TexelBytes;
-		tex.offset += (tmp.x << log2TexelBytes) & ~1023;
-		tmp.x = tmp.x % (1024 >> log2TexelBytes);
-		tmp.width = tmp.width << log2TexelBytes;
-	} else if (texImage->TexFormat->TexelBytes) {
-		/* use multi-byte upload scheme */
-		tex.height = texImage->Height;
-		tex.width = texImage->Width;
-		switch (texImage->TexFormat->TexelBytes) {
-		case 1:
-			tex.format = RADEON_TXFORMAT_I8;
-			break;
-		case 2:
-			tex.format = RADEON_TXFORMAT_AI88;
-			break;
-		case 4:
-			tex.format = RADEON_TXFORMAT_ARGB8888;
-			break;
-		}
-		tex.pitch =
-		    MAX2((texImage->Width * texImage->TexFormat->TexelBytes) /
-			 64, 1);
-		tex.offset += tmp.x & ~1023;
-		tmp.x = tmp.x % 1024;
-
-		if (mt->tilebits & R300_TXO_MICRO_TILE) {
-			/* need something like "tiled coordinates" ? */
-			tmp.y = tmp.x / (tex.pitch * 128) * 2;
-			tmp.x =
-			    tmp.x % (tex.pitch * 128) / 2 /
-			    texImage->TexFormat->TexelBytes;
-			tex.pitch |= RADEON_DST_TILE_MICRO >> 22;
-		} else {
-			tmp.x = tmp.x >> (texImage->TexFormat->TexelBytes >> 1);
-		}
-
-		if ((mt->tilebits & R300_TXO_MACRO_TILE) &&
-		    (texImage->Width * texImage->TexFormat->TexelBytes >= 256)
-		    && ((!(mt->tilebits & R300_TXO_MICRO_TILE)
-			 && (texImage->Height >= 8))
-			|| (texImage->Height >= 16))) {
-			/* weird: R200 disables macro tiling if mip width is smaller than 256 bytes,
-			   OR if height is smaller than 8 automatically, but if micro tiling is active
-			   the limit is height 16 instead ? */
-			tex.pitch |= RADEON_DST_TILE_MACRO >> 22;
-		}
-	} else {
-		/* In case of for instance 8x8 texture (2x2 dxt blocks),
-		   padding after the first two blocks is needed (only
-		   with dxt1 since 2 dxt3/dxt5 blocks already use 32 Byte). */
-		/* set tex.height to 1/4 since 1 "macropixel" (dxt-block)
-		   has 4 real pixels. Needed so the kernel module reads
-		   the right amount of data. */
-		tex.format = RADEON_TXFORMAT_I8;	/* any 1-byte texel format */
-		tex.pitch = (R300_BLIT_WIDTH_BYTES / 64);
-		tex.height = (texImage->Height + 3) / 4;
-		tex.width = (texImage->Width + 3) / 4;
-		if (mt->compressed == MESA_FORMAT_RGB_DXT1 ||
-		    mt->compressed == MESA_FORMAT_RGBA_DXT1) {
-			tex.width *= 8;
-		} else {
-			tex.width *= 16;
-		}
+		memcpy(dest, texImage->Data, lvl->size);
 	}
 
-	LOCK_HARDWARE(&mt->r300->radeon);
-	do {
-		ret =
-		    drmCommandWriteRead(mt->r300->radeon.dri.fd,
-					DRM_RADEON_TEXTURE, &tex,
-					sizeof(drm_radeon_texture_t));
-		if (ret) {
-			if (RADEON_DEBUG & DEBUG_IOCTL)
-				fprintf(stderr,
-					"DRM_RADEON_TEXTURE:  again!\n");
-			usleep(1);
-		}
-	} while (ret == -EAGAIN);
-	UNLOCK_HARDWARE(&mt->r300->radeon);
+	dri_bo_unmap(mt->bo);
 }

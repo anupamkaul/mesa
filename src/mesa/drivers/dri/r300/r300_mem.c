@@ -36,6 +36,11 @@
 
 #include "r300_mem.h"
 
+#include <errno.h>
+#include <unistd.h>
+
+#include "simple_list.h"
+
 #include "radeon_ioctl.h"
 #include "r300_cmdbuf.h"
 
@@ -43,6 +48,7 @@ typedef struct _radeon_bufmgr_classic radeon_bufmgr_classic;
 typedef struct _radeon_bo_classic radeon_bo_classic;
 typedef struct _radeon_bo_functions radeon_bo_functions;
 typedef struct _radeon_reloc radeon_reloc;
+typedef struct _radeon_bo_vram radeon_bo_vram;
 
 struct _radeon_bufmgr_classic {
 	radeon_bufmgr base;
@@ -52,6 +58,11 @@ struct _radeon_bufmgr_classic {
 
 	radeon_bo_classic *pending; /** Age-sorted linked list of pending buffer objects */
 	radeon_bo_classic **pending_tail;
+
+	/* Texture heap bookkeeping */
+	driTexHeap *texture_heap;
+	GLuint texture_offset;
+	driTextureObject texture_swapped;
 };
 
 struct _radeon_reloc {
@@ -70,10 +81,47 @@ struct _radeon_bo_functions {
 
 	/**
 	 * Validate the given buffer. Must set the validated flag to 1.
+	 *
+	 * May be null for buffer objects that are always valid.
+	 * Always called with lock held.
 	 */
 	void (*validate)(radeon_bo_classic*);
+
+	/**
+	 * Called when a writing map of the buffer is taken, to note that
+	 * the buffer will have to be re-validated.
+	 *
+	 * May be null for buffer objects that don't need it.
+	 */
+	void (*dirty)(radeon_bo_classic*);
+
+	/**
+	 * Indicate that the buffer object is now used by the hardware.
+	 *
+	 * May be null.
+	 */
+	void (*bind)(radeon_bo_classic*);
+
+	/**
+	 * Indicate that the buffer object is no longer used by the hardware.
+	 *
+	 * May be null.
+	 */
+	void (*unbind)(radeon_bo_classic*);
 };
 
+/**
+ * A buffer object. There are three types of buffer objects:
+ *  1. cmdbuf: Ordinary malloc()ed memory, used for command buffers
+ *  2. dma: GART memory allocated via the DRM_RADEON_ALLOC ioctl.
+ *  3. vram: Objects with malloc()ed backing store that will be uploaded
+ *     into VRAM on demand; used for textures.
+ * There is a @ref functions table for operations that depend on the
+ * buffer object type.
+ *
+ * Fencing is handled the same way all buffer objects. During command buffer
+ * submission, the pending flag and corresponding variables are set accordingly.
+ */
 struct _radeon_bo_classic {
 	dri_bo base;
 
@@ -109,6 +157,22 @@ struct _radeon_bo_classic {
 	GLuint relocs_size; /** # of reloc records reserved in relocation array */
 };
 
+typedef struct _radeon_vram_wrapper radeon_vram_wrapper;
+
+/** Wrapper around heap object */
+struct _radeon_vram_wrapper {
+	driTextureObject base;
+	radeon_bo_vram *bo;
+};
+
+struct _radeon_bo_vram {
+	radeon_bo_classic base;
+
+	unsigned int backing_store_dirty:1; /** Backing store has changed, block must be reuploaded */
+
+	radeon_vram_wrapper *vram; /** Block in VRAM (if any) */
+};
+
 static radeon_bufmgr_classic* get_bufmgr_classic(dri_bufmgr *bufmgr_ctx)
 {
 	return (radeon_bufmgr_classic*)bufmgr_ctx;
@@ -117,6 +181,11 @@ static radeon_bufmgr_classic* get_bufmgr_classic(dri_bufmgr *bufmgr_ctx)
 static radeon_bo_classic* get_bo_classic(dri_bo *bo_base)
 {
 	return (radeon_bo_classic*)bo_base;
+}
+
+static radeon_bo_vram* get_bo_vram(radeon_bo_classic *bo_base)
+{
+	return (radeon_bo_vram*)bo_base;
 }
 
 /**
@@ -168,6 +237,8 @@ static void track_pending_buffers(radeon_bufmgr_classic *bufmgr)
 		else
 			bufmgr->pending_tail = &bufmgr->pending;
 
+		if (bo->functions->unbind)
+			(*bo->functions->unbind)(bo);
 		if (!bo->refcount)
 			bo_free(bo);
 	}
@@ -311,6 +382,160 @@ static dri_bo *cmdbuf_alloc(radeon_bufmgr_classic *bufmgr, const char *name,
 	return &bo->base;
 }
 
+/**
+ * Free a VRAM-based buffer object.
+ */
+static void vram_free(radeon_bo_classic *bo_base)
+{
+	radeon_bo_vram *bo = get_bo_vram(bo_base);
+
+	if (bo->vram) {
+		driDestroyTextureObject(&bo->vram->base);
+		bo->vram = 0;
+	}
+
+	free(bo->base.base.virtual);
+	free(bo);
+}
+
+/**
+ * Allocate/update the copy in vram.
+ *
+ * Note: Assume we're called with the DRI lock held.
+ */
+static void vram_validate(radeon_bo_classic *bo_base)
+{
+	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(bo_base->base.bufmgr);
+	radeon_bo_vram *bo = get_bo_vram(bo_base);
+
+	if (!bo->vram) {
+		bo->backing_store_dirty = 1;
+
+		bo->vram = (radeon_vram_wrapper*)calloc(1, sizeof(radeon_vram_wrapper));
+		bo->vram->bo = bo;
+		make_empty_list(&bo->vram->base);
+		bo->vram->base.totalSize = bo->base.base.size;
+		if (driAllocateTexture(&bufmgr->texture_heap, 1, &bo->vram->base) < 0) {
+			fprintf(stderr, "Ouch! vram_validate failed\n");
+			free(bo->vram);
+			bo->base.base.offset = 0;
+			bo->vram = 0;
+			return;
+		}
+	}
+
+	assert(bo->vram->base.memBlock);
+
+	bo->base.base.offset = bufmgr->texture_offset + bo->vram->base.memBlock->ofs;
+
+	if (bo->backing_store_dirty) {
+		/* Copy to VRAM using a blit.
+		 * All memory is 4K aligned. We're using 1024 pixels wide blits.
+		 */
+		drm_radeon_texture_t tex;
+		drm_radeon_tex_image_t tmp;
+		int ret;
+
+		tex.offset = bo->base.base.offset;
+		tex.image = &tmp;
+
+		assert(!(tex.offset & 1023));
+
+		tmp.x = 0;
+		tmp.y = 0;
+		if (bo->base.base.size < 4096) {
+			tmp.width = (bo->base.base.size + 3) / 4;
+			tmp.height = 1;
+		} else {
+			tmp.width = 1024;
+			tmp.height = (bo->base.base.size + 4095) / 4096;
+		}
+		tmp.data = bo->base.base.virtual;
+
+		tex.format = RADEON_TXFORMAT_ARGB8888;
+		tex.width = tmp.width;
+		tex.height = tmp.height;
+		tex.pitch = MAX2(tmp.width / 16, 1);
+
+		do {
+			ret = drmCommandWriteRead(bufmgr->rmesa->radeon.dri.fd,
+						DRM_RADEON_TEXTURE, &tex,
+						sizeof(drm_radeon_texture_t));
+			if (ret) {
+				if (RADEON_DEBUG & DEBUG_IOCTL)
+					fprintf(stderr,
+						"DRM_RADEON_TEXTURE:  again!\n");
+				usleep(1);
+			}
+		} while (ret == -EAGAIN);
+
+		bo->backing_store_dirty = 0;
+	}
+
+	bo->base.validated = 1;
+}
+
+static void vram_dirty(radeon_bo_classic *bo_base)
+{
+	radeon_bo_vram *bo = get_bo_vram(bo_base);
+
+	bo->base.validated = 0;
+	bo->backing_store_dirty = 1;
+}
+
+static void vram_bind(radeon_bo_classic *bo_base)
+{
+	radeon_bo_vram *bo = get_bo_vram(bo_base);
+
+	if (bo->vram) {
+		bo->vram->base.bound = 1;
+		driUpdateTextureLRU(&bo->vram->base);
+	}
+}
+
+static void vram_unbind(radeon_bo_classic *bo_base)
+{
+	radeon_bo_vram *bo = get_bo_vram(bo_base);
+
+	if (bo->vram)
+		bo->vram->base.bound = 0;
+}
+
+/** Callback function called by the texture heap when a texture is evicted */
+static void destroy_vram_wrapper(void *data, driTextureObject *t)
+{
+	radeon_vram_wrapper *wrapper = (radeon_vram_wrapper*)t;
+
+	if (wrapper->bo && wrapper->bo->vram == wrapper) {
+		wrapper->bo->base.validated = 0;
+		wrapper->bo->vram = 0;
+	}
+}
+
+static const radeon_bo_functions vram_bo_functions = {
+	.free = vram_free,
+	.validate = vram_validate,
+	.dirty = vram_dirty,
+	.bind = vram_bind,
+	.unbind = vram_unbind
+};
+
+/**
+ * Allocate a backing store buffer object that is validated into VRAM.
+ */
+static dri_bo *vram_alloc(radeon_bufmgr_classic *bufmgr, const char *name,
+		unsigned long size, unsigned int alignment)
+{
+	radeon_bo_vram* bo = (radeon_bo_vram*)calloc(1, sizeof(radeon_bo_vram));
+
+	bo->base.functions = &vram_bo_functions;
+	bo->base.base.virtual = malloc(size);
+
+	init_buffer(bufmgr, &bo->base, size);
+	return &bo->base.base;
+}
+
+
 static dri_bo *bufmgr_classic_bo_alloc(dri_bufmgr *bufmgr_ctx, const char *name,
 		unsigned long size, unsigned int alignment,
 		uint64_t location_mask)
@@ -319,10 +544,10 @@ static dri_bo *bufmgr_classic_bo_alloc(dri_bufmgr *bufmgr_ctx, const char *name,
 
 	if (location_mask & DRM_BO_MEM_CMDBUF) {
 		return cmdbuf_alloc(bufmgr, name, size);
-	} else {
-		assert(location_mask & DRM_BO_MEM_DMA);
-
+	} else if (location_mask & DRM_BO_MEM_DMA) {
 		return dma_alloc(bufmgr, name, size, alignment);
+	} else {
+		return vram_alloc(bufmgr, name, size, alignment);
 	}
 }
 
@@ -373,6 +598,9 @@ static int bufmgr_classic_bo_map(dri_bo *bo_base, GLboolean write_enable)
 			}
 		}
 	}
+
+	if (write_enable && bo->functions->dirty)
+		bo->functions->dirty(bo);
 
 	bo->mapcount++;
 	assert(bo->mapcount > 0);
@@ -489,6 +717,8 @@ static void *bufmgr_classic_process_relocs(dri_bo *batch_buf, GLuint *count)
 
 		if (reloc->flags & DRM_RELOC_BLITTER)
 			*dest = (*dest & 0xffc00000) | (offset >> 10);
+		else if (reloc->flags & DRM_RELOC_TXOFFSET)
+			*dest = (*dest & 31) | (offset & ~31);
 		else
 			*dest = offset;
 	}
@@ -515,6 +745,8 @@ static void bufmgr_classic_post_submit(dri_bo *batch_buf, dri_fence **fence)
 			assert(!reloc->target->pending_count);
 			reloc->target->pending_age = batch_bo->pending_age;
 			move_to_pending_tail(reloc->target);
+			if (reloc->target->functions->bind)
+				(*reloc->target->functions->bind)(reloc->target);
 		}
 	}
 }
@@ -539,6 +771,10 @@ static void bufmgr_classic_destroy(dri_bufmgr *bufmgr_ctx)
 		}
 	}
 
+	driDestroyTextureHeap(bufmgr->texture_heap);
+	bufmgr->texture_heap = 0;
+	assert(is_empty_list(&bufmgr->texture_swapped));
+
 	free(bufmgr);
 }
 
@@ -559,5 +795,22 @@ radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
 
 	bufmgr->pending_tail = &bufmgr->pending;
 
+	/* Init texture heap */
+	make_empty_list(&bufmgr->texture_swapped);
+	bufmgr->texture_heap = driCreateTextureHeap(0, bufmgr,
+			rmesa->radeon.radeonScreen->texSize[0], 12, RADEON_NR_TEX_REGIONS,
+			(drmTextureRegionPtr)rmesa->radeon.sarea->tex_list[0],
+			&rmesa->radeon.sarea->tex_age[0],
+			&bufmgr->texture_swapped, sizeof(radeon_vram_wrapper),
+			&destroy_vram_wrapper);
+	bufmgr->texture_offset = rmesa->radeon.radeonScreen->texOffset[0];
+
 	return &bufmgr->base;
+}
+
+void radeonBufmgrContendedLockTake(radeon_bufmgr* bufmgr_ctx)
+{
+	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(&bufmgr_ctx->base);
+
+	DRI_AGE_TEXTURES(bufmgr->texture_heap);
 }

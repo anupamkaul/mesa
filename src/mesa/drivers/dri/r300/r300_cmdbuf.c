@@ -52,6 +52,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_cmdbuf.h"
 #include "r300_emit.h"
 #include "r300_mem.h"
+#include "r300_mipmap_tree.h"
 #include "r300_state.h"
 
 // Set this to 1 for extremely verbose debugging of command buffers
@@ -241,9 +242,13 @@ static INLINE void r300EmitAtoms(r300ContextPtr r300, GLboolean dirty)
 				if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_STATE) {
 					r300PrintStateAtom(r300, atom);
 				}
-				BEGIN_BATCH_NO_AUTOSTATE(dwords);
-				OUT_BATCH_TABLE(atom->cmd, dwords);
-				END_BATCH();
+				if (atom->emit) {
+					(*atom->emit)(r300);
+				} else {
+					BEGIN_BATCH_NO_AUTOSTATE(dwords);
+					OUT_BATCH_TABLE(atom->cmd, dwords);
+					END_BATCH();
+				}
 				atom->dirty = GL_FALSE;
 			} else {
 				if (DEBUG_CMDBUF && RADEON_DEBUG & DEBUG_STATE) {
@@ -299,6 +304,30 @@ void r300EmitState(r300ContextPtr r300)
 #define packet0_count(ptr) (((drm_r300_cmd_header_t*)(ptr))->packet0.count)
 #define vpu_count(ptr) (((drm_r300_cmd_header_t*)(ptr))->vpu.count)
 #define r500fp_count(ptr) (((drm_r300_cmd_header_t*)(ptr))->r500fp.count)
+
+static void emit_tex_offsets(r300ContextPtr r300)
+{
+	BATCH_LOCALS(r300);
+	int numtmus = packet0_count(r300->hw.tex.offset.cmd);
+
+	if (numtmus) {
+		int i;
+
+		BEGIN_BATCH(numtmus + 1);
+		OUT_BATCH_REGSEQ(R300_TX_OFFSET_0, numtmus);
+		for(i = 0; i < numtmus; ++i) {
+			r300TexObj *t = r300->hw.textures[i];
+			if (t && !t->image_override) {
+				OUT_BATCH_RELOC(t->tile_bits, t->mt->bo, 0, DRM_RELOC_TXOFFSET);
+			} else if (!t) {
+				OUT_BATCH(r300->radeon.radeonScreen->texOffset[0]);
+			} else {
+				OUT_BATCH(t->override_offset);
+			}
+		}
+		END_BATCH();
+	}
+}
 
 static int check_always(r300ContextPtr r300, struct r300_state_atom *atom)
 {
@@ -618,9 +647,10 @@ void r300InitCmdBuf(r300ContextPtr r300)
 	ALLOC_STATE(tex.pitch, variable, mtu + 1, 0);
 	r300->hw.tex.pitch.cmd[R300_TEX_CMD_0] = cmdpacket0(R300_TX_FORMAT2_0, 0);
 
-	ALLOC_STATE(tex.offset, variable, mtu + 1, 0);
+	ALLOC_STATE(tex.offset, variable, 1, 0);
 	r300->hw.tex.offset.cmd[R300_TEX_CMD_0] =
 	    cmdpacket0(R300_TX_OFFSET_0, 0);
+	r300->hw.tex.offset.emit = &emit_tex_offsets;
 
 	ALLOC_STATE(tex.chroma_key, variable, mtu + 1, 0);
 	r300->hw.tex.chroma_key.cmd[R300_TEX_CMD_0] =

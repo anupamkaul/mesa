@@ -739,13 +739,11 @@ static void r300DeleteTexture(GLcontext * ctx, struct gl_texture_object *texObj)
 
 	if (rmesa) {
 		int i;
-
 		R300_FIREVERTICES(rmesa);
 
-		for (i = 0; i < rmesa->radeon.glCtx->Const.MaxTextureUnits; i++) {
-			if (rmesa->state.texture.unit[i].texobj == t)
-				rmesa->state.texture.unit[i].texobj = NULL;
-		}
+		for(i = 0; i < R300_MAX_TEXTURE_UNITS; ++i)
+			if (rmesa->hw.textures[i] == t)
+				rmesa->hw.textures[i] = 0;
 	}
 
 	if (t->mt) {

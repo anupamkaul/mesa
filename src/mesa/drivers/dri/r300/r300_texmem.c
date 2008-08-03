@@ -71,7 +71,7 @@ int r300UploadTexImages(r300ContextPtr rmesa, r300TexObjPtr t, GLuint face)
 {
 	if (t->image_override)
 		return 0;
-	if (!r300_miptree_is_validated(t->mt))
+	if (!t->mt)
 		return 0;
 
 	if (RADEON_DEBUG & (DEBUG_TEXTURE | DEBUG_IOCTL)) {

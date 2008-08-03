@@ -44,6 +44,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_state.h"
 #include "r300_context.h"
 #include "r300_state.h"
+#include "r300_mem.h"
 
 #include "framebuffer.h"
 
@@ -125,12 +126,8 @@ void radeonGetLock(radeonContextPtr rmesa, GLuint flags)
 	}
 
 	if (sarea->ctx_owner != rmesa->dri.hwContext) {
-		int i;
-
 		sarea->ctx_owner = rmesa->dri.hwContext;
-		for (i = 0; i < r300->nr_heaps; i++) {
-			DRI_AGE_TEXTURES(r300->texture_heaps[i]);
-		}
+		radeonBufmgrContendedLockTake(r300->bufmgr);
 	}
 
 	rmesa->lost_context = GL_TRUE;

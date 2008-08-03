@@ -156,6 +156,7 @@ struct r300_tex_obj {
 	GLuint dirty_images[6];
 
 	GLboolean image_override;	/* Image overridden by GLX_EXT_tfp */
+	GLuint override_offset;
 
 	GLuint pitch;		/* this isn't sent to hardware just used in calculations */
 	/* hardware register values */
@@ -165,8 +166,6 @@ struct r300_tex_obj {
 	GLuint pitch_reg;
 	GLuint size;		/* npot only */
 	GLuint format;
-	GLuint offset;		/* Image location in the card's address space.
-				   All cube faces follow. */
 	GLuint pp_border_color;
 	/* end hardware registers */
 
@@ -178,20 +177,12 @@ static INLINE r300TexObj* r300_tex_obj(struct gl_texture_object *texObj)
 	return (r300TexObj*)texObj;
 }
 
-
-struct r300_texture_env_state {
-	r300TexObjPtr texobj;
-	GLenum format;
-	GLenum envMode;
-};
-
 /* The blit width for texture uploads
  */
 #define R300_BLIT_WIDTH_BYTES 1024
 #define R300_MAX_TEXTURE_UNITS 8
 
 struct r300_texture_state {
-	struct r300_texture_env_state unit[R300_MAX_TEXTURE_UNITS];
 	int tc_count;		/* number of incoming texture coordinates from VAP */
 };
 
@@ -211,6 +202,7 @@ struct r300_state_atom {
 	GLboolean dirty;
 
 	int (*check) (r300ContextPtr, struct r300_state_atom * atom);
+	void (*emit) (r300ContextPtr);
 };
 
 #define R300_VPT_CMD_0		0
@@ -518,6 +510,8 @@ struct r300_hw_state {
 		struct r300_state_atom border_color;
 	} tex;
 	struct r300_state_atom txe;	/* tex enable (4104) */
+
+	r300TexObj *textures[R300_MAX_TEXTURE_UNITS];
 };
 
 /**
@@ -880,11 +874,6 @@ struct r300_context {
 	struct r300_dma dma;
 	GLuint NewGLState;
 
-	/* Texture object bookkeeping
-	 */
-	unsigned nr_heaps;
-	driTexHeap *texture_heaps[RADEON_NR_TEX_HEAPS];
-	driTextureObject swapped;
 	int texture_depth;
 	float initialMaxAnisotropy;
 

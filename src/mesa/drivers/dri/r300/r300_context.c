@@ -189,7 +189,7 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 	struct dd_function_table functions;
 	r300ContextPtr r300;
 	GLcontext *ctx;
-	int tcl_mode, i;
+	int tcl_mode;
 
 	assert(glVisual);
 	assert(driContextPriv);
@@ -221,8 +221,6 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 	r300InitTextureFuncs(&functions);
 	r300InitShaderFuncs(&functions);
 
-	r300->bufmgr = radeonBufmgrClassicInit(r300);
-
 	if (!radeonInitContext(&r300->radeon, &functions,
 			       glVisual, driContextPriv,
 			       sharedContextPrivate)) {
@@ -230,28 +228,9 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 		return GL_FALSE;
 	}
 
-	/* Init r300 context data */
-	(void)memset(r300->texture_heaps, 0, sizeof(r300->texture_heaps));
-	make_empty_list(&r300->swapped);
+	r300->bufmgr = radeonBufmgrClassicInit(r300);
 
-	r300->nr_heaps = 1 /* screen->numTexHeaps */ ;
-	assert(r300->nr_heaps < RADEON_NR_TEX_HEAPS);
-	for (i = 0; i < r300->nr_heaps; i++) {
-		/* *INDENT-OFF* */
-		r300->texture_heaps[i] = driCreateTextureHeap(i, r300,
-							       screen->
-							       texSize[i], 12,
-							       RADEON_NR_TEX_REGIONS,
-							       (drmTextureRegionPtr)
-							       r300->radeon.sarea->
-							       tex_list[i],
-							       &r300->radeon.sarea->
-							       tex_age[i],
-							       &r300->swapped,
-							       sizeof(r300_mipmap_tree),
-							       r300_miptree_destroy_callback);
-		/* *INDENT-ON* */
-	}
+	/* Init r300 context data */
 	r300->texture_depth = driQueryOptioni(&r300->radeon.optionCache,
 					      "texture_depth");
 	if (r300->texture_depth == DRI_CONF_TEXTURE_DEPTH_FB)
@@ -419,10 +398,6 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 	assert(r300);		/* should never be null */
 
 	if (r300) {
-		GLboolean release_texture_heaps;
-
-		release_texture_heaps =
-		    (r300->radeon.glCtx->Shared->RefCount == 1);
 		_swsetup_DestroyContext(r300->radeon.glCtx);
 		_tnl_ProgramCacheDestroy(r300->radeon.glCtx);
 		_tnl_DestroyContext(r300->radeon.glCtx);
@@ -439,20 +414,6 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 		if (radeon->state.scissor.pClipRects) {
 			FREE(radeon->state.scissor.pClipRects);
 			radeon->state.scissor.pClipRects = NULL;
-		}
-
-		if (release_texture_heaps) {
-			/* This share group is about to go away, free our private
-			 * texture object data.
-			 */
-			int i;
-
-			for (i = 0; i < r300->nr_heaps; i++) {
-				driDestroyTextureHeap(r300->texture_heaps[i]);
-				r300->texture_heaps[i] = NULL;
-			}
-
-			assert(is_empty_list(&r300->swapped));
 		}
 
 		radeonCleanupContext(&r300->radeon);

@@ -288,14 +288,6 @@ static void r300SetTexImages(r300ContextPtr rmesa,
 				baseImage->Width, baseImage->Height, baseImage->Depth,
 				texelBytes, t->tile_bits,
 				baseImage->IsCompressed ? baseImage->TexFormat->MesaFormat : 0);
-		}
-
-		if (!r300_miptree_is_validated(t->mt)) {
-			r300_miptree_validate(t->mt);
-			if (!r300_miptree_is_validated(t->mt)) {
-				_mesa_problem(rmesa->radeon.glCtx, "Failed to validate miptree");
-				return;
-			}
 			memset(t->dirty_images, 0xff, sizeof(t->dirty_images));
 		}
 	}
@@ -339,7 +331,7 @@ static GLboolean r300EnableTexture2D(GLcontext * ctx, int unit)
 
 	ASSERT(tObj->Target == GL_TEXTURE_2D || tObj->Target == GL_TEXTURE_1D);
 
-	if (!r300_miptree_is_validated(t->mt) || t->dirty_images[0]) {
+	if (!t->mt || t->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 
 		r300SetTexImages(rmesa, tObj);
@@ -363,7 +355,7 @@ static GLboolean r300EnableTexture3D(GLcontext * ctx, int unit)
 		return GL_FALSE;
 	}
 
-	if (!r300_miptree_is_validated(t->mt) || t->dirty_images[0]) {
+	if (!t->mt || t->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 		r300SetTexImages(rmesa, tObj);
 		r300UploadTexImages(rmesa, t, 0);
@@ -382,7 +374,7 @@ static GLboolean r300EnableTextureCube(GLcontext * ctx, int unit)
 
 	ASSERT(tObj->Target == GL_TEXTURE_CUBE_MAP);
 
-	if (!r300_miptree_is_validated(t->mt) ||
+	if (!t->mt ||
 	    t->dirty_images[0] || t->dirty_images[1] ||
 	    t->dirty_images[2] || t->dirty_images[3] ||
 	    t->dirty_images[4] || t->dirty_images[5]) {
@@ -411,7 +403,7 @@ static GLboolean r300EnableTextureRect(GLcontext * ctx, int unit)
 
 	ASSERT(tObj->Target == GL_TEXTURE_RECTANGLE_NV);
 
-	if (!r300_miptree_is_validated(t->mt) || t->dirty_images[0]) {
+	if (!t->mt || t->dirty_images[0]) {
 		R300_FIREVERTICES(rmesa);
 
 		r300SetTexImages(rmesa, tObj);
@@ -423,7 +415,6 @@ static GLboolean r300EnableTextureRect(GLcontext * ctx, int unit)
 
 static GLboolean r300UpdateTexture(GLcontext * ctx, int unit)
 {
-	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 	struct gl_texture_object *tObj = texUnit->_Current;
 	r300TexObjPtr t = r300_tex_obj(tObj);
@@ -433,27 +424,8 @@ static GLboolean r300UpdateTexture(GLcontext * ctx, int unit)
 		return GL_FALSE;
 
 	/* Fallback if memory upload didn't work */
-	if (!r300_miptree_is_validated(t->mt))
+	if (!t->mt)
 		return GL_FALSE;
-
-	t->offset = r300_miptree_get_offset(t->mt) | t->tile_bits;
-
-	/* Update state if this is a different texture object to last
-	 * time.
-	 */
-	if (rmesa->state.texture.unit[unit].texobj != t) {
-		if (rmesa->state.texture.unit[unit].texobj != NULL) {
-			/* The old texture is no longer bound to this texture unit.
-			 * Mark it as such.
-			 */
-			if (rmesa->state.texture.unit[unit].texobj->mt)
-				rmesa->state.texture.unit[unit].texobj->mt->base.bound &= ~(1 << unit);
-		}
-
-		rmesa->state.texture.unit[unit].texobj = t;
-		t->mt->base.bound |= (1 << unit);
-		driUpdateTextureLRU(&t->mt->base);	/* XXX: should be locked! */
-	}
 
 	return GL_TRUE;
 }
@@ -475,7 +447,7 @@ void r300SetTexOffset(__DRIcontext * pDRICtx, GLint texname,
 	if (!offset)
 		return;
 
-	t->offset = offset;
+	t->override_offset = offset;
 	t->pitch_reg &= (1 << 13) -1;
 	pitch_val = pitch;
 

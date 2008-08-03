@@ -56,9 +56,11 @@ struct _r300_mipmap_level {
  * changed.
  */
 struct _r300_mipmap_tree {
-	driTextureObject base;
 	r300ContextPtr r300;
 	r300TexObj *t;
+	dri_bo *bo;
+
+	GLuint totalsize; /** total size of the miptree, in bytes */
 
 	GLenum target; /** GL_TEXTURE_xxx */
 	GLuint faces; /** # of faces: 6 for cubemaps, 1 otherwise */
@@ -81,11 +83,6 @@ r300_mipmap_tree* r300_miptree_create(r300ContextPtr rmesa, r300TexObj *t,
 		GLuint width0, GLuint height0, GLuint depth0,
 		GLuint bpp, GLuint tilebits, GLuint compressed);
 void r300_miptree_destroy(r300_mipmap_tree *mt);
-void r300_miptree_destroy_callback(void*, driTextureObject *mt);
-
-GLboolean r300_miptree_is_validated(r300_mipmap_tree *mt);
-void r300_miptree_validate(r300_mipmap_tree *mt);
-GLuint r300_miptree_get_offset(r300_mipmap_tree *mt);
 
 void r300_miptree_upload_image(r300_mipmap_tree *mt, GLuint face, GLuint level,
 			       struct gl_texture_image *texImage);
