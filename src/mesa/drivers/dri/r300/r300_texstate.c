@@ -576,7 +576,7 @@ static GLboolean r300UpdateTexture(GLcontext * ctx, int unit)
 		driUpdateTextureLRU((driTextureObject *) t);	/* XXX: should be locked! */
 	}
 
-	return !t->border_fallback;
+	return GL_TRUE;
 }
 
 void r300SetTexOffset(__DRIcontext * pDRICtx, GLint texname,

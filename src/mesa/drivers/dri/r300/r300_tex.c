@@ -196,7 +196,6 @@ static r300TexObjPtr r300AllocTexObj(struct gl_texture_object *texObj)
 		/* Initialize non-image-dependent parts of the state:
 		 */
 		t->base.tObj = texObj;
-		t->border_fallback = GL_FALSE;
 
 		make_empty_list(&t->base);
 

@@ -171,19 +171,8 @@ struct r300_tex_obj {
 	GLuint format;
 	GLuint offset;		/* Image location in the card's address space.
 				   All cube faces follow. */
-	GLuint unknown4;
-	GLuint unknown5;
-	/* end hardware registers */
-
-	/* registers computed by r200 code - keep them here to
-	   compare against what is actually written.
-
-	   to be removed later.. */
 	GLuint pp_border_color;
-	GLuint pp_cubic_faces;	/* cube face 1,2,3,4 log2 sizes */
-	GLuint format_x;
-
-	GLboolean border_fallback;
+	/* end hardware registers */
 
 	GLuint tile_bits;	/* hw texture tile bits used on this texture */
 };
