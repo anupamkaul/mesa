@@ -817,7 +817,6 @@ struct r300_state {
 	struct r300_aos aos[R300_MAX_AOS_ARRAYS];
 	int aos_count;
 
-	GLuint *Elts;
 	struct r300_dma_region elt_dma;
 
 	DECLARE_RENDERINPUTS(render_inputs_bitset);	/* actual render inputs that R300 was configured for.
