@@ -122,21 +122,6 @@ static INLINE uint32_t r300PackFloat24(float f)
 
 /************ DMA BUFFERS **************/
 
-#undef GET_START
-#define GET_START(rvb) ((rvb)->bo->offset+(rvb)->start)
-
-/* A retained region, eg vertices for indexed vertices.
- */
-struct r300_dma_region {
-	dri_bo *bo;
-	char *address;		/* == buf->address */
-	int start, end, ptr;	/* offsets from start of buf */
-
-	int aos_offset;		/* address in GART memory */
-	int aos_stride;		/* distance between elements, in dwords */
-	int aos_size;		/* number of components (1-4) */
-};
-
 struct r300_dma {
 	/* Active dma region.  Allocations for vertices and retained
 	 * regions come from here.  Also used for emitting random vertices,

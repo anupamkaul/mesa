@@ -175,13 +175,10 @@ int r300NumVerts(r300ContextPtr rmesa, int num_verts, int prim)
 static void r300EmitElts(GLcontext * ctx, void *elts, unsigned long n_elts)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	struct r300_dma_region dma;
 	void *out;
 
-	dma.bo = 0;
-	r300AllocDmaRegion(rmesa, &dma, n_elts * 4, 4);
-	rmesa->state.elt_dma_bo = dma.bo; /* Steal bo reference from dma region */
-	rmesa->state.elt_dma_offset = dma.start;
+	r300AllocDmaRegion(rmesa, &rmesa->state.elt_dma_bo, &rmesa->state.elt_dma_offset,
+			   n_elts * 4, 4);
 
 	out = rmesa->state.elt_dma_bo->virtual + rmesa->state.elt_dma_offset;
 	memcpy(out, elts, n_elts * 4);

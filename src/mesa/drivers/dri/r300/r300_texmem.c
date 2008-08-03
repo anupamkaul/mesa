@@ -122,7 +122,8 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 	 */
 	for (done = 0; done < height;) {
 		BATCH_LOCALS(rmesa);
-		struct r300_dma_region region;
+		dri_bo *bo;
+		int bo_offset;
 		int lines =
 			MIN2(height - done, RADEON_BUFFER_SIZE / dstPitch);
 		int src_pitch;
@@ -132,9 +133,8 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 
 		tex = (char *)texImage->Data + done * src_pitch;
 
-		memset(&region, 0, sizeof(region));
-		r300AllocDmaRegion(rmesa, &region, lines * dstPitch,
-					1024);
+		r300AllocDmaRegion(rmesa, &bo, &bo_offset,
+				   lines * dstPitch, 1024);
 
 		/* Copy texdata to dma:
 			*/
@@ -144,10 +144,10 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 				__FUNCTION__, src_pitch, dstPitch);
 
 		if (src_pitch == dstPitch) {
-			memcpy(region.address + region.start, tex,
+			memcpy(bo->virtual + bo_offset, tex,
 				lines * src_pitch);
 		} else {
-			char *buf = region.address + region.start;
+			char *buf = bo->virtual + bo_offset;
 			int i;
 			for (i = 0; i < lines; i++) {
 				memcpy(buf, tex, src_pitch);
@@ -161,15 +161,14 @@ static void r300UploadRectSubImage(r300ContextPtr rmesa,
 		/* Blit to framebuffer */
 		r300EmitBlit(rmesa,
 				blit_format,
-				dstPitch, region.bo, region.start,
+				dstPitch, bo, bo_offset,
 				dstPitch | (t->tile_bits >> 16),
 				t->bufAddr, 0, 0, 0, done, width, lines);
 
 		cp_wait(rmesa, R300_WAIT_2D);
-		rmesa->bufmgr->bo_use(region.bo);
 		COMMIT_BATCH();
 
-		r300ReleaseDmaRegion(rmesa, &region, __FUNCTION__);
+		dri_bo_unreference(bo);
 		done += lines;
 	}
 }

@@ -167,21 +167,17 @@ static void r300EmitVec(GLcontext * ctx, struct r300_aos *aos,
 			GLvoid * data, int size, int stride, int count)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	struct r300_dma_region dma;
 	uint32_t *out;
 
-	dma.bo = 0;
 	if (stride == 0) {
-		r300AllocDmaRegion(rmesa, &dma, size * 4, 32);
+		r300AllocDmaRegion(rmesa, &aos->bo, &aos->offset, size * 4, 32);
 		count = 1;
 		aos->stride = 0;
 	} else {
-		r300AllocDmaRegion(rmesa, &dma, size * count * 4, 32);
+		r300AllocDmaRegion(rmesa, &aos->bo, &aos->offset, size * count * 4, 32);
 		aos->stride = size;
 	}
 
-	aos->bo = dma.bo; /* Steal reference to bo from dma region */
-	aos->offset = dma.start;
 	aos->components = size;
 	aos->count = count;
 

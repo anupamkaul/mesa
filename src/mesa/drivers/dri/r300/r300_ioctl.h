@@ -41,12 +41,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 extern void r300Flush(GLcontext * ctx);
 
-extern void r300ReleaseDmaRegion(r300ContextPtr rmesa,
-				 struct r300_dma_region *region,
-				 const char *caller);
 extern void r300AllocDmaRegion(r300ContextPtr rmesa,
-			       struct r300_dma_region *region, int bytes,
-			       int alignment);
+			       dri_bo **pbo, int *poffset,
+			       int bytes, int alignment);
 
 extern void r300InitIoctlFuncs(struct dd_function_table *functions);
 

@@ -580,28 +580,11 @@ void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 	rmesa->dma.current_vertexptr = 0;
 }
 
-void r300ReleaseDmaRegion(r300ContextPtr rmesa,
-			  struct r300_dma_region *region, const char *caller)
-{
-	if (RADEON_DEBUG & DEBUG_IOCTL)
-		fprintf(stderr, "%s from %s\n", __FUNCTION__, caller);
-
-	if (!region->bo)
-		return;
-
-	if (rmesa->dma.flush)
-		rmesa->dma.flush(rmesa);
-
-	dri_bo_unreference(region->bo);
-	region->bo = 0;
-	region->start = 0;
-}
-
 /* Allocates a region from rmesa->dma.current.  If there isn't enough
  * space in current, grab a new buffer (and discard what was left of current)
  */
 void r300AllocDmaRegion(r300ContextPtr rmesa,
-			struct r300_dma_region *region,
+			dri_bo **pbo, int *poffset,
 			int bytes, int alignment)
 {
 	if (RADEON_DEBUG & DEBUG_IOCTL)
@@ -612,21 +595,15 @@ void r300AllocDmaRegion(r300ContextPtr rmesa,
 
 	assert(rmesa->dma.current_used == rmesa->dma.current_vertexptr);
 
-	if (region->bo)
-		r300ReleaseDmaRegion(rmesa, region, __FUNCTION__);
-
 	alignment--;
 	rmesa->dma.current_used = (rmesa->dma.current_used + alignment) & ~alignment;
 
 	if (!rmesa->dma.current || rmesa->dma.current_used + bytes > rmesa->dma.current->size)
 		r300RefillCurrentDmaRegion(rmesa, (bytes + 15) & ~15);
 
-	region->start = rmesa->dma.current_used;
-	region->ptr = rmesa->dma.current_used;
-	region->end = rmesa->dma.current_used + bytes;
-	region->address = rmesa->dma.current->virtual;
-	region->bo = rmesa->dma.current;
-	dri_bo_reference(region->bo);
+	*poffset = rmesa->dma.current_used;
+	*pbo = rmesa->dma.current;
+	dri_bo_reference(*pbo);
 
 	/* Always align to at least 16 bytes */
 	rmesa->dma.current_used = (rmesa->dma.current_used + bytes + 15) & ~15;
