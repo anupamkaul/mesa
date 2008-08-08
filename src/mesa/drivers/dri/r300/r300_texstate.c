@@ -282,12 +282,27 @@ static void r300SetTexImages(r300ContextPtr rmesa,
 		t->format |= R300_TX_FORMAT_CUBIC_MAP;
 
 	if (!t->image_override) {
+		GLuint compressed = baseImage->IsCompressed ? baseImage->TexFormat->MesaFormat : 0;
+
+		if (t->mt) {
+			if (t->mt->firstLevel != firstLevel ||
+			    t->mt->lastLevel != lastLevel ||
+			    t->mt->width0 != baseImage->Width ||
+			    t->mt->height0 != baseImage->Height ||
+			    t->mt->depth0 != baseImage->Depth ||
+			    t->mt->bpp != texelBytes ||
+			    t->mt->tilebits != t->tile_bits ||
+			    t->mt->compressed != compressed) {
+				r300_miptree_destroy(t->mt);
+				t->mt = 0;
+			}
+		}
+
 		if (!t->mt) {
 			t->mt = r300_miptree_create(rmesa, t, tObj->Target,
 				firstLevel, lastLevel,
 				baseImage->Width, baseImage->Height, baseImage->Depth,
-				texelBytes, t->tile_bits,
-				baseImage->IsCompressed ? baseImage->TexFormat->MesaFormat : 0);
+				texelBytes, t->tile_bits, compressed);
 			memset(t->dirty_images, 0xff, sizeof(t->dirty_images));
 		}
 	}
