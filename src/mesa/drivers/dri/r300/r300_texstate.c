@@ -310,19 +310,12 @@ static void r300SetTexImages(r300ContextPtr rmesa,
 	t->size = (((tObj->Image[0][firstLevel]->Width - 1) << R300_TX_WIDTHMASK_SHIFT)
 		| ((tObj->Image[0][firstLevel]->Height - 1) << R300_TX_HEIGHTMASK_SHIFT))
 		| ((lastLevel - firstLevel) << R300_TX_MAX_MIP_LEVEL_SHIFT);
-	t->pitch = 0;
 
-	if (baseImage->IsCompressed) {
-		t->pitch |= (tObj->Image[0][firstLevel]->Width + 63) & ~(63);
-	} else if (tObj->Target == GL_TEXTURE_RECTANGLE_NV) {
+	if (tObj->Target == GL_TEXTURE_RECTANGLE_NV) {
 		unsigned int align = (64 / texelBytes) - 1;
-		t->pitch |= ((tObj->Image[0][firstLevel]->Width *
-			     texelBytes) + 63) & ~(63);
 		t->size |= R300_TX_SIZE_TXPITCH_EN;
 		if (!t->image_override)
 			t->pitch_reg = (((tObj->Image[0][firstLevel]->Width) + align) & ~align) - 1;
-	} else {
-		t->pitch |= ((tObj->Image[0][firstLevel]->Width * texelBytes) + 63) & ~(63);
 	}
 
 	if (rmesa->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515) {

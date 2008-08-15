@@ -158,7 +158,6 @@ struct r300_tex_obj {
 	GLboolean image_override;	/* Image overridden by GLX_EXT_tfp */
 	GLuint override_offset;
 
-	GLuint pitch;		/* this isn't sent to hardware just used in calculations */
 	/* hardware register values */
 	/* Note that R200 has 8 registers per texture and R300 only 7 */
 	GLuint filter;
