@@ -189,253 +189,227 @@ void r300SetDepthTexMode(struct gl_texture_object *tObj)
 }
 
 
-static void calculate_first_last_level(struct gl_texture_object *tObj,
-				       GLuint *pfirstLevel, GLuint *plastLevel)
-{
-	const struct gl_texture_image * const baseImage =
-		tObj->Image[0][tObj->BaseLevel];
-
-	/* These must be signed values.  MinLod and MaxLod can be negative numbers,
-	* and having firstLevel and lastLevel as signed prevents the need for
-	* extra sign checks.
-	*/
-	int   firstLevel;
-	int   lastLevel;
-
-	/* Yes, this looks overly complicated, but it's all needed.
-	*/
-	switch (tObj->Target) {
-	case GL_TEXTURE_1D:
-	case GL_TEXTURE_2D:
-	case GL_TEXTURE_3D:
-	case GL_TEXTURE_CUBE_MAP:
-		if (tObj->MinFilter == GL_NEAREST || tObj->MinFilter == GL_LINEAR) {
-			/* GL_NEAREST and GL_LINEAR only care about GL_TEXTURE_BASE_LEVEL.
-			*/
-			firstLevel = lastLevel = tObj->BaseLevel;
-		} else {
-			firstLevel = tObj->BaseLevel + (GLint)(tObj->MinLod + 0.5);
-			firstLevel = MAX2(firstLevel, tObj->BaseLevel);
-			firstLevel = MIN2(firstLevel, tObj->BaseLevel + baseImage->MaxLog2);
-			lastLevel = tObj->BaseLevel + (GLint)(tObj->MaxLod + 0.5);
-			lastLevel = MAX2(lastLevel, tObj->BaseLevel);
-			lastLevel = MIN2(lastLevel, tObj->BaseLevel + baseImage->MaxLog2);
-			lastLevel = MIN2(lastLevel, tObj->MaxLevel);
-			lastLevel = MAX2(firstLevel, lastLevel); /* need at least one level */
-		}
-		break;
-	case GL_TEXTURE_RECTANGLE_NV:
-	case GL_TEXTURE_4D_SGIS:
-		firstLevel = lastLevel = 0;
-		break;
-	default:
-		return;
-	}
-
-	/* save these values */
-	*pfirstLevel = firstLevel;
-	*plastLevel = lastLevel;
-}
-
-
 /**
- * This function ensures a validated miptree is available.
- *
- * Additionally, some texture format bits are configured here.
+ * Compute the cached hardware register values for the given texture object.
  *
  * \param rmesa Context pointer
- * \param tObj GL texture object whose images are to be posted to
- *                 hardware state.
+ * \param t the r300 texture object
  */
-static void r300SetTexImages(r300ContextPtr rmesa,
-			     struct gl_texture_object *tObj)
+static void setup_hardware_state(r300ContextPtr rmesa, r300TexObj *t)
 {
-	r300TexObjPtr t = r300_tex_obj(tObj);
-	const struct gl_texture_image *baseImage =
-	    tObj->Image[0][tObj->BaseLevel];
-	GLint texelBytes;
-	GLuint firstLevel = 0, lastLevel = 0;
+	const struct gl_texture_image *firstImage =
+	    t->base.Image[0][t->mt->firstLevel];
 
-	calculate_first_last_level(tObj, &firstLevel, &lastLevel);
-
-	/* Set the hardware texture format
-	 */
 	if (!t->image_override
-	    && VALID_FORMAT(baseImage->TexFormat->MesaFormat)) {
-		if (baseImage->TexFormat->BaseFormat == GL_DEPTH_COMPONENT) {
-			r300SetDepthTexMode(tObj);
+	    && VALID_FORMAT(firstImage->TexFormat->MesaFormat)) {
+		if (firstImage->TexFormat->BaseFormat == GL_DEPTH_COMPONENT) {
+			r300SetDepthTexMode(&t->base);
 		} else {
-			t->format = tx_table[baseImage->TexFormat->MesaFormat].format;
+			t->format = tx_table[firstImage->TexFormat->MesaFormat].format;
 		}
 
-		t->filter |= tx_table[baseImage->TexFormat->MesaFormat].filter;
+		t->filter |= tx_table[firstImage->TexFormat->MesaFormat].filter;
 	} else if (!t->image_override) {
 		_mesa_problem(NULL, "unexpected texture format in %s",
 			      __FUNCTION__);
 		return;
 	}
 
-	texelBytes = baseImage->TexFormat->TexelBytes;
 	t->tile_bits = 0;
 
-	if (tObj->Target == GL_TEXTURE_CUBE_MAP)
+	if (t->base.Target == GL_TEXTURE_CUBE_MAP)
 		t->format |= R300_TX_FORMAT_CUBIC_MAP;
 
-	if (!t->image_override) {
-		GLuint compressed = baseImage->IsCompressed ? baseImage->TexFormat->MesaFormat : 0;
+	t->size = (((firstImage->Width - 1) << R300_TX_WIDTHMASK_SHIFT)
+		| ((firstImage->Height - 1) << R300_TX_HEIGHTMASK_SHIFT))
+		| ((t->mt->lastLevel - t->mt->firstLevel) << R300_TX_MAX_MIP_LEVEL_SHIFT);
 
-		if (t->mt) {
-			if (t->mt->firstLevel != firstLevel ||
-			    t->mt->lastLevel != lastLevel ||
-			    t->mt->width0 != baseImage->Width ||
-			    t->mt->height0 != baseImage->Height ||
-			    t->mt->depth0 != baseImage->Depth ||
-			    t->mt->bpp != texelBytes ||
-			    t->mt->tilebits != t->tile_bits ||
-			    t->mt->compressed != compressed) {
-				r300_miptree_destroy(t->mt);
-				t->mt = 0;
-			}
-		}
-
-		if (!t->mt) {
-			t->mt = r300_miptree_create(rmesa, t, tObj->Target,
-				firstLevel, lastLevel,
-				baseImage->Width, baseImage->Height, baseImage->Depth,
-				texelBytes, t->tile_bits, compressed);
-			memset(t->dirty_images, 0xff, sizeof(t->dirty_images));
-		}
-	}
-
-	t->size = (((tObj->Image[0][firstLevel]->Width - 1) << R300_TX_WIDTHMASK_SHIFT)
-		| ((tObj->Image[0][firstLevel]->Height - 1) << R300_TX_HEIGHTMASK_SHIFT))
-		| ((lastLevel - firstLevel) << R300_TX_MAX_MIP_LEVEL_SHIFT);
-
-	if (tObj->Target == GL_TEXTURE_RECTANGLE_NV) {
-		unsigned int align = (64 / texelBytes) - 1;
+	if (t->base.Target == GL_TEXTURE_RECTANGLE_NV) {
+		unsigned int align = (64 / t->mt->bpp) - 1;
 		t->size |= R300_TX_SIZE_TXPITCH_EN;
 		if (!t->image_override)
-			t->pitch_reg = (((tObj->Image[0][firstLevel]->Width) + align) & ~align) - 1;
+			t->pitch_reg = ((firstImage->Width + align) & ~align) - 1;
 	}
 
 	if (rmesa->radeon.radeonScreen->chip_family >= CHIP_FAMILY_RV515) {
-	    if (tObj->Image[0][firstLevel]->Width > 2048)
+	    if (firstImage->Width > 2048)
 		t->pitch_reg |= R500_TXWIDTH_BIT11;
-	    if (tObj->Image[0][firstLevel]->Height > 2048)
+	    if (firstImage->Height > 2048)
 		t->pitch_reg |= R500_TXHEIGHT_BIT11;
 	}
 }
 
-/* ================================================================
- * Texture unit state management
+
+static void copy_rows(void* dst, GLuint dststride, const void* src, GLuint srcstride,
+	GLuint numrows, GLuint rowsize)
+{
+	assert(rowsize <= dststride);
+	assert(rowsize <= srcstride);
+
+	if (rowsize == srcstride && rowsize == dststride) {
+		memcpy(dst, src, numrows*rowsize);
+	} else {
+		GLuint i;
+		for(i = 0; i < numrows; ++i) {
+			memcpy(dst, src, rowsize);
+			dst += dststride;
+			src += srcstride;
+		}
+	}
+}
+
+
+/**
+ * Ensure that the given image is stored in the given miptree from now on.
  */
-
-static GLboolean r300EnableTexture2D(GLcontext * ctx, int unit)
+static void migrate_image_to_miptree(r300_mipmap_tree *mt, r300_texture_image *image, int face, int level)
 {
-	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
-	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = r300_tex_obj(tObj);
+	r300_mipmap_level *dstlvl = &mt->levels[level - mt->firstLevel];
+	unsigned char *dest;
 
-	ASSERT(tObj->Target == GL_TEXTURE_2D || tObj->Target == GL_TEXTURE_1D);
+	assert(image->mt != mt);
+	assert(dstlvl->width == image->base.Width);
+	assert(dstlvl->height == image->base.Height);
+	assert(dstlvl->depth == image->base.Depth);
 
-	if (!t->mt || t->dirty_images[0]) {
-		R300_FIREVERTICES(rmesa);
+	dri_bo_map(mt->bo, GL_TRUE);
+	dest = mt->bo->virtual + dstlvl->faces[face].offset;
 
-		r300SetTexImages(rmesa, tObj);
-		r300UploadTexImages(rmesa, t, 0);
+	if (image->mt) {
+		/* Format etc. should match, so we really just need a memcpy().
+		 * In fact, that memcpy() could be done by the hardware in many
+		 * cases, provided that we have a proper memory manager.
+		 */
+		r300_mipmap_level *srclvl = &image->mt->levels[image->mtlevel];
+
+		assert(srclvl->size == dstlvl->size);
+		assert(srclvl->rowstride == dstlvl->rowstride);
+
+		dri_bo_map(image->mt->bo, GL_FALSE);
+		memcpy(dest,
+			image->mt->bo->virtual + srclvl->faces[face].offset,
+			dstlvl->size);
+		dri_bo_unmap(image->mt->bo);
+
+		r300_miptree_unreference(image->mt);
+	} else {
+		uint srcrowstride = image->base.Width * image->base.TexFormat->TexelBytes;
+
+		if (mt->tilebits)
+			WARN_ONCE("%s: tiling not supported yet", __FUNCTION__);
+
+		copy_rows(dest, dstlvl->rowstride, image->base.Data, srcrowstride,
+			image->base.Height * image->base.Depth, srcrowstride);
+
+		_mesa_free_texmemory(image->base.Data);
+		image->base.Data = 0;
 	}
 
-	return GL_TRUE;
+	dri_bo_unmap(mt->bo);
+
+	image->mt = mt;
+	image->mtface = face;
+	image->mtlevel = level;
+	r300_miptree_reference(image->mt);
 }
 
-static GLboolean r300EnableTexture3D(GLcontext * ctx, int unit)
+
+/**
+ * Ensure the given texture is ready for rendering.
+ *
+ * Mostly this means populating the texture object's mipmap tree.
+ */
+static GLboolean r300_validate_texture(GLcontext * ctx, struct gl_texture_object *texObj)
 {
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
-	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = r300_tex_obj(tObj);
+	r300TexObj *t = r300_tex_obj(texObj);
+	r300_texture_image *baseimage = get_r300_texture_image(texObj->Image[0][texObj->BaseLevel]);
+	int face, level;
 
-	ASSERT(tObj->Target == GL_TEXTURE_3D);
+	if (t->validated)
+		return GL_TRUE;
 
-	/* r300 does not support mipmaps for 3D textures. */
-	if ((tObj->MinFilter != GL_NEAREST) && (tObj->MinFilter != GL_LINEAR)) {
+	if (RADEON_DEBUG & DEBUG_TEXTURE)
+		fprintf(stderr, "%s: Validating texture %p now\n", __FUNCTION__, texObj);
+
+	if (baseimage->base.Border > 0)
 		return GL_FALSE;
+
+	/* Ensure a matching miptree exists.
+	 *
+	 * Differing mipmap trees can result when the app uses TexImage to
+	 * change texture dimensions.
+	 *
+	 * Prefer to use base image's miptree if it
+	 * exists, since that most likely contains more valid data (remember
+	 * that the base level is usually significantly larger than the rest
+	 * of the miptree, so cubemaps are the only possible exception).
+	 */
+	if (baseimage->mt &&
+	    baseimage->mt != t->mt &&
+	    r300_miptree_matches_texture(baseimage->mt, &t->base)) {
+		r300_miptree_unreference(t->mt);
+		t->mt = baseimage->mt;
+		r300_miptree_reference(t->mt);
+	} else if (t->mt && !r300_miptree_matches_texture(t->mt, &t->base)) {
+		r300_miptree_unreference(t->mt);
+		t->mt = 0;
 	}
 
-	if (!t->mt || t->dirty_images[0]) {
-		R300_FIREVERTICES(rmesa);
-		r300SetTexImages(rmesa, tObj);
-		r300UploadTexImages(rmesa, t, 0);
-	}
-
-	return GL_TRUE;
-}
-
-static GLboolean r300EnableTextureCube(GLcontext * ctx, int unit)
-{
-	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
-	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = r300_tex_obj(tObj);
-	GLuint face;
-
-	ASSERT(tObj->Target == GL_TEXTURE_CUBE_MAP);
-
-	if (!t->mt ||
-	    t->dirty_images[0] || t->dirty_images[1] ||
-	    t->dirty_images[2] || t->dirty_images[3] ||
-	    t->dirty_images[4] || t->dirty_images[5]) {
-		/* flush */
-		R300_FIREVERTICES(rmesa);
-		/* layout memory space, once for all faces */
-		r300SetTexImages(rmesa, tObj);
-	}
-
-	/* upload (per face) */
-	for (face = 0; face < 6; face++) {
-		if (t->dirty_images[face]) {
-			r300UploadTexImages(rmesa, t, face);
+	if (!t->mt) {
+		if (RADEON_DEBUG & DEBUG_TEXTURE)
+			fprintf(stderr, " Allocate new miptree\n");
+		r300_try_alloc_miptree(rmesa, t, &baseimage->base, 0, texObj->BaseLevel);
+		if (!t->mt) {
+			_mesa_problem(ctx, "r300_validate_texture failed to alloc miptree");
+			return GL_FALSE;
 		}
 	}
 
-	return GL_TRUE;
-}
+	/* Ensure all images are stored in the single main miptree */
+	for(face = 0; face < t->mt->faces; ++face) {
+		for(level = t->mt->firstLevel; level <= t->mt->lastLevel; ++level) {
+			r300_texture_image *image = get_r300_texture_image(texObj->Image[face][level]);
+			if (RADEON_DEBUG & DEBUG_TEXTURE)
+				fprintf(stderr, " face %i, level %i... ", face, level);
+			if (t->mt == image->mt) {
+				if (RADEON_DEBUG & DEBUG_TEXTURE)
+					fprintf(stderr, "OK\n");
+				continue;
+			}
 
-static GLboolean r300EnableTextureRect(GLcontext * ctx, int unit)
-{
-	r300ContextPtr rmesa = R300_CONTEXT(ctx);
-	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
-	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = r300_tex_obj(tObj);
-
-	ASSERT(tObj->Target == GL_TEXTURE_RECTANGLE_NV);
-
-	if (!t->mt || t->dirty_images[0]) {
-		R300_FIREVERTICES(rmesa);
-
-		r300SetTexImages(rmesa, tObj);
-		r300UploadTexImages(rmesa, t, 0);
+			if (RADEON_DEBUG & DEBUG_TEXTURE)
+				fprintf(stderr, "migrating\n");
+			migrate_image_to_miptree(t->mt, image, face, level);
+		}
 	}
 
+	/* Configure the hardware registers (more precisely, the cached version
+	 * of the hardware registers). */
+	setup_hardware_state(rmesa, t);
+
+	t->validated = GL_TRUE;
 	return GL_TRUE;
 }
 
-static GLboolean r300UpdateTexture(GLcontext * ctx, int unit)
+
+/**
+ * Ensure all enabled and complete textures are uploaded.
+ */
+void r300ValidateTextures(GLcontext * ctx)
 {
-	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
-	struct gl_texture_object *tObj = texUnit->_Current;
-	r300TexObjPtr t = r300_tex_obj(tObj);
+	int i;
 
-	/* Fallback if there's a texture border */
-	if (tObj->Image[0][tObj->BaseLevel]->Border > 0)
-		return GL_FALSE;
+	for (i = 0; i < ctx->Const.MaxTextureImageUnits; ++i) {
+		if (!ctx->Texture.Unit[i]._ReallyEnabled)
+			continue;
 
-	/* Fallback if memory upload didn't work */
-	if (!t->mt)
-		return GL_FALSE;
-
-	return GL_TRUE;
+		if (!r300_validate_texture(ctx, ctx->Texture.Unit[i]._Current)) {
+			_mesa_warning(ctx,
+				      "failed to validate texture for unit %d.\n",
+				      i);
+		}
+	}
 }
 
 void r300SetTexOffset(__DRIcontext * pDRICtx, GLint texname,
@@ -480,40 +454,4 @@ void r300SetTexOffset(__DRIcontext * pDRICtx, GLint texname,
 	pitch_val--;
 
 	t->pitch_reg |= pitch_val;
-}
-
-static GLboolean r300UpdateTextureUnit(GLcontext * ctx, int unit)
-{
-	struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
-
-	if (texUnit->_ReallyEnabled & (TEXTURE_RECT_BIT)) {
-		return (r300EnableTextureRect(ctx, unit) &&
-			r300UpdateTexture(ctx, unit));
-	} else if (texUnit->_ReallyEnabled & (TEXTURE_1D_BIT | TEXTURE_2D_BIT)) {
-		return (r300EnableTexture2D(ctx, unit) &&
-			r300UpdateTexture(ctx, unit));
-	} else if (texUnit->_ReallyEnabled & (TEXTURE_3D_BIT)) {
-		return (r300EnableTexture3D(ctx, unit) &&
-			r300UpdateTexture(ctx, unit));
-	} else if (texUnit->_ReallyEnabled & (TEXTURE_CUBE_BIT)) {
-		return (r300EnableTextureCube(ctx, unit) &&
-			r300UpdateTexture(ctx, unit));
-	} else if (texUnit->_ReallyEnabled) {
-		return GL_FALSE;
-	} else {
-		return GL_TRUE;
-	}
-}
-
-void r300UpdateTextureState(GLcontext * ctx)
-{
-	int i;
-
-	for (i = 0; i < 8; i++) {
-		if (!r300UpdateTextureUnit(ctx, i)) {
-			_mesa_warning(ctx,
-				      "failed to update texture state for unit %d.\n",
-				      i);
-		}
-	}
 }

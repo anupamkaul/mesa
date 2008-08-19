@@ -38,6 +38,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "context.h"
 #include "enums.h"
 #include "image.h"
+#include "mipmap.h"
 #include "simple_list.h"
 #include "texformat.h"
 #include "texstore.h"
@@ -119,6 +120,9 @@ static GLuint aniso_filter(GLfloat anisotropy)
  */
 static void r300SetTexFilter(r300TexObjPtr t, GLenum minf, GLenum magf, GLfloat anisotropy)
 {
+	/* Force revalidation to account for switches from/to mipmapping. */
+	t->validated = GL_FALSE;
+
 	t->filter &= ~(R300_TX_MIN_FILTER_MASK | R300_TX_MIN_FILTER_MIP_MASK | R300_TX_MAG_FILTER_MASK | R300_TX_MAX_ANISO_MASK);
 	t->filter_1 &= ~R300_EDGE_ANISO_EDGE_ONLY;
 
@@ -401,15 +405,217 @@ static const struct gl_texture_format *r300ChooseTextureFormat(GLcontext * ctx,
 	return NULL;		/* never get here */
 }
 
+
 /**
- * Marks the given face/level pair as dirty.
- * This will cause an appropriate texture reupload the next time this
- * texture is validated.
+ * Allocate an empty texture image object.
  */
-static void mark_texture_image_dirty(r300TexObj *t, int face, int level)
+static struct gl_texture_image *r300NewTextureImage(GLcontext *ctx)
 {
-	t->dirty_images[face] |= 1 << level;
+	return CALLOC(sizeof(r300_texture_image));
 }
+
+/**
+ * Free memory associated with this texture image.
+ */
+static void r300FreeTexImageData(GLcontext *ctx, struct gl_texture_image *timage)
+{
+	r300_texture_image* image = get_r300_texture_image(timage);
+
+	if (image->mt) {
+		r300_miptree_unreference(image->mt);
+		image->mt = 0;
+		assert(!image->base.Data);
+	} else {
+		_mesa_free_texture_image_data(ctx, timage);
+	}
+}
+
+
+/* Set Data pointer and additional data for mapped texture image */
+static void teximage_set_map_data(r300_texture_image *image)
+{
+	r300_mipmap_level *lvl = &image->mt->levels[image->mtlevel];
+	image->base.Data = image->mt->bo->virtual + lvl->faces[image->mtface].offset;
+	image->base.RowStride = lvl->rowstride / image->mt->bpp;
+}
+
+
+/**
+ * Map a single texture image for glTexImage and friends.
+ */
+static void r300_teximage_map(r300_texture_image *image, GLboolean write_enable)
+{
+	if (image->mt) {
+		assert(!image->base.Data);
+
+		dri_bo_map(image->mt->bo, write_enable);
+		teximage_set_map_data(image);
+	}
+}
+
+
+static void r300_teximage_unmap(r300_texture_image *image)
+{
+	if (image->mt) {
+		assert(image->base.Data);
+
+		image->base.Data = 0;
+		dri_bo_unmap(image->mt->bo);
+	}
+}
+
+/**
+ * Map a validated texture for reading during software rendering.
+ */
+static void r300MapTexture(GLcontext *ctx, struct gl_texture_object *texObj)
+{
+	r300TexObj* t = r300_tex_obj(texObj);
+	int face, level;
+
+	assert(texObj->_Complete);
+	assert(t->mt);
+
+	dri_bo_map(t->mt->bo, GL_FALSE);
+	for(face = 0; face < t->mt->faces; ++face) {
+		for(level = t->mt->firstLevel; level <= t->mt->lastLevel; ++level)
+			teximage_set_map_data(get_r300_texture_image(texObj->Image[face][level]));
+	}
+}
+
+static void r300UnmapTexture(GLcontext *ctx, struct gl_texture_object *texObj)
+{
+	r300TexObj* t = r300_tex_obj(texObj);
+	int face, level;
+
+	assert(texObj->_Complete);
+	assert(t->mt);
+
+	for(face = 0; face < t->mt->faces; ++face) {
+		for(level = t->mt->firstLevel; level <= t->mt->lastLevel; ++level)
+			texObj->Image[face][level]->Data = 0;
+	}
+	dri_bo_unmap(t->mt->bo);
+}
+
+/**
+ * All glTexImage calls go through this function.
+ */
+static void r300_teximage(
+	GLcontext *ctx, int dims,
+	GLint face, GLint level,
+	GLint internalFormat,
+	GLint width, GLint height, GLint depth,
+	GLsizei imageSize,
+	GLenum format, GLenum type, const GLvoid * pixels,
+	const struct gl_pixelstore_attrib *packing,
+	struct gl_texture_object *texObj,
+	struct gl_texture_image *texImage,
+	int compressed)
+{
+	r300ContextPtr rmesa = R300_CONTEXT(ctx);
+	r300TexObj* t = r300_tex_obj(texObj);
+	r300_texture_image* image = get_r300_texture_image(texImage);
+
+	R300_FIREVERTICES(rmesa);
+
+	t->validated = GL_FALSE;
+
+	/* Choose and fill in the texture format for this image */
+	texImage->TexFormat = r300ChooseTextureFormat(ctx, internalFormat, format, type);
+	_mesa_set_fetch_functions(texImage, dims);
+
+	if (texImage->TexFormat->TexelBytes == 0) {
+		texImage->IsCompressed = GL_TRUE;
+		texImage->CompressedSize =
+			ctx->Driver.CompressedTextureSize(ctx, texImage->Width,
+					   texImage->Height, texImage->Depth,
+					   texImage->TexFormat->MesaFormat);
+	} else {
+		texImage->IsCompressed = GL_FALSE;
+		texImage->CompressedSize = 0;
+	}
+
+	/* Allocate memory for image */
+	r300FreeTexImageData(ctx, texImage); /* Mesa core only clears texImage->Data but not image->mt */
+
+	if (!t->mt)
+		r300_try_alloc_miptree(rmesa, t, texImage, face, level);
+	if (t->mt && r300_miptree_matches_image(t->mt, texImage, face, level)) {
+		image->mt = t->mt;
+		image->mtlevel = level - t->mt->firstLevel;
+		image->mtface = face;
+		r300_miptree_reference(t->mt);
+	} else {
+		int size;
+		if (texImage->IsCompressed) {
+			size = texImage->CompressedSize;
+		} else {
+			size = texImage->Width * texImage->Height * texImage->Depth * texImage->TexFormat->TexelBytes;
+		}
+		texImage->Data = _mesa_alloc_texmemory(size);
+	}
+
+	/* Upload texture image; note that the spec allows pixels to be NULL */
+	if (compressed) {
+		pixels = _mesa_validate_pbo_compressed_teximage(
+			ctx, imageSize, pixels, packing, "glCompressedTexImage");
+	} else {
+		pixels = _mesa_validate_pbo_teximage(
+			ctx, dims, width, height, depth,
+			format, type, pixels, packing, "glTexImage");
+	}
+
+	if (pixels) {
+		r300_teximage_map(image, GL_TRUE);
+
+		if (compressed) {
+			memcpy(texImage->Data, pixels, imageSize);
+		} else {
+			GLuint dstRowStride;
+			if (image->mt) {
+				r300_mipmap_level *lvl = &image->mt->levels[image->mtlevel];
+				dstRowStride = lvl->rowstride;
+			} else {
+				dstRowStride = texImage->Width * texImage->TexFormat->TexelBytes;
+			}
+			if (!texImage->TexFormat->StoreImage(ctx, dims,
+						texImage->_BaseFormat,
+						texImage->TexFormat,
+						texImage->Data, 0, 0, 0, /* dstX/Y/Zoffset */
+						dstRowStride,
+						texImage->ImageOffsets,
+						width, height, depth,
+						format, type, pixels, packing))
+				_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
+		}
+
+		r300_teximage_unmap(image);
+	}
+
+	_mesa_unmap_teximage_pbo(ctx, packing);
+
+	/* SGIS_generate_mipmap */
+	if (level == texObj->BaseLevel && texObj->GenerateMipmap) {
+		ctx->Driver.GenerateMipmap(ctx, texObj->Target, texObj);
+	}
+}
+
+
+static GLuint face_for_target(GLenum target)
+{
+	switch (target) {
+	case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+	case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+	case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+		return (GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+	default:
+		return 0;
+	}
+}
+
 
 static void r300TexImage1D(GLcontext * ctx, GLenum target, GLint level,
 			   GLint internalFormat,
@@ -419,31 +625,8 @@ static void r300TexImage1D(GLcontext * ctx, GLenum target, GLint level,
 			   struct gl_texture_object *texObj,
 			   struct gl_texture_image *texImage)
 {
-	r300TexObj* t = r300_tex_obj(texObj);
-
-	_mesa_store_teximage1d(ctx, target, level, internalFormat,
-			       width, border, format, type, pixels,
-			       &ctx->Unpack, texObj, texImage);
-
-	mark_texture_image_dirty(t, 0, level);
-}
-
-static void r300TexSubImage1D(GLcontext * ctx, GLenum target, GLint level,
-			      GLint xoffset,
-			      GLsizei width,
-			      GLenum format, GLenum type,
-			      const GLvoid * pixels,
-			      const struct gl_pixelstore_attrib *packing,
-			      struct gl_texture_object *texObj,
-			      struct gl_texture_image *texImage)
-{
-	r300TexObj* t = r300_tex_obj(texObj);
-
-	_mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
-				  format, type, pixels, packing, texObj,
-				  texImage);
-
-	mark_texture_image_dirty(t, 0, level);
+	r300_teximage(ctx, 1, 0, level, internalFormat, width, 1, 1,
+		0, format, type, pixels, packing, texObj, texImage, 0);
 }
 
 static void r300TexImage2D(GLcontext * ctx, GLenum target, GLint level,
@@ -454,77 +637,10 @@ static void r300TexImage2D(GLcontext * ctx, GLenum target, GLint level,
 			   struct gl_texture_object *texObj,
 			   struct gl_texture_image *texImage)
 {
-	r300TexObj* t = r300_tex_obj(texObj);
-	GLuint face;
+	GLuint face = face_for_target(target);
 
-	/* which cube face or ordinary 2D image */
-	switch (target) {
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-		face =
-		    (GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X;
-		ASSERT(face < 6);
-		break;
-	default:
-		face = 0;
-	}
-
-	texImage->IsClientData = GL_FALSE;
-
-	if (RADEON_DEBUG & DEBUG_TEXTURE)
-		fprintf(stderr, "%s: Using normal storage\n",
-			__FUNCTION__);
-
-	/* Normal path: copy (to cached memory) and eventually upload
-	 * via another copy to GART memory and then a blit...  Could
-	 * eliminate one copy by going straight to (permanent) GART.
-	 *
-	 * Note, this will call r300ChooseTextureFormat.
-	 */
-	_mesa_store_teximage2d(ctx, target, level, internalFormat,
-				width, height, border, format, type,
-				pixels, &ctx->Unpack, texObj, texImage);
-
-	mark_texture_image_dirty(t, face, level);
-}
-
-static void r300TexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
-			      GLint xoffset, GLint yoffset,
-			      GLsizei width, GLsizei height,
-			      GLenum format, GLenum type,
-			      const GLvoid * pixels,
-			      const struct gl_pixelstore_attrib *packing,
-			      struct gl_texture_object *texObj,
-			      struct gl_texture_image *texImage)
-{
-	r300TexObj* t = r300_tex_obj(texObj);
-	GLuint face;
-
-	/* which cube face or ordinary 2D image */
-	switch (target) {
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-		face =
-		    (GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X;
-		ASSERT(face < 6);
-		break;
-	default:
-		face = 0;
-	}
-
-	_mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
-				  height, format, type, pixels, packing, texObj,
-				  texImage);
-
-	mark_texture_image_dirty(t, face, level);
+	r300_teximage(ctx, 2, face, level, internalFormat, width, height, 1,
+		0, format, type, pixels, packing, texObj, texImage, 0);
 }
 
 static void r300CompressedTexImage2D(GLcontext * ctx, GLenum target,
@@ -534,77 +650,10 @@ static void r300CompressedTexImage2D(GLcontext * ctx, GLenum target,
 				     struct gl_texture_object *texObj,
 				     struct gl_texture_image *texImage)
 {
-	r300TexObj* t = r300_tex_obj(texObj);
-	GLuint face;
+	GLuint face = face_for_target(target);
 
-	/* which cube face or ordinary 2D image */
-	switch (target) {
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-		face =
-		    (GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X;
-		ASSERT(face < 6);
-		break;
-	default:
-		face = 0;
-	}
-
-	texImage->IsClientData = GL_FALSE;
-
-	if (RADEON_DEBUG & DEBUG_TEXTURE)
-		fprintf(stderr, "%s: Using normal storage\n",
-			__FUNCTION__);
-
-	/* Normal path: copy (to cached memory) and eventually upload
-	 * via another copy to GART memory and then a blit...  Could
-	 * eliminate one copy by going straight to (permanent) GART.
-	 *
-	 * Note, this will call r300ChooseTextureFormat.
-	 */
-	_mesa_store_compressed_teximage2d(ctx, target, level,
-						internalFormat, width, height,
-						border, imageSize, data,
-						texObj, texImage);
-
-	mark_texture_image_dirty(t, face, level);
-}
-
-static void r300CompressedTexSubImage2D(GLcontext * ctx, GLenum target,
-					GLint level, GLint xoffset,
-					GLint yoffset, GLsizei width,
-					GLsizei height, GLenum format,
-					GLsizei imageSize, const GLvoid * data,
-					struct gl_texture_object *texObj,
-					struct gl_texture_image *texImage)
-{
-	r300TexObj* t = r300_tex_obj(texObj);
-	GLuint face;
-
-	/* which cube face or ordinary 2D image */
-	switch (target) {
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-		face =
-		    (GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X;
-		ASSERT(face < 6);
-		break;
-	default:
-		face = 0;
-	}
-
-	_mesa_store_compressed_texsubimage2d(ctx, target, level, xoffset,
-					     yoffset, width, height, format,
-					     imageSize, data, texObj, texImage);
-
-	mark_texture_image_dirty(t, face, level);
+	r300_teximage(ctx, 2, face, level, internalFormat, width, height, 1,
+		imageSize, 0, 0, data, 0, texObj, texImage, 1);
 }
 
 static void r300TexImage3D(GLcontext * ctx, GLenum target, GLint level,
@@ -616,26 +665,98 @@ static void r300TexImage3D(GLcontext * ctx, GLenum target, GLint level,
 			   struct gl_texture_object *texObj,
 			   struct gl_texture_image *texImage)
 {
-	r300TexObj* t = r300_tex_obj(texObj);
+	r300_teximage(ctx, 3, 0, level, internalFormat, width, height, depth,
+		0, format, type, pixels, packing, texObj, texImage, 0);
+}
 
-	texImage->IsClientData = GL_FALSE;
+/**
+ * Update a subregion of the given texture image.
+ */
+static void r300_texsubimage(GLcontext* ctx, int dims, int level,
+		GLint xoffset, GLint yoffset, GLint zoffset,
+		GLsizei width, GLsizei height, GLsizei depth,
+		GLenum format, GLenum type,
+		const GLvoid * pixels,
+		const struct gl_pixelstore_attrib *packing,
+		struct gl_texture_object *texObj,
+		struct gl_texture_image *texImage,
+		int compressed)
+{
+	r300ContextPtr rmesa = R300_CONTEXT(ctx);
+	r300_texture_image* image = get_r300_texture_image(texImage);
 
-	if (RADEON_DEBUG & DEBUG_TEXTURE)
-		fprintf(stderr, "%s: Using normal storage\n",
-			__FUNCTION__);
+	R300_FIREVERTICES(rmesa);
 
-	/* Normal path: copy (to cached memory) and eventually upload
-	 * via another copy to GART memory and then a blit...  Could
-	 * eliminate one copy by going straight to (permanent) GART.
-	 *
-	 * Note, this will call r300ChooseTextureFormat.
-	 */
-	_mesa_store_teximage3d(ctx, target, level, internalFormat,
-				width, height, depth, border,
-				format, type, pixels,
-				&ctx->Unpack, texObj, texImage);
+	pixels = _mesa_validate_pbo_teximage(ctx, dims,
+		width, height, depth, format, type, pixels, packing, "glTexSubImage1D");
 
-	mark_texture_image_dirty(t, 0, level);
+	if (pixels) {
+		GLint dstRowStride;
+		r300_teximage_map(image, GL_TRUE);
+
+		if (image->mt) {
+			r300_mipmap_level *lvl = &image->mt->levels[image->mtlevel];
+			dstRowStride = lvl->rowstride;
+		} else {
+			dstRowStride = texImage->Width * texImage->TexFormat->TexelBytes;
+		}
+
+		if (!texImage->TexFormat->StoreImage(ctx, dims, texImage->_BaseFormat,
+				texImage->TexFormat, texImage->Data,
+				xoffset, yoffset, zoffset,
+				dstRowStride,
+				texImage->ImageOffsets,
+				width, height, depth,
+				format, type, pixels, packing))
+			_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage");
+
+		r300_teximage_unmap(image);
+	}
+
+	_mesa_unmap_teximage_pbo(ctx, packing);
+
+	/* GL_SGIS_generate_mipmap */
+	if (level == texObj->BaseLevel && texObj->GenerateMipmap) {
+		ctx->Driver.GenerateMipmap(ctx, texObj->Target, texObj);
+	}
+}
+
+static void r300TexSubImage1D(GLcontext * ctx, GLenum target, GLint level,
+			      GLint xoffset,
+			      GLsizei width,
+			      GLenum format, GLenum type,
+			      const GLvoid * pixels,
+			      const struct gl_pixelstore_attrib *packing,
+			      struct gl_texture_object *texObj,
+			      struct gl_texture_image *texImage)
+{
+	r300_texsubimage(ctx, 1, level, xoffset, 0, 0, width, 1, 1,
+		format, type, pixels, packing, texObj, texImage, 0);
+}
+
+static void r300TexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
+			      GLint xoffset, GLint yoffset,
+			      GLsizei width, GLsizei height,
+			      GLenum format, GLenum type,
+			      const GLvoid * pixels,
+			      const struct gl_pixelstore_attrib *packing,
+			      struct gl_texture_object *texObj,
+			      struct gl_texture_image *texImage)
+{
+	r300_texsubimage(ctx, 2, level, xoffset, yoffset, 0, width, height, 1,
+		format, type, pixels, packing, texObj, texImage, 0);
+}
+
+static void r300CompressedTexSubImage2D(GLcontext * ctx, GLenum target,
+					GLint level, GLint xoffset,
+					GLint yoffset, GLsizei width,
+					GLsizei height, GLenum format,
+					GLsizei imageSize, const GLvoid * data,
+					struct gl_texture_object *texObj,
+					struct gl_texture_image *texImage)
+{
+	r300_texsubimage(ctx, 2, level, xoffset, yoffset, 0, width, height, 1,
+		format, 0, data, 0, texObj, texImage, 1);
 }
 
 static void
@@ -648,15 +769,28 @@ r300TexSubImage3D(GLcontext * ctx, GLenum target, GLint level,
 		  struct gl_texture_object *texObj,
 		  struct gl_texture_image *texImage)
 {
-	r300TexObj* t = r300_tex_obj(texObj);
-
-	_mesa_store_texsubimage3d(ctx, target, level, xoffset, yoffset, zoffset,
-				  width, height, depth,
-				  format, type, pixels, packing, texObj,
-				  texImage);
-
-	mark_texture_image_dirty(t, 0, level);
+	r300_texsubimage(ctx, 3, level, xoffset, yoffset, zoffset, width, height, depth,
+		format, type, pixels, packing, texObj, texImage, 0);
 }
+
+
+/**
+ * Wraps Mesa's implementation to ensure that the base level image is mapped.
+ *
+ * This relies on internal details of _mesa_generate_mipmap, in particular
+ * the fact that the memory for recreated texture images is always freed.
+ */
+static void r300_generate_mipmap(GLcontext* ctx, GLenum target, struct gl_texture_object *texObj)
+{
+	GLuint face = face_for_target(target);
+	r300_texture_image *baseimage = get_r300_texture_image(texObj->Image[face][texObj->BaseLevel]);
+
+	r300_teximage_map(baseimage, GL_FALSE);
+	_mesa_generate_mipmap(ctx, target, texObj);
+	r300_teximage_unmap(baseimage);
+}
+
+
 
 /**
  * Changes variables and flags for a state update, which will happen at the
@@ -701,8 +835,9 @@ static void r300TexParameter(GLcontext * ctx, GLenum target,
 		 * to simulate a clamped LOD.
 		 */
 		if (t->mt) {
-			r300_miptree_destroy(t->mt);
+			r300_miptree_unreference(t->mt);
 			t->mt = 0;
+			t->validated = GL_FALSE;
 		}
 		break;
 
@@ -747,7 +882,7 @@ static void r300DeleteTexture(GLcontext * ctx, struct gl_texture_object *texObj)
 	}
 
 	if (t->mt) {
-		r300_miptree_destroy(t->mt);
+		r300_miptree_unreference(t->mt);
 		t->mt = 0;
 	}
 	_mesa_delete_texture_object(ctx, texObj);
@@ -789,6 +924,11 @@ void r300InitTextureFuncs(struct dd_function_table *functions)
 	/* Note: we only plug in the functions we implement in the driver
 	 * since _mesa_init_driver_functions() was already called.
 	 */
+	functions->NewTextureImage = r300NewTextureImage;
+	functions->FreeTexImageData = r300FreeTexImageData;
+	functions->MapTexture = r300MapTexture;
+	functions->UnmapTexture = r300UnmapTexture;
+
 	functions->ChooseTextureFormat = r300ChooseTextureFormat;
 	functions->TexImage1D = r300TexImage1D;
 	functions->TexImage2D = r300TexImage2D;
@@ -804,6 +944,8 @@ void r300InitTextureFuncs(struct dd_function_table *functions)
 
 	functions->CompressedTexImage2D = r300CompressedTexImage2D;
 	functions->CompressedTexSubImage2D = r300CompressedTexSubImage2D;
+
+	functions->GenerateMipmap = r300_generate_mipmap;
 
 	driInitTextureFormats();
 }

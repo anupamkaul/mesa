@@ -299,6 +299,11 @@ static void radeonSpanRenderStart(GLcontext * ctx)
 	RADEON_FIREVERTICES(rmesa);
 #endif
 
+	for (i = 0; i < ctx->Const.MaxTextureImageUnits; i++) {
+		if (ctx->Texture.Unit[i]._ReallyEnabled)
+			ctx->Driver.MapTexture(ctx, ctx->Texture.Unit[i]._Current);
+	}
+
 	/* color draw buffers */
 	for (i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; i++)
 		map_buffer(ctx->DrawBuffer->_ColorDrawBuffers[i], GL_TRUE);
@@ -325,6 +330,11 @@ static void radeonSpanRenderFinish(GLcontext * ctx)
 	int i;
 	_swrast_flush(ctx);
 	UNLOCK_HARDWARE(rmesa);
+
+	for (i = 0; i < ctx->Const.MaxTextureImageUnits; i++) {
+		if (ctx->Texture.Unit[i]._ReallyEnabled)
+			ctx->Driver.UnmapTexture(ctx, ctx->Texture.Unit[i]._Current);
+	}
 
 	/* color draw buffers */
 	for (i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; i++)

@@ -35,7 +35,7 @@ typedef struct _r300_mipmap_level r300_mipmap_level;
 typedef struct _r300_mipmap_image r300_mipmap_image;
 
 struct _r300_mipmap_image {
-	GLuint offset; /** Offset of this image from the start of mipmap tree, in bytes */
+	GLuint offset; /** Offset of this image from the start of mipmap tree buffer, in bytes */
 };
 
 struct _r300_mipmap_level {
@@ -43,6 +43,7 @@ struct _r300_mipmap_level {
 	GLuint height;
 	GLuint depth;
 	GLuint size; /** Size of each image, in bytes */
+	GLuint rowstride; /** in bytes */
 	r300_mipmap_image faces[6];
 };
 
@@ -59,6 +60,7 @@ struct _r300_mipmap_tree {
 	r300ContextPtr r300;
 	r300TexObj *t;
 	dri_bo *bo;
+	GLuint refcount;
 
 	GLuint totalsize; /** total size of the miptree, in bytes */
 
@@ -67,9 +69,9 @@ struct _r300_mipmap_tree {
 	GLuint firstLevel; /** First mip level stored in this mipmap tree */
 	GLuint lastLevel; /** Last mip level stored in this mipmap tree */
 
-	GLuint width0; /** Width of level 0 image */
-	GLuint height0; /** Height of level 0 image */
-	GLuint depth0; /** Depth of level 0 image */
+	GLuint width0; /** Width of firstLevel image */
+	GLuint height0; /** Height of firstLevel image */
+	GLuint depth0; /** Depth of firstLevel image */
 
 	GLuint bpp; /** Bytes per texel */
 	GLuint tilebits; /** R300_TXO_xxx_TILE */
@@ -82,10 +84,14 @@ r300_mipmap_tree* r300_miptree_create(r300ContextPtr rmesa, r300TexObj *t,
 		GLenum target, GLuint firstLevel, GLuint lastLevel,
 		GLuint width0, GLuint height0, GLuint depth0,
 		GLuint bpp, GLuint tilebits, GLuint compressed);
-void r300_miptree_destroy(r300_mipmap_tree *mt);
+void r300_miptree_reference(r300_mipmap_tree *mt);
+void r300_miptree_unreference(r300_mipmap_tree *mt);
 
-void r300_miptree_upload_image(r300_mipmap_tree *mt, GLuint face, GLuint level,
-			       struct gl_texture_image *texImage);
+GLboolean r300_miptree_matches_image(r300_mipmap_tree *mt,
+		struct gl_texture_image *texImage, GLuint face, GLuint level);
+GLboolean r300_miptree_matches_texture(r300_mipmap_tree *mt, struct gl_texture_object *texObj);
+void r300_try_alloc_miptree(r300ContextPtr rmesa, r300TexObj *t,
+		struct gl_texture_image *texImage, GLuint face, GLuint level);
 
 
 #endif /* __R300_MIPMAP_TREE_H_ */

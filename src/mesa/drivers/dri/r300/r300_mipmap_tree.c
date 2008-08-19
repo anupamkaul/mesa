@@ -72,19 +72,28 @@ static void compute_tex_image_offset(r300_mipmap_tree *mt,
 
 	/* Find image size in bytes */
 	if (mt->compressed) {
+		/* TODO: Is this correct? Need test cases for compressed textures! */
+		GLuint align;
+
+		if (mt->target == GL_TEXTURE_RECTANGLE_NV)
+			align = 64 / mt->bpp;
+		else
+			align = 32 / mt->bpp;
+		lvl->rowstride = (lvl->width + align - 1) & ~(align - 1);
 		lvl->size = r300_compressed_texture_size(mt->r300->radeon.glCtx,
 			lvl->width, lvl->height, lvl->depth, mt->compressed);
 	} else if (mt->target == GL_TEXTURE_RECTANGLE_NV) {
-		lvl->size = ((lvl->width * mt->bpp + 63) & ~63) * lvl->height;
+		lvl->rowstride = (lvl->width * mt->bpp + 63) & ~63;
+		lvl->size = lvl->rowstride * lvl->height;
 	} else if (mt->tilebits & R300_TXO_MICRO_TILE) {
 		/* tile pattern is 16 bytes x2. mipmaps stay 32 byte aligned,
 		 * though the actual offset may be different (if texture is less than
 		 * 32 bytes width) to the untiled case */
-		int w = (lvl->width * mt->bpp * 2 + 31) & ~31;
-		lvl->size = (w * ((lvl->height + 1) / 2)) * lvl->depth;
+		lvl->rowstride = (lvl->width * mt->bpp * 2 + 31) & ~31;
+		lvl->size = lvl->rowstride * ((lvl->height + 1) / 2) * lvl->depth;
 	} else {
-		int w = (lvl->width * mt->bpp + 31) & ~31;
-		lvl->size = w * lvl->height * lvl->depth;
+		lvl->rowstride = (lvl->width * mt->bpp + 31) & ~31;
+		lvl->size = lvl->rowstride * lvl->height * lvl->depth;
 	}
 	assert(lvl->size > 0);
 
@@ -115,9 +124,9 @@ static void calculate_miptree_layout(r300_mipmap_tree *mt)
 	for(i = 0; i < numLevels; i++) {
 		GLuint face;
 
-		mt->levels[i].width = minify(mt->width0, mt->firstLevel + i);
-		mt->levels[i].height = minify(mt->height0, mt->firstLevel + i);
-		mt->levels[i].depth = minify(mt->depth0, mt->firstLevel + i);
+		mt->levels[i].width = minify(mt->width0, i);
+		mt->levels[i].height = minify(mt->height0, i);
+		mt->levels[i].depth = minify(mt->depth0, i);
 
 		for(face = 0; face < mt->faces; face++)
 			compute_tex_image_offset(mt, face, i, &curOffset);
@@ -139,6 +148,7 @@ r300_mipmap_tree* r300_miptree_create(r300ContextPtr rmesa, r300TexObj *t,
 	r300_mipmap_tree *mt = CALLOC_STRUCT(_r300_mipmap_tree);
 
 	mt->r300 = rmesa;
+	mt->refcount = 1;
 	mt->t = t;
 	mt->target = target;
 	mt->faces = (target == GL_TEXTURE_CUBE_MAP) ? 6 : 1;
@@ -158,91 +168,149 @@ r300_mipmap_tree* r300_miptree_create(r300ContextPtr rmesa, r300TexObj *t,
 	return mt;
 }
 
-/**
- * Destroy the given mipmap tree.
- */
-void r300_miptree_destroy(r300_mipmap_tree *mt)
+void r300_miptree_reference(r300_mipmap_tree *mt)
 {
-	dri_bo_unreference(mt->bo);
-	free(mt);
+	mt->refcount++;
+	assert(mt->refcount > 0);
 }
 
-/*
- * XXX Move this into core Mesa?
- */
-static void
-_mesa_copy_rect(GLubyte * dst,
-                GLuint cpp,
-                GLuint dst_pitch,
-                GLuint dst_x,
-                GLuint dst_y,
-                GLuint width,
-                GLuint height,
-                const GLubyte * src,
-                GLuint src_pitch, GLuint src_x, GLuint src_y)
+void r300_miptree_unreference(r300_mipmap_tree *mt)
 {
-   GLuint i;
+	if (!mt)
+		return;
 
-   dst_pitch *= cpp;
-   src_pitch *= cpp;
-   dst += dst_x * cpp;
-   src += src_x * cpp;
-   dst += dst_y * dst_pitch;
-   src += src_y * dst_pitch;
-   width *= cpp;
-
-   if (width == dst_pitch && width == src_pitch)
-      memcpy(dst, src, height * width);
-   else {
-      for (i = 0; i < height; i++) {
-         memcpy(dst, src, width);
-         dst += dst_pitch;
-         src += src_pitch;
-      }
-   }
+	assert(mt->refcount > 0);
+	mt->refcount--;
+	if (!mt->refcount) {
+		dri_bo_unreference(mt->bo);
+		free(mt);
+	}
 }
 
-/**
- * Upload the given texture image to the given face/level of the mipmap tree.
- * \param level of the texture, i.e. \c level==mt->firstLevel is the first hw level
- */
-void r300_miptree_upload_image(r300_mipmap_tree *mt, GLuint face, GLuint level,
-			       struct gl_texture_image *texImage)
+
+static void calculate_first_last_level(struct gl_texture_object *tObj,
+				       GLuint *pfirstLevel, GLuint *plastLevel)
 {
-	GLuint hwlevel = level - mt->firstLevel;
-	r300_mipmap_level *lvl = &mt->levels[hwlevel];
-	void *dest;
+	const struct gl_texture_image * const baseImage =
+		tObj->Image[0][tObj->BaseLevel];
 
-	assert(face < mt->faces);
-	assert(level >= mt->firstLevel && level <= mt->lastLevel);
-	assert(texImage && texImage->Data);
-	assert(texImage->Width == lvl->width);
-	assert(texImage->Height == lvl->height);
-	assert(texImage->Depth == lvl->depth);
+	/* These must be signed values.  MinLod and MaxLod can be negative numbers,
+	* and having firstLevel and lastLevel as signed prevents the need for
+	* extra sign checks.
+	*/
+	int   firstLevel;
+	int   lastLevel;
 
-	dri_bo_map(mt->bo, GL_TRUE);
-
-	dest = mt->bo->virtual + lvl->faces[face].offset;
-
-	if (mt->tilebits)
-		WARN_ONCE("%s: tiling not supported yet", __FUNCTION__);
-
-	if (!mt->compressed) {
-		GLuint dst_align;
-		GLuint dst_pitch = lvl->width;
-		GLuint src_pitch = lvl->width;
-
-		if (mt->target == GL_TEXTURE_RECTANGLE_NV)
-			dst_align = 64 / mt->bpp;
-		else
-			dst_align = 32 / mt->bpp;
-		dst_pitch = (dst_pitch + dst_align - 1) & ~(dst_align - 1);
-
-		_mesa_copy_rect(dest, mt->bpp, dst_pitch, 0, 0, lvl->width, lvl->height,
-				texImage->Data, src_pitch, 0, 0);
-	} else {
-		memcpy(dest, texImage->Data, lvl->size);
+	/* Yes, this looks overly complicated, but it's all needed.
+	*/
+	switch (tObj->Target) {
+	case GL_TEXTURE_1D:
+	case GL_TEXTURE_2D:
+	case GL_TEXTURE_3D:
+	case GL_TEXTURE_CUBE_MAP:
+		if (tObj->MinFilter == GL_NEAREST || tObj->MinFilter == GL_LINEAR) {
+			/* GL_NEAREST and GL_LINEAR only care about GL_TEXTURE_BASE_LEVEL.
+			*/
+			firstLevel = lastLevel = tObj->BaseLevel;
+		} else {
+			firstLevel = tObj->BaseLevel + (GLint)(tObj->MinLod + 0.5);
+			firstLevel = MAX2(firstLevel, tObj->BaseLevel);
+			firstLevel = MIN2(firstLevel, tObj->BaseLevel + baseImage->MaxLog2);
+			lastLevel = tObj->BaseLevel + (GLint)(tObj->MaxLod + 0.5);
+			lastLevel = MAX2(lastLevel, tObj->BaseLevel);
+			lastLevel = MIN2(lastLevel, tObj->BaseLevel + baseImage->MaxLog2);
+			lastLevel = MIN2(lastLevel, tObj->MaxLevel);
+			lastLevel = MAX2(firstLevel, lastLevel); /* need at least one level */
+		}
+		break;
+	case GL_TEXTURE_RECTANGLE_NV:
+	case GL_TEXTURE_4D_SGIS:
+		firstLevel = lastLevel = 0;
+		break;
+	default:
+		return;
 	}
 
-	dri_bo_unmap(mt->bo);
+	/* save these values */
+	*pfirstLevel = firstLevel;
+	*plastLevel = lastLevel;
+}
+
+
+/**
+ * Checks whether the given miptree can hold the given texture image at the
+ * given face and level.
+ */
+GLboolean r300_miptree_matches_image(r300_mipmap_tree *mt,
+		struct gl_texture_image *texImage, GLuint face, GLuint level)
+{
+	r300_mipmap_level *lvl;
+
+	if (face >= mt->faces || level < mt->firstLevel || level > mt->lastLevel)
+		return GL_FALSE;
+
+	if (texImage->TexFormat->TexelBytes != mt->bpp)
+		return GL_FALSE;
+
+	lvl = &mt->levels[level - mt->firstLevel];
+	if (lvl->width != texImage->Width ||
+	    lvl->height != texImage->Height ||
+	    lvl->depth != texImage->Depth)
+		return GL_FALSE;
+
+	return GL_TRUE;
+}
+
+
+/**
+ * Checks whether the given miptree has the right format to store the given texture object.
+ */
+GLboolean r300_miptree_matches_texture(r300_mipmap_tree *mt, struct gl_texture_object *texObj)
+{
+	struct gl_texture_image *firstImage;
+	GLuint compressed;
+	GLuint numfaces = 1;
+	GLuint firstLevel, lastLevel;
+
+	calculate_first_last_level(texObj, &firstLevel, &lastLevel);
+	if (texObj->Target == GL_TEXTURE_CUBE_MAP)
+		numfaces = 6;
+
+	firstImage = texObj->Image[0][firstLevel];
+	compressed = firstImage->IsCompressed ? firstImage->TexFormat->MesaFormat : 0;
+
+	return (mt->firstLevel == firstLevel &&
+	        mt->lastLevel == lastLevel &&
+	        mt->width0 == firstImage->Width &&
+	        mt->height0 == firstImage->Height &&
+	        mt->depth0 == firstImage->Depth &&
+	        mt->bpp == firstImage->TexFormat->TexelBytes &&
+	        mt->compressed == compressed);
+}
+
+
+/**
+ * Try to allocate a mipmap tree for the given texture that will fit the
+ * given image in the given position.
+ */
+void r300_try_alloc_miptree(r300ContextPtr rmesa, r300TexObj *t,
+		struct gl_texture_image *texImage, GLuint face, GLuint level)
+{
+	GLuint compressed = texImage->IsCompressed ? texImage->TexFormat->MesaFormat : 0;
+	GLuint numfaces = 1;
+	GLuint firstLevel, lastLevel;
+
+	assert(!t->mt);
+
+	calculate_first_last_level(&t->base, &firstLevel, &lastLevel);
+	if (t->base.Target == GL_TEXTURE_CUBE_MAP)
+		numfaces = 6;
+
+	if (level != firstLevel || face >= numfaces)
+		return;
+
+	t->mt = r300_miptree_create(rmesa, t, t->base.Target,
+		firstLevel, lastLevel,
+		texImage->Width, texImage->Height, texImage->Depth,
+		texImage->TexFormat->TexelBytes, t->tile_bits, compressed);
 }

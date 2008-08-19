@@ -2206,8 +2206,6 @@ static void r300ResetHwState(r300ContextPtr r300)
 
 	r300UpdateCulling(ctx);
 
-	r300UpdateTextureState(ctx);
-
 	r300SetBlendState(ctx);
 	r300SetLogicOpState(ctx);
 
@@ -2630,7 +2628,7 @@ void r300UpdateShaderStates(r300ContextPtr rmesa)
 	GLcontext *ctx;
 	ctx = rmesa->radeon.glCtx;
 
-	r300UpdateTextureState(ctx);
+	r300ValidateTextures(ctx);
 	r300SetEarlyZState(ctx);
 
 	GLuint fgdepthsrc = R300_FG_DEPTH_SRC_SCAN;

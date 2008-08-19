@@ -144,16 +144,45 @@ struct r300_dma {
 	GLuint nr_released_bufs;
 };
 
-       /* Texture related */
-
+/* Texture related */
 typedef struct r300_tex_obj r300TexObj, *r300TexObjPtr;
+typedef struct _r300_texture_image r300_texture_image;
+
+
+struct _r300_texture_image {
+	struct gl_texture_image base;
+
+	/**
+	 * If mt != 0, the image is stored in hardware format in the
+	 * given mipmap tree. In this case, base.Data may point into the
+	 * mapping of the buffer object that contains the mipmap tree.
+	 *
+	 * If mt == 0, the image is stored in normal memory pointed to
+	 * by base.Data.
+	 */
+	struct _r300_mipmap_tree *mt;
+
+	int mtlevel; /** if mt != 0, this is the image's level in the mipmap tree */
+	int mtface; /** if mt != 0, this is the image's face in the mipmap tree */
+};
+
+static INLINE r300_texture_image *get_r300_texture_image(struct gl_texture_image *image)
+{
+	return (r300_texture_image*)image;
+}
+
 
 /* Texture object in locally shared texture space.
  */
 struct r300_tex_obj {
 	struct gl_texture_object base;
 	struct _r300_mipmap_tree *mt;
-	GLuint dirty_images[6];
+
+	/**
+	 * This is true if we've verified that the mipmap tree above is complete
+	 * and so on.
+	 */
+	GLboolean validated;
 
 	GLboolean image_override;	/* Image overridden by GLX_EXT_tfp */
 	GLuint override_offset;
