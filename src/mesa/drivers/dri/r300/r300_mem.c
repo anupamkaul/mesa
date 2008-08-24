@@ -521,6 +521,20 @@ static const radeon_bo_functions vram_bo_functions = {
 };
 
 /**
+ * Free a VRAM-based buffer object.
+ */
+static void static_free(radeon_bo_classic *bo_base)
+{
+	radeon_bo_vram *bo = get_bo_vram(bo_base);
+
+	free(bo);
+}
+
+static const radeon_bo_functions static_bo_functions = {
+	.free = static_free,
+};
+
+/**
  * Allocate a backing store buffer object that is validated into VRAM.
  */
 static dri_bo *vram_alloc(radeon_bufmgr_classic *bufmgr, const char *name,
@@ -534,7 +548,6 @@ static dri_bo *vram_alloc(radeon_bufmgr_classic *bufmgr, const char *name,
 	init_buffer(bufmgr, &bo->base, size);
 	return &bo->base.base;
 }
-
 
 static dri_bo *bufmgr_classic_bo_alloc(dri_bufmgr *bufmgr_ctx, const char *name,
 		unsigned long size, unsigned int alignment,
@@ -551,6 +564,21 @@ static dri_bo *bufmgr_classic_bo_alloc(dri_bufmgr *bufmgr_ctx, const char *name,
 	}
 }
 
+static dri_bo *bufmgr_classic_bo_alloc_static(dri_bufmgr *bufmgr_ctx, const char *name,
+					      unsigned long offset, unsigned long size,
+					      void *virtual, uint64_t location_mask)
+{
+  	radeon_bufmgr_classic* bufmgr = get_bufmgr_classic(bufmgr_ctx);
+	radeon_bo_vram* bo = (radeon_bo_vram*)calloc(1, sizeof(radeon_bo_vram));
+
+	bo->base.functions = &static_bo_functions;
+	bo->base.base.virtual = virtual;
+	bo->base.base.offset = offset;
+
+	init_buffer(bufmgr, &bo->base, size);
+	return &bo->base.base;
+
+}
 
 static void bufmgr_classic_bo_reference(dri_bo *bo_base)
 {
@@ -784,6 +812,7 @@ radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
 
 	bufmgr->rmesa = rmesa;
 	bufmgr->base.base.bo_alloc = &bufmgr_classic_bo_alloc;
+	bufmgr->base.base.bo_alloc_static = bufmgr_classic_bo_alloc_static;
 	bufmgr->base.base.bo_reference = &bufmgr_classic_bo_reference;
 	bufmgr->base.base.bo_unreference = &bufmgr_classic_bo_unreference;
 	bufmgr->base.base.bo_map = &bufmgr_classic_bo_map;
