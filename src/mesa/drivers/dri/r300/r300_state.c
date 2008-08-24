@@ -55,6 +55,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "radeon_ioctl.h"
 #include "radeon_state.h"
+#include "radeon_buffer.h"
 #include "r300_context.h"
 #include "r300_ioctl.h"
 #include "r300_state.h"
@@ -1148,39 +1149,25 @@ void r300UpdateDrawBuffer(GLcontext * ctx)
 	r300ContextPtr rmesa = R300_CONTEXT(ctx);
 	r300ContextPtr r300 = rmesa;
 	struct gl_framebuffer *fb = ctx->DrawBuffer;
-	driRenderbuffer *drb;
+	struct radeon_renderbuffer *rrb;
 
 	if (fb->_ColorDrawBufferIndexes[0] == BUFFER_FRONT_LEFT) {
 		/* draw to front */
-		drb =
-		    (driRenderbuffer *) fb->Attachment[BUFFER_FRONT_LEFT].
-		    Renderbuffer;
+		rrb =
+		    (void *) fb->Attachment[BUFFER_FRONT_LEFT].Renderbuffer;
 	} else if (fb->_ColorDrawBufferIndexes[0] == BUFFER_BACK_LEFT) {
 		/* draw to back */
-		drb =
-		    (driRenderbuffer *) fb->Attachment[BUFFER_BACK_LEFT].
-		    Renderbuffer;
+		rrb = (void *) fb->Attachment[BUFFER_BACK_LEFT].Renderbuffer;
 	} else {
 		/* drawing to multiple buffers, or none */
 		return;
 	}
 
-	assert(drb);
-	assert(drb->flippedPitch);
+	assert(rrb);
+	assert(rrb->pitch);
 
 	R300_STATECHANGE(rmesa, cb);
 
-	r300->hw.cb.cmd[R300_CB_OFFSET] = drb->flippedOffset +	//r300->radeon.state.color.drawOffset +
-	    r300->radeon.radeonScreen->fbLocation;
-	r300->hw.cb.cmd[R300_CB_PITCH] = drb->flippedPitch;	//r300->radeon.state.color.drawPitch;
-
-	if (r300->radeon.radeonScreen->cpp == 4)
-		r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_FORMAT_ARGB8888;
-	else
-		r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_FORMAT_RGB565;
-
-	if (r300->radeon.sarea->tiling_enabled)
-		r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_TILE_ENABLE;
 #if 0
 	R200_STATECHANGE(rmesa, ctx);
 
@@ -2367,20 +2354,6 @@ static void r300ResetHwState(r300ContextPtr r300)
 
 	r300BlendColor(ctx, ctx->Color.BlendColor);
 
-	/* Again, r300ClearBuffer uses this */
-	r300->hw.cb.cmd[R300_CB_OFFSET] =
-	    r300->radeon.state.color.drawOffset +
-	    r300->radeon.radeonScreen->fbLocation;
-	r300->hw.cb.cmd[R300_CB_PITCH] = r300->radeon.state.color.drawPitch;
-
-	if (r300->radeon.radeonScreen->cpp == 4)
-		r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_FORMAT_ARGB8888;
-	else
-		r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_FORMAT_RGB565;
-
-	if (r300->radeon.sarea->tiling_enabled)
-		r300->hw.cb.cmd[R300_CB_PITCH] |= R300_COLOR_TILE_ENABLE;
-
 	r300->hw.rb3d_dither_ctl.cmd[1] = 0;
 	r300->hw.rb3d_dither_ctl.cmd[2] = 0;
 	r300->hw.rb3d_dither_ctl.cmd[3] = 0;
@@ -2396,10 +2369,6 @@ static void r300ResetHwState(r300ContextPtr r300)
 	r300->hw.rb3d_discard_src_pixel_lte_threshold.cmd[1] = 0x00000000;
 	r300->hw.rb3d_discard_src_pixel_lte_threshold.cmd[2] = 0xffffffff;
 
-	r300->hw.zb.cmd[R300_ZB_OFFSET] =
-	    r300->radeon.radeonScreen->depthOffset +
-	    r300->radeon.radeonScreen->fbLocation;
-	r300->hw.zb.cmd[R300_ZB_PITCH] = r300->radeon.radeonScreen->depthPitch;
 
 	if (r300->radeon.sarea->tiling_enabled) {
 		/* XXX: Turn off when clearing buffers ? */

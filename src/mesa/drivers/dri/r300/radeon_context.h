@@ -48,6 +48,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "drm.h"
 #include "dri_util.h"
 #include "colormac.h"
+#include "radeon_buffer.h"
 
 struct radeon_context;
 typedef struct radeon_context radeonContextRec;
@@ -132,12 +133,13 @@ struct radeon_scissor_state {
 
 struct radeon_colorbuffer_state {
 	GLuint clear;
-	GLint drawOffset, drawPitch;
+	struct radeon_renderbuffer *rrb;
 };
 
 struct radeon_state {
 	struct radeon_colorbuffer_state color;
 	struct radeon_scissor_state scissor;
+	struct radeon_renderbuffer *depth_buffer;
 };
 
 /**
@@ -185,6 +187,8 @@ struct radeon_context {
 	/* Configuration cache
 	 */
 	driOptionCache optionCache;
+
+	struct radeon_bufmgr *bufmgr;
 };
 
 #define RADEON_CONTEXT(glctx) ((radeonContextPtr)(ctx->DriverCtx))

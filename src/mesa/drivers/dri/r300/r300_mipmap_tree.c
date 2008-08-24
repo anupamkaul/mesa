@@ -153,7 +153,7 @@ r300_mipmap_tree* r300_miptree_create(r300ContextPtr rmesa, r300TexObj *t,
 
 	calculate_miptree_layout(mt);
 
-	mt->bo = dri_bo_alloc(&rmesa->bufmgr->base, "texture", mt->totalsize, 1024, 0);
+	mt->bo = dri_bo_alloc(&rmesa->radeon.bufmgr->base, "texture", mt->totalsize, 1024, 0);
 
 	return mt;
 }

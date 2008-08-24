@@ -42,6 +42,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "state.h"
 #include "matrix.h"
 #include "framebuffer.h"
+#include "drirenderbuffer.h"
 
 #include "drivers/common/driverfuncs.h"
 #include "swrast/swrast.h"
@@ -258,6 +259,49 @@ void radeonCopySubBuffer(__DRIdrawablePrivate * dPriv,
     }
 }
 
+static void
+radeon_make_renderbuffer_current(radeonContextPtr radeon,
+				 GLframebuffer *draw)
+{
+	int size = radeon->radeonScreen->driScreen->fbSize;
+	void *map = 0;
+	/* if radeon->fake */
+	struct radeon_renderbuffer *rb;
+
+	if (!radeon->bufmgr)
+		return;
+
+	if ((rb = (void *)draw->Attachment[BUFFER_FRONT_LEFT].Renderbuffer)) {
+
+		if (!rb->bo) 
+			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "front buffer",
+						     radeon->radeonScreen->frontOffset, size, map,
+						     DRM_BO_FLAG_MEM_VRAM);
+		fprintf(stderr,"front is %p\n", rb->bo);
+		rb->cpp = radeon->radeonScreen->cpp;
+		rb->pitch = radeon->radeonScreen->frontPitch;
+	}
+	if ((rb = (void *)draw->Attachment[BUFFER_BACK_LEFT].Renderbuffer)) {
+		if (!rb->bo) 
+			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "back buffer",
+						     radeon->radeonScreen->backOffset, size, map,
+						     DRM_BO_FLAG_MEM_VRAM);
+		fprintf(stderr,"back is %p\n", rb->bo);
+		rb->cpp = radeon->radeonScreen->cpp;
+		rb->pitch = radeon->radeonScreen->backPitch;
+	}
+	if ((rb = (void *)draw->Attachment[BUFFER_DEPTH].Renderbuffer)) {
+		if (!rb->bo)
+			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "depth buffer",
+						     radeon->radeonScreen->depthOffset, size, map,
+						     DRM_BO_FLAG_MEM_VRAM);
+		fprintf(stderr,"depth is %p\n", rb->bo);
+		rb->cpp = radeon->radeonScreen->cpp;
+		rb->pitch = radeon->radeonScreen->depthPitch;
+	}
+}
+
+	
 /* Force the context `c' to be the current context and associate with it
  * buffer `b'.
  */
@@ -265,50 +309,56 @@ GLboolean radeonMakeCurrent(__DRIcontextPrivate * driContextPriv,
 			    __DRIdrawablePrivate * driDrawPriv,
 			    __DRIdrawablePrivate * driReadPriv)
 {
-	if (driContextPriv) {
-		radeonContextPtr radeon =
-			(radeonContextPtr) driContextPriv->driverPrivate;
+	radeonContextPtr radeon;
+	GLframebuffer *dfb, *rfb;
 
-		if (RADEON_DEBUG & DEBUG_DRI)
-			fprintf(stderr, "%s ctx %p\n", __FUNCTION__,
-				radeon->glCtx);
-
-		if (radeon->dri.drawable != driDrawPriv) {
-			if (driDrawPriv->swap_interval == (unsigned)-1) {
-				driDrawPriv->vblFlags =
-					(radeon->radeonScreen->irq != 0)
-					? driGetDefaultVBlankFlags(&radeon->
-								   optionCache)
-					: VBLANK_FLAG_NO_IRQ;
-
-				driDrawableInitVBlank(driDrawPriv);
-			}
-		}
-
-		radeon->dri.readable = driReadPriv;
-
-		if (radeon->dri.drawable != driDrawPriv ||
-		    radeon->lastStamp != driDrawPriv->lastStamp) {
-			radeon->dri.drawable = driDrawPriv;
-
-			radeonSetCliprects(radeon);
-			r300UpdateViewportOffset(radeon->glCtx);
-		}
-
-		_mesa_make_current(radeon->glCtx,
-				    (GLframebuffer *) driDrawPriv->
-				    driverPrivate,
-				    (GLframebuffer *) driReadPriv->
-				    driverPrivate);
-
-		_mesa_update_state(radeon->glCtx);		
-
-		radeonUpdatePageFlipping(radeon);
-	} else {
+	if (!driContextPriv) {
 		if (RADEON_DEBUG & DEBUG_DRI)
 			fprintf(stderr, "%s ctx is null\n", __FUNCTION__);
-		_mesa_make_current(0, 0, 0);
+		_mesa_make_current(NULL, NULL, NULL);
+		return GL_TRUE;
 	}
+
+	radeon = (radeonContextPtr) driContextPriv->driverPrivate;
+	dfb = driDrawPriv->driverPrivate;
+	rfb = driReadPriv->driverPrivate;
+
+	if (RADEON_DEBUG & DEBUG_DRI)
+		fprintf(stderr, "%s ctx %p\n", __FUNCTION__, radeon->glCtx);
+
+	driUpdateFramebufferSize(radeon->glCtx, driDrawPriv);
+	if (driReadPriv != driDrawPriv)
+		driUpdateFramebufferSize(radeon->glCtx, driReadPriv);
+
+	radeon_make_renderbuffer_current(radeon, dfb);
+
+	_mesa_make_current(radeon->glCtx, dfb, rfb);
+
+	if (radeon->dri.drawable != driDrawPriv) {
+		if (driDrawPriv->swap_interval == (unsigned)-1) {
+			driDrawPriv->vblFlags =
+				(radeon->radeonScreen->irq != 0)
+				? driGetDefaultVBlankFlags(&radeon->
+							   optionCache)
+					: VBLANK_FLAG_NO_IRQ;
+			
+			driDrawableInitVBlank(driDrawPriv);
+		}
+	}
+
+	radeon->dri.readable = driReadPriv;
+
+	if (radeon->dri.drawable != driDrawPriv ||
+	    radeon->lastStamp != driDrawPriv->lastStamp) {
+		radeon->dri.drawable = driDrawPriv;
+		
+		radeonSetCliprects(radeon);
+		r300UpdateViewportOffset(radeon->glCtx);
+	}
+
+	_mesa_update_state(radeon->glCtx);		
+
+	radeonUpdatePageFlipping(radeon);
 
 	if (RADEON_DEBUG & DEBUG_DRI)
 		fprintf(stderr, "End %s\n", __FUNCTION__);

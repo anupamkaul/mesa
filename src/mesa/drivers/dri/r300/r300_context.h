@@ -51,7 +51,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 struct r300_context;
 typedef struct r300_context r300ContextRec;
 typedef struct r300_context *r300ContextPtr;
-typedef struct _radeon_bufmgr radeon_bufmgr;
+typedef struct radeon_bufmgr radeon_bufmgr;
 
 #include "radeon_lock.h"
 #include "mm.h"
@@ -876,8 +876,6 @@ struct r300_context {
 
 	int texture_depth;
 	float initialMaxAnisotropy;
-
-	radeon_bufmgr *bufmgr;
 
 	GLvector4f dummy_attrib[_TNL_ATTRIB_MAX];
 	GLvector4f *temp_attrib[_TNL_ATTRIB_MAX];

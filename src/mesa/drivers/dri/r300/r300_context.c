@@ -228,7 +228,7 @@ GLboolean r300CreateContext(const __GLcontextModes * glVisual,
 		return GL_FALSE;
 	}
 
-	r300->bufmgr = radeonBufmgrClassicInit(r300);
+	r300->radeon.bufmgr = radeonBufmgrClassicInit(r300);
 
 	/* Init r300 context data */
 	r300->texture_depth = driQueryOptioni(&r300->radeon.optionCache,
@@ -421,8 +421,8 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 		/* the memory manager might be accessed when Mesa frees the shared
 		 * state, so don't destroy it earlier
 		 */
-		dri_bufmgr_destroy(&r300->bufmgr->base);
-		r300->bufmgr = 0;
+		dri_bufmgr_destroy(&r300->radeon.bufmgr->base);
+		r300->radeon.bufmgr = 0;
 
 		/* free the option cache */
 		driDestroyOptionCache(&r300->radeon.optionCache);

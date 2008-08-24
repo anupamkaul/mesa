@@ -544,7 +544,6 @@ static dri_bo *vram_alloc(radeon_bufmgr_classic *bufmgr, const char *name,
 
 	bo->base.functions = &vram_bo_functions;
 	bo->base.base.virtual = malloc(size);
-
 	init_buffer(bufmgr, &bo->base, size);
 	return &bo->base.base;
 }
@@ -573,7 +572,8 @@ static dri_bo *bufmgr_classic_bo_alloc_static(dri_bufmgr *bufmgr_ctx, const char
 
 	bo->base.functions = &static_bo_functions;
 	bo->base.base.virtual = virtual;
-	bo->base.base.offset = offset;
+	bo->base.base.offset = offset + bufmgr->rmesa->radeon.radeonScreen->fbLocation;
+	bo->base.validated = 1; /* Static buffer offsets are always valid */
 
 	init_buffer(bufmgr, &bo->base, size);
 	return &bo->base.base;

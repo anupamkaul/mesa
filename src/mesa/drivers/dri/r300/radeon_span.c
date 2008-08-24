@@ -48,7 +48,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r300_ioctl.h"
 #include "radeon_span.h"
 
-#include "drirenderbuffer.h"
+#include "radeon_buffer.h"
 
 #define DBG 0
 
@@ -58,21 +58,21 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * information.
  */
 #define LOCAL_VARS						\
-   driRenderbuffer *drb = (driRenderbuffer *) rb;		\
-   const __DRIdrawablePrivate *dPriv = drb->dPriv;		\
+   struct radeon_renderbuffer *rrb = (void *) rb;		\
+   const __DRIdrawablePrivate *dPriv = rrb->dPriv;		\
    const GLuint bottom = dPriv->h - 1;				\
-   GLubyte *buf = (GLubyte *) drb->flippedData			\
-      + (dPriv->y * drb->flippedPitch + dPriv->x) * drb->cpp;	\
+   GLubyte *buf = (GLubyte *) rrb->bo->virtual			\
+      + (dPriv->y * rrb->pitch + dPriv->x) * rrb->cpp;	\
    GLuint p;							\
    (void) p;
 
 #define LOCAL_DEPTH_VARS				\
-   driRenderbuffer *drb = (driRenderbuffer *) rb;	\
-   const __DRIdrawablePrivate *dPriv = drb->dPriv;	\
+   struct radeon_renderbuffer *rrb = (void *) rb;	\
+   const __DRIdrawablePrivate *dPriv = rrb->dPriv;	\
    const GLuint bottom = dPriv->h - 1;			\
    GLuint xo = dPriv->x;				\
    GLuint yo = dPriv->y;				\
-   GLubyte *buf = (GLubyte *) drb->Base.Data;
+   GLubyte *buf = (GLubyte *) rrb->base.Data;
 
 #define LOCAL_STENCIL_VARS LOCAL_DEPTH_VARS
 
@@ -93,7 +93,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #define TAG(x)    radeon##x##_RGB565
 #define TAG2(x,y) radeon##x##_RGB565##y
-#define GET_PTR(X,Y) (buf + ((Y) * drb->flippedPitch + (X)) * 2)
+#define GET_PTR(X,Y) (buf + ((Y) * rrb->pitch + (X)) * 2)
 #include "spantmp2.h"
 
 /* 32 bit, ARGB8888 color spanline and pixel functions
@@ -103,7 +103,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #define TAG(x)    radeon##x##_ARGB8888
 #define TAG2(x,y) radeon##x##_ARGB8888##y
-#define GET_PTR(X,Y) (buf + ((Y) * drb->flippedPitch + (X)) * 4)
+#define GET_PTR(X,Y) (buf + ((Y) * rrb->pitch + (X)) * 4)
 #include "spantmp2.h"
 
 /* ================================================================
@@ -120,10 +120,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * too...
  */
 
-static GLuint radeon_mba_z32(const driRenderbuffer * drb, GLint x, GLint y)
+static GLuint radeon_mba_z32(const struct radeon_renderbuffer * rrb,
+			     GLint x, GLint y)
 {
-	GLuint pitch = drb->pitch;
-	if (drb->depthHasSurface) {
+	GLuint pitch = rrb->pitch;
+	if (rrb->depthHasSurface) {
 		return 4 * (x + y * pitch);
 	} else {
 		GLuint ba, address = 0;	/* a[0..1] = 0           */
@@ -148,10 +149,10 @@ static GLuint radeon_mba_z32(const driRenderbuffer * drb, GLint x, GLint y)
 }
 
 static INLINE GLuint
-radeon_mba_z16(const driRenderbuffer * drb, GLint x, GLint y)
+radeon_mba_z16(const struct radeon_renderbuffer *rrb, GLint x, GLint y)
 {
-	GLuint pitch = drb->pitch;
-	if (drb->depthHasSurface) {
+	GLuint pitch = rrb->pitch;
+	if (rrb->depthHasSurface) {
 		return 2 * (x + y * pitch);
 	} else {
 		GLuint ba, address = 0;	/* a[0]    = 0           */
@@ -173,10 +174,10 @@ radeon_mba_z16(const driRenderbuffer * drb, GLint x, GLint y)
 /* 16-bit depth buffer functions
  */
 #define WRITE_DEPTH( _x, _y, d )					\
-   *(GLushort *)(buf + radeon_mba_z16( drb, _x + xo, _y + yo )) = d;
+   *(GLushort *)(buf + radeon_mba_z16( rrb, _x + xo, _y + yo )) = d;
 
 #define READ_DEPTH( d, _x, _y )						\
-   d = *(GLushort *)(buf + radeon_mba_z16( drb, _x + xo, _y + yo ));
+   d = *(GLushort *)(buf + radeon_mba_z16( rrb, _x + xo, _y + yo ));
 
 #define TAG(x) radeon##x##_z16
 #include "depthtmp.h"
@@ -189,7 +190,7 @@ radeon_mba_z16(const driRenderbuffer * drb, GLint x, GLint y)
 #ifdef COMPILE_R300
 #define WRITE_DEPTH( _x, _y, d )					\
 do {									\
-   GLuint offset = radeon_mba_z32( drb, _x + xo, _y + yo );		\
+   GLuint offset = radeon_mba_z32( rrb, _x + xo, _y + yo );		\
    GLuint tmp = *(GLuint *)(buf + offset);				\
    tmp &= 0x000000ff;							\
    tmp |= ((d << 8) & 0xffffff00);					\
@@ -198,7 +199,7 @@ do {									\
 #else
 #define WRITE_DEPTH( _x, _y, d )					\
 do {									\
-   GLuint offset = radeon_mba_z32( drb, _x + xo, _y + yo );		\
+   GLuint offset = radeon_mba_z32( rrb, _x + xo, _y + yo );		\
    GLuint tmp = *(GLuint *)(buf + offset);				\
    tmp &= 0xff000000;							\
    tmp |= ((d) & 0x00ffffff);						\
@@ -209,12 +210,12 @@ do {									\
 #ifdef COMPILE_R300
 #define READ_DEPTH( d, _x, _y )						\
   do { \
-    d = (*(GLuint *)(buf + radeon_mba_z32( drb, _x + xo,		\
+    d = (*(GLuint *)(buf + radeon_mba_z32( rrb, _x + xo,		\
 					 _y + yo )) & 0xffffff00) >> 8; \
   }while(0)
 #else
 #define READ_DEPTH( d, _x, _y )						\
-   d = *(GLuint *)(buf + radeon_mba_z32( drb, _x + xo,			\
+   d = *(GLuint *)(buf + radeon_mba_z32( rrb, _x + xo,			\
 					 _y + yo )) & 0x00ffffff;
 #endif
 
@@ -230,7 +231,7 @@ do {									\
 #ifdef COMPILE_R300
 #define WRITE_STENCIL( _x, _y, d )					\
 do {									\
-   GLuint offset = radeon_mba_z32( drb, _x + xo, _y + yo );		\
+   GLuint offset = radeon_mba_z32( rrb, _x + xo, _y + yo );		\
    GLuint tmp = *(GLuint *)(buf + offset);				\
    tmp &= 0xffffff00;							\
    tmp |= (d) & 0xff;							\
@@ -239,7 +240,7 @@ do {									\
 #else
 #define WRITE_STENCIL( _x, _y, d )					\
 do {									\
-   GLuint offset = radeon_mba_z32( drb, _x + xo, _y + yo );		\
+   GLuint offset = radeon_mba_z32( rrb, _x + xo, _y + yo );		\
    GLuint tmp = *(GLuint *)(buf + offset);				\
    tmp &= 0x00ffffff;							\
    tmp |= (((d) & 0xff) << 24);						\
@@ -250,14 +251,14 @@ do {									\
 #ifdef COMPILE_R300
 #define READ_STENCIL( d, _x, _y )					\
 do {									\
-   GLuint offset = radeon_mba_z32( drb, _x + xo, _y + yo );		\
+   GLuint offset = radeon_mba_z32( rrb, _x + xo, _y + yo );		\
    GLuint tmp = *(GLuint *)(buf + offset);				\
    d = tmp & 0x000000ff;						\
 } while (0)
 #else
 #define READ_STENCIL( d, _x, _y )					\
 do {									\
-   GLuint offset = radeon_mba_z32( drb, _x + xo, _y + yo );		\
+   GLuint offset = radeon_mba_z32( rrb, _x + xo, _y + yo );		\
    GLuint tmp = *(GLuint *)(buf + offset);				\
    d = (tmp & 0xff000000) >> 24;					\
 } while (0)
@@ -300,10 +301,10 @@ static void radeonSpanRenderStart(GLcontext * ctx)
 	 */
 	{
 		int p;
-		driRenderbuffer *drb =
-			(driRenderbuffer *) ctx->WinSysDrawBuffer->_ColorDrawBuffers[0];
+		struct radeon_renderbuffer *rrb =
+			(void *) ctx->WinSysDrawBuffer->_ColorDrawBuffers[0];
 		volatile int *buf =
-			(volatile int *)(rmesa->dri.screen->pFB + drb->offset);
+			(volatile int *)(rmesa->dri.screen->pFB + rrb->bo->offset);
 		p = *buf;
 	}
 }
@@ -326,20 +327,17 @@ void radeonInitSpanFuncs(GLcontext * ctx)
 /**
  * Plug in the Get/Put routines for the given driRenderbuffer.
  */
-void radeonSetSpanFunctions(driRenderbuffer * drb, const GLvisual * vis)
+void radeonSetSpanFunctions(struct radeon_renderbuffer *rrb)
 {
-	if (drb->Base.InternalFormat == GL_RGBA) {
-		if (vis->redBits == 5 && vis->greenBits == 6
-		    && vis->blueBits == 5) {
-			radeonInitPointers_RGB565(&drb->Base);
-		} else {
-			radeonInitPointers_ARGB8888(&drb->Base);
-		}
-	} else if (drb->Base.InternalFormat == GL_DEPTH_COMPONENT16) {
-		radeonInitDepthPointers_z16(&drb->Base);
-	} else if (drb->Base.InternalFormat == GL_DEPTH_COMPONENT24) {
-		radeonInitDepthPointers_z24_s8(&drb->Base);
-	} else if (drb->Base.InternalFormat == GL_STENCIL_INDEX8_EXT) {
-		radeonInitStencilPointers_z24_s8(&drb->Base);
-	}
+    if (rrb->base.InternalFormat == GL_RGB5) {
+	radeonInitPointers_RGB565(&rrb->base);
+    } else if (rrb->base.InternalFormat == GL_RGBA8) {
+	radeonInitPointers_ARGB8888(&rrb->base);
+    } else if (rrb->base.InternalFormat == GL_DEPTH_COMPONENT16) {
+	radeonInitDepthPointers_z16(&rrb->base);
+    } else if (rrb->base.InternalFormat == GL_DEPTH_COMPONENT24) {
+	radeonInitDepthPointers_z24_s8(&rrb->base);
+    } else if (rrb->base.InternalFormat == GL_STENCIL_INDEX8_EXT) {
+	radeonInitStencilPointers_z24_s8(&rrb->base);
+    }
 }

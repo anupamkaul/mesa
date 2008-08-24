@@ -60,6 +60,8 @@ int prevLockLine = 0;
 void radeonUpdatePageFlipping(radeonContextPtr rmesa)
 {
 	int use_back;
+	__DRIdrawablePrivate *const drawable = rmesa->dri.drawable;
+	GLframebuffer *fb = drawable->driverPrivate;
 
 	rmesa->doPageFlip = rmesa->sarea->pfState;
 	if (rmesa->glCtx->WinSysDrawBuffer) {
@@ -73,16 +75,12 @@ void radeonUpdatePageFlipping(radeonContextPtr rmesa)
 	     BUFFER_BACK_LEFT) : 1;
 	use_back ^= (rmesa->sarea->pfCurrentPage == 1);
 
-	if (use_back) {
-		rmesa->state.color.drawOffset =
-		    rmesa->radeonScreen->backOffset;
-		rmesa->state.color.drawPitch = rmesa->radeonScreen->backPitch;
-	} else {
-		rmesa->state.color.drawOffset =
-		    rmesa->radeonScreen->frontOffset;
-		rmesa->state.color.drawPitch =
-		    rmesa->radeonScreen->frontPitch;
-	}
+	if (use_back)
+		rmesa->state.color.rrb = (void *)fb->Attachment[BUFFER_BACK_LEFT].Renderbuffer;
+	else
+		rmesa->state.color.rrb = (void *)fb->Attachment[BUFFER_FRONT_LEFT].Renderbuffer;
+
+	rmesa->state.depth_buffer = (void *)fb->Attachment[BUFFER_DEPTH].Renderbuffer;
 }
 
 /* Update the hardware state.  This is called if another context has
@@ -127,7 +125,7 @@ void radeonGetLock(radeonContextPtr rmesa, GLuint flags)
 
 	if (sarea->ctx_owner != rmesa->dri.hwContext) {
 		sarea->ctx_owner = rmesa->dri.hwContext;
-		radeonBufmgrContendedLockTake(r300->bufmgr);
+		radeonBufmgrContendedLockTake(r300->radeon.bufmgr);
 	}
 
 	rmesa->lost_context = GL_TRUE;

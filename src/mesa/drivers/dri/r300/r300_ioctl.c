@@ -63,42 +63,38 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define CLEARBUFFER_DEPTH	0x2
 #define CLEARBUFFER_STENCIL	0x4
 
-static void r300ClearBuffer(r300ContextPtr r300, int flags, int buffer)
+static void r300ClearBuffer(r300ContextPtr r300, int flags,
+			    struct radeon_renderbuffer *rrb)
 {
 	BATCH_LOCALS(r300);
 	GLcontext *ctx = r300->radeon.glCtx;
 	__DRIdrawablePrivate *dPriv = r300->radeon.dri.drawable;
-	GLuint cboffset, cbpitch;
+	GLuint cbpitch = 0;
 	r300ContextPtr rmesa = r300;
 
 	if (RADEON_DEBUG & DEBUG_IOCTL)
-		fprintf(stderr, "%s: %s buffer (%i,%i %ix%i)\n",
-			__FUNCTION__, buffer ? "back" : "front",
-			dPriv->x, dPriv->y, dPriv->w, dPriv->h);
+		fprintf(stderr, "%s: buffer %p (%i,%i %ix%i)\n",
+			__FUNCTION__, rrb, dPriv->x, dPriv->y,
+			dPriv->w, dPriv->h);
 
-	if (buffer) {
-		cboffset = r300->radeon.radeonScreen->backOffset;
-		cbpitch = r300->radeon.radeonScreen->backPitch;
-	} else {
-		cboffset = r300->radeon.radeonScreen->frontOffset;
-		cbpitch = r300->radeon.radeonScreen->frontPitch;
+	if (rrb) {
+		cbpitch = rrb->pitch;
+		if (rrb->cpp == 4)
+			cbpitch |= R300_COLOR_FORMAT_ARGB8888;
+		else
+			cbpitch |= R300_COLOR_FORMAT_RGB565;
+
+		if (r300->radeon.sarea->tiling_enabled)
+			cbpitch |= R300_COLOR_TILE_ENABLE;
 	}
 
-	cboffset += r300->radeon.radeonScreen->fbLocation;
-
-	if (r300->radeon.radeonScreen->cpp == 4)
-		cbpitch |= R300_COLOR_FORMAT_ARGB8888;
-	else
-		cbpitch |= R300_COLOR_FORMAT_RGB565;
-
-	if (r300->radeon.sarea->tiling_enabled)
-		cbpitch |= R300_COLOR_TILE_ENABLE;
-
+	/* TODO in bufmgr */
 	cp_wait(r300, R300_WAIT_3D | R300_WAIT_3D_CLEAN);
 	end_3d(rmesa);
 
 	BEGIN_BATCH(19);
-	OUT_BATCH_REGVAL(R300_RB3D_COLOROFFSET0, cboffset);
+	OUT_BATCH_REGSEQ(R300_RB3D_COLOROFFSET0, 1);
+	OUT_BATCH_RELOC(0, rrb->bo, 0, DRM_RELOC_TXOFFSET);
 	OUT_BATCH_REGVAL(R300_RB3D_COLORPITCH0, cbpitch);
 
 	OUT_BATCH_REGSEQ(RB3D_COLOR_CHANNEL_MASK, 1);
@@ -471,6 +467,8 @@ static void r300Clear(GLcontext * ctx, GLbitfield mask)
 	r300ContextPtr r300 = R300_CONTEXT(ctx);
 	BATCH_LOCALS(r300);
 	__DRIdrawablePrivate *dPriv = r300->radeon.dri.drawable;
+	GLframebuffer *fb = dPriv->driverPrivate;
+	struct radeon_renderbuffer *rrb;
 	int flags = 0;
 	int bits = 0;
 	int swapped;
@@ -518,25 +516,25 @@ static void r300Clear(GLcontext * ctx, GLbitfield mask)
 		_swrast_Clear(ctx, mask);
 	}
 
-	swapped = r300->radeon.sarea->pfCurrentPage == 1;
-
 	/* Make sure it fits there. */
 	r300EnsureCmdBufSpace(r300, 421 * 3, __FUNCTION__);
 	if (flags || bits)
 		r300EmitClearState(ctx);
 
 	if (flags & BUFFER_BIT_FRONT_LEFT) {
-		r300ClearBuffer(r300, bits | CLEARBUFFER_COLOR, swapped);
+		rrb = (void *)fb->Attachment[BUFFER_FRONT_LEFT].Renderbuffer;
+		r300ClearBuffer(r300, bits | CLEARBUFFER_COLOR, rrb);
 		bits = 0;
 	}
 
 	if (flags & BUFFER_BIT_BACK_LEFT) {
-		r300ClearBuffer(r300, bits | CLEARBUFFER_COLOR, swapped ^ 1);
+		rrb = (void *)fb->Attachment[BUFFER_BACK_LEFT].Renderbuffer;
+		r300ClearBuffer(r300, bits | CLEARBUFFER_COLOR, rrb);
 		bits = 0;
 	}
 
 	if (bits)
-		r300ClearBuffer(r300, bits, 0);
+		r300ClearBuffer(r300, bits, NULL);
 
 	COMMIT_BATCH();
 }
@@ -573,7 +571,7 @@ void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 	if (rmesa->dma.nr_released_bufs > 4)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 
-	rmesa->dma.current = dri_bo_alloc(&rmesa->bufmgr->base, "DMA regions",
+	rmesa->dma.current = dri_bo_alloc(&rmesa->radeon.bufmgr->base, "DMA regions",
 		size, 4, DRM_BO_MEM_DMA);
 	rmesa->dma.current_used = 0;
 	rmesa->dma.current_vertexptr = 0;

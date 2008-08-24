@@ -6,9 +6,6 @@
 
 #include "r300_context.h"
 
-struct _radeon_bufmgr {
-	dri_bufmgr base;
-};
 
 /* Note: The following flags should probably be ultimately eliminated,
  * or replaced by something else.

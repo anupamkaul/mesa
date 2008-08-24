@@ -132,7 +132,7 @@ int r300FlushCmdBufLocked(r300ContextPtr r300, const char *caller)
 	dri_bo_unreference(r300->cmdbuf.buf);
 
 	r300->dma.nr_released_bufs = 0;
-	r300->cmdbuf.buf = dri_bo_alloc(&r300->bufmgr->base, "cmdbuf",
+	r300->cmdbuf.buf = dri_bo_alloc(&r300->radeon.bufmgr->base, "cmdbuf",
 		r300->cmdbuf.size*4, 16, DRM_BO_MEM_CMDBUF);
 	r300->cmdbuf.written = 0;
 	r300->cmdbuf.reserved = 0;
@@ -327,6 +327,55 @@ static void emit_tex_offsets(r300ContextPtr r300)
 		}
 		END_BATCH();
 	}
+}
+
+static void emit_cb_offset(r300ContextPtr r300)
+{
+	BATCH_LOCALS(r300);
+	struct radeon_renderbuffer *rrb;
+	uint32_t cbpitch;
+
+	rrb = r300->radeon.state.color.rrb;
+	if (!rrb) {
+		fprintf(stderr, "no rrb\n");
+		return;
+	}
+
+	cbpitch = rrb->pitch;
+	if (rrb->cpp == 4)
+		cbpitch |= R300_COLOR_FORMAT_ARGB8888;
+	else
+		cbpitch |= R300_COLOR_FORMAT_RGB565;
+
+	if (r300->radeon.sarea->tiling_enabled)
+		cbpitch |= R300_COLOR_TILE_ENABLE;
+
+	BEGIN_BATCH(4);
+	OUT_BATCH_REGSEQ(R300_RB3D_COLOROFFSET0, 1);
+	OUT_BATCH_RELOC(0, rrb->bo, 0, DRM_RELOC_TXOFFSET);
+	OUT_BATCH_REGSEQ(R300_RB3D_COLORPITCH0, 1);
+	OUT_BATCH(cbpitch);
+	END_BATCH();
+}
+
+static void emit_zb_offset(r300ContextPtr r300)
+{
+	BATCH_LOCALS(r300);
+	struct radeon_renderbuffer *rrb;
+	uint32_t zbpitch;
+
+	rrb = r300->radeon.state.depth_buffer;
+	if (!rrb)
+		return;
+
+	zbpitch = rrb->pitch;
+
+	BEGIN_BATCH(3);
+	OUT_BATCH_REGSEQ(R300_ZB_DEPTHOFFSET, 2);
+	OUT_BATCH_RELOC(0, rrb->bo, 0, DRM_RELOC_TXOFFSET);
+	OUT_BATCH(zbpitch);
+	END_BATCH();
+
 }
 
 static int check_always(r300ContextPtr r300, struct r300_state_atom *atom)
@@ -565,8 +614,7 @@ void r300InitCmdBuf(r300ContextPtr r300)
 	ALLOC_STATE(rop, always, 2, 0);
 	r300->hw.rop.cmd[0] = cmdpacket0(R300_RB3D_ROPCNTL, 1);
 	ALLOC_STATE(cb, always, R300_CB_CMDSIZE, 0);
-	r300->hw.cb.cmd[R300_CB_CMD_0] = cmdpacket0(R300_RB3D_COLOROFFSET0, 1);
-	r300->hw.cb.cmd[R300_CB_CMD_1] = cmdpacket0(R300_RB3D_COLORPITCH0, 1);
+	r300->hw.cb.emit = &emit_cb_offset;
 	ALLOC_STATE(rb3d_dither_ctl, always, 10, 0);
 	r300->hw.rb3d_dither_ctl.cmd[0] = cmdpacket0(R300_RB3D_DITHER_CTL, 9);
 	ALLOC_STATE(rb3d_aaresolve_ctl, always, 2, 0);
@@ -580,7 +628,7 @@ void r300InitCmdBuf(r300ContextPtr r300)
 	r300->hw.zstencil_format.cmd[0] =
 	    cmdpacket0(R300_ZB_FORMAT, 4);
 	ALLOC_STATE(zb, always, R300_ZB_CMDSIZE, 0);
-	r300->hw.zb.cmd[R300_ZB_CMD_0] = cmdpacket0(R300_ZB_DEPTHOFFSET, 2);
+	r300->hw.zb.emit = emit_zb_offset;
 	ALLOC_STATE(zb_depthclearvalue, always, 2, 0);
 	r300->hw.zb_depthclearvalue.cmd[0] = cmdpacket0(R300_ZB_DEPTHCLEARVALUE, 1);
 	ALLOC_STATE(unk4F30, always, 3, 0);
@@ -683,7 +731,7 @@ void r300InitCmdBuf(r300ContextPtr r300)
 			size * 4, r300->hw.max_state_size * 4);
 	}
 
-	r300->cmdbuf.buf = dri_bo_alloc(&r300->bufmgr->base, "cmdbuf",
+	r300->cmdbuf.buf = dri_bo_alloc(&r300->radeon.bufmgr->base, "cmdbuf",
 		size*4, 16, DRM_BO_MEM_CMDBUF);
 	r300->cmdbuf.size = size;
 	r300->cmdbuf.written = 0;

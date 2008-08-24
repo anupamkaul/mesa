@@ -60,7 +60,8 @@ COMMON_SYMLINKS = \
 	radeon_chipset.h \
 	radeon_screen.c \
 	radeon_screen.h \
-	radeon_span.h
+	radeon_span.h \
+	radeon_buffer.h
 
 ##### TARGETS #####
 
