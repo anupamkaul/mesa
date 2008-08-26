@@ -1019,7 +1019,7 @@ radeon_alloc_window_storage(GLcontext *ctx, struct gl_renderbuffer *rb,
 
 
 static struct radeon_renderbuffer *
-radeon_create_renderbuffer(GLenum format)
+radeon_create_renderbuffer(GLenum format, __DRIdrawablePrivate *driDrawPriv)
 {
     struct radeon_renderbuffer *ret;
 
@@ -1051,7 +1051,7 @@ radeon_create_renderbuffer(GLenum format)
 	case GL_STENCIL_INDEX8_EXT:
 	    ret->base._ActualFormat = GL_STENCIL_INDEX8_EXT;
 	    ret->base._BaseFormat = GL_STENCIL_INDEX;
-	    ret->base.StencilBits = 8; 
+	    ret->base.StencilBits = 8;
 	    ret->base.DataType = GL_UNSIGNED_BYTE;
 	    break;
 	case GL_DEPTH_COMPONENT16:
@@ -1074,10 +1074,12 @@ radeon_create_renderbuffer(GLenum format)
 	    ret->base.DataType = GL_UNSIGNED_INT_24_8_EXT;
 	    break;
 	default:
-	    /* whoops */
-	    break;
+	    fprintf(stderr, "%s: Unknown format 0x%04x\n", __FUNCTION__, format);
+	    _mesa_delete_renderbuffer(&ret->base);
+	    return NULL;
     }
 
+    ret->dPriv = driDrawPriv;
     ret->base.InternalFormat = format;
 
     ret->base.AllocStorage = radeon_alloc_window_storage;
@@ -1118,21 +1120,21 @@ radeonCreateBuffer( __DRIscreenPrivate *driScrnPriv,
     /* front color renderbuffer */
     {
 	struct radeon_renderbuffer *front =
-	    radeon_create_renderbuffer(rgbFormat);
+	    radeon_create_renderbuffer(rgbFormat, driDrawPriv);
 	_mesa_add_renderbuffer(fb, BUFFER_FRONT_LEFT, &front->base);
     }
 
     /* back color renderbuffer */
     if (mesaVis->doubleBufferMode) {
 	struct radeon_renderbuffer *back =
-	    radeon_create_renderbuffer(GL_RGBA);
+	    radeon_create_renderbuffer(rgbFormat, driDrawPriv);
 	_mesa_add_renderbuffer(fb, BUFFER_BACK_LEFT, &back->base);
     }
 
     /* depth renderbuffer */
     if (depthFormat != GL_NONE) {
 	struct radeon_renderbuffer *depth =
-	    radeon_create_renderbuffer(depthFormat);
+	    radeon_create_renderbuffer(depthFormat, driDrawPriv);
 	_mesa_add_renderbuffer(fb, BUFFER_DEPTH, &depth->base);
 	depth->depthHasSurface = screen->depthHasSurface;
     }
@@ -1140,7 +1142,7 @@ radeonCreateBuffer( __DRIscreenPrivate *driScrnPriv,
     /* stencil renderbuffer */
     if (mesaVis->stencilBits > 0 && !swStencil) {
 	struct radeon_renderbuffer *stencil =
-	    radeon_create_renderbuffer(GL_STENCIL_INDEX8_EXT);
+	    radeon_create_renderbuffer(GL_STENCIL_INDEX8_EXT, driDrawPriv);
 	_mesa_add_renderbuffer(fb, BUFFER_STENCIL, &stencil->base);
 	stencil->depthHasSurface = screen->depthHasSurface;
     }

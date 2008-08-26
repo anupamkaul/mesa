@@ -267,6 +267,22 @@ do {									\
 #define TAG(x) radeon##x##_z24_s8
 #include "stenciltmp.h"
 
+static void map_buffer(struct gl_renderbuffer *rb, GLboolean write)
+{
+	struct radeon_renderbuffer *rrb = (void*)rb;
+
+	if (rrb->bo)
+		dri_bo_map(rrb->bo, write);
+}
+
+static void unmap_buffer(struct gl_renderbuffer *rb)
+{
+	struct radeon_renderbuffer *rrb = (void*)rb;
+
+	if (rrb->bo)
+		dri_bo_unmap(rrb->bo);
+}
+
 /* Move locking out to get reasonable span performance (10x better
  * than doing this in HW_LOCK above).  WaitForIdle() is the main
  * culprit.
@@ -275,45 +291,51 @@ do {									\
 static void radeonSpanRenderStart(GLcontext * ctx)
 {
 	radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
+	int i;
 #ifdef COMPILE_R300
 	r300ContextPtr r300 = (r300ContextPtr) rmesa;
 	R300_FIREVERTICES(r300);
 #else
 	RADEON_FIREVERTICES(rmesa);
 #endif
+
+	/* color draw buffers */
+	for (i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; i++)
+		map_buffer(ctx->DrawBuffer->_ColorDrawBuffers[i], GL_TRUE);
+
+	map_buffer(ctx->ReadBuffer->_ColorReadBuffer, GL_FALSE);
+
+	if (ctx->DrawBuffer->_DepthBuffer)
+		map_buffer(ctx->DrawBuffer->_DepthBuffer->Wrapped, GL_TRUE);
+	if (ctx->DrawBuffer->_StencilBuffer)
+		map_buffer(ctx->DrawBuffer->_StencilBuffer->Wrapped, GL_TRUE);
+
+	/* The locking and wait for idle should really only be needed in classic mode.
+	 * In a future memory manager based implementation, this should become
+	 * unnecessary due to the fact that mapping our buffers, textures, etc.
+	 * should implicitly wait for any previous rendering commands that must
+	 * be waited on. */
 	LOCK_HARDWARE(rmesa);
 	radeonWaitForIdleLocked(rmesa);
-
-	/* Read the first pixel in the frame buffer.  This should
-	 * be a noop, right?  In fact without this conform fails as reading
-	 * from the framebuffer sometimes produces old results -- the
-	 * on-card read cache gets mixed up and doesn't notice that the
-	 * framebuffer has been updated.
-	 *
-	 * Note that we should probably be reading some otherwise unused
-	 * region of VRAM, otherwise we might get incorrect results when
-	 * reading pixels from the top left of the screen.
-	 *
-	 * I found this problem on an R420 with glean's texCube test.
-	 * Note that the R200 span code also *writes* the first pixel in the
-	 * framebuffer, but I've found this to be unnecessary.
-	 *  -- Nicolai Hähnle, June 2008
-	 */
-	{
-		int p;
-		struct radeon_renderbuffer *rrb =
-			(void *) ctx->WinSysDrawBuffer->_ColorDrawBuffers[0];
-		volatile int *buf =
-			(volatile int *)(rmesa->dri.screen->pFB + rrb->bo->offset);
-		p = *buf;
-	}
 }
 
 static void radeonSpanRenderFinish(GLcontext * ctx)
 {
 	radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
+	int i;
 	_swrast_flush(ctx);
 	UNLOCK_HARDWARE(rmesa);
+
+	/* color draw buffers */
+	for (i = 0; i < ctx->DrawBuffer->_NumColorDrawBuffers; i++)
+		unmap_buffer(ctx->DrawBuffer->_ColorDrawBuffers[i]);
+
+	unmap_buffer(ctx->ReadBuffer->_ColorReadBuffer);
+
+	if (ctx->DrawBuffer->_DepthBuffer)
+		unmap_buffer(ctx->DrawBuffer->_DepthBuffer->Wrapped);
+	if (ctx->DrawBuffer->_StencilBuffer)
+		unmap_buffer(ctx->DrawBuffer->_StencilBuffer->Wrapped);
 }
 
 void radeonInitSpanFuncs(GLcontext * ctx)
@@ -329,15 +351,15 @@ void radeonInitSpanFuncs(GLcontext * ctx)
  */
 void radeonSetSpanFunctions(struct radeon_renderbuffer *rrb)
 {
-    if (rrb->base.InternalFormat == GL_RGB5) {
-	radeonInitPointers_RGB565(&rrb->base);
-    } else if (rrb->base.InternalFormat == GL_RGBA8) {
-	radeonInitPointers_ARGB8888(&rrb->base);
-    } else if (rrb->base.InternalFormat == GL_DEPTH_COMPONENT16) {
-	radeonInitDepthPointers_z16(&rrb->base);
-    } else if (rrb->base.InternalFormat == GL_DEPTH_COMPONENT24) {
-	radeonInitDepthPointers_z24_s8(&rrb->base);
-    } else if (rrb->base.InternalFormat == GL_STENCIL_INDEX8_EXT) {
-	radeonInitStencilPointers_z24_s8(&rrb->base);
-    }
+	if (rrb->base.InternalFormat == GL_RGB5) {
+		radeonInitPointers_RGB565(&rrb->base);
+	} else if (rrb->base.InternalFormat == GL_RGBA8) {
+		radeonInitPointers_ARGB8888(&rrb->base);
+	} else if (rrb->base.InternalFormat == GL_DEPTH_COMPONENT16) {
+		radeonInitDepthPointers_z16(&rrb->base);
+	} else if (rrb->base.InternalFormat == GL_DEPTH_COMPONENT24) {
+		radeonInitDepthPointers_z24_s8(&rrb->base);
+	} else if (rrb->base.InternalFormat == GL_STENCIL_INDEX8_EXT) {
+		radeonInitStencilPointers_z24_s8(&rrb->base);
+	}
 }

@@ -88,12 +88,20 @@ struct _radeon_bo_functions {
 	void (*validate)(radeon_bo_classic*);
 
 	/**
-	 * Called when a writing map of the buffer is taken, to note that
-	 * the buffer will have to be re-validated.
+	 * Map the buffer for CPU access.
+	 * Only called when the buffer isn't already mapped.
 	 *
-	 * May be null for buffer objects that don't need it.
+	 * May be null.
 	 */
-	void (*dirty)(radeon_bo_classic*);
+	void (*map)(radeon_bo_classic*, GLboolean write);
+
+	/**
+	 * Unmap the buffer.
+	 * Only called on final unmap.
+	 *
+	 * May be null.
+	 */
+	void (*unmap)(radeon_bo_classic*);
 
 	/**
 	 * Indicate that the buffer object is now used by the hardware.
@@ -475,12 +483,16 @@ static void vram_validate(radeon_bo_classic *bo_base)
 	bo->base.validated = 1;
 }
 
-static void vram_dirty(radeon_bo_classic *bo_base)
+/* No need for actual mmap actions since we have backing store,
+ * but mark buffer dirty when necessary */
+static void vram_map(radeon_bo_classic *bo_base, GLboolean write)
 {
 	radeon_bo_vram *bo = get_bo_vram(bo_base);
 
-	bo->base.validated = 0;
-	bo->backing_store_dirty = 1;
+	if (write) {
+		bo->base.validated = 0;
+		bo->backing_store_dirty = 1;
+	}
 }
 
 static void vram_bind(radeon_bo_classic *bo_base)
@@ -515,7 +527,7 @@ static void destroy_vram_wrapper(void *data, driTextureObject *t)
 static const radeon_bo_functions vram_bo_functions = {
 	.free = vram_free,
 	.validate = vram_validate,
-	.dirty = vram_dirty,
+	.map = vram_map,
 	.bind = vram_bind,
 	.unbind = vram_unbind
 };
@@ -530,8 +542,44 @@ static void static_free(radeon_bo_classic *bo_base)
 	free(bo);
 }
 
+static void static_map(radeon_bo_classic *bo_base, GLboolean write)
+{
+	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(bo_base->base.bufmgr);
+
+	bo_base->base.virtual = bufmgr->rmesa->radeon.dri.screen->pFB +
+		(bo_base->base.offset - bufmgr->rmesa->radeon.radeonScreen->fbLocation);
+
+	/* Read the first pixel in the frame buffer.  This should
+	 * be a noop, right?  In fact without this conform fails as reading
+	 * from the framebuffer sometimes produces old results -- the
+	 * on-card read cache gets mixed up and doesn't notice that the
+	 * framebuffer has been updated.
+	 *
+	 * Note that we should probably be reading some otherwise unused
+	 * region of VRAM, otherwise we might get incorrect results when
+	 * reading pixels from the top left of the screen.
+	 *
+	 * I found this problem on an R420 with glean's texCube test.
+	 * Note that the R200 span code also *writes* the first pixel in the
+	 * framebuffer, but I've found this to be unnecessary.
+	 *  -- Nicolai Hähnle, June 2008
+	 */
+	{
+		int p;
+		volatile int *buf = (int*)bufmgr->rmesa->radeon.dri.screen->pFB;
+		p = *buf;
+	}
+}
+
+static void static_unmap(radeon_bo_classic *bo_base)
+{
+	bo_base->base.virtual = 0;
+}
+
 static const radeon_bo_functions static_bo_functions = {
 	.free = static_free,
+	.map = static_map,
+	.unmap = static_unmap
 };
 
 /**
@@ -627,8 +675,8 @@ static int bufmgr_classic_bo_map(dri_bo *bo_base, GLboolean write_enable)
 		}
 	}
 
-	if (write_enable && bo->functions->dirty)
-		bo->functions->dirty(bo);
+	if (!bo->mapcount && bo->functions->map)
+		bo->functions->map(bo, write_enable);
 
 	bo->mapcount++;
 	assert(bo->mapcount > 0);
@@ -641,6 +689,10 @@ static int bufmgr_classic_bo_unmap(dri_bo *buf)
 	assert(bo->refcount > 0);
 	assert(bo->mapcount > 0);
 	bo->mapcount--;
+
+	if (!bo->mapcount && bo->functions->unmap)
+		bo->functions->unmap(bo);
+
 	return 0;
 }
 
