@@ -273,20 +273,18 @@ radeon_make_renderbuffer_current(radeonContextPtr radeon,
 
 	if ((rb = (void *)draw->Attachment[BUFFER_FRONT_LEFT].Renderbuffer)) {
 
-		if (!rb->bo) 
+		if (!rb->bo)
 			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "front buffer",
 						     radeon->radeonScreen->frontOffset, size, map,
 						     DRM_BO_FLAG_MEM_VRAM);
-		fprintf(stderr,"front is %p\n", rb->bo);
 		rb->cpp = radeon->radeonScreen->cpp;
 		rb->pitch = radeon->radeonScreen->frontPitch;
 	}
 	if ((rb = (void *)draw->Attachment[BUFFER_BACK_LEFT].Renderbuffer)) {
-		if (!rb->bo) 
+		if (!rb->bo)
 			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "back buffer",
 						     radeon->radeonScreen->backOffset, size, map,
 						     DRM_BO_FLAG_MEM_VRAM);
-		fprintf(stderr,"back is %p\n", rb->bo);
 		rb->cpp = radeon->radeonScreen->cpp;
 		rb->pitch = radeon->radeonScreen->backPitch;
 	}
@@ -295,13 +293,12 @@ radeon_make_renderbuffer_current(radeonContextPtr radeon,
 			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "depth buffer",
 						     radeon->radeonScreen->depthOffset, size, map,
 						     DRM_BO_FLAG_MEM_VRAM);
-		fprintf(stderr,"depth is %p\n", rb->bo);
 		rb->cpp = radeon->radeonScreen->cpp;
 		rb->pitch = radeon->radeonScreen->depthPitch;
 	}
 }
 
-	
+
 /* Force the context `c' to be the current context and associate with it
  * buffer `b'.
  */
@@ -341,7 +338,7 @@ GLboolean radeonMakeCurrent(__DRIcontextPrivate * driContextPriv,
 				? driGetDefaultVBlankFlags(&radeon->
 							   optionCache)
 					: VBLANK_FLAG_NO_IRQ;
-			
+
 			driDrawableInitVBlank(driDrawPriv);
 		}
 	}
@@ -351,12 +348,12 @@ GLboolean radeonMakeCurrent(__DRIcontextPrivate * driContextPriv,
 	if (radeon->dri.drawable != driDrawPriv ||
 	    radeon->lastStamp != driDrawPriv->lastStamp) {
 		radeon->dri.drawable = driDrawPriv;
-		
+
 		radeonSetCliprects(radeon);
 		r300UpdateViewportOffset(radeon->glCtx);
 	}
 
-	_mesa_update_state(radeon->glCtx);		
+	_mesa_update_state(radeon->glCtx);
 
 	radeonUpdatePageFlipping(radeon);
 
