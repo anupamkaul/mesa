@@ -198,6 +198,7 @@ intelGetString(GLcontext * ctx, GLenum name)
    }
 }
 
+
 /**
  * Extension strings exported by the intel driver.
  *
@@ -472,8 +473,6 @@ intelInitContext(struct intel_context *intel,
    GLcontext *shareCtx = (GLcontext *) sharedContextPrivate;
    __DRIscreenPrivate *sPriv = driContextPriv->driScreenPriv;
    intelScreenPrivate *intelScreen = (intelScreenPrivate *) sPriv->private;
-   volatile struct drm_i915_sarea *saPriv = (struct drm_i915_sarea *)
-      (((GLubyte *) sPriv->pSAREA) + intelScreen->sarea_priv_offset);
    int fthrottle_mode;
 
    if (!_mesa_initialize_context(&intel->ctx, mesaVis, shareCtx,
@@ -485,7 +484,7 @@ intelInitContext(struct intel_context *intel,
    driContextPriv->driverPrivate = intel;
    intel->intelScreen = intelScreen;
    intel->driScreen = sPriv;
-   intel->sarea = saPriv;
+   intel->sarea = intelScreen->sarea;
 
    /* Dri stuff */
    intel->hHWContext = driContextPriv->hHWContext;
