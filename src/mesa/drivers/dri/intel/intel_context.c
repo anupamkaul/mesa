@@ -673,8 +673,6 @@ intelDestroyContext(__DRIcontextPrivate * driContextPriv)
 
       /* free the Mesa context */
       _mesa_free_context_data(&intel->ctx);
-
-      dri_bufmgr_destroy(intel->bufmgr);
    }
 }
 
