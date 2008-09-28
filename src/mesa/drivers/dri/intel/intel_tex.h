@@ -28,7 +28,7 @@
 #ifndef INTELTEX_INC
 #define INTELTEX_INC
 
-#include "mtypes.h"
+#include "main/mtypes.h"
 #include "intel_context.h"
 #include "texmem.h"
 
@@ -141,6 +141,14 @@ void intelSetTexBuffer(__DRIcontext *pDRICtx,
 		       GLint target, __DRIdrawable *pDraw);
 
 GLuint intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit);
+
+void intel_tex_map_level_images(struct intel_context *intel,
+				struct intel_texture_object *intelObj,
+				int level);
+
+void intel_tex_unmap_level_images(struct intel_context *intel,
+				  struct intel_texture_object *intelObj,
+				  int level);
 
 void intel_tex_map_images(struct intel_context *intel,
                           struct intel_texture_object *intelObj);

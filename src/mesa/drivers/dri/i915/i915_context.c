@@ -26,7 +26,7 @@
  **************************************************************************/
 
 #include "i915_context.h"
-#include "imports.h"
+#include "main/imports.h"
 #include "intel_tex.h"
 #include "intel_tris.h"
 #include "tnl/t_context.h"
@@ -137,6 +137,9 @@ i915CreateContext(const __GLcontextModes * mesaVis,
    /* Install the customized pipeline: */
    _tnl_destroy_pipeline(ctx);
    _tnl_install_pipeline(ctx, intel_pipeline);
+
+   if (intel->no_rast)
+      FALLBACK(intel, INTEL_FALLBACK_USER, 1);
 
    ctx->Const.MaxTextureUnits = I915_TEX_UNITS;
    ctx->Const.MaxTextureImageUnits = I915_TEX_UNITS;

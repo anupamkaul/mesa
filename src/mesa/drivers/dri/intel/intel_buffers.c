@@ -35,11 +35,11 @@
 #include "intel_regions.h"
 #include "intel_batchbuffer.h"
 #include "intel_reg.h"
-#include "context.h"
+#include "main/context.h"
+#include "main/framebuffer.h"
+#include "swrast/swrast.h"
 #include "utils.h"
 #include "drirenderbuffer.h"
-#include "framebuffer.h"
-#include "swrast/swrast.h"
 #include "vblank.h"
 #include "i915_drm.h"
 
@@ -618,6 +618,9 @@ intel_wait_flips(struct intel_context *intel)
 			     BUFFER_FRONT_LEFT ? BUFFER_FRONT_LEFT :
 			     BUFFER_BACK_LEFT);
 
+   if (intel->intelScreen->driScrnPriv->dri2.enabled)
+      return;
+
    if (intel_fb->Base.Name == 0 && intel_rb &&
        intel_rb->pf_pending == intel_fb->pf_seq) {
       GLint pf_planes = intel_fb->pf_planes;
@@ -819,6 +822,8 @@ intelSwapBuffers(__DRIdrawablePrivate * dPriv)
 
 	 intel_fb->swap_ust = ust;
       }
+      drmCommandNone(intel->driFd, DRM_I915_GEM_THROTTLE);
+
    }
    else {
       /* XXX this shouldn't be an error but we can't handle it for now */

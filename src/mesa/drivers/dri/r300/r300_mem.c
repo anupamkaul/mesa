@@ -39,8 +39,9 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "simple_list.h"
+#include "main/simple_list.h"
 
+#include "radeon_buffer.h"
 #include "radeon_ioctl.h"
 #include "r300_cmdbuf.h"
 

@@ -33,17 +33,18 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * \author Nicolai Haehnle <prefect_@gmx.net>
  */
 
-#include "glheader.h"
-#include "state.h"
-#include "imports.h"
-#include "macros.h"
-#include "context.h"
+#include "main/glheader.h"
+#include "main/state.h"
+#include "main/imports.h"
+#include "main/macros.h"
+#include "main/context.h"
+#include "main/simple_list.h"
 #include "swrast/swrast.h"
-#include "simple_list.h"
 
 #include "drm.h"
 #include "radeon_drm.h"
 
+#include "radeon_buffer.h"
 #include "radeon_ioctl.h"
 #include "r300_context.h"
 #include "r300_ioctl.h"

@@ -25,10 +25,11 @@
  * 
  **************************************************************************/
 
+#include "intel_context.h"
 #include "intel_batchbuffer.h"
-#include "intel_ioctl.h"
 #include "intel_decode.h"
 #include "intel_reg.h"
+#include "intel_bufmgr.h"
 
 /* Relocations in kernel space:
  *    - pass dma buffer seperately
@@ -78,19 +79,21 @@ intel_batchbuffer_reset(struct intel_batchbuffer *batch)
       batch->buf = NULL;
    }
 
+   if (!batch->buffer && intel->ttm == GL_TRUE)
+      batch->buffer = malloc (intel->maxBatchSize);
+
    batch->buf = dri_bo_alloc(intel->bufmgr, "batchbuffer",
-			     intel->maxBatchSize, 4096,
-			     DRM_BO_FLAG_MEM_LOCAL | DRM_BO_FLAG_CACHED | DRM_BO_FLAG_CACHED_MAPPED);
-   dri_bo_map(batch->buf, GL_TRUE);
-   batch->map = batch->buf->virtual;
+			     intel->maxBatchSize, 4096);
+   if (batch->buffer)
+      batch->map = batch->buffer;
+   else {
+      dri_bo_map(batch->buf, GL_TRUE);
+      batch->map = batch->buf->virtual;
+   }
    batch->size = intel->maxBatchSize;
    batch->ptr = batch->map;
    batch->dirty_state = ~0;
    batch->cliprect_mode = IGNORE_CLIPRECTS;
-
-   /* account batchbuffer in aperture */
-   dri_bufmgr_check_aperture_space(batch->buf);
-
 }
 
 struct intel_batchbuffer *
@@ -99,7 +102,6 @@ intel_batchbuffer_alloc(struct intel_context *intel)
    struct intel_batchbuffer *batch = calloc(sizeof(*batch), 1);
 
    batch->intel = intel;
-   batch->last_fence = NULL;
    intel_batchbuffer_reset(batch);
 
    return batch;
@@ -108,14 +110,13 @@ intel_batchbuffer_alloc(struct intel_context *intel)
 void
 intel_batchbuffer_free(struct intel_batchbuffer *batch)
 {
-   if (batch->last_fence) {
-      dri_fence_wait(batch->last_fence);
-      dri_fence_unreference(batch->last_fence);
-      batch->last_fence = NULL;
-   }
-   if (batch->map) {
-      dri_bo_unmap(batch->buf);
-      batch->map = NULL;
+   if (batch->buffer)
+      free (batch->buffer);
+   else {
+      if (batch->map) {
+	 dri_bo_unmap(batch->buf);
+	 batch->map = NULL;
+      }
    }
    dri_bo_unreference(batch->buf);
    batch->buf = NULL;
@@ -131,11 +132,12 @@ do_flush_locked(struct intel_batchbuffer *batch,
 		GLuint used, GLboolean allow_unlock)
 {
    struct intel_context *intel = batch->intel;
-   void *start;
-   GLuint count;
+   int ret = 0;
 
-   dri_bo_unmap(batch->buf);
-   start = dri_process_relocs(batch->buf, &count);
+   if (batch->buffer)
+      dri_bo_subdata (batch->buf, 0, used, batch->buffer);
+   else
+      dri_bo_unmap(batch->buf);
 
    batch->map = NULL;
    batch->ptr = NULL;
@@ -146,23 +148,14 @@ do_flush_locked(struct intel_batchbuffer *batch,
     */
 
    if (!(intel->numClipRects == 0 &&
-	 batch->cliprect_mode == LOOP_CLIPRECTS)) {
-      if (intel->ttm == GL_TRUE) {
-	 intel_exec_ioctl(batch->intel,
-			  used,
-			  batch->cliprect_mode != LOOP_CLIPRECTS,
-			  allow_unlock,
-			  start, count, &batch->last_fence);
-      } else {
-	 intel_batch_ioctl(batch->intel,
-			   batch->buf->offset,
-			   used,
-			   batch->cliprect_mode != LOOP_CLIPRECTS,
-			   allow_unlock);
-      }
+	 batch->cliprect_mode == LOOP_CLIPRECTS) || intel->no_hw) {
+      dri_bo_exec(batch->buf, used,
+		  intel->pClipRects,
+		  batch->cliprect_mode != LOOP_CLIPRECTS ?
+		  0 : intel->numClipRects,
+		  (((GLuint) intel->drawX) & 0xffff) |
+		  (((GLuint) intel->drawY) << 16));
    }
-      
-   dri_post_submit(batch->buf, &batch->last_fence);
 
    if (intel->numClipRects == 0 &&
        batch->cliprect_mode == LOOP_CLIPRECTS) {
@@ -187,6 +180,10 @@ do_flush_locked(struct intel_batchbuffer *batch,
 	 intel->vtbl.debug_batch(intel);
    }
 
+   if (ret != 0) {
+      UNLOCK_HARDWARE(intel);
+      exit(1);
+   }
    intel->vtbl.new_batch(intel);
 }
 
@@ -204,20 +201,26 @@ _intel_batchbuffer_flush(struct intel_batchbuffer *batch, const char *file,
    if (INTEL_DEBUG & DEBUG_BATCH)
       fprintf(stderr, "%s:%d: Batchbuffer flush with %db used\n", file, line,
 	      used);
-   /* Add the MI_BATCH_BUFFER_END.  Always add an MI_FLUSH - this is a
-    * performance drain that we would like to avoid.
-    */
-   if (used & 4) {
-      ((int *) batch->ptr)[0] = intel->vtbl.flush_cmd();
-      ((int *) batch->ptr)[1] = 0;
-      ((int *) batch->ptr)[2] = MI_BATCH_BUFFER_END;
-      used += 12;
+
+   /* Emit a flush if the bufmgr doesn't do it for us. */
+   if (!intel->ttm) {
+      *(GLuint *) (batch->ptr) = intel->vtbl.flush_cmd();
+      batch->ptr += 4;
+      used = batch->ptr - batch->map;
    }
-   else {
-      ((int *) batch->ptr)[0] = intel->vtbl.flush_cmd();
-      ((int *) batch->ptr)[1] = MI_BATCH_BUFFER_END;
-      used += 8;
+
+   /* Round batchbuffer usage to 2 DWORDs. */
+
+   if ((used & 4) == 0) {
+      *(GLuint *) (batch->ptr) = 0; /* noop */
+      batch->ptr += 4;
+      used = batch->ptr - batch->map;
    }
+
+   /* Mark the end of the buffer. */
+   *(GLuint *) (batch->ptr) = MI_BATCH_BUFFER_END; /* noop */
+   batch->ptr += 4;
+   used = batch->ptr - batch->map;
 
    /* Workaround for recursive batchbuffer flushing: If the window is
     * moved, we can get into a case where we try to flush during a
@@ -229,6 +232,9 @@ _intel_batchbuffer_flush(struct intel_batchbuffer *batch, const char *file,
     * prevent the nested buffer flush, but a better fix would be to
     * avoid that in the first place. */
    batch->ptr = batch->map;
+
+   if (intel->vtbl.finish_batch)
+      intel->vtbl.finish_batch(intel);
 
    /* TODO: Just pass the relocation list and dma buffer up to the
     * kernel.
@@ -243,21 +249,13 @@ _intel_batchbuffer_flush(struct intel_batchbuffer *batch, const char *file,
 
    if (INTEL_DEBUG & DEBUG_SYNC) {
       fprintf(stderr, "waiting for idle\n");
-      if (batch->last_fence != NULL)
-	 dri_fence_wait(batch->last_fence);
+      dri_bo_map(batch->buf, GL_TRUE);
+      dri_bo_unmap(batch->buf);
    }
 
    /* Reset the buffer:
     */
    intel_batchbuffer_reset(batch);
-}
-
-void
-intel_batchbuffer_finish(struct intel_batchbuffer *batch)
-{
-   intel_batchbuffer_flush(batch);
-   if (batch->last_fence != NULL)
-      dri_fence_wait(batch->last_fence);
 }
 
 
@@ -266,11 +264,16 @@ intel_batchbuffer_finish(struct intel_batchbuffer *batch)
 GLboolean
 intel_batchbuffer_emit_reloc(struct intel_batchbuffer *batch,
                              dri_bo *buffer,
-                             GLuint flags, GLuint delta)
+                             uint32_t read_domains, uint32_t write_domain,
+			     uint32_t delta)
 {
    int ret;
 
-   ret = dri_emit_reloc(batch->buf, flags, delta, batch->ptr - batch->map, buffer);
+   if (batch->ptr - batch->map > batch->buf->size)
+    _mesa_printf ("bad relocation ptr %p map %p offset %d size %d\n",
+		  batch->ptr, batch->map, batch->ptr - batch->map, batch->buf->size);
+   ret = dri_bo_emit_reloc(batch->buf, read_domains, write_domain,
+			   delta, batch->ptr - batch->map, buffer);
 
    /*
     * Using the old buffer offset, write in what the right data would be, in case

@@ -26,7 +26,8 @@
 #ifndef RADEON_BUFFER_H
 #define RADEON_BUFFER_H
 
-#include "dri_bufmgr.h"
+#include "radeon_dri_bufmgr.h"
+#include "dri_util.h"
 
 struct radeon_renderbuffer
 {

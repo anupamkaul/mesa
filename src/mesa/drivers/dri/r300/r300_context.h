@@ -40,13 +40,13 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "tnl/t_vertex.h"
 #include "drm.h"
 #include "radeon_drm.h"
-#include "dri_bufmgr.h"
+#include "radeon_dri_bufmgr.h"
 #include "dri_util.h"
 #include "texmem.h"
 
-#include "macros.h"
-#include "mtypes.h"
-#include "colormac.h"
+#include "main/macros.h"
+#include "main/mtypes.h"
+#include "main/colormac.h"
 
 struct r300_context;
 typedef struct r300_context r300ContextRec;
@@ -54,7 +54,7 @@ typedef struct r300_context *r300ContextPtr;
 typedef struct radeon_bufmgr radeon_bufmgr;
 
 #include "radeon_lock.h"
-#include "mm.h"
+#include "main/mm.h"
 
 /* From http://gcc.gnu.org/onlinedocs/gcc-3.2.3/gcc/Variadic-Macros.html .
    I suppose we could inline this and use macro to fetch out __LINE__ and stuff in case we run into trouble

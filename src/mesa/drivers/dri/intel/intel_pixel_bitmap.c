@@ -25,25 +25,24 @@
  * 
  **************************************************************************/
 
-#include "glheader.h"
-#include "enums.h"
-#include "image.h"
-#include "colormac.h"
-#include "mtypes.h"
-#include "macros.h"
-#include "bufferobj.h"
+#include "main/glheader.h"
+#include "main/enums.h"
+#include "main/image.h"
+#include "main/colormac.h"
+#include "main/mtypes.h"
+#include "main/macros.h"
+#include "main/bufferobj.h"
 #include "swrast/swrast.h"
 
 #include "intel_screen.h"
 #include "intel_context.h"
-#include "intel_ioctl.h"
 #include "intel_batchbuffer.h"
 #include "intel_blit.h"
 #include "intel_regions.h"
 #include "intel_buffer_objects.h"
 #include "intel_buffers.h"
 #include "intel_pixel.h"
-
+#include "intel_reg.h"
 
 
 #define FILE_DEBUG_FLAG DEBUG_PIXEL
@@ -293,7 +292,7 @@ do_blit_bitmap( GLcontext *ctx,
 						  dst->pitch,
 						  dst->buffer,
 						  0,
-						  dst->tiled,
+						  dst->tiling,
 						  rect.x1 + px,
 						  rect.y2 - (py + h),
 						  w, h,
@@ -301,9 +300,8 @@ do_blit_bitmap( GLcontext *ctx,
 	    } 
 	 } 
       }
-   out:
-      intel_batchbuffer_flush(intel->batch);
    }
+out:
    UNLOCK_HARDWARE(intel);
 
 

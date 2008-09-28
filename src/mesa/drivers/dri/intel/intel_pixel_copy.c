@@ -25,17 +25,16 @@
  * 
  **************************************************************************/
 
-#include "glheader.h"
-#include "enums.h"
-#include "image.h"
-#include "state.h"
-#include "mtypes.h"
-#include "macros.h"
+#include "main/glheader.h"
+#include "main/enums.h"
+#include "main/image.h"
+#include "main/state.h"
+#include "main/mtypes.h"
+#include "main/macros.h"
 #include "swrast/swrast.h"
 
 #include "intel_screen.h"
 #include "intel_context.h"
-#include "intel_ioctl.h"
 #include "intel_batchbuffer.h"
 #include "intel_buffers.h"
 #include "intel_blit.h"
@@ -136,10 +135,20 @@ do_texture_copypixels(GLcontext * ctx,
       srcbox.x2 = srcx + width;
       srcbox.y2 = srcy + height;
 
-      dstbox.x1 = dstx;
-      dstbox.y1 = dsty;
-      dstbox.x2 = dstx + width * ctx->Pixel.ZoomX;
-      dstbox.y2 = dsty + height * ctx->Pixel.ZoomY;
+      if (ctx->Pixel.ZoomX > 0) {
+	 dstbox.x1 = dstx;
+	 dstbox.x2 = dstx + width * ctx->Pixel.ZoomX;
+      } else {
+	 dstbox.x1 = dstx + width * ctx->Pixel.ZoomX;
+	 dstbox.x2 = dstx;
+      }
+      if (ctx->Pixel.ZoomY > 0) {
+	 dstbox.y1 = dsty;
+	 dstbox.y2 = dsty + height * ctx->Pixel.ZoomY;
+      } else {
+	 dstbox.y1 = dsty + height * ctx->Pixel.ZoomY;
+	 dstbox.y2 = dsty;
+      }
 
       DBG("src %d,%d %d,%d\n", srcbox.x1, srcbox.y1, srcbox.x2, srcbox.y2);
       DBG("dst %d,%d %d,%d (%dx%d) (%f,%f)\n", dstbox.x1, dstbox.y1, dstbox.x2, dstbox.y2,
@@ -229,7 +238,7 @@ do_texture_copypixels(GLcontext * ctx,
 
     out:
       intel->vtbl.leave_meta_state(intel);
-      intel_batchbuffer_flush(intel->batch);
+      intel_batchbuffer_emit_mi_flush(intel->batch);
    }
    UNLOCK_HARDWARE(intel);
 
@@ -337,18 +346,16 @@ do_blit_copypixels(GLcontext * ctx,
             continue;
 
          intelEmitCopyBlit(intel, dst->cpp,
-			   src->pitch, src->buffer, 0, src->tiled,
-			   dst->pitch, dst->buffer, 0, dst->tiled,
+			   src->pitch, src->buffer, 0, src->tiling,
+			   dst->pitch, dst->buffer, 0, dst->tiling,
 			   clip_x + delta_x, clip_y + delta_y, /* srcx, srcy */
 			   clip_x, clip_y, /* dstx, dsty */
 			   clip_w, clip_h,
 			   ctx->Color.ColorLogicOpEnabled ?
 			   ctx->Color.LogicOp : GL_COPY);
       }
-
-    out:
-      intel_batchbuffer_flush(intel->batch);
    }
+out:
    UNLOCK_HARDWARE(intel);
 
    DBG("%s: success\n", __FUNCTION__);

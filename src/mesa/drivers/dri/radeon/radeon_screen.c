@@ -1,4 +1,3 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_screen.c,v 1.7 2003/03/26 20:43:51 tsi Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -36,11 +35,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * \author  Gareth Hughes <gareth@valinux.com>
  */
 
-#include "glheader.h"
-#include "imports.h"
-#include "mtypes.h"
-#include "framebuffer.h"
-#include "renderbuffer.h"
+#include "main/glheader.h"
+#include "main/imports.h"
+#include "main/mtypes.h"
+#include "main/framebuffer.h"
+#include "main/renderbuffer.h"
 
 #define STANDALONE_MMIO
 #include "radeon_chipset.h"
@@ -64,7 +63,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #endif
 
 #include "utils.h"
-#include "context.h"
 #include "vblank.h"
 #include "drirenderbuffer.h"
 
@@ -275,8 +273,8 @@ radeonFillInModes( __DRIscreenPrivate *psp,
 	GLX_NONE, GLX_SWAP_UNDEFINED_OML /*, GLX_SWAP_COPY_OML */
     };
 
-    u_int8_t depth_bits_array[2];
-    u_int8_t stencil_bits_array[2];
+    uint8_t depth_bits_array[2];
+    uint8_t stencil_bits_array[2];
 
 
     depth_bits_array[0] = depth_bits;
@@ -447,7 +445,7 @@ radeonCreateScreen( __DRIscreenPrivate *sPriv )
       __driUtilMessage("%s: drmMap (2) failed\n", __FUNCTION__ );
       return NULL;
    }
-   screen->scratch = (__volatile__ u_int32_t *)
+   screen->scratch = (__volatile__ uint32_t *)
       ((GLubyte *)screen->status.map + RADEON_SCRATCH_REG_OFFSET);
 
    screen->buffers = drmMapBufs( sPriv->fd );

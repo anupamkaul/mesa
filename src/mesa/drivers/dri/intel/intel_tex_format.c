@@ -1,7 +1,7 @@
 #include "intel_context.h"
 #include "intel_tex.h"
-#include "texformat.h"
-#include "enums.h"
+#include "main/texformat.h"
+#include "main/enums.h"
 
 /* It works out that this function is fine for all the supported
  * hardware.  However, there is still a need to map the formats onto
@@ -138,7 +138,7 @@ intelChooseTextureFormat(GLcontext * ctx, GLint internalFormat,
 
    case GL_DEPTH_STENCIL_EXT:
    case GL_DEPTH24_STENCIL8_EXT:
-      return &_mesa_texformat_z24_s8;
+      return &_mesa_texformat_s8_z24;
 
 #ifndef I915
    case GL_SRGB_EXT:

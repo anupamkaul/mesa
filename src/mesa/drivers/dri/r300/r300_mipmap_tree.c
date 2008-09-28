@@ -30,10 +30,11 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include "simple_list.h"
-#include "texcompress.h"
-#include "texformat.h"
+#include "main/simple_list.h"
+#include "main/texcompress.h"
+#include "main/texformat.h"
 
+#include "radeon_buffer.h"
 #include "r300_mem.h"
 
 static GLuint r300_compressed_texture_size(GLcontext *ctx,

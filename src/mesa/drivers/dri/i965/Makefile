@@ -9,12 +9,10 @@ DRIVER_SOURCES = \
 	intel_blit.c \
 	intel_buffer_objects.c \
 	intel_buffers.c \
-	intel_bufmgr_ttm.c \
 	intel_context.c \
 	intel_decode.c \
 	intel_depthstencil.c \
 	intel_fbo.c \
-	intel_ioctl.c \
 	intel_mipmap_tree.c \
 	intel_regions.c \
 	intel_screen.c \
@@ -85,13 +83,14 @@ DRIVER_SOURCES = \
 
 C_SOURCES = \
 	$(COMMON_SOURCES) \
-	$(COMMON_BM_SOURCES) \
 	$(MINIGLX_SOURCES) \
 	$(DRIVER_SOURCES)
 
 ASM_SOURCES = 
 
 DRIVER_DEFINES = -I../intel -I../intel/server
+
+DRI_LIB_DEPS += -ldrm_intel
 
 include ../Makefile.template
 

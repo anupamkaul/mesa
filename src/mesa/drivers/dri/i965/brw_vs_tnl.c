@@ -30,11 +30,12 @@
  */
 
 
-#include "glheader.h"
-#include "macros.h"
-#include "enums.h"
+#include "main/glheader.h"
+#include "main/macros.h"
+#include "main/enums.h"
 #include "shader/prog_parameter.h"
 #include "shader/prog_print.h"
+#include "shader/prog_statevars.h"
 #include "brw_vs.h"
 #include "brw_state.h"
 
@@ -853,7 +854,7 @@ static struct ureg calculate_light_attenuation( struct tnl_program *p,
     */
    if (!p->state->unit[i].light_spotcutoff_is_180) {
       struct ureg spot_dir_norm = register_param3(p, STATE_INTERNAL,
-						  STATE_SPOT_DIR_NORMALIZED, i);
+						  STATE_LIGHT_SPOT_DIR_NORMALIZED, i);
       struct ureg spot = get_temp(p);
       struct ureg slt = get_temp(p);
 
@@ -988,7 +989,7 @@ static void build_lighting( struct tnl_program *p )
 	     * Attenuation never applies to infinite lights.
 	     */
 	    VPpli = register_param3(p, STATE_LIGHT, i, 
-				    STATE_POSITION_NORMALIZED); 
+				    STATE_LIGHT_POSITION_NORMALIZED);
             if (p->state->light_local_viewer) {
                 struct ureg eye_hat = get_eye_position_normalized(p);
                 half = get_temp(p);
@@ -1581,7 +1582,7 @@ static GLuint hash_key( struct state_key *key )
    return hash;
 }
 
-static int prepare_tnl_program( struct brw_context *brw )
+static void prepare_tnl_program( struct brw_context *brw )
 {
    GLcontext *ctx = &brw->intel.ctx;
    struct state_key key;
@@ -1590,7 +1591,7 @@ static int prepare_tnl_program( struct brw_context *brw )
 
    /* _NEW_PROGRAM */
    if (brw->attribs.VertexProgram->_Current) 
-      return 0;
+      return;
       
    /* Grab all the relevent state and put it in a single structure:
     */
@@ -1623,7 +1624,7 @@ static int prepare_tnl_program( struct brw_context *brw )
 
    if (old != brw->tnl_program)
       brw->state.dirty.brw |= BRW_NEW_TNL_PROGRAM;
-   return 0;
+   return;
 }
 
 /* Note: See brw_draw.c - the vertex program must not rely on
@@ -1649,7 +1650,7 @@ const struct brw_tracked_state brw_tnl_vertprog = {
 
 
 
-static int prepare_active_vertprog( struct brw_context *brw )
+static void prepare_active_vertprog( struct brw_context *brw )
 {
    const struct gl_vertex_program *prev = brw->vertex_program;
 
@@ -1664,8 +1665,6 @@ static int prepare_active_vertprog( struct brw_context *brw )
 
    if (brw->vertex_program != prev) 
       brw->state.dirty.brw |= BRW_NEW_VERTEX_PROGRAM;
-
-   return 0;
 }
 
 

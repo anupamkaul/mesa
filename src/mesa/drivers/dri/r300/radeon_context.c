@@ -36,17 +36,17 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <dlfcn.h>
 
-#include "glheader.h"
-#include "imports.h"
-#include "context.h"
-#include "state.h"
-#include "matrix.h"
-#include "framebuffer.h"
-#include "drirenderbuffer.h"
+#include "main/glheader.h"
+#include "main/imports.h"
+#include "main/context.h"
+#include "main/state.h"
+#include "main/matrix.h"
+#include "main/framebuffer.h"
 
 #include "drivers/common/driverfuncs.h"
 #include "swrast/swrast.h"
 
+#include "radeon_buffer.h"
 #include "radeon_screen.h"
 #include "radeon_ioctl.h"
 #include "radeon_macros.h"
@@ -58,6 +58,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "utils.h"
 #include "vblank.h"
 #include "xmlpool.h"		/* for symbolic values of enum-type options */
+#include "drirenderbuffer.h"
 
 #define DRIVER_DATE "20060815"
 

@@ -25,11 +25,11 @@
  * 
  **************************************************************************/
 
-#include "mtypes.h"
-#include "enums.h"
-#include "image.h"
-#include "teximage.h"
-#include "mipmap.h"
+#include "main/mtypes.h"
+#include "main/enums.h"
+#include "main/image.h"
+#include "main/teximage.h"
+#include "main/mipmap.h"
 #include "swrast/swrast.h"
 
 #include "intel_screen.h"
@@ -144,15 +144,13 @@ do_copy_texsubimage(struct intel_context *intel,
                            -src->pitch,
                            src->buffer,
                            src->height * src->pitch * src->cpp,
-			   GL_FALSE,
+			   src->tiling,
                            intelImage->mt->pitch,
                            intelImage->mt->region->buffer,
                            image_offset,
-			   intelImage->mt->region->tiled,
+			   intelImage->mt->region->tiling,
                            x, y + height, dstx, dsty, width, height,
 			   GL_COPY); /* ? */
-
-         intel_batchbuffer_flush(intel->batch);
       }
    }
 

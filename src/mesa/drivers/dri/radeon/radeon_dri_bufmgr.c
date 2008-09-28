@@ -28,8 +28,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include "mtypes.h"
-#include "dri_bufmgr.h"
+#include "main/mtypes.h"
+#include "radeon_dri_bufmgr.h"
 
 /** @file dri_bufmgr.c
  *

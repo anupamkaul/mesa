@@ -1,38 +1,32 @@
-/* $XFree86: xc/lib/GL/glx/glxcmds.c,v 1.30 2004/01/30 20:33:06 alanh Exp $ */
 /*
-** License Applicability. Except to the extent portions of this file are
-** made subject to an alternative license as permitted in the SGI Free
-** Software License B, Version 1.1 (the "License"), the contents of this
-** file are subject only to the provisions of the License. You may not use
-** this file except in compliance with the License. You may obtain a copy
-** of the License at Silicon Graphics, Inc., attn: Legal Services, 1600
-** Amphitheatre Parkway, Mountain View, CA 94043-1351, or at:
-** 
-** http://oss.sgi.com/projects/FreeB
-** 
-** Note that, as provided in the License, the Software is distributed on an
-** "AS IS" basis, with ALL EXPRESS AND IMPLIED WARRANTIES AND CONDITIONS
-** DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY IMPLIED WARRANTIES AND
-** CONDITIONS OF MERCHANTABILITY, SATISFACTORY QUALITY, FITNESS FOR A
-** PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
-** 
-** Original Code. The Original Code is: OpenGL Sample Implementation,
-** Version 1.2.1, released January 26, 2000, developed by Silicon Graphics,
-** Inc. The Original Code is Copyright (c) 1991-2000 Silicon Graphics, Inc.
-** Copyright in any portions created by third parties is as indicated
-** elsewhere herein. All Rights Reserved.
-** 
-** Additional Notice Provisions: The application programming interfaces
-** established by SGI in conjunction with the Original Code are The
-** OpenGL(R) Graphics System: A Specification (Version 1.2.1), released
-** April 1, 1999; The OpenGL(R) Graphics System Utility Library (Version
-** 1.3), released November 4, 1998; and OpenGL(R) Graphics with the X
-** Window System(R) (Version 1.3), released October 19, 1998. This software
-** was created using the OpenGL(R) version 1.2.1 Sample Implementation
-** published by SGI, but has not been independently verified as being
-** compliant with the OpenGL(R) version 1.2.1 Specification.
-**
-*/
+ * SGI FREE SOFTWARE LICENSE B (Version 2.0, Sept. 18, 2008)
+ * Copyright (C) 1991-2000 Silicon Graphics, Inc. All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice including the dates of first publication and
+ * either this permission notice or a reference to
+ * http://oss.sgi.com/projects/FreeB/
+ * shall be included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * SILICON GRAPHICS, INC. BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+ * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * Except as contained in this notice, the name of Silicon Graphics, Inc.
+ * shall not be used in advertising or otherwise to promote the sale, use or
+ * other dealings in this Software without prior written authorization from
+ * Silicon Graphics, Inc.
+ */
 
 /**
  * \file glxcmds.c
@@ -43,7 +37,6 @@
 #include "glapi.h"
 #include "glxextensions.h"
 #include "glcontextmodes.h"
-#include "glheader.h"
 
 #ifdef GLX_DIRECT_RENDERING
 #include <sys/time.h>
@@ -423,7 +416,11 @@ CreateContext(Display *dpy, XVisualInfo *vis,
 	    req->visual = vis->visualid;
 	    req->screen = vis->screen;
 	    req->shareList = shareList ? shareList->xid : None;
+#ifdef GLX_DIRECT_RENDERING
 	    req->isDirect = gc->driContext != NULL;
+#else
+	    req->isDirect = 0;
+#endif
 	}
 	else if ( use_glx_1_3 ) {
 	    xGLXCreateNewContextReq *req;
@@ -437,7 +434,11 @@ CreateContext(Display *dpy, XVisualInfo *vis,
 	    req->screen = fbconfig->screen;
 	    req->renderType = renderType;
 	    req->shareList = shareList ? shareList->xid : None;
+#ifdef GLX_DIRECT_RENDERING
 	    req->isDirect = gc->driContext != NULL;
+#else
+	    req->isDirect = 0;
+#endif
 	}
 	else {
 	    xGLXVendorPrivateWithReplyReq *vpreq;
@@ -455,7 +456,11 @@ CreateContext(Display *dpy, XVisualInfo *vis,
 	    req->screen = fbconfig->screen;
 	    req->renderType = renderType;
 	    req->shareList = shareList ? shareList->xid : None;
+#ifdef GLX_DIRECT_RENDERING
 	    req->isDirect = gc->driContext != NULL;
+#else
+	    req->isDirect = 0;
+#endif
 	}
 
 	UnlockDisplay(dpy);
@@ -519,6 +524,8 @@ DestroyContext(Display *dpy, GLXContext gc)
 	GarbageCollectDRIDrawables(dpy, gc->psc);
     }
 #endif
+
+    __glXFreeVertexArrayState(gc);
 
     if (gc->currentDpy) {
 	/* Have to free later cuz it's in use now */
@@ -841,7 +848,8 @@ PUBLIC void glXSwapBuffers(Display *dpy, GLXDrawable drawable)
     __GLXDRIdrawable *pdraw = GetGLXDRIDrawable(dpy, drawable, NULL);
 
     if (pdraw != NULL) {
-	(*pdraw->psc->core->swapBuffers)(pdraw->driDrawable);
+	glFlush();	    
+	(*pdraw->psc->driScreen->swapBuffers)(pdraw);
 	return;
     }
 #endif
@@ -1525,7 +1533,11 @@ glXQueryContext(Display *dpy, GLXContext ctx, int attribute, int *value)
     int retVal;
 
     /* get the information from the server if we don't have it already */
+#ifdef GLX_DIRECT_RENDERING
     if (!ctx->driContext && (ctx->mode == NULL)) {
+#else
+    if (ctx->mode == NULL) {
+#endif
 	retVal = __glXQueryContextInfo(dpy, ctx);
 	if (Success != retVal) return retVal;
     }

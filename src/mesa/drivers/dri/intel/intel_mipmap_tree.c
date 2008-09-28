@@ -29,7 +29,7 @@
 #include "intel_mipmap_tree.h"
 #include "intel_regions.h"
 #include "intel_chipset.h"
-#include "enums.h"
+#include "main/enums.h"
 
 #define FILE_DEBUG_FLAG DEBUG_MIPTREE
 
@@ -117,7 +117,10 @@ intel_miptree_create(struct intel_context *intel,
       return NULL;
 
    mt->region = intel_region_alloc(intel,
-				   mt->cpp, mt->pitch, mt->total_height);
+				   mt->cpp,
+				   mt->pitch,
+				   mt->total_height,
+				   mt->pitch);
 
    if (!mt->region) {
        free(mt);
@@ -141,7 +144,7 @@ intel_miptree_create_for_region(struct intel_context *intel,
 
    mt = intel_miptree_create_internal(intel, target, internal_format,
 				      first_level, last_level,
-				      region->pitch, region->height, depth0,
+				      region->width, region->height, 1,
 				      region->cpp, compress_byte);
    if (!mt)
       return mt;
@@ -442,7 +445,7 @@ intel_miptree_image_data(struct intel_context *intel,
 	 height = (height + 3) / 4;
       intel_region_data(intel,
 			dst->region,
-			dst_offset + dst_depth_offset[i] * dst->cpp, /* dst_offset */
+			dst_offset + dst_depth_offset[i], /* dst_offset */
 			0, 0,                             /* dstx, dsty */
 			src,
 			src_row_pitch,
@@ -479,10 +482,10 @@ intel_miptree_image_copy(struct intel_context *intel,
 
    for (i = 0; i < depth; i++) {
       intel_region_copy(intel,
-                        dst->region, dst_offset + dst_depth_offset[i] * dst->cpp,
+                        dst->region, dst_offset + dst_depth_offset[i],
                         0,
                         0,
-                        src->region, src_offset + src_depth_offset[i] * src->cpp,
+                        src->region, src_offset + src_depth_offset[i],
                         0, 0, width, height);
    }
 

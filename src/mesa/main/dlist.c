@@ -52,6 +52,7 @@
 #include "eval.h"
 #include "extensions.h"
 #include "feedback.h"
+#include "framebuffer.h"
 #include "get.h"
 #include "glapi/glapi.h"
 #include "hash.h"
@@ -924,6 +925,13 @@ save_BlendFuncSeparateEXT(GLenum sfactorRGB, GLenum dfactorRGB,
       CALL_BlendFuncSeparateEXT(ctx->Exec,
                                 (sfactorRGB, dfactorRGB, sfactorA, dfactorA));
    }
+}
+
+
+static void GLAPIENTRY
+save_BlendFunc(GLenum srcfactor, GLenum dstfactor)
+{
+   save_BlendFuncSeparateEXT(srcfactor, dstfactor, srcfactor, dstfactor);
 }
 
 
@@ -5101,7 +5109,7 @@ save_Indexfv(const GLfloat * v)
 static void GLAPIENTRY
 save_EdgeFlag(GLboolean x)
 {
-   save_Attr1fNV(VERT_ATTRIB_EDGEFLAG, x ? 1.0 : 0.0);
+   save_Attr1fNV(VERT_ATTRIB_EDGEFLAG, x ? (GLfloat)1.0 : (GLfloat)0.0);
 }
 
 static void GLAPIENTRY
@@ -6788,6 +6796,11 @@ _mesa_EndList(void)
       _mesa_error(ctx, GL_INVALID_OPERATION, "glEndList");
       return;
    }
+   
+   /* Call before emitting END_OF_LIST, in case the driver wants to
+    * emit opcodes itself.
+    */
+   ctx->Driver.EndList(ctx);
 
    (void) ALLOC_INSTRUCTION(ctx, OPCODE_END_OF_LIST, 0);
 
@@ -6800,8 +6813,6 @@ _mesa_EndList(void)
 
    if (MESA_VERBOSE & VERBOSE_DISPLAY_LIST)
       mesa_print_display_list(ctx->ListState.CurrentListNum);
-
-   ctx->Driver.EndList(ctx);
 
    ctx->ListState.CurrentList = NULL;
    ctx->ListState.CurrentListNum = 0;
@@ -7659,7 +7670,7 @@ _mesa_init_dlist_table(struct _glapi_table *table)
    SET_Accum(table, save_Accum);
    SET_AlphaFunc(table, save_AlphaFunc);
    SET_Bitmap(table, save_Bitmap);
-   SET_BlendFunc(table, _mesa_BlendFunc);       /* loops-back to BlendFuncSeparate */
+   SET_BlendFunc(table, save_BlendFunc);
    SET_CallList(table, _mesa_save_CallList);
    SET_CallLists(table, _mesa_save_CallLists);
    SET_Clear(table, save_Clear);

@@ -37,7 +37,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <X11/Xlib.h>
 #include <X11/extensions/Xfixes.h>
 #include <X11/extensions/Xdamage.h>
-#include "glheader.h"
 #include "glxclient.h"
 #include "glcontextmodes.h"
 #include "xf86dri.h"
@@ -445,6 +444,7 @@ static void driDestroyContext(__GLXDRIcontext *context,
     (*psc->core->destroyContext)(pcp->driContext);
 
     XF86DRIDestroyContext(psc->dpy, psc->scr, pcp->hwContextID);
+    Xfree(pcp);
 }
 
 static Bool driBindContext(__GLXDRIcontext *context,
@@ -569,6 +569,11 @@ static __GLXDRIdrawable *driCreateDrawable(__GLXscreenConfigs *psc,
     return pdraw;
 }
 
+static void driSwapBuffers(__GLXDRIdrawable *pdraw)
+{
+   (*pdraw->psc->core->swapBuffers)(pdraw->driDrawable);
+}
+
 static void driDestroyScreen(__GLXscreenConfigs *psc)
 {
     /* Free the direct rendering per screen data */
@@ -640,6 +645,7 @@ static __GLXDRIscreen *driCreateScreen(__GLXscreenConfigs *psc, int screen,
     psp->destroyScreen = driDestroyScreen;
     psp->createContext = driCreateContext;
     psp->createDrawable = driCreateDrawable;
+    psp->swapBuffers = driSwapBuffers;
 
     return psp;
 }

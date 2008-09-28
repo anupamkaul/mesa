@@ -35,23 +35,23 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * \author Nicolai Haehnle <prefect_@gmx.net>
  */
 
-#include "glheader.h"
-#include "state.h"
-#include "imports.h"
-#include "enums.h"
-#include "macros.h"
-#include "context.h"
-#include "dd.h"
-#include "simple_list.h"
+#include "main/glheader.h"
+#include "main/state.h"
+#include "main/imports.h"
+#include "main/enums.h"
+#include "main/macros.h"
+#include "main/context.h"
+#include "main/dd.h"
+#include "main/simple_list.h"
+#include "main/api_arrayelt.h"
+#include "main/texformat.h"
 
-#include "api_arrayelt.h"
 #include "swrast/swrast.h"
 #include "swrast_setup/swrast_setup.h"
 #include "shader/prog_parameter.h"
 #include "shader/prog_statevars.h"
 #include "vbo/vbo.h"
 #include "tnl/tnl.h"
-#include "texformat.h"
 
 #include "radeon_ioctl.h"
 #include "radeon_state.h"
@@ -748,8 +748,6 @@ static void r300Fogfv(GLcontext * ctx, GLenum pname, const GLfloat * param)
 
 	switch (pname) {
 	case GL_FOG_MODE:
-		if (!ctx->Fog.Enabled)
-			return;
 		switch (ctx->Fog.Mode) {
 		case GL_LINEAR:
 			R300_STATECHANGE(r300, fogs);
@@ -2582,6 +2580,16 @@ static void r500SetupPixelShader(r300ContextPtr rmesa)
 		return;
 	}
 	code = &fp->code;
+
+	if (fp->mesa_program.FogOption != GL_NONE) {
+		/* Enable HW fog. Try not to squish GL context.
+		 * (Anybody sane remembered to set glFog() opts first!) */
+		r300SetFogState(ctx, GL_TRUE);
+		ctx->Fog.Mode = fp->mesa_program.FogOption;
+		r300Fogfv(ctx, GL_FOG_MODE, NULL);
+	} else
+		/* Make sure HW is matching GL context. */
+		r300SetFogState(ctx, ctx->Fog.Enabled);
 
 	r300SetupTextures(ctx);
 

@@ -1,8 +1,8 @@
 #ifndef __R300_MEM_H__
 #define __R300_MEM_H__
 
-#include "glheader.h"
-#include "dri_bufmgr.h"
+#include "main/glheader.h"
+#include "radeon_dri_bufmgr.h"
 
 #include "r300_context.h"
 

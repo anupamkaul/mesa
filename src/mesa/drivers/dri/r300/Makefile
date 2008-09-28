@@ -41,6 +41,7 @@ DRIVER_SOURCES = \
 		 r300_shader.c \
 		 r300_emit.c \
 		 r300_swtcl.c \
+		 radeon_dri_bufmgr.c \
 		 $(EGL_SOURCES)
 
 C_SOURCES = $(COMMON_SOURCES) $(COMMON_BM_SOURCES) $(DRIVER_SOURCES)
@@ -61,7 +62,9 @@ COMMON_SYMLINKS = \
 	radeon_screen.c \
 	radeon_screen.h \
 	radeon_span.h \
-	radeon_buffer.h
+	radeon_buffer.h \
+	radeon_dri_bufmgr.h \
+	radeon_dri_bufmgr.c
 
 ##### TARGETS #####
 
