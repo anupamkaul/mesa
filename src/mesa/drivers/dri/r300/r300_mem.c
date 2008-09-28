@@ -53,6 +53,7 @@ typedef struct _radeon_bo_vram radeon_bo_vram;
 
 struct _radeon_bufmgr_classic {
 	dri_bufmgr base;
+	radeonScreenPtr screen;
 	r300ContextPtr rmesa;
 
 	radeon_bo_classic *buffers; /** Unsorted linked list of all buffer objects */
@@ -281,9 +282,9 @@ static void dma_free(radeon_bo_classic *bo)
 
 	memfree.region = RADEON_MEM_REGION_GART;
 	memfree.region_offset = bo->base.offset;
-	memfree.region_offset -= bufmgr->rmesa->radeon.radeonScreen->gart_texture_offset;
+	memfree.region_offset -= bufmgr->screen->gart_texture_offset;
 
-	ret = drmCommandWrite(bufmgr->rmesa->radeon.radeonScreen->driScreen->fd,
+	ret = drmCommandWrite(bufmgr->screen->driScreen->fd,
 		DRM_RADEON_FREE, &memfree, sizeof(memfree));
 	if (ret) {
 		fprintf(stderr, "Failed to free bo[%p] at %08x\n", bo, memfree.region_offset);
@@ -314,7 +315,7 @@ static int try_dma_alloc(radeon_bufmgr_classic *bufmgr, radeon_bo_classic *bo,
 	alloc.size = size;
 	alloc.region_offset = &baseoffset;
 
-	ret = drmCommandWriteRead(bufmgr->rmesa->radeon.dri.fd,
+	ret = drmCommandWriteRead(bufmgr->screen->driScreen->fd,
 			DRM_RADEON_ALLOC, &alloc, sizeof(alloc));
 	if (ret) {
 		if (RADEON_DEBUG & DEBUG_MEMORY)
@@ -322,8 +323,8 @@ static int try_dma_alloc(radeon_bufmgr_classic *bufmgr, radeon_bo_classic *bo,
 		return 0;
 	}
 
-	bo->base.virtual = (char*)bufmgr->rmesa->radeon.radeonScreen->gartTextures.map + baseoffset;
-	bo->base.offset = bufmgr->rmesa->radeon.radeonScreen->gart_texture_offset + baseoffset;
+	bo->base.virtual = (char*)bufmgr->screen->gartTextures.map + baseoffset;
+	bo->base.offset = bufmgr->screen->gart_texture_offset + baseoffset;
 
 	return 1;
 }
@@ -467,7 +468,7 @@ static void vram_validate(radeon_bo_classic *bo_base)
 		tex.pitch = MAX2(tmp.width / 16, 1);
 
 		do {
-			ret = drmCommandWriteRead(bufmgr->rmesa->radeon.dri.fd,
+			ret = drmCommandWriteRead(bufmgr->screen->driScreen->fd,
 						DRM_RADEON_TEXTURE, &tex,
 						sizeof(drm_radeon_texture_t));
 			if (ret) {
@@ -547,8 +548,8 @@ static void static_map(radeon_bo_classic *bo_base, GLboolean write)
 {
 	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(bo_base->base.bufmgr);
 
-	bo_base->base.virtual = bufmgr->rmesa->radeon.dri.screen->pFB +
-		(bo_base->base.offset - bufmgr->rmesa->radeon.radeonScreen->fbLocation);
+	bo_base->base.virtual = bufmgr->screen->driScreen->pFB +
+		(bo_base->base.offset - bufmgr->screen->fbLocation);
 
 	/* Read the first pixel in the frame buffer.  This should
 	 * be a noop, right?  In fact without this conform fails as reading
@@ -567,7 +568,7 @@ static void static_map(radeon_bo_classic *bo_base, GLboolean write)
 	 */
 	{
 		int p;
-		volatile int *buf = (int*)bufmgr->rmesa->radeon.dri.screen->pFB;
+		volatile int *buf = (int*)bufmgr->screen->driScreen->pFB;
 		p = *buf;
 	}
 }
@@ -621,7 +622,7 @@ static dri_bo *bufmgr_classic_bo_alloc_static(dri_bufmgr *bufmgr_ctx, const char
 
 	bo->base.functions = &static_bo_functions;
 	bo->base.base.virtual = virtual;
-	bo->base.base.offset = offset + bufmgr->rmesa->radeon.radeonScreen->fbLocation;
+	bo->base.base.offset = offset + bufmgr->screen->fbLocation;
 	bo->base.validated = 1; /* Static buffer offsets are always valid */
 
 	init_buffer(bufmgr, &bo->base, size);
@@ -863,6 +864,7 @@ dri_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
 {
 	radeon_bufmgr_classic* bufmgr = (radeon_bufmgr_classic*)calloc(1, sizeof(radeon_bufmgr_classic));
 
+	bufmgr->screen = rmesa->radeon.radeonScreen;
 	bufmgr->rmesa = rmesa;
 	bufmgr->base.bo_alloc = &bufmgr_classic_bo_alloc;
 	bufmgr->base.bo_alloc_static = bufmgr_classic_bo_alloc_static;
@@ -880,12 +882,12 @@ dri_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
 	/* Init texture heap */
 	make_empty_list(&bufmgr->texture_swapped);
 	bufmgr->texture_heap = driCreateTextureHeap(0, bufmgr,
-			rmesa->radeon.radeonScreen->texSize[0], 12, RADEON_NR_TEX_REGIONS,
+			bufmgr->screen->texSize[0], 12, RADEON_NR_TEX_REGIONS,
 			(drmTextureRegionPtr)rmesa->radeon.sarea->tex_list[0],
 			&rmesa->radeon.sarea->tex_age[0],
 			&bufmgr->texture_swapped, sizeof(radeon_vram_wrapper),
 			&destroy_vram_wrapper);
-	bufmgr->texture_offset = rmesa->radeon.radeonScreen->texOffset[0];
+	bufmgr->texture_offset = bufmgr->screen->texOffset[0];
 
 	return &bufmgr->base;
 }
