@@ -51,7 +51,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 struct r300_context;
 typedef struct r300_context r300ContextRec;
 typedef struct r300_context *r300ContextPtr;
-typedef struct radeon_bufmgr radeon_bufmgr;
 
 #include "radeon_lock.h"
 #include "main/mm.h"

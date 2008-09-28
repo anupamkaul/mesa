@@ -420,7 +420,7 @@ void r300DestroyContext(__DRIcontextPrivate * driContextPriv)
 		/* the memory manager might be accessed when Mesa frees the shared
 		 * state, so don't destroy it earlier
 		 */
-		dri_bufmgr_destroy(&r300->radeon.bufmgr->base);
+		dri_bufmgr_destroy(r300->radeon.bufmgr);
 		r300->radeon.bufmgr = 0;
 
 		/* free the option cache */

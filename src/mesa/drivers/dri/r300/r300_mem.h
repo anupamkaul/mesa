@@ -16,7 +16,7 @@
 #define DRM_RELOC_BLITTER (1 << 23) /** Offset overwrites lower 22 bits (used with blit packet3) */
 #define DRM_RELOC_TXOFFSET (1 << 24) /** Offset overwrites everything but low bits (used for texture offsets) */
 
-radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa);
-void radeonBufmgrContendedLockTake(radeon_bufmgr* bufmgr_ctx);
+dri_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa);
+void radeonBufmgrContendedLockTake(dri_bufmgr* bufmgr_ctx);
 
 #endif

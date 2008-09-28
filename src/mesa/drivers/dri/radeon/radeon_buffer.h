@@ -44,8 +44,4 @@ struct radeon_renderbuffer
     __DRIdrawablePrivate *dPriv;
 };
 
-struct radeon_bufmgr {
-	dri_bufmgr base;
-};
-
 #endif

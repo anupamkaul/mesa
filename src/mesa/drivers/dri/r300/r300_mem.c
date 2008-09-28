@@ -52,7 +52,7 @@ typedef struct _radeon_reloc radeon_reloc;
 typedef struct _radeon_bo_vram radeon_bo_vram;
 
 struct _radeon_bufmgr_classic {
-	radeon_bufmgr base;
+	dri_bufmgr base;
 	r300ContextPtr rmesa;
 
 	radeon_bo_classic *buffers; /** Unsorted linked list of all buffer objects */
@@ -258,7 +258,7 @@ static void track_pending_buffers(radeon_bufmgr_classic *bufmgr)
  */
 static void init_buffer(radeon_bufmgr_classic *bufmgr, radeon_bo_classic *bo, unsigned long size)
 {
-	bo->base.bufmgr = &bufmgr->base.base;
+	bo->base.bufmgr = &bufmgr->base;
 	bo->base.size = size;
 	bo->refcount = 1;
 
@@ -859,21 +859,21 @@ static void bufmgr_classic_destroy(dri_bufmgr *bufmgr_ctx)
 	free(bufmgr);
 }
 
-radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
+dri_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
 {
 	radeon_bufmgr_classic* bufmgr = (radeon_bufmgr_classic*)calloc(1, sizeof(radeon_bufmgr_classic));
 
 	bufmgr->rmesa = rmesa;
-	bufmgr->base.base.bo_alloc = &bufmgr_classic_bo_alloc;
-	bufmgr->base.base.bo_alloc_static = bufmgr_classic_bo_alloc_static;
-	bufmgr->base.base.bo_reference = &bufmgr_classic_bo_reference;
-	bufmgr->base.base.bo_unreference = &bufmgr_classic_bo_unreference;
-	bufmgr->base.base.bo_map = &bufmgr_classic_bo_map;
-	bufmgr->base.base.bo_unmap = &bufmgr_classic_bo_unmap;
-	bufmgr->base.base.emit_reloc = &bufmgr_classic_emit_reloc;
-	bufmgr->base.base.process_relocs = &bufmgr_classic_process_relocs;
-	bufmgr->base.base.post_submit = &bufmgr_classic_post_submit;
-	bufmgr->base.base.destroy = &bufmgr_classic_destroy;
+	bufmgr->base.bo_alloc = &bufmgr_classic_bo_alloc;
+	bufmgr->base.bo_alloc_static = bufmgr_classic_bo_alloc_static;
+	bufmgr->base.bo_reference = &bufmgr_classic_bo_reference;
+	bufmgr->base.bo_unreference = &bufmgr_classic_bo_unreference;
+	bufmgr->base.bo_map = &bufmgr_classic_bo_map;
+	bufmgr->base.bo_unmap = &bufmgr_classic_bo_unmap;
+	bufmgr->base.emit_reloc = &bufmgr_classic_emit_reloc;
+	bufmgr->base.process_relocs = &bufmgr_classic_process_relocs;
+	bufmgr->base.post_submit = &bufmgr_classic_post_submit;
+	bufmgr->base.destroy = &bufmgr_classic_destroy;
 
 	bufmgr->pending_tail = &bufmgr->pending;
 
@@ -890,9 +890,9 @@ radeon_bufmgr* radeonBufmgrClassicInit(r300ContextPtr rmesa)
 	return &bufmgr->base;
 }
 
-void radeonBufmgrContendedLockTake(radeon_bufmgr* bufmgr_ctx)
+void radeonBufmgrContendedLockTake(dri_bufmgr* bufmgr_ctx)
 {
-	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(&bufmgr_ctx->base);
+	radeon_bufmgr_classic *bufmgr = get_bufmgr_classic(bufmgr_ctx);
 
 	DRI_AGE_TEXTURES(bufmgr->texture_heap);
 }

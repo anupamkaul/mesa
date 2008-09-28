@@ -572,7 +572,7 @@ void r300RefillCurrentDmaRegion(r300ContextPtr rmesa, int size)
 	if (rmesa->dma.nr_released_bufs > 4)
 		r300FlushCmdBuf(rmesa, __FUNCTION__);
 
-	rmesa->dma.current = dri_bo_alloc(&rmesa->radeon.bufmgr->base, "DMA regions",
+	rmesa->dma.current = dri_bo_alloc(rmesa->radeon.bufmgr, "DMA regions",
 		size, 4, DRM_BO_MEM_DMA);
 	rmesa->dma.current_used = 0;
 	rmesa->dma.current_vertexptr = 0;

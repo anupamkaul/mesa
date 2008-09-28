@@ -275,7 +275,7 @@ radeon_make_renderbuffer_current(radeonContextPtr radeon,
 	if ((rb = (void *)draw->Attachment[BUFFER_FRONT_LEFT].Renderbuffer)) {
 
 		if (!rb->bo)
-			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "front buffer",
+			rb->bo = dri_bo_alloc_static(radeon->bufmgr, "front buffer",
 						     radeon->radeonScreen->frontOffset, size, map,
 						     DRM_BO_FLAG_MEM_VRAM);
 		rb->cpp = radeon->radeonScreen->cpp;
@@ -283,7 +283,7 @@ radeon_make_renderbuffer_current(radeonContextPtr radeon,
 	}
 	if ((rb = (void *)draw->Attachment[BUFFER_BACK_LEFT].Renderbuffer)) {
 		if (!rb->bo)
-			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "back buffer",
+			rb->bo = dri_bo_alloc_static(radeon->bufmgr, "back buffer",
 						     radeon->radeonScreen->backOffset, size, map,
 						     DRM_BO_FLAG_MEM_VRAM);
 		rb->cpp = radeon->radeonScreen->cpp;
@@ -291,7 +291,7 @@ radeon_make_renderbuffer_current(radeonContextPtr radeon,
 	}
 	if ((rb = (void *)draw->Attachment[BUFFER_DEPTH].Renderbuffer)) {
 		if (!rb->bo)
-			rb->bo = dri_bo_alloc_static(&radeon->bufmgr->base, "depth buffer",
+			rb->bo = dri_bo_alloc_static(radeon->bufmgr, "depth buffer",
 						     radeon->radeonScreen->depthOffset, size, map,
 						     DRM_BO_FLAG_MEM_VRAM);
 		rb->cpp = radeon->radeonScreen->cpp;

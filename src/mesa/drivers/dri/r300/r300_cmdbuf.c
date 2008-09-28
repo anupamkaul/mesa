@@ -133,7 +133,7 @@ int r300FlushCmdBufLocked(r300ContextPtr r300, const char *caller)
 	dri_bo_unreference(r300->cmdbuf.buf);
 
 	r300->dma.nr_released_bufs = 0;
-	r300->cmdbuf.buf = dri_bo_alloc(&r300->radeon.bufmgr->base, "cmdbuf",
+	r300->cmdbuf.buf = dri_bo_alloc(r300->radeon.bufmgr, "cmdbuf",
 		r300->cmdbuf.size*4, 16, DRM_BO_MEM_CMDBUF);
 	r300->cmdbuf.written = 0;
 	r300->cmdbuf.reserved = 0;
@@ -732,7 +732,7 @@ void r300InitCmdBuf(r300ContextPtr r300)
 			size * 4, r300->hw.max_state_size * 4);
 	}
 
-	r300->cmdbuf.buf = dri_bo_alloc(&r300->radeon.bufmgr->base, "cmdbuf",
+	r300->cmdbuf.buf = dri_bo_alloc(r300->radeon.bufmgr, "cmdbuf",
 		size*4, 16, DRM_BO_MEM_CMDBUF);
 	r300->cmdbuf.size = size;
 	r300->cmdbuf.written = 0;

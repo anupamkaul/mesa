@@ -45,6 +45,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "main/mtypes.h"
 #include "main/colormac.h"
+#include "radeon_dri_bufmgr.h"
 #include "radeon_screen.h"
 #include "drm.h"
 #include "dri_util.h"
@@ -187,7 +188,7 @@ struct radeon_context {
 	 */
 	driOptionCache optionCache;
 
-	struct radeon_bufmgr *bufmgr;
+	dri_bufmgr *bufmgr;
 };
 
 #define RADEON_CONTEXT(glctx) ((radeonContextPtr)(ctx->DriverCtx))
