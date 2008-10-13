@@ -591,6 +591,9 @@ static dri_bo *vram_alloc(radeon_bufmgr_classic *bufmgr, const char *name,
 		unsigned long size, unsigned int alignment)
 {
 	radeon_bo_vram* bo = (radeon_bo_vram*)calloc(1, sizeof(radeon_bo_vram));
+	uint32_t pgsize = getpagesize() - 1;
+
+	size = (size + pgsize) & ~pgsize;
 
 	bo->base.functions = &vram_bo_functions;
 	bo->base.base.virtual = malloc(size);
