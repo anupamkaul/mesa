@@ -626,15 +626,34 @@ __glapi_sparc_icache_flush: /* %o0 = insn_addr */
 		.globl glGetActiveAttribARB ; .type glGetActiveAttribARB,#function
 		.globl glGetAttribLocationARB ; .type glGetAttribLocationARB,#function
 		.globl glDrawBuffersARB ; .type glDrawBuffersARB,#function
+		.globl glBindFramebuffer ; .type glBindFramebuffer,#function
+		.globl glBindRenderbuffer ; .type glBindRenderbuffer,#function
+		.globl glBlitFramebuffer ; .type glBlitFramebuffer,#function
+		.globl glCheckFramebufferStatus ; .type glCheckFramebufferStatus,#function
+		.globl glDeleteFramebuffers ; .type glDeleteFramebuffers,#function
+		.globl glDeleteRenderbuffers ; .type glDeleteRenderbuffers,#function
+		.globl glFramebufferRenderbuffer ; .type glFramebufferRenderbuffer,#function
+		.globl glFramebufferTexture1D ; .type glFramebufferTexture1D,#function
+		.globl glFramebufferTexture2D ; .type glFramebufferTexture2D,#function
+		.globl glFramebufferTexture3D ; .type glFramebufferTexture3D,#function
+		.globl glFramebufferTextureLayer ; .type glFramebufferTextureLayer,#function
+		.globl glGenFramebuffers ; .type glGenFramebuffers,#function
+		.globl glGenRenderbuffers ; .type glGenRenderbuffers,#function
+		.globl glGenerateMipmap ; .type glGenerateMipmap,#function
+		.globl glGetFramebufferAttachmentParameteriv ; .type glGetFramebufferAttachmentParameteriv,#function
+		.globl glGetRenderbufferParameteriv ; .type glGetRenderbufferParameteriv,#function
+		.globl glIsFramebuffer ; .type glIsFramebuffer,#function
+		.globl glIsRenderbuffer ; .type glIsRenderbuffer,#function
+		.globl glRenderbufferStorage ; .type glRenderbufferStorage,#function
 		.globl glPolygonOffsetEXT ; .type glPolygonOffsetEXT,#function
-		.globl gl_dispatch_stub_562 ; .type gl_dispatch_stub_562,#function
-		.globl gl_dispatch_stub_563 ; .type gl_dispatch_stub_563,#function
-		.globl gl_dispatch_stub_564 ; .type gl_dispatch_stub_564,#function
-		.globl gl_dispatch_stub_565 ; .type gl_dispatch_stub_565,#function
-		.globl gl_dispatch_stub_566 ; .type gl_dispatch_stub_566,#function
-		.globl gl_dispatch_stub_567 ; .type gl_dispatch_stub_567,#function
-		.globl gl_dispatch_stub_568 ; .type gl_dispatch_stub_568,#function
-		.globl gl_dispatch_stub_569 ; .type gl_dispatch_stub_569,#function
+		.globl gl_dispatch_stub_581 ; .type gl_dispatch_stub_581,#function
+		.globl gl_dispatch_stub_582 ; .type gl_dispatch_stub_582,#function
+		.globl gl_dispatch_stub_583 ; .type gl_dispatch_stub_583,#function
+		.globl gl_dispatch_stub_584 ; .type gl_dispatch_stub_584,#function
+		.globl gl_dispatch_stub_585 ; .type gl_dispatch_stub_585,#function
+		.globl gl_dispatch_stub_586 ; .type gl_dispatch_stub_586,#function
+		.globl gl_dispatch_stub_587 ; .type gl_dispatch_stub_587,#function
+		.globl gl_dispatch_stub_588 ; .type gl_dispatch_stub_588,#function
 		.globl glColorPointerEXT ; .type glColorPointerEXT,#function
 		.globl glEdgeFlagPointerEXT ; .type glEdgeFlagPointerEXT,#function
 		.globl glIndexPointerEXT ; .type glIndexPointerEXT,#function
@@ -645,8 +664,8 @@ __glapi_sparc_icache_flush: /* %o0 = insn_addr */
 		.globl glPointParameterfvEXT ; .type glPointParameterfvEXT,#function
 		.globl glLockArraysEXT ; .type glLockArraysEXT,#function
 		.globl glUnlockArraysEXT ; .type glUnlockArraysEXT,#function
-		.globl gl_dispatch_stub_580 ; .type gl_dispatch_stub_580,#function
-		.globl gl_dispatch_stub_581 ; .type gl_dispatch_stub_581,#function
+		.globl gl_dispatch_stub_599 ; .type gl_dispatch_stub_599,#function
+		.globl gl_dispatch_stub_600 ; .type gl_dispatch_stub_600,#function
 		.globl glSecondaryColor3bEXT ; .type glSecondaryColor3bEXT,#function
 		.globl glSecondaryColor3bvEXT ; .type glSecondaryColor3bvEXT,#function
 		.globl glSecondaryColor3dEXT ; .type glSecondaryColor3dEXT,#function
@@ -671,7 +690,7 @@ __glapi_sparc_icache_flush: /* %o0 = insn_addr */
 		.globl glFogCoorddvEXT ; .type glFogCoorddvEXT,#function
 		.globl glFogCoordfEXT ; .type glFogCoordfEXT,#function
 		.globl glFogCoordfvEXT ; .type glFogCoordfvEXT,#function
-		.globl gl_dispatch_stub_606 ; .type gl_dispatch_stub_606,#function
+		.globl gl_dispatch_stub_625 ; .type gl_dispatch_stub_625,#function
 		.globl glBlendFuncSeparateEXT ; .type glBlendFuncSeparateEXT,#function
 		.globl glFlushVertexArrayRangeNV ; .type glFlushVertexArrayRangeNV,#function
 		.globl glVertexArrayRangeNV ; .type glVertexArrayRangeNV,#function
@@ -713,15 +732,15 @@ __glapi_sparc_icache_flush: /* %o0 = insn_addr */
 		.globl glWindowPos4ivMESA ; .type glWindowPos4ivMESA,#function
 		.globl glWindowPos4sMESA ; .type glWindowPos4sMESA,#function
 		.globl glWindowPos4svMESA ; .type glWindowPos4svMESA,#function
-		.globl gl_dispatch_stub_648 ; .type gl_dispatch_stub_648,#function
-		.globl gl_dispatch_stub_649 ; .type gl_dispatch_stub_649,#function
-		.globl gl_dispatch_stub_650 ; .type gl_dispatch_stub_650,#function
-		.globl gl_dispatch_stub_651 ; .type gl_dispatch_stub_651,#function
-		.globl gl_dispatch_stub_652 ; .type gl_dispatch_stub_652,#function
-		.globl gl_dispatch_stub_653 ; .type gl_dispatch_stub_653,#function
-		.globl gl_dispatch_stub_654 ; .type gl_dispatch_stub_654,#function
-		.globl gl_dispatch_stub_655 ; .type gl_dispatch_stub_655,#function
-		.globl gl_dispatch_stub_656 ; .type gl_dispatch_stub_656,#function
+		.globl gl_dispatch_stub_667 ; .type gl_dispatch_stub_667,#function
+		.globl gl_dispatch_stub_668 ; .type gl_dispatch_stub_668,#function
+		.globl gl_dispatch_stub_669 ; .type gl_dispatch_stub_669,#function
+		.globl gl_dispatch_stub_670 ; .type gl_dispatch_stub_670,#function
+		.globl gl_dispatch_stub_671 ; .type gl_dispatch_stub_671,#function
+		.globl gl_dispatch_stub_672 ; .type gl_dispatch_stub_672,#function
+		.globl gl_dispatch_stub_673 ; .type gl_dispatch_stub_673,#function
+		.globl gl_dispatch_stub_674 ; .type gl_dispatch_stub_674,#function
+		.globl gl_dispatch_stub_675 ; .type gl_dispatch_stub_675,#function
 		.globl glAreProgramsResidentNV ; .type glAreProgramsResidentNV,#function
 		.globl glBindProgramNV ; .type glBindProgramNV,#function
 		.globl glDeleteProgramsNV ; .type glDeleteProgramsNV,#function
@@ -798,19 +817,19 @@ __glapi_sparc_icache_flush: /* %o0 = insn_addr */
 		.globl glSetFragmentShaderConstantATI ; .type glSetFragmentShaderConstantATI,#function
 		.globl glPointParameteriNV ; .type glPointParameteriNV,#function
 		.globl glPointParameterivNV ; .type glPointParameterivNV,#function
-		.globl gl_dispatch_stub_733 ; .type gl_dispatch_stub_733,#function
-		.globl gl_dispatch_stub_734 ; .type gl_dispatch_stub_734,#function
-		.globl gl_dispatch_stub_735 ; .type gl_dispatch_stub_735,#function
-		.globl gl_dispatch_stub_736 ; .type gl_dispatch_stub_736,#function
-		.globl gl_dispatch_stub_737 ; .type gl_dispatch_stub_737,#function
+		.globl gl_dispatch_stub_752 ; .type gl_dispatch_stub_752,#function
+		.globl gl_dispatch_stub_753 ; .type gl_dispatch_stub_753,#function
+		.globl gl_dispatch_stub_754 ; .type gl_dispatch_stub_754,#function
+		.globl gl_dispatch_stub_755 ; .type gl_dispatch_stub_755,#function
+		.globl gl_dispatch_stub_756 ; .type gl_dispatch_stub_756,#function
 		.globl glGetProgramNamedParameterdvNV ; .type glGetProgramNamedParameterdvNV,#function
 		.globl glGetProgramNamedParameterfvNV ; .type glGetProgramNamedParameterfvNV,#function
 		.globl glProgramNamedParameter4dNV ; .type glProgramNamedParameter4dNV,#function
 		.globl glProgramNamedParameter4dvNV ; .type glProgramNamedParameter4dvNV,#function
 		.globl glProgramNamedParameter4fNV ; .type glProgramNamedParameter4fNV,#function
 		.globl glProgramNamedParameter4fvNV ; .type glProgramNamedParameter4fvNV,#function
-		.globl gl_dispatch_stub_744 ; .type gl_dispatch_stub_744,#function
-		.globl gl_dispatch_stub_745 ; .type gl_dispatch_stub_745,#function
+		.globl gl_dispatch_stub_763 ; .type gl_dispatch_stub_763,#function
+		.globl gl_dispatch_stub_764 ; .type gl_dispatch_stub_764,#function
 		.globl glBindFramebufferEXT ; .type glBindFramebufferEXT,#function
 		.globl glBindRenderbufferEXT ; .type glBindRenderbufferEXT,#function
 		.globl glCheckFramebufferStatusEXT ; .type glCheckFramebufferStatusEXT,#function
@@ -828,13 +847,13 @@ __glapi_sparc_icache_flush: /* %o0 = insn_addr */
 		.globl glIsFramebufferEXT ; .type glIsFramebufferEXT,#function
 		.globl glIsRenderbufferEXT ; .type glIsRenderbufferEXT,#function
 		.globl glRenderbufferStorageEXT ; .type glRenderbufferStorageEXT,#function
-		.globl gl_dispatch_stub_763 ; .type gl_dispatch_stub_763,#function
+		.globl gl_dispatch_stub_782 ; .type gl_dispatch_stub_782,#function
 		.globl glFramebufferTextureLayerEXT ; .type glFramebufferTextureLayerEXT,#function
-		.globl gl_dispatch_stub_765 ; .type gl_dispatch_stub_765,#function
-		.globl gl_dispatch_stub_766 ; .type gl_dispatch_stub_766,#function
-		.globl gl_dispatch_stub_767 ; .type gl_dispatch_stub_767,#function
-		.globl gl_dispatch_stub_768 ; .type gl_dispatch_stub_768,#function
-		.globl gl_dispatch_stub_769 ; .type gl_dispatch_stub_769,#function
+		.globl gl_dispatch_stub_784 ; .type gl_dispatch_stub_784,#function
+		.globl gl_dispatch_stub_785 ; .type gl_dispatch_stub_785,#function
+		.globl gl_dispatch_stub_786 ; .type gl_dispatch_stub_786,#function
+		.globl gl_dispatch_stub_787 ; .type gl_dispatch_stub_787,#function
+		.globl gl_dispatch_stub_788 ; .type gl_dispatch_stub_788,#function
 		.globl _mesa_sparc_glapi_begin ; .type _mesa_sparc_glapi_begin,#function
 _mesa_sparc_glapi_begin:
 
@@ -1399,15 +1418,34 @@ _mesa_sparc_glapi_begin:
 	GL_STUB(glGetActiveAttribARB, _gloffset_GetActiveAttribARB)
 	GL_STUB(glGetAttribLocationARB, _gloffset_GetAttribLocationARB)
 	GL_STUB(glDrawBuffersARB, _gloffset_DrawBuffersARB)
+	GL_STUB(glBindFramebuffer, _gloffset_BindFramebuffer)
+	GL_STUB(glBindRenderbuffer, _gloffset_BindRenderbuffer)
+	GL_STUB(glBlitFramebuffer, _gloffset_BlitFramebuffer)
+	GL_STUB(glCheckFramebufferStatus, _gloffset_CheckFramebufferStatus)
+	GL_STUB(glDeleteFramebuffers, _gloffset_DeleteFramebuffers)
+	GL_STUB(glDeleteRenderbuffers, _gloffset_DeleteRenderbuffers)
+	GL_STUB(glFramebufferRenderbuffer, _gloffset_FramebufferRenderbuffer)
+	GL_STUB(glFramebufferTexture1D, _gloffset_FramebufferTexture1D)
+	GL_STUB(glFramebufferTexture2D, _gloffset_FramebufferTexture2D)
+	GL_STUB(glFramebufferTexture3D, _gloffset_FramebufferTexture3D)
+	GL_STUB(glFramebufferTextureLayer, _gloffset_FramebufferTextureLayer)
+	GL_STUB(glGenFramebuffers, _gloffset_GenFramebuffers)
+	GL_STUB(glGenRenderbuffers, _gloffset_GenRenderbuffers)
+	GL_STUB(glGenerateMipmap, _gloffset_GenerateMipmap)
+	GL_STUB(glGetFramebufferAttachmentParameteriv, _gloffset_GetFramebufferAttachmentParameteriv)
+	GL_STUB(glGetRenderbufferParameteriv, _gloffset_GetRenderbufferParameteriv)
+	GL_STUB(glIsFramebuffer, _gloffset_IsFramebuffer)
+	GL_STUB(glIsRenderbuffer, _gloffset_IsRenderbuffer)
+	GL_STUB(glRenderbufferStorage, _gloffset_RenderbufferStorage)
 	GL_STUB(glPolygonOffsetEXT, _gloffset_PolygonOffsetEXT)
-	GL_STUB(gl_dispatch_stub_562, _gloffset__dispatch_stub_562)
-	GL_STUB(gl_dispatch_stub_563, _gloffset__dispatch_stub_563)
-	GL_STUB(gl_dispatch_stub_564, _gloffset__dispatch_stub_564)
-	GL_STUB(gl_dispatch_stub_565, _gloffset__dispatch_stub_565)
-	GL_STUB(gl_dispatch_stub_566, _gloffset__dispatch_stub_566)
-	GL_STUB(gl_dispatch_stub_567, _gloffset__dispatch_stub_567)
-	GL_STUB(gl_dispatch_stub_568, _gloffset__dispatch_stub_568)
-	GL_STUB(gl_dispatch_stub_569, _gloffset__dispatch_stub_569)
+	GL_STUB(gl_dispatch_stub_581, _gloffset__dispatch_stub_581)
+	GL_STUB(gl_dispatch_stub_582, _gloffset__dispatch_stub_582)
+	GL_STUB(gl_dispatch_stub_583, _gloffset__dispatch_stub_583)
+	GL_STUB(gl_dispatch_stub_584, _gloffset__dispatch_stub_584)
+	GL_STUB(gl_dispatch_stub_585, _gloffset__dispatch_stub_585)
+	GL_STUB(gl_dispatch_stub_586, _gloffset__dispatch_stub_586)
+	GL_STUB(gl_dispatch_stub_587, _gloffset__dispatch_stub_587)
+	GL_STUB(gl_dispatch_stub_588, _gloffset__dispatch_stub_588)
 	GL_STUB(glColorPointerEXT, _gloffset_ColorPointerEXT)
 	GL_STUB(glEdgeFlagPointerEXT, _gloffset_EdgeFlagPointerEXT)
 	GL_STUB(glIndexPointerEXT, _gloffset_IndexPointerEXT)
@@ -1418,8 +1456,8 @@ _mesa_sparc_glapi_begin:
 	GL_STUB(glPointParameterfvEXT, _gloffset_PointParameterfvEXT)
 	GL_STUB(glLockArraysEXT, _gloffset_LockArraysEXT)
 	GL_STUB(glUnlockArraysEXT, _gloffset_UnlockArraysEXT)
-	GL_STUB(gl_dispatch_stub_580, _gloffset__dispatch_stub_580)
-	GL_STUB(gl_dispatch_stub_581, _gloffset__dispatch_stub_581)
+	GL_STUB(gl_dispatch_stub_599, _gloffset__dispatch_stub_599)
+	GL_STUB(gl_dispatch_stub_600, _gloffset__dispatch_stub_600)
 	GL_STUB(glSecondaryColor3bEXT, _gloffset_SecondaryColor3bEXT)
 	GL_STUB(glSecondaryColor3bvEXT, _gloffset_SecondaryColor3bvEXT)
 	GL_STUB(glSecondaryColor3dEXT, _gloffset_SecondaryColor3dEXT)
@@ -1444,7 +1482,7 @@ _mesa_sparc_glapi_begin:
 	GL_STUB(glFogCoorddvEXT, _gloffset_FogCoorddvEXT)
 	GL_STUB(glFogCoordfEXT, _gloffset_FogCoordfEXT)
 	GL_STUB(glFogCoordfvEXT, _gloffset_FogCoordfvEXT)
-	GL_STUB(gl_dispatch_stub_606, _gloffset__dispatch_stub_606)
+	GL_STUB(gl_dispatch_stub_625, _gloffset__dispatch_stub_625)
 	GL_STUB(glBlendFuncSeparateEXT, _gloffset_BlendFuncSeparateEXT)
 	GL_STUB(glFlushVertexArrayRangeNV, _gloffset_FlushVertexArrayRangeNV)
 	GL_STUB(glVertexArrayRangeNV, _gloffset_VertexArrayRangeNV)
@@ -1486,15 +1524,15 @@ _mesa_sparc_glapi_begin:
 	GL_STUB(glWindowPos4ivMESA, _gloffset_WindowPos4ivMESA)
 	GL_STUB(glWindowPos4sMESA, _gloffset_WindowPos4sMESA)
 	GL_STUB(glWindowPos4svMESA, _gloffset_WindowPos4svMESA)
-	GL_STUB(gl_dispatch_stub_648, _gloffset__dispatch_stub_648)
-	GL_STUB(gl_dispatch_stub_649, _gloffset__dispatch_stub_649)
-	GL_STUB(gl_dispatch_stub_650, _gloffset__dispatch_stub_650)
-	GL_STUB(gl_dispatch_stub_651, _gloffset__dispatch_stub_651)
-	GL_STUB(gl_dispatch_stub_652, _gloffset__dispatch_stub_652)
-	GL_STUB(gl_dispatch_stub_653, _gloffset__dispatch_stub_653)
-	GL_STUB(gl_dispatch_stub_654, _gloffset__dispatch_stub_654)
-	GL_STUB(gl_dispatch_stub_655, _gloffset__dispatch_stub_655)
-	GL_STUB(gl_dispatch_stub_656, _gloffset__dispatch_stub_656)
+	GL_STUB(gl_dispatch_stub_667, _gloffset__dispatch_stub_667)
+	GL_STUB(gl_dispatch_stub_668, _gloffset__dispatch_stub_668)
+	GL_STUB(gl_dispatch_stub_669, _gloffset__dispatch_stub_669)
+	GL_STUB(gl_dispatch_stub_670, _gloffset__dispatch_stub_670)
+	GL_STUB(gl_dispatch_stub_671, _gloffset__dispatch_stub_671)
+	GL_STUB(gl_dispatch_stub_672, _gloffset__dispatch_stub_672)
+	GL_STUB(gl_dispatch_stub_673, _gloffset__dispatch_stub_673)
+	GL_STUB(gl_dispatch_stub_674, _gloffset__dispatch_stub_674)
+	GL_STUB(gl_dispatch_stub_675, _gloffset__dispatch_stub_675)
 	GL_STUB(glAreProgramsResidentNV, _gloffset_AreProgramsResidentNV)
 	GL_STUB(glBindProgramNV, _gloffset_BindProgramNV)
 	GL_STUB(glDeleteProgramsNV, _gloffset_DeleteProgramsNV)
@@ -1571,19 +1609,19 @@ _mesa_sparc_glapi_begin:
 	GL_STUB(glSetFragmentShaderConstantATI, _gloffset_SetFragmentShaderConstantATI)
 	GL_STUB(glPointParameteriNV, _gloffset_PointParameteriNV)
 	GL_STUB(glPointParameterivNV, _gloffset_PointParameterivNV)
-	GL_STUB(gl_dispatch_stub_733, _gloffset__dispatch_stub_733)
-	GL_STUB(gl_dispatch_stub_734, _gloffset__dispatch_stub_734)
-	GL_STUB(gl_dispatch_stub_735, _gloffset__dispatch_stub_735)
-	GL_STUB(gl_dispatch_stub_736, _gloffset__dispatch_stub_736)
-	GL_STUB(gl_dispatch_stub_737, _gloffset__dispatch_stub_737)
+	GL_STUB(gl_dispatch_stub_752, _gloffset__dispatch_stub_752)
+	GL_STUB(gl_dispatch_stub_753, _gloffset__dispatch_stub_753)
+	GL_STUB(gl_dispatch_stub_754, _gloffset__dispatch_stub_754)
+	GL_STUB(gl_dispatch_stub_755, _gloffset__dispatch_stub_755)
+	GL_STUB(gl_dispatch_stub_756, _gloffset__dispatch_stub_756)
 	GL_STUB(glGetProgramNamedParameterdvNV, _gloffset_GetProgramNamedParameterdvNV)
 	GL_STUB(glGetProgramNamedParameterfvNV, _gloffset_GetProgramNamedParameterfvNV)
 	GL_STUB(glProgramNamedParameter4dNV, _gloffset_ProgramNamedParameter4dNV)
 	GL_STUB(glProgramNamedParameter4dvNV, _gloffset_ProgramNamedParameter4dvNV)
 	GL_STUB(glProgramNamedParameter4fNV, _gloffset_ProgramNamedParameter4fNV)
 	GL_STUB(glProgramNamedParameter4fvNV, _gloffset_ProgramNamedParameter4fvNV)
-	GL_STUB(gl_dispatch_stub_744, _gloffset__dispatch_stub_744)
-	GL_STUB(gl_dispatch_stub_745, _gloffset__dispatch_stub_745)
+	GL_STUB(gl_dispatch_stub_763, _gloffset__dispatch_stub_763)
+	GL_STUB(gl_dispatch_stub_764, _gloffset__dispatch_stub_764)
 	GL_STUB(glBindFramebufferEXT, _gloffset_BindFramebufferEXT)
 	GL_STUB(glBindRenderbufferEXT, _gloffset_BindRenderbufferEXT)
 	GL_STUB(glCheckFramebufferStatusEXT, _gloffset_CheckFramebufferStatusEXT)
@@ -1601,13 +1639,13 @@ _mesa_sparc_glapi_begin:
 	GL_STUB(glIsFramebufferEXT, _gloffset_IsFramebufferEXT)
 	GL_STUB(glIsRenderbufferEXT, _gloffset_IsRenderbufferEXT)
 	GL_STUB(glRenderbufferStorageEXT, _gloffset_RenderbufferStorageEXT)
-	GL_STUB(gl_dispatch_stub_763, _gloffset__dispatch_stub_763)
+	GL_STUB(gl_dispatch_stub_782, _gloffset__dispatch_stub_782)
 	GL_STUB(glFramebufferTextureLayerEXT, _gloffset_FramebufferTextureLayerEXT)
-	GL_STUB(gl_dispatch_stub_765, _gloffset__dispatch_stub_765)
-	GL_STUB(gl_dispatch_stub_766, _gloffset__dispatch_stub_766)
-	GL_STUB(gl_dispatch_stub_767, _gloffset__dispatch_stub_767)
-	GL_STUB(gl_dispatch_stub_768, _gloffset__dispatch_stub_768)
-	GL_STUB(gl_dispatch_stub_769, _gloffset__dispatch_stub_769)
+	GL_STUB(gl_dispatch_stub_784, _gloffset__dispatch_stub_784)
+	GL_STUB(gl_dispatch_stub_785, _gloffset__dispatch_stub_785)
+	GL_STUB(gl_dispatch_stub_786, _gloffset__dispatch_stub_786)
+	GL_STUB(gl_dispatch_stub_787, _gloffset__dispatch_stub_787)
+	GL_STUB(gl_dispatch_stub_788, _gloffset__dispatch_stub_788)
 
 		.globl _mesa_sparc_glapi_end ; .type _mesa_sparc_glapi_end,#function
 _mesa_sparc_glapi_end:
