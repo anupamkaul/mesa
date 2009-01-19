@@ -135,65 +135,65 @@
 
 
 
-    <function name="IsRenderbuffer" offset="assign">
+    <function name="IsRenderbuffer" alias="IsRenderbufferEXT">
         <param name="renderbuffer" type="GLuint"/>
 	<return type="GLboolean"/>
     </function>
 
-    <function name="BindRenderbuffer" offset="assign">
+    <function name="BindRenderbuffer" alias="BindRenderbufferEXT">
         <param name="target" type="GLenum"/>
         <param name="renderbuffer" type="GLuint"/>
     </function>
 
-    <function name="DeleteRenderbuffers" offset="assign">
+    <function name="DeleteRenderbuffers" alias="DeleteRenderbuffersEXT">
         <param name="n" type="GLsizei" counter="true"/>
         <param name="renderbuffers" type="const GLuint *" count="n"/>
     </function>
 
-    <function name="GenRenderbuffers" offset="assign">
+    <function name="GenRenderbuffers" alias="GenRenderbuffersEXT">
         <param name="n" type="GLsizei" counter="true"/>
         <param name="renderbuffers" type="GLuint *" count="n" output="true"/>
     </function>
 
-    <function name="RenderbufferStorage" offset="assign">
+    <function name="RenderbufferStorage" alias="RenderbufferStorageEXT">
         <param name="target" type="GLenum"/>
         <param name="internalformat" type="GLenum"/>
         <param name="width" type="GLsizei"/>
         <param name="height" type="GLsizei"/>
     </function>
 
-    <function name="GetRenderbufferParameteriv" offset="assign">
+    <function name="GetRenderbufferParameteriv" alias="GetRenderbufferParameterivEXT">
         <param name="target" type="GLenum"/>
         <param name="pname" type="GLenum"/>
         <param name="params" type="GLint *" output="true"/>
     </function>
 
-    <function name="IsFramebuffer" offset="assign">
+    <function name="IsFramebuffer" alias="IsFramebufferEXT">
         <param name="framebuffer" type="GLuint"/>
 	<return type="GLboolean"/>
     </function>
 
-    <function name="BindFramebuffer" offset="assign">
+    <function name="BindFramebuffer" alias="BindFramebufferEXT">
         <param name="target" type="GLenum"/>
         <param name="framebuffer" type="GLuint"/>
     </function>
 
-    <function name="DeleteFramebuffers" offset="assign">
+    <function name="DeleteFramebuffers" alias="DeleteFramebuffersEXT">
         <param name="n" type="GLsizei" counter="true"/>
         <param name="framebuffers" type="const GLuint *" count="n"/>
     </function>
 
-    <function name="GenFramebuffers" offset="assign">
+    <function name="GenFramebuffers" alias="GenFramebuffersEXT">
         <param name="n" type="GLsizei" counter="true"/>
         <param name="framebuffers" type="GLuint *" count="n" output="true"/>
     </function>
 
-    <function name="CheckFramebufferStatus" offset="assign">
+    <function name="CheckFramebufferStatus" alias="CheckFramebufferStatusEXT">
         <param name="target" type="GLenum"/>
 	<return type="GLenum"/>
     </function>
 
-    <function name="FramebufferTexture1D" offset="assign">
+    <function name="FramebufferTexture1D" alias="FramebufferTexture1DEXT">
         <param name="target" type="GLenum"/>
         <param name="attachment" type="GLenum"/>
         <param name="textarget" type="GLenum"/>
@@ -201,7 +201,7 @@
         <param name="level" type="GLint"/>
     </function>
 
-    <function name="FramebufferTexture2D" offset="assign">
+    <function name="FramebufferTexture2D" alias="FramebufferTexture2DEXT">
         <param name="target" type="GLenum"/>
         <param name="attachment" type="GLenum"/>
         <param name="textarget" type="GLenum"/>
@@ -209,7 +209,7 @@
         <param name="level" type="GLint"/>
     </function>
 
-    <function name="FramebufferTexture3D" offset="assign">
+    <function name="FramebufferTexture3D" alias="FramebufferTexture3DEXT">
         <param name="target" type="GLenum"/>
         <param name="attachment" type="GLenum"/>
         <param name="textarget" type="GLenum"/>
@@ -218,7 +218,7 @@
         <param name="zoffset" type="GLint"/>
     </function>
 
-    <function name="FramebufferTextureLayer" offset="assign">
+    <function name="FramebufferTextureLayer" alias="FramebufferTextureLayerEXT">
         <param name="target" type="GLenum"/>
         <param name="attachment" type="GLenum"/>
         <param name="texture" type="GLuint"/>
@@ -226,21 +226,21 @@
         <param name="layer" type="GLint"/>
     </function>
 
-    <function name="FramebufferRenderbuffer" offset="assign">
+    <function name="FramebufferRenderbuffer" alias="FramebufferRenderbufferEXT">
         <param name="target" type="GLenum"/>
         <param name="attachment" type="GLenum"/>
         <param name="renderbuffertarget" type="GLenum"/>
         <param name="renderbuffer" type="GLuint"/>
     </function>
 
-    <function name="GetFramebufferAttachmentParameteriv" offset="assign">
+    <function name="GetFramebufferAttachmentParameteriv" alias="GetFramebufferAttachmentParameterivEXT">
         <param name="target" type="GLenum"/>
         <param name="attachment" type="GLenum"/>
         <param name="pname" type="GLenum"/>
         <param name="params" type="GLint *" output="true"/>
     </function>
 
-    <function name="BlitFramebuffer" offset="assign">
+    <function name="BlitFramebuffer" alias="BlitFramebufferEXT">
         <param name="srcX0" type="GLint"/>
         <param name="srcY0" type="GLint"/>
         <param name="srcX1" type="GLint"/>
@@ -253,7 +253,7 @@
         <param name="filter" type="GLenum"/>
     </function>
 
-    <function name="GenerateMipmap" offset="assign">
+    <function name="GenerateMipmap" alias="GenerateMipmapEXT">
         <param name="target" type="GLenum"/>
     </function>
 </category>
