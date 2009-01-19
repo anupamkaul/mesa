@@ -882,24 +882,9 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_StencilFuncSeparateATI(exec, _mesa_StencilFuncSeparateATI);
 
 #if FEATURE_ARB_framebuffer_object
-   SET_IsRenderbuffer(exec, _mesa_IsRenderbufferEXT);
-   SET_BindRenderbuffer(exec, _mesa_BindRenderbufferEXT);
-   SET_DeleteRenderbuffers(exec, _mesa_DeleteRenderbuffersEXT);
-   SET_GenRenderbuffers(exec, _mesa_GenRenderbuffersEXT);
-   SET_RenderbufferStorage(exec, _mesa_RenderbufferStorageEXT);
-   SET_GetRenderbufferParameteriv(exec, _mesa_GetRenderbufferParameterivEXT);
-   SET_IsFramebuffer(exec, _mesa_IsFramebufferEXT);
-   SET_BindFramebuffer(exec, _mesa_BindFramebufferEXT);
-   SET_DeleteFramebuffers(exec, _mesa_DeleteFramebuffersEXT);
-   SET_GenFramebuffers(exec, _mesa_GenFramebuffersEXT);
-   SET_CheckFramebufferStatus(exec, _mesa_CheckFramebufferStatusEXT);
-   SET_FramebufferTexture1D(exec, _mesa_FramebufferTexture1DEXT);
-   SET_FramebufferTexture2D(exec, _mesa_FramebufferTexture2DEXT);
-   SET_FramebufferTexture3D(exec, _mesa_FramebufferTexture3DEXT);
-   SET_FramebufferTextureLayer(exec, _mesa_FramebufferTextureLayerEXT);
-   SET_FramebufferRenderbuffer(exec, _mesa_FramebufferRenderbufferEXT);
-   SET_GetFramebufferAttachmentParameteriv(exec, _mesa_GetFramebufferAttachmentParameterivEXT);
-   SET_GenerateMipmap(exec, _mesa_GenerateMipmapEXT);
+   /* The ARB_fbo functions are the union of
+    * GL_EXT_fbo, GL_EXT_framebuffer_blit, GL_EXT_texture_array
+    */
 #endif
 }
 
