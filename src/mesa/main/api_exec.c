@@ -885,6 +885,7 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    /* The ARB_fbo functions are the union of
     * GL_EXT_fbo, GL_EXT_framebuffer_blit, GL_EXT_texture_array
     */
+   SET_RenderbufferStorageMultisample(exec, _mesa_RenderbufferStorageMultisample);
 #endif
 }
 
