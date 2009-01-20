@@ -162,6 +162,14 @@
         <param name="height" type="GLsizei"/>
     </function>
 
+    <function name="RenderbufferStorageMultisample" offset="assign">
+        <param name="target" type="GLenum"/>
+        <param name="samples" type="GLsizei"/>
+        <param name="internalformat" type="GLenum"/>
+        <param name="width" type="GLsizei"/>
+        <param name="height" type="GLsizei"/>
+    </function>
+
     <function name="GetRenderbufferParameteriv" alias="GetRenderbufferParameterivEXT">
         <param name="target" type="GLenum"/>
         <param name="pname" type="GLenum"/>
