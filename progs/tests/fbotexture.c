@@ -36,6 +36,7 @@ static GLuint DepthRB, StencilRB;
 static GLboolean Anim = GL_FALSE;
 static GLfloat Rot = 0.0;
 static GLboolean UsePackedDepthStencil = GL_FALSE;
+static GLboolean UsePackedDepthStencilBoth = GL_FALSE;
 static GLuint TextureLevel = 0;  /* which texture level to render to */
 static GLenum TexIntFormat = GL_RGB; /* either GL_RGB or GL_RGBA */
 static GLboolean Cull = GL_FALSE;
@@ -248,7 +249,7 @@ CleanUp(void)
    glDeleteRenderbuffersEXT(1, &DepthRB);
 #endif
 #if STENCIL
-   if (!UsePackedDepthStencil)
+   if (!UsePackedDepthStencil && !UsePackedDepthStencilBoth)
       glDeleteRenderbuffersEXT(1, &StencilRB);
 #endif
    glDeleteFramebuffersEXT(1, &MyFB);
@@ -329,6 +330,18 @@ Init(int argc, char *argv[])
          UsePackedDepthStencil = GL_TRUE;
          printf("Using GL_EXT_packed_depth_stencil\n");
       }
+      else if (strcmp(argv[i], "-ds2") == 0) {
+         if (!glutExtensionSupported("GL_EXT_packed_depth_stencil")) {
+            printf("GL_EXT_packed_depth_stencil not found!\n");
+            exit(0);
+         }
+         if (!glutExtensionSupported("GL_ARB_framebuffer_object")) {
+            printf("GL_ARB_framebuffer_object not found!\n");
+            exit(0);
+         }
+         UsePackedDepthStencilBoth = GL_TRUE;
+         printf("Using GL_EXT_packed_depth_stencil and GL_DEPTH_STENCIL attachment point\n");
+      }
       else if (strcmp(argv[i], "-arb") == 0) {
          if (!ARB_fbo) {
             printf("Sorry, GL_ARB_framebuffer object not supported!\n");
@@ -395,7 +408,7 @@ Init(int argc, char *argv[])
    assert(!glIsRenderbufferEXT(DepthRB));
    glBindRenderbufferEXT(GL_RENDERBUFFER_EXT, DepthRB);
    assert(glIsRenderbufferEXT(DepthRB));
-   if (UsePackedDepthStencil)
+   if (UsePackedDepthStencil || UsePackedDepthStencilBoth)
       glRenderbufferStorageEXT(GL_RENDERBUFFER_EXT, GL_DEPTH_STENCIL_EXT,
                                TexWidth - sizeFudge, TexHeight - sizeFudge);
    else
@@ -409,8 +422,18 @@ Init(int argc, char *argv[])
    assert(i > 0);
 
    /* attach DepthRB to MyFB */
-   glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT,
-                                GL_RENDERBUFFER_EXT, DepthRB);
+   if (UsePackedDepthStencilBoth) {
+      /* attach depth/stencil buffer to both attachment points at once */
+      glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,
+                                   GL_DEPTH_STENCIL_ATTACHMENT,
+                                   GL_RENDERBUFFER_EXT, DepthRB);
+   }
+   else {
+      /* depth attachment only */
+      glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,
+                                   GL_DEPTH_ATTACHMENT_EXT,
+                                   GL_RENDERBUFFER_EXT, DepthRB);
+   }
 #endif
 
    CheckError(__LINE__);
@@ -421,6 +444,9 @@ Init(int argc, char *argv[])
       glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT,
                                    GL_STENCIL_ATTACHMENT_EXT,
                                    GL_RENDERBUFFER_EXT, DepthRB);
+   }
+   else if (UsePackedDepthStencilBoth) {
+      /* nothing: we did a combined depth+stencil attachment above */
    }
    else {
       /* make stencil renderbuffer */
