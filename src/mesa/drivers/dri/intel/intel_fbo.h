@@ -73,9 +73,6 @@ struct intel_renderbuffer
    GLuint pfPitch;              /* possibly paged flipped pitch */
    GLboolean RenderToTexture;   /* RTT? */
 
-   GLuint PairedDepth;   /**< only used if this is a depth renderbuffer */
-   GLuint PairedStencil; /**< only used if this is a stencil renderbuffer */
-
    GLuint pf_pending;  /**< sequence number of pending flip */
 
    GLuint vbl_pending;   /**< vblank sequence number of pending flip */
