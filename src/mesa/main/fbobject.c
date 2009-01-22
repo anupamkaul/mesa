@@ -1117,7 +1117,7 @@ _mesa_BindFramebufferEXT(GLenum target, GLuint framebuffer)
 #ifdef DEBUG
    if (ctx->Extensions.ARB_framebuffer_object) {
       ASSERT(ctx->Extensions.EXT_framebuffer_object);
-      /*disable temporarily: ASSERT(ctx->Extensions.EXT_framebuffer_blit);*/
+      ASSERT(ctx->Extensions.EXT_framebuffer_blit);
    }
 #endif
 
