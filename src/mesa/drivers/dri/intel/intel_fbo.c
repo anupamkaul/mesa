@@ -676,6 +676,7 @@ intel_validate_framebuffer(GLcontext *ctx, struct gl_framebuffer *fb)
 /**
  * Called from glBlitFramebuffer().
  * For now, we're doing an approximation with glCopyPixels().
+ * XXX we need to bypass all the per-fragment operations, except scissor.
  */
 static void
 intel_blit_framebuffer(GLcontext *ctx,
@@ -707,6 +708,20 @@ intel_blit_framebuffer(GLcontext *ctx,
 
    ctx->Pixel.ZoomX = xFlip * (dstX1 - dstX0) / (srcX1 - srcY0);
    ctx->Pixel.ZoomY = yFlip * (dstY1 - dstY0) / (srcY1 - srcY0);
+
+   if (ctx->Pixel.ZoomX < 0.0F) {
+      dstX0 = MAX2(dstX0, dstX1);
+   }
+   else {
+      dstX0 = MIN2(dstX0, dstX1);
+   }
+
+   if (ctx->Pixel.ZoomY < 0.0F) {
+      dstY0 = MAX2(dstY0, dstY1);
+   }
+   else {
+      dstY0 = MIN2(dstY0, dstY1);
+   }
 
    if (mask & GL_COLOR_BUFFER_BIT) {
       ctx->Driver.CopyPixels(ctx, srcX0, srcY0, width, height,
