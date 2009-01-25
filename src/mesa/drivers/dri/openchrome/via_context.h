@@ -282,7 +282,7 @@ struct via_context
     GLuint drawXoff;
     GLuint drawXoffBytes;
     GLuint numDrawClipRects;
-    drm_clip_rect_t *pDrawClipRects;
+    struct drm_via_clip_rect *pDrawClipRects;
     GLuint drawStamp;
 
     /*
@@ -294,7 +294,7 @@ struct via_context
     GLuint readXoff;
     GLuint readXoffBytes;
     GLuint numReadClipRects;
-    drm_clip_rect_t *pReadClipRects;
+    struct drm_via_clip_rect *pReadClipRects;
     GLuint readStamp;
 
     GLboolean scissor;

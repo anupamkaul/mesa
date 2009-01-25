@@ -362,6 +362,11 @@ viaDestroyBuffer(__DRIdrawablePrivate * driDrawPriv)
 	if (viafb->swap_fences[i] != 0)
 	    wsbmFenceUnreference(&viafb->swap_fences[i]);
     }
+    if (viafb->pFrontClipRects &&
+	(viafb->pFrontClipRects != &viafb->allClipRect)) {
+	free(viafb->pFrontClipRects);
+    }
+
     _mesa_unreference_framebuffer(&fb);
 }
 

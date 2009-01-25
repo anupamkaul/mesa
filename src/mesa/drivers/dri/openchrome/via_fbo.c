@@ -377,6 +377,21 @@ via_get_renderbuffer(struct gl_framebuffer *fb, GLuint attIndex)
     return via_renderbuffer(fb->Attachment[attIndex].Renderbuffer);
 }
 
+static void
+via_destroy_framebuffer(struct gl_framebuffer *buffer)
+{
+    struct via_framebuffer *viafb = via_framebuffer(buffer);
+
+    if (!viafb)
+	return;
+
+    if (viafb->pFrontClipRects &&
+	(viafb->pFrontClipRects != &viafb->allClipRect))
+	free(viafb->pFrontClipRects);
+
+    _mesa_destroy_framebuffer(buffer);
+}
+
 static struct gl_framebuffer *
 via_new_framebuffer(GLcontext * ctx, GLuint name)
 {
@@ -393,7 +408,7 @@ via_new_framebuffer(GLcontext * ctx, GLuint name)
 	viafb->Base._ColorDrawBufferIndexes[0] = BUFFER_COLOR0;
 	viafb->Base.ColorReadBuffer = GL_COLOR_ATTACHMENT0_EXT;
 	viafb->Base._ColorReadBufferIndex = BUFFER_COLOR0;
-	viafb->Base.Delete = _mesa_destroy_framebuffer;
+	viafb->Base.Delete = via_destroy_framebuffer;
     }
     return &viafb->Base;
 }

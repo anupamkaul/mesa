@@ -87,9 +87,9 @@ struct via_framebuffer
 				        * base address must be a multiple of
 				        * a number of pixels. */
 
-    drm_clip_rect_t allClipRect;
+    struct drm_via_clip_rect allClipRect;
     GLuint numFrontClipRects;	       /* cliprects for front buffer */
-    drm_clip_rect_t *pFrontClipRects;
+    struct drm_via_clip_rect *pFrontClipRects;
     __DRIdrawablePrivate *dPriv;
 
     struct _WsbmFenceObject *swap_fences[VIA_MAX_SWAP_FENCES];

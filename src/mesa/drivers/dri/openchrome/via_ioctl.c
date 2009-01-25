@@ -115,6 +115,7 @@ dump_dma(struct via_context *vmesa)
     fflush(stderr);
 }
 
+#if 0
 int
 via_intersect_drm_rect(struct drm_via_clip_rect *out,
 		       struct drm_via_clip_rect *a, struct drm_clip_rect *b)
@@ -141,6 +142,7 @@ via_intersect_drm_rect(struct drm_via_clip_rect *out,
 
     return 1;
 }
+#endif
 
 int
 via_intersect_via_rect(struct drm_via_clip_rect *out,
@@ -271,7 +273,7 @@ static void
 viaFillBuffer(struct via_context *vmesa,
 	      struct via_renderbuffer *buffer,
 	      struct drm_via_clip_rect *pbox,
-	      struct drm_clip_rect *pbox2, int nboxes, GLuint pixel,
+	      struct drm_via_clip_rect *pbox2, int nboxes, GLuint pixel,
 	      GLuint mask)
 {
     GLuint bytePerPixel = buffer->bpp >> 3;
@@ -413,7 +415,7 @@ viaClear(GLcontext * ctx, GLbitfield mask)
 
     if (flag) {
 	struct drm_via_clip_rect *boxes = NULL, *tmp_boxes = NULL;
-	struct drm_clip_rect *boxes2 = NULL;
+	struct drm_via_clip_rect *boxes2 = NULL;
 
 	int nr = 0;
 	GLint cx, cy, cw, ch;
@@ -441,7 +443,7 @@ viaClear(GLcontext * ctx, GLbitfield mask)
 
 	    viaCreateSafeClip(&a, cx, cy, cw, ch);
 
-	    drm_clip_rect_t *b = vmesa->pDrawClipRects;
+	    struct drm_via_clip_rect *b = vmesa->pDrawClipRects;
 
 	    boxes = tmp_boxes =
 		(struct drm_via_clip_rect *)malloc(vmesa->numDrawClipRects *
@@ -453,7 +455,7 @@ viaClear(GLcontext * ctx, GLbitfield mask)
 	    }
 
 	    for (i = 0; i < vmesa->numDrawClipRects; i++) {
-		if (via_intersect_drm_rect(&boxes[nr], &a, &b[i]))
+		if (via_intersect_via_rect(&boxes[nr], &a, &b[i]))
 		    nr++;
 	    }
 	} else {
@@ -520,7 +522,8 @@ viaClear(GLcontext * ctx, GLbitfield mask)
 
 static void
 viaDoSwapBuffers(struct via_context *vmesa,
-		 struct via_framebuffer *vfb, drm_clip_rect_t * backClipRect)
+		 struct via_framebuffer *vfb,
+		 struct drm_via_clip_rect * backClipRect)
 {
     GLuint bytePerPixel = vmesa->viaScreen->bitsPerPixel >> 3;
     struct via_renderbuffer *front = via_get_renderbuffer(&vfb->Base,
@@ -528,8 +531,7 @@ viaDoSwapBuffers(struct via_context *vmesa,
     struct via_renderbuffer *back = via_get_renderbuffer(&vfb->Base,
 							 BUFFER_BACK_LEFT);
     struct drm_via_clip_rect intersectRect;
-    drm_clip_rect_t *b = vfb->pFrontClipRects;
-    struct drm_via_clip_rect back_rect;
+    struct drm_via_clip_rect *b = vfb->pFrontClipRects;
     GLuint i;
     GLint x;
     GLint y;
@@ -540,14 +542,10 @@ viaDoSwapBuffers(struct via_context *vmesa,
     GLuint nbox;
 
     nbox = vfb->numFrontClipRects;
-    back_rect.x1 = backClipRect->x1;
-    back_rect.x2 = backClipRect->x2;
-    back_rect.y1 = backClipRect->y1;
-    back_rect.y2 = backClipRect->y2;
 
     for (i = 0; i < nbox; i++, b++) {
 
-	if (!via_intersect_drm_rect(&intersectRect, &back_rect, b))
+	if (!via_intersect_via_rect(&intersectRect, backClipRect, b))
 	    continue;
 
 	x = intersectRect.x1;
@@ -665,7 +663,7 @@ viaCopyBuffer(__DRIdrawablePrivate * dPriv)
     struct via_context *vmesa;
     struct gl_framebuffer *fb = dPriv->driverPrivate;
     struct via_framebuffer *vfb = via_framebuffer(fb);
-    drm_clip_rect_t backClipRect;
+    struct drm_via_clip_rect backClipRect;
     __DRIscreenPrivate *sPriv = dPriv->driScreenPriv;
     int i;
 
@@ -1466,7 +1464,7 @@ via_setup_clip(struct via_context *vmesa,
 	struct via_framebuffer *vfb = viaDrawFrameBuffer(vmesa);
 	struct drm_via_clip_rect *vclip;
 	struct drm_via_clip_rect *pvclip;
-	struct drm_clip_rect *dclip;
+	struct drm_via_clip_rect *dclip;
 	struct drm_via_clip_rect scissor;
 	unsigned int nclip;
 	unsigned int i;
@@ -1507,21 +1505,17 @@ via_setup_clip(struct via_context *vmesa,
 	    }
 	}
 
-	for (i = 0; i < nclip; ++i) {
-	    pvclip->x1 = dclip->x1;
-	    pvclip->x2 = dclip->x2;
-	    pvclip->y1 = dclip->y1;
-	    pvclip->y2 = dclip->y2;
-
-	    if (vmesa->scissor &&
-		!via_intersect_via_rect(pvclip, pvclip, &scissor))
-		continue;
+	for (i = 0; i < nclip; ++i, ++pvclip, ++dclip) {
+	    if (vmesa->scissor) {
+		if (!via_intersect_via_rect(pvclip, dclip, &scissor))
+		    continue;
+	    } else {
+		*pvclip = *dclip;
+	    }
 
 	    pvclip->x1 += xoff;
 	    pvclip->x2 += xoff;
 
-	    pvclip++;
-	    dclip++;
 	}
 	nclip = pvclip - vclip;
 	*num_clip = nclip;

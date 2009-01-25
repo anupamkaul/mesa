@@ -286,8 +286,8 @@ via_try_3d_copy(GLcontext * ctx,
     uint32_t bias_rgba;
     struct drm_via_clip_rect clip;
     struct drm_via_clip_rect dst_clip;
-    struct drm_clip_rect tmp_clip;
-    struct drm_clip_rect *cur_clip;
+    struct drm_via_clip_rect tmp_clip;
+    struct drm_via_clip_rect *cur_clip;
     int i;
     struct via_framebuffer *vfb = viaReadFrameBuffer(vmesa);
     struct via_renderbuffer *read_buf = viaReadRenderBuffer(vmesa);
@@ -359,7 +359,7 @@ via_try_3d_copy(GLcontext * ctx,
 	    tmp_clip.y2 = vfb->Base.Height - cur_clip->y1;
 	}
 
-	if (via_intersect_drm_rect(&dst_clip, &clip, &tmp_clip)) {
+	if (via_intersect_via_rect(&dst_clip, &clip, &tmp_clip)) {
 
 	    dst_clip.x1 -= x;
 	    dst_clip.x2 -= x;

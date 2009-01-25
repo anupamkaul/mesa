@@ -546,14 +546,27 @@ viaUpdateFrameBufferLocked(struct via_context *vmesa,
 	vfb = containerOf(dPriv->driverPrivate, struct via_framebuffer, Base);
 
 	if (vfb->lastStamp != dPriv->lastStamp) {
-	    drm_clip_rect_t *cur_clip;
+	    struct drm_via_clip_rect *cur_clip;
+	    struct drm_clip_rect *cur_d_clip;
 	    struct via_renderbuffer *front =
 		via_get_renderbuffer(&vfb->Base, BUFFER_FRONT_LEFT);
 	    int i;
 
 	    vfb->lastStamp = dPriv->lastStamp;
 	    vfb->numFrontClipRects = dPriv->numClipRects;
-	    vfb->pFrontClipRects = dPriv->pClipRects;
+
+	    if (vfb->pFrontClipRects != NULL &&
+		(vfb->pFrontClipRects != &vfb->allClipRect))
+		free(vfb->pFrontClipRects);
+
+	    vfb->pFrontClipRects = NULL;
+	    if (vfb->numFrontClipRects) {
+		vfb->pFrontClipRects =
+		    malloc(vfb->numFrontClipRects * sizeof(*vfb->pFrontClipRects));
+		if (vfb->pFrontClipRects == NULL)
+		    vfb->numFrontClipRects = 0;
+	    }
+
 	    vfb->xoff = 0;
 	    vfb->drawX = dPriv->x;
 	    vfb->drawY = dPriv->y;
@@ -564,13 +577,17 @@ viaUpdateFrameBufferLocked(struct via_context *vmesa,
 	     * we'll need to add it back.
 	     */
 
+
 	    cur_clip = vfb->pFrontClipRects;
+	    cur_d_clip = dPriv->pClipRects;
+
 	    for (i = 0; i < vfb->numFrontClipRects; ++i) {
-		cur_clip->x1 -= vfb->drawX;
-		cur_clip->x2 -= vfb->drawX;
-		cur_clip->y1 -= vfb->drawY;
-		cur_clip->y2 -= vfb->drawY;
+		cur_clip->x1 = (int) cur_d_clip->x1 - vfb->drawX;
+		cur_clip->x2 = (int) cur_d_clip->x2 - vfb->drawX;
+		cur_clip->y1 = (int) cur_d_clip->y1 - vfb->drawY;
+		cur_clip->y2 = (int) cur_d_clip->y2 - vfb->drawY;
 		cur_clip++;
+		cur_d_clip++;
 	    }
 
 	    if (front->isSharedFrontBuffer) {

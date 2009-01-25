@@ -793,7 +793,7 @@ viaSetDepthBuffer(GLcontext * ctx, struct gl_framebuffer *fb)
 static void
 viaSetDrawBuffer(struct via_context *vmesa, GLuint attIndex,
 		 GLboolean fallback, unsigned int xoff,
-		 int numClipRects, drm_clip_rect_t * pClipRects)
+		 int numClipRects, struct drm_via_clip_rect * pClipRects)
 {
     struct via_renderbuffer *viarb;
 
