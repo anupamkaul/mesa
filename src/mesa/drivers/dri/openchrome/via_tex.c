@@ -540,6 +540,10 @@ viaTexImage(GLcontext * ctx,
 	}
     }
 
+    if (wsbmBOOnList(viaImage->buf)) {
+	VIA_FLUSH_DMA(vmesa);
+    }
+
     ret = wsbmBOData(viaImage->buf, sizeInBytes, NULL,
 		     vmesa->viaScreen->bufferPool,
 		     (viaObj->imagesInVRAM ? WSBM_PL_FLAG_VRAM :
