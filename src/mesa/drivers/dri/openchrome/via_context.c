@@ -162,7 +162,7 @@ viaGetString(GLcontext * ctx, GLenum name)
 	    unsigned id = vmesa->viaScreen->deviceID;
 
 	    offset = driGetRendererString(buffer,
-					  chipset_names[(id > 8) ? 0 : id],
+					  chipset_names[(id > 9) ? 0 : id],
 					  DRIVER_DATE, 0);
 	    return (GLubyte *) buffer;
 	}
