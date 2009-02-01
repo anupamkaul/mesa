@@ -77,6 +77,8 @@ typedef struct _viaScreenPrivate
     GLboolean irqEnabled;
     int execIoctlOffset;
 
+    GLboolean as_aiglx;
+
     const __DRIextension *extensions[5];
 } viaScreenPrivate;
 

@@ -120,16 +120,25 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
 	return GL_FALSE;
     }
 
-    ret = wsbmInit(wsbmPThreadFuncs(), viaVNodeFuncs());
-    if (ret != 0)
-	return GL_FALSE;
-
     /* Allocate the private area */
     viaScreen = (viaScreenPrivate *) CALLOC(sizeof(viaScreenPrivate));
     if (!viaScreen) {
 	__driUtilMessage
 	    ("viaInitDriver: alloc viaScreenPrivate struct failed");
-	goto out_err0;
+	return GL_FALSE;
+    }
+
+    /*
+     * Are we running as AIGLX driver?
+     */
+
+    if (wsbmIsInitialized()) {
+	viaScreen->as_aiglx = GL_TRUE;
+    } else {
+	ret = wsbmInit(wsbmPThreadFuncs(), viaVNodeFuncs());
+	if (ret != 0)
+	    goto out_err0;
+	viaScreen->as_aiglx = GL_FALSE;
     }
 
     /* parse information in __driConfigOptions */
@@ -139,7 +148,7 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
      */
 
     driParseConfigFiles(&viaScreen->parsedCache, &viaScreen->optionCache,
-			sPriv->myNum, "unichrome");
+			sPriv->myNum, "openchrome");
 
     viaScreen->driScrnPriv = sPriv;
     sPriv->private = (void *)viaScreen;
@@ -239,10 +248,11 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
     viaScreen->mallocPool->takeDown(viaScreen->mallocPool);
   out_err1:
     driDestroyOptionCache(&viaScreen->parsedCache);
-    FREE(viaScreen);
-    sPriv->private = NULL;
+    if (!viaScreen->as_aiglx)
+	wsbmTakedown();
   out_err0:
-    wsbmTakedown();
+    sPriv->private = NULL;
+    FREE(viaScreen);
     return GL_FALSE;
 }
 
@@ -251,15 +261,17 @@ viaDestroyScreen(__DRIscreenPrivate * sPriv)
 {
     viaScreenPrivate *viaScreen = (viaScreenPrivate *) sPriv->private;
 
+
     wsbmFenceMgrTTMTakedown(viaScreen->fence_mgr);
     //    viaDestroyDummyHWContext(sPriv, viaScreen->dummyContextID);
     viaScreen->bufferPool->takeDown(viaScreen->bufferPool);
     viaScreen->mallocPool->takeDown(viaScreen->mallocPool);
     driDestroyOptionCache(&viaScreen->parsedCache);
     driDestroyOptionInfo(&viaScreen->optionCache);
+    if (!viaScreen->as_aiglx)
+	wsbmTakedown();
     FREE(viaScreen);
     sPriv->private = NULL;
-    wsbmTakedown();
 }
 
 static GLboolean
