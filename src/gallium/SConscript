@@ -27,3 +27,4 @@ for driver in env['drivers']:
 	SConscript(os.path.join('drivers', driver, 'SConscript'))
 
 SConscript('state_trackers/python/SConscript')
+SConscript('state_trackers/glx/xlib/SConscript')
