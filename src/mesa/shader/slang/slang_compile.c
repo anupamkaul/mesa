@@ -2794,6 +2794,12 @@ _slang_compile(GLcontext *ctx, struct gl_shader *shader)
    _mesa_print_program(shader->Program);
 #endif
 
+   shader->CompileStatus = success;
+
+   if (ctx->Shader.Flags & GLSL_LOG) {
+      _mesa_write_shader_to_file(shader);
+   }
+
    return success;
 }
 
