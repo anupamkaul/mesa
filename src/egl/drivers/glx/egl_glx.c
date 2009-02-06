@@ -777,6 +777,7 @@ GLX_eglSwapBuffers(_EGLDriver *drv, EGLDisplay dpy, EGLSurface draw)
    if (!_eglSwapBuffers(drv, dpy, draw))
       return EGL_FALSE;
 
+   glFlush(); /* temporary */
    glXSwapBuffers(disp->Xdpy, GLX_surf->drawable);
 
    return EGL_TRUE;
