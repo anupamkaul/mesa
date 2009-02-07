@@ -947,7 +947,11 @@ viaInitTextureFuncs(struct dd_function_table *functions)
     functions->CopyTexSubImage2D = viaCopyTexSubImage2D;
 
 #if defined( USE_SSE_ASM )
-    functions->TextureMemCpy = via_sse_memcpy;
+#include "x86/common_x86_asm.h"
+    if ( cpu_has_xmm )
+	functions->TextureMemCpy = via_sse_memcpy;
+    else
+	functions->TextureMemCpy = _mesa_memcpy;
 #else
     functions->TextureMemCpy = _mesa_memcpy;
 #endif
