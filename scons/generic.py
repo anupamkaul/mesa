@@ -206,6 +206,25 @@ _bool_map = {
 }
 
 
+def num_jobs():
+    try:
+        return int(os.environ['NUMBER_OF_PROCESSORS'])
+    except (ValueError, KeyError):
+        pass
+
+    try:
+        return os.sysconf('SC_NPROCESSORS_ONLN')
+    except (ValueError, OSError, AttributeError):
+        pass
+
+    try:
+        return int(os.popen2("sysctl -n hw.ncpu")[1].read())
+    except ValueError:
+        pass
+
+    return 1
+
+
 def generate(env):
     """Common environment generation code"""
 
@@ -262,6 +281,10 @@ def generate(env):
     #env.VariantDir(env['variant_dir']
     #env.SConsignFile(os.path.join(env['variant_dir'], '.sconsign'))
 
+    # Parallel build
+    if env.GetOption('num_jobs') <= 1:
+        env.SetOption('num_jobs', num_jobs())
+
     # Summary
     print
     print '  platform=%s' % env['platform']
@@ -270,6 +293,7 @@ def generate(env):
     print '  debug=%s' % ['no', 'yes'][env['debug']]
     print '  profile=%s' % ['no', 'yes'][env['profile']]
     #print '  variant_dir=%s' % env['variant_dir']
+    print '  %s jobs' % env.GetOption('num_jobs')
     print
 
     # Load tool chain
