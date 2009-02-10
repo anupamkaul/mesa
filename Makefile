@@ -118,6 +118,8 @@ linux-dri-x86 \
 linux-dri-x86-64 \
 linux-dri-ppc \
 linux-dri-xcb \
+linux-dri-xcb-debug \
+linux-dri-xcb-x86 \
 linux-egl \
 linux-indirect \
 linux-fbdev \

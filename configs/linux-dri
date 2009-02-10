@@ -25,7 +25,7 @@ DEFINES = -D_POSIX_SOURCE -D_POSIX_C_SOURCE=199309L -D_SVID_SOURCE \
 	-DGLX_DIRECT_RENDERING -DGLX_INDIRECT_RENDERING \
 	-DHAVE_ALIAS -DHAVE_POSIX_MEMALIGN
 
-X11_INCLUDES = -I/usr/X11R6/include
+X11_INCLUDES = $(shell pkg-config --cflags-only-I x11)
 
 CFLAGS = -Wall -Wmissing-prototypes -std=c99 -ffast-math \
 	$(OPT_FLAGS) $(PIC_FLAGS) $(ARCH_FLAGS) $(DEFINES) $(ASM_FLAGS)
@@ -41,7 +41,7 @@ CXXFLAGS += -fno-strict-aliasing
 MESA_ASM_SOURCES = 
 
 # Library/program dependencies
-EXTRA_LIB_PATH=-L/usr/X11R6/lib
+EXTRA_LIB_PATH=$(shell pkg-config --libs-only-L x11)
 
 LIBDRM_CFLAGS = $(shell pkg-config --cflags libdrm)
 LIBDRM_LIB = $(shell pkg-config --libs libdrm)
