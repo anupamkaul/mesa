@@ -179,6 +179,8 @@ alloc_shm_ximage(struct xm_buffer *b, struct xmesa_buffer *xmb,
       (void) XSetErrorHandler(old_handler);
       return;
    }
+
+   b->shm = 1;
 }
 
 #endif /* USE_XSHM */
