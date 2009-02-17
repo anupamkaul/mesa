@@ -774,10 +774,7 @@ viaSetDepthBuffer(GLcontext * ctx, struct gl_framebuffer *fb)
 	    if (depthstencil->Base.DepthBits) {
 		vmesa->newEmitState |= _NEW_DEPTH;
 
-		vmesa->polygon_offset_scale =
-		    (GLfloat) (depthstencil->bpp / 16) /
-		    (GLfloat) ((1 << depthstencil->Base.DepthBits) - 1);
-
+		vmesa->polygon_offset_scale = 1.;
 		ctx->Driver.DepthRange(ctx, ctx->Viewport.Near,
 				       ctx->Viewport.Far);
 	    }
