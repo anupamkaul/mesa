@@ -541,6 +541,9 @@ viaDoSwapBuffers(struct via_context *vmesa,
     GLuint dest;
     GLuint nbox;
 
+    if (!back)
+	return;
+
     nbox = vfb->numFrontClipRects;
 
     for (i = 0; i < nbox; i++, b++) {
