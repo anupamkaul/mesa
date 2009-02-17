@@ -51,20 +51,20 @@
     do {								\
 	int _nc = vmesa->numDrawClipRects;				\
 	while (!vmesa->spanError &&  _nc-- ) {				\
-	    int minx = (short) vmesa->pDrawClipRects[_nc].x1;		\
-	    int miny = (short) vmesa->pDrawClipRects[_nc].y1;		\
-	    int maxx = (short) vmesa->pDrawClipRects[_nc].x2;		\
-	    int maxy = (short) vmesa->pDrawClipRects[_nc].y2;
+	    int minx = vmesa->pDrawClipRects[_nc].x1;			\
+	    int miny = vmesa->pDrawClipRects[_nc].y1;			\
+	    int maxx = vmesa->pDrawClipRects[_nc].x2;			\
+	    int maxy = vmesa->pDrawClipRects[_nc].y2;
 
 #undef HW_READ_CLIPLOOP
 #define HW_READ_CLIPLOOP()						\
   do {									\
-        int _nc = vmesa->numReadClipRects;					\
-	while ( !vmesa->spanError &&_nc-- ) {				\
-	    int minx = (short) vmesa->pReadClipRects[_nc].x1;		\
-	    int miny = (short) vmesa->pReadClipRects[_nc].y1;		\
-	    int maxx = (short) vmesa->pReadClipRects[_nc].x2;		\
-	    int maxy = (short) vmesa->pReadClipRects[_nc].y2;
+      int _nc = vmesa->numReadClipRects;				\
+      while ( !vmesa->spanError &&_nc-- ) {				\
+	  int minx = vmesa->pReadClipRects[_nc].x1;			\
+	  int miny = vmesa->pReadClipRects[_nc].y1;			\
+	  int maxx = vmesa->pReadClipRects[_nc].x2;			\
+	  int maxy = vmesa->pReadClipRects[_nc].y2;
 
 #undef LOCAL_VARS
 #define LOCAL_VARS							\
@@ -101,9 +101,17 @@
 /* 16 bit depthbuffer functions.
  */
 
+#undef HW_CLIPLOOP
+#define HW_CLIPLOOP()							\
+    do {								\
+	{								\
+	    int minx = 0;						\
+	    int miny = 0;						\
+	    int maxx = rb->Width;					\
+	    int maxy = rb->Height;
+
 #define LOCAL_DEPTH_VARS						\
     struct via_renderbuffer *vrb = via_renderbuffer(rb);		\
-    struct via_context *vmesa = VIA_CONTEXT(ctx);			\
     GLuint depth_pitch = vrb->pitch;					\
     GLuint height = rb->Height;						\
     char *buf = (char *)vrb->map + vrb->origMapAdd;			\
