@@ -131,6 +131,7 @@ SOURCES = \
 	vbo-drawarrays.c \
 	vbo-drawelements.c \
 	vbo-drawrange.c \
+	vbo-drawrange-ib.c \
 	vp-array.c \
 	vp-array-int.c \
 	vp-clip.c \

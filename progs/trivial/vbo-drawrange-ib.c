@@ -70,6 +70,10 @@ static void Init( void )
    glBindBufferARB(GL_ARRAY_BUFFER_ARB, arrayObj);
    glBufferDataARB(GL_ARRAY_BUFFER_ARB, sizeof(verts), verts, GL_STATIC_DRAW_ARB);
 
+   glGenBuffersARB(1, &elementObj);
+   glBindBufferARB(GL_ELEMENT_ARRAY_BUFFER_ARB, elementObj);
+   glBufferDataARB(GL_ELEMENT_ARRAY_BUFFER_ARB, sizeof(indices), indices, GL_STATIC_DRAW_ARB);
+
    glVertexPointer( 3, GL_FLOAT, sizeof(verts[0]), 0 );
    glColorPointer( 4, GL_UNSIGNED_BYTE, sizeof(verts[0]), (void *)(3*sizeof(float)) );
 
@@ -83,7 +87,8 @@ static void Display( void )
    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
    glEnable(GL_VERTEX_PROGRAM_ARB);
-   glDrawRangeElements( GL_TRIANGLES, 1, 3, 3, GL_UNSIGNED_INT, indices );
+
+   glDrawRangeElements( GL_TRIANGLES, 1, 3, 3, GL_UNSIGNED_INT, NULL );
 
    glFlush(); 
 }
