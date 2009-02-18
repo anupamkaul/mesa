@@ -33,16 +33,20 @@ tbd
 <h2>New features</h2>
 <ul>
 <li>Added MESA_GLX_FORCE_DIRECT env var for Xlib/software driver
+<li>GLSL version 1.20 is returnd by the GL_SHADING_LANGUAGE_VERSION query
 </ul>
 
 
 <h2>Bug fixes</h2>
 <ul>
+<li>glGetActiveUniform() returned wrong size for some array types
+<li>Fixed some error checking in glUniform()
 <li>Fixed a potential glTexImage('proxy target') segfault
 <li>Fixed bad reference counting for 1D/2D texture arrays
 <li>Fixed VBO + glPush/PopClientAttrib() bug #19835
 <li>Assorted i965 driver bug fixes
 <li>Fixed a Windows compilation failure in s_triangle.c
+<li>Fixed a GLSL array indexing bug
 </ul>
 
 <h2>Changes</h2>
