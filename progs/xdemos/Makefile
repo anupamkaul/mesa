@@ -12,6 +12,7 @@ LIBS = -L$(TOP)/$(LIB_DIR) -l$(GL_LIB) $(APP_LIB_DEPS)
 
 PROGS = \
 	corender \
+	glsl-tri \
 	glsync \
 	glthreads \
 	glxdemo \
@@ -50,7 +51,7 @@ EXTRA_PROGS = \
 .SUFFIXES: .c
 
 .c: $(LIB_DEP)
-	$(APP_CC) -I$(INCDIR) $(X11_INCLUDES) $(CFLAGS) $(LDFLAGS) $< $(LIBS) -o $@
+	$(APP_CC) -I$(INCDIR) -I../util $(X11_INCLUDES) $(CFLAGS) $(LDFLAGS) $< $(LIBS) -o $@
 
 
 ##### TARGETS #####
