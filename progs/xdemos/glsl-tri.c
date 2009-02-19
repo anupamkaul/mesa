@@ -207,8 +207,17 @@ create_shaders(void)
 
    glUseProgram(program);
 
-   glBindAttribLocation(program, attr_pos, "pos");
-   glBindAttribLocation(program, attr_color, "color");
+   if (1) {
+      /* test setting attrib locations */
+      glBindAttribLocation(program, attr_pos, "pos");
+      glBindAttribLocation(program, attr_color, "color");
+      glLinkProgram(program);  /* needed to put attribs into effect */
+   }
+   else {
+      /* test automatic attrib locations */
+      attr_pos = glGetAttribLocation(program, "pos");
+      attr_color = glGetAttribLocation(program, "color");
+   }
 
    u_matrix = glGetUniformLocation(program, "modelviewProjection");
    printf("Uniform modelviewProjection at %d\n", u_matrix);
