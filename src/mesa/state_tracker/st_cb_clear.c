@@ -98,12 +98,12 @@ st_destroy_clear(struct st_context *st)
    struct pipe_context *pipe = st->pipe;
 
    if (st->clear.vert_shader.tokens) {
-      FREE((void *) st->clear.vert_shader.tokens);
+      util_free_shader(&st->clear.vert_shader);
       st->clear.vert_shader.tokens = NULL;
    }
 
    if (st->clear.frag_shader.tokens) {
-      FREE((void *) st->clear.frag_shader.tokens);
+      util_free_shader(&st->clear.frag_shader);
       st->clear.frag_shader.tokens = NULL;
    }
 
@@ -116,7 +116,7 @@ st_destroy_clear(struct st_context *st)
       st->clear.vs = NULL;
    }
    if (st->clear.vbuf) {
-      pipe_buffer_destroy(pipe->screen, st->clear.vbuf);
+      pipe_buffer_reference(pipe->screen, &st->clear.vbuf, NULL);
       st->clear.vbuf = NULL;
    }
 }
