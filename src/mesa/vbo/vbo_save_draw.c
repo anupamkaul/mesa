@@ -118,6 +118,7 @@ static void vbo_bind_vertex_list( GLcontext *ctx,
    GLuint data = node->buffer_offset;
    const GLuint *map;
    GLuint attr;
+   GLbitfield varying_inputs = 0x0;
    GLubyte node_attrsz[VBO_ATTRIB_MAX];  /* copy of node->attrsz[] */
 
    memcpy(node_attrsz, node->attrsz, sizeof(node->attrsz));
