@@ -306,6 +306,13 @@ viaTexFormat(GLuint mesaFormat, uint32_t * texFormat,
     return ret;
 }
 
+static inline int
+viaIsPot(unsigned int val)
+{
+    return ((val & (val -1)) == 0);
+}
+
+
 /* Basically, just collect the image dimensions and addresses for each
  * image and update the texture object state accordingly.
  */
@@ -319,7 +326,7 @@ viaSetTexImages(GLcontext * ctx, struct gl_texture_object *texObj)
 	(struct via_texture_image *)texObj->Image[0][texObj->BaseLevel];
     GLint firstLevel, lastLevel, numLevels;
     GLuint texFormat;
-    GLint w, h, p;
+    GLint w, h, p, pl2;
     GLint i, l = 0, m = 0;
     GLuint widthExp = 0;
     GLuint heightExp = 0;
@@ -354,6 +361,7 @@ viaSetTexImages(GLcontext * ctx, struct gl_texture_object *texObj)
 
     switch (vmesa->viaScreen->deviceID) {
     case VIA_CX700:
+    case VIA_P4M890:
 	break;
     case VIA_CLE266:
     case VIA_K8M800:
@@ -384,6 +392,44 @@ viaSetTexImages(GLcontext * ctx, struct gl_texture_object *texObj)
 
     viaObj->regTexFM = (HC_SubA_HTXnFM << 24) | texFormat;
 
+    /*
+     * Texture rectangle or A single level.
+     */
+
+    if (viaObj->isRect || numLevels == 1) {
+	struct via_reloc_texlist *addr = &viaObj->addr[0];
+	struct via_texture_image *viaImage =
+	    (struct via_texture_image *)texObj->Image[0][firstLevel];
+	struct gl_texture_image *image = &viaImage->image;
+
+	p = viaImage->pitch;
+	w = image->WidthLog2;
+	h = image->HeightLog2;
+	addr->delta = 0;
+	addr->buf = viaImage->buf;
+
+	if (viaObj->isRect) {
+	    if (!viaIsPot(image->Width))
+		w++;
+	    if (!viaIsPot(image->Height))
+		h++;
+	}
+
+	viaObj->pitchLog2[0] =  (HC_SubA_HTXnL0Pit << 24) |
+	    HC_HTXnEnPit_MASK | (p & HC_HTXnLnPit_MASK);
+	viaObj->regTexWidthLog2[0] = (HC_SubA_HTXnL0_5WE << 24) |
+	    (w &  HC_HTXnL0WE_MASK);
+	viaObj->regTexHeightLog2[0] = (HC_SubA_HTXnL0_5HE << 24) |
+	    (h &  HC_HTXnL0HE_MASK);
+
+	if (viaObj->isRect) {
+	    viaObj->rectFactS = 1. / (double) (1 << w);
+	    viaObj->rectFactT = 1. / (double) (1 << h);
+	}
+
+	return GL_TRUE;
+    }
+
     for (i = 0; i < numLevels; i++) {
 	struct via_reloc_texlist *addr = &viaObj->addr[i];
 	struct via_texture_image *viaImage =
@@ -391,14 +437,12 @@ viaSetTexImages(GLcontext * ctx, struct gl_texture_object *texObj)
 
 	w = viaImage->image.WidthLog2;
 	h = viaImage->image.HeightLog2;
-	p = viaImage->pitchLog2;
+	pl2 = viaImage->pitchLog2;
 
-	/* All images must be in the same memory space, so if any of them has
-	 * been used as a render target, we need to migrate all of them to VRAM.
-	 */
 	assert(viaImage->buf != NULL);
 
-	viaObj->pitchLog2[i] = ((HC_SubA_HTXnL0Pit + i) << 24) | (p << 20);
+	viaObj->pitchLog2[i] = ((HC_SubA_HTXnL0Pit + i) << 24) |
+	    (pl2 << HC_HTXnLnPitE_SHIFT);
 
 	addr->delta = 0;
 	addr->buf = viaImage->buf;
@@ -418,12 +462,6 @@ viaSetTexImages(GLcontext * ctx, struct gl_texture_object *texObj)
 	    widthExp = 0;
 	    heightExp = 0;
 	}
-	if (w)
-	    w--;
-	if (h)
-	    h--;
-	if (p)
-	    p--;
     }
 
     if (m != 5) {
@@ -443,7 +481,8 @@ viaUpdateTextureState(GLcontext * ctx)
     GLuint i;
 
     for (i = 0; i < 2; i++) {
-	if (texUnit[i]._ReallyEnabled == TEXTURE_2D_BIT ||
+	if (texUnit[i]._ReallyEnabled == TEXTURE_RECT_BIT ||
+	    texUnit[i]._ReallyEnabled == TEXTURE_2D_BIT ||
 	    texUnit[i]._ReallyEnabled == TEXTURE_1D_BIT) {
 
 	    if (!viaSetTexImages(ctx, texUnit[i]._Current))
@@ -455,6 +494,7 @@ viaUpdateTextureState(GLcontext * ctx)
 
     return GL_TRUE;
 }
+
 
 static void
 viaTexImage(GLcontext * ctx,
@@ -512,22 +552,26 @@ viaTexImage(GLcontext * ctx,
 	    viaImage->pitchLog2 = logbase2(width * 4);
     }
 
-    /* Minimum pitch of 32 bytes */
-    if (!texImage->IsCompressed && postConvWidth * texelBytes < 32) {
-	postConvWidth = 32 / texelBytes;
-	texImage->RowStride = postConvWidth;
+    /* Pitch is aligned to 32 bytes */
+    viaImage->pitch = postConvWidth * texelBytes;
+
+    if (!texImage->IsCompressed && (viaImage->pitch & 31)) {
+	viaImage->pitch = (viaImage->pitch + 31) & ~31;
+	texImage->RowStride = viaImage->pitch / texelBytes;
     }
 
     if (!texImage->IsCompressed) {
-	assert(texImage->RowStride == postConvWidth);
-	viaImage->pitchLog2 = logbase2(postConvWidth * texelBytes);
+	viaImage->pitchLog2 = logbase2(viaImage->pitch);
     }
+
+    if (target == GL_TEXTURE_RECTANGLE_ARB)
+	viaObj->isRect = GL_TRUE;
 
     /* allocate memory */
     if (texImage->IsCompressed)
 	sizeInBytes = texImage->CompressedSize;
     else
-	sizeInBytes = postConvWidth * postConvHeight * texelBytes;
+	sizeInBytes = postConvHeight * viaImage->pitch;
 
     if (!viaImage->buf) {
 	ret = wsbmGenBuffers(vmesa->viaScreen->bufferPool,
@@ -589,7 +633,7 @@ viaTexImage(GLcontext * ctx,
 	    _mesa_compressed_row_stride(texImage->TexFormat->MesaFormat,
 					width);
     } else {
-	dstRowStride = postConvWidth * texImage->TexFormat->TexelBytes;
+	dstRowStride = viaImage->pitch;
     }
 
     if (compressed) {
@@ -947,11 +991,7 @@ viaInitTextureFuncs(struct dd_function_table *functions)
     functions->CopyTexSubImage2D = viaCopyTexSubImage2D;
 
 #if defined( USE_SSE_ASM )
-#include "x86/common_x86_asm.h"
-    if ( cpu_has_xmm )
-	functions->TextureMemCpy = via_sse_memcpy;
-    else
-	functions->TextureMemCpy = _mesa_memcpy;
+    functions->TextureMemCpy = via_sse_memcpy;
 #else
     functions->TextureMemCpy = _mesa_memcpy;
 #endif

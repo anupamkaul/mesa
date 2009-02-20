@@ -40,6 +40,7 @@ struct via_texture_image
     struct gl_texture_image image;
     struct _WsbmBufferObject *buf;
     GLint pitchLog2;
+    GLuint pitch;
     GLuint magic;
     uint32_t texHwFormat;
     uint32_t dstHwFormat;
@@ -57,11 +58,22 @@ struct via_texture_object
     GLuint regTexWidthLog2[2];
     GLuint regTexHeightLog2[2];
     GLuint pitchLog2[VIA_MAX_TEXLEVELS];
+
     struct via_reloc_texlist addr[12];
 
     GLint firstLevel, lastLevel;       /* upload tObj->Image[first .. lastLevel] */
 
     GLboolean imagesInVRAM;
+    GLboolean isRect;
+
+    /**
+     * These are really image properties, but since we only allow
+     * one image on a GL_TEXTURE_RECTANGLE object, we put them
+     * here for easy access.
+     */
+
+    float rectFactS;
+    float rectFactT;
 };
 
 GLboolean viaMoveTexImageToVRAM(GLcontext * ctx,
