@@ -6,12 +6,11 @@
  *
  */
 
-#define GL_GLEXT_PROTOTYPES
-
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <GL/glew.h>
 #include <GL/glut.h>
 
 #include "readtex.h"
@@ -48,7 +47,10 @@ static void Idle( void )
 }
 
 /*static int max( int a, int b ) { return a > b ? a : b; }*/
+
+#ifndef min
 static int min( int a, int b ) { return a < b ? a : b; }
+#endif
 
 static void DrawObject()
 {
@@ -303,6 +305,7 @@ int main( int argc, char *argv[] )
    glutInitWindowPosition( 0, 0 );
    glutInitDisplayMode( GLUT_RGB | GLUT_DOUBLE );
    glutCreateWindow(argv[0] );
+   glewInit();
 
    Init( argc, argv );
 

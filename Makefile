@@ -12,6 +12,8 @@ default: $(TOP)/configs/current
 		fi \
 	done
 
+all: default
+
 
 doxygen:
 	cd doxygen && $(MAKE)
@@ -35,7 +37,6 @@ realclean: clean
 	  -name depend -o -name depend.bak ')' -exec rm -f '{}' ';'
 
 
-
 install:
 	@for dir in $(SUBDIRS) ; do \
 		if [ -d $$dir ] ; then \
@@ -43,10 +44,6 @@ install:
 		fi \
 	done
 
-
-# DirectFBGL module installation
-linux-directfb-install:
-	cd src/mesa/drivers/directfb && $(MAKE) install
 
 .PHONY: default doxygen clean realclean install linux-directfb-install
 
@@ -107,6 +104,8 @@ irix6-o32-static \
 linux \
 linux-alpha \
 linux-alpha-static \
+linux-cell \
+linux-cell-debug \
 linux-debug \
 linux-directfb \
 linux-dri \
@@ -115,6 +114,7 @@ linux-dri-x86 \
 linux-dri-x86-64 \
 linux-dri-ppc \
 linux-dri-xcb \
+linux-egl \
 linux-indirect \
 linux-fbdev \
 linux-glide \
@@ -122,12 +122,14 @@ linux-ia64-icc \
 linux-ia64-icc-static \
 linux-icc \
 linux-icc-static \
+linux-llvm \
 linux-osmesa \
 linux-osmesa16 \
 linux-osmesa16-static \
 linux-osmesa32 \
 linux-ppc \
 linux-ppc-static \
+linux-profile \
 linux-solo \
 linux-solo-x86 \
 linux-solo-ia64 \
@@ -141,8 +143,10 @@ linux-x86-debug \
 linux-x86-32 \
 linux-x86-64 \
 linux-x86-64-debug \
+linux-x86-64-profile \
 linux-x86-64-static \
 linux-x86-glide \
+linux-x86-profile \
 linux-x86-static \
 netbsd \
 openbsd \
@@ -174,10 +178,11 @@ ultrix-gcc:
 
 # Rules for making release tarballs
 
-DIRECTORY = Mesa-7.3-rc2
-LIB_NAME = MesaLib-7.3-rc2
-DEMO_NAME = MesaDemos-7.3-rc2
-GLUT_NAME = MesaGLUT-7.3-rc2
+VERSION=7.5-devel
+DIRECTORY = Mesa-$(VERSION)
+LIB_NAME = MesaLib-$(VERSION)
+DEMO_NAME = MesaDemos-$(VERSION)
+GLUT_NAME = MesaGLUT-$(VERSION)
 
 MAIN_FILES = \
 	$(DIRECTORY)/Makefile*						\
@@ -298,14 +303,7 @@ MAIN_FILES = \
 	$(DIRECTORY)/vms/analyze_map.com				\
 	$(DIRECTORY)/vms/xlib.opt					\
 	$(DIRECTORY)/vms/xlib_share.opt					\
-	$(DIRECTORY)/windows/VC8/mesa/mesa.sln				\
-	$(DIRECTORY)/windows/VC8/mesa/gdi/gdi.vcproj			\
-	$(DIRECTORY)/windows/VC8/mesa/glu/glu.vcproj			\
-	$(DIRECTORY)/windows/VC8/mesa/mesa/mesa.vcproj			\
-	$(DIRECTORY)/windows/VC8/mesa/osmesa/osmesa.vcproj		\
-	$(DIRECTORY)/windows/VC8/progs/progs.sln			\
-	$(DIRECTORY)/windows/VC8/progs/demos/gears.vcproj		\
-	$(DIRECTORY)/windows/VC8/progs/glut/glut.vcproj
+	$(DIRECTORY)/windows/VC8/
 
 
 DRI_FILES = \
