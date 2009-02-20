@@ -541,9 +541,8 @@ st_draw_vbo(GLcontext *ctx,
    vp = ctx->st->vp;
    vs = &ctx->st->vp->state;
 
-   if (MESA_VERBOSE & VERBOSE_GLSL) {
+   if (ctx->Shader.Flags & GLSL_UNIFORMS)
       check_uniforms(ctx);
-   }
 
    /*
     * Setup the vbuffer[] and velements[] arrays.
