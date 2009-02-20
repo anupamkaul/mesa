@@ -950,7 +950,6 @@ _mesa_printf( const char *fmtString, ... )
    va_start( args, fmtString );  
    vfprintf(stderr, fmtString, args);
    va_end( args );
-   fprintf(stderr, "%s", s);
 }
 
 /** Wrapper around fprintf(), using vsprintf() for the formatting. */
