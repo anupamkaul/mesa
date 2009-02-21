@@ -609,6 +609,7 @@ via_update_texture_wrapper(GLcontext * ctx,
 
     viarb->Base.Width = texImage->Width;
     viarb->Base.Height = texImage->Height;
+
     viarb->Base.RedBits = texImage->TexFormat->RedBits;
     viarb->Base.GreenBits = texImage->TexFormat->GreenBits;
     viarb->Base.BlueBits = texImage->TexFormat->BlueBits;
@@ -641,17 +642,26 @@ via_render_texture(GLcontext * ctx,
     struct via_context *vmesa = VIA_CONTEXT(ctx);
     struct gl_texture_image *newImage
 	= att->Texture->Image[att->CubeMapFace][att->TextureLevel];
+    struct gl_texture_object *newObj = newImage->TexObject;
     struct via_renderbuffer *viarb = via_renderbuffer(att->Renderbuffer);
     struct via_texture_image *via_image;
 
-    (void)fb;
     ASSERT(newImage);
 
-    if (!viarb) {
-	viarb = via_alloc_texture_wrapper();
+    if (!newObj)
+	goto out_sw;
 
+    if (newObj->Target != GL_TEXTURE_1D &&
+	newObj->Target != GL_TEXTURE_2D &&
+	newObj->Target != GL_TEXTURE_CUBE_MAP &&
+	newObj->Target != GL_TEXTURE_RECTANGLE_ARB) {
+	goto out_sw;
+    }
+    
+    if (!viarb) {
+	viarb = via_alloc_texture_wrapper();	
 	if (!viarb)
-	    return;
+	    goto out_sw;
     }
 
     /* bind the wrapper to the attachment point */
@@ -664,14 +674,14 @@ via_render_texture(GLcontext * ctx,
 		_glthread_GetID(), att->Texture->Name, newImage->Width,
 		newImage->Height, viarb->Base.RefCount);
 
-    /* point the renderbufer's region to the texture image region */
-    via_image = (struct via_texture_image *)newImage;
-
     ctx->Driver.DrawBuffer(ctx, fb->ColorDrawBuffer[0]);
     ctx->Driver.ReadBuffer(ctx, fb->ColorReadBuffer);
 
     /* Re-calculate viewport etc */
     vmesa->newState |= _NEW_BUFFERS;
+    return;
+  out_sw:
+    _mesa_render_texture(ctx, fb, att);
 }
 
 /**

@@ -107,8 +107,8 @@
 	{								\
 	    int minx = 0;						\
 	    int miny = 0;						\
-	    int maxx = rb->Width;					\
-	    int maxy = rb->Height;
+	    int maxx = rb->Width - 1;					\
+	    int maxy = rb->Height -1 ;
 
 #define LOCAL_DEPTH_VARS						\
     struct via_renderbuffer *vrb = via_renderbuffer(rb);		\

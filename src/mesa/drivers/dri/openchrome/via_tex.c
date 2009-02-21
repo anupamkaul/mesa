@@ -828,9 +828,8 @@ viaFreeTextureImageData(GLcontext * ctx, struct gl_texture_image *texImage)
     if (image->buf) {
 	wsbmBOUnreference(&image->buf);
 	image->buf = NULL;
+	texImage->Data = NULL;
     }
-
-    texImage->Data = NULL;
 }
 
 static void
