@@ -92,9 +92,16 @@ map_buffers(GLcontext * ctx,
 	    struct via_renderbuffer *depthRb,
 	    struct via_renderbuffer *stencilRb)
 {
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
     int ret;
+    int flushed = 0;
 
     if (depthRb && depthRb->buf) {
+	if (wsbmBOOnList(depthRb->buf)) {
+	    VIA_FLUSH_DMA(vmesa);
+	    flushed = 1;
+	}
+	    
 	ret = wsbmBOSyncForCpu(depthRb->buf,
 			       WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
 	if (ret)
@@ -109,6 +116,10 @@ map_buffers(GLcontext * ctx,
     }
 
     if (stencilRb && stencilRb->buf) {
+	if (!flushed && wsbmBOOnList(stencilRb->buf)) {
+	    VIA_FLUSH_DMA(vmesa);
+	}
+
 	ret = wsbmBOSyncForCpu(stencilRb->buf,
 			       WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
 	if (ret)
