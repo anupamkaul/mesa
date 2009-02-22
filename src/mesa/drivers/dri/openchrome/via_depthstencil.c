@@ -164,10 +164,12 @@ static int via_extract_stencil(GLcontext * ctx,
 	goto out_sw;
 
     VIA_FLUSH_DMA(vmesa);
-    viaBlit(vmesa, 24, viaCombinedRb->buf, viaStencilRb->buf, 0, 0,
+    viaBlit(vmesa, 32, viaCombinedRb->buf, viaStencilRb->buf, 0, 0,
 	    viaCombinedRb->pitch, viaStencilRb->pitch, 1, 1,
 	    combinedRb->Width, combinedRb->Height, VIA_BLIT_COPY,
 	    0, 0xe << 28);
+
+    via_execbuf(vmesa, VIA_NO_CLIPRECTS);
     return 0;
   out_sw:
     ret = map_buffers(ctx, viaCombinedRb, viaStencilRb);
@@ -191,11 +193,12 @@ static int via_insert_stencil(GLcontext * ctx,
 	goto out_sw;
 
     VIA_FLUSH_DMA(vmesa);
-    viaBlit(vmesa, 24, viaStencilRb->buf, viaCombinedRb->buf, 0, 0,
+    viaBlit(vmesa, 32, viaStencilRb->buf, viaCombinedRb->buf, 0, 0,
 	    viaStencilRb->pitch, viaCombinedRb->pitch, 1, 1,
 	    combinedRb->Width, combinedRb->Height, VIA_BLIT_COPY,
 	    0, 0xe << 28);
 	
+    via_execbuf(vmesa, VIA_NO_CLIPRECTS);
     return 0;
   out_sw:
     ret = map_buffers(ctx, viaCombinedRb, viaStencilRb);
@@ -331,11 +334,6 @@ via_validate_paired_depth_stencil(GLcontext * ctx, struct gl_framebuffer *fb)
 	/* undo any previous pairing */
 	if (stencilRb->PairedDepth) {
 	    via_unpair_depth_stencil(ctx, stencilRb);
-	}
-	if (stencilRb->Base._ActualFormat == GL_STENCIL_INDEX8_EXT) {
-	    /* promote buffer to GL_DEPTH24_STENCIL8 for hw rendering */
-	    _mesa_promote_stencil(ctx, &stencilRb->Base);
-	    ASSERT(stencilRb->Base._ActualFormat == GL_DEPTH24_STENCIL8_EXT);
 	}
     }
 
