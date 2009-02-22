@@ -151,6 +151,62 @@ unmap_buffers(GLcontext * ctx,
     }
 }
 
+static int via_extract_stencil(GLcontext * ctx,
+			       struct gl_renderbuffer *combinedRb,
+			       struct gl_renderbuffer *stencilRb)
+{
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
+    struct via_renderbuffer *viaStencilRb = via_renderbuffer(stencilRb);
+    struct via_renderbuffer *viaCombinedRb = via_renderbuffer(combinedRb);
+    int ret;
+
+    if (!viaStencilRb || !viaCombinedRb)
+	goto out_sw;
+
+    VIA_FLUSH_DMA(vmesa);
+    viaBlit(vmesa, 24, viaCombinedRb->buf, viaStencilRb->buf, 0, 0,
+	    viaCombinedRb->pitch, viaStencilRb->pitch, 1, 1,
+	    combinedRb->Width, combinedRb->Height, VIA_BLIT_COPY,
+	    0, 0xe << 28);
+    return 0;
+  out_sw:
+    ret = map_buffers(ctx, viaCombinedRb, viaStencilRb);
+    if (!ret) {
+	_mesa_extract_stencil(ctx, combinedRb, stencilRb);
+	unmap_buffers(ctx, viaCombinedRb, viaStencilRb);
+    }
+    return ret;
+}
+
+static int via_insert_stencil(GLcontext * ctx,
+			       struct gl_renderbuffer *combinedRb,
+			       struct gl_renderbuffer *stencilRb)
+{
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
+    struct via_renderbuffer *viaStencilRb = via_renderbuffer(stencilRb);
+    struct via_renderbuffer *viaCombinedRb = via_renderbuffer(combinedRb);
+    int ret;
+
+    if (!viaStencilRb || !viaCombinedRb)
+	goto out_sw;
+
+    VIA_FLUSH_DMA(vmesa);
+    viaBlit(vmesa, 24, viaStencilRb->buf, viaCombinedRb->buf, 0, 0,
+	    viaStencilRb->pitch, viaCombinedRb->pitch, 1, 1,
+	    combinedRb->Width, combinedRb->Height, VIA_BLIT_COPY,
+	    0, 0xe << 28);
+	
+    return 0;
+  out_sw:
+    ret = map_buffers(ctx, viaCombinedRb, viaStencilRb);
+    if (!ret) {
+	_mesa_insert_stencil(ctx, combinedRb, stencilRb);
+	unmap_buffers(ctx, viaCombinedRb, viaStencilRb);
+    }
+    return ret;
+}
+	
+
 /**
  * Undo the pairing/interleaving between depth and stencil buffers.
  * viarb should be a depth/stencil or stencil renderbuffer.
@@ -170,9 +226,7 @@ via_unpair_depth_stencil(GLcontext * ctx, struct via_renderbuffer *viarb)
 	if (stencilViarb) {
 	    /* need to extract stencil values from the depth buffer */
 	    ASSERT(stencilViarb->PairedDepth == viarb->Base.Name);
-	    map_buffers(ctx, viarb, stencilViarb);
-	    _mesa_extract_stencil(ctx, &viarb->Base, &stencilViarb->Base);
-	    unmap_buffers(ctx, viarb, stencilViarb);
+	    via_extract_stencil(ctx, &viarb->Base, &stencilViarb->Base);
 	    stencilViarb->PairedDepth = 0;
 	}
 	viarb->PairedStencil = 0;
@@ -189,9 +243,7 @@ via_unpair_depth_stencil(GLcontext * ctx, struct via_renderbuffer *viarb)
 	if (depthViarb) {
 	    /* need to extract stencil values from the depth buffer */
 	    ASSERT(depthViarb->PairedStencil == viarb->Base.Name);
-	    map_buffers(ctx, depthViarb, viarb);
-	    _mesa_extract_stencil(ctx, &depthViarb->Base, &viarb->Base);
-	    unmap_buffers(ctx, depthViarb, viarb);
+	    via_extract_stencil(ctx, &depthViarb->Base, &viarb->Base);
 	    depthViarb->PairedStencil = 0;
 	}
 	viarb->PairedDepth = 0;
@@ -255,7 +307,7 @@ via_validate_paired_depth_stencil(GLcontext * ctx, struct gl_framebuffer *fb)
 
 		/* establish new pairing: interleave stencil into depth buffer */
 		map_buffers(ctx, depthRb, stencilRb);
-		_mesa_insert_stencil(ctx, &depthRb->Base, &stencilRb->Base);
+		via_insert_stencil(ctx, &depthRb->Base, &stencilRb->Base);
 		unmap_buffers(ctx, depthRb, stencilRb);
 		depthRb->PairedStencil = stencilRb->Base.Name;
 		stencilRb->PairedDepth = depthRb->Base.Name;
