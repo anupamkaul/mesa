@@ -107,8 +107,8 @@
 	{								\
 	    int minx = 0;						\
 	    int miny = 0;						\
-	    int maxx = rb->Width - 1;					\
-	    int maxy = rb->Height -1 ;
+	    int maxx = rb->Width;					\
+	    int maxy = rb->Height;
 
 #define LOCAL_DEPTH_VARS						\
     struct via_renderbuffer *vrb = via_renderbuffer(rb);		\
@@ -227,10 +227,8 @@ viaSpanRenderStart(GLcontext * ctx)
 	    goto out_err3;
     }
 
-    draw_depth = via_get_renderbuffer(&viaDrawFrameBuffer(vmesa)->Base,
-				      BUFFER_DEPTH);
-    read_depth = via_get_renderbuffer(&viaReadFrameBuffer(vmesa)->Base,
-				      BUFFER_DEPTH);
+    draw_depth = viaDrawDepthRenderBuffer(vmesa);
+    read_depth = viaReadDepthRenderBuffer(vmesa);
 
     if (draw_depth != NULL) {
 	drawMapFlags = WSBM_SYNCCPU_WRITE;
@@ -335,10 +333,8 @@ viaSpanRenderFinish(GLcontext * ctx)
 	fflush(stderr);
     }
 
-    draw_depth = via_get_renderbuffer(&viaDrawFrameBuffer(vmesa)->Base,
-				      BUFFER_DEPTH);
-    read_depth = via_get_renderbuffer(&viaReadFrameBuffer(vmesa)->Base,
-				      BUFFER_DEPTH);
+    draw_depth = viaDrawDepthRenderBuffer(vmesa);
+    read_depth = viaReadDepthRenderBuffer(vmesa);
 
     if (draw_depth != NULL) {
 	(void)wsbmBOReleaseFromCpu(draw_depth->buf, vmesa->depthSyncFlags);

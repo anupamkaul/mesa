@@ -486,11 +486,16 @@ static inline struct via_renderbuffer *
 viaDrawDepthRenderBuffer(struct via_context *vmesa)
 {
     struct gl_framebuffer *fb = vmesa->glCtx->DrawBuffer;
+    struct via_renderbuffer *depth;
 
     if (!fb)
 	return NULL;
 
-    return via_renderbuffer(fb->Attachment[BUFFER_DEPTH].Renderbuffer);
+    depth = via_renderbuffer(fb->Attachment[BUFFER_DEPTH].Renderbuffer);
+    if (depth != NULL)
+	    return depth;
+
+    return via_renderbuffer(fb->Attachment[BUFFER_STENCIL].Renderbuffer);
 }
 
 static inline struct via_renderbuffer *
@@ -508,11 +513,16 @@ static inline struct via_renderbuffer *
 viaReadDepthRenderBuffer(struct via_context *vmesa)
 {
     struct gl_framebuffer *fb = vmesa->glCtx->ReadBuffer;
+    struct via_renderbuffer *depth;
 
     if (!fb)
 	return NULL;
 
-    return via_renderbuffer(fb->Attachment[BUFFER_DEPTH].Renderbuffer);
+    depth = via_renderbuffer(fb->Attachment[BUFFER_DEPTH].Renderbuffer);
+    if (depth != NULL)
+	    return depth;
+
+    return via_renderbuffer(fb->Attachment[BUFFER_STENCIL].Renderbuffer);
 }
 
 extern void via_wait_context_idle(struct via_context *vmesa);
