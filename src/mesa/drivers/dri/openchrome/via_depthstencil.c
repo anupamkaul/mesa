@@ -306,9 +306,7 @@ via_validate_paired_depth_stencil(GLcontext * ctx, struct gl_framebuffer *fb)
 		       GL_DEPTH24_STENCIL8_EXT);
 
 		/* establish new pairing: interleave stencil into depth buffer */
-		map_buffers(ctx, depthRb, stencilRb);
 		via_insert_stencil(ctx, &depthRb->Base, &stencilRb->Base);
-		unmap_buffers(ctx, depthRb, stencilRb);
 		depthRb->PairedStencil = stencilRb->Base.Name;
 		stencilRb->PairedDepth = depthRb->Base.Name;
 	    }
