@@ -95,39 +95,43 @@ map_buffers(GLcontext * ctx,
     int ret;
 
     if (depthRb && depthRb->buf) {
-	depthRb->map = wsbmBOMap(depthRb->buf,
-				 WSBM_ACCESS_READ | WSBM_ACCESS_WRITE);
-	if (!depthRb->map)
-	    return -ENOMEM;
 	ret = wsbmBOSyncForCpu(depthRb->buf,
 			       WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
 	if (ret)
+	    return ret;
+
+	depthRb->map = wsbmBOMap(depthRb->buf,
+				 WSBM_ACCESS_READ | WSBM_ACCESS_WRITE);
+	if (!depthRb->map) {
+	    ret = -ENOMEM;
 	    goto out_err0;
+	}
     }
 
     if (stencilRb && stencilRb->buf) {
+	ret = wsbmBOSyncForCpu(stencilRb->buf,
+			       WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
+	if (ret)
+	    goto out_err1;
+
 	stencilRb->map = wsbmBOMap(stencilRb->buf, WSBM_ACCESS_READ |
 				   WSBM_ACCESS_WRITE);
 	if (!stencilRb->map) {
 	    ret = -ENOMEM;
-	    goto out_err1;
-	}
-
-	ret = wsbmBOSyncForCpu(stencilRb->buf,
-			       WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
-	if (ret)
 	    goto out_err2;
+	}
     }
 
     return 0;
 
   out_err2:
-    (void)wsbmBOUnmap(stencilRb->buf);
+    (void)wsbmBOReleaseFromCpu(stencilRb->buf,
+			       WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
   out_err1:
+    (void)wsbmBOUnmap(depthRb->buf);
+  out_err0:
     (void)wsbmBOReleaseFromCpu(depthRb->buf,
 			       WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
-  out_err0:
-    (void)wsbmBOUnmap(depthRb->buf);
     return ret;
 }
 
@@ -137,17 +141,17 @@ unmap_buffers(GLcontext * ctx,
 	      struct via_renderbuffer *stencilRb)
 {
     if (depthRb && depthRb->buf) {
-	(void)wsbmBOReleaseFromCpu(depthRb->buf,
-				   WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
 	wsbmBOUnmap(depthRb->buf);
 	depthRb->map = NULL;
+	(void)wsbmBOReleaseFromCpu(depthRb->buf,
+				   WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     }
 
     if (stencilRb && stencilRb->buf) {
-	(void)wsbmBOReleaseFromCpu(stencilRb->buf,
-				   WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
 	wsbmBOUnmap(stencilRb->buf);
 	stencilRb->map = NULL;
+	(void)wsbmBOReleaseFromCpu(stencilRb->buf,
+				   WSBM_SYNCCPU_READ | WSBM_SYNCCPU_WRITE);
     }
 }
 
