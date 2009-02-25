@@ -163,6 +163,7 @@ struct via_context
     GLuint newState;		       /* _NEW_* flags */
     GLuint newEmitState;	       /* _NEW_* flags */
     GLuint newRenderState;	       /* _NEW_* flags */
+    GLuint emitStateAtClip;            /* _NEW_* flags */
     int lostState;
     int useLostState;
 
@@ -184,12 +185,14 @@ struct via_context
     GLenum renderPrimitive;
     GLenum hwPrimitive;
     GLenum hwShadeModel;
+    GLboolean resetStipple;
     unsigned char *verts;
 
     /* drmBufPtr dma_buffer;
      */
     GLuint dmaLow;
     GLuint lostStateDmaLow;
+    GLuint dmaAfterClip;
 
     GLuint dmaCliprectAddr;
     GLuint dmaLastPrim;

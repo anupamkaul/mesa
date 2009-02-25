@@ -87,6 +87,21 @@ do {						\
 #endif
 #endif
 
+static const GLenum hwPrim[GL_POLYGON + 2] = {
+    GL_POINTS,
+    GL_LINES,
+    GL_LINES,
+    GL_LINES,
+    GL_TRIANGLES,
+    GL_TRIANGLES,
+    GL_TRIANGLES,
+    GL_TRIANGLES,
+    GL_TRIANGLES,
+    GL_TRIANGLES,
+    GL_POLYGON + 1
+};
+
+
 static void
 via_draw_triangle(struct via_context *vmesa,
 		  viaVertexPtr v0, viaVertexPtr v1, viaVertexPtr v2)
@@ -115,11 +130,30 @@ via_draw_quad(struct via_context *vmesa,
     COPY_DWORDS(vb, vertsize, v3);
 }
 
+static inline void
+via_do_reset_stipple(struct via_context *vmesa)
+{
+    GLboolean have_reset = (vmesa->regCmdB & HC_HLPrst_MASK) != 0;
+
+    if ((have_reset && !vmesa->resetStipple) ||
+	(!have_reset && vmesa->resetStipple)) {
+	GLenum renderPrimitive = vmesa->renderPrimitive;
+
+	VIA_FINISH_PRIM(vmesa);
+	viaRasterPrimitive(vmesa->glCtx, renderPrimitive, hwPrim[renderPrimitive]);
+    }
+    vmesa->resetStipple = GL_FALSE;
+}
+
+
 static void
 via_draw_line(struct via_context *vmesa, viaVertexPtr v0, viaVertexPtr v1)
 {
     GLuint vertsize = vmesa->vertexSize;
-    GLuint *vb = viaExtendPrimitive(vmesa, 2 * 4 * vertsize);
+    GLuint *vb;
+
+    via_do_reset_stipple(vmesa);
+    vb = viaExtendPrimitive(vmesa, 2 * 4 * vertsize);
 
     COPY_DWORDS(vb, vertsize, v0);
     COPY_DWORDS(vb, vertsize, v1);
@@ -167,8 +201,11 @@ static void
 via_ptex_line(struct via_context *vmesa, viaVertexPtr v0, viaVertexPtr v1)
 {
     GLuint vertsize = vmesa->hwVertexSize;
-    GLuint *vb = viaExtendPrimitive(vmesa, 2 * 4 * vertsize);
     viaVertex tmp;
+    GLuint *vb;
+
+    via_do_reset_stipple(vmesa);
+    vb = viaExtendPrimitive(vmesa, 2 * 4 * vertsize);
 
     PTEX_VERTEX(tmp, vertsize, v0);
     COPY_DWORDS(vb, vertsize, &tmp);
@@ -332,20 +369,6 @@ do {							\
 /***********************************************************************
  *                Helpers for rendering unfilled primitives            *
  ***********************************************************************/
-
-static const GLenum hwPrim[GL_POLYGON + 2] = {
-    GL_POINTS,
-    GL_LINES,
-    GL_LINES,
-    GL_LINES,
-    GL_TRIANGLES,
-    GL_TRIANGLES,
-    GL_TRIANGLES,
-    GL_TRIANGLES,
-    GL_TRIANGLES,
-    GL_TRIANGLES,
-    GL_POLYGON + 1
-};
 
 #define RASTERIZE(x) viaRasterPrimitive( ctx, x, hwPrim[x] )
 #define RENDER_PRIMITIVE vmesa->renderPrimitive
@@ -517,8 +540,7 @@ static void
 viaResetLineStipple(GLcontext * ctx)
 {
     struct via_context *vmesa = VIA_CONTEXT(ctx);
-
-    vmesa->regCmdB |= HC_HLPrst_MASK;
+    vmesa->resetStipple = GL_TRUE;
 }
 
 /**********************************************************************/
@@ -538,9 +560,8 @@ viaResetLineStipple(GLcontext * ctx)
     GLubyte *vertptr = (GLubyte *)vmesa->verts;                 \
     const GLuint vertsize = vmesa->vertexSize;          \
     const GLuint * const elt = TNL_CONTEXT(ctx)->vb.Elts;       \
-   const GLboolean stipple = ctx->Line.StippleFlag;		\
-   (void) elt; (void) stipple;
-#define RESET_STIPPLE	if ( stipple ) viaResetLineStipple( ctx );
+    (void) elt;
+#define RESET_STIPPLE	if ( ctx->Line.StippleFlag ) viaResetLineStipple( ctx );
 #define RESET_OCCLUSION
 #define PRESERVE_VB_DEFS
 #define ELT(x) x
@@ -840,6 +861,8 @@ viaRenderStart(GLcontext * ctx)
     TNLcontext *tnl = TNL_CONTEXT(ctx);
     struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
 
+    vmesa->resetStipple = ctx->Line.StippleFlag;
+
     {
 	GLboolean ptexHack = viaCheckPTexHack(ctx);
 
@@ -896,6 +919,13 @@ viaRasterPrimitive(GLcontext * ctx, GLenum glprim, GLenum hwprim)
 
     assert(!vmesa->newState);
 
+    if (vmesa->resetStipple)
+	vmesa->regCmdB |= HC_HLPrst_MASK;
+    else
+	vmesa->regCmdB &= ~HC_HLPrst_MASK;
+
+    vmesa->resetStipple = GL_FALSE;
+
     if (vmesa->firstDrawAfterSwap) {
 	LOCK_HARDWARE(vmesa);
 	viaValidateDrawablesLocked(vmesa);
@@ -933,11 +963,15 @@ viaRasterPrimitive(GLcontext * ctx, GLenum glprim, GLenum hwprim)
 	     * so emit full state here.
 	     */
 
+	    vmesa->emitStateAtClip = vmesa->newEmitState;
 	    if (drawBuf && drawBuf->isSharedFrontBuffer)
 		vmesa->newEmitState = ~0;
-	}
+	    if (vmesa->newEmitState || vmesa->lostState) {
+		viaEmitState(vmesa);
+	    }
+	    vmesa->dmaAfterClip = vmesa->dmaLow;
 
-	if (vmesa->newEmitState || vmesa->lostState) {
+	} else if (vmesa->newEmitState || vmesa->lostState) {
 	    viaEmitState(vmesa);
 	}
 
@@ -958,7 +992,6 @@ viaRasterPrimitive(GLcontext * ctx, GLenum glprim, GLenum hwprim)
 	    break;
 	case GL_LINES:
 	    vmesa->regCmdA_End |= HC_HPMType_Line | HC_HVCycle_Full;
-	    regCmdB |= HC_HLPrst_MASK;
 	    if (ctx->Light.ShadeModel == GL_FLAT)
 		vmesa->regCmdA_End |= HC_HShading_FlatB;
 	    break;
@@ -1027,6 +1060,7 @@ viaRasterPrimitive(GLcontext * ctx, GLenum glprim, GLenum hwprim)
 	;			       //      assert(!vmesa->newEmitState);
     }
 
+    vmesa->resetStipple = GL_FALSE;
     vmesa->renderPrimitive = glprim;
 }
 
@@ -1079,8 +1113,10 @@ viaFinishPrimitive(struct via_context *vmesa)
 
 	/* Maybe remove the cliprect as well:
 	 */
-	if (vmesa->dmaCliprectAddr == vmesa->dmaLow - 8 * sizeof(GLuint)) {
-	    vmesa->dmaLow -= 8 * sizeof(GLuint);
+	if (vmesa->dmaCliprectAddr != ~0 &&
+	    vmesa->dmaLow == vmesa->dmaAfterClip) {
+	    vmesa->dmaLow = vmesa->dmaCliprectAddr;
+	    vmesa->newEmitState = vmesa->emitStateAtClip;
 	    vmesa->dmaCliprectAddr = ~0;
 	}
     }
