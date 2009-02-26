@@ -899,6 +899,19 @@ viaRenderFinish(GLcontext * ctx)
     VIA_FINISH_PRIM(VIA_CONTEXT(ctx));
 }
 
+static inline void
+viaCheckResetStipple(struct via_context *vmesa, GLuint *cmdB)
+{
+    if (vmesa->resetStipple) {
+	*cmdB |= HC_HLPrst_MASK;
+	vmesa->regCmdB |= HC_HLPrst_MASK;
+    } else {
+	*cmdB &= ~HC_HLPrst_MASK;
+	vmesa->regCmdB &= ~HC_HLPrst_MASK;
+    }
+    vmesa->resetStipple = GL_FALSE;
+}
+
 /* System to flush dma and emit state changes based on the rasterized
  * primitive.
  */
@@ -918,13 +931,6 @@ viaRasterPrimitive(GLcontext * ctx, GLenum glprim, GLenum hwprim)
 		_mesa_lookup_enum_by_nr(ctx->Light.ShadeModel));
 
     assert(!vmesa->newState);
-
-    if (vmesa->resetStipple)
-	vmesa->regCmdB |= HC_HLPrst_MASK;
-    else
-	vmesa->regCmdB &= ~HC_HLPrst_MASK;
-
-    vmesa->resetStipple = GL_FALSE;
 
     if (vmesa->firstDrawAfterSwap) {
 	LOCK_HARDWARE(vmesa);
@@ -994,6 +1000,7 @@ viaRasterPrimitive(GLcontext * ctx, GLenum glprim, GLenum hwprim)
 	    vmesa->regCmdA_End |= HC_HPMType_Line | HC_HVCycle_Full;
 	    if (ctx->Light.ShadeModel == GL_FLAT)
 		vmesa->regCmdA_End |= HC_HShading_FlatB;
+	    viaCheckResetStipple(vmesa, &regCmdB);
 	    break;
 	case GL_LINE_LOOP:
 	case GL_LINE_STRIP:
@@ -1002,6 +1009,7 @@ viaRasterPrimitive(GLcontext * ctx, GLenum glprim, GLenum hwprim)
 	    regCmdB |= HC_HVCycle_AB | HC_HVCycle_NewB | HC_HLPrst_MASK;
 	    if (ctx->Light.ShadeModel == GL_FLAT)
 		vmesa->regCmdA_End |= HC_HShading_FlatB;
+	    viaCheckResetStipple(vmesa, &regCmdB);
 	    break;
 	case GL_TRIANGLES:
 	    vmesa->regCmdA_End |= HC_HPMType_Tri | HC_HVCycle_Full;
