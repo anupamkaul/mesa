@@ -57,6 +57,8 @@ via_generate_one_mipmap(GLcontext * ctx,
     uint32_t stride;
     uint32_t src_stride;
     struct drm_via_clip_rect clip;
+    float xFactor;
+    float yFactor;
 
     if (src->texHwFormat == VIA_FMT_ERROR ||
 	dst->dstHwFormat == VIA_FMT_ERROR)
@@ -73,8 +75,11 @@ via_generate_one_mipmap(GLcontext * ctx,
     if (src_stride & 0x0F)
 	return GL_FALSE;
 
+    xFactor = (srcImage->Width == 1) ? 1.0f : 0.5f;
+    yFactor = (srcImage->Height == 1) ? 1.0f : 0.5f;
+
     via_meta_install_src(vmesa, 0xFFFFFFFF, 0x00000000, src_fmt,
-			 0.5f, 0.5f, srcImage->Width,
+			 xFactor, yFactor, srcImage->Width,
 			 srcImage->Height, src_stride, 0, GL_FALSE, src->buf);
 
     clip.x1 = 0;
