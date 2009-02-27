@@ -105,7 +105,7 @@ update_depth_stencil_alpha(struct st_context *st)
        st->ctx->Query.CurrentOcclusionObject->Active)
       dsa->depth.occlusion_count = 1;
 
-   if (st->ctx->Stencil.Enabled && st->ctx->Visual.stencilBits > 0) {
+   if (st->ctx->Stencil.Enabled && st->ctx->DrawBuffer->Visual.stencilBits > 0) {
       dsa->stencil[0].enabled = 1;
       dsa->stencil[0].func = st_compare_func_to_pipe(st->ctx->Stencil.Function[0]);
       dsa->stencil[0].fail_op = gl_stencil_op_to_pipe(st->ctx->Stencil.FailFunc[0]);
