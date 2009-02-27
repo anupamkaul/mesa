@@ -410,6 +410,8 @@ fbo_incomplete(const char *msg, int index)
 /**
  * Test if the given framebuffer object is complete and update its
  * Status field with the results.
+ * Calls the ctx->Driver.ValidateFramebuffer() function to allow the
+ * driver to make hardware-specific validation/completeness checks.
  * Also update the framebuffer's Width and Height fields if the
  * framebuffer is complete.
  */
@@ -540,6 +542,21 @@ _mesa_test_framebuffer_completeness(GLcontext *ctx, struct gl_framebuffer *fb)
       fb->_Status = GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT;
       fbo_incomplete("no attachments", -1);
       return;
+   }
+
+   /* Provisionally set status = COMPLETE ... */
+   fb->_Status = GL_FRAMEBUFFER_COMPLETE_EXT;
+
+   /* ... but the driver may say the FB is incomplete.
+    * Drivers will most likely set the status to GL_FRAMEBUFFER_UNSUPPORTED
+    * if anything.
+    */
+   if (ctx->Driver.ValidateFramebuffer) {
+      ctx->Driver.ValidateFramebuffer(ctx, fb);
+      if (fb->_Status != GL_FRAMEBUFFER_COMPLETE_EXT) {
+         fbo_incomplete("driver marked FBO as incomplete", -1);
+         return;
+      }
    }
 
    /*
