@@ -801,6 +801,13 @@ _mesa_DeleteBuffersARB(GLsizei n, const GLuint *ids)
 
          ASSERT(bufObj->Name == ids[i]);
 
+         if (bufObj->Pointer) {
+            /* if mapped, unmap it now */
+            ctx->Driver.UnmapBuffer(ctx, 0, bufObj);
+            bufObj->Access = GL_READ_WRITE_ARB;
+            bufObj->Pointer = NULL;
+         }
+
          unbind(ctx, &ctx->Array.ArrayObj->Vertex.BufferObj, bufObj);
          unbind(ctx, &ctx->Array.ArrayObj->Normal.BufferObj, bufObj);
          unbind(ctx, &ctx->Array.ArrayObj->Color.BufferObj, bufObj);
@@ -951,8 +958,10 @@ _mesa_BufferDataARB(GLenum target, GLsizeiptrARB size,
    }
    
    if (bufObj->Pointer) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, "glBufferDataARB(buffer is mapped)" );
-      return;
+      /* Unmap the existing buffer.  We'll replace it now.  Not an error. */
+      ctx->Driver.UnmapBuffer(ctx, target, bufObj);
+      bufObj->Access = GL_READ_WRITE_ARB;
+      bufObj->Pointer = NULL;
    }  
 
    ASSERT(ctx->Driver.BufferData);
@@ -1068,11 +1077,8 @@ _mesa_UnmapBufferARB(GLenum target)
       return GL_FALSE;
    }
 
-   if (ctx->Driver.UnmapBuffer) {
-      status = ctx->Driver.UnmapBuffer( ctx, target, bufObj );
-   }
-
-   bufObj->Access = DEFAULT_ACCESS;
+   status = ctx->Driver.UnmapBuffer( ctx, target, bufObj );
+   bufObj->Access = GL_READ_WRITE_ARB;
    bufObj->Pointer = NULL;
 
    return status;
