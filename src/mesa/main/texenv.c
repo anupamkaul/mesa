@@ -180,7 +180,7 @@ set_combiner_source(GLcontext *ctx,
                     struct gl_texture_unit *texUnit,
                     GLenum pname, GLenum param)
 {
-   GLuint src;
+   GLuint term;
    GLboolean alpha, legal;
 
    if (!ctx->Extensions.EXT_texture_env_combine &&
@@ -190,24 +190,24 @@ set_combiner_source(GLcontext *ctx,
    }
 
    /*
-    * Translate pname to (src, alpha).
+    * Translate pname to (term, alpha).
     */
    switch (pname) {
    case GL_SOURCE0_RGB:
-      src = 0;
+      term = 0;
       alpha = GL_FALSE;
       break;
    case GL_SOURCE1_RGB:
-      src = 1;
+      term = 1;
       alpha = GL_FALSE;
       break;
    case GL_SOURCE2_RGB:
-      src = 2;
+      term = 2;
       alpha = GL_FALSE;
       break;
    case GL_SOURCE3_RGB_NV:
       if (ctx->Extensions.NV_texture_env_combine4) {
-         src = 3;
+         term = 3;
          alpha = GL_FALSE;
       }
       else {
@@ -216,20 +216,20 @@ set_combiner_source(GLcontext *ctx,
       }
       break;
    case GL_SOURCE0_ALPHA:
-      src = 0;
+      term = 0;
       alpha = GL_TRUE;
       break;
    case GL_SOURCE1_ALPHA:
-      src = 1;
+      term = 1;
       alpha = GL_TRUE;
       break;
    case GL_SOURCE2_ALPHA:
-      src = 2;
+      term = 2;
       alpha = GL_TRUE;
       break;
    case GL_SOURCE3_ALPHA_NV:
       if (ctx->Extensions.NV_texture_env_combine4) {
-         src = 3;
+         term = 3;
          alpha = GL_TRUE;
       }
       else {
@@ -242,7 +242,7 @@ set_combiner_source(GLcontext *ctx,
       return;
    }
 
-   assert(src < 4);
+   assert(term < MAX_COMBINER_TERMS);
 
    /*
     * Error-check param (the source term)
@@ -284,9 +284,9 @@ set_combiner_source(GLcontext *ctx,
    FLUSH_VERTICES(ctx, _NEW_TEXTURE);
 
    if (alpha)
-      texUnit->Combine.SourceA[src] = param;
+      texUnit->Combine.SourceA[term] = param;
    else
-      texUnit->Combine.SourceRGB[src] = param;
+      texUnit->Combine.SourceRGB[term] = param;
 }
 
 
@@ -296,7 +296,7 @@ set_combiner_operand(GLcontext *ctx,
                      struct gl_texture_unit *texUnit,
                      GLenum pname, GLenum param)
 {
-   GLuint op;
+   GLuint term;
    GLboolean alpha, legal;
 
    if (!ctx->Extensions.EXT_texture_env_combine &&
@@ -307,16 +307,16 @@ set_combiner_operand(GLcontext *ctx,
 
    switch (pname) {
    case GL_OPERAND0_RGB:
-      op = 0;
+      term = 0;
       alpha = GL_FALSE;
       break;
    case GL_OPERAND1_RGB:
-      op = 1;
+      term = 1;
       alpha = GL_FALSE;
       break;
    case GL_OPERAND2_RGB:
       if (ctx->Extensions.ARB_texture_env_combine) {
-         op = 2;
+         term = 2;
          alpha = GL_FALSE;
       }
       else {
@@ -326,7 +326,7 @@ set_combiner_operand(GLcontext *ctx,
       break;
    case GL_OPERAND3_RGB_NV:
       if (ctx->Extensions.NV_texture_env_combine4) {
-         op = 3;
+         term = 3;
          alpha = GL_FALSE;
       }
       else {
@@ -335,16 +335,16 @@ set_combiner_operand(GLcontext *ctx,
       }
       break;
    case GL_OPERAND0_ALPHA:
-      op = 0;
+      term = 0;
       alpha = GL_TRUE;
       break;
    case GL_OPERAND1_ALPHA:
-      op = 1;
+      term = 1;
       alpha = GL_TRUE;
       break;
    case GL_OPERAND2_ALPHA:
       if (ctx->Extensions.ARB_texture_env_combine) {
-         op = 2;
+         term = 2;
          alpha = GL_TRUE;
       }
       else {
@@ -354,7 +354,7 @@ set_combiner_operand(GLcontext *ctx,
       break;
    case GL_OPERAND3_ALPHA_NV:
       if (ctx->Extensions.NV_texture_env_combine4) {
-         op = 3;
+         term = 3;
          alpha = GL_TRUE;
       }
       else {
@@ -367,7 +367,7 @@ set_combiner_operand(GLcontext *ctx,
       return;
    }
 
-   assert(op < 4);
+   assert(term < MAX_COMBINER_TERMS);
 
    /*
     * Error-check param (the source operand)
@@ -393,9 +393,9 @@ set_combiner_operand(GLcontext *ctx,
    FLUSH_VERTICES(ctx, _NEW_TEXTURE);
 
    if (alpha)
-      texUnit->Combine.OperandA[op] = param;
+      texUnit->Combine.OperandA[term] = param;
    else
-      texUnit->Combine.OperandRGB[op] = param;
+      texUnit->Combine.OperandRGB[term] = param;
 }
 
 
