@@ -1279,9 +1279,9 @@ static void store_texel_sla8(struct gl_texture_image *texImage,
 
 /* MESA_FORMAT_YCBCR *********************************************************/
 
-/* Fetch texel from 1D, 2D or 3D ycbcr texture, return 4 GLchans */
-/* We convert YCbCr to RGB here */
-/* XXX this may break if GLchan != GLubyte */
+/* Fetch texel from 1D, 2D or 3D ycbcr texture, return 4 GLfloats.
+ * We convert YCbCr to RGB here.
+ */
 static void FETCH(f_ycbcr)( const struct gl_texture_image *texImage,
                             GLint i, GLint j, GLint k, GLfloat *texel )
 {
@@ -1291,19 +1291,10 @@ static void FETCH(f_ycbcr)( const struct gl_texture_image *texImage,
    const GLubyte cb = *src0 & 0xff;         /* chroma U */
    const GLubyte y1 = (*src1 >> 8) & 0xff;  /* luminance */
    const GLubyte cr = *src1 & 0xff;         /* chroma V */
-   GLfloat r, g, b;
-   if (i & 1) {
-      /* odd pixel: use y1,cr,cb */
-      r = 1.164 * (y1-16) + 1.596 * (cr-128);
-      g = 1.164 * (y1-16) - 0.813 * (cr-128) - 0.391 * (cb-128);
-      b = 1.164 * (y1-16) + 2.018 * (cb-128);
-   }
-   else {
-      /* even pixel: use y0,cr,cb */
-      r = 1.164 * (y0-16) + 1.596 * (cr-128);
-      g = 1.164 * (y0-16) - 0.813 * (cr-128) - 0.391 * (cb-128);
-      b = 1.164 * (y0-16) + 2.018 * (cb-128);
-   }
+   const GLfloat y = (i & 1) ? y1 : y0;     /* choose even/odd luminance */
+   GLfloat r = 1.164 * (y - 16) + 1.596 * (cr - 128);
+   GLfloat g = 1.164 * (y - 16) - 0.813 * (cr - 128) - 0.391 * (cb - 128);
+   GLfloat b = 1.164 * (y - 16) + 2.018 * (cb - 128);
    r *= (1.0 / 255.0F);
    g *= (1.0 / 255.0F);
    b *= (1.0 / 255.0F);
@@ -1329,9 +1320,9 @@ static void store_texel_ycbcr(struct gl_texture_image *texImage,
 
 /* MESA_FORMAT_YCBCR_REV *****************************************************/
 
-/* Fetch texel from 1D, 2D or 3D ycbcr_rev texture, return 4 GLchans */
-/* We convert YCbCr to RGB here */
-/* XXX this may break if GLchan != GLubyte */
+/* Fetch texel from 1D, 2D or 3D ycbcr_rev texture, return 4 GLfloats.
+ * We convert YCbCr to RGB here.
+ */
 static void FETCH(f_ycbcr_rev)( const struct gl_texture_image *texImage,
                                 GLint i, GLint j, GLint k, GLfloat *texel )
 {
@@ -1341,19 +1332,10 @@ static void FETCH(f_ycbcr_rev)( const struct gl_texture_image *texImage,
    const GLubyte cr = (*src0 >> 8) & 0xff;  /* chroma V */
    const GLubyte y1 = *src1 & 0xff;         /* luminance */
    const GLubyte cb = (*src1 >> 8) & 0xff;  /* chroma U */
-   GLfloat r, g, b;
-   if (i & 1) {
-      /* odd pixel: use y1,cr,cb */
-      r = 1.164 * (y1-16) + 1.596 * (cr-128);
-      g = 1.164 * (y1-16) - 0.813 * (cr-128) - 0.391 * (cb-128);
-      b = 1.164 * (y1-16) + 2.018 * (cb-128);
-   }
-   else {
-      /* even pixel: use y0,cr,cb */
-      r = 1.164 * (y0-16) + 1.596 * (cr-128);
-      g = 1.164 * (y0-16) - 0.813 * (cr-128) - 0.391 * (cb-128);
-      b = 1.164 * (y0-16) + 2.018 * (cb-128);
-   }
+   const GLfloat y = (i & 1) ? y1 : y0;     /* choose even/odd luminance */
+   GLfloat r = 1.164 * (y - 16) + 1.596 * (cr - 128);
+   GLfloat g = 1.164 * (y - 16) - 0.813 * (cr - 128) - 0.391 * (cb - 128);
+   GLfloat b = 1.164 * (y - 16) + 2.018 * (cb - 128);
    r *= (1.0 / 255.0F);
    g *= (1.0 / 255.0F);
    b *= (1.0 / 255.0F);
