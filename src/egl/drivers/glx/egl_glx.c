@@ -779,6 +779,7 @@ GLX_eglSwapBuffers(_EGLDriver *drv, EGLDisplay dpy, EGLSurface draw)
    _EGLDisplay *disp = _eglLookupDisplay(dpy);
    _EGLSurface *surf = _eglLookupSurface(draw);
    struct GLX_egl_surface *GLX_surf = GLX_egl_surface(surf);
+   uint width, height;
 
    _eglLog(_EGL_DEBUG, "GLX: EGL SwapBuffers 0x%x",draw);
 
@@ -787,6 +788,11 @@ GLX_eglSwapBuffers(_EGLDriver *drv, EGLDisplay dpy, EGLSurface draw)
       return EGL_FALSE;
 
    glXSwapBuffers(disp->Xdpy, GLX_surf->drawable);
+
+   /* update size */
+   get_drawable_size(disp->Xdpy, GLX_surf->drawable, &width, &height);
+   GLX_surf->Base.Width = width;
+   GLX_surf->Base.Height = height;
 
    return EGL_TRUE;
 }
@@ -797,6 +803,15 @@ GLX_eglSwapBuffers(_EGLDriver *drv, EGLDisplay dpy, EGLSurface draw)
 static _EGLProc
 GLX_eglGetProcAddress(const char *procname)
 {
+   /* This is a bit of a hack to get at the gallium/Mesa state tracker
+    * function st_get_proc_address().  This will probably change at
+    * some point.
+    */
+   _EGLProc (*st_get_proc_addr)(const char *procname);
+   st_get_proc_addr = dlsym(NULL, "st_get_proc_address");
+   if (st_get_proc_addr)
+      return st_get_proc_addr(procname);
+
    return (_EGLProc)glXGetProcAddress((const GLubyte *)procname);   
 }
 
