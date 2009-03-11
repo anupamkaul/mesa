@@ -795,8 +795,7 @@ viaChooseVertexState(GLcontext * ctx)
 		      (HC_HVPMSK_S | HC_HVPMSK_T));
     }
 
-    if (RENDERINPUTS_TEST(index_bitset, _TNL_ATTRIB_TEX1) &&
-	ctx->Texture.Unit[1]._ReallyEnabled) {
+    if (RENDERINPUTS_TEST(index_bitset, _TNL_ATTRIB_TEX1)) {
 	EMIT_ATTR(_TNL_ATTRIB_TEX1, EMIT_2F, VIA_EMIT_TEX1,
 		  (HC_HVPMSK_S | HC_HVPMSK_T));
     }
@@ -1050,7 +1049,20 @@ viaRasterPrimitive(GLcontext * ctx, GLenum glprim, GLenum hwprim)
 
 	assert(vmesa->dmaLastPrim == 0);
 
-	BEGIN_RING(8);
+	BEGIN_RING(12);
+	{
+	    uint32_t hwNumTex = (HC_SubA_HTXSMD << 24) | (5 << 8);
+
+	    if (vmesa->setupIndex & VIA_EMIT_TEX1 &&
+		!(vmesa->meta_flags & VIA_META_SRC_ENABLE))
+		hwNumTex |= (1 << 3);
+
+	    OUT_RING(HC_HEADER2);
+	    OUT_RING((HC_ParaType_Tex << 16) | (HC_SubType_TexGeneral << 24));
+	    OUT_RING(hwNumTex);
+	    OUT_RING(hwNumTex);
+	}
+
 	OUT_RING(HC_HEADER2);
 	OUT_RING((HC_ParaType_NotTex << 16));
 	OUT_RING(0xCCCCCCCC);

@@ -335,8 +335,7 @@ viaDoEmitState(struct via_context *vmesa, GLint lostState,
 	    OUT_RING(HC_HEADER2);
 	    OUT_RING((HC_ParaType_Tex << 16) | (HC_SubType_TexGeneral << 24));
 
-	    if (texUnit0->_ReallyEnabled && texUnit1->_ReallyEnabled &&
-		vmesa->setupIndex & 0x01) {
+	    if (texUnit0->_ReallyEnabled && texUnit1->_ReallyEnabled) {
 		nDummyValue |= (HC_SubA_HTXSMD << 24) | (1 << 3);
 	    } else {
 		nDummyValue |= (HC_SubA_HTXSMD << 24) | 0;
