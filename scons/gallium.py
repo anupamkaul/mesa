@@ -315,6 +315,7 @@ def generate(env):
             '-Wall',
             '-Wmissing-prototypes',
             '-Wno-long-long',
+            '-Wdeclaration-after-statement',
             '-ffast-math',
             '-std=c99',
             '-pedantic',
