@@ -197,6 +197,7 @@ struct via_context
     GLuint dmaCliprectAddr;
     GLuint dmaLastPrim;
     GLboolean useAgp;
+    GLboolean deferFence;
 
     /* Fallback rasterization functions
      */

@@ -180,6 +180,7 @@ viaSpanRenderStart(GLcontext * ctx)
      * The wsbmBOMap() operations will wait for idle anyway.
      */
 
+    vmesa->deferFence = GL_FALSE;
     via_wait_context_idle(vmesa);
 
     if (vmesa->firstDrawAfterSwap) {

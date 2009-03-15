@@ -585,6 +585,7 @@ viaTexImage(GLcontext * ctx,
     }
 
     if (wsbmBOOnList(viaImage->buf)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
 
@@ -725,6 +726,7 @@ viaTexSubImage2D(GLcontext * ctx,
     }
 
     if (wsbmBOOnList(viaImage->buf)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
 
@@ -772,6 +774,7 @@ viaTexSubImage1D(GLcontext * ctx,
 	containerOf(texImage, struct via_texture_image, image);
 
     if (wsbmBOOnList(viaImage->buf)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
 
@@ -843,6 +846,7 @@ viaGetTexImage(GLcontext * ctx, GLenum target, GLint level,
 	containerOf(texImage, struct via_texture_image, image);
 
     if (wsbmBOOnList(viaImage->buf)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
 
@@ -867,6 +871,7 @@ viaGetCompressedTexImage(GLcontext * ctx, GLenum target, GLint level,
 	containerOf(texImage, struct via_texture_image, image);
 
     if (wsbmBOOnList(viaImage->buf)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
     wsbmBOWaitIdle(viaImage->buf, 0);
@@ -891,6 +896,7 @@ viaCompressedTexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
 	containerOf(texImage, struct via_texture_image, image);
 
     if (wsbmBOOnList(viaImage->buf)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
     wsbmBOWaitIdle(viaImage->buf, 0);

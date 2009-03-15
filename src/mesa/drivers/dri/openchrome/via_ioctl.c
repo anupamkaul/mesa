@@ -568,6 +568,7 @@ viaDoSwapBuffers(struct via_context *vmesa,
 		src, back->pitch,
 		dest, front->pitch, 0, 0, w, h, VIA_BLIT_COPY, 0, 0);
     }
+    vmesa->deferFence = GL_FALSE;
     via_execbuf(vmesa, VIA_NO_CLIPRECTS);
 }
 
@@ -823,6 +824,7 @@ viaFinish(GLcontext * ctx)
 {
     struct via_context *vmesa = VIA_CONTEXT(ctx);
 
+    vmesa->deferFence = GL_FALSE;
     via_wait_context_idle(vmesa);
 }
 
@@ -1413,6 +1415,7 @@ via_drop_cmdbuf(struct via_context *vmesa)
     vmesa->dmaLow = 0;
     vmesa->dmaCliprectAddr = ~0;
     vmesa->lostState = 1;
+    vmesa->deferFence = GL_TRUE;
 
     wsbmBOUnrefUserList(vmesa->validate_list);
     (void)via_reset_reloc_buffer(vmesa->reloc_info);
@@ -1651,7 +1654,8 @@ via_execbuf(struct via_context *vmesa, GLuint fire_flags)
     arg.control = (uint64_t) (unsigned long)&control;
     arg.cmd_buffer_size = vmesa->dmaLow;
     arg.mechanism = _VIA_MECHANISM_AGP;
-    arg.exec_flags = exec_flags;
+    arg.exec_flags = exec_flags |
+      ((vmesa->deferFence) ? DRM_VIA_DEFER_FENCING : 0);
     arg.cliprect_offset = (vmesa->dmaCliprectAddr >> 2) + 4;
     arg.num_cliprects = num_clip;
     arg.cliprect_addr = (unsigned long)clip;

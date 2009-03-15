@@ -270,6 +270,8 @@ AllocateDmaBuffer(struct via_context *vmesa)
 
     vmesa->dmaLow = 0;
     vmesa->dmaCliprectAddr = ~0;
+    vmesa->deferFence = GL_TRUE;
+
     return GL_TRUE;
 }
 

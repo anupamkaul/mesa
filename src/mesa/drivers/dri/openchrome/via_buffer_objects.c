@@ -155,8 +155,10 @@ via_bufferobj_subdata(GLcontext * ctx,
 
     assert(via_obj);
 
-    if (wsbmBOOnList(via_obj->buffer))
+    if (wsbmBOOnList(via_obj->buffer)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
+    }
 
     ret = wsbmBOSubData(via_obj->buffer, offset, size, data, NULL);
     if (ret)
@@ -181,8 +183,10 @@ via_bufferobj_get_subdata(GLcontext * ctx,
 
     assert(via_obj);
 
-    if (wsbmBOOnList(via_obj->buffer))
+    if (wsbmBOOnList(via_obj->buffer)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
+    }
 
     ret = wsbmBOGetSubData(via_obj->buffer, offset, size, data);
     if (ret)
@@ -222,8 +226,10 @@ via_bufferobj_map(GLcontext * ctx,
 	break;
     }
 
-    if (wsbmBOOnList(via_obj->buffer))
+    if (wsbmBOOnList(via_obj->buffer)) {
+	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
+    }
 
     ret = wsbmBOSyncForCpu(via_obj->buffer, flags);
 
