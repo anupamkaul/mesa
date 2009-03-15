@@ -8,7 +8,7 @@ TOP = ../..
 include $(TOP)/configs/current
 
 
-LIBS = -L$(TOP)/$(LIB_DIR) -l$(GLUT_LIB) -l$(GLU_LIB) -l$(GL_LIB) $(APP_LIB_DEPS)
+LIBS = -L$(TOP)/$(LIB_DIR) -l$(GLUT_LIB) -l$(GLEW_LIB) -l$(GLU_LIB) -l$(GL_LIB) $(APP_LIB_DEPS)
 
 SOURCES = \
 	afsmultiarb.c \
@@ -28,6 +28,7 @@ SOURCES = \
 	blendsquare.c \
 	blendxor.c \
 	bufferobj.c \
+	bumpmap.c \
 	bug_3050.c \
 	bug_3101.c \
 	bug_3195.c \
@@ -54,6 +55,8 @@ SOURCES = \
 	jkrahntest.c \
 	lineclip.c \
 	manytex.c \
+	mapbufrange.c \
+	mapvbo.c \
 	minmag.c \
 	mipmap_limits.c \
 	mipmap_view.c \
@@ -144,6 +147,12 @@ afsmultiarb: afsmultiarb.o readtex.o
 
 afsmultiarb.o: afsmultiarb.c readtex.h
 	$(APP_CC) -c $(INCLUDES) $(CFLAGS) $(DEFINES) afsmultiarb.c -o $@
+
+bumpmap: bumpmap.o readtex.o
+	$(CC) $(CFLAGS) $(LDFLAGS) bumpmap.o readtex.o $(LIBS) -o $@
+
+bumpmap.o: bumpmap.c readtex.h
+	$(CC) -c $(INCLUDES) $(CFLAGS) $(DEFINES) bumpmap.c -o $@
 
 drawbuffers: drawbuffers.o
 	$(APP_CC) $(CFLAGS) $(LDFLAGS) drawbuffers.o $(LIBS) -o $@

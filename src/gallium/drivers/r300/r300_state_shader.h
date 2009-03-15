@@ -23,9 +23,52 @@
 #ifndef R300_STATE_SHADER_H
 #define R300_STATE_SHADER_H
 
+#include "tgsi/tgsi_parse.h"
+
 #include "r300_context.h"
+#include "r300_debug.h"
 #include "r300_reg.h"
 #include "r300_screen.h"
+
+/* Swizzle tools */
+#define R500_SWIZZLE_ZERO 4
+#define R500_SWIZZLE_HALF 5
+#define R500_SWIZZLE_ONE 6
+#define R500_SWIZ_RGB_ZERO ((4 << 0) | (4 << 3) | (4 << 6))
+#define R500_SWIZ_RGB_ONE ((6 << 0) | (6 << 3) | (6 << 6))
+#define R500_SWIZ_RGB_RGB ((0 << 0) | (1 << 3) | (2 << 6))
+#define R500_SWIZ_MOD_NEG 1
+#define R500_SWIZ_MOD_ABS 2
+#define R500_SWIZ_MOD_NEG_ABS 3
+/* Swizzles for inst2 */
+#define R500_SWIZ_TEX_STRQ(x) ((x) << 8)
+#define R500_SWIZ_TEX_RGBA(x) ((x) << 24)
+/* Swizzles for inst3 */
+#define R500_SWIZ_RGB_A(x) ((x) << 2)
+#define R500_SWIZ_RGB_B(x) ((x) << 15)
+/* Swizzles for inst4 */
+#define R500_SWIZ_ALPHA_A(x) ((x) << 14)
+#define R500_SWIZ_ALPHA_B(x) ((x) << 21)
+/* Swizzle for inst5 */
+#define R500_SWIZ_RGBA_C(x) ((x) << 14)
+#define R500_SWIZ_ALPHA_C(x) ((x) << 27)
+/* Writemasks */
+#define R500_TEX_WMASK(x) ((x) << 11)
+
+/* Temporary struct used to hold assembly state while putting together
+ * fragment programs. */
+struct r300_fs_asm {
+    /* Number of colors. */
+    unsigned color_count;
+    /* Number of texcoords. */
+    unsigned tex_count;
+    /* Offset for temporary registers. Inputs and temporaries have no
+     * distinguishing markings, so inputs start at 0 and the first usable
+     * temporary register is after all inputs. */
+    unsigned temp_offset;
+    /* Number of requested temporary registers. */
+    unsigned temp_count;
+};
 
 void r300_translate_fragment_shader(struct r300_context* r300,
                            struct r300_fragment_shader* fs);
@@ -47,11 +90,18 @@ static const struct r300_fragment_shader r300_passthrough_fragment_shader = {
     .indirections = 1,
     .shader.stack_size = 2,
 
-    /* XXX decode these */
-    .instructions[0].alu_rgb_inst = 0x50A80,
-    .instructions[0].alu_rgb_inst = 0x1C000000,
-    .instructions[0].alu_alpha_inst = 0x40889,
-    .instructions[0].alu_alpha_inst = 0x1000000,
+    .instructions[0].alu_rgb_inst = R300_RGB_SWIZA(R300_ALU_ARGC_SRC0C_XYZ) |
+        R300_RGB_SWIZB(R300_ALU_ARGC_ONE) |
+        R300_RGB_SWIZC(R300_ALU_ARGC_ZERO) |
+        R300_ALU_OUTC_MAD,
+    .instructions[0].alu_rgb_addr = R300_RGB_ADDR0(0) | R300_RGB_ADDR1(0) |
+        R300_RGB_ADDR2(0) | R300_ALU_DSTC_OUTPUT_XYZ,
+    .instructions[0].alu_alpha_inst = R300_ALPHA_SWIZA(R300_ALU_ARGA_SRC0A) |
+        R300_ALPHA_SWIZB(R300_ALU_ARGA_ONE) |
+        R300_ALPHA_SWIZC(R300_ALU_ARGA_ZERO) |
+        R300_ALU_OUTA_MAD,
+    .instructions[0].alu_alpha_addr = R300_ALPHA_ADDR0(0) |
+        R300_ALPHA_ADDR1(0) | R300_ALPHA_ADDR2(0) | R300_ALU_DSTA_OUTPUT,
 };
 
 static const struct r500_fragment_shader r500_passthrough_fragment_shader = {

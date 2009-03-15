@@ -87,7 +87,7 @@ dnl Compiler macros
 DEFINES=""
 AC_SUBST([DEFINES])
 case "$host_os" in
-*-gnu*)
+linux*|*-gnu*)
     DEFINES="$DEFINES -D_GNU_SOURCE -DPTHREADS"
     ;;
 solaris*)
@@ -307,6 +307,13 @@ if test "x$enable_asm" = xyes; then
             ;;
         esac
         ;;
+    sparc*)
+        case "$host_os" in
+        linux*)
+            asm_arch=sparc
+            ;;
+        esac
+        ;;
     esac
 
     case "$asm_arch" in
@@ -326,6 +333,12 @@ if test "x$enable_asm" = xyes; then
         ASM_FLAGS="-DUSE_PPC_ASM -DUSE_VMX_ASM"
         MESA_ASM_SOURCES='$(PPC_SOURCES)'
         AC_MSG_RESULT([yes, ppc])
+        ;;
+    sparc)
+        ASM_FLAGS="-DUSE_SPARC_ASM"
+        MESA_ASM_SOURCES='$(SPARC_SOURCES)'
+        GLAPI_ASM_SOURCES='$(SPARC_API)'
+        AC_MSG_RESULT([yes, sparc])
         ;;
     *)
         AC_MSG_RESULT([no, platform not supported])
@@ -382,7 +395,7 @@ default_driver="xlib"
 case "$host_os" in
 linux*)
     case "$host_cpu" in
-    i*86|x86_64|powerpc*) default_driver="dri";;
+    i*86|x86_64|powerpc*|sparc*) default_driver="dri";;
     esac
     ;;
 *freebsd* | dragonfly*)
@@ -416,7 +429,7 @@ GALLIUM_DIRS="auxiliary drivers state_trackers"
 GALLIUM_WINSYS_DIRS=""
 GALLIUM_WINSYS_DRM_DIRS=""
 GALLIUM_AUXILIARY_DIRS="draw translate cso_cache pipebuffer tgsi sct rtasm util"
-GALLIUM_DRIVER_DIRS="softpipe failover trace"
+GALLIUM_DRIVERS_DIRS="softpipe failover trace"
 GALLIUM_STATE_TRACKERS_DIRS=""
 
 case "$mesa_driver" in
@@ -440,7 +453,7 @@ AC_SUBST([WINDOW_SYSTEM])
 AC_SUBST([GALLIUM_DIRS])
 AC_SUBST([GALLIUM_WINSYS_DIRS])
 AC_SUBST([GALLIUM_WINSYS_DRM_DIRS])
-AC_SUBST([GALLIUM_DRIVER_DIRS])
+AC_SUBST([GALLIUM_DRIVERS_DIRS])
 AC_SUBST([GALLIUM_AUXILIARY_DIRS])
 AC_SUBST([GALLIUM_STATE_TRACKERS_DIRS])
 
@@ -856,6 +869,19 @@ AC_SUBST([OSMESA_PC_REQ])
 AC_SUBST([OSMESA_PC_LIB_PRIV])
 
 dnl
+dnl EGL configuration
+dnl
+if test "$x11_pkgconfig" = yes; then
+    PKG_CHECK_MODULES([EGL],[x11])
+    EGL_LIB_DEPS="$EGL_LIBS"
+else
+    # should check these...
+    EGL_LIB_DEPS="$X_LIBS -lX11"
+fi
+EGL_LIB_DEPS="$EGL_LIB_DEPS $DLOPEN_LIBS $OS_LIBS"
+AC_SUBST([EGL_LIB_DEPS])
+
+dnl
 dnl GLU configuration
 dnl
 AC_ARG_ENABLE([glu],
@@ -1108,6 +1134,13 @@ yes)
     ;;
 esac
 
+AC_ARG_WITH([xorg-driver-dir],
+    [AS_HELP_STRING([--with-xorg-driver-dir=DIR],
+                    [Default xorg driver directory[[default=${libdir}/xorg/modules/drivers]]])],
+    [XORG_DRIVER_INSTALL_DIR="$withval"],
+    [XORG_DRIVER_INSTALL_DIR="${libdir}/xorg/modules/drivers"])
+AC_SUBST([XORG_DRIVER_INSTALL_DIR])
+
 dnl
 dnl Gallium Intel configuration
 dnl
@@ -1118,7 +1151,7 @@ AC_ARG_ENABLE([gallium-intel],
     [enable_gallium_intel=yes])
 if test "x$enable_gallium_intel" = xyes; then
     GALLIUM_WINSYS_DRM_DIRS="$GALLIUM_WINSYS_DRM_DIRS intel"
-    GALLIUM_DRIVER_DIRS="$GALLIUM_DRIVER_DIRS i915simple i965simple"
+    GALLIUM_DRIVERS_DIRS="$GALLIUM_DRIVERS_DIRS i915simple"
 fi
 
 dnl
@@ -1131,7 +1164,7 @@ AC_ARG_ENABLE([gallium-radeon],
     [enable_gallium_radeon=no])
 if test "x$enable_gallium_radeon" = xyes; then
     GALLIUM_WINSYS_DRM_DIRS="$GALLIUM_WINSYS_DRM_DIRS radeon"
-    GALLIUM_DRIVER_DIRS="$GALLIUM_DRIVER_DIRS r300"
+    GALLIUM_DRIVERS_DIRS="$GALLIUM_DRIVERS_DIRS r300"
 fi
 
 dnl
@@ -1144,7 +1177,7 @@ AC_ARG_ENABLE([gallium-nouveau],
     [enable_gallium_nouveau=no])
 if test "x$enable_gallium_nouveau" = xyes; then
     GALLIUM_WINSYS_DRM_DIRS="$GALLIUM_WINSYS_DRM_DIRS nouveau"
-    GALLIUM_DRIVER_DIRS="$GALLIUM_DRIVER_DIRS nv04 nv10 nv20 nv30 nv40 nv50"
+    GALLIUM_DRIVERS_DIRS="$GALLIUM_DRIVERS_DIRS nv04 nv10 nv20 nv30 nv40 nv50"
 fi
 
 
@@ -1201,7 +1234,7 @@ if echo "$SRC_DIRS" | grep 'gallium' >/dev/null 2>&1; then
     echo "        Winsys dirs:     $GALLIUM_WINSYS_DIRS"
     echo "        Winsys drm dirs:$GALLIUM_WINSYS_DRM_DIRS"
     echo "        Auxiliary dirs:  $GALLIUM_AUXILIARY_DIRS"
-    echo "        Driver dirs:     $GALLIUM_DRIVER_DIRS"
+    echo "        Driver dirs:     $GALLIUM_DRIVERS_DIRS"
     echo "        Trackers dirs:   $GALLIUM_STATE_TRACKERS_DIRS"
 else
     echo "        Gallium:         no"

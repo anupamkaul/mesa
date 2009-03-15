@@ -97,7 +97,7 @@ struct brw_glsl_call;
 
 
 #define BRW_EU_MAX_INSN_STACK 5
-#define BRW_EU_MAX_INSN 1200
+#define BRW_EU_MAX_INSN 4000
 
 struct brw_compile {
    struct brw_instruction store[BRW_EU_MAX_INSN];
@@ -170,6 +170,13 @@ static INLINE struct brw_reg brw_reg( GLuint file,
                                       GLuint writemask )
 {
    struct brw_reg reg;
+   if (type == BRW_GENERAL_REGISTER_FILE)
+      assert(nr < 128);
+   else if (type == BRW_MESSAGE_REGISTER_FILE)
+      assert(nr < 9);
+   else if (type == BRW_ARCHITECTURE_REGISTER_FILE)
+      assert(nr <= BRW_ARF_IP);
+
    reg.type = type;
    reg.file = file;
    reg.nr = nr;

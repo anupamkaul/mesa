@@ -9,7 +9,7 @@
 
 #include "intel_be_fence.h"
 
-#include "i915simple/i915_screen.h"
+#include "i915simple/i915_winsys.h"
 
 #include "intel_be_api.h"
 
@@ -25,6 +25,12 @@ intel_be_buffer_map(struct pipe_winsys *winsys,
 	drm_intel_bo *bo = intel_bo(buf);
 	int write = 0;
 	int ret;
+
+        if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
+           /* Remove this when drm_intel_bo_map supports DONTBLOCK 
+            */
+           return NULL;
+        }
 
 	if (flags & PIPE_BUFFER_USAGE_CPU_WRITE)
 		write = 1;
@@ -45,8 +51,7 @@ intel_be_buffer_unmap(struct pipe_winsys *winsys,
 }
 
 static void
-intel_be_buffer_destroy(struct pipe_winsys *winsys,
-			struct pipe_buffer *buf)
+intel_be_buffer_destroy(struct pipe_buffer *buf)
 {
 	drm_intel_bo_unreference(intel_bo(buf));
 	free(buf);
@@ -66,10 +71,12 @@ intel_be_buffer_create(struct pipe_winsys *winsys,
 	if (!buffer)
 		return NULL;
 
-	buffer->base.refcount = 1;
+	pipe_reference_init(&buffer->base.reference, 1);
 	buffer->base.alignment = alignment;
 	buffer->base.usage = usage;
 	buffer->base.size = size;
+	buffer->flinked = FALSE;
+	buffer->flink = 0;
 
 	if (usage & (PIPE_BUFFER_USAGE_VERTEX | PIPE_BUFFER_USAGE_CONSTANT)) {
 		/* Local buffer */
@@ -107,7 +114,7 @@ intel_be_user_buffer_create(struct pipe_winsys *winsys, void *ptr, unsigned byte
 	if (!buffer)
 		return NULL;
 
-	buffer->base.refcount = 1;
+	pipe_reference_init(&buffer->base.reference, 1);
 	buffer->base.alignment = 0;
 	buffer->base.usage = 0;
 	buffer->base.size = bytes;
@@ -133,10 +140,10 @@ err:
 }
 
 struct pipe_buffer *
-intel_be_buffer_from_handle(struct pipe_winsys *winsys,
+intel_be_buffer_from_handle(struct pipe_screen *screen,
                             const char* name, unsigned handle)
 {
-	struct intel_be_device *dev = intel_be_device(winsys);
+	struct intel_be_device *dev = intel_be_device(screen->winsys);
 	struct intel_be_buffer *buffer = CALLOC_STRUCT(intel_be_buffer);
 
 	if (!buffer)
@@ -147,7 +154,8 @@ intel_be_buffer_from_handle(struct pipe_winsys *winsys,
 	if (!buffer->bo)
 		goto err;
 
-	buffer->base.refcount = 1;
+	pipe_reference_init(&buffer->base.reference, 1);
+	buffer->base.screen = screen;
 	buffer->base.alignment = buffer->bo->align;
 	buffer->base.usage = PIPE_BUFFER_USAGE_GPU_READ |
 	                     PIPE_BUFFER_USAGE_GPU_WRITE |
@@ -162,14 +170,39 @@ err:
 	return NULL;
 }
 
-unsigned
-intel_be_handle_from_buffer(struct pipe_winsys *winsys,
-                            struct pipe_buffer *buf)
+boolean
+intel_be_handle_from_buffer(struct pipe_screen *screen,
+                            struct pipe_buffer *buffer,
+                            unsigned *handle)
 {
-	drm_intel_bo *bo = intel_bo(buf);
-	return bo->handle;
+	drm_intel_bo *bo;
+
+	if (!buffer)
+		return FALSE;
+
+	*handle = intel_bo(buffer)->handle;
+	return TRUE;
 }
 
+boolean
+intel_be_global_handle_from_buffer(struct pipe_screen *screen,
+				   struct pipe_buffer *buffer,
+				   unsigned *handle)
+{
+	struct intel_be_buffer *buf = intel_be_buffer(buffer);
+
+	if (!buffer)
+		return FALSE;
+
+	if (!buf->flinked) {
+		if (drm_intel_bo_flink(intel_bo(buffer), &buf->flink))
+			return FALSE;
+		buf->flinked = TRUE;
+	}
+
+	*handle = buf->flink;
+	return TRUE;
+}
 /*
  * Fence
  */
@@ -182,15 +215,7 @@ intel_be_fence_refunref(struct pipe_winsys *sws,
 	struct intel_be_fence **p = (struct intel_be_fence **)ptr;
 	struct intel_be_fence *f = (struct intel_be_fence *)fence;
 
-	assert(p);
-
-	if (f)
-		intel_be_fence_reference(f);
-
-	if (*p)
-		intel_be_fence_unreference(*p);
-
-	*p = f;
+        intel_be_fence_reference(p, f);
 }
 
 static int

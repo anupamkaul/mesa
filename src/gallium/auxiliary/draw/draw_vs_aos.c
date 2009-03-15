@@ -32,7 +32,7 @@
 #include "util/u_memory.h"
 #include "util/u_math.h"
 #include "pipe/p_shader_tokens.h"
-#include "pipe/p_debug.h"
+#include "util/u_debug.h"
 #include "tgsi/tgsi_parse.h"
 #include "tgsi/tgsi_util.h"
 #include "tgsi/tgsi_exec.h"
@@ -283,6 +283,15 @@ void aos_release_xmm_reg( struct aos_compilation *cp,
    cp->xmm[idx].last_used = 0;
 }
 
+
+static void aos_soft_release_xmm( struct aos_compilation *cp,
+                                  struct x86_reg reg )
+{
+   if (reg.file == file_XMM) {
+      assert(cp->xmm[reg.idx].last_used == cp->insn_counter);
+      cp->xmm[reg.idx].last_used = cp->insn_counter - 1;
+   }
+}
 
 
      
@@ -584,10 +593,12 @@ static struct x86_reg fetch_src( struct aos_compilation *cp,
          sse_mulps(cp->func, dst, tmp);
 
          aos_release_xmm_reg(cp, tmp.idx);
+         aos_soft_release_xmm(cp, imm_swz);
       }
       else if (negs) {
          struct x86_reg imm_negs = aos_get_internal_xmm(cp, IMM_NEGS);
          sse_mulps(cp->func, dst, imm_negs);
+         aos_soft_release_xmm(cp, imm_negs);
       }
 
 
@@ -603,8 +614,10 @@ static struct x86_reg fetch_src( struct aos_compilation *cp,
          sse_maxps(cp->func, dst, tmp);
 
          aos_release_xmm_reg(cp, tmp.idx);
+         aos_soft_release_xmm(cp, neg);
       }
 
+      aos_soft_release_xmm(cp, arg0);
       return dst;
    }
       

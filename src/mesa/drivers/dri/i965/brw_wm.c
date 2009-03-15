@@ -149,11 +149,14 @@ static void do_wm_prog( struct brw_context *brw,
 
    brw_init_compile(brw, &c->func);
 
+   /* temporary sanity check assertion */
+   ASSERT(fp->isGLSL == brw_wm_is_glsl(&c->fp->program));
+
    /*
     * Shader which use GLSL features such as flow control are handled
     * differently from "simple" shaders.
     */
-   if (brw_wm_is_glsl(&c->fp->program)) {
+   if (fp->isGLSL) {
       brw_wm_glsl_emit(brw, c);
    }
    else {
@@ -183,7 +186,7 @@ static void brw_wm_populate_key( struct brw_context *brw,
 {
    GLcontext *ctx = &brw->intel.ctx;
    /* BRW_NEW_FRAGMENT_PROGRAM */
-   struct brw_fragment_program *fp = 
+   const struct brw_fragment_program *fp = 
       (struct brw_fragment_program *)brw->fragment_program;
    GLuint lookup = 0;
    GLuint line_aa;
@@ -198,7 +201,7 @@ static void brw_wm_populate_key( struct brw_context *brw,
        ctx->Color.AlphaEnabled)
       lookup |= IZ_PS_KILL_ALPHATEST_BIT;
 
-   if (fp->program.Base.OutputsWritten & (1<<FRAG_RESULT_DEPR))
+   if (fp->program.Base.OutputsWritten & (1<<FRAG_RESULT_DEPTH))
       lookup |= IZ_PS_COMPUTES_DEPTH_BIT;
 
    /* _NEW_DEPTH */
@@ -210,7 +213,7 @@ static void brw_wm_populate_key( struct brw_context *brw,
       lookup |= IZ_DEPTH_WRITE_ENABLE_BIT;
 
    /* _NEW_STENCIL */
-   if (ctx->Stencil.Enabled) {
+   if (ctx->Stencil._Enabled) {
       lookup |= IZ_STENCIL_TEST_ENABLE_BIT;
 
       if (ctx->Stencil.WriteMask[0] ||
@@ -302,10 +305,8 @@ static void brw_wm_populate_key( struct brw_context *brw,
       key->drawable_height = brw->intel.driDrawable->h;
    }
 
-   /* Extra info:
-    */
+   /* The unique fragment program ID */
    key->program_string_id = fp->id;
-
 }
 
 

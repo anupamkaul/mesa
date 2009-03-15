@@ -33,12 +33,12 @@
 #include "main/matrix.h"
 #include "main/renderbuffer.h"
 #include "main/scissor.h"
+#include "main/viewport.h"
 #include "st_context.h"
 #include "st_cb_fbo.h"
 #include "st_public.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_context.h"
-#include "pipe/p_inlines.h"
 
 
 struct st_framebuffer *
@@ -155,7 +155,7 @@ void st_resize_framebuffer( struct st_framebuffer *stfb,
 
 void st_unreference_framebuffer( struct st_framebuffer *stfb )
 {
-   _mesa_unreference_framebuffer((struct gl_framebuffer **) &stfb);
+   _mesa_reference_framebuffer((struct gl_framebuffer **) &stfb, NULL);
 }
 
 

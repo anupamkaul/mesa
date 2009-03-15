@@ -334,6 +334,7 @@ def generate(env):
             '-Wall',
             '-Wmissing-prototypes',
             '-Wno-long-long',
+            '-Wdeclaration-after-statement',
             '-ffast-math',
             '-std=gnu99',
             '-fmessage-length=0', # be nice to Eclipse
@@ -473,7 +474,7 @@ def generate(env):
 
             '/entry:DrvEnableDriver',
         ]
-        if env['profile']:
+        if env['debug'] or env['profile']:
             linkflags += [
                 '/MAP', # http://msdn.microsoft.com/en-us/library/k7xkk3e2.aspx
             ]

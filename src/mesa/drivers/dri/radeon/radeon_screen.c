@@ -363,7 +363,7 @@ radeonCreateScreen( __DRIscreenPrivate *sPriv )
    unsigned char *RADEONMMIO;
    int i;
    int ret;
-   uint32_t temp;
+   uint32_t temp = 0;
 
    if (sPriv->devPrivSize != sizeof(RADEONDRIRec)) {
       fprintf(stderr,"\nERROR!  sizeof(RADEONDRIRec) does not match passed size from device driver\n");
@@ -685,6 +685,12 @@ radeonCreateScreen( __DRIscreenPrivate *sPriv )
       screen->chip_family = CHIP_FAMILY_RS400;
       break;
 
+   case PCI_CHIP_RS600_793F:
+   case PCI_CHIP_RS600_7941:
+   case PCI_CHIP_RS600_7942:
+      screen->chip_family = CHIP_FAMILY_RS600;
+      break;
+
    case PCI_CHIP_RS690_791E:
    case PCI_CHIP_RS690_791F:
       screen->chip_family = CHIP_FAMILY_RS690;
@@ -843,7 +849,7 @@ radeonCreateScreen( __DRIscreenPrivate *sPriv )
    ret = radeonGetParam( sPriv->fd, RADEON_PARAM_FB_LOCATION,
                          &temp);
    if (ret) {
-       if (screen->chip_family < CHIP_FAMILY_RS690)
+       if (screen->chip_family < CHIP_FAMILY_RS600)
 	   screen->fbLocation      = ( INREG( RADEON_MC_FB_LOCATION ) & 0xffff) << 16;
        else {
            FREE( screen );
@@ -854,7 +860,7 @@ radeonCreateScreen( __DRIscreenPrivate *sPriv )
        screen->fbLocation = (temp & 0xffff) << 16;
    }
 
-   if (screen->chip_family >= CHIP_FAMILY_RV515) {
+   if (screen->chip_family >= CHIP_FAMILY_R300) {
        ret = radeonGetParam( sPriv->fd, RADEON_PARAM_NUM_GB_PIPES,
 			     &temp);
        if (ret) {
@@ -1111,7 +1117,7 @@ radeonCreateBuffer( __DRIscreenPrivate *driScrnPriv,
 static void
 radeonDestroyBuffer(__DRIdrawablePrivate *driDrawPriv)
 {
-   _mesa_unreference_framebuffer((GLframebuffer **)(&(driDrawPriv->driverPrivate)));
+   _mesa_reference_framebuffer((GLframebuffer **)(&(driDrawPriv->driverPrivate)), NULL);
 }
 
 #if RADEON_COMMON && defined(RADEON_COMMON_FOR_R300)

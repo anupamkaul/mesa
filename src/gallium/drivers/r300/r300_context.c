@@ -35,7 +35,6 @@ static boolean r300_draw_range_elements(struct pipe_context* pipe,
     int i;
 
     if (r300->dirty_state) {
-        r300_update_derived_state(r300);
         r300_emit_dirty_state(r300);
     }
 
@@ -74,7 +73,7 @@ static boolean r300_draw_range_elements(struct pipe_context* pipe,
                                              start + count - 1, NULL);
     }
 
-    return true;
+    return TRUE;
 }
 
 static boolean r300_draw_elements(struct pipe_context* pipe,
@@ -98,12 +97,12 @@ static void r300_destroy_context(struct pipe_context* context) {
     draw_destroy(r300->draw);
 
     FREE(r300->blend_color_state);
+    FREE(r300->rs_block);
     FREE(r300->scissor_state);
     FREE(r300);
 }
 
 struct pipe_context* r300_create_context(struct pipe_screen* screen,
-                                         struct pipe_winsys* winsys,
                                          struct r300_winsys* r300_winsys)
 {
     struct r300_context* r300 = CALLOC_STRUCT(r300_context);
@@ -111,9 +110,11 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     if (!r300)
         return NULL;
 
+    /* XXX this could be refactored now? */
     r300->winsys = r300_winsys;
-    r300->context.winsys = winsys;
-    r300->context.screen = r300_create_screen(winsys, r300_winsys);
+
+    r300->context.winsys = (struct pipe_winsys*)r300_winsys;
+    r300->context.screen = r300_screen(screen);
 
     r300->context.destroy = r300_destroy_context;
 
@@ -127,9 +128,12 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     draw_set_rasterize_stage(r300->draw, r300_draw_swtcl_stage(r300));
 
     r300->blend_color_state = CALLOC_STRUCT(r300_blend_color_state);
+    r300->rs_block = CALLOC_STRUCT(r300_rs_block);
     r300->scissor_state = CALLOC_STRUCT(r300_scissor_state);
 
     r300_init_flush_functions(r300);
+
+    r300_init_query_functions(r300);
 
     r300_init_surface_functions(r300);
 

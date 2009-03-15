@@ -30,6 +30,7 @@
 #include "util/u_memory.h"
 
 #include "r300_clear.h"
+#include "r300_query.h"
 #include "r300_screen.h"
 #include "r300_winsys.h"
 
@@ -64,6 +65,7 @@ struct r300_rs_state {
 
     uint32_t vap_control_status;    /* R300_VAP_CNTL_STATUS: 0x2140 */
     uint32_t point_size;            /* R300_GA_POINT_SIZE: 0x421c */
+    uint32_t point_minmax;          /* R300_GA_POINT_MINMAX: 0x4230 */
     uint32_t line_control;          /* R300_GA_LINE_CNTL: 0x4234 */
     uint32_t depth_scale_front;  /* R300_SU_POLY_OFFSET_FRONT_SCALE: 0x42a4 */
     uint32_t depth_offset_front;/* R300_SU_POLY_OFFSET_FRONT_OFFSET: 0x42a8 */
@@ -73,6 +75,14 @@ struct r300_rs_state {
     uint32_t cull_mode;             /* R300_SU_CULL_MODE: 0x42b8 */
     uint32_t line_stipple_config;   /* R300_GA_LINE_STIPPLE_CONFIG: 0x4328 */
     uint32_t line_stipple_value;    /* R300_GA_LINE_STIPPLE_VALUE: 0x4260 */
+    uint32_t color_control;         /* R300_GA_COLOR_CONTROL: 0x4278 */
+};
+
+struct r300_rs_block {
+    uint32_t ip[8]; /* R300_RS_IP_[0-7], R500_RS_IP_[0-7] */
+    uint32_t count; /* R300_RS_COUNT */
+    uint32_t inst_count; /* R300_RS_INST_COUNT */
+    uint32_t inst[8]; /* R300_RS_INST_[0-7] */
 };
 
 struct r300_sampler_state {
@@ -87,6 +97,9 @@ struct r300_scissor_state {
 };
 
 struct r300_texture_state {
+    uint32_t format0; /* R300_TX_FORMAT0: 0x4480 */
+    uint32_t format1; /* R300_TX_FORMAT1: 0x44c0 */
+    uint32_t format2; /* R300_TX_FORMAT2: 0x4500 */
 };
 
 #define R300_NEW_BLEND           0x0000001
@@ -96,12 +109,15 @@ struct r300_texture_state {
 #define R300_NEW_FRAMEBUFFERS    0x0000010
 #define R300_NEW_FRAGMENT_SHADER 0x0000020
 #define R300_NEW_RASTERIZER      0x0000040
-#define R300_NEW_SAMPLER         0x0000080
-#define R300_NEW_SCISSOR         0x0008000
-#define R300_NEW_TEXTURE         0x0010000
-#define R300_NEW_VERTEX_FORMAT   0x1000000
-#define R300_NEW_VERTEX_SHADER   0x2000000
-#define R300_NEW_KITCHEN_SINK    0x3ffffff
+#define R300_NEW_RS_BLOCK        0x0000080
+#define R300_NEW_SAMPLER         0x0000100
+#define R300_ANY_NEW_SAMPLERS    0x000ff00
+#define R300_NEW_SCISSOR         0x0010000
+#define R300_NEW_TEXTURE         0x0020000
+#define R300_ANY_NEW_TEXTURES    0x1fe0000
+#define R300_NEW_VERTEX_FORMAT   0x2000000
+#define R300_NEW_VERTEX_SHADER   0x4000000
+#define R300_NEW_KITCHEN_SINK    0x7ffffff
 
 /* The next several objects are not pure Radeon state; they inherit from
  * various Gallium classes. */
@@ -181,11 +197,30 @@ struct r300_texture {
     /* Offsets into the buffer. */
     unsigned offset[PIPE_MAX_TEXTURE_LEVELS];
 
+    /* Stride (pitch?) of this texture in bytes */
+    unsigned stride;
+    
     /* Total size of this texture, in bytes. */
     unsigned size;
 
     /* Pipe buffer backing this texture. */
     struct pipe_buffer* buffer;
+
+    /* Registers carrying texture format data. */
+    struct r300_texture_state state;
+};
+
+struct r300_vertex_format {
+    /* Parent class */
+    struct vertex_info vinfo;
+    /* R300_VAP_PROG_STREAK_CNTL_[0-7] */
+    uint32_t vap_prog_stream_cntl[8];
+    /* R300_VAP_PROG_STREAK_CNTL_EXT_[0-7] */
+    uint32_t vap_prog_stream_cntl_ext[8];
+    /* This is a map of VAP/SW TCL outputs into the GA/RS.
+     * tab[i] is the location of input i in GA/RS input memory.
+     * Named tab for historical reasons. */
+    int tab[16];
 };
 
 struct r300_context {
@@ -212,6 +247,8 @@ struct r300_context {
     struct pipe_framebuffer_state framebuffer_state;
     /* Rasterizer state. */
     struct r300_rs_state* rs_state;
+    /* RS block state. */
+    struct r300_rs_block* rs_block;
     /* Sampler states. */
     struct r300_sampler_state* sampler_states[8];
     int sampler_count;
@@ -219,13 +256,12 @@ struct r300_context {
     struct r300_scissor_state* scissor_state;
     /* Texture states. */
     struct r300_texture* textures[8];
-    struct r300_texture_state* texture_states[8];
     int texture_count;
     /* Vertex buffers. */
     struct pipe_vertex_buffer vertex_buffers[PIPE_MAX_ATTRIBS];
     int vertex_buffer_count;
     /* Vertex information. */
-    struct vertex_info vertex_info;
+    struct r300_vertex_format vertex_info;
     /* Bitmask of dirty state objects. */
     uint32_t dirty_state;
     /* Flag indicating whether or not the HW is dirty. */
@@ -238,6 +274,7 @@ static struct r300_context* r300_context(struct pipe_context* context) {
 }
 
 /* Context initialization. */
+struct draw_stage* r300_draw_swtcl_stage(struct r300_context* r300);
 void r300_init_state_functions(struct r300_context* r300);
 void r300_init_surface_functions(struct r300_context* r300);
 
@@ -245,7 +282,6 @@ void r300_init_surface_functions(struct r300_context* r300);
  * We'll just step out in that case... */
 #ifndef R300_WINSYS_H
 struct pipe_context* r300_create_context(struct pipe_screen* screen,
-                                         struct pipe_winsys* winsys,
                                          struct r300_winsys* r300_winsys);
 #endif
 
