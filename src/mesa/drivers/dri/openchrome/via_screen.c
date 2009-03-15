@@ -356,7 +356,7 @@ viaCreateBuffer(__DRIscreenPrivate * driScrnPriv,
 
 	return GL_TRUE;
       out_err:
-	_mesa_unreference_framebuffer(&fb);
+	_mesa_reference_framebuffer(&fb, NULL);
 	return GL_FALSE;
     }
 }
@@ -379,7 +379,7 @@ viaDestroyBuffer(__DRIdrawablePrivate * driDrawPriv)
 	free(viafb->pFrontClipRects);
     }
 
-    _mesa_unreference_framebuffer(&fb);
+    _mesa_reference_framebuffer(&fb, NULL);
 }
 
 static const __DRIconfig **

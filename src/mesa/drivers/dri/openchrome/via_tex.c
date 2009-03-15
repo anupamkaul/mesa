@@ -1020,7 +1020,7 @@ via_map_unmap_texunit(struct gl_texture_unit *tu, GLboolean map)
     if (!tu->_ReallyEnabled)
 	return 0;
 
-    jMax = (tobj == tu->CurrentCubeMap) ? 6 : 1;
+    jMax = (tu->_ReallyEnabled & TEXTURE_CUBE_BIT) ? 6 : 1;
 
     for (j = 0; j < jMax; ++j) {
 	for (i = vobj->firstLevel; i <= vobj->lastLevel; ++i) {
