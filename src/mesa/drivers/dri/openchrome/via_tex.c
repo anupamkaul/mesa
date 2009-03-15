@@ -721,6 +721,7 @@ viaTexSubImage2D(GLcontext * ctx,
     struct via_context *vmesa = VIA_CONTEXT(ctx);
     struct via_texture_image *viaImage =
 	containerOf(texImage, struct via_texture_image, image);
+    int ret;
 
     if (via_try_3d_upload(ctx, xoffset, yoffset,
 			  width, height, format,
@@ -736,9 +737,13 @@ viaTexSubImage2D(GLcontext * ctx,
 	VIA_FLUSH_DMA(vmesa);
     }
 
-    wsbmBOWaitIdle(viaImage->buf, 0);
+    ret = wsbmBOSyncForCpu(viaImage->buf, WSBM_SYNCCPU_WRITE);
+    if (ret) {
+	_mesa_error(ctx, GL_INVALID_OPERATION, "glTexSubImage2D Sync for CPU");
+	return;
+    }
 
-    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_SYNCCPU_WRITE);
+    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_ACCESS_WRITE);
     vmesa->clearTexCache = 1;
 
     _mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
@@ -746,6 +751,7 @@ viaTexSubImage2D(GLcontext * ctx,
 			      texImage);
     texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
+    wsbmBOReleaseFromCpu(viaImage->buf, WSBM_SYNCCPU_WRITE);
 }
 
 static void
@@ -778,14 +784,20 @@ viaTexSubImage1D(GLcontext * ctx,
     struct via_context *vmesa = VIA_CONTEXT(ctx);
     struct via_texture_image *viaImage =
 	containerOf(texImage, struct via_texture_image, image);
+    int ret;
 
     if (wsbmBOOnList(viaImage->buf)) {
 	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
 
-    wsbmBOWaitIdle(viaImage->buf, 0);
-    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_SYNCCPU_WRITE);
+    ret = wsbmBOSyncForCpu(viaImage->buf, WSBM_SYNCCPU_WRITE);
+    if (ret) {
+	_mesa_error(ctx, GL_INVALID_OPERATION, "glTexSubImage1D Sync for CPU");
+	return;
+    }
+
+    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_ACCESS_WRITE);
     vmesa->clearTexCache = 1;
 
     _mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
@@ -793,6 +805,7 @@ viaTexSubImage1D(GLcontext * ctx,
 			      texImage);
     texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
+    wsbmBOReleaseFromCpu(viaImage->buf, WSBM_SYNCCPU_WRITE);
 }
 
 static GLboolean
@@ -850,20 +863,26 @@ viaGetTexImage(GLcontext * ctx, GLenum target, GLint level,
     struct via_context *vmesa = VIA_CONTEXT(ctx);
     struct via_texture_image *viaImage =
 	containerOf(texImage, struct via_texture_image, image);
+    int ret;
 
     if (wsbmBOOnList(viaImage->buf)) {
 	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
 
-    wsbmBOWaitIdle(viaImage->buf, 0);
+    ret = wsbmBOSyncForCpu(viaImage->buf, WSBM_SYNCCPU_READ | WSBM_SYNCCPU_TRY_CACHED);
+    if (ret) {
+	_mesa_error(ctx, GL_INVALID_OPERATION, "glGetTexImage Sync for CPU");
+	return;
+    }
 
-    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_SYNCCPU_READ);
+    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_ACCESS_READ);
     _mesa_get_teximage(ctx, target, level, format, type, pixels,
 		       texObj, texImage);
 
     texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
+    wsbmBOReleaseFromCpu(viaImage->buf, WSBM_SYNCCPU_READ);
 }
 
 static void
@@ -875,17 +894,25 @@ viaGetCompressedTexImage(GLcontext * ctx, GLenum target, GLint level,
     struct via_context *vmesa = VIA_CONTEXT(ctx);
     struct via_texture_image *viaImage =
 	containerOf(texImage, struct via_texture_image, image);
+    int ret;
 
     if (wsbmBOOnList(viaImage->buf)) {
 	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
-    wsbmBOWaitIdle(viaImage->buf, 0);
-    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_SYNCCPU_READ);
+
+    ret = wsbmBOSyncForCpu(viaImage->buf, WSBM_SYNCCPU_READ | WSBM_SYNCCPU_TRY_CACHED);
+    if (ret) {
+	_mesa_error(ctx, GL_INVALID_OPERATION, "glGetCompressedTexImage Sync for CPU");
+	return;
+    }
+
+    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_ACCESS_READ);
 
     _mesa_get_compressed_teximage(ctx, target, level, img, texObj, texImage);
-
+    texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
+    wsbmBOReleaseFromCpu(viaImage->buf, WSBM_SYNCCPU_READ);
 }
 
 static void
@@ -900,20 +927,27 @@ viaCompressedTexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
     struct via_context *vmesa = VIA_CONTEXT(ctx);
     struct via_texture_image *viaImage =
 	containerOf(texImage, struct via_texture_image, image);
+    int ret;
 
     if (wsbmBOOnList(viaImage->buf)) {
 	vmesa->deferFence = GL_FALSE;
 	VIA_FLUSH_DMA(vmesa);
     }
-    wsbmBOWaitIdle(viaImage->buf, 0);
-    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_SYNCCPU_WRITE);
 
+    ret = wsbmBOSyncForCpu(viaImage->buf, WSBM_SYNCCPU_WRITE);
+    if (ret) {
+	_mesa_error(ctx, GL_INVALID_OPERATION, "glCompressedTexSubImage2D Sync for CPU");
+	return;
+    }
+
+    texImage->Data = wsbmBOMap(viaImage->buf, WSBM_SYNCCPU_WRITE);
     _mesa_store_compressed_texsubimage2d(ctx, target, level, xoffset,
 					 yoffset, width, height, format,
 					 imageSize, data, texObj, texImage);
 
     texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
+    wsbmBOReleaseFromCpu(viaImage->buf, WSBM_SYNCCPU_WRITE);
 }
 
 static void
@@ -1042,28 +1076,28 @@ via_map_unmap_texunit(struct gl_texture_unit *tu, GLboolean map)
 
 	    if (vImage->buf) {
 		if (map) {
+		    ret = wsbmBOSyncForCpu(vImage->buf,
+					   WSBM_SYNCCPU_READ |
+					   WSBM_SYNCCPU_WRITE);
+		    if (ret)
+			return -ENOMEM;
+
 		    image->Data = wsbmBOMap(vImage->buf,
 					    WSBM_ACCESS_READ |
 					    WSBM_ACCESS_WRITE);
 		    if (!image->Data) {
+			wsbmBOReleaseFromCpu(vImage->buf,
+					      WSBM_SYNCCPU_READ |
+					      WSBM_SYNCCPU_WRITE);
+			image->Data = VIA_INVALID_TEXMAP;
 			return -ENOMEM;
 		    }
-
-		    ret = wsbmBOSyncForCpu(vImage->buf,
-					   WSBM_SYNCCPU_READ |
-					   WSBM_SYNCCPU_WRITE);
-		    if (ret) {
-			wsbmBOUnmap(vImage->buf);
-			image->Data = NULL;
-			return -ENOMEM;
-		    }
-
 		} else {
-		    if (image->Data) {
+		    if (image->Data != VIA_INVALID_TEXMAP) {
+			wsbmBOUnmap(vImage->buf);
 			wsbmBOReleaseFromCpu(vImage->buf,
 					     WSBM_SYNCCPU_READ |
 					     WSBM_SYNCCPU_WRITE);
-			wsbmBOUnmap(vImage->buf);
 			image->Data = VIA_INVALID_TEXMAP;
 		    }
 		}
