@@ -47,8 +47,9 @@
 #include "via_state.h"
 #include "via_ioctl.h"
 #include "via_3d_reg.h"
-
 #include "wsbm_manager.h"
+
+#define VIA_INVALID_TEXMAP ((void *) 0x00000001UL)
 
 static const struct gl_texture_format *
 viaChooseTexFormat(GLcontext * ctx, GLint internalFormat,
@@ -641,7 +642,12 @@ viaTexImage(GLcontext * ctx,
 	ctx->Driver.TextureMemCpy(texImage->Data, pixels, imageSize);
     } else {
 	ASSERT(texImage->TexFormat->StoreImage);
-	success = texImage->TexFormat->StoreImage(ctx, dims, texImage->_BaseFormat, texImage->TexFormat, texImage->Data, 0, 0, 0,	/* dstX/Y/Zoffset */
+	success = texImage->TexFormat->StoreImage(ctx,
+						  dims,
+						  texImage->_BaseFormat,
+						  texImage->TexFormat,
+						  texImage->Data,
+						  0, 0, 0,	/* dstX/Y/Zoffset */
 						  dstRowStride,
 						  texImage->ImageOffsets,
 						  width, height, 1,
@@ -663,7 +669,7 @@ viaTexImage(GLcontext * ctx,
 
     _mesa_unmap_teximage_pbo(ctx, packing);
   out:
-    texImage->Data = NULL;
+    texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
 }
 
@@ -738,7 +744,7 @@ viaTexSubImage2D(GLcontext * ctx,
     _mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
 			      height, format, type, pixels, packing, texObj,
 			      texImage);
-    texImage->Data = NULL;
+    texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
 }
 
@@ -785,7 +791,7 @@ viaTexSubImage1D(GLcontext * ctx,
     _mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
 			      format, type, pixels, packing, texObj,
 			      texImage);
-    texImage->Data = NULL;
+    texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
 }
 
@@ -856,7 +862,7 @@ viaGetTexImage(GLcontext * ctx, GLenum target, GLint level,
     _mesa_get_teximage(ctx, target, level, format, type, pixels,
 		       texObj, texImage);
 
-    texImage->Data = NULL;
+    texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
 }
 
@@ -906,7 +912,7 @@ viaCompressedTexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
 					 yoffset, width, height, format,
 					 imageSize, data, texObj, texImage);
 
-    texImage->Data = NULL;
+    texImage->Data = VIA_INVALID_TEXMAP;
     wsbmBOUnmap(viaImage->buf);
 }
 
@@ -1058,7 +1064,7 @@ via_map_unmap_texunit(struct gl_texture_unit *tu, GLboolean map)
 					     WSBM_SYNCCPU_READ |
 					     WSBM_SYNCCPU_WRITE);
 			wsbmBOUnmap(vImage->buf);
-			image->Data = NULL;
+			image->Data = VIA_INVALID_TEXMAP;
 		    }
 		}
 	    }
