@@ -904,7 +904,7 @@ viaGetCompressedTexImage(GLcontext * ctx, GLenum target, GLint level,
     texImage->Data = wsbmBOMap(viaImage->buf, WSBM_ACCESS_READ);
 
     _mesa_get_compressed_teximage(ctx, target, level, img, texObj, texImage);
-    texImage->Data = VIA_INVALID_TEXMAP;
+    texImage->Data = NULL;
     wsbmBOUnmap(viaImage->buf);
     wsbmBOReleaseFromCpu(viaImage->buf, WSBM_SYNCCPU_READ);
 }
@@ -1083,11 +1083,11 @@ via_map_unmap_texunit(struct gl_texture_unit *tu, GLboolean map)
 			wsbmBOReleaseFromCpu(vImage->buf,
 					      WSBM_SYNCCPU_READ |
 					      WSBM_SYNCCPU_WRITE);
-			image->Data = VIA_INVALID_TEXMAP;
+			image->Data = NULL;
 			return -ENOMEM;
 		    }
 		} else {
-		    if (image->Data != VIA_INVALID_TEXMAP) {
+		    if (image->Data != NULL) {
 			wsbmBOUnmap(vImage->buf);
 			image->Data = NULL;
 			wsbmBOReleaseFromCpu(vImage->buf,
