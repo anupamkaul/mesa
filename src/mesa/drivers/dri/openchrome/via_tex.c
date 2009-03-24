@@ -396,7 +396,7 @@ viaSetTexImages(GLcontext * ctx, struct gl_texture_object *texObj)
      * Texture rectangle or A single level.
      */
 
-    if (viaObj->isRect || numLevels == 1) {
+    if (viaObj->isRect) {
 	struct via_reloc_texlist *addr = &viaObj->addr[0];
 	struct via_texture_image *viaImage =
 	    (struct via_texture_image *)texObj->Image[0][firstLevel];
@@ -1030,7 +1030,11 @@ viaInitTextureFuncs(struct dd_function_table *functions)
     functions->CopyTexSubImage2D = viaCopyTexSubImage2D;
 
 #if defined( USE_SSE_ASM )
-    functions->TextureMemCpy = via_sse_memcpy;
+#include "x86/common_x86_asm.h"
+    if ( cpu_has_xmm )
+	functions->TextureMemCpy = via_sse_memcpy;
+    else
+	functions->TextureMemCpy = _mesa_memcpy;
 #else
     functions->TextureMemCpy = _mesa_memcpy;
 #endif
