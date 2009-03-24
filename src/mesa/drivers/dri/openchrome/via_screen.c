@@ -182,9 +182,9 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
 
     viaScreen->scratchPool = wsbmSlabPoolInit(sPriv->fd,
 					      ext_arg.rep.driver_ioctl_offset,
-					      WSBM_PL_FLAG_VRAM |
+					      VIA_PL_FLAG_AGP |
 					      WSBM_PL_FLAG_WC,
-					      WSBM_PL_FLAG_VRAM |
+					      VIA_PL_FLAG_AGP |
 					      WSBM_PL_FLAG_WC,
 					      64, 8, 128, 16384, 0,
 					      viaScreen->slabCache);

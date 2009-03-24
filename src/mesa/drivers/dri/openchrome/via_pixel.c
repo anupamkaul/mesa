@@ -693,7 +693,7 @@ via_bitmap(GLcontext * ctx,
 
 	ret = wsbmGenBuffers(vmesa->viaScreen->scratchPool,
 			     1, &buf, 0,
-			     WSBM_PL_FLAG_VRAM |
+			     VIA_PL_FLAG_AGP |
 			     WSBM_PL_FLAG_WC);
 	if (ret)
 	    goto out_sw;
