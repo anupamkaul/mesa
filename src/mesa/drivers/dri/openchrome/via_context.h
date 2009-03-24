@@ -113,6 +113,9 @@ struct via_meta_state
     uint32_t regMPMD;
     uint32_t regCLODu;
     uint32_t regTexFM;
+    uint32_t regTRCH;
+    uint32_t regTRCL;
+    uint32_t regTRAH;
     uint32_t saveCmdB;
 
     uint32_t texWidth;
@@ -126,6 +129,7 @@ struct via_meta_state
     GLboolean flip_src;
     struct _WsbmBufferObject *src_buf;
     uint32_t src_offset;
+    int bitMap;
 
     /*
      * Dst data.
@@ -554,6 +558,7 @@ extern void via_meta_install_src(struct via_context *vmesa,
 				 uint32_t width, uint32_t height,
 				 uint32_t stride, uint32_t src_offset,
 				 GLboolean flip_src,
+				 GLboolean bitmap,
 				 struct _WsbmBufferObject *buf);
 extern void via_meta_uninstall(struct via_context *vmesa);
 extern uint32_t via_src_fmt_to_hw(GLenum format, GLenum type, uint32_t * cpp);

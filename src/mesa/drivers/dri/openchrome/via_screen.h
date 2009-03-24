@@ -65,6 +65,8 @@ typedef struct _viaScreenPrivate
 
     struct _WsbmBufferPool *mallocPool;
     struct _WsbmBufferPool *bufferPool;
+    struct _WsbmBufferPool *scratchPool;
+    struct _WsbmSlabCache *slabCache;
 
     /* Dummy hw context */
 #if 0

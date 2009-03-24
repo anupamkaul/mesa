@@ -99,9 +99,9 @@ viaDoEmitMeta(struct via_context *vmesa, GLint lostState)
     OUT_RING(HC_HEADER2);
     OUT_RING(HC_ParaType_NotTex << 16);
     OUT_RING((HC_SubA_HEnable << 24) | meta->regEnable);
-    OUT_RING((HC_SubA_HEnable << 24) | meta->regEnable);
     OUT_RING((HC_SubA_HFBBMSKL << 24) | 0x00FFFFFF);
     OUT_RING((HC_SubA_HROP << 24) | HC_HROP_P | 0x000000FF);
+    OUT_RING(0xCCCCCCCC);
     ADVANCE_RING();
 
     BEGIN_STATE_RING(4, lostState);
@@ -118,7 +118,8 @@ viaDoEmitMeta(struct via_context *vmesa, GLint lostState)
     }
     ADVANCE_RING();
 
-    BEGIN_STATE_RING(13, lostState);
+
+    BEGIN_STATE_RING(meta->bitMap ? 18 : 14, lostState);
     OUT_RING(HC_HEADER2);
     OUT_RING((HC_ParaType_Tex << 16) | (0 << 24));
     OUT_RING(meta->regCsat);
@@ -132,6 +133,13 @@ viaDoEmitMeta(struct via_context *vmesa, GLint lostState)
     OUT_RING(meta->regL0_5WE);
     OUT_RING(meta->regL0_5HE);
     OUT_RING(meta->regL0Os);
+    OUT_RING(meta->regTB);
+    if (meta->bitMap) {
+	OUT_RING(meta->regTRCH);
+	OUT_RING(meta->regTRCL);
+	OUT_RING(meta->regTRAH);
+	OUT_RING(meta->regTRAH);
+    }
     ADVANCE_RING();
 
     BEGIN_RING(8);
@@ -151,8 +159,8 @@ viaDoEmitMeta(struct via_context *vmesa, GLint lostState)
 			     0,
 			     meta->regTexFM,
 			     WSBM_PL_FLAG_TT |
-			     VIA_PL_FLAG_AGP |
 			     WSBM_PL_FLAG_VRAM |
+			     VIA_PL_FLAG_AGP |
 			     VIA_ACCESS_READ,
 			     WSBM_PL_MASK_MEM | VIA_ACCESS_READ);
 

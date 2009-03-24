@@ -32,6 +32,7 @@
 
 #include "main/image.h"
 #include "main/state.h"
+#include "main/macros.h"
 #include "swrast/swrast.h"
 
 #include "via_pixel.h"
@@ -39,7 +40,15 @@
 #include "via_ioctl.h"
 #include "via_buffer_objects.h"
 
-#include "wsbm_manager.h"
+#include <wsbm_manager.h>
+#include <via_3d_reg.h>
+
+static uint32_t via_tex_stride(uint32_t stride)
+{
+    if (stride <= 8)
+	return 8;
+    return (stride + 0x0f) & ~0x0f;
+}
 
 static GLboolean
 via_check_copypixel_blit_fragment_ops(GLcontext * ctx)
@@ -439,7 +448,8 @@ via_read_pixels(GLcontext * ctx,
 			 1.0f, 1.0f,
 			 readableWidth, vfb->Base.Height,
 			 read_buf->pitch, src_offset,
-			 (vfb->Base.Name == 0), read_buf->buf);
+			 (vfb->Base.Name == 0),
+			 GL_FALSE, read_buf->buf);
 
     vmesa->clearTexCache = 1;
     via_meta_install_dst_bufobj(vmesa, dst_fmt, stride, height, dst_offset,
@@ -515,7 +525,8 @@ via_draw_pixels(GLcontext * ctx,
     struct drm_via_clip_rect clip;
     struct via_renderbuffer *draw_buf = viaDrawRenderBuffer(vmesa);
 
-    if (!draw_buf)
+    if (!draw_buf || draw_buf->hwformat == VIA_FMT_ERROR ||
+	vmesa->Fallback & VIA_FALLBACK_USER_DISABLE)
 	goto out_sw;
 
     if (!via_check_fragment_ops(ctx) ||
@@ -532,7 +543,7 @@ via_draw_pixels(GLcontext * ctx,
     stride = (stride + unpack->Alignment - 1) & ~(unpack->Alignment - 1);
 
     if (src) {
-	if (stride & 0x0f)
+	if (stride & 0x07)
 	    goto out_sw;
 
 	src_offset = (unsigned long)_mesa_image_address(2, unpack, pixels,
@@ -547,13 +558,13 @@ via_draw_pixels(GLcontext * ctx,
 	const unsigned char *tmp_pixels;
 	int col;
 	uint32_t data_stride = width * cpp;
-	uint32_t new_stride = (data_stride + 0x0f) & ~0x0f;
+	int32_t new_stride = via_tex_stride(data_stride);
 
 	/*
 	 * Pipelined drawpixels from system memory.
 	 */
 
-	ret = wsbmGenBuffers(vmesa->viaScreen->bufferPool,
+	ret = wsbmGenBuffers(vmesa->viaScreen->scratchPool,
 			     1, &buf, 0, VIA_PL_FLAG_AGP);
 	if (ret)
 	    goto out_sw;
@@ -575,7 +586,7 @@ via_draw_pixels(GLcontext * ctx,
 					 width, height,
 					 format, type, 0, 0, 0);
 	if (unpack->Invert)
-	    data_stride -= data_stride;
+	    stride = -stride;
 
 	savemap = map;
 	for (col = 0; col < height; ++col) {
@@ -592,7 +603,8 @@ via_draw_pixels(GLcontext * ctx,
 
     via_meta_install_src(vmesa, scale_rgba, bias_rgba, src_fmt,
 			 ctx->Pixel.ZoomX, ctx->Pixel.ZoomY, width, height,
-			 stride, src_offset, GL_FALSE, buf);
+			 stride, src_offset, GL_FALSE,
+			 GL_FALSE, buf);
     via_meta_install_dst_fb(vmesa);
 
     vmesa->clearTexCache = 1;
@@ -619,6 +631,130 @@ via_draw_pixels(GLcontext * ctx,
 }
 
 static void
+via_bitmap(GLcontext * ctx,
+	   GLint x, GLint y,
+	   GLsizei width, GLsizei height,
+	   const struct gl_pixelstore_attrib *unpack,
+	   const GLubyte * pixels)
+{
+    uint32_t scale_rgba = 0xff;
+    uint32_t bias_rgba = 0x00;
+    uint32_t src_fmt;
+    struct via_buffer_object *src = via_buffer_object(unpack->BufferObj);
+    struct _WsbmBufferObject *buf = NULL;
+    struct via_context *vmesa = VIA_CONTEXT(ctx);
+    int stride;
+    uint32_t src_offset;
+    struct drm_via_clip_rect clip;
+    struct via_renderbuffer *draw_buf = viaDrawRenderBuffer(vmesa);
+
+    if (width == 0 || height == 0)
+	return;
+
+    if (!draw_buf || draw_buf->hwformat == VIA_FMT_ERROR ||
+	vmesa->Fallback & VIA_FALLBACK_USER_DISABLE)
+	goto out_sw;
+
+    if (!via_check_fragment_ops(ctx)) {
+	goto out_sw;
+    }
+
+    src_fmt = HC_HTXnFM_A1;
+
+    if (!unpack->LsbFirst)
+	src_fmt |= 0x4000;
+
+    stride = (((unpack->RowLength > 0) ? unpack->RowLength : width) + 7) >> 3;
+    stride = (stride + unpack->Alignment - 1) & ~(unpack->Alignment - 1);
+
+    if (src) {
+	if (stride & 0x07)
+	    goto out_sw;
+
+	src_offset = (unsigned long)_mesa_image_address2d(unpack, pixels,
+							  width, height,
+							  GL_COLOR_INDEX,
+							  GL_BITMAP, 0, 0);
+
+	buf = wsbmBOReference(via_bufferobj_buffer(src));
+    } else if (!src) {
+	int ret;
+	unsigned char *map, *savemap;
+	const unsigned char *tmp_pixels;
+	int col;
+	uint32_t data_len;
+	uint32_t new_stride = (width + 7) >> 3;
+
+	new_stride = via_tex_stride(new_stride);
+
+	/*
+	 * Pipelined drawpixels from system memory.
+	 */
+
+	ret = wsbmGenBuffers(vmesa->viaScreen->scratchPool,
+			     1, &buf, 0,
+			     WSBM_PL_FLAG_VRAM |
+			     WSBM_PL_FLAG_WC);
+	if (ret)
+	    goto out_sw;
+
+	ret = wsbmBOData(buf, new_stride * height, NULL, NULL, 0);
+	if (ret)
+	    goto out_sw;
+
+	map = wsbmBOMap(buf, WSBM_ACCESS_WRITE);
+	if (!map)
+	    goto out_sw;
+
+	data_len = (width + 7) >> 3;
+	tmp_pixels = _mesa_image_address2d(unpack, pixels,
+					   width, height,
+					   GL_COLOR_INDEX, GL_BITMAP, 0, 0);
+	if (unpack->Invert)
+	    stride = -stride;
+
+	savemap = map;
+	for (col = 0; col < height; ++col) {
+	    memcpy(map, tmp_pixels, data_len);
+	    map += new_stride;
+	    tmp_pixels += stride;
+	}
+
+	wsbmBOUnmap(buf);
+
+	src_offset = 0;
+	stride = new_stride;
+    }
+
+    via_meta_install_src(vmesa, scale_rgba, bias_rgba, src_fmt,
+			 1.f, 1.f, width, height,
+			 stride, src_offset, GL_FALSE,
+			 GL_TRUE, buf);
+    via_meta_install_dst_fb(vmesa);
+
+    vmesa->clearTexCache = 1;
+
+    clip.x1 = 0;
+    clip.x2 = width;
+    clip.y1 = 0;
+    clip.y2 = height;
+
+    via_meta_emit_src_clip(vmesa, 0, 0,
+			   x, y, &clip, ctx->Current.RasterPos[2]);
+
+    via_meta_uninstall(vmesa);
+    vmesa->clearTexCache = 1;
+    wsbmBOUnreference(&buf);
+
+    return;
+  out_sw:
+    wsbmBOUnreference(&buf);
+    _swrast_Bitmap(ctx, x, y, width, height, unpack, pixels);
+
+    return;
+}
+
+static void
 via_copy_pixels(GLcontext * ctx,
 		GLint srcx, GLint srcy,
 		GLsizei width, GLsizei height,
@@ -635,7 +771,7 @@ void
 viaInitPixelFuncs(struct dd_function_table *functions)
 {
     functions->Accum = _swrast_Accum;
-    functions->Bitmap = _swrast_Bitmap;
+    functions->Bitmap = via_bitmap;
     functions->CopyPixels = via_copy_pixels;
     functions->ReadPixels = via_read_pixels;
     functions->DrawPixels = via_draw_pixels;

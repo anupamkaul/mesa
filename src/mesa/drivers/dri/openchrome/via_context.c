@@ -308,7 +308,7 @@ viaCreateContext(const __GLcontextModes * visual,
     if (!vmesa->reloc_info)
 	goto out_err0;
 
-    vmesa->validate_list = wsbmBOCreateList(64, 1);
+    vmesa->validate_list = wsbmBOCreateList(256, 1);
     if (!vmesa->validate_list)
 	goto out_err1;
 

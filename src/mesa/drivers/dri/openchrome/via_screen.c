@@ -167,11 +167,31 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
 	goto out_err2;
     }
 
+    viaScreen->slabCache = wsbmSlabCacheInit(100, 200);
+    if (!viaScreen->slabCache) {
+	_mesa_printf("VIA slab cache creation failed.\n");
+	goto out_err2;
+    }
+
     viaScreen->bufferPool = wsbmTTMPoolInit(sPriv->fd,
 					    ext_arg.rep.driver_ioctl_offset);
     if (!viaScreen->bufferPool) {
 	_mesa_printf("VIA buffer manager creation failed.\n");
-	goto out_err2;
+	goto out_err3;
+    }
+
+    viaScreen->scratchPool = wsbmSlabPoolInit(sPriv->fd,
+					      ext_arg.rep.driver_ioctl_offset,
+					      WSBM_PL_FLAG_VRAM |
+					      WSBM_PL_FLAG_WC,
+					      WSBM_PL_FLAG_VRAM |
+					      WSBM_PL_FLAG_WC,
+					      64, 8, 128, 16384, 0,
+					      viaScreen->slabCache);
+
+    if (!viaScreen->scratchPool) {
+	_mesa_printf("VIA scratch buffer manager creation failed.\n");
+	goto out_err4;
     }
 
     strncpy(ext_arg.extension, exec_ext, sizeof(ext_arg.extension));
@@ -179,7 +199,7 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
 			      sizeof(ext_arg));
     if (ret != 0 || !ext_arg.rep.exists) {
 	_mesa_printf("Could not detect DRM extension \"%s\".\n", exec_ext);
-	goto out_err3;
+	goto out_err5;
     }
     viaScreen->execIoctlOffset = ext_arg.rep.driver_ioctl_offset;
 
@@ -192,7 +212,7 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
     if (!viaCreateDummyHWContext(sPriv, &viaScreen->dummyContextID,
 				 &viaScreen->dummyContext)) {
 	_mesa_printf("Could not create dummy screen context.\n");
-	goto out_err3;
+	goto out_err5;
     }
 #endif
     if (VIA_DEBUG & DEBUG_DRI) {
@@ -216,7 +236,7 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
 			      sizeof(ext_arg));
     if (ret != 0 || !ext_arg.rep.exists) {
 	_mesa_printf("Could not detect DRM extension \"%s\".\n", fence_ext);
-	goto out_err4;
+	goto out_err6;
     }
 
     viaScreen->fence_mgr = wsbmFenceMgrTTMInit(sPriv->fd, 5,
@@ -225,7 +245,7 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
 
     if (!viaScreen->fence_mgr) {
 	_mesa_printf("VIA fence manager creation failed.\n");
-	goto out_err4;
+	goto out_err6;
     }
 
     i = 0;
@@ -240,10 +260,14 @@ viaInitDriver(__DRIscreenPrivate * sPriv)
     sPriv->extensions = viaScreen->extensions;
 
     return GL_TRUE;
-  out_err4:
+  out_err6:
     //    viaDestroyDummyHWContext(sPriv, viaScreen->dummyContextID);
-  out_err3:
+ out_err5:
+    viaScreen->scratchPool->takeDown(viaScreen->scratchPool);
+  out_err4:
     viaScreen->bufferPool->takeDown(viaScreen->bufferPool);
+ out_err3:
+    wsbmSlabCacheFinish(viaScreen->slabCache);
   out_err2:
     viaScreen->mallocPool->takeDown(viaScreen->mallocPool);
   out_err1:
@@ -261,10 +285,11 @@ viaDestroyScreen(__DRIscreenPrivate * sPriv)
 {
     viaScreenPrivate *viaScreen = (viaScreenPrivate *) sPriv->private;
 
-
+    viaScreen->scratchPool->takeDown(viaScreen->scratchPool);
     wsbmFenceMgrTTMTakedown(viaScreen->fence_mgr);
     //    viaDestroyDummyHWContext(sPriv, viaScreen->dummyContextID);
     viaScreen->bufferPool->takeDown(viaScreen->bufferPool);
+    wsbmSlabCacheFinish(viaScreen->slabCache);
     viaScreen->mallocPool->takeDown(viaScreen->mallocPool);
     driDestroyOptionCache(&viaScreen->parsedCache);
     driDestroyOptionInfo(&viaScreen->optionCache);

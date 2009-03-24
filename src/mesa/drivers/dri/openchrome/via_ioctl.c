@@ -1602,13 +1602,11 @@ via_execbuf(struct via_context *vmesa, GLuint fire_flags)
      * Validate our buffers.
      */
 
-#if 0
     ret = wsbmBOValidateUserList(vmesa->validate_list);
     if (ret) {
 	via_abort_cmdbuf(vmesa);
 	return;
     }
-#endif
 
     valList = wsbmGetKernelValidateList(vmesa->validate_list);
     iterator = validateListIterator(valList);
@@ -1737,6 +1735,7 @@ via_execbuf(struct via_context *vmesa, GLuint fire_flags)
     }
 
     wsbmFenceCmdUnlock(fence_mgr, VIA_ENGINE_CMD);
+    wsbmBOFenceUserList(vmesa->validate_list, vmesa->last_fence);
     via_drop_cmdbuf(vmesa);
     return;
 }

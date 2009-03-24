@@ -34,6 +34,7 @@
 
 #include "main/image.h"
 #include "main/state.h"
+#include "main/macros.h"
 #include "swrast/swrast.h"
 
 #include "via_context.h"
@@ -108,11 +109,99 @@ via_meta_install_dst_fb(struct via_context *vmesa)
     meta->regEnable &= ~(HC_HenTXEnvMap_MASK |
 			 HC_HenFBCull_MASK |
 			 HC_HenAA_MASK | HC_HenTXPP_MASK | HC_HenTXTR_MASK);
-    meta->regEnable |= (HC_HenCW_MASK |
-			HC_HenTXMP_MASK | HC_HenTXCH_MASK | HC_HenAW_MASK);
+    meta->regEnable |= (HC_HenCW_MASK | HC_HenTXCH_MASK |
+			HC_HenTXMP_MASK | HC_HenAW_MASK);
+    if (meta->bitMap)
+	meta->regEnable |= HC_HenTXTR_MASK;
+
     meta->saveCmdB = vmesa->regCmdB;
     vmesa->meta_flags &= ~VIA_META_DST_ENABLE;
 }
+
+static void
+via_meta_bitmap_state(struct via_context *vmesa)
+{
+    GLcontext *ctx = vmesa->glCtx;
+    struct via_meta_state *meta = &vmesa->meta;
+    uint8_t alpha = FLOAT_TO_UBYTE(ctx->Current.RasterColor[3]);
+
+    /*
+     * Set up the following texture blending equation:
+     *
+     * Ca = regCA = (Rbitmap, Gbitmap, Bbitmap)
+     * Cb = (1, 1, 1)
+     * Cc = (0, 0, 0)
+     * Cbias = 0
+     * Cshift = 0
+     *
+     * Alpha see below.
+     */
+
+    meta->regCsat = (HC_SubA_HTXnTBLCsat << 24) |
+	HC_HTXnTBLCsat_MASK |
+	HC_HTXnTBLCa_TOPC |
+	HC_HTXnTBLCa_HTXnTBLRC |
+	HC_HTXnTBLCb_InvTOPC |
+	HC_HTXnTBLCb_0 | HC_HTXnTBLCc_TOPC | HC_HTXnTBLCc_0;
+
+    meta->regCop = (HC_SubA_HTXnTBLCop << 24) |
+	HC_HTXnTBLCop_Add |
+	HC_HTXnTBLCbias_Cbias |
+	HC_HTXnTBLCbias_0|
+	HC_HTXnTBLCshift_No |
+	HC_HTXnTBLAop_Add |
+	HC_HTXnTBLAbias_HTXnTBLRAbias | HC_HTXnTBLAshift_No;
+
+    meta->regAfog = (HC_SubA_HTXnTBLRFog << 24);
+    meta->regAa = (HC_SubA_HTXnTBLRAa << 24) | (alpha << 16);
+
+    meta->regCa = (HC_SubA_HTXnTBLRCa << 24) |
+	(FLOAT_TO_UBYTE(ctx->Current.RasterColor[0]) << 16) |
+	(FLOAT_TO_UBYTE(ctx->Current.RasterColor[1]) << 8) |
+	(FLOAT_TO_UBYTE(ctx->Current.RasterColor[2]));
+
+    /**
+     * Transparency independant of RGB value.
+     */
+
+    meta->regTRCH = (HC_SubA_HTXnTRCH << 24) | 0xFFFFFF;
+    meta->regTRCL = (HC_SubA_HTXnTRCL << 24) | 0x000000;
+
+    if (alpha != 0) {
+
+	/**
+	 * Multiply alpha with bitmap [0,1].
+	 * Kill fragment if alpha == 0.
+	 */
+
+	meta->regAsat = (HC_SubA_HTXnTBLAsat << 24) |
+	    HC_HTXnTBLAsat_MASK |
+	    HC_HTXnTBLAa_TOPA |
+	    HC_HTXnTBLAa_HTXnTBLRA |
+	    HC_HTXnTBLAb_TOPA |
+	    HC_HTXnTBLAb_Atex | HC_HTXnTBLAc_TOPA | HC_HTXnTBLAc_HTXnTBLRA;
+	meta->regTRAH = (HC_SubA_HTXnTRAH << 24) |
+	    (0x00 << HC_HTXnTRAH_SHIFT) |
+	    (0x00 << HC_HTXnTRAL_SHIFT);
+    } else {
+
+	/**
+	 * Calculate alpha = (1 - bitmap [0,1]).
+	 * Kill fragment if alpha != 0.
+	 */
+
+	meta->regAsat = (HC_SubA_HTXnTBLAsat << 24) |
+	    HC_HTXnTBLAsat_MASK |
+	    HC_HTXnTBLAa_InvTOPA |
+	    HC_HTXnTBLAa_HTXnTBLRA |
+	    HC_HTXnTBLAb_InvTOPA |
+	    HC_HTXnTBLAb_Atex | HC_HTXnTBLAc_TOPA | HC_HTXnTBLAc_HTXnTBLRA;
+	meta->regTRAH = (HC_SubA_HTXnTRAH << 24) |
+	    (0xFF << HC_HTXnTRAH_SHIFT) |
+	    (0x01 << HC_HTXnTRAL_SHIFT);
+    }
+}
+
 
 void
 via_meta_install_src(struct via_context *vmesa,
@@ -120,7 +209,8 @@ via_meta_install_src(struct via_context *vmesa,
 		     uint32_t srcFmt, float scaleX, float scaleY,
 		     uint32_t width, uint32_t height,
 		     uint32_t stride, uint32_t src_offset,
-		     GLboolean flip_src, struct _WsbmBufferObject *buf)
+		     GLboolean flip_src, GLboolean bitmap,
+		     struct _WsbmBufferObject *buf)
 {
     struct via_meta_state *meta = &vmesa->meta;
     uint32_t log2Tmp;
@@ -143,31 +233,41 @@ via_meta_install_src(struct via_context *vmesa,
      * Ashift = 0
      */
 
-    meta->regCsat = (HC_SubA_HTXnTBLCsat << 24) |
-	HC_HTXnTBLCsat_MASK |
-	HC_HTXnTBLCa_TOPC |
-	HC_HTXnTBLCa_HTXnTBLRC |
-	HC_HTXnTBLCb_TOPC |
-	HC_HTXnTBLCb_Tex | HC_HTXnTBLCc_TOPC | HC_HTXnTBLCc_0;
-    meta->regCop = (HC_SubA_HTXnTBLCop << 24) |
-	HC_HTXnTBLCop_Add |
-	HC_HTXnTBLCbias_Cbias |
-	HC_HTXnTBLCbias_HTXnTBLRC |
-	HC_HTXnTBLCshift_No |
-	HC_HTXnTBLAop_Add |
-	HC_HTXnTBLAbias_HTXnTBLRAbias | HC_HTXnTBLAshift_No;
-    meta->regAsat = (HC_SubA_HTXnTBLAsat << 24) |
+    if (!bitmap) {
+	meta->regCsat = (HC_SubA_HTXnTBLCsat << 24) |
+	    HC_HTXnTBLCsat_MASK |
+	    HC_HTXnTBLCa_TOPC |
+	    HC_HTXnTBLCa_HTXnTBLRC |
+	    HC_HTXnTBLCb_TOPC |
+	    HC_HTXnTBLCb_Tex | HC_HTXnTBLCc_TOPC | HC_HTXnTBLCc_0;
+	meta->regCop = (HC_SubA_HTXnTBLCop << 24) |
+	    HC_HTXnTBLCop_Add |
+	    HC_HTXnTBLCbias_Cbias |
+	    HC_HTXnTBLCbias_HTXnTBLRC |
+	    HC_HTXnTBLCshift_No |
+	    HC_HTXnTBLAop_Add |
+	    HC_HTXnTBLAbias_HTXnTBLRAbias | HC_HTXnTBLAshift_No;
+	meta->regAsat = (HC_SubA_HTXnTBLAsat << 24) |
 	HC_HTXnTBLAsat_MASK |
-	HC_HTXnTBLAa_TOPA |
-	HC_HTXnTBLAa_HTXnTBLRA |
+	    HC_HTXnTBLAa_TOPA |
+	    HC_HTXnTBLAa_HTXnTBLRA |
 	HC_HTXnTBLAb_TOPA |
-	HC_HTXnTBLAb_Atex | HC_HTXnTBLAc_TOPA | HC_HTXnTBLAc_HTXnTBLRA;
-    meta->regCa = (HC_SubA_HTXnTBLRCa << 24) | (scale_rgba >> 8);
-    meta->regCbias = (HC_SubA_HTXnTBLRCbias << 24) | (bias_rgba >> 8);
-    meta->regAa = (HC_SubA_HTXnTBLRAa << 24) | ((scale_rgba & 0xFF) << 16);
-    meta->regAfog = (HC_SubA_HTXnTBLRFog << 24) | (bias_rgba & 0xFF);
-    meta->regL0Pit = (HC_SubA_HTXnL0Pit << 24) |
-	HC_HTXnEnPit_MASK | (stride & HC_HTXnLnPit_MASK);
+	    HC_HTXnTBLAb_Atex | HC_HTXnTBLAc_TOPA | HC_HTXnTBLAc_HTXnTBLRA;
+	meta->regCa = (HC_SubA_HTXnTBLRCa << 24) | (scale_rgba >> 8);
+	meta->regCbias = (HC_SubA_HTXnTBLRCbias << 24) | (bias_rgba >> 8);
+	meta->regAa = (HC_SubA_HTXnTBLRAa << 24) | ((scale_rgba & 0xFF) << 16);
+	meta->regAfog = (HC_SubA_HTXnTBLRFog << 24) | (bias_rgba & 0xFF);
+    } else
+	via_meta_bitmap_state(vmesa);
+
+    meta->bitMap = bitmap;
+
+    if (stride == 8)
+	meta->regL0Pit = (HC_SubA_HTXnL0Pit << 24) | (3 << 20);
+    else
+	meta->regL0Pit = (HC_SubA_HTXnL0Pit << 24) |
+	    HC_HTXnEnPit_MASK | (stride & HC_HTXnLnPit_MASK);
+
     meta->regL0Os = (HC_SubA_HTXnL0OS << 24) | 0;
     meta->regTB = (HC_SubA_HTXnTB << 24) |
 	HC_HTXnTB_NoTB |
@@ -436,19 +536,26 @@ via_meta_emit_src_clip(struct via_context *vmesa,
     float x1 = (float)dx + (s1 - sOrig) * meta->sToX + meta->xoff;
     float y0 = (float)dy + (t0 - tOrig) * meta->tToY;
     float y1 = (float)dy + (t1 - tOrig) * meta->tToY;
-    uint32_t fog = via_meta_compute_fog(vmesa->glCtx);
+    uint32_t fog = 0;
     uint32_t uiz = via_fui(z);
+    uint32_t uiw = via_fui(1.f);
     uint32_t *vb;
+    GLcontext * ctx = vmesa->glCtx;
+    int hasFog;
 
-    /*
-     * Backface is clockwise?
+    /**
+     * W is needed to get texturing right. Not sure why...
      */
 
     VIA_FINISH_PRIM(vmesa);
-
     vmesa->regCmdB &= ~(HC_HBFace_MASK | HC_HVPMSK_MASK);
     vmesa->regCmdB |= HC_HVPMSK_X | HC_HVPMSK_Y | HC_HVPMSK_Z |
-	HC_HVPMSK_Cs | HC_HVPMSK_S | HC_HVPMSK_T;
+	HC_HVPMSK_W | HC_HVPMSK_S | HC_HVPMSK_T;
+
+    if ((hasFog = ctx->Fog.Enabled)) {
+	fog = via_meta_compute_fog(ctx);
+	vmesa->regCmdB |= HC_HVPMSK_Cs;
+    }
 
     viaRasterPrimitive(vmesa->glCtx, GL_TRIANGLE_STRIP, GL_TRIANGLE_STRIP);
 
@@ -462,33 +569,41 @@ via_meta_emit_src_clip(struct via_context *vmesa,
 	t1 = meta->maxT - t1;
     }
 
-    vb = viaExtendPrimitive(vmesa, 6 * 4 * sizeof(uint32_t));
+    vb = viaExtendPrimitive(vmesa, (hasFog ? 7 : 6) * 4 * sizeof(uint32_t));
 
     *vb++ = via_fui(x0);
     *vb++ = via_fui(y1);
     *vb++ = uiz;
-    *vb++ = fog;
+    *vb++ = uiw;
+    if (hasFog)
+	*vb++ = fog;
     *vb++ = via_fui(s0);
     *vb++ = via_fui(t1);
 
     *vb++ = via_fui(x1);
     *vb++ = via_fui(y1);
     *vb++ = uiz;
-    *vb++ = fog;
+    *vb++ = uiw;
+    if (hasFog)
+	*vb++ = fog;
     *vb++ = via_fui(s1);
     *vb++ = via_fui(t1);
 
     *vb++ = via_fui(x0);
     *vb++ = via_fui(y0);
     *vb++ = uiz;
-    *vb++ = fog;
+    *vb++ = uiw;
+    if (hasFog)
+	*vb++ = fog;
     *vb++ = via_fui(s0);
     *vb++ = via_fui(t0);
 
     *vb++ = via_fui(x1);
     *vb++ = via_fui(y0);
     *vb++ = uiz;
-    *vb++ = fog;
+    *vb++ = uiw;
+    if (hasFog)
+	*vb++ = fog;
     *vb++ = via_fui(s1);
     *vb++ = via_fui(t0);
 

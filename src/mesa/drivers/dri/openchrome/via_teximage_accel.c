@@ -80,7 +80,8 @@ via_generate_one_mipmap(GLcontext * ctx,
 
     via_meta_install_src(vmesa, 0xFFFFFFFF, 0x00000000, src_fmt,
 			 xFactor, yFactor, srcImage->Width,
-			 srcImage->Height, src_stride, 0, GL_FALSE, src->buf);
+			 srcImage->Height, src_stride, 0, GL_FALSE,
+			 GL_FALSE,src->buf);
 
     clip.x1 = 0;
     clip.x2 = dstImage->Width;
@@ -161,7 +162,7 @@ via_try_3d_upload(GLcontext * ctx,
     via_meta_install_src(vmesa, scale_rgba, bias_rgba, src_fmt,
 			 1.0f, 1.0f, width, height,
 			 src_stride, src_offset,
-			 GL_FALSE, via_bufferobj_buffer(src));
+			 GL_FALSE, GL_FALSE, via_bufferobj_buffer(src));
 
     clip.x1 = 0;
     clip.x2 = width;
@@ -241,7 +242,8 @@ via_try_3d_download(GLcontext * ctx,
 
     via_meta_install_src(vmesa, scale_rgba, bias_rgba, src_fmt,
 			 1.0f, 1.0f, width, height,
-			 src_stride, 0, GL_FALSE, viaImage->buf);
+			 src_stride, 0, GL_FALSE, GL_FALSE,
+			 viaImage->buf);
 
     dst_xoff = (dst_offset & 0x0f) / cpp;
     dst_offset &= ~0x0f;
@@ -334,7 +336,8 @@ via_try_3d_copy(GLcontext * ctx,
 			 1.0f, 1.0f,
 			 readableWidth, vfb->Base.Height,
 			 read_buf->pitch, src_offset,
-			 (vfb->Base.Name == 0), read_buf->buf);
+			 (vfb->Base.Name == 0),
+			 GL_FALSE, read_buf->buf);
 
     clip.x1 = 0;
     clip.x2 = width;
