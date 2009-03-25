@@ -992,23 +992,28 @@ trace_context_destroy(struct pipe_context *_pipe)
 
 
 struct pipe_context *
-trace_context_create(struct pipe_screen *screen, 
+trace_context_create(struct pipe_screen *_screen,
                      struct pipe_context *pipe)
 {
+   struct trace_screen *tr_scr;
    struct trace_context *tr_ctx;
-   
+   struct pipe_screen *screen;
+
    if(!pipe)
       goto error1;
    
    if(!trace_dump_enabled())
       goto error1;
    
+   tr_scr = trace_screen(_screen);
+   screen = tr_scr->screen;
+
    tr_ctx = CALLOC_STRUCT(trace_context);
    if(!tr_ctx)
       goto error1;
 
-   tr_ctx->base.winsys = screen->winsys;
-   tr_ctx->base.screen = screen;
+   tr_ctx->base.winsys = _screen->winsys;
+   tr_ctx->base.screen = _screen;
    tr_ctx->base.destroy = trace_context_destroy;
    tr_ctx->base.set_edgeflags = trace_context_set_edgeflags;
    tr_ctx->base.draw_arrays = trace_context_draw_arrays;
@@ -1055,9 +1060,7 @@ trace_context_create(struct pipe_screen *screen,
    tr_ctx->pipe = pipe;
    
    trace_dump_call_begin("", "pipe_context_create");
-   trace_dump_arg_begin("screen");
-   trace_dump_ptr(pipe->screen);
-   trace_dump_arg_end();
+   trace_dump_arg(ptr, screen);
    trace_dump_ret(ptr, pipe);
    trace_dump_call_end();
 
