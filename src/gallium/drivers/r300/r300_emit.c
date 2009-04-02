@@ -325,9 +325,50 @@ void r300_emit_vertex_format_state(struct r300_context* r300)
     END_CS;
 }
 
+void r300_emit_vertex_shader(struct r300_context* r300,
+                             struct r300_vertex_shader* vs)
+{
+    CS_LOCALS(r300);
+    struct r300_screen* r300screen = r300_screen(r300->context.screen);
+    int i;
+
+    if (!r300screen->caps->has_tcl) {
+        debug_printf("r300: Implementation error: emit_vertex_shader called,"
+                " but has_tcl is FALSE!\n");
+        return;
+    }
+
+    BEGIN_CS(13 + (vs->instruction_count * 4));
+    OUT_CS_REG(R300_VAP_PVS_STATE_FLUSH_REG, 0x0);
+
+    OUT_CS_REG(R300_VAP_PVS_CODE_CNTL_0, R300_PVS_FIRST_INST(0) |
+            R300_PVS_LAST_INST(vs->instruction_count - 1));
+    OUT_CS_REG(R300_VAP_PVS_CODE_CNTL_1, vs->instruction_count - 1);
+
+    /* XXX */
+    OUT_CS_REG(R300_VAP_PVS_CONST_CNTL, 0x0);
+
+    OUT_CS_REG(R300_VAP_PVS_VECTOR_INDX_REG, 0);
+    OUT_CS_ONE_REG(R300_VAP_PVS_UPLOAD_DATA, vs->instruction_count * 4);
+    for (i = 0; i < vs->instruction_count; i++) {
+        OUT_CS(vs->instructions[i].inst0);
+        OUT_CS(vs->instructions[i].inst1);
+        OUT_CS(vs->instructions[i].inst2);
+        OUT_CS(vs->instructions[i].inst3);
+    }
+
+    OUT_CS_REG(R300_VAP_CNTL, R300_PVS_NUM_SLOTS(10) |
+            R300_PVS_NUM_CNTLRS(5) |
+            R300_PVS_NUM_FPUS(r300screen->caps->num_vert_fpus) |
+            R300_PVS_VF_MAX_VTX_NUM(12));
+    END_CS;
+
+}
+
 void r300_emit_viewport_state(struct r300_context* r300,
                               struct r300_viewport_state* viewport)
 {
+    /* XXX has_tcl */
     return;
     CS_LOCALS(r300);
 

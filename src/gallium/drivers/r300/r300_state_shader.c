@@ -582,6 +582,11 @@ void r300_translate_fragment_shader(struct r300_context* r300,
     /* Setup starting offset for immediates. */
     assembler->imm_offset = consts->user_count;
 
+    /* Make sure we start at the beginning of the shader. */
+    if (is_r500) {
+        ((struct r500_fragment_shader*)fs)->instruction_count = 0;
+    }
+
     tgsi_parse_init(&parser, fs->state.tokens);
 
     while (!tgsi_parse_end_of_tokens(&parser)) {
@@ -618,15 +623,14 @@ void r300_translate_fragment_shader(struct r300_context* r300,
                 }
                 break;
         }
-
     }
 
-    debug_printf("r300: %d texs and %d colors, first free reg is %d\n",
+    debug_printf("r300: fs: %d texs and %d colors, first free reg is %d\n",
             assembler->tex_count, assembler->color_count,
             assembler->tex_count + assembler->color_count);
 
     consts->count = consts->user_count + assembler->imm_count;
-    debug_printf("r300: %d total constants, "
+    debug_printf("r300: fs: %d total constants, "
             "%d from user and %d from immediates\n", consts->count,
             consts->user_count, assembler->imm_count);
     r300_fs_finalize(fs, assembler);

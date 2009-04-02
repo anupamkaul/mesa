@@ -34,18 +34,19 @@
 
 
 %nodefaultctor pipe_texture;
-%nodefaultctor pipe_surface;
+%nodefaultctor st_surface;
 %nodefaultctor pipe_buffer;
 
 %nodefaultdtor pipe_texture;
-%nodefaultdtor pipe_surface;
+%nodefaultdtor st_surface;
 %nodefaultdtor pipe_buffer;
 
 %ignore pipe_texture::screen;
 
-%ignore pipe_surface::winsys;
-%immutable pipe_surface::texture;
-%immutable pipe_surface::buffer;
+%immutable st_surface::texture;
+%immutable st_surface::face;
+%immutable st_surface::level;
+%immutable st_surface::zslice;
 
 %newobject pipe_texture::get_surface;
 
@@ -78,28 +79,75 @@
    }
    
    /** Get a surface which is a "view" into a texture */
-   struct pipe_surface *
-   get_surface(unsigned face=0, unsigned level=0, unsigned zslice=0, unsigned usage=0 )
+   struct st_surface *
+   get_surface(unsigned face=0, unsigned level=0, unsigned zslice=0)
    {
-      struct pipe_screen *screen = $self->screen;
-      return screen->get_tex_surface(screen, $self, face, level, zslice, usage);
+      struct st_surface *surface;
+      
+      if(face >= ($self->target == PIPE_TEXTURE_CUBE ? 6U : 1U))
+         SWIG_exception(SWIG_ValueError, "face out of bounds");
+      if(level > $self->last_level)
+         SWIG_exception(SWIG_ValueError, "level out of bounds");
+      if(zslice >= $self->depth[level])
+         SWIG_exception(SWIG_ValueError, "zslice out of bounds");
+      
+      surface = CALLOC_STRUCT(st_surface);
+      if(!surface)
+         return NULL;
+      
+      pipe_texture_reference(&surface->texture, $self);
+      surface->face = face;
+      surface->level = level;
+      surface->zslice = zslice;
+      
+      return surface;
+
+   fail:
+      return NULL;
    }
    
 };
 
-
-%extend pipe_surface {
+struct st_surface
+{
+   %immutable;
    
-   ~pipe_surface() {
-      struct pipe_surface *ptr = $self;
-      pipe_surface_reference(&ptr, NULL);
+   struct pipe_texture *texture;
+   unsigned face;
+   unsigned level;
+   unsigned zslice;
+   
+};
+
+%extend st_surface {
+   
+   %immutable;
+   
+   unsigned format;
+   unsigned width;
+   unsigned height;
+   unsigned nblocksx;
+   unsigned nblocksy;
+   
+   ~st_surface() {
+      pipe_texture_reference(&$self->texture, NULL);
+      FREE($self);
    }
    
-   void
-   get_tile_raw(unsigned x, unsigned y, unsigned w, unsigned h, char *raw, unsigned stride)
+   %cstring_output_allocate_size(char **STRING, int *LENGTH, free(*$1));
+   void get_tile_raw(unsigned x, unsigned y, unsigned w, unsigned h, char **STRING, int *LENGTH)
    {
-      struct pipe_screen *screen = $self->texture->screen;
+      struct pipe_texture *texture = $self->texture;
+      struct pipe_screen *screen = texture->screen;
       struct pipe_transfer *transfer;
+      unsigned stride;
+
+      stride = pf_get_nblocksx(&texture->block, w) * texture->block.size;
+      *LENGTH = pf_get_nblocksy(&texture->block, h) * stride;
+      *STRING = (char *) malloc(*LENGTH);
+      if(!*STRING)
+         return;
+
       transfer = screen->get_tex_transfer(screen,
                                           $self->texture,
                                           $self->face,
@@ -108,16 +156,24 @@
                                           PIPE_TRANSFER_READ,
                                           x, y, w, h);
       if(transfer) {
-         pipe_get_tile_raw(transfer, 0, 0, w, h, raw, stride);
+         pipe_get_tile_raw(transfer, 0, 0, w, h, *STRING, stride);
          screen->tex_transfer_destroy(transfer);
       }
    }
 
-   void
-   put_tile_raw(unsigned x, unsigned y, unsigned w, unsigned h, const char *raw, unsigned stride)
+   %cstring_input_binary(const char *STRING, unsigned LENGTH);
+   void put_tile_raw(unsigned x, unsigned y, unsigned w, unsigned h, const char *STRING, unsigned LENGTH, unsigned stride = 0)
    {
-      struct pipe_screen *screen = $self->texture->screen;
+      struct pipe_texture *texture = $self->texture;
+      struct pipe_screen *screen = texture->screen;
       struct pipe_transfer *transfer;
+     
+      if(stride == 0)
+         stride = pf_get_nblocksx(&texture->block, w) * texture->block.size;
+      
+      if(LENGTH < pf_get_nblocksy(&texture->block, h) * stride)
+         SWIG_exception(SWIG_ValueError, "offset must be smaller than buffer size");
+         
       transfer = screen->get_tex_transfer(screen,
                                           $self->texture,
                                           $self->face,
@@ -125,10 +181,14 @@
                                           $self->zslice,
                                           PIPE_TRANSFER_WRITE,
                                           x, y, w, h);
-      if(transfer) {
-         pipe_put_tile_raw(transfer, 0, 0, w, h, raw, stride);
-         screen->tex_transfer_destroy(transfer);
-      }
+      if(!transfer)
+         SWIG_exception(SWIG_MemoryError, "couldn't initiate transfer");
+         
+      pipe_put_tile_raw(transfer, 0, 0, w, h, STRING, stride);
+      screen->tex_transfer_destroy(transfer);
+
+   fail:
+      return;
    }
 
    void
@@ -188,31 +248,28 @@
       if(!*STRING)
          return;
       
-      rgba = malloc(w*4*sizeof(float));
+      rgba = malloc(h*w*4*sizeof(float));
       if(!rgba)
          return;
       
       rgba8 = (unsigned char *) *STRING;
 
-      for(j = 0; j < h; ++j) {
-         transfer = screen->get_tex_transfer(screen,
-                                             $self->texture,
-                                             $self->face,
-                                             $self->level,
-                                             $self->zslice,
-                                             PIPE_TRANSFER_READ,
-                                             x, y + j,
-                                             w,
-                                             1);
-         if(transfer) {
-            pipe_get_tile_rgba(transfer,
-                               0, 0, w, 1,
-                               rgba);
+      transfer = screen->get_tex_transfer(screen,
+                                          $self->texture,
+                                          $self->face,
+                                          $self->level,
+                                          $self->zslice,
+                                          PIPE_TRANSFER_READ,
+                                          x, y,
+                                          w, h);
+      if(transfer) {
+         pipe_get_tile_rgba(transfer, 0, 0, w, h, rgba);
+         for(j = 0; j < h; ++j) {
             for(i = 0; i < w; ++i)
                for(k = 0; k <4; ++k)
-                  rgba8[j*w*4 + i*4 + k] = float_to_ubyte(rgba[i*4 + k]);
-            screen->tex_transfer_destroy(transfer);
+                  rgba8[j*w*4 + i*4 + k] = float_to_ubyte(rgba[j*w*4 + i*4 + k]);
          }
+         screen->tex_transfer_destroy(transfer);
       }
       
       free(rgba);
@@ -278,7 +335,7 @@
                                           $self->face,
                                           $self->level,
                                           $self->zslice,
-                                          PIPE_TRANSFER_WRITE,
+                                          PIPE_TRANSFER_READ,
                                           x, y, w, h);
       if(!transfer) {
          FREE(rgba2);
@@ -307,6 +364,38 @@
    }
 
 };
+
+%{
+   static enum pipe_format
+   st_surface_format_get(struct st_surface *surface)
+   {
+      return surface->texture->format;
+   }
+   
+   static unsigned
+   st_surface_width_get(struct st_surface *surface)
+   {
+      return surface->texture->width[surface->level];
+   }
+   
+   static unsigned
+   st_surface_height_get(struct st_surface *surface)
+   {
+      return surface->texture->height[surface->level];
+   }
+
+   static unsigned
+   st_surface_nblocksx_get(struct st_surface *surface)
+   {
+      return surface->texture->nblocksx[surface->level];
+   }
+   
+   static unsigned
+   st_surface_nblocksy_get(struct st_surface *surface)
+   {
+      return surface->texture->nblocksy[surface->level];
+   }
+%}
 
 /* Avoid naming conflict with p_inlines.h's pipe_buffer_read/write */ 
 %rename(read) pipe_buffer_read_; 

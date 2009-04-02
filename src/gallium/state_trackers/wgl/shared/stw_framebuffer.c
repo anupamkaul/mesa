@@ -44,16 +44,6 @@ framebuffer_resize(
    GLuint width,
    GLuint height )
 {
-   if (fb->hbmDIB == NULL || fb->stfb->Base.Width != width || fb->stfb->Base.Height != height) {
-      if (fb->hbmDIB)
-         DeleteObject( fb->hbmDIB );
-
-      fb->hbmDIB = CreateCompatibleBitmap(
-         fb->hDC,
-         width,
-         height );
-   }
-
    st_resize_framebuffer( fb->stfb, width, height );
 }
 
@@ -235,11 +225,14 @@ stw_swap_buffers(
     */
    st_notify_swapbuffers( fb->stfb );
 
-   st_get_framebuffer_surface( fb->stfb, ST_SURFACE_BACK_LEFT, &surf );
-
-   stw_dev->stw_winsys->flush_frontbuffer(stw_dev->screen,
-                                          surf,
-                                          hdc );
+   if(st_get_framebuffer_surface( fb->stfb, ST_SURFACE_BACK_LEFT, &surf )) {
+      stw_dev->stw_winsys->flush_frontbuffer(stw_dev->screen,
+                                             surf,
+                                             hdc );
+   }
+   else {
+       /* FIXME: this shouldn't happen, but does on glean */
+   }
 
    return TRUE;
 }

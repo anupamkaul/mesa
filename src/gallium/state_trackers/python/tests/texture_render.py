@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ##########################################################################
 # 
-# Copyright 2008 Tungsten Graphics, Inc., Cedar Park, Texas.
+# Copyright 2009 VMware, Inc.
 # All Rights Reserved.
 # 
 # Permission is hereby granted, free of charge, to any person obtaining a
@@ -19,7 +19,7 @@
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 # OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 # MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
-# IN NO EVENT SHALL TUNGSTEN GRAPHICS AND/OR ITS SUPPLIERS BE LIABLE FOR
+# IN NO EVENT SHALL VMWARE AND/OR ITS SUPPLIERS BE LIABLE FOR
 # ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
@@ -27,7 +27,6 @@
 ##########################################################################
 
 
-import sys
 from gallium import *
 from base import *
 
@@ -41,91 +40,20 @@ def lods(*dims):
     return lods
 
 
-def minify(dims, level = 1):
-    return [max(dim>>level, 1) for dim in dims]
-
-
-def tex_coords(texture, face, level, zslice):
-    st = [ 
-        [0.0, 0.0], 
-        [1.0, 0.0], 
-        [1.0, 1.0], 
-        [0.0, 1.0],
-    ] 
-    
-    if texture.target == PIPE_TEXTURE_2D:
-        return [[s, t, 0.0] for s, t in st]
-    elif texture.target == PIPE_TEXTURE_3D:
-        depth = texture.get_depth(level)
-        if depth > 1:
-            r = float(zslice)/float(depth - 1)
-        else:
-            r = 0.0
-        return [[s, t, r] for s, t in st]
-    elif texture.target == PIPE_TEXTURE_CUBE:
-        result = []
-        for s, t in st:
-            # See http://developer.nvidia.com/object/cube_map_ogl_tutorial.html
-            sc = 2.0*s - 1.0
-            tc = 2.0*t - 1.0
-            if face == PIPE_TEX_FACE_POS_X:
-                rx = 1.0
-                ry = -tc
-                rz = -sc
-            if face == PIPE_TEX_FACE_NEG_X:
-                rx = -1.0
-                ry = -tc
-                rz = sc
-            if face == PIPE_TEX_FACE_POS_Y:
-                rx = sc
-                ry = 1.0
-                rz = tc
-            if face == PIPE_TEX_FACE_NEG_Y:
-                rx = sc
-                ry = -1.0
-                rz = -tc
-            if face == PIPE_TEX_FACE_POS_Z:
-                rx = sc
-                ry = -tc
-                rz = 1.0
-            if face == PIPE_TEX_FACE_NEG_Z:
-                rx = -sc
-                ry = -tc
-                rz = -1.0
-            result.append([rx, ry, rz])
-        return result
-
-def is_pot(n):
-    return n & (n - 1) == 0
-      
-                
 class TextureTest(TestCase):
     
-    def description(self):
-        target = {
-            PIPE_TEXTURE_1D: "1d", 
-            PIPE_TEXTURE_2D: "2d", 
-            PIPE_TEXTURE_3D: "3d", 
-            PIPE_TEXTURE_CUBE: "cube",
-        }[self.target]
-        format = formats[self.format]
-        if self.target == PIPE_TEXTURE_CUBE:
-            face = {
-                PIPE_TEX_FACE_POS_X: "+x",
-                PIPE_TEX_FACE_NEG_X: "-x",
-                PIPE_TEX_FACE_POS_Y: "+y",
-                PIPE_TEX_FACE_NEG_Y: "-y", 
-                PIPE_TEX_FACE_POS_Z: "+z", 
-                PIPE_TEX_FACE_NEG_Z: "-z",
-            }[self.face]
-        else:
-            face = ""
-        return "%s %s %ux%ux%u last_level=%u face=%s level=%u zslice=%u" % (
-            target, format, 
-            self.width, self.height, self.depth, self.last_level, 
-            face, self.level, self.zslice, 
-        )
-    
+    tags = (
+        'target',
+        'format',
+        'width',
+        'height',
+        'depth',
+        'last_level',
+        'face',
+        'level',
+        'zslice',
+    )
+
     def test(self):
         dev = self.dev
         
@@ -139,15 +67,49 @@ class TextureTest(TestCase):
         level = self.level
         zslice = self.zslice
         
-        tex_usage = PIPE_TEXTURE_USAGE_SAMPLER
-        geom_flags = 0
-        if width != height:
-            geom_flags |= PIPE_TEXTURE_GEOM_NON_SQUARE
-        if not is_pot(width) or not is_pot(height) or not is_pot(depth):
-            geom_flags |= PIPE_TEXTURE_GEOM_NON_POWER_OF_TWO
-        
-        if not dev.is_format_supported(format, target, tex_usage, geom_flags):
+        #  textures
+        dst_texture = dev.texture_create(
+            target = target,
+            format = format, 
+            width = width, 
+            height = height,
+            depth = depth, 
+            last_level = last_level,
+            tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET,
+        )
+        if dst_texture is None:
             raise TestSkip
+
+        dst_surface = dst_texture.get_surface(face = face, level = level, zslice = zslice)
+        
+        ref_texture = dev.texture_create(
+            target = target,
+            format = format, 
+            width = dst_surface.width, 
+            height = dst_surface.height,
+            depth = 1, 
+            last_level = 0,
+            tex_usage = PIPE_TEXTURE_USAGE_SAMPLER,
+        )
+
+        ref_surface = ref_texture.get_surface()
+        
+        src_texture = dev.texture_create(
+            target = target,
+            format = PIPE_FORMAT_A8R8G8B8_UNORM, 
+            width = dst_surface.width, 
+            height = dst_surface.height,
+            depth = 1, 
+            last_level = 0,
+            tex_usage = PIPE_TEXTURE_USAGE_SAMPLER,
+        )
+
+        src_surface = src_texture.get_surface()
+        
+        expected_rgba = FloatArray(height*width*4) 
+        ref_surface.sample_rgba(expected_rgba)
+
+        src_surface.put_tile_rgba(0, 0, src_surface.width, src_surface.height, expected_rgba)
         
         ctx = self.dev.context_create()
     
@@ -183,27 +145,7 @@ class TextureTest(TestCase):
         sampler.min_lod = 0
         sampler.max_lod = PIPE_MAX_TEXTURE_LEVELS - 1
         ctx.set_sampler(0, sampler)
-    
-        #  texture 
-        texture = dev.texture_create(
-            target = target,
-            format = format, 
-            width = width, 
-            height = height,
-            depth = depth, 
-            last_level = last_level,
-            tex_usage = tex_usage,
-        )
-        
-        expected_rgba = FloatArray(height*width*4) 
-        texture.get_surface(
-            usage = PIPE_BUFFER_USAGE_CPU_READ|PIPE_BUFFER_USAGE_CPU_WRITE,
-            face = face,
-            level = level,
-            zslice = zslice,
-        ).sample_rgba(expected_rgba)
-        
-        ctx.set_sampler_texture(0, texture)
+        ctx.set_sampler_texture(0, src_texture)
 
         #  framebuffer 
         cbuf_tex = dev.texture_create(
@@ -213,14 +155,13 @@ class TextureTest(TestCase):
             tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET,
         )
 
-        cbuf = cbuf_tex.get_surface(usage = PIPE_BUFFER_USAGE_GPU_WRITE|PIPE_BUFFER_USAGE_GPU_READ)
         fb = Framebuffer()
-        fb.width = width
-        fb.height = height
+        fb.width = dst_surface.width
+        fb.height = dst_surface.height
         fb.nr_cbufs = 1
-        fb.set_cbuf(0, cbuf)
+        fb.set_cbuf(0, dst_surface)
         ctx.set_framebuffer(fb)
-        ctx.surface_clear(cbuf, 0x00000000)
+        ctx.surface_clear(dst_surface, 0x00000000)
         del fb
     
         # vertex shader
@@ -238,20 +179,14 @@ class TextureTest(TestCase):
         ctx.set_vertex_shader(vs)
     
         # fragment shader
-        op = {
-            PIPE_TEXTURE_1D: "1D", 
-            PIPE_TEXTURE_2D: "2D", 
-            PIPE_TEXTURE_3D: "3D", 
-            PIPE_TEXTURE_CUBE: "CUBE",
-        }[target]
         fs = Shader('''
             FRAG1.1
             DCL IN[0], GENERIC[0], LINEAR
             DCL OUT[0], COLOR, CONSTANT
             DCL SAMP[0], CONSTANT
-            0:TEX OUT[0], IN[0], SAMP[0], %s
+            0:TEX OUT[0], IN[0], SAMP[0], 2D
             1:END
-        ''' % op)
+        ''')
         #fs.dump()
         ctx.set_fragment_shader(fs)
 
@@ -261,7 +196,8 @@ class TextureTest(TestCase):
     
         x = 0
         y = 0
-        w, h = minify((width, height), level)
+        w = dst_surface.width
+        h = dst_surface.height
     
         pos = [
             [x, y],
@@ -270,7 +206,12 @@ class TextureTest(TestCase):
             [x, y+h],
         ]
     
-        tex = tex_coords(texture, face, level, zslice)
+        tex = [
+            [0.0, 0.0], 
+            [1.0, 0.0], 
+            [1.0, 1.0], 
+            [0.0, 1.0],
+        ]
     
         for i in range(0, 4):
             j = 8*i
@@ -280,7 +221,7 @@ class TextureTest(TestCase):
             verts[j + 3] = 1.0 # w
             verts[j + 4] = tex[i][0] # s
             verts[j + 5] = tex[i][1] # r
-            verts[j + 6] = tex[i][2] # q
+            verts[j + 6] = 0.0
             verts[j + 7] = 1.0
     
         ctx.draw_vertices(PIPE_PRIM_TRIANGLE_FAN,
@@ -290,26 +231,7 @@ class TextureTest(TestCase):
     
         ctx.flush()
     
-        cbuf = cbuf_tex.get_surface(usage = PIPE_BUFFER_USAGE_CPU_READ)
-        
-        total = h*w
-        different = cbuf.compare_tile_rgba(x, y, w, h, expected_rgba, tol=4.0/256)
-        if different:
-            sys.stderr.write("%u out of %u pixels differ\n" % (different, total))
-
-        if float(total - different)/float(total) < 0.85:
-        
-            if 0:
-                rgba = FloatArray(h*w*4)
-                cbuf.get_tile_rgba(x, y, w, h, rgba)
-                show_image(w, h, Result=rgba, Expected=expected_rgba)
-                save_image(w, h, rgba, "result.png")
-                save_image(w, h, expected_rgba, "expected.png")
-            #sys.exit(0)
-            
-            raise TestFailure
-
-        del ctx
+        self.assert_rgba(dst_surface, x, y, w, h, expected_rgba, 4.0/256, 0.85)
         
 
 
@@ -317,43 +239,56 @@ def main():
     dev = Device()
     suite = TestSuite()
     
-    targets = []
-    targets += [PIPE_TEXTURE_2D]
-    targets += [PIPE_TEXTURE_CUBE]
-    targets += [PIPE_TEXTURE_3D]
+    targets = [
+        PIPE_TEXTURE_2D,
+        PIPE_TEXTURE_CUBE,
+        #PIPE_TEXTURE_3D,
+    ]
     
-    formats = []
-    formats += [PIPE_FORMAT_A8R8G8B8_UNORM]
-    formats += [PIPE_FORMAT_R5G6B5_UNORM]
-    formats += [PIPE_FORMAT_L8_UNORM]
-    formats += [PIPE_FORMAT_YCBCR]
-    formats += [PIPE_FORMAT_DXT1_RGB]
+    formats = [
+        PIPE_FORMAT_A8R8G8B8_UNORM,
+        PIPE_FORMAT_X8R8G8B8_UNORM,
+        #PIPE_FORMAT_A8R8G8B8_SRGB,
+        PIPE_FORMAT_R5G6B5_UNORM,
+        PIPE_FORMAT_A1R5G5B5_UNORM,
+        PIPE_FORMAT_A4R4G4B4_UNORM,
+        #PIPE_FORMAT_Z32_UNORM,
+        #PIPE_FORMAT_Z24S8_UNORM,
+        #PIPE_FORMAT_Z24X8_UNORM,
+        #PIPE_FORMAT_Z16_UNORM,
+        #PIPE_FORMAT_S8_UNORM,
+        PIPE_FORMAT_A8_UNORM,
+        PIPE_FORMAT_L8_UNORM,
+        #PIPE_FORMAT_DXT1_RGB,
+        #PIPE_FORMAT_DXT1_RGBA,
+        #PIPE_FORMAT_DXT3_RGBA,
+        #PIPE_FORMAT_DXT5_RGBA,
+    ]
     
     sizes = [64, 32, 16, 8, 4, 2, 1]
     #sizes = [1020, 508, 252, 62, 30, 14, 6, 3]
     #sizes = [64]
     #sizes = [63]
     
+    faces = [
+        PIPE_TEX_FACE_POS_X,
+        PIPE_TEX_FACE_NEG_X,
+        PIPE_TEX_FACE_POS_Y,
+        PIPE_TEX_FACE_NEG_Y, 
+        PIPE_TEX_FACE_POS_Z, 
+        PIPE_TEX_FACE_NEG_Z,
+    ]
+
     for target in targets:
         for format in formats:
             for size in sizes:
-                if target == PIPE_TEXTURE_CUBE:
-                    faces = [
-                        PIPE_TEX_FACE_POS_X,
-                        PIPE_TEX_FACE_NEG_X,
-                        PIPE_TEX_FACE_POS_Y,
-                        PIPE_TEX_FACE_NEG_Y, 
-                        PIPE_TEX_FACE_POS_Z, 
-                        PIPE_TEX_FACE_NEG_Z,
-                    ]
-                    #faces = [PIPE_TEX_FACE_NEG_X]
-                else:
-                    faces = [0]
                 if target == PIPE_TEXTURE_3D:
                     depth = size
                 else:
                     depth = 1
                 for face in faces:
+                    if target != PIPE_TEXTURE_CUBE and face:
+                        continue
                     levels = lods(size)
                     for last_level in range(levels):
                         for level in range(0, last_level + 1):

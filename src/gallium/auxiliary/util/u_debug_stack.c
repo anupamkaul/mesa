@@ -33,6 +33,7 @@
  */
 
 #include "u_debug.h"
+#include "u_debug_symbol.h"
 #include "u_debug_stack.h"
 
 
@@ -91,7 +92,7 @@ debug_backtrace_dump(const struct debug_stack_frame *backtrace,
    for(i = 0; i < nr_frames; ++i) {
       if(!backtrace[i].function)
          break;
-      debug_printf("\t%p\n", backtrace[i].function);
+      debug_symbol_print(backtrace[i].function);
    }
 }
 

@@ -88,6 +88,7 @@ static void r300_surface_fill(struct pipe_context* pipe,
     float r, g, b, a, depth;
     unsigned pixpitch = tex->stride / tex->tex.block.size;
 
+    a = (float)((color >> 24) & 0xff) / 255.0f;
     r = (float)((color >> 16) & 0xff) / 255.0f;
     g = (float)((color >>  8) & 0xff) / 255.0f;
     b = (float)((color >>  0) & 0xff) / 255.0f;
@@ -96,13 +97,25 @@ static void r300_surface_fill(struct pipe_context* pipe,
         dest, x, y, w, h, pixpitch, color);
 
     /* Fallback? */
-    if (tex->tex.format != PIPE_FORMAT_A8R8G8B8_UNORM) {
+    if (FALSE) {
         debug_printf("r300: Falling back on surface clear...");
         util_surface_fill(pipe, dest, x, y, w, h, color);
         return;
     }
 
     r300_surface_setup(r300, dest, x, y, w, h);
+
+    /* Vertex shader setup */
+    if (caps->has_tcl) {
+        r300_emit_vertex_shader(r300, &r300_passthrough_vertex_shader);
+    } else {
+        BEGIN_CS(2);
+        OUT_CS_REG(R300_VAP_CNTL, R300_PVS_NUM_SLOTS(5) |
+                R300_PVS_NUM_CNTLRS(5) |
+                R300_PVS_NUM_FPUS(caps->num_vert_fpus) |
+                R300_PVS_VF_MAX_VTX_NUM(12));
+        END_CS;
+    }
 
     /* Fragment shader setup */
     if (caps->is_r500) {
@@ -158,15 +171,16 @@ static void r300_surface_fill(struct pipe_context* pipe,
     OUT_CS_PKT3(R200_3D_DRAW_IMMD_2, 8);
     OUT_CS(R300_PRIM_TYPE_POINT | R300_PRIM_WALK_RING |
             (1 << R300_PRIM_NUM_VERTICES_SHIFT));
+    /* Position */
     OUT_CS_32F(w / 2.0);
     OUT_CS_32F(h / 2.0);
-    /* XXX this should be the depth value to clear to */
     OUT_CS_32F(1.0);
     OUT_CS_32F(1.0);
+    /* Color */
     OUT_CS_32F(r);
     OUT_CS_32F(g);
     OUT_CS_32F(b);
-    OUT_CS_32F(1.0);
+    OUT_CS_32F(a);
 
     /* XXX figure out why this is 0xA and not 0x2 */
     OUT_CS_REG(R300_RB3D_DSTCACHE_CTLSTAT, 0xA);
@@ -208,6 +222,18 @@ static void r300_surface_copy(struct pipe_context* pipe,
     r300_emit_sampler(r300, &r300_sampler_copy_state, 0);
     r300_emit_texture(r300, srctex, 0);
     r300_flush_textures(r300);
+
+    /* Vertex shader setup */
+    if (caps->has_tcl) {
+        r300_emit_vertex_shader(r300, &r300_texture_vertex_shader);
+    } else {
+        BEGIN_CS(2);
+        OUT_CS_REG(R300_VAP_CNTL, R300_PVS_NUM_SLOTS(5) |
+                R300_PVS_NUM_CNTLRS(5) |
+                R300_PVS_NUM_FPUS(caps->num_vert_fpus) |
+                R300_PVS_VF_MAX_VTX_NUM(12));
+        END_CS;
+    }
 
     /* Fragment shader setup */
     if (caps->is_r500) {
