@@ -356,6 +356,7 @@ struct via_context
     GLuint depthSyncFlags;
     GLboolean spanError;
 
+    GLuint bindCount;
 };
 
 #define VIA_CONTEXT(ctx)   ((struct via_context *)(ctx->DriverCtx))

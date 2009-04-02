@@ -685,6 +685,21 @@ viaValidateDrawablesLocked(struct via_context *vmesa)
 GLboolean
 viaUnbindContext(__DRIcontextPrivate * driContextPriv)
 {
+    if (driContextPriv) {
+	struct via_context *vmesa = 
+	    (struct via_context *) driContextPriv->driverPrivate;
+
+	if (--vmesa->bindCount == 0) {
+	    GLcontext *ctx = vmesa->glCtx;
+	    GET_CURRENT_CONTEXT(curctx);
+	    
+	    if (ctx == curctx) {
+		VIA_FLUSH_DMA(vmesa);
+		_mesa_make_current(NULL, NULL, NULL);
+	    }
+	}
+    }
+	    
     return GL_TRUE;
 }
 
@@ -710,10 +725,11 @@ viaMakeCurrent(__DRIcontextPrivate * driContextPriv,
 
 	GET_CURRENT_CONTEXT(oldctx);
 
-	if (ctx != oldctx && oldctx != NULL) {
+	if (oldctx && oldctx != ctx) {
 	    VIA_FLUSH_DMA(VIA_CONTEXT(oldctx));
 	}
 
+	++vmesa->bindCount;
 	drawBuffer = (GLframebuffer *) driDrawPriv->driverPrivate;
 	readBuffer = (GLframebuffer *) driReadPriv->driverPrivate;
 	assert(drawBuffer->Name == 0);
