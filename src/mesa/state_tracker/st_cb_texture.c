@@ -465,18 +465,18 @@ st_TexImage(GLcontext * ctx,
     * bmBufferData with NULL data to free the old block and avoid
     * waiting on any outstanding fences.
     */
-   if (stObj->pt &&
-       (stObj->teximage_realloc ||
-        (/*stObj->pt->first_level == level &&*/
-         stObj->pt->last_level == level &&
-         stObj->pt->target != PIPE_TEXTURE_CUBE &&
-         !st_texture_match_image(stObj->pt, &stImage->base,
-                                 stImage->face, stImage->level)))) {
-
-      DBG("release it\n");
-      pipe_texture_reference(&stObj->pt, NULL);
-      assert(!stObj->pt);
-      stObj->teximage_realloc = FALSE;
+   if (stObj->pt) {
+      if (stObj->teximage_realloc ||
+          level > (GLint) stObj->pt->last_level ||
+          (stObj->pt->last_level == level &&
+           stObj->pt->target != PIPE_TEXTURE_CUBE &&
+           !st_texture_match_image(stObj->pt, &stImage->base,
+                                   stImage->face, stImage->level))) {
+         DBG("release it\n");
+         pipe_texture_reference(&stObj->pt, NULL);
+         assert(!stObj->pt);
+         stObj->teximage_realloc = FALSE;
+      }
    }
 
    if (!stObj->pt) {
@@ -802,9 +802,7 @@ st_TexSubimage(GLcontext * ctx,
       texImage->Data = st_texture_image_map(ctx->st, stImage, zoffset, 
                                             PIPE_TRANSFER_WRITE,
                                             xoffset, yoffset,
-                                            stImage->base.Width,
-                                            stImage->base.Height);
-      dstRowStride = stImage->transfer->stride;
+                                            width, height);
    }
 
    if (!texImage->Data) {
@@ -813,6 +811,7 @@ st_TexSubimage(GLcontext * ctx,
    }
 
    src = (const GLubyte *) pixels;
+   dstRowStride = stImage->transfer->stride;
 
    for (i = 0; i++ < depth;) {
       if (!texImage->TexFormat->StoreImage(ctx, dims, texImage->_BaseFormat,
@@ -832,8 +831,7 @@ st_TexSubimage(GLcontext * ctx,
 	 texImage->Data = st_texture_image_map(ctx->st, stImage, zoffset + i,
                                                PIPE_TRANSFER_WRITE,
                                                xoffset, yoffset,
-                                               stImage->base.Width,
-                                               stImage->base.Height);
+                                               width, height);
 	 src += srcImageStride;
       }
    }
@@ -1473,9 +1471,19 @@ st_get_default_texture(struct st_context *st)
       GLubyte pixels[16][16][4];
       struct gl_texture_object *texObj;
       struct gl_texture_image *texImg;
+      GLuint i, j;
 
-      /* init image to gray */
-      memset(pixels, 127, sizeof(pixels));
+      /* The ARB_fragment_program spec says (0,0,0,1) should be returned
+       * when attempting to sample incomplete textures.
+       */
+      for (i = 0; i < 16; i++) {
+         for (j = 0; j < 16; j++) {
+            pixels[i][j][0] = 0;
+            pixels[i][j][1] = 0;
+            pixels[i][j][2] = 0;
+            pixels[i][j][3] = 255;
+         }
+      }
 
       texObj = st->ctx->Driver.NewTextureObject(st->ctx, 0, target);
 

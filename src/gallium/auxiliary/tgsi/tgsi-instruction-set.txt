@@ -382,7 +382,9 @@ TGSI Instruction Specification
 
 1.5.7  KILP - Predicated Discard
 
-  TBD
+  if (cc.x || cc.y || cc.z || cc.w)
+    discard
+  endif
 
 
 1.5.8  LG2 - Logarithm Base 2
@@ -599,7 +601,9 @@ TGSI Instruction Specification
 
 1.8.2  KIL - Conditional Discard
 
-  TBD
+  if (src.x < 0.0 || src.y < 0.0 || src.z < 0.0 || src.w < 0.0)
+    discard
+  endif
 
 
 1.8.3  SCS - Sine Cosine
@@ -691,4 +695,346 @@ TGSI Instruction Specification
 1.9.13  ENDREP - End Repeat
 
   TBD
+
+
+1.10  GL_NV_vertex_program3
+---------------------------
+
+
+1.10.1  PUSHA - Push Address Register On Stack
+
+  push(src.x)
+  push(src.y)
+  push(src.z)
+  push(src.w)
+
+
+1.10.2  POPA - Pop Address Register From Stack
+
+  dst.w = pop()
+  dst.z = pop()
+  dst.y = pop()
+  dst.x = pop()
+
+
+1.11  GL_NV_gpu_program4
+------------------------
+
+
+1.11.1  CEIL - Ceiling
+
+  dst.x = ceil(src.x)
+  dst.y = ceil(src.y)
+  dst.z = ceil(src.z)
+  dst.w = ceil(src.w)
+
+
+1.11.2  I2F - Integer To Float
+
+  dst.x = (float) src.x
+  dst.y = (float) src.y
+  dst.z = (float) src.z
+  dst.w = (float) src.w
+
+
+1.11.3  NOT - Bitwise Not
+
+  dst.x = ~src.x
+  dst.y = ~src.y
+  dst.z = ~src.z
+  dst.w = ~src.w
+
+
+1.11.4  TRUNC - Truncate
+
+  dst.x = trunc(src.x)
+  dst.y = trunc(src.y)
+  dst.z = trunc(src.z)
+  dst.w = trunc(src.w)
+
+
+1.11.5  SHL - Shift Left
+
+  dst.x = src0.x << src1.x
+  dst.y = src0.y << src1.x
+  dst.z = src0.z << src1.x
+  dst.w = src0.w << src1.x
+
+
+1.11.6  SHR - Shift Right
+
+  dst.x = src0.x >> src1.x
+  dst.y = src0.y >> src1.x
+  dst.z = src0.z >> src1.x
+  dst.w = src0.w >> src1.x
+
+
+1.11.7  AND - Bitwise And
+
+  dst.x = src0.x & src1.x
+  dst.y = src0.y & src1.y
+  dst.z = src0.z & src1.z
+  dst.w = src0.w & src1.w
+
+
+1.11.8  OR - Bitwise Or
+
+  dst.x = src0.x | src1.x
+  dst.y = src0.y | src1.y
+  dst.z = src0.z | src1.z
+  dst.w = src0.w | src1.w
+
+
+1.11.9  MOD - Modulus
+
+  dst.x = src0.x % src1.x
+  dst.y = src0.y % src1.y
+  dst.z = src0.z % src1.z
+  dst.w = src0.w % src1.w
+
+
+1.11.10  XOR - Bitwise Xor
+
+  dst.x = src0.x ^ src1.x
+  dst.y = src0.y ^ src1.y
+  dst.z = src0.z ^ src1.z
+  dst.w = src0.w ^ src1.w
+
+
+1.11.11  SAD - Sum Of Absolute Differences
+
+  dst.x = abs(src0.x - src1.x) + src2.x
+  dst.y = abs(src0.y - src1.y) + src2.y
+  dst.z = abs(src0.z - src1.z) + src2.z
+  dst.w = abs(src0.w - src1.w) + src2.w
+
+
+1.11.12  TXF - Texel Fetch
+
+  TBD
+
+
+1.11.13  TXQ - Texture Size Query
+
+  TBD
+
+
+1.11.14  CONT - Continue
+
+  TBD
+
+
+1.12  GL_NV_geometry_program4
+-----------------------------
+
+
+1.12.1  EMIT - Emit
+
+  TBD
+
+
+1.12.2  ENDPRIM - End Primitive
+
+  TBD
+
+
+1.13  GLSL
+----------
+
+
+1.13.1  BGNLOOP2 - Begin Loop
+
+  TBD
+
+
+1.13.2  BGNSUB - Begin Subroutine
+
+  TBD
+
+
+1.13.3  ENDLOOP2 - End Loop
+
+  TBD
+
+
+1.13.4  ENDSUB - End Subroutine
+
+  TBD
+
+
+1.13.5  INT - Truncate
+
+  Alias for TRUNC.
+
+
+1.13.6  NOISE1 - 1D Noise
+
+  TBD
+
+
+1.13.7  NOISE2 - 2D Noise
+
+  TBD
+
+
+1.13.8  NOISE3 - 3D Noise
+
+  TBD
+
+
+1.13.9  NOISE4 - 4D Noise
+
+  TBD
+
+
+1.13.10  NOP - No Operation
+
+  Do nothing.
+
+
+1.14  ps_1_1
+------------
+
+
+1.14.1  TEXKILL - Conditional Discard
+
+  Alias for KIL.
+
+
+1.15  ps_1_4
+------------
+
+
+1.15.1  TEXLD - Texture Lookup
+
+  Alias for TEX.
+
+
+1.16  ps_2_0
+------------
+
+
+1.16.1  M4X4 - Multiply Matrix
+
+  Alias for MULTIPLYMATRIX.
+
+
+1.16.2  M4X3 - Multiply Matrix
+
+  Considered for removal from language.
+
+
+1.16.3  M3X4 - Multiply Matrix
+
+  Considered for removal from language.
+
+
+1.16.4  M3X3 - Multiply Matrix
+
+  Considered for removal from language.
+
+
+1.16.5  M3X2 - Multiply Matrix
+
+  Considered for removal from language.
+
+
+1.16.6  CRS - Cross Product
+
+  Alias for XPD.
+
+
+1.16.7  NRM4 - 4-component Vector Normalise
+
+  dst.x = src.x / (src.x * src.x + src.y * src.y + src.z * src.z + src.w * src.w)
+  dst.y = src.y / (src.x * src.x + src.y * src.y + src.z * src.z + src.w * src.w)
+  dst.z = src.z / (src.x * src.x + src.y * src.y + src.z * src.z + src.w * src.w)
+  dst.w = src.w / (src.x * src.x + src.y * src.y + src.z * src.z + src.w * src.w)
+
+
+1.16.8  SINCOS - Sine Cosine
+
+  Alias for SCS.
+
+
+1.16.9  TEXLDB - Texture Lookup With Bias
+
+  Alias for TXB.
+
+
+1.16.10  DP2ADD - 2-component Dot Product And Add
+
+  Alias for DP2A.
+
+
+1.17  ps_2_x
+------------
+
+
+1.17.1  CALL - Subroutine Call
+
+  Alias for CAL.
+
+
+1.17.2  CALLNZ - Subroutine Call If Not Zero
+
+  TBD
+
+
+1.17.3  IFC - If
+
+  TBD
+
+
+1.17.4  BREAK - Break
+
+  Alias for BRK.
+
+
+1.17.5  BREAKC - Break Conditional
+
+  TBD
+
+
+1.17.6  DSX - Derivative Relative To X
+
+  Alias for DDX.
+
+
+1.17.7  DSY - Derivative Relative To Y
+
+  Alias for DDY.
+
+
+1.17.8  TEXLDD - Texture Lookup with Derivatives
+
+  Alias for TXD.
+
+
+1.18  vs_1_1
+------------
+
+
+1.18.1  EXPP - Approximate Exponential Base 2
+
+  Alias for EXP.
+
+
+1.18.2  LOGP - Logarithm Base 2
+
+  Alias for LG2.
+
+
+1.19  vs_2_0
+------------
+
+
+1.19.1  SGN - Set Sign
+
+  Alias for SSG.
+
+
+1.19.2  MOVA - Move Address Register
+
+  Alias for ARR.
 

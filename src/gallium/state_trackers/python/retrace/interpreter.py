@@ -54,14 +54,14 @@ def save_image(filename, surface):
     outimage = make_image(surface)
     outimage.save(filename, "PNG")
 
-def show_image(surface):
+def show_image(surface, title):
     outimage = make_image(surface)
     
     import Tkinter as tk
     from PIL import Image, ImageTk
     root = tk.Tk()
     
-    root.title('background image')
+    root.title(title)
     
     image1 = ImageTk.PhotoImage(outimage)
     w = image1.width()
@@ -73,9 +73,6 @@ def show_image(surface):
     panel1.pack(side='top', fill='both', expand='yes')
     panel1.image = image1
     root.mainloop()
-
-
-verbose = 1
 
 
 class Struct:
@@ -375,7 +372,7 @@ class Context(Object):
         self.real.set_clip(_state)
 
     def dump_constant_buffer(self, buffer):
-        if verbose < 2:
+        if not self.interpreter.verbosity(2):
             return
 
         data = buffer.read()
@@ -396,7 +393,7 @@ class Context(Object):
         _state = gallium.Framebuffer()
         _state.width = state.width
         _state.height = state.height
-        _state.num_cbufs = state.num_cbufs
+        _state.nr_cbufs = state.nr_cbufs
         for i in range(len(state.cbufs)):
             _state.set_cbuf(i, state.cbufs[i])
         _state.set_zsbuf(state.zsbuf)    
@@ -424,7 +421,7 @@ class Context(Object):
             vbuf = vbufs[i]
             self.real.set_vertex_buffer(
                 i,
-                pitch = vbuf.pitch,
+                stride = vbuf.stride,
                 max_index = vbuf.max_index,
                 buffer_offset = vbuf.buffer_offset,
                 buffer = vbuf.buffer,
@@ -441,7 +438,7 @@ class Context(Object):
         pass
     
     def dump_vertices(self, start, count):
-        if verbose < 2:
+        if not self.interpreter.verbosity(2):
             return
 
         for index in range(start, start + count):
@@ -452,7 +449,7 @@ class Context(Object):
             for velem in self.velems:
                 vbuf = self.vbufs[velem.vertex_buffer_index]
 
-                offset = vbuf.buffer_offset + velem.src_offset + vbuf.pitch*index
+                offset = vbuf.buffer_offset + velem.src_offset + vbuf.stride*index
                 format = {
                     gallium.PIPE_FORMAT_R32_FLOAT: 'f',
                     gallium.PIPE_FORMAT_R32G32_FLOAT: '2f',
@@ -468,7 +465,7 @@ class Context(Object):
             sys.stdout.write('\t},\n')
 
     def dump_indices(self, ibuf, isize, start, count):
-        if verbose < 2:
+        if not self.interpreter.verbosity(2):
             return
 
         format = {
@@ -500,45 +497,48 @@ class Context(Object):
         self.dump_vertices(start, count)
             
         self.real.draw_arrays(mode, start, count)
-
-        self.dirty = True
+        self._set_dirty()
     
     def draw_elements(self, indexBuffer, indexSize, mode, start, count):
-        if verbose >= 2:
+        if self.interpreter.verbosity(2):
             minindex, maxindex = self.dump_indices(indexBuffer, indexSize, start, count)
             self.dump_vertices(minindex, maxindex - minindex)
 
         self.real.draw_elements(indexBuffer, indexSize, mode, start, count)
-
-        self.dirty = True
+        self._set_dirty()
         
     def draw_range_elements(self, indexBuffer, indexSize, minIndex, maxIndex, mode, start, count):
-        if verbose >= 2:
+        if self.interpreter.verbosity(2):
             minindex, maxindex = self.dump_indices(indexBuffer, indexSize, start, count)
             minindex = min(minindex, minIndex)
             maxindex = min(maxindex, maxIndex)
             self.dump_vertices(minindex, maxindex - minindex)
 
         self.real.draw_range_elements(indexBuffer, indexSize, minIndex, maxIndex, mode, start, count)
-
-        self.dirty = True
+        self._set_dirty()
         
+    def _set_dirty(self):
+        if self.interpreter.options.step:
+            self._present()
+        else:
+            self.dirty = True
+
     def flush(self, flags):
         self.real.flush(flags)
         if self.dirty:
             if flags & gallium.PIPE_FLUSH_FRAME:
-                self._update()
+                self._present()
             self.dirty = False
         return None
 
     def clear(self, surface, value):
         self.real.surface_clear(surface, value)
         
-    def _update(self):
+    def _present(self):
         self.real.flush()
     
         if self.cbufs and self.cbufs[0]:
-            show_image(self.cbufs[0])
+            self.interpreter.present(self.cbufs[0], "cbuf")
     
 
 class Interpreter(parser.TraceDumper):
@@ -549,11 +549,13 @@ class Interpreter(parser.TraceDumper):
             ('pipe_screen', 'get_paramf'),
     ))
 
-    def __init__(self, stream):
+    def __init__(self, stream, options):
         parser.TraceDumper.__init__(self, stream)
+        self.options = options
         self.objects = {}
         self.result = None
         self.globl = Global(self, None)
+        self.call_no = None
 
     def register_object(self, address, object):
         self.objects[address] = object
@@ -574,7 +576,9 @@ class Interpreter(parser.TraceDumper):
         if (call.klass, call.method) in self.ignore_calls:
             return
 
-        if verbose >= 1:
+        self.call_no = call.no
+
+        if self.verbosity(1):
             parser.TraceDumper.handle_call(self, call)
         
         args = [self.interpret_arg(arg) for name, arg in call.args] 
@@ -591,10 +595,38 @@ class Interpreter(parser.TraceDumper):
         if call.ret and isinstance(call.ret, model.Pointer):
             self.register_object(call.ret.address, ret)
 
+        self.call_no = None
+
     def interpret_arg(self, node):
         translator = Translator(self)
         return translator.visit(node)
+
+    def verbosity(self, level):
+        return self.options.verbosity >= level
+
+    def present(self, surface, description):
+        if self.options.images:
+            filename = '%s_%04u.png' % (description, self.call_no)
+            save_image(filename, surface)
+        else:
+            title = '%u. %s' % (self.call_no, description)
+            show_image(surface, title)
     
 
+class Main(parser.Main):
+
+    def get_optparser(self):
+        optparser = parser.Main.get_optparser(self)
+        optparser.add_option("-q", "--quiet", action="store_const", const=0, dest="verbosity", help="no messages")
+        optparser.add_option("-v", "--verbose", action="count", dest="verbosity", default=1, help="increase verbosity level")
+        optparser.add_option("-i", "--images", action="store_true", dest="images", default=False, help="save images instead of showing them")
+        optparser.add_option("-s", "--step", action="store_true", dest="step", default=False, help="step trhough every draw")
+        return optparser
+
+    def process_arg(self, stream, options):
+        parser = Interpreter(stream, options)
+        parser.parse()
+
+
 if __name__ == '__main__':
-    parser.main(Interpreter)
+    Main().main()

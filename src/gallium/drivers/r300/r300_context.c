@@ -59,7 +59,6 @@ static boolean r300_draw_range_elements(struct pipe_context* pipe,
             r300->shader_constants[PIPE_SHADER_VERTEX].user_count *
                 (sizeof(float) * 4));
 
-    /* Abandon all hope, ye who enter here. */
     draw_arrays(r300->draw, mode, start, count);
 
     for (i = 0; i < r300->vertex_buffer_count; i++) {
@@ -99,6 +98,7 @@ static void r300_destroy_context(struct pipe_context* context) {
     FREE(r300->blend_color_state);
     FREE(r300->rs_block);
     FREE(r300->scissor_state);
+    FREE(r300->viewport_state);
     FREE(r300);
 }
 
@@ -130,6 +130,7 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     r300->blend_color_state = CALLOC_STRUCT(r300_blend_color_state);
     r300->rs_block = CALLOC_STRUCT(r300_rs_block);
     r300->scissor_state = CALLOC_STRUCT(r300_scissor_state);
+    r300->viewport_state = CALLOC_STRUCT(r300_viewport_state);
 
     r300_init_flush_functions(r300);
 
@@ -139,6 +140,7 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
 
     r300_init_state_functions(r300);
 
+    r300_emit_invariant_state(r300);
     r300->dirty_state = R300_NEW_KITCHEN_SINK;
     r300->dirty_hw++;
 

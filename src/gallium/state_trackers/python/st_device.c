@@ -192,9 +192,14 @@ st_context_create(struct st_device *st_dev)
       memset(&rasterizer, 0, sizeof(rasterizer));
       rasterizer.front_winding = PIPE_WINDING_CW;
       rasterizer.cull_mode = PIPE_WINDING_NONE;
-      rasterizer.bypass_clipping = 1;
-      /*rasterizer.bypass_vs = 1;*/
       cso_set_rasterizer(st_ctx->cso, &rasterizer);
+   }
+
+   /* clip */
+   {
+      struct pipe_clip_state clip;
+      memset(&clip, 0, sizeof(clip));
+      st_ctx->pipe->set_clip_state(st_ctx->pipe, &clip);
    }
 
    /* identity viewport */
@@ -232,7 +237,7 @@ st_context_create(struct st_device *st_dev)
    {
       struct pipe_screen *screen = st_dev->screen;
       struct pipe_texture templat;
-      struct pipe_surface *surface;
+      struct pipe_transfer *transfer;
       unsigned i;
 
       memset( &templat, 0, sizeof( templat ) );
@@ -248,17 +253,21 @@ st_context_create(struct st_device *st_dev)
    
       st_ctx->default_texture = screen->texture_create( screen, &templat );
       if(st_ctx->default_texture) {
-         surface = screen->get_tex_surface( screen, 
-                                            st_ctx->default_texture, 0, 0, 0,
-                                            PIPE_BUFFER_USAGE_CPU_WRITE );
-         if(surface) {
+         transfer = screen->get_tex_transfer(screen,
+                                             st_ctx->default_texture,
+                                             0, 0, 0,
+                                             PIPE_TRANSFER_WRITE,
+                                             0, 0,
+                                             st_ctx->default_texture->width[0],
+                                             st_ctx->default_texture->height[0]);
+         if (transfer) {
             uint32_t *map;
-            map = (uint32_t *) pipe_surface_map(surface, PIPE_BUFFER_USAGE_CPU_WRITE );
+            map = (uint32_t *) screen->transfer_map(screen, transfer);
             if(map) {
                *map = 0x00000000;
-               pipe_surface_unmap( surface );
+               screen->transfer_unmap(screen, transfer);
             }
-            pipe_surface_reference(&surface, NULL);
+            screen->tex_transfer_destroy(transfer);
          }
       }
    
@@ -270,60 +279,21 @@ st_context_create(struct st_device *st_dev)
    
    /* vertex shader */
    {
-      struct pipe_shader_state vert_shader;
-
       const uint semantic_names[] = { TGSI_SEMANTIC_POSITION,
                                       TGSI_SEMANTIC_GENERIC };
       const uint semantic_indexes[] = { 0, 0 };
       st_ctx->vs = util_make_vertex_passthrough_shader(st_ctx->pipe, 
                                                        2, 
                                                        semantic_names,
-                                                       semantic_indexes,
-                                                       &vert_shader);
+                                                       semantic_indexes);
       cso_set_vertex_shader_handle(st_ctx->cso, st_ctx->vs);
    }
 
    /* fragment shader */
    {
-      struct pipe_shader_state frag_shader;
-      st_ctx->fs = util_make_fragment_passthrough_shader(st_ctx->pipe, 
-                                                         &frag_shader);
+      st_ctx->fs = util_make_fragment_passthrough_shader(st_ctx->pipe);
       cso_set_fragment_shader_handle(st_ctx->cso, st_ctx->fs);
    }
 
    return st_ctx;
 }
-
-
-void
-st_buffer_destroy(struct st_buffer *st_buf)
-{
-   if(st_buf) {
-      pipe_buffer_reference(&st_buf->buffer, NULL);
-      FREE(st_buf);
-   }
-}
-
-
-struct st_buffer *
-st_buffer_create(struct st_device *st_dev,
-                 unsigned alignment, unsigned usage, unsigned size)
-{
-   struct pipe_screen *screen = st_dev->screen;
-   struct st_buffer *st_buf;
-   
-   st_buf = CALLOC_STRUCT(st_buffer);
-   if(!st_buf)
-      return NULL;
-
-   st_buf->st_dev = st_dev;
-   
-   st_buf->buffer = pipe_buffer_create(screen, alignment, usage, size);
-   if(!st_buf->buffer) {
-      st_buffer_destroy(st_buf);
-      return NULL;
-   }
-   
-   return st_buf;
-}
-

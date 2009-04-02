@@ -74,6 +74,10 @@ static void r300_setup_miptree(struct r300_texture* tex)
 
         tex->offset[i] = (tex->size + 63) & ~63;
         tex->size = tex->offset[i] + size;
+
+        if (i == 0) {
+            tex->stride = stride;
+        }
     }
 }
 
@@ -143,7 +147,6 @@ static struct pipe_surface* r300_get_tex_surface(struct pipe_screen* screen,
         surface->height = texture->height[level];
         surface->offset = offset;
         surface->usage = flags;
-        surface->status = PIPE_SURFACE_STATUS_DEFINED;
     }
 
     return surface;

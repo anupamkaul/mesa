@@ -53,7 +53,7 @@ void trace_dump_block(const struct pipe_format_block *block)
 static void trace_dump_reference(const struct pipe_reference *reference)
 {
    trace_dump_struct_begin("pipe_reference");
-   trace_dump_member(uint, reference, count);
+   trace_dump_member(int, &reference->count, count);
    trace_dump_struct_end();
 }
 
@@ -123,7 +123,6 @@ void trace_dump_rasterizer_state(const struct pipe_rasterizer_state *state)
    trace_dump_member(uint, state, line_stipple_pattern);
    trace_dump_member(bool, state, line_last_pixel);
    trace_dump_member(bool, state, bypass_vs_clip_and_viewport);
-   trace_dump_member(bool, state, origin_lower_left);
    trace_dump_member(bool, state, flatshade_first);
    trace_dump_member(bool, state, gl_rasterization_rules);
 
@@ -407,8 +406,6 @@ void trace_dump_surface(const struct pipe_surface *state)
    trace_dump_reference(&state->reference);
 
    trace_dump_member(format, state, format);
-   trace_dump_member(uint, state, status);
-   trace_dump_member(uint, state, clear_value);
    trace_dump_member(uint, state, width);
    trace_dump_member(uint, state, height);
 

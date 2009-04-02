@@ -6,7 +6,7 @@ LIBNAME = nouveau_dri.so
 MINIGLX_SOURCES =
 
 PIPE_DRIVERS = \
-	$(TOP)/src/gallium/drivers/softpipe/libsoftpipe.a \
+	$(TOP)/src/gallium/winsys/drm/nouveau/drm/libnouveaudrm.a \
 	$(TOP)/src/gallium/drivers/nv04/libnv04.a \
 	$(TOP)/src/gallium/drivers/nv10/libnv10.a \
 	$(TOP)/src/gallium/drivers/nv20/libnv20.a \
@@ -15,10 +15,10 @@ PIPE_DRIVERS = \
 	$(TOP)/src/gallium/drivers/nv50/libnv50.a
 	
 DRIVER_SOURCES = \
-	nouveau_context_dri.c \
-	nouveau_screen_dri.c \
+	nouveau_context.c \
+	nouveau_screen.c \
 	nouveau_swapbuffers.c \
-	../common/libnouveaudrm.a
+	nouveau_lock.c
 
 C_SOURCES = \
 	$(COMMON_GALLIUM_SOURCES) \

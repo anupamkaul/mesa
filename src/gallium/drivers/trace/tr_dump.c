@@ -40,7 +40,7 @@
 
 #include "pipe/p_config.h"
 
-#if defined(PIPE_OS_LINUX) || defined(PIPE_OS_BSD)
+#if defined(PIPE_OS_LINUX) || defined(PIPE_OS_BSD) || defined(PIPE_OS_SOLARIS)
 #include <stdlib.h>
 #endif
 
@@ -239,7 +239,7 @@ boolean trace_dump_trace_begin()
       trace_dump_writes("<?xml-stylesheet type='text/xsl' href='trace.xsl'?>\n");
       trace_dump_writes("<trace version='0.1'>\n");
 
-#if defined(PIPE_OS_LINUX) || defined(PIPE_OS_BSD)
+#if defined(PIPE_OS_LINUX) || defined(PIPE_OS_BSD) || defined(PIPE_OS_SOLARIS)
       /* Linux applications rarely cleanup GL / Gallium resources so catch
        * application exit here */
       atexit(trace_dump_trace_close);
@@ -265,8 +265,16 @@ void trace_dump_trace_end(void)
 
 void trace_dump_call_begin(const char *klass, const char *method)
 {
+   static long unsigned no = 0;
+   ++no;
    trace_dump_indent(1);
-   trace_dump_tag_begin2("call", "class", klass, "method", method);
+   trace_dump_writes("<call no=\'");
+   trace_dump_writef("%lu", no);
+   trace_dump_writes("\' class =\'");
+   trace_dump_escape(klass);
+   trace_dump_writes("\' method=\'");
+   trace_dump_escape(method);
+   trace_dump_writes("\'>");
    trace_dump_newline();
 }
 

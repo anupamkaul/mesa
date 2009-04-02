@@ -87,15 +87,15 @@ void r300_emit_fragment_shader(struct r300_context* r300,
 
     BEGIN_CS(22);
 
-    OUT_CS_REG(R300_US_CONFIG, MAX2(fs->indirections - 1, 0));
+    OUT_CS_REG(R300_US_CONFIG, fs->indirections);
     OUT_CS_REG(R300_US_PIXSIZE, fs->shader.stack_size);
     /* XXX figure out exactly how big the sizes are on this reg */
-    OUT_CS_REG(R300_US_CODE_OFFSET, 0x0);
+    OUT_CS_REG(R300_US_CODE_OFFSET, 0x40);
     /* XXX figure these ones out a bit better kthnx */
     OUT_CS_REG(R300_US_CODE_ADDR_0, 0x0);
     OUT_CS_REG(R300_US_CODE_ADDR_1, 0x0);
     OUT_CS_REG(R300_US_CODE_ADDR_2, 0x0);
-    OUT_CS_REG(R300_US_CODE_ADDR_3, R300_RGBA_OUT);
+    OUT_CS_REG(R300_US_CODE_ADDR_3, 0x40 | R300_RGBA_OUT);
 
     for (i = 0; i < fs->alu_instruction_count; i++) {
         OUT_CS_REG(R300_US_ALU_RGB_INST_0 + (4 * i),
@@ -115,17 +115,19 @@ void r500_emit_fragment_shader(struct r300_context* r300,
                                struct r500_fragment_shader* fs)
 {
     CS_LOCALS(r300);
+    struct r300_constant_buffer* constants =
+        &r300->shader_constants[PIPE_SHADER_FRAGMENT];
     int i;
 
-    BEGIN_CS(9 + (fs->instruction_count * 6));
+    BEGIN_CS(9 + (fs->instruction_count * 6) + (constants->count ? 3 : 0) +
+            (constants->count * 4));
     OUT_CS_REG(R500_US_CONFIG, R500_ZERO_TIMES_ANYTHING_EQUALS_ZERO);
     OUT_CS_REG(R500_US_PIXSIZE, fs->shader.stack_size);
     OUT_CS_REG(R500_US_CODE_ADDR, R500_US_CODE_START_ADDR(0) |
-        R500_US_CODE_END_ADDR(fs->instruction_count));
+            R500_US_CODE_END_ADDR(fs->instruction_count));
 
     OUT_CS_REG(R500_GA_US_VECTOR_INDEX, R500_GA_US_VECTOR_INDEX_TYPE_INSTR);
-    OUT_CS_ONE_REG(R500_GA_US_VECTOR_DATA,
-        fs->instruction_count * 6);
+    OUT_CS_ONE_REG(R500_GA_US_VECTOR_DATA, fs->instruction_count * 6);
     for (i = 0; i < fs->instruction_count; i++) {
         OUT_CS(fs->instructions[i].inst0);
         OUT_CS(fs->instructions[i].inst1);
@@ -134,22 +136,20 @@ void r500_emit_fragment_shader(struct r300_context* r300,
         OUT_CS(fs->instructions[i].inst4);
         OUT_CS(fs->instructions[i].inst5);
     }
-    END_CS;
-}
 
-/* Translate pipe_format into US_OUT_FMT. Note that formats are stored from
- * C3 to C0. */
-uint32_t translate_out_fmt(enum pipe_format format)
-{
-    switch (format) {
-        case PIPE_FORMAT_A8R8G8B8_UNORM:
-            return R300_US_OUT_FMT_C4_8 |
-                R300_C0_SEL_B | R300_C1_SEL_G |
-                R300_C2_SEL_R | R300_C3_SEL_A;
-        default:
-            return R300_US_OUT_FMT_UNUSED;
+    if (constants->count) {
+        OUT_CS_REG(R500_GA_US_VECTOR_INDEX,
+                R500_GA_US_VECTOR_INDEX_TYPE_CONST);
+        OUT_CS_ONE_REG(R500_GA_US_VECTOR_DATA, constants->count * 4);
+        for (i = 0; i < constants->count; i++) {
+            OUT_CS_32F(constants->constants[i][0]);
+            OUT_CS_32F(constants->constants[i][1]);
+            OUT_CS_32F(constants->constants[i][2]);
+            OUT_CS_32F(constants->constants[i][3]);
+        }
     }
-    return 0;
+
+    END_CS;
 }
 
 /* XXX add pitch, stride, clean up */
@@ -167,7 +167,7 @@ void r300_emit_fb_state(struct r300_context* r300,
         OUT_CS_RELOC(tex->buffer, 0, 0, RADEON_GEM_DOMAIN_VRAM, 0);
 
         OUT_CS_REG(R300_US_OUT_FMT_0 + (4 * i),
-            translate_out_fmt(fb->cbufs[i]->format));
+            r300_translate_out_fmt(fb->cbufs[i]->format));
     }
 
     if (fb->zsbuf) {
@@ -229,6 +229,7 @@ void r300_emit_rs_block_state(struct r300_context* r300,
     }
     for (i = 0; i < 8; i++) {
         OUT_CS(rs->ip[i]);
+        debug_printf("ip %d: 0x%08x\n", i, rs->ip[i]);
     }
 
     OUT_CS_REG_SEQ(R300_RS_COUNT, 2);
@@ -242,7 +243,11 @@ void r300_emit_rs_block_state(struct r300_context* r300,
     }
     for (i = 0; i < 8; i++) {
         OUT_CS(rs->inst[i]);
+        debug_printf("inst %d: 0x%08x\n", i, rs->inst[i]);
     }
+
+    debug_printf("count: 0x%08x inst_count: 0x%08x\n", rs->count,
+            rs->inst_count);
 
     END_CS;
 }
@@ -281,8 +286,8 @@ void r300_emit_texture(struct r300_context* r300,
     OUT_CS_REG(R300_TX_FORMAT1_0 + (offset * 4), tex->state.format1);
     OUT_CS_REG(R300_TX_FORMAT2_0 + (offset * 4), tex->state.format2);
     OUT_CS_REG_SEQ(R300_TX_OFFSET_0 + (offset * 4), 1);
-    OUT_CS_RELOC(tex->buffer, 0, 0, RADEON_GEM_DOMAIN_GTT |
-            RADEON_GEM_DOMAIN_VRAM, 0);
+    OUT_CS_RELOC(tex->buffer, 0,
+            RADEON_GEM_DOMAIN_GTT | RADEON_GEM_DOMAIN_VRAM, 0, 0);
     END_CS;
 }
 
@@ -300,19 +305,45 @@ void r300_emit_vertex_format_state(struct r300_context* r300)
     OUT_CS_REG_SEQ(R300_VAP_OUTPUT_VTX_FMT_0, 2);
     OUT_CS(r300->vertex_info.vinfo.hwfmt[2]);
     OUT_CS(r300->vertex_info.vinfo.hwfmt[3]);
+    for (i = 0; i < 4; i++) {
+        debug_printf("hwfmt%d: 0x%08x\n", i,
+                r300->vertex_info.vinfo.hwfmt[i]);
+    }
 
     OUT_CS_REG_SEQ(R300_VAP_PROG_STREAM_CNTL_0, 8);
     for (i = 0; i < 8; i++) {
         OUT_CS(r300->vertex_info.vap_prog_stream_cntl[i]);
+        debug_printf("prog_stream_cntl%d: 0x%08x\n", i,
+                r300->vertex_info.vap_prog_stream_cntl[i]);
     }
     OUT_CS_REG_SEQ(R300_VAP_PROG_STREAM_CNTL_EXT_0, 8);
     for (i = 0; i < 8; i++) {
         OUT_CS(r300->vertex_info.vap_prog_stream_cntl_ext[i]);
+        debug_printf("prog_stream_cntl_ext%d: 0x%08x\n", i,
+                r300->vertex_info.vap_prog_stream_cntl_ext[i]);
     }
     END_CS;
 }
 
-static void r300_flush_textures(struct r300_context* r300)
+void r300_emit_viewport_state(struct r300_context* r300,
+                              struct r300_viewport_state* viewport)
+{
+    return;
+    CS_LOCALS(r300);
+
+    BEGIN_CS(7);
+    OUT_CS_REG_SEQ(R300_SE_VPORT_XSCALE, 7);
+    OUT_CS_32F(viewport->xscale);
+    OUT_CS_32F(viewport->xoffset);
+    OUT_CS_32F(viewport->yscale);
+    OUT_CS_32F(viewport->yoffset);
+    OUT_CS_32F(viewport->zscale);
+    OUT_CS_32F(viewport->zoffset);
+    OUT_CS(viewport->vte_control);
+    END_CS;
+}
+
+void r300_flush_textures(struct r300_context* r300)
 {
     CS_LOCALS(r300);
 
@@ -401,6 +432,11 @@ void r300_emit_dirty_state(struct r300_context* r300)
                 dirty_tex++;
             }
         }
+    }
+
+    if (r300->dirty_state & R300_NEW_VIEWPORT) {
+        r300_emit_viewport_state(r300, r300->viewport_state);
+        r300->dirty_state &= ~R300_NEW_VIEWPORT;
     }
 
     if (dirty_tex) {

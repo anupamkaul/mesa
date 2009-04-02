@@ -58,6 +58,7 @@ SOURCES = \
 	mapbufrange.c \
 	mapvbo.c \
 	minmag.c \
+	mipgen.c \
 	mipmap_limits.c \
 	mipmap_view.c \
 	multipal.c \
@@ -184,6 +185,11 @@ mipmap_view: mipmap_view.o readtex.o
 mipmap_view.o: mipmap_view.c readtex.h
 	$(APP_CC) -c $(INCLUDES) $(CFLAGS) $(DEFINES) $< -o $@
 
+mipmap_limits: mipmap_limits.o readtex.o
+	$(APP_CC) $(CFLAGS) mipmap_limits.o readtex.o $(LIBS) -o $@
+
+mipmap_limits.o: mipmap_limits.c readtex.h
+	$(APP_CC) -c $(INCLUDES) $(CFLAGS) $(DEFINES) $< -o $@
 
 fillrate: fillrate.o readtex.o
 	$(APP_CC) $(CFLAGS) fillrate.o readtex.o $(LIBS) -o $@

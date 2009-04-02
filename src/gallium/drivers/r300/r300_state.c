@@ -293,11 +293,7 @@ static void r300_bind_fs_state(struct pipe_context* pipe, void* shader)
         r300->fs = NULL;
         return;
     } else if (!fs->translated) {
-        if (r300_screen(r300->context.screen)->caps->is_r500) {
-            r500_translate_fragment_shader(r300, (struct r500_fragment_shader*)fs);
-        } else {
-            r300_translate_fragment_shader(r300, (struct r300_fragment_shader*)fs);
-        }
+        r300_translate_fragment_shader(r300, fs);
     }
 
     fs->translated = TRUE;
@@ -515,12 +511,22 @@ static void r300_set_scissor_state(struct pipe_context* pipe,
     struct r300_context* r300 = r300_context(pipe);
     draw_flush(r300->draw);
 
-    r300->scissor_state->scissor_top_left =
-        (state->minx << R300_SCISSORS_X_SHIFT) |
-        (state->miny << R300_SCISSORS_Y_SHIFT);
-    r300->scissor_state->scissor_bottom_right =
-        (state->maxx << R300_SCISSORS_X_SHIFT) |
-        (state->maxy << R300_SCISSORS_Y_SHIFT);
+    if (r300_screen(r300->context.screen)->caps->is_r500) {
+        r300->scissor_state->scissor_top_left =
+            (state->minx << R300_SCISSORS_X_SHIFT) |
+            (state->miny << R300_SCISSORS_Y_SHIFT);
+        r300->scissor_state->scissor_bottom_right =
+            (state->maxx << R300_SCISSORS_X_SHIFT) |
+            (state->maxy << R300_SCISSORS_Y_SHIFT);
+    } else {
+        /* Offset of 1440 in non-R500 chipsets. */
+        r300->scissor_state->scissor_top_left =
+            ((state->minx + 1440) << R300_SCISSORS_X_SHIFT) |
+            ((state->miny + 1440) << R300_SCISSORS_Y_SHIFT);
+        r300->scissor_state->scissor_bottom_right =
+            ((state->maxx + 1440) << R300_SCISSORS_X_SHIFT) |
+            ((state->maxy + 1440) << R300_SCISSORS_Y_SHIFT);
+    }
 
     r300->dirty_state |= R300_NEW_SCISSOR;
 }
@@ -529,8 +535,26 @@ static void r300_set_viewport_state(struct pipe_context* pipe,
                                     const struct pipe_viewport_state* state)
 {
     struct r300_context* r300 = r300_context(pipe);
-    /* XXX handing this off to Draw for now */
-    draw_set_viewport_state(r300->draw, state);
+
+    r300->viewport_state->xscale = state->scale[0];
+    r300->viewport_state->yscale = state->scale[1];
+    r300->viewport_state->zscale = state->scale[2];
+
+    r300->viewport_state->xoffset = state->translate[0];
+    r300->viewport_state->yoffset = state->translate[1];
+    r300->viewport_state->zoffset = state->translate[2];
+
+    r300->viewport_state->vte_control = 0;
+    if (r300_screen(r300->context.screen)->caps->has_tcl) {
+        /* Do the transform in HW. */
+        r300->viewport_state->vte_control |=
+            R300_VPORT_X_SCALE_ENA | R300_VPORT_X_OFFSET_ENA |
+            R300_VPORT_Y_SCALE_ENA | R300_VPORT_Y_OFFSET_ENA |
+            R300_VPORT_Z_SCALE_ENA | R300_VPORT_Z_OFFSET_ENA;
+    } else {
+        /* Have Draw do the actual transform. */
+        draw_set_viewport_state(r300->draw, state);
+    }
 }
 
 static void r300_set_vertex_buffers(struct pipe_context* pipe,

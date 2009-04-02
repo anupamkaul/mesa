@@ -22,6 +22,14 @@
 
 #include "r300_debug.h"
 
+static void r300_dump_fs(struct r300_fragment_shader* fs)
+{
+    int i;
+
+    for (i = 0; i < fs->alu_instruction_count; i++) {
+    }
+}
+
 static char* r500_fs_swiz[] = {
     " R",
     " G",
@@ -188,7 +196,7 @@ void r500_fs_dump(struct r500_fragment_shader* fs)
                 break;
             case R500_INST_TYPE_TEX:
                 inst = fs->instructions[i].inst1;
-                debug_printf("    1: TEX_INST  0x%08x: id: %d "
+                debug_printf("    1: TEX_INST   0x%08x: id: %d "
                         "op:%s, %s, %s %s\n",
                         inst, (inst >> 16) & 0xf,
                         r500_fs_tex[(inst >> 22) & 0x7],
@@ -197,7 +205,7 @@ void r500_fs_dump(struct r500_fragment_shader* fs)
                         (inst & (1 << 27)) ? "UNSCALED" : "SCALED");
 
                 inst = fs->instructions[i].inst2;
-                debug_printf("    2: TEX_ADDR  0x%08x: "
+                debug_printf("    2: TEX_ADDR   0x%08x: "
                         "src: %d%s %s/%s/%s/%s dst: %d%s %s/%s/%s/%s\n",
                         inst, inst & 0x7f, inst & (1 << 7) ? "(rel)" : "",
                         r500_fs_swiz[(inst >> 8) & 0x3],
@@ -211,7 +219,7 @@ void r500_fs_dump(struct r500_fragment_shader* fs)
                         r500_fs_swiz[(inst >> 30) & 0x3]);
                 
                 inst = fs->instructions[i].inst3;
-                debug_printf("    3: TEX_DXDY  0x%08x\n", inst);
+                debug_printf("    3: TEX_DXDY   0x%08x\n", inst);
                 break;
         }
     }

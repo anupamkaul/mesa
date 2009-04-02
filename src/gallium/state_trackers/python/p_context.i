@@ -116,12 +116,11 @@ struct st_context {
    }
 
    void set_constant_buffer(unsigned shader, unsigned index,
-                            struct st_buffer *buffer ) 
+                            struct pipe_buffer *buffer ) 
    {
       struct pipe_constant_buffer state;
       memset(&state, 0, sizeof(state));
-      state.buffer = buffer ? buffer->buffer : NULL;
-      state.size = buffer->buffer->size;
+      state.buffer = buffer;
       $self->pipe->set_constant_buffer($self->pipe, shader, index, &state);
    }
 
@@ -152,19 +151,19 @@ struct st_context {
    }
 
    void set_vertex_buffer(unsigned index,
-                          unsigned pitch, 
+                          unsigned stride, 
                           unsigned max_index,
                           unsigned buffer_offset,
-                          struct st_buffer *buffer)
+                          struct pipe_buffer *buffer)
    {
       unsigned i;
       struct pipe_vertex_buffer state;
       
       memset(&state, 0, sizeof(state));
-      state.pitch = pitch;
+      state.stride = stride;
       state.max_index = max_index;
       state.buffer_offset = buffer_offset;
-      state.buffer = buffer ? buffer->buffer : NULL;
+      state.buffer = buffer;
 
       memcpy(&$self->vertex_buffers[index], &state, sizeof(state));
       
@@ -199,22 +198,22 @@ struct st_context {
       $self->pipe->draw_arrays($self->pipe, mode, start, count);
    }
 
-   void draw_elements( struct st_buffer *indexBuffer,
+   void draw_elements( struct pipe_buffer *indexBuffer,
                        unsigned indexSize,
                        unsigned mode, unsigned start, unsigned count) 
    {
       $self->pipe->draw_elements($self->pipe, 
-                                 indexBuffer->buffer, 
+                                 indexBuffer, 
                                  indexSize, 
                                  mode, start, count);
    }
 
-   void draw_range_elements( struct st_buffer *indexBuffer,
+   void draw_range_elements( struct pipe_buffer *indexBuffer,
                              unsigned indexSize, unsigned minIndex, unsigned maxIndex,
                              unsigned mode, unsigned start, unsigned count)
    {
       $self->pipe->draw_range_elements($self->pipe, 
-                                       indexBuffer->buffer, 
+                                       indexBuffer, 
                                        indexSize, minIndex, maxIndex,
                                        mode, start, count);
    }
@@ -248,7 +247,7 @@ struct st_context {
       util_draw_vertex_buffer(pipe, vbuf, 0, prim, num_verts, num_attribs);
       
 error2:
-      pipe_buffer_reference(screen, &vbuf, NULL);
+      pipe_buffer_reference(&vbuf, NULL);
 error1:
       ;
    }

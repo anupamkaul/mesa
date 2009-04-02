@@ -57,14 +57,13 @@ static void r300_update_vertex_layout(struct r300_context* r300)
             case TGSI_SEMANTIC_COLOR:
                 tab[i] = 2 + cols++;
                 break;
-            case TGSI_SEMANTIC_FOG:
-                fog = TRUE;
-                tab[i] = 6 + texs++;
-                break;
             case TGSI_SEMANTIC_PSIZE:
                 psize = TRUE;
                 tab[i] = 1;
                 break;
+            case TGSI_SEMANTIC_FOG:
+                fog = TRUE;
+                /* Fall through... */
             case TGSI_SEMANTIC_GENERIC:
                 tab[i] = 6 + texs++;
                 break;
@@ -89,7 +88,7 @@ static void r300_update_vertex_layout(struct r300_context* r300)
         debug_printf("r300: Forcing vertex position attribute emit...\n");
         /* Make room for the position attribute
          * at the beginning of the tab. */
-        for (i = 1; i < 16; i++) {
+        for (i = 15; i > 0; i--) {
             tab[i] = tab[i-1];
         }
         tab[0] = 0;
@@ -208,6 +207,10 @@ static void r300_update_rs_block(struct r300_context* r300)
             }
         }
 
+        if (col_count == 0) {
+            rs->ip[0] |= R500_RS_COL_FMT(R300_RS_COL_FMT_0001);
+        }
+
         /* Set up at least one texture pointer or RS will not be happy. */
         if (tex_count == 0) {
             rs->ip[0] |=
@@ -251,6 +254,10 @@ static void r300_update_rs_block(struct r300_context* r300)
                 default:
                     break;
             }
+        }
+
+        if (col_count == 0) {
+            rs->ip[0] |= R300_RS_COL_FMT(R300_RS_COL_FMT_0001);
         }
 
         if (tex_count == 0) {

@@ -9,6 +9,7 @@ dlist-dangling
 dlist-degenerate
 dlist-edgeflag
 dlist-edgeflag-dangling
+draw2arrays
 drawarrays
 drawelements
 drawrange
@@ -58,6 +59,7 @@ quad-tex-2d
 quad-tex-3d
 quad-tex-alpha
 quad-tex-pbo
+quad-tex-sub
 quad-unfilled
 quad-unfilled-clip
 quad-unfilled-stipple
@@ -84,12 +86,15 @@ tri-dlist
 tri-edgeflag
 tri-fbo
 tri-fbo-tex
+tri-fbo-tex-mip
 tri-flat
 tri-flat-clip
 tri-fog
 tri-fp
 tri-fp-const-imm
 tri-lit
+tri-logicop-none
+tri-logicop-xor
 tri-mask-tri
 tri-orig
 tri-query

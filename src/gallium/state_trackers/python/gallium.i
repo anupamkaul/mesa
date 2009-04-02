@@ -37,19 +37,19 @@
 %{
 
 #include <stdio.h>
-#include <Python.h>
 
 #include "pipe/p_screen.h"
 #include "pipe/p_context.h"
 #include "pipe/p_inlines.h"
-#include "util/u_memory.h"
-#include "pipe/p_shader_tokens.h" 
+#include "pipe/p_shader_tokens.h"
+#include "pipe/internal/p_winsys_screen.h"
 #include "cso_cache/cso_context.h"
-#include "util/u_draw_quad.h" 
-#include "util/u_tile.h" 
-#include "util/u_math.h" 
-#include "tgsi/tgsi_text.h" 
-#include "tgsi/tgsi_dump.h" 
+#include "util/u_draw_quad.h"
+#include "util/u_tile.h"
+#include "util/u_math.h"
+#include "util/u_memory.h"
+#include "tgsi/tgsi_text.h"
+#include "tgsi/tgsi_dump.h"
 
 #include "st_device.h"
 #include "st_sample.h"
@@ -57,7 +57,7 @@
 %}
 
 %include "typemaps.i"
-
+%include "exception.i"
 %include "cstring.i"
 
 %include "carrays.i"
@@ -71,7 +71,7 @@
 %rename(Context) st_context;
 %rename(Texture) pipe_texture;
 %rename(Surface) pipe_surface;
-%rename(Buffer) st_buffer;
+%rename(Buffer) pipe_buffer;
 
 %rename(BlendColor) pipe_blend_color;
 %rename(Blend) pipe_blend_state;
@@ -94,7 +94,7 @@
 
 
 %include "p_compiler.i"
-%include "pipe/p_defines.h";
+%include "p_defines.h";
 %include "p_format.i"
 
 %include "p_device.i"

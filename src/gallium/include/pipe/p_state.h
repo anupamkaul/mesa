@@ -117,7 +117,6 @@ struct pipe_rasterizer_state
     */
    unsigned bypass_vs_clip_and_viewport:1;
 
-   unsigned origin_lower_left:1;  /**< Is (0,0) the lower-left corner? */
    unsigned flatshade_first:1;   /**< take color attribute from the first vertex of a primitive */
    unsigned gl_rasterization_rules:1; /**< enable tweaks for GL rasterization?  */
 
@@ -282,8 +281,6 @@ struct pipe_surface
 {
    struct pipe_reference reference;
    enum pipe_format format;      /**< PIPE_FORMAT_x */
-   unsigned status;              /**< PIPE_SURFACE_STATUS_x */
-   unsigned clear_value;         /**< XXX may be temporary */
    unsigned width;               /**< logical width in pixels */
    unsigned height;              /**< logical height in pixels */
    unsigned layout;              /**< PIPE_SURFACE_LAYOUT_x */

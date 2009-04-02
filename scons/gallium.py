@@ -198,14 +198,17 @@ def generate(env):
             env['toolchain'] = 'wcesdk'
     env.Tool(env['toolchain'])
 
+    env['gcc'] = 'gcc' in os.path.basename(env['CC']).split('-')
+    env['msvc'] = env['CC'] == 'cl'
+
     # shortcuts
     debug = env['debug']
     machine = env['machine']
     platform = env['platform']
     x86 = env['machine'] == 'x86'
     ppc = env['machine'] == 'ppc'
-    gcc = env['platform'] in ('linux', 'freebsd', 'darwin') or env['toolchain'] == 'crossmingw'
-    msvc = env['platform'] in ('windows', 'winddk', 'wince') and env['toolchain'] != 'crossmingw'
+    gcc = env['gcc']
+    msvc = env['msvc']
 
     # Put build output in a separate dir, which depends on the current
     # configuration. See also http://www.scons.org/wiki/AdvancedBuildExample
@@ -248,9 +251,12 @@ def generate(env):
             ('WINVER', '0x0501'),
             # http://msdn2.microsoft.com/en-us/library/6dwk3a1z.aspx,
             'WIN32_LEAN_AND_MEAN',
-            'VC_EXTRALEAN',
-            '_CRT_SECURE_NO_DEPRECATE',
         ]
+        if msvc:
+            cppdefines += [
+                'VC_EXTRALEAN',
+                '_CRT_SECURE_NO_DEPRECATE',
+            ]
         if debug:
             cppdefines += ['_DEBUG']
     if platform == 'winddk':
@@ -330,11 +336,15 @@ def generate(env):
             ]
         if env['machine'] == 'x86_64':
             cflags += ['-m64']
+        # See also:
+        # - http://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
         cflags += [
+            '-Werror=declaration-after-statement',
             '-Wall',
             '-Wmissing-prototypes',
+            '-Wmissing-field-initializers',
+            '-Wpointer-arith',
             '-Wno-long-long',
-            '-Wdeclaration-after-statement',
             '-ffast-math',
             '-std=gnu99',
             '-fmessage-length=0', # be nice to Eclipse
