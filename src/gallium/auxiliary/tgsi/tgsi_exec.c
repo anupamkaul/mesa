@@ -1749,9 +1749,11 @@ exec_instruction(
 
    switch (inst->Instruction.Opcode) {
    case TGSI_OPCODE_ARL:
+   case TGSI_OPCODE_FLOOR:
+   /* TGSI_OPCODE_FLR */
       FOR_EACH_ENABLED_CHANNEL( *inst, chan_index ) {
          FETCH( &r[0], 0, chan_index );
-         micro_trunc( &r[0], &r[0] );
+         micro_flr(&r[0], &r[0]);
          STORE( &r[0], 0, chan_index );
       }
       break;
@@ -2077,15 +2079,6 @@ exec_instruction(
 
    case TGSI_OPCODE_CLAMP:
       assert (0);
-      break;
-
-   case TGSI_OPCODE_FLOOR:
-   /* TGSI_OPCODE_FLR */
-      FOR_EACH_ENABLED_CHANNEL( *inst, chan_index ) {
-         FETCH( &r[0], 0, chan_index );
-         micro_flr( &r[0], &r[0] );
-         STORE( &r[0], 0, chan_index );
-      }
       break;
 
    case TGSI_OPCODE_ROUND:
