@@ -756,6 +756,9 @@ draw_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
    stmap = screen->surface_map(screen, ps, 
                                PIPE_BUFFER_USAGE_CPU_WRITE);
 
+   pixels = _mesa_map_drawpix_pbo(ctx, unpack, pixels);
+   assert(pixels);
+
    /* if width > MAX_WIDTH, have to process image in chunks */
    skipPixels = 0;
    while (skipPixels < width) {
@@ -809,6 +812,8 @@ draw_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
       }
       skipPixels += spanWidth;
    }
+
+   _mesa_unmap_drawpix_pbo(ctx, unpack);
 
    /* unmap the stencil buffer */
    screen->surface_unmap(screen, ps);
