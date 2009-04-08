@@ -272,6 +272,8 @@ class Screen(Object):
         pass
 
     def get_tex_surface(self, texture, face, level, zslice, usage):
+        if texture is None:
+            return None
         return texture.get_surface(face, level, zslice, usage)
     
     def tex_surface_destroy(self, surface):
@@ -281,6 +283,8 @@ class Screen(Object):
         pass
 
     def surface_write(self, surface, data, stride, size):
+        if surface is None:
+            return
         assert surface.nblocksy * stride == size 
         surface.put_tile_raw(0, 0, surface.width, surface.height, data, stride)
 
@@ -595,6 +599,8 @@ class Interpreter(parser.TraceDumper):
         ret = method(*args)
         
         if call.ret and isinstance(call.ret, model.Pointer):
+            if ret is None:
+                sys.stderr.write('warning: NULL returned\n')
             self.register_object(call.ret.address, ret)
 
         self.call_no = None
