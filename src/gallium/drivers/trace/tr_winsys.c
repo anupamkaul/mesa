@@ -78,9 +78,7 @@ trace_winsys_flush_frontbuffer(struct pipe_winsys *_winsys,
 
    assert(surface);
    if(surface->texture) {
-      struct trace_screen *tr_scr = trace_screen(surface->texture->screen);
-      struct trace_texture *tr_tex = trace_texture(tr_scr, surface->texture);
-      struct trace_surface *tr_surf = trace_surface(tr_tex, surface);
+      struct trace_surface *tr_surf = trace_surface(surface);
       surface = tr_surf->surface;
    }
    

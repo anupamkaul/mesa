@@ -54,23 +54,21 @@ struct trace_surface
 
 
 static INLINE struct trace_texture *
-trace_texture(struct trace_screen *tr_scr, 
-              struct pipe_texture *texture)
+trace_texture(struct pipe_texture *texture)
 {
    if(!texture)
       return NULL;
-   assert(texture->screen == &tr_scr->base);
+   (void)trace_screen(texture->screen);
    return (struct trace_texture *)texture;
 }
 
 
 static INLINE struct trace_surface *
-trace_surface(struct trace_texture *tr_tex, 
-              struct pipe_surface *surface)
+trace_surface(struct pipe_surface *surface)
 {
    if(!surface)
       return NULL;
-   assert(surface->texture == &tr_tex->base);
+   (void)trace_texture(surface->texture);
    return (struct trace_surface *)surface;
 }
 
@@ -80,16 +78,14 @@ trace_texture_create(struct trace_screen *tr_scr,
                      struct pipe_texture *texture);
 
 void
-trace_texture_destroy(struct trace_screen *tr_scr, 
-                      struct pipe_texture *texture);
+trace_texture_destroy(struct trace_texture *tr_tex);
 
 struct pipe_surface *
 trace_surface_create(struct trace_texture *tr_tex, 
                      struct pipe_surface *surface);
 
 void
-trace_surface_destroy(struct trace_texture *tr_tex,
-                      struct pipe_surface *surface);
+trace_surface_destroy(struct trace_surface *tr_surf);
 
 
 #endif /* TR_TEXTURE_H_ */

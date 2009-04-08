@@ -216,22 +216,18 @@ trace_screen_texture_release(struct pipe_screen *_screen,
    struct pipe_texture *texture;
    
    assert(ptexture);
-   if(*ptexture) {
-      tr_tex = trace_texture(tr_scr, *ptexture);
-      texture = tr_tex->texture;
-      assert(texture->screen == screen);
-   }
-   else
-      texture = NULL;
-   
    if (*ptexture) {
       if (!--(*ptexture)->refcount) {
+         tr_tex = trace_texture(*ptexture);
+         texture = tr_tex->texture;
+         assert(texture->screen == screen);
+
          trace_dump_call_begin("pipe_screen", "texture_destroy");
          
          trace_dump_arg(ptr, screen);
          trace_dump_arg(ptr, texture);
          
-         trace_texture_destroy(tr_scr, *ptexture);
+         trace_texture_destroy(tr_tex);
          
          trace_dump_call_end();
       }
@@ -254,7 +250,7 @@ trace_screen_get_tex_surface(struct pipe_screen *_screen,
    struct pipe_surface *result;
    
    assert(texture);
-   tr_tex = trace_texture(tr_scr, texture);
+   tr_tex = trace_texture(texture);
    texture = tr_tex->texture;
    assert(texture->screen == screen);
    
@@ -289,23 +285,18 @@ trace_screen_tex_surface_release(struct pipe_screen *_screen,
    struct trace_surface *tr_surf;
    struct pipe_surface *surface;
    
-   assert(psurface);
-   if(*psurface) {
-      tr_tex = trace_texture(tr_scr, (*psurface)->texture);
-      tr_surf = trace_surface(tr_tex, *psurface);
-      surface = tr_surf->surface;
-   }
-   else
-      surface = NULL;
-   
    if (*psurface) {
       if (!--(*psurface)->refcount) {
+         tr_tex = trace_texture((*psurface)->texture);
+         tr_surf = trace_surface(*psurface);
+         surface = tr_surf->surface;
+
          trace_dump_call_begin("pipe_screen", "tex_surface_destroy");
          
          trace_dump_arg(ptr, screen);
          trace_dump_arg(ptr, surface);
 
-         trace_surface_destroy(tr_tex, *psurface);
+         trace_surface_destroy(tr_surf);
 
          trace_dump_call_end();
       }
@@ -326,8 +317,8 @@ trace_screen_surface_map(struct pipe_screen *_screen,
    struct trace_surface *tr_surf;
    void *map;
    
-   tr_tex = trace_texture(tr_scr, surface->texture);
-   tr_surf = trace_surface(tr_tex, surface);
+   tr_tex = trace_texture(surface->texture);
+   tr_surf = trace_surface(surface);
    surface = tr_surf->surface;
 
    map = screen->surface_map(screen, surface, flags);
@@ -351,8 +342,8 @@ trace_screen_surface_unmap(struct pipe_screen *_screen,
    struct trace_texture *tr_tex;
    struct trace_surface *tr_surf;
    
-   tr_tex = trace_texture(tr_scr, surface->texture);
-   tr_surf = trace_surface(tr_tex, surface);
+   tr_tex = trace_texture(surface->texture);
+   tr_surf = trace_surface(surface);
    surface = tr_surf->surface;
    
    if(tr_surf->map) {

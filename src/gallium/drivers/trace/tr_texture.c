@@ -61,10 +61,8 @@ error:
 
 
 void
-trace_texture_destroy(struct trace_screen *tr_scr, 
-                      struct pipe_texture *texture)
+trace_texture_destroy(struct trace_texture *tr_tex)
 {
-   struct trace_texture *tr_tex = trace_texture(tr_scr, texture); 
    pipe_texture_reference(&tr_tex->texture, NULL);
    FREE(tr_tex);
 }
@@ -100,10 +98,8 @@ error:
 
 
 void
-trace_surface_destroy(struct trace_texture *tr_tex, 
-                      struct pipe_surface *surface)
+trace_surface_destroy(struct trace_surface *tr_surf)
 {
-   struct trace_surface *tr_surf = trace_surface(tr_tex, surface);
    pipe_texture_reference(&tr_surf->base.texture, NULL);
    pipe_surface_reference(&tr_surf->surface, NULL);
    FREE(tr_surf);
