@@ -45,6 +45,7 @@
 #endif
 
 #include "pipe/p_compiler.h"
+#include "pipe/p_thread.h"
 #include "pipe/p_debug.h"
 #include "util/u_memory.h"
 #include "util/u_string.h"
@@ -55,6 +56,7 @@
 
 static struct util_stream *stream = NULL;
 static unsigned refcount = 0;
+static pipe_mutex call_mutex;
 static long unsigned call_no = 0;
 
 
@@ -217,6 +219,7 @@ trace_dump_trace_close(void)
       stream = NULL;
       refcount = 0;
       call_no = 0;
+      pipe_mutex_destroy(call_mutex);
    }
 }
 
@@ -234,6 +237,8 @@ boolean trace_dump_trace_begin()
       if(!stream)
          return FALSE;
       
+      pipe_mutex_init(call_mutex);
+
       trace_dump_writes("<?xml version='1.0' encoding='UTF-8'?>\n");
       trace_dump_writes("<?xml-stylesheet type='text/xsl' href='trace.xsl'?>\n");
       trace_dump_writes("<trace version='0.1'>\n");
@@ -264,6 +269,7 @@ void trace_dump_trace_end(void)
 
 void trace_dump_call_begin(const char *klass, const char *method)
 {
+   pipe_mutex_lock(call_mutex);
    ++call_no;
    trace_dump_indent(1);
    trace_dump_writes("<call no=\'");
@@ -282,6 +288,7 @@ void trace_dump_call_end(void)
    trace_dump_tag_end("call");
    trace_dump_newline();
    util_stream_flush(stream);
+   pipe_mutex_unlock(call_mutex);
 }
 
 void trace_dump_arg_begin(const char *name)
