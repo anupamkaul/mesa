@@ -1996,7 +1996,90 @@ emit_instruction(
       break;
 
    case TGSI_OPCODE_NRM:
-      return 0;
+      /* fall-through */
+   case TGSI_OPCODE_NRM4:
+      /* 3 or 4-component normalization */
+      {
+         uint dims = (inst->Instruction.Opcode == TGSI_OPCODE_NRM) ? 3 : 4;
+
+         if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_X) ||
+             IS_DST0_CHANNEL_ENABLED(*inst, CHAN_Y) ||
+             IS_DST0_CHANNEL_ENABLED(*inst, CHAN_Z) ||
+             (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_W) && dims == 4)) {
+
+            /* NOTE: Cannot use xmm regs 2/3 here (see emit_rsqrt() above). */
+
+            /* xmm4 = src.x */
+            /* xmm0 = src.x * src.x */
+            FETCH(func, *inst, 0, 0, CHAN_X);
+            if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_X)) {
+               emit_MOV(func, 4, 0);
+            }
+            emit_mul(func, 0, 0);
+
+            /* xmm5 = src.y */
+            /* xmm0 = xmm0 + src.y * src.y */
+            FETCH(func, *inst, 1, 0, CHAN_Y);
+            if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_Y)) {
+               emit_MOV(func, 5, 1);
+            }
+            emit_mul(func, 1, 1);
+            emit_add(func, 0, 1);
+
+            /* xmm6 = src.z */
+            /* xmm0 = xmm0 + src.z * src.z */
+            FETCH(func, *inst, 1, 0, CHAN_Z);
+            if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_Z)) {
+               emit_MOV(func, 6, 1);
+            }
+            emit_mul(func, 1, 1);
+            emit_add(func, 0, 1);
+
+            if (dims == 4) {
+               /* xmm7 = src.w */
+               /* xmm0 = xmm0 + src.w * src.w */
+               FETCH(func, *inst, 1, 0, CHAN_W);
+               if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_W)) {
+                  emit_MOV(func, 7, 1);
+               }
+               emit_mul(func, 1, 1);
+               emit_add(func, 0, 1);
+            }
+
+            /* xmm1 = 1 / sqrt(xmm0) */
+            emit_rsqrt(func, 1, 0);
+
+            /* dst.x = xmm1 * src.x */
+            if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_X)) {
+               emit_mul(func, 4, 1);
+               STORE(func, *inst, 4, 0, CHAN_X);
+            }
+
+            /* dst.y = xmm1 * src.y */
+            if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_Y)) {
+               emit_mul(func, 5, 1);
+               STORE(func, *inst, 5, 0, CHAN_Y);
+            }
+
+            /* dst.z = xmm1 * src.z */
+            if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_Z)) {
+               emit_mul(func, 6, 1);
+               STORE(func, *inst, 6, 0, CHAN_Z);
+            }
+
+            /* dst.w = xmm1 * src.w */
+            if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_X) && dims == 4) {
+               emit_mul(func, 7, 1);
+               STORE(func, *inst, 7, 0, CHAN_W);
+            }
+         }
+
+         /* dst0.w = 1.0 */
+         if (IS_DST0_CHANNEL_ENABLED(*inst, CHAN_W) && dims == 3) {
+            emit_tempf(func, 0, TEMP_ONE_I, TEMP_ONE_C);
+            STORE(func, *inst, 0, 0, CHAN_W);
+         }
+      }
       break;
 
    case TGSI_OPCODE_DIV:
