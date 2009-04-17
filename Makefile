@@ -37,6 +37,9 @@ realclean: clean
 	  -name depend -o -name depend.bak ')' -exec rm -f '{}' ';'
 
 
+distclean: realclean
+
+
 install:
 	@for dir in $(SUBDIRS) ; do \
 		if [ -d $$dir ] ; then \
@@ -49,7 +52,9 @@ install:
 linux-directfb-install:
 	cd src/mesa/drivers/directfb && $(MAKE) install
 
-.PHONY: default doxygen clean realclean install linux-directfb-install
+
+.PHONY: default doxygen clean realclean distclean install linux-directfb-install
+
 
 # If there's no current configuration file
 $(TOP)/configs/current:
