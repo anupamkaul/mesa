@@ -74,7 +74,7 @@ static void r700Start3D(context_t *context)
 {
     if (context->screen->chip.type <= CHIP_TYPE_RV670)
     {
-        R700EP3 (context, IT_START_3D_CMDBUF, 1);
+        R700EP3 (context, IT_START_3D_CMDBUF, 0);
         R700E32 (context, 0);
     }
 
