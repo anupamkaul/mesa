@@ -58,13 +58,13 @@ void DumpHwBinary(int type, void *addr, int size)
     switch (type)
     {
         case DUMP_PIXEL_SHADER:
-            DEBUGF("Pixel Shader\n");
+            DEBUGP("[r600]    Pixel Shader\n");
         break;
         case DUMP_VERTEX_SHADER:
-            DEBUGF("Vertex Shader\n");
+            DEBUGP("[r600]    Vertex Shader\n");
         break;
         case DUMP_FETCH_SHADER:
-            DEBUGF("Fetch Shader\n");
+            DEBUGP("[r600]    Fetch Shader\n");
         break;
     }
 

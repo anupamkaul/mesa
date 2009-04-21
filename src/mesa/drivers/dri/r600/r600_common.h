@@ -33,7 +33,7 @@ extern int debug;
 #define DEBUG_FUNC  do { if (debug >= 1) fprintf (stderr, "[r600] %s   (%s:%d)\n", __func__, __FILE__, __LINE__); } while (0)
 #define DEBUG_FUNCF(x...)  do { if (debug >= 1) { fprintf (stderr, "[r600] %s   (%s:%d)   ", __func__, __FILE__, __LINE__); fprintf (stderr, x); } } while (0)
 #define DEBUGF(x...)  do { if (debug >= 1) { fprintf (stderr, "[r600]    " x); } } while (0)
-#define DEBUGP(x...)  do { if (debug >= 1) { fprintf (stderr, "" x); } } while (0)
+#define DEBUGP(x...)  do { if (debug >= 2) { fprintf (stderr, "" x); } } while (0)
 
 
 #if __SIZEOF_LONG__ == 8
