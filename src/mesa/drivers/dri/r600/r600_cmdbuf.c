@@ -110,17 +110,10 @@ int r600FlushCmdBuffer(context_t *context)
     
     drmGetLock(context->fd, context->hwContext, DRM_LOCK_HELD);
 
-    cmd.buf         = (char *)(context->cmdbuf.cmd_buf + start);
-    cmd.bufsz       = (context->cmdbuf.count_used - start) * 4;
-    cmd.nbox        = 1;
-    /*
-     * TODO, temp allocate boxes here
-     */
-    cmd.boxes       = (struct drm_clip_rect *)CALLOC(sizeof(struct drm_clip_rect));
-    cmd.boxes->x1   = 102; 
-    cmd.boxes->y1   = 127;
-    cmd.boxes->x2   = 352;
-    cmd.boxes->y2   = 377;
+    cmd.buf     = (char *)(context->cmdbuf.cmd_buf + start);
+    cmd.bufsz   = (context->cmdbuf.count_used - start) * 4;
+    cmd.nbox    = context->numClipRects;
+    cmd.boxes   = context->pClipRects;
     
     ret = drmCommandWrite(context->fd, DRM_RADEON_CMDBUF, &cmd, sizeof(cmd));
     

@@ -293,7 +293,7 @@ int r600MemAlloc(context_t *context, int alignment, int size)
 
 void r600MemFree(context_t *context, int id)
 {
-    fprintf(stderr, "%s: %d at age %x\n", __FUNCTION__, id,r600GetAge(context));
+    int ret;
 	assert(id <= context->memManager->u_last);
 
 	if (id == 0)
@@ -309,7 +309,31 @@ void r600MemFree(context_t *context, int id)
 		return;
 	}
 
-	context->memManager->u_list[id].pending = 1;
+    /*
+     * Because there is no R600_MEM_SCRATCH now, just free dma buffer here.
+     */
+    drm_radeon_mem_free_t memfree;
+    memfree.region = RADEON_MEM_REGION_GART;
+    memfree.region_offset = (char *)context->memManager->u_list[id].ptr -
+                            (char *)context->screen->gartTextures.cpu;
+    ret = drmCommandWrite(context->fd, DRM_RADEON_FREE, &memfree, sizeof(memfree));
+
+    if (ret)
+    {
+        WARN_ONCE("Failed to free at %p\n", context->memManager->u_list[id].ptr);
+        exit(1);
+    }
+    else
+    {
+        DEBUG_FUNCF ("freed %d at age %x\n", id, r600GetAge(context));
+        if (id == context->memManager->u_last)
+        {
+            context->memManager->u_last--;
+        }
+
+        context->memManager->u_list[id].pending = 0;
+        context->memManager->u_list[id].ptr = NULL;
+   }
 }
 
 void r600MemUse(context_t *context, int id)
@@ -434,7 +458,7 @@ static void r600RefillCurrentDmaRegion(context_t *context, int size)
 
     dmabuf              = CALLOC_STRUCT(r600_dma_buffer);
     dmabuf->buf         = (void *)1;    /* hack */
-    dmabuf->refcount    = 1;
+    dmabuf->refcount    = 0;
     dmabuf->id          = r600MemAlloc(context, 4, size);
     
     if (dmabuf->id == 0) 
