@@ -45,109 +45,53 @@
 #include "util/u_math.h"
 #include "util/u_memory.h"
 #include "softpipe/sp_winsys.h"
+#include "softpipe/sp_buffer.h"
 #include "softpipe/sp_texture.h"
 #include "shared/stw_winsys.h"
 
 
-struct gdi_softpipe_buffer
+struct gdi_softpipe_displaytarget
 {
-   struct pipe_buffer base;
-   boolean userBuffer;  /** Is this a user-space buffer? */
-   void *data;
-   void *mapped;
+   struct softpipe_displaytarget base;
+
+   BITMAPINFO bmi;
 };
 
 
 /** Cast wrapper */
-static INLINE struct gdi_softpipe_buffer *
-gdi_softpipe_buffer( struct pipe_buffer *buf )
+static INLINE struct gdi_softpipe_displaytarget *
+gdi_softpipe_displaytarget( struct softpipe_displaytarget *buf )
 {
-   return (struct gdi_softpipe_buffer *)buf;
+   return (struct gdi_softpipe_displaytarget *)buf;
 }
 
 
-static void *
-gdi_softpipe_buffer_map(struct pipe_winsys *winsys,
-                        struct pipe_buffer *buf,
-                        unsigned flags)
+static boolean
+gdi_softpipe_is_displaytarget_format_supported( struct softpipe_winsys *ws,
+                                                enum pipe_format format )
 {
-   struct gdi_softpipe_buffer *gdi_softpipe_buf = gdi_softpipe_buffer(buf);
-   gdi_softpipe_buf->mapped = gdi_softpipe_buf->data;
-   return gdi_softpipe_buf->mapped;
-}
+   switch(format) {
+   case PIPE_FORMAT_X8R8G8B8_UNORM:
+   case PIPE_FORMAT_A8R8G8B8_UNORM:
+      return TRUE;
 
-
-static void
-gdi_softpipe_buffer_unmap(struct pipe_winsys *winsys,
-                          struct pipe_buffer *buf)
-{
-   struct gdi_softpipe_buffer *gdi_softpipe_buf = gdi_softpipe_buffer(buf);
-   gdi_softpipe_buf->mapped = NULL;
-}
-
-
-static void
-gdi_softpipe_buffer_destroy(struct pipe_buffer *buf)
-{
-   struct gdi_softpipe_buffer *oldBuf = gdi_softpipe_buffer(buf);
-
-   if (oldBuf->data) {
-      if (!oldBuf->userBuffer)
-         align_free(oldBuf->data);
-
-      oldBuf->data = NULL;
+   /* TODO: Support other formats possible with BMPs, as described in 
+    * http://msdn.microsoft.com/en-us/library/dd183376(VS.85).aspx */
+      
+   default:
+      return FALSE;
    }
-
-   FREE(oldBuf);
 }
 
 
-static const char *
-gdi_softpipe_get_name(struct pipe_winsys *winsys)
+static void
+gdi_softpipe_displaytarget_destroy(struct softpipe_winsys *winsys,
+                                   struct softpipe_displaytarget *dt)
 {
-   return "softpipe";
-}
+   struct gdi_softpipe_displaytarget *gdt = gdi_softpipe_displaytarget(dt);
 
-
-static struct pipe_buffer *
-gdi_softpipe_buffer_create(struct pipe_winsys *winsys,
-                           unsigned alignment,
-                           unsigned usage,
-                           unsigned size)
-{
-   struct gdi_softpipe_buffer *buffer = CALLOC_STRUCT(gdi_softpipe_buffer);
-
-   pipe_reference_init(&buffer->base.reference, 1);
-   buffer->base.alignment = alignment;
-   buffer->base.usage = usage;
-   buffer->base.size = size;
-
-   buffer->data = align_malloc(size, alignment);
-
-   return &buffer->base;
-}
-
-
-/**
- * Create buffer which wraps user-space data.
- */
-static struct pipe_buffer *
-gdi_softpipe_user_buffer_create(struct pipe_winsys *winsys,
-                               void *ptr,
-                               unsigned bytes)
-{
-   struct gdi_softpipe_buffer *buffer;
-
-   buffer = CALLOC_STRUCT(gdi_softpipe_buffer);
-   if(!buffer)
-      return NULL;
-
-   pipe_reference_init(&buffer->base.reference, 1);
-   buffer->base.size = bytes;
-   buffer->userBuffer = TRUE;
-   buffer->data = ptr;
-
-   return &buffer->base;
+   FREE(gdt->base.data);
+   FREE(gdt);
 }
 
 
@@ -161,65 +105,59 @@ round_up(unsigned n, unsigned multiple)
 }
 
 
-static struct pipe_buffer *
-gdi_softpipe_surface_buffer_create(struct pipe_winsys *winsys,
-                                   unsigned width, unsigned height,
-                                   enum pipe_format format,
-                                   unsigned usage,
-                                   unsigned *stride)
+static struct softpipe_displaytarget *
+gdi_softpipe_displaytarget_create(struct softpipe_winsys *winsys,
+                                  unsigned width, unsigned height,
+                                  enum pipe_format format)
 {
-   const unsigned alignment = 64;
-   struct pipe_format_block block;
-   unsigned nblocksx, nblocksy;
+   const unsigned alignment = 16;
+   struct gdi_softpipe_displaytarget *gdt;
+   unsigned cpp;
+   unsigned bpp;
+   
+   gdt = CALLOC_STRUCT(gdi_softpipe_displaytarget);
+   if(!gdt)
+      return NULL;
 
-   pf_get_block(format, &block);
-   nblocksx = pf_get_nblocksx(&block, width);
-   nblocksy = pf_get_nblocksy(&block, height);
-   *stride = round_up(nblocksx * block.size, alignment);
+   gdt->base.format = format;
+   gdt->base.width = width;
+   gdt->base.height = height;
 
-   return winsys->buffer_create(winsys, alignment,
-                                usage,
-                                *stride * nblocksy);
+   bpp = pf_get_bits(format);
+   cpp = pf_get_size(format);
+   
+   gdt->base.stride = round_up(width * cpp, alignment);
+   gdt->base.size = gdt->base.stride * height;
+   
+   gdt->base.data = align_malloc(gdt->base.size, alignment);
+
+   gdt->bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+   gdt->bmi.bmiHeader.biWidth = gdt->base.stride / cpp;
+   gdt->bmi.bmiHeader.biHeight= -(long)height;
+   gdt->bmi.bmiHeader.biPlanes = 1;
+   gdt->bmi.bmiHeader.biBitCount = pf_get_bits(format);
+   gdt->bmi.bmiHeader.biCompression = BI_RGB;
+   gdt->bmi.bmiHeader.biSizeImage = 0;
+   gdt->bmi.bmiHeader.biXPelsPerMeter = 0;
+   gdt->bmi.bmiHeader.biYPelsPerMeter = 0;
+   gdt->bmi.bmiHeader.biClrUsed = 0;
+   gdt->bmi.bmiHeader.biClrImportant = 0;
+
+   return &gdt->base;
 }
 
 
 static void
-gdi_softpipe_dummy_flush_frontbuffer(struct pipe_winsys *winsys,
-                                     struct pipe_surface *surface,
-                                     void *context_private)
+gdi_softpipe_displaytarget_display(struct softpipe_winsys *winsys, 
+                                   struct softpipe_displaytarget *dt,
+                                   void *context_private)
 {
    assert(0);
 }
 
 
 static void
-gdi_softpipe_fence_reference(struct pipe_winsys *winsys,
-                             struct pipe_fence_handle **ptr,
-                             struct pipe_fence_handle *fence)
-{
-}
-
-
-static int
-gdi_softpipe_fence_signalled(struct pipe_winsys *winsys,
-                             struct pipe_fence_handle *fence,
-                             unsigned flag)
-{
-   return 0;
-}
-
-
-static int
-gdi_softpipe_fence_finish(struct pipe_winsys *winsys,
-                          struct pipe_fence_handle *fence,
-                          unsigned flag)
-{
-   return 0;
-}
-
-
-static void
-gdi_softpipe_destroy(struct pipe_winsys *winsys)
+gdi_softpipe_destroy(struct softpipe_winsys *winsys)
 {
    FREE(winsys);
 }
@@ -228,35 +166,29 @@ gdi_softpipe_destroy(struct pipe_winsys *winsys)
 static struct pipe_screen *
 gdi_softpipe_screen_create(void)
 {
-   static struct pipe_winsys *winsys;
+   static struct softpipe_winsys *winsys;
    struct pipe_screen *screen;
 
-   winsys = CALLOC_STRUCT(pipe_winsys);
+   winsys = CALLOC_STRUCT(softpipe_winsys);
    if(!winsys)
-      return NULL;
+      goto no_winsys;
 
    winsys->destroy = gdi_softpipe_destroy;
-
-   winsys->buffer_create = gdi_softpipe_buffer_create;
-   winsys->user_buffer_create = gdi_softpipe_user_buffer_create;
-   winsys->buffer_map = gdi_softpipe_buffer_map;
-   winsys->buffer_unmap = gdi_softpipe_buffer_unmap;
-   winsys->buffer_destroy = gdi_softpipe_buffer_destroy;
-
-   winsys->surface_buffer_create = gdi_softpipe_surface_buffer_create;
-
-   winsys->fence_reference = gdi_softpipe_fence_reference;
-   winsys->fence_signalled = gdi_softpipe_fence_signalled;
-   winsys->fence_finish = gdi_softpipe_fence_finish;
-
-   winsys->flush_frontbuffer = gdi_softpipe_dummy_flush_frontbuffer;
-   winsys->get_name = gdi_softpipe_get_name;
+   winsys->is_displaytarget_format_supported = gdi_softpipe_is_displaytarget_format_supported;
+   winsys->displaytarget_create = gdi_softpipe_displaytarget_create;
+   winsys->displaytarget_display = gdi_softpipe_displaytarget_display;
+   winsys->displaytarget_destroy = gdi_softpipe_displaytarget_destroy;
 
    screen = softpipe_create_screen(winsys);
    if(!screen)
-      gdi_softpipe_destroy(winsys);
+      goto no_screen;
 
    return screen;
+   
+no_screen:
+   FREE(winsys);
+no_winsys:
+   return NULL;
 }
 
 
@@ -273,30 +205,19 @@ gdi_softpipe_flush_frontbuffer(struct pipe_screen *screen,
                                HDC hDC)
 {
     struct softpipe_texture *texture;
-    struct gdi_softpipe_buffer *buffer;
-    BITMAPINFO bmi;
+    struct softpipe_buffer *buffer;
+    struct gdi_softpipe_displaytarget *gdt;
 
     texture = softpipe_texture(surface->texture);
-                                               
-    buffer = gdi_softpipe_buffer(texture->buffer);
+    buffer = softpipe_buffer(texture->buffer);
+    gdt = gdi_softpipe_displaytarget(buffer->dt);
 
-    memset(&bmi, 0, sizeof(BITMAPINFO));
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = texture->stride[surface->level] / pf_get_size(surface->format);
-    bmi.bmiHeader.biHeight= -(long)surface->height;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = pf_get_bits(surface->format);
-    bmi.bmiHeader.biCompression = BI_RGB;
-    bmi.bmiHeader.biSizeImage = 0;
-    bmi.bmiHeader.biXPelsPerMeter = 0;
-    bmi.bmiHeader.biYPelsPerMeter = 0;
-    bmi.bmiHeader.biClrUsed = 0;
-    bmi.bmiHeader.biClrImportant = 0;
-
+    assert(gdt);
+    
     StretchDIBits(hDC,
-                  0, 0, surface->width, surface->height,
-                  0, 0, surface->width, surface->height,
-                  buffer->data, &bmi, 0, SRCCOPY);
+                  0, 0, gdt->base.width, gdt->base.height,
+                  0, 0, gdt->base.width, gdt->base.height,
+                  gdt->base.data, &gdt->bmi, 0, SRCCOPY);
 }
 
 
