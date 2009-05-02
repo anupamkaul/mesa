@@ -1,6 +1,6 @@
 /**************************************************************************
- * 
- * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
+ *
+ * Copyright 2009 VMware, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -10,52 +10,50 @@
  * distribute, sub license, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice (including the
  * next paragraph) shall be included in all copies or substantial portions
  * of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
- * IN NO EVENT SHALL TUNGSTEN GRAPHICS AND/OR ITS SUPPLIERS BE LIABLE FOR
+ * IN NO EVENT SHALL VMWARE AND/OR ITS SUPPLIERS BE LIABLE FOR
  * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- * 
+ *
  **************************************************************************/
 
-/* Authors:  Keith Whitwell <keith@tungstengraphics.com>
- */
+#ifndef SP_BUFFER_H
+#define SP_BUFFER_H
 
-#ifndef SP_SCREEN_H
-#define SP_SCREEN_H
-
-#include "pipe/p_screen.h"
-#include "pipe/p_defines.h"
+#include "pipe/p_compiler.h"
+#include "pipe/p_state.h"
 
 
-struct softpipe_winsys;
+struct softpipe_rendertarget;
 
-struct softpipe_screen {
-   struct pipe_screen base;
 
-   struct softpipe_winsys *winsys;
-   
-   /* Increments whenever textures are modified.  Contexts can track
-    * this.
-    */
-   unsigned timestamp;          
+struct softpipe_buffer
+{
+   struct pipe_buffer base;
+   boolean userBuffer;  /** Is this a user-space buffer? */
+   struct softpipe_displaytarget *dt;
+   void *data;
 };
 
 
-
-
-static INLINE struct softpipe_screen *
-softpipe_screen( struct pipe_screen *pipe )
+/** Cast wrapper */
+static INLINE struct softpipe_buffer *
+softpipe_buffer( struct pipe_buffer *buf )
 {
-   return (struct softpipe_screen *)pipe;
+   return (struct softpipe_buffer *)buf;
 }
 
 
-#endif /* SP_SCREEN_H */
+void
+softpipe_init_screen_buffer_funcs(struct pipe_screen *screen);
+
+
+#endif /* SP_BUFFER_H */

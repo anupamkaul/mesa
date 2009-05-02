@@ -25,14 +25,19 @@
  * 
  **************************************************************************/
 
-/* This is the interface that softpipe requires any window system
- * hosting it to implement.  This is the only include file in softpipe
- * which is public.
+/**
+ * @file
+ * 
+ * This is the only include file in softpipe which is public.
  */
 
 
 #ifndef SP_WINSYS_H
 #define SP_WINSYS_H
+
+
+#include "pipe/p_compiler.h" // for boolean
+#include "pipe/p_format.h"
 
 
 #ifdef __cplusplus
@@ -41,15 +46,69 @@ extern "C" {
 
 
 struct pipe_screen;
-struct pipe_winsys;
 struct pipe_context;
 
 
-struct pipe_context *softpipe_create( struct pipe_screen * );
+struct softpipe_displaytarget
+{
+   enum pipe_format format;
+   unsigned width;
+   unsigned height;
+   unsigned stride;
+   unsigned size;
+   void *data;
+};
+
+
+/**
+ * This is the interface that softpipe expects any window system
+ * hosting it to implement.
+ * 
+ * Softpipe is for the most part a self suficient driver. The only thing it 
+ * does not know is how to display a surface.
+ */
+struct softpipe_winsys
+{
+   void 
+   (*destroy)( struct softpipe_winsys *ws );
+
+   boolean
+   (*is_displaytarget_format_supported)( struct softpipe_winsys *ws,
+                                         enum pipe_format format );
+   
+   /**
+    * Allocate storage for a render target.
+    * 
+    * Often surfaces which are meant to be blitted to the front screen (i.e.,
+    * display targets) must be allocated with special characteristics, memory 
+    * pools, or obtained directly from the windowing system.
+    *  
+    * This callback is invoked by the pipe_screen when creating a texture marked
+    * with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET flag to get the underlying 
+    * storage.
+    */
+   struct softpipe_displaytarget *
+   (*displaytarget_create)( struct softpipe_winsys *ws,
+                            unsigned width, unsigned height,
+                            enum pipe_format format );
+
+   void 
+
+   (*displaytarget_display)( struct softpipe_winsys *ws, 
+                             struct softpipe_displaytarget *dt,
+                             void *context_private );
+   void 
+   (*displaytarget_destroy)( struct softpipe_winsys *ws, 
+                             struct softpipe_displaytarget *dt );
+};
+
+
+struct pipe_context *
+softpipe_create( struct pipe_screen * );
 
 
 struct pipe_screen *
-softpipe_create_screen(struct pipe_winsys *);
+softpipe_create_screen( struct softpipe_winsys * );
 
 
 boolean

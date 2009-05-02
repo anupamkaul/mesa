@@ -33,6 +33,7 @@
 #include "pipe/p_screen.h"
 
 #include "sp_texture.h"
+#include "sp_buffer.h"
 #include "sp_winsys.h"
 #include "sp_screen.h"
 
@@ -142,12 +143,13 @@ softpipe_is_format_supported( struct pipe_screen *screen,
 static void
 softpipe_destroy_screen( struct pipe_screen *screen )
 {
-   struct pipe_winsys *winsys = screen->winsys;
+   struct softpipe_screen *sscreen = softpipe_screen(screen);
+   struct softpipe_winsys *winsys = sscreen->winsys;
 
    if(winsys->destroy)
       winsys->destroy(winsys);
 
-   FREE(screen);
+   FREE(sscreen);
 }
 
 
@@ -157,14 +159,14 @@ softpipe_destroy_screen( struct pipe_screen *screen )
  * Note: we're not presently subclassing pipe_screen (no softpipe_screen).
  */
 struct pipe_screen *
-softpipe_create_screen(struct pipe_winsys *winsys)
+softpipe_create_screen(struct softpipe_winsys *winsys)
 {
    struct softpipe_screen *screen = CALLOC_STRUCT(softpipe_screen);
 
    if (!screen)
       return NULL;
 
-   screen->base.winsys = winsys;
+   screen->winsys = winsys;
 
    screen->base.destroy = softpipe_destroy_screen;
 
@@ -175,7 +177,7 @@ softpipe_create_screen(struct pipe_winsys *winsys)
    screen->base.is_format_supported = softpipe_is_format_supported;
 
    softpipe_init_screen_texture_funcs(&screen->base);
-   u_simple_screen_init(&screen->base);
+   softpipe_init_screen_buffer_funcs(&screen->base);
 
    return &screen->base;
 }
