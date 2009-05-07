@@ -79,10 +79,7 @@ _xeglChooseDriver(_EGLDisplay *dpy)
 
    screen = DefaultScreen(dpy->Xdpy);
 
-   /* See if we can choose a DRI/DRM driver */
-   driverName = _eglChooseDRMDriver(screen);
-   if (driverName && !getenv("EGL_SOFTPIPE")) {
-      free((void *) driverName);
+   if (!getenv("EGL_SOFTPIPE")) {
       driverName = _eglstrdup(DefaultGLXDriver);
    }
    else {
