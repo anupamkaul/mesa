@@ -9,6 +9,10 @@
 #ifndef ST_CB_DRAWTEX_H
 #define ST_CB_DRAWTEX_H
 
+
+struct st_context;
+
+
 extern void
 _mesa_DrawTexf(GLfloat x, GLfloat y, GLfloat z, GLfloat width, GLfloat height);
 
