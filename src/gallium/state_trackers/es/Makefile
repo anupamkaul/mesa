@@ -35,7 +35,7 @@ GLES_2_LIB_NAME = lib$(GLES_2_LIB).so
 
 
 INCLUDE_DIRS = \
-	-Icommon \
+	-Ies-common \
 	-Imesa \
 	-I$(TOP)/include
 
@@ -47,10 +47,10 @@ ES1_SOURCES = \
 	es1/st_es1_getproc_gen.c \
 	es1/st_es1_getstring.c \
 	es1/st_es1_stubs.c \
-	common/st_cpaltex.c \
-	common/st_glapi.c \
-	common/st_query_matrix.c \
-	common/st_teximage.c
+	es-common/st_cpaltex.c \
+	es-common/st_glapi.c \
+	es-common/st_query_matrix.c \
+	es-common/st_teximage.c
 
 
 ES1_OBJECTS = $(ES1_SOURCES:.c=.o)
@@ -62,10 +62,10 @@ ES2_SOURCES = \
 	es2/st_es2_get.c \
 	es2/st_es2_getstring.c \
 	es2/st_es2_stubs.c \
-	common/st_cpaltex.c \
-	common/st_fbo.c \
-	common/st_glapi.c \
-	common/st_teximage.c
+	es-common/st_cpaltex.c \
+	es-common/st_fbo.c \
+	es-common/st_glapi.c \
+	es-common/st_teximage.c
 
 ES2_OBJECTS = $(ES2_SOURCES:.c=.o)
 
