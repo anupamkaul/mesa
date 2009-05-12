@@ -35,6 +35,11 @@
 #include "glapi/dispatch.h"
 
 
+#if FEATURE_fixedpt
+typedef GLint GLfixed;
+#endif
+
+
 /**
  * Update the fields of a vertex array object.
  * We need to do a few special things for arrays that live in
