@@ -160,7 +160,6 @@ accum_mad(GLcontext *ctx, GLfloat scale, GLfloat bias,
           struct st_renderbuffer *acc_strb)
 {
    struct pipe_screen *screen = ctx->st->pipe->screen;
-//   struct pipe_surface *acc_ps = acc_strb->surface;
    struct pipe_surface *acc_ps =  screen->get_tex_surface(screen, acc_strb->texture, 0, 0, 0,
                                       (PIPE_BUFFER_USAGE_CPU_WRITE |
                                        PIPE_BUFFER_USAGE_CPU_READ));
@@ -188,6 +187,8 @@ accum_mad(GLcontext *ctx, GLfloat scale, GLfloat bias,
    }
 
    screen->surface_unmap(screen, acc_ps);
+
+   pipe_surface_reference(&acc_ps, NULL);
 }
 
 
