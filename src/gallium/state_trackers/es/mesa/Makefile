@@ -17,21 +17,29 @@ include $(TOP)/configs/current
 include sources.mak
 
 
+ROOT = `(cd ${TOP} && pwd )`
+
 LINK = ln -s
 
 
 INCLUDE_DIRS = \
-        -I$(GALLIUM)/include \
+        -I$(TOP)/include \
         -I. \
         -I./main \
-        -I$(GALLIUM)/src/gallium/include \
-        -I$(GALLIUM)/src/gallium/drivers \
-        -I$(GALLIUM)/src/gallium/auxiliary
+        -I$(TOP)/src/gallium/include \
+        -I$(TOP)/src/gallium/drivers \
+        -I$(TOP)/src/gallium/auxiliary
 
 MESA_SUBDIRS = \
-	glapi main math vbo \
-	shader shader/slang shader/slang/library shader/grammar \
-	state_tracker
+	glapi \
+	main \
+	math \
+	shader \
+	shader/grammar \
+	shader/slang \
+	shader/slang/library \
+	state_tracker \
+	vbo
 
 
 SPECIAL_SYMLINKS = shader/grammar/grammar.c
@@ -42,43 +50,9 @@ SPECIAL_SYMLINKS = shader/grammar/grammar.c
 	$(CC) -c $(INCLUDE_DIRS) $(CFLAGS) -UIN_DRI_DRIVER $< -o $@
 
 
-# create symlink for .c file
-%.c:
-	$(LINK) $(GALLIUM)/src/mesa/$@ $@
-
-# create symlink for .h file
-%.h:
-	$(LINK) $(GALLIUM)/src/mesa/$@ $@
-
-
-
+# Default rule: create the libmesa.a library
 .PHONY: default
-default: $(MESA_SUBDIRS) symlinks libmesa.a
-
-
-libmesa.a: $(OBJECTS) $(GALLIUM_LIBS)
-	$(TOP)/bin/mklib -o mesa -static $(OBJECTS) $(GALLIUM_LIBS)
-
-
-
-# Create all the symlinks back to Mesa source files that we'll use as-is
-.PHONY: symlinks
-symlinks: $(SPECIAL_SYMLINKS)
-	@ for file in $(SYMLINKS) ; do \
-		if [ ! -h $$file ] ; then \
-			echo "Making symlink to" $$file ; \
-			rm -f $$file ; \
-			$(LINK) $(GALLIUM)/src/mesa/$$file $$file ; \
-		fi \
-	done
-
-
-# Remove symlinks for 'make clean'
-.PHONY: rm-symlinks
-rm-symlinks:
-	for file in $(SYMLINKS) ; do \
-		rm -f $$file ; \
-	done
+default: $(MESA_SUBDIRS) $(SYMLINKS) $(SPECIAL_SYMLINKS) libmesa.a
 
 
 # Create the Mesa subdirs as needed
@@ -86,19 +60,34 @@ $(MESA_SUBDIRS):
 	mkdir $@
 
 
-# special-case
-shader/grammar/grammar.c:
-	$(LINK) $(GALLIUM)/src/mesa/$@ $@
+# Create the libmesa.a library (common code for ES1 and ES2 libs)
+libmesa.a: $(OBJECTS) $(GALLIUM_AUXILIARIES)
+	@echo "Making libmesa.a"
+	@ $(TOP)/bin/mklib -o mesa -static $(OBJECTS) $(GALLIUM_LIBS)
 
+
+# Create symlinks back to Mesa source files that we'll use as-is
+$(SYMLINKS) $(SPECIAL_SYMLINKS):
+	@ if [ ! -h $@ ] ; then \
+		echo "Making symlink to" $@ ; \
+		rm -f $@ ; \
+		$(LINK) $(ROOT)/src/mesa/$@ $@ ; \
+	fi
+
+
+# Special case file, python-generated
 main/get.c: main/get_gen.py
 	python main/get_gen.py > main/get.c
 
 
 
 .PHONY: clean
-clean: rm-symlinks
+clean:
+	rm -f $(SYMLINKS) $(SPECIAL_SYMLINKS)
 	-rm -f */*.o */*/*.o
 	-rm -f depend depend.bak
+	-rm -f libmesa.a
+	-rm -f *~
 
 
 depend: $(SOURCES)
