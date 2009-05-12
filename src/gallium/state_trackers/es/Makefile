@@ -37,8 +37,7 @@ GLES_2_LIB_NAME = lib$(GLES_2_LIB).so
 INCLUDE_DIRS = \
 	-Icommon \
 	-Imesa \
-	-I$(TOP)/include \
-	-I$(GALLIUM)/include
+	-I$(TOP)/include
 
 ES1_SOURCES = \
 	es1/st_es1_context.c \
@@ -74,10 +73,10 @@ ES2_OBJECTS = $(ES2_SOURCES:.c=.o)
 
 # we only need the gallium libs that the state trackers directly use:
 GALLIUM_LIBS = \
-	$(GALLIUM)/src/gallium/auxiliary/cso_cache/libcso_cache.a \
-	$(GALLIUM)/src/gallium/auxiliary/rtasm/librtasm.a \
-	$(GALLIUM)/src/gallium/auxiliary/tgsi/libtgsi.a \
-	$(GALLIUM)/src/gallium/auxiliary/util/libutil.a
+	$(TOP)/src/gallium/auxiliary/cso_cache/libcso_cache.a \
+	$(TOP)/src/gallium/auxiliary/rtasm/librtasm.a \
+	$(TOP)/src/gallium/auxiliary/tgsi/libtgsi.a \
+	$(TOP)/src/gallium/auxiliary/util/libutil.a
 
 LIBS = mesa/libmesa.a $(GALLIUM_LIBS)
 
