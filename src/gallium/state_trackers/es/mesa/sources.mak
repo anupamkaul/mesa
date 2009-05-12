@@ -22,7 +22,6 @@ MAIN_OMITTED = \
 	main/get.c \
 	main/histogram.c \
 	main/histogram.h \
-	main/mm.c \
 	main/queryobj.c \
 	main/queryobj.h \
 	main/rastpos.c \
@@ -65,6 +64,7 @@ MAIN_C_LINKS = \
 	main/lines.c \
 	main/matrix.c \
 	main/mipmap.c \
+	main/mm.c \
 	main/multisample.c \
 	main/pixelstore.c \
 	main/points.c \
