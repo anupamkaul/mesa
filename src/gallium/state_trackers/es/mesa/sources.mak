@@ -44,6 +44,7 @@ MAIN_C_LINKS = \
 	main/clear.c \
 	main/clip.c \
 	main/context.c \
+	main/cpuinfo.c \
 	main/debug.c \
 	main/depth.c \
 	main/depthstencil.c \
@@ -73,12 +74,14 @@ MAIN_C_LINKS = \
 	main/renderbuffer.c \
 	main/scissor.c \
 	main/shaders.c \
+	main/shared.c \
 	main/state.c \
 	main/stencil.c \
 	main/texcompress.c \
 	main/texenv.c \
 	main/texenvprogram.c \
 	main/texgen.c \
+	main/texgetimage.c \
 	main/texformat.c \
 	main/teximage.c \
 	main/texobj.c \
@@ -87,6 +90,7 @@ MAIN_C_LINKS = \
 	main/texstate.c \
 	main/texstore.c \
 	main/varray.c \
+	main/viewport.c \
 	main/vsnprintf.c \
 	main/vtxfmt.c
 
@@ -105,8 +109,10 @@ MAIN_H_LINKS = \
 	main/clear.h \
 	main/clip.h \
 	main/colormac.h \
+	main/compiler.h \
 	main/config.h \
 	main/context.h \
+	main/cpuinfo.h \
 	main/dd.h \
 	main/debug.h \
 	main/depth.h \
@@ -141,6 +147,7 @@ MAIN_H_LINKS = \
 	main/renderbuffer.h \
 	main/scissor.h \
 	main/shaders.h \
+	main/shared.h \
 	main/simple_list.h \
 	main/state.h \
 	main/stencil.h \
@@ -150,6 +157,7 @@ MAIN_H_LINKS = \
 	main/texformat.h \
 	main/texformat_tmp.h \
 	main/texgen.h \
+	main/texgetimage.h \
 	main/teximage.h \
 	main/texobj.h \
 	main/texparam.h \
@@ -158,6 +166,7 @@ MAIN_H_LINKS = \
 	main/texstore.h \
 	main/varray.h \
 	main/version.h \
+	main/viewport.h \
 	main/vtxfmt.h \
 	main/vtxfmt_tmp.h
 
@@ -229,6 +238,8 @@ SHADER_C_LINKS = \
 	shader/prog_cache.c \
 	shader/prog_execute.c \
 	shader/prog_instruction.c \
+	shader/prog_noise.c \
+	shader/prog_optimize.c \
 	shader/prog_parameter.c \
 	shader/prog_print.c \
 	shader/program.c \
@@ -247,7 +258,6 @@ SHADER_C_LINKS = \
 	shader/slang/slang_emit.c \
 	shader/slang/slang_ir.c \
 	shader/slang/slang_label.c \
-	shader/slang/slang_library_noise.c \
 	shader/slang/slang_link.c \
 	shader/slang/slang_log.c \
 	shader/slang/slang_mem.c \
@@ -266,6 +276,8 @@ SHADER_H_LINKS = \
 	shader/prog_cache.h \
 	shader/prog_execute.h \
 	shader/prog_instruction.h \
+	shader/prog_noise.h \
+	shader/prog_optimize.h \
 	shader/prog_parameter.h \
 	shader/prog_print.h \
 	shader/program.h \
@@ -287,7 +299,6 @@ SHADER_H_LINKS = \
 	shader/slang/slang_emit.h \
 	shader/slang/slang_ir.h \
 	shader/slang/slang_label.h \
-	shader/slang/slang_library_noise.h \
 	shader/slang/slang_link.h \
 	shader/slang/slang_log.h \
 	shader/slang/slang_mem.h \
@@ -339,6 +350,7 @@ STATE_TRACKER_C_LINKS = \
 	state_tracker/st_cb_readpixels.c \
 	state_tracker/st_cb_strings.c \
 	state_tracker/st_cb_texture.c \
+	state_tracker/st_cb_viewport.c \
 	state_tracker/st_context.c \
 	state_tracker/st_debug.c \
 	state_tracker/st_draw.c \
@@ -368,12 +380,14 @@ STATE_TRACKER_H_LINKS = \
 	state_tracker/st_cb_readpixels.h \
 	state_tracker/st_cb_strings.h \
 	state_tracker/st_cb_texture.h \
+	state_tracker/st_cb_viewport.h \
 	state_tracker/st_context.h \
 	state_tracker/st_debug.h \
 	state_tracker/st_draw.h \
 	state_tracker/st_extensions.h \
 	state_tracker/st_format.h \
 	state_tracker/st_gen_mipmap.h \
+	state_tracker/st_inlines.h \
 	state_tracker/st_mesa_to_tgsi.h \
 	state_tracker/st_program.h \
 	state_tracker/st_public.h \
@@ -442,6 +456,6 @@ SOURCES = \
 	$(LOCAL_SOURCES)
 
 
-OBJECTS = $(SOURCES:.c=.o) \
+OBJECTS = $(SOURCES:.c=.o)
 
 
