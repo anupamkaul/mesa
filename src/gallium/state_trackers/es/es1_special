@@ -1,0 +1,11 @@
+# GetString is always special.
+GetString
+# GetPointer needs to be special to get the GL_POINT_SIZE_ARRAY_POINTER_OES
+# to work correctly, until support for that appears in Mesa.
+GetPointerv
+# CompressedTexImage2D calls out to two different functions based on
+# whether the image is a paletted image or not
+CompressedTexImage2D
+# QueryMatrixx returns values in an unusual, decomposed, fixed-value
+# form; it has its own code for this
+QueryMatrixx

@@ -1,0 +1,112 @@
+#
+# File: src\gallium\state_trackers\es\SConscript
+#
+# Run Mesa's code generator, build the es1 and/or es2 libraries, invoke mesa\SConscript
+# and invoke egl\Sconscript
+#
+
+import os.path
+
+Import('*')
+
+env = env.Clone()
+
+
+env.CodeGenerate(
+	target = 'es1/st_es1_generated.c', 
+	script = 'es_generator.py', 
+	source = ['APIspec.txt', 'es1_special'],
+	command = 'python $SCRIPT -S $SOURCE -V GLES1.1 > $TARGET'
+)
+
+env.CodeGenerate(
+	target = 'es2/st_es2_generated.c', 
+	script = 'es_generator.py', 
+	source = ['APIspec.txt', 'es2_special'],
+	command = 'python $SCRIPT -S $SOURCE -V GLES2.0 > $TARGET'
+)
+
+env.CodeGenerate(
+	target = 'es1/st_es1_get.c', 
+	script = 'get_gen.py', 
+	source = [],
+	command = 'python $SCRIPT 1 > $TARGET'
+)
+
+env.CodeGenerate(
+	target = 'es2/st_es2_get.c', 
+	script = 'get_gen.py', 
+	source = [],
+	command = 'python $SCRIPT 2 > $TARGET'
+)
+
+env.CodeGenerate(
+        target = 'es1/st_es1_getproc_gen.c',
+        script = 'es_getproc_gen.py',
+        source = ['APIspec.txt'],
+        command = 'python $SCRIPT -S $SOURCE -V GLES1.1 > $TARGET'
+)
+
+env.CodeGenerate(
+        target = 'es2/st_es2_getproc_gen.c',
+        script = 'es_getproc_gen.py',
+        source = ['APIspec.txt'],
+        command = 'python $SCRIPT -S $SOURCE -V GLES2.0 > $TARGET'
+)
+
+# The execution environment, which will compile the generated code,
+# has to know where the current directory is for includes, since
+# none of the headers will be present in the build directory
+# where the generated code is created.
+env.Append(CPPPATH = [
+	'.',
+	'common',
+	'mesa',
+	'mesa/state_tracker',
+])
+
+env.Append(CPPDEFINES = [
+   '__GL_EXPORTS',
+   'BUILD_GL32',
+   '_GNU_H_WINDOWS32_DEFINES',
+])
+
+es1 = env.ConvenienceLibrary(
+	target = 'es1',
+	source = [
+		'es1/st_es1_context.c',
+		'es1/st_es1_drawtex.c',
+		'es1/st_es1_generated.c',
+		'es1/st_es1_get.c',
+		'es1/st_es1_getproc_gen.c',
+		'es1/st_es1_getstring.c',
+		'es1/st_es1_stubs.c',
+		'common/st_cpaltex.c',
+		'common/st_glapi.c',
+		'common/st_teximage.c',
+		'common/st_query_matrix.c',
+	],
+)
+Export('es1')
+es2 = env.ConvenienceLibrary(
+	target = 'es2',
+	source = [
+		'es2/st_es2_context.c',
+		'es2/st_es2_generated.c',
+		'es2/st_es2_getproc_gen.c',
+		'es2/st_es2_get.c',
+		'es2/st_es2_getstring.c',
+		'es2/st_es2_stubs.c',
+		'common/st_cpaltex.c',
+		'common/st_fbo.c',
+		'common/st_glapi.c',
+		'common/st_teximage.c',
+	],
+)
+
+Export('es2')
+
+
+SConscript('mesa/SConscript')
+
+SConscript('egl/SConscript')
