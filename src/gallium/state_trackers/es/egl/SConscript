@@ -1,0 +1,99 @@
+#
+# File: src\gallium\state_trackers\es\egl\SConscript
+#
+# This SConscript file copies EGL from the Gallium tree and builds an EGL library.
+#
+
+import os
+import shutil
+
+
+Import('*')
+
+
+env = env.Clone()
+
+env.Append(CPPPATH = [
+	'.',
+	'main',
+	'../mesa',
+	'../common',
+])
+
+if gcc:
+	env.Append(CFLAGS = [
+		'-std=c99',
+	])
+
+if platform == 'windows':
+   env.Append(CPPDEFINES = [
+      '_EGL_PLATFORM_WINDOWS',
+   ])
+
+if platform == 'wince':
+   env.Append(CPPDEFINES = [
+      '_EGL_PLATFORM_WINDOWS',
+   ])
+
+egl_sources = [
+   'main/eglapi.c',
+   'main/eglapi.h',
+   'main/eglconfig.c',
+   'main/eglconfig.h',
+   'main/eglconfigutil.c',
+   'main/eglconfigutil.h',
+   'main/eglcontext.c',
+   'main/eglcontext.h',
+   'main/egldefines.h',
+   'main/egldisplay.c',
+   'main/egldisplay.h',
+   'main/egldriver.c',
+   'main/egldriver.h',
+   'main/eglglobals.c',
+   'main/eglglobals.h',
+   'main/eglhash.c',
+   'main/eglhash.h',
+   'main/egllog.c',
+   'main/egllog.h',
+   'main/eglmisc.c',
+   'main/eglmisc.h',
+   'main/eglmode.c',
+   'main/eglmode.h',
+   'main/eglscreen.c',
+   'main/eglscreen.h',
+   'main/eglstring.c',
+   'main/eglstring.h',
+   'main/eglsurface.c',
+   'main/eglsurface.h',
+   'main/egltypedefs.h',
+]
+
+local_sources = [
+   'drivers/win32/egl_win32.c',
+]
+
+
+# Just copy all necessary source files from EGL gallium without telling scons about it
+# to keep things simple for now.
+for source in egl_sources:
+	src = os.path.join(env['gallium'], 'src/egl', source)
+	dst = os.path.join(Dir('.').srcnode().abspath, source)
+	dst_dir = os.path.dirname(dst)
+	if not os.path.exists(dst_dir):
+		print "Creating %s" % os.path.dirname(source)
+		os.makedirs(dst_dir)
+	if (not os.path.exists(dst) 
+	    or os.path.getsize(dst) != os.path.getsize(src) 
+	    or os.path.getmtime(dst) != os.path.getmtime(src)):
+		print "Copying %s" % source
+		shutil.copy2(src, dst)
+
+
+sources = [source for source in egl_sources if source.endswith('.c')]
+
+if platform in ['windows', 'wince']:
+    egl_win32 = env.ConvenienceLibrary(
+        target = 'egl_win32',
+        source = sources + local_sources,
+    )
+    Export('egl_win32')
