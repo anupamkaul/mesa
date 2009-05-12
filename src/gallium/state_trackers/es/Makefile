@@ -1,6 +1,6 @@
 # src/gallium/state_trackers/es/Makefile
 
-# Build the ES state tracker library (libGLESv1_CM.so)
+# Build the ES 1/2 state tracker libraries
 # This consists of core Mesa, plus GL/gallium state tracker plus
 # a thin "API veneer" layer that translates GL ES entrypoints into
 # mesa calls.  Ex: glEnable() -> _mesa_Enable()
