@@ -227,7 +227,6 @@ VBO_H_LINKS = \
 	vbo/vbo_attrib.h \
 	vbo/vbo_attrib_tmp.h \
 	vbo/vbo_context.h \
-	vbo/vbo_exec_array.c \
 	vbo/vbo_exec.h \
 	vbo/vbo.h \
 	vbo/vbo_split.h
