@@ -121,6 +121,8 @@ debug_malloc(const char *file, unsigned line, const char *function,
    struct debug_memory_header *hdr;
    struct debug_memory_footer *ftr;
    
+   assert(size);
+   
    hdr = real_malloc(sizeof(*hdr) + size + sizeof(*ftr));
    if(!hdr) {
       debug_printf("%s:%u:%s: out of memory when trying to allocate %lu bytes\n",
