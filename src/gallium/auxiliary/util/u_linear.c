@@ -6,7 +6,7 @@ void
 pipe_linear_to_tile(size_t src_stride, void *src_ptr,
 		    struct pipe_tile_info *t, void *dst_ptr)
 {
-   int x, y, z;
+   unsigned x, y, z;
    char *ptr;
    size_t bytes = t->cols * t->block.size;
 
@@ -20,7 +20,7 @@ pipe_linear_to_tile(size_t src_stride, void *src_ptr,
 	 ptr = (char*)src_ptr + src_stride * t->rows * y + bytes * x;
 	 for (z = 0; z < t->rows; z++) {
 	    memcpy(dst_ptr, ptr, bytes);
-	    dst_ptr += bytes;
+	    dst_ptr = (char *)dst_ptr + bytes;
 	    ptr += src_stride;
 	 }
       }
@@ -30,7 +30,7 @@ pipe_linear_to_tile(size_t src_stride, void *src_ptr,
 void pipe_linear_from_tile(struct pipe_tile_info *t, void  *src_ptr,
 			   size_t dst_stride, void *dst_ptr)
 {
-   int x, y, z;
+   unsigned x, y, z;
    char *ptr;
    size_t bytes = t->cols * t->block.size;
 
@@ -41,7 +41,7 @@ void pipe_linear_from_tile(struct pipe_tile_info *t, void  *src_ptr,
 	 ptr = (char*)dst_ptr + dst_stride * t->rows * y + bytes * x;
 	 for (z = 0; z < t->rows; z++) {
 	    memcpy(ptr, src_ptr, bytes);
-	    src_ptr += bytes;
+	    src_ptr = (char *)src_ptr + bytes;
 	    ptr += dst_stride;
 	 }
       }
