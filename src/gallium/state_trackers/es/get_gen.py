@@ -129,7 +129,7 @@ StateVars_common = [
 	  ["ctx->Stencil.WriteMask[ctx->Stencil.ActiveFace]"], "", None ),
 	( "GL_SUBPIXEL_BITS", GLint, ["ctx->Const.SubPixelBits"], "", None ),
 	( "GL_TEXTURE_BINDING_2D", GLint,
-	  ["ctx->Texture.Unit[ctx->Texture.CurrentUnit].Current2D->Name"], "", None ),
+	  ["ctx->Texture.Unit[ctx->Texture.CurrentUnit].CurrentTex[TEXTURE_2D_INDEX]->Name"], "", None ),
 	( "GL_UNPACK_ALIGNMENT", GLint, ["ctx->Unpack.Alignment"], "", None ),
 	( "GL_VIEWPORT", GLint, [ "ctx->Viewport.X", "ctx->Viewport.Y",
 	  "ctx->Viewport.Width", "ctx->Viewport.Height" ], "", None ),
@@ -147,7 +147,7 @@ StateVars_common = [
 
 	# OES_texture_cube_map
 	( "GL_TEXTURE_BINDING_CUBE_MAP_ARB", GLint,
-	  ["ctx->Texture.Unit[ctx->Texture.CurrentUnit].CurrentCubeMap->Name"],
+	  ["ctx->Texture.Unit[ctx->Texture.CurrentUnit].CurrentTex[TEXTURE_CUBE_INDEX]->Name"],
 	  "", None),
 	( "GL_MAX_CUBE_MAP_TEXTURE_SIZE_ARB", GLint,
 	  ["(1 << (ctx->Const.MaxCubeTextureLevels - 1))"],
@@ -520,7 +520,7 @@ StateVars_es2 = [
 
         # OES_texture_3D 
 	( "GL_TEXTURE_BINDING_3D", GLint,
-	  ["ctx->Texture.Unit[ctx->Texture.CurrentUnit].Current3D->Name"], "", None),
+	  ["ctx->Texture.Unit[ctx->Texture.CurrentUnit].CurrentTex[TEXTURE_3D_INDEX]->Name"], "", None),
 	( "GL_MAX_3D_TEXTURE_SIZE", GLint, ["1 << (ctx->Const.Max3DTextureLevels - 1)"], "", None),
 
         # OES_standard_derivatives
