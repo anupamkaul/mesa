@@ -67,7 +67,7 @@ libmesa.a: $(OBJECTS) $(GALLIUM_AUXILIARIES)
 
 
 # Create symlinks back to Mesa source files that we'll use as-is
-$(SYMLINKS) $(SPECIAL_SYMLINKS):
+$(SYMLINKS) $(SPECIAL_SYMLINKS): $(MESA_SUBDIRS)
 	@ if [ ! -h $@ ] ; then \
 		echo "Making symlink to" $@ ; \
 		rm -f $@ ; \
