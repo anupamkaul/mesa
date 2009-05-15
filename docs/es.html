@@ -9,19 +9,52 @@
 <H1>Introduction</H1>
 
 <p>
-Mesa 7.6 includes implementations of OpenGL ES 1.1 and OpenGL ES 2.0.
+Mesa 7.6 includes implementations of the OpenGL ES 1.1 and OpenGL ES 2.0
+APIs.
 </p>
 
 <p>
-Basically, the OpenGL ES 1.1 and 2.0 libraries are subset of Mesa.
-Any driver (Gallium or legacy Mesa drivers) that works with Mesa should
-work with the ES 1.1 and 2.0 libraries.
+Basically, the ES 1.1 and 2.0 libraries are Gallium state trackers which
+are subsets of Mesa.
+Any Gallium driver that works with Mesa should work with the ES 1.1 and
+2.0 libraries.
+</p>
+
+
+<h1>Source Code</h1>
+
+<p>
+The source code for the ES front-ends is in the
+<code>src/gallium/state_trackers/es/</code> subdirectory.
+</p>
+<p>
+The ES1 and ES2 libraries share a subset of the regular Mesa sources.
+A symlink mirror of the <code>src/mesa/</code> tree is created under
+<code>src/gallium/state_trackers/es/mesa/</code>.
+Some Mesa sources which aren't used for ES (ex: display list code)
+are omitted and a few other files are replaced with ES-specific version
+(ex: mfeatures.h).
+Also note that because of the <code>#ifdef FEATURE_x</code> checks in Mesa,
+the .o files produced in the ES tree will be different from the .o files
+in the main Mesa tree.
+That's why a separate symlinked directory tree is used.
 </p>
 
 <p>
-<EM>DISCLAIMER</EM>:  The OpenGL ES code and support may be a little rough
-at this point.
-Contributions to the libraries are welcome.
+Much of the ES1 and ES2-specific code is auto-generated with Python
+scripts.
+See the <code>src/gallium/state_trackers/es/*.py files.
+</p>
+
+<p>
+Source code specific to ES1 is in
+<code>src/gallium/state_trackers/es/es1/</code>.
+<br>
+Source code specific to ES2 is in
+<code>src/gallium/state_trackers/es/es2/</code>.
+<br>
+Source code common to ES1 and ES2 is in
+<code>src/gallium/state_trackers/es/es-common/</code>.
 </p>
 
 
@@ -36,6 +69,10 @@ The OpenGL ES 1.1 (common profile) library name is
 <code>libGLESv1_CM.so.1.1.0</code>
 </p>
 
+<p>
+Example programs can be found under <code>progs/es/es1</code>.
+</p>
+
 
 <h1>OpenGL ES 2.0</h1>
 
@@ -45,6 +82,10 @@ The OpenGL ES 2.0 header files are found in <code>include/GLES2/</code>
 
 <p>
 The OpenGL ES 2.0 library name is libGLESv2.so.2.0.0
+</p>
+
+<p>
+Example programs can be found under <code>progs/es/es2</code>.
 </p>
 
 
