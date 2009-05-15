@@ -77,6 +77,12 @@ enum _format {
    MESA_FORMAT_RGBA5551,        /*                     RRRR RGGG GGBB BBBA */
    MESA_FORMAT_ARGB1555,	/*                     ARRR RRGG GGGB BBBB */
    MESA_FORMAT_ARGB1555_REV,	/*                     GGGB BBBB ARRR RRGG */
+   MESA_FORMAT_RG88,		/*                     RRRR RRRR GGGG GGGG */
+   MESA_FORMAT_RG88_REV,	/*                     GGGG GGGG RRRR RRRR */
+   MESA_FORMAT_RG1616,		/* RRRR RRRR RRRR RRRR GGGG GGGG GGGG GGGG */
+   MESA_FORMAT_RG1616_REV,	/* GGGG GGGG GGGG GGGG RRRR RRRR RRRR RRRR */
+   MESA_FORMAT_R8,		/*                               RRRR RRRR */
+   MESA_FORMAT_R16,		/*                     RRRR RRRR RRRR RRRR */
    MESA_FORMAT_AL88,		/*                     AAAA AAAA LLLL LLLL */
    MESA_FORMAT_AL88_REV,	/*                     LLLL LLLL AAAA AAAA */
    MESA_FORMAT_RGB332,		/*                               RRRG GGBB */
@@ -140,6 +146,8 @@ enum _format {
    /*@{*/
    MESA_FORMAT_RGBA,
    MESA_FORMAT_RGB,
+   MESA_FORMAT_RG,
+   MESA_FORMAT_R,
    MESA_FORMAT_ALPHA,
    MESA_FORMAT_LUMINANCE,
    MESA_FORMAT_LUMINANCE_ALPHA,
@@ -179,6 +187,8 @@ enum _format {
 /*@{*/
 extern const struct gl_texture_format _mesa_texformat_rgba;
 extern const struct gl_texture_format _mesa_texformat_rgb;
+extern const struct gl_texture_format _mesa_texformat_rg;
+extern const struct gl_texture_format _mesa_texformat_r;
 extern const struct gl_texture_format _mesa_texformat_alpha;
 extern const struct gl_texture_format _mesa_texformat_luminance;
 extern const struct gl_texture_format _mesa_texformat_luminance_alpha;
@@ -241,6 +251,12 @@ extern const struct gl_texture_format _mesa_texformat_argb4444_rev;
 extern const struct gl_texture_format _mesa_texformat_argb1555;
 extern const struct gl_texture_format _mesa_texformat_argb1555_rev;
 extern const struct gl_texture_format _mesa_texformat_rgba5551;
+extern const struct gl_texture_format _mesa_texformat_rg88;
+extern const struct gl_texture_format _mesa_texformat_rg88_rev;
+extern const struct gl_texture_format _mesa_texformat_r8;
+extern const struct gl_texture_format _mesa_texformat_rg1616;
+extern const struct gl_texture_format _mesa_texformat_rg1616_rev;
+extern const struct gl_texture_format _mesa_texformat_r16;
 extern const struct gl_texture_format _mesa_texformat_al88;
 extern const struct gl_texture_format _mesa_texformat_al88_rev;
 extern const struct gl_texture_format _mesa_texformat_rgb332;
