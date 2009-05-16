@@ -41,7 +41,7 @@
  * The module captures both immediate mode and display list drawing,
  * and manages the allocation, reference counting and deallocation of
  * vertex buffer objects itself.
- * 
+ *
  * The DrawPrimitives() callback can be either implemented by the
  * driver itself or hooked to the tnl module's _tnl_draw_primitives()
  * function for hardware without tnl capablilties or during fallbacks.
@@ -61,8 +61,8 @@
 
 struct st_vbo_context {
    struct gl_client_array currval[ST_VBO_ATTRIB_MAX];
-   
-   /* These point into the above.  TODO: remove. 
+
+   /* These point into the above.  TODO: remove.
     */
    struct gl_client_array *legacy_currval;
    struct gl_client_array *generic_currval;
@@ -87,7 +87,7 @@ struct st_vbo_context {
 };
 
 
-static INLINE struct st_vbo_context *st_vbo_context(GLcontext *ctx) 
+static INLINE struct st_vbo_context *st_vbo_context(GLcontext *ctx)
 {
    return (struct st_vbo_context *)(ctx->swtnl_im);
 }

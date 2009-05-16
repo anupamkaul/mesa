@@ -44,7 +44,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 /* Wierd implementation stuff:
  */
 #define ST_VBO_VERT_BUFFER_SIZE (1024*64)	/* bytes */
-#define ST_VBO_MAX_ATTR_CODEGEN 16 
+#define ST_VBO_MAX_ATTR_CODEGEN 16
 #define ERROR_ATTRIB 16
 
 
@@ -73,7 +73,7 @@ typedef void (*st_vbo_attrfv_func)( const GLfloat * );
 
 struct st_vbo_exec_context
 {
-   GLcontext *ctx;   
+   GLcontext *ctx;
    GLvertexformat vtxfmt;
 
    struct {
@@ -96,7 +96,7 @@ struct st_vbo_exec_context
       GLubyte attrsz[ST_VBO_ATTRIB_MAX];
       GLubyte active_sz[ST_VBO_ATTRIB_MAX];
 
-      GLfloat *attrptr[ST_VBO_ATTRIB_MAX]; 
+      GLfloat *attrptr[ST_VBO_ATTRIB_MAX];
       struct gl_client_array arrays[ST_VBO_ATTRIB_MAX];
 
       /* According to program mode, the values above plus current
@@ -108,7 +108,7 @@ struct st_vbo_exec_context
       const struct gl_client_array *inputs[VERT_ATTRIB_MAX];
    } vtx;
 
-   
+
    struct {
       GLboolean recalculate_maps;
       struct st_vbo_exec_eval1_map map1[VERT_ATTRIB_MAX];
@@ -161,13 +161,13 @@ void st_vbo_exec_vtx_wrap( struct st_vbo_exec_context *exec );
 
 void st_vbo_exec_eval_update( struct st_vbo_exec_context *exec );
 
-void st_vbo_exec_do_EvalCoord2f( struct st_vbo_exec_context *exec, 
+void st_vbo_exec_do_EvalCoord2f( struct st_vbo_exec_context *exec,
 				     GLfloat u, GLfloat v );
 
 void st_vbo_exec_do_EvalCoord1f( struct st_vbo_exec_context *exec,
 				     GLfloat u);
 
-extern GLboolean 
+extern GLboolean
 st_vbo_validate_shaders(GLcontext *ctx);
 
 #endif

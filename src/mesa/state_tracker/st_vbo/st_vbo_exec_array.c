@@ -1,8 +1,8 @@
 /**************************************************************************
- * 
+ *
  * Copyright 2003 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
  * "Software"), to deal in the Software without restriction, including
@@ -10,11 +10,11 @@
  * distribute, sub license, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice (including the
  * next paragraph) shall be included in all copies or substantial portions
  * of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
@@ -22,7 +22,7 @@
  * ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
  * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- * 
+ *
  **************************************************************************/
 
 #include "main/glheader.h"
@@ -38,7 +38,7 @@
 
 /* Compute min and max elements for drawelements calls.
  */
-static void get_minmax_index( GLuint count, GLuint type, 
+static void get_minmax_index( GLuint count, GLuint type,
 			      const GLvoid *indices,
 			      GLuint *min_index,
 			      GLuint *max_index)
@@ -120,7 +120,7 @@ static void bind_array_obj( GLcontext *ctx )
 
    for (i = 0; i < VERT_ATTRIB_MAX; i++)
       exec->array.generic_array[i] = &arrayObj->VertexAttrib[i];
-   
+
    exec->array.array_obj = arrayObj->Name;
 }
 
@@ -191,7 +191,7 @@ static void recalculate_input_bindings( GLcontext *ctx )
       break;
    case VP_ARB:
       /* ARB_vertex_program - Only the attribute zero (position) array
-       * aliases and overrides the legacy position array.  
+       * aliases and overrides the legacy position array.
        *
        * Otherwise, legacy attributes available in the legacy slots,
        * generic attributes in the generic slots and materials are not
@@ -240,7 +240,7 @@ static void bind_arrays( GLcontext *ctx )
    }
    else if (exec->array.program_mode != get_program_mode(ctx) ||
 	    exec->array.enabled_flags != ctx->Array.ArrayObj->_Enabled) {
-      
+
       recalculate_input_bindings(ctx);
    }
 #else
@@ -270,7 +270,7 @@ st_vbo_exec_DrawArrays(GLenum mode, GLint start, GLsizei count)
 
    if (ctx->NewState)
       _mesa_update_state( ctx );
-      
+
    if (!st_vbo_validate_shaders(ctx)) {
       _mesa_error(ctx, GL_INVALID_OPERATION, "glDrawArrays(bad shader)");
       return;
@@ -313,7 +313,7 @@ st_vbo_exec_DrawArrays(GLenum mode, GLint start, GLsizei count)
                       exec->array.legacy_array[i]->Enabled,
                       exec->array.inputs[i]->Ptr,
                       bufName);
-         
+
          if (bufName) {
             struct gl_buffer_object *buf = _mesa_lookup_bufferobj(ctx, bufName);
             GLubyte *p = ctx->Driver.MapBuffer(ctx, GL_ARRAY_BUFFER_ARB,
@@ -368,7 +368,7 @@ st_vbo_exec_DrawRangeElements(GLenum mode,
       _mesa_update_state( ctx );
 
    ib.count = count;
-   ib.type = type; 
+   ib.type = type;
    ib.obj = ctx->Array.ElementArrayBufferObj;
    ib.ptr = indices;
 
@@ -387,7 +387,7 @@ st_vbo_exec_DrawRangeElements(GLenum mode,
     * successive primitives layed out linearly in the vertex arrays.
     * Unless the vertex arrays are all in a ST_VBO (or locked as with
     * CVA), the OpenGL semantics imply that we need to re-read or
-    * re-upload the vertex data on each draw call.  
+    * re-upload the vertex data on each draw call.
     *
     * In the case of hardware tnl, we want to avoid starting the
     * upload at zero, as it will mean every draw call uploads an

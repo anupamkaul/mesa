@@ -45,7 +45,7 @@ void st_vbo_exec_init( GLcontext *ctx )
    /* Initialize the arrayelt helper
     */
    if (!ctx->aelt_context &&
-       !_ae_create_context( ctx )) 
+       !_ae_create_context( ctx ))
       return;
 
    st_vbo_exec_vtx_init( exec );
@@ -80,7 +80,7 @@ void st_vbo_exec_destroy( GLcontext *ctx )
 /* Really want to install these callbacks to a central facility to be
  * invoked according to the state flags.  That will have to wait for a
  * mesa rework:
- */ 
+ */
 void st_vbo_exec_invalidate_state( GLcontext *ctx, GLuint new_state )
 {
    struct st_vbo_exec_context *exec = &st_vbo_context(ctx)->exec;

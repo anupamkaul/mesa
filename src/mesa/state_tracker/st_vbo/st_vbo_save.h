@@ -74,7 +74,7 @@ struct st_vbo_save_vertex_list {
    GLuint buffer_offset;
    GLuint count;
    GLuint wrap_count;		/* number of copied vertices at start */
-   GLboolean dangling_attr_ref;	/* current attr implicitly referenced 
+   GLboolean dangling_attr_ref;	/* current attr implicitly referenced
 				   outside the list */
 
    struct st_mesa_prim *prim;
@@ -148,7 +148,7 @@ struct st_vbo_save_context {
    GLuint opcode_vertex_list;
 
    struct st_vbo_save_copied_vtx copied;
-   
+
    GLfloat *current[ST_VBO_ATTRIB_MAX]; /* points into ctx->ListState */
    GLubyte *currentsz[ST_VBO_ATTRIB_MAX];
 };

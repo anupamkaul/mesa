@@ -263,7 +263,7 @@ static void GLAPIENTRY TAG(MultiTexCoord4fv)( GLenum target, const GLfloat *v )
 static void GLAPIENTRY TAG(VertexAttrib1fARB)( GLuint index, GLfloat x )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index == 0) 
+   if (index == 0)
       ATTR1F(0, x);
    else if (index < MAX_VERTEX_ATTRIBS)
       ATTR1F(ST_VBO_ATTRIB_GENERIC0 + index, x);
@@ -271,11 +271,11 @@ static void GLAPIENTRY TAG(VertexAttrib1fARB)( GLuint index, GLfloat x )
       ERROR();
 }
 
-static void GLAPIENTRY TAG(VertexAttrib1fvARB)( GLuint index, 
+static void GLAPIENTRY TAG(VertexAttrib1fvARB)( GLuint index,
 					       const GLfloat *v )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index == 0) 
+   if (index == 0)
       ATTR1FV(0, v);
    else if (index < MAX_VERTEX_ATTRIBS)
       ATTR1FV(ST_VBO_ATTRIB_GENERIC0 + index, v);
@@ -283,11 +283,11 @@ static void GLAPIENTRY TAG(VertexAttrib1fvARB)( GLuint index,
       ERROR();
 }
 
-static void GLAPIENTRY TAG(VertexAttrib2fARB)( GLuint index, GLfloat x, 
+static void GLAPIENTRY TAG(VertexAttrib2fARB)( GLuint index, GLfloat x,
 					      GLfloat y )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index == 0) 
+   if (index == 0)
       ATTR2F(0, x, y);
    else if (index < MAX_VERTEX_ATTRIBS)
       ATTR2F(ST_VBO_ATTRIB_GENERIC0 + index, x, y);
@@ -299,7 +299,7 @@ static void GLAPIENTRY TAG(VertexAttrib2fvARB)( GLuint index,
 					       const GLfloat *v )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index == 0) 
+   if (index == 0)
       ATTR2FV(0, v);
    else if (index < MAX_VERTEX_ATTRIBS)
       ATTR2FV(ST_VBO_ATTRIB_GENERIC0 + index, v);
@@ -311,7 +311,7 @@ static void GLAPIENTRY TAG(VertexAttrib3fARB)( GLuint index, GLfloat x,
 					      GLfloat y, GLfloat z )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index == 0) 
+   if (index == 0)
       ATTR3F(0, x, y, z);
    else if (index < MAX_VERTEX_ATTRIBS)
       ATTR3F(ST_VBO_ATTRIB_GENERIC0 + index, x, y, z);
@@ -323,7 +323,7 @@ static void GLAPIENTRY TAG(VertexAttrib3fvARB)( GLuint index,
 					       const GLfloat *v )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index == 0) 
+   if (index == 0)
       ATTR3FV(0, v);
    else if (index < MAX_VERTEX_ATTRIBS)
       ATTR3FV(ST_VBO_ATTRIB_GENERIC0 + index, v);
@@ -336,7 +336,7 @@ static void GLAPIENTRY TAG(VertexAttrib4fARB)( GLuint index, GLfloat x,
 					      GLfloat w )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index == 0) 
+   if (index == 0)
       ATTR4F(0, x, y, z, w);
    else if (index < MAX_VERTEX_ATTRIBS)
       ATTR4F(ST_VBO_ATTRIB_GENERIC0 + index, x, y, z, w);
@@ -344,11 +344,11 @@ static void GLAPIENTRY TAG(VertexAttrib4fARB)( GLuint index, GLfloat x,
       ERROR();
 }
 
-static void GLAPIENTRY TAG(VertexAttrib4fvARB)( GLuint index, 
+static void GLAPIENTRY TAG(VertexAttrib4fvARB)( GLuint index,
 					       const GLfloat *v )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index == 0) 
+   if (index == 0)
       ATTR4FV(0, v);
    else if (index < MAX_VERTEX_ATTRIBS)
       ATTR4FV(ST_VBO_ATTRIB_GENERIC0 + index, v);
@@ -369,19 +369,19 @@ static void GLAPIENTRY TAG(VertexAttrib1fNV)( GLuint index, GLfloat x )
       ATTR1F(index, x);
 }
 
-static void GLAPIENTRY TAG(VertexAttrib1fvNV)( GLuint index, 
+static void GLAPIENTRY TAG(VertexAttrib1fvNV)( GLuint index,
 					       const GLfloat *v )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index < ST_VBO_ATTRIB_MAX) 
+   if (index < ST_VBO_ATTRIB_MAX)
       ATTR1FV(index, v);
 }
 
-static void GLAPIENTRY TAG(VertexAttrib2fNV)( GLuint index, GLfloat x, 
+static void GLAPIENTRY TAG(VertexAttrib2fNV)( GLuint index, GLfloat x,
 					      GLfloat y )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index < ST_VBO_ATTRIB_MAX) 
+   if (index < ST_VBO_ATTRIB_MAX)
       ATTR2F(index, x, y);
 }
 
@@ -389,7 +389,7 @@ static void GLAPIENTRY TAG(VertexAttrib2fvNV)( GLuint index,
 					       const GLfloat *v )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index < ST_VBO_ATTRIB_MAX) 
+   if (index < ST_VBO_ATTRIB_MAX)
       ATTR2FV(index, v);
 }
 
@@ -397,7 +397,7 @@ static void GLAPIENTRY TAG(VertexAttrib3fNV)( GLuint index, GLfloat x,
 					      GLfloat y, GLfloat z )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index < ST_VBO_ATTRIB_MAX) 
+   if (index < ST_VBO_ATTRIB_MAX)
       ATTR3F(index, x, y, z);
 }
 
@@ -405,7 +405,7 @@ static void GLAPIENTRY TAG(VertexAttrib3fvNV)( GLuint index,
 					       const GLfloat *v )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index < ST_VBO_ATTRIB_MAX) 
+   if (index < ST_VBO_ATTRIB_MAX)
       ATTR3FV(index, v);
 }
 
@@ -414,15 +414,15 @@ static void GLAPIENTRY TAG(VertexAttrib4fNV)( GLuint index, GLfloat x,
 					      GLfloat w )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index < ST_VBO_ATTRIB_MAX) 
+   if (index < ST_VBO_ATTRIB_MAX)
       ATTR4F(index, x, y, z, w);
 }
 
-static void GLAPIENTRY TAG(VertexAttrib4fvNV)( GLuint index, 
+static void GLAPIENTRY TAG(VertexAttrib4fvNV)( GLuint index,
 					       const GLfloat *v )
 {
    GET_CURRENT_CONTEXT( ctx );
-   if (index < ST_VBO_ATTRIB_MAX) 
+   if (index < ST_VBO_ATTRIB_MAX)
       ATTR4FV(index, v);
 }
 
@@ -438,7 +438,7 @@ do {							\
 
 /* Colormaterial conflicts are dealt with later.
  */
-static void GLAPIENTRY TAG(Materialfv)( GLenum face, GLenum pname, 
+static void GLAPIENTRY TAG(Materialfv)( GLenum face, GLenum pname,
 			       const GLfloat *params )
 {
    GET_CURRENT_CONTEXT( ctx );

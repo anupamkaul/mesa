@@ -55,7 +55,7 @@ static GLuint check_size( const GLfloat *attr )
    if (attr[3] != 1.0) return 4;
    if (attr[2] != 0.0) return 3;
    if (attr[1] != 0.0) return 2;
-   return 1;		
+   return 1;
 }
 
 static void init_legacy_currval(GLcontext *ctx)
@@ -156,18 +156,18 @@ static void init_mat_currval(GLcontext *ctx)
 
 #if 0
 
-static void st_vbo_exec_current_init( struct st_vbo_exec_context *exec ) 
+static void st_vbo_exec_current_init( struct st_vbo_exec_context *exec )
 {
    GLcontext *ctx = exec->ctx;
    GLint i;
 
    /* setup the pointers for the typical 16 vertex attributes */
-   for (i = 0; i < ST_VBO_ATTRIB_FIRST_MATERIAL; i++) 
+   for (i = 0; i < ST_VBO_ATTRIB_FIRST_MATERIAL; i++)
       exec->vtx.current[i] = ctx->Current.Attrib[i];
 
    /* setup pointers for the 12 material attributes */
    for (i = 0; i < MAT_ATTRIB_MAX; i++)
-      exec->vtx.current[ST_VBO_ATTRIB_FIRST_MATERIAL + i] = 
+      exec->vtx.current[ST_VBO_ATTRIB_FIRST_MATERIAL + i] =
 	 ctx->Light.Material.Attrib[i];
 }
 #endif
@@ -204,19 +204,19 @@ GLboolean _st_vbo_CreateContext( GLcontext *ctx )
       /* When no vertex program, pull in the material attributes in
        * the 16..32 generic range.
        */
-      for (i = 0; i < 16; i++) 
+      for (i = 0; i < 16; i++)
 	 st_vbo->map_vp_none[i] = i;
-      for (i = 0; i < 12; i++) 
+      for (i = 0; i < 12; i++)
 	 st_vbo->map_vp_none[16+i] = ST_VBO_ATTRIB_MAT_FRONT_AMBIENT + i;
       for (i = 0; i < 4; i++)
-	 st_vbo->map_vp_none[28+i] = i;	
-      
+	 st_vbo->map_vp_none[28+i] = i;
+
       for (i = 0; i < VERT_ATTRIB_MAX; i++)
 	 st_vbo->map_vp_arb[i] = i;
    }
 
 
-   /* By default: 
+   /* By default:
     */
 #if 0 /* dead - see st_vbo_set_draw_func() */
    st_vbo->draw_prims = _tnl_draw_prims;
