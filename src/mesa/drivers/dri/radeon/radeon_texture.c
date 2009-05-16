@@ -497,6 +497,20 @@ const struct gl_texture_format *radeonChooseTextureFormat(GLcontext * ctx,
 	case GL_COMPRESSED_SLUMINANCE_ALPHA:
 		return &_mesa_texformat_sla8;
 
+	/* ARB_texture_rg */
+	case GL_R8:
+		return &_mesa_texformat_r8;
+	case GL_RG8:
+		return &_mesa_texformat_rg88;
+	case GL_R16F:
+		return &_mesa_texformat_red_float16;
+	case GL_R32F:
+		return &_mesa_texformat_red_float32;
+	case GL_RG16F:
+		return &_mesa_texformat_rg_float16;
+	case GL_RG32F:
+		return &_mesa_texformat_rg_float32;
+
 	default:
 		_mesa_problem(ctx,
 			      "unexpected internalFormat 0x%x in %s",
