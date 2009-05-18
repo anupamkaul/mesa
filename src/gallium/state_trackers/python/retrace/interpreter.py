@@ -532,7 +532,7 @@ class Context(Object):
         if self.dirty:
             if flags & gallium.PIPE_FLUSH_FRAME:
                 self._present()
-            self.dirty = False
+                self.dirty = False
         return None
 
     def clear(self, surface, value):
