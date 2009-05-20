@@ -34,6 +34,7 @@
 
 
 #include "pipe/p_compiler.h"
+#include "pipe/p_debug.h"
 
 
 #if defined(PIPE_OS_LINUX)
