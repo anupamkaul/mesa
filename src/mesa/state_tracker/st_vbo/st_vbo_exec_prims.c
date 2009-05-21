@@ -166,9 +166,11 @@ static char *wrap_prim( struct st_vbo_exec_context *exec,
 }
 
 static INLINE void emit_vertex( struct st_vbo_exec_context *exec,
-                                char *dest,
+                                char **destptr,
                                 unsigned slot )
 {
+   char *dest = *destptr;
+
    {
       unsigned i;
 
@@ -184,6 +186,8 @@ static INLINE void emit_vertex( struct st_vbo_exec_context *exec,
    memcpy( dest,
            exec->vtx.slot[slot].vertex,
            exec->vtx.vertex_size * sizeof(GLfloat));
+
+   *destptr = dest + exec->vtx.vertex_size * sizeof(GLfloat);
 }
 
 
@@ -198,14 +202,14 @@ static void emit_point_subsequent_slot_zero( struct st_vbo_exec_context *exec )
       dest = wrap_prim( exec, GL_POINTS, 1 );
    }
 
-   emit_vertex( exec, dest, 0 );
+   emit_vertex( exec, &dest, 0 );
    exec->vtx.slotnr = 0;
 }
 
 static void emit_point_first_slot_zero( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_POINTS, 1 );
-   emit_vertex( exec, dest, 0 );
+   emit_vertex( exec, &dest, 0 );
    exec->vtx.slotnr = 0;
    exec->vtx.slot[0].vertex_func = emit_point_subsequent_slot_zero;
 }
@@ -221,16 +225,16 @@ static void emit_line_subsequent_slot_one( struct st_vbo_exec_context *exec )
       dest = wrap_prim( exec, GL_LINES, 2 );
    }
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 0;
 }
 
 static void emit_line_first_slot_one( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_LINES, 2 );
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 0;
    exec->vtx.slot[1].vertex_func = emit_line_subsequent_slot_one;
 }
@@ -243,10 +247,10 @@ static void emit_linestrip_subsequent_slot_zero( struct st_vbo_exec_context *exe
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_LINE_STRIP, 2 );
-      emit_vertex( exec, dest, 1 );
+      emit_vertex( exec, &dest, 1 );
    }
 
-   emit_vertex( exec, dest, 0 );
+   emit_vertex( exec, &dest, 0 );
    exec->vtx.slotnr = 1;
 }
 
@@ -257,10 +261,10 @@ static void emit_linestrip_subsequent_slot_one( struct st_vbo_exec_context *exec
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_LINE_STRIP, 2 );
-      emit_vertex( exec, dest, 0 );
+      emit_vertex( exec, &dest, 0 );
    }
 
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 0;
 }
 
@@ -269,8 +273,8 @@ static void emit_linestrip_first_slot_one( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_LINE_STRIP, 2 );
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 1;
    exec->vtx.slot[0].vertex_func = emit_linestrip_subsequent_slot_zero;
    exec->vtx.slot[1].vertex_func = emit_linestrip_subsequent_slot_one;
@@ -285,10 +289,10 @@ static void emit_lineloop_end_slot_one( struct st_vbo_exec_context *exec )
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_LINE_STRIP, 2 );
-      emit_vertex( exec, dest, 2 );
+      emit_vertex( exec, &dest, 2 );
    }
 
-   emit_vertex( exec, dest, 0 );
+   emit_vertex( exec, &dest, 0 );
 }
 
 
@@ -298,10 +302,10 @@ static void emit_lineloop_end_slot_two( struct st_vbo_exec_context *exec )
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_LINE_STRIP, 2 );
-      emit_vertex( exec, dest, 1 );
+      emit_vertex( exec, &dest, 1 );
    }
 
-   emit_vertex( exec, dest, 0 );
+   emit_vertex( exec, &dest, 0 );
 }
 
 
@@ -313,10 +317,10 @@ static void emit_lineloop_subsequent_slot_one( struct st_vbo_exec_context *exec 
       dest = wrap_prim( exec, GL_LINE_STRIP, 2 );
       exec->vtx.slot[2].end_func = emit_lineloop_end_slot_two;
       exec->vtx.slot[1].end_func = emit_lineloop_end_slot_one;
-      emit_vertex( exec, dest, 2 );
+      emit_vertex( exec, &dest, 2 );
    }
 
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 2;
 }
 
@@ -329,10 +333,10 @@ static void emit_lineloop_subsequent_slot_two( struct st_vbo_exec_context *exec 
       dest = wrap_prim( exec, GL_LINE_STRIP, 2 );
       exec->vtx.slot[2].end_func = emit_lineloop_end_slot_two;
       exec->vtx.slot[1].end_func = emit_lineloop_end_slot_one;
-      emit_vertex( exec, dest, 1 );
+      emit_vertex( exec, &dest, 1 );
    }
 
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 1;
 }
 
@@ -341,8 +345,8 @@ static void emit_lineloop_first_slot_one( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_LINE_STRIP, 2 );
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 2;
    exec->vtx.slot[1].vertex_func = emit_lineloop_subsequent_slot_one;
    exec->vtx.slot[2].vertex_func = emit_lineloop_subsequent_slot_two;
@@ -363,18 +367,18 @@ static void emit_triangle_subsequent_slot_two( struct st_vbo_exec_context *exec 
       dest = wrap_prim( exec, GL_TRIANGLES, 2 );
    }
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 0;
 }
 
 static void emit_triangle_first_slot_two( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_TRIANGLES, 2 );
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 0;
    exec->vtx.slot[2].vertex_func = emit_triangle_subsequent_slot_two;
 }
@@ -388,11 +392,11 @@ static void emit_tristrip_subsequent_slot_zero( struct st_vbo_exec_context *exec
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_TRIANGLE_STRIP, 3 );
-      emit_vertex( exec, dest, 2 );
-      emit_vertex( exec, dest, 3 );
+      emit_vertex( exec, &dest, 2 );
+      emit_vertex( exec, &dest, 3 );
    }
 
-   emit_vertex( exec, dest, 0 );
+   emit_vertex( exec, &dest, 0 );
    exec->vtx.slotnr = 1;
 }
 
@@ -402,11 +406,11 @@ static void emit_tristrip_subsequent_slot_one( struct st_vbo_exec_context *exec 
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_TRIANGLE_STRIP, 3 );
-      emit_vertex( exec, dest, 0 );
-      emit_vertex( exec, dest, 3 );
+      emit_vertex( exec, &dest, 0 );
+      emit_vertex( exec, &dest, 3 );
    }
 
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 2;
 }
 
@@ -416,11 +420,11 @@ static void emit_tristrip_subsequent_slot_two( struct st_vbo_exec_context *exec 
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_TRIANGLE_STRIP, 3 );
-      emit_vertex( exec, dest, 0 );
-      emit_vertex( exec, dest, 1 );
+      emit_vertex( exec, &dest, 0 );
+      emit_vertex( exec, &dest, 1 );
    }
 
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 3;
 }
 
@@ -431,11 +435,11 @@ static void emit_tristrip_subsequent_slot_three( struct st_vbo_exec_context *exe
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_TRIANGLE_STRIP, 3 );
-      emit_vertex( exec, dest, 2 );
-      emit_vertex( exec, dest, 1 );
+      emit_vertex( exec, &dest, 2 );
+      emit_vertex( exec, &dest, 1 );
    }
 
-   emit_vertex( exec, dest, 3 );
+   emit_vertex( exec, &dest, 3 );
    exec->vtx.slotnr = 0;
 }
 
@@ -444,9 +448,9 @@ static void emit_tristrip_first_slot_two( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_TRIANGLE_STRIP, 3 );
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 3;
    exec->vtx.slot[0].vertex_func = emit_tristrip_subsequent_slot_zero;
    exec->vtx.slot[1].vertex_func = emit_tristrip_subsequent_slot_one;
@@ -464,11 +468,11 @@ static void emit_trifan_subsequent_slot_one( struct st_vbo_exec_context *exec )
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_TRIANGLE_FAN, 3 );
-      emit_vertex( exec, dest, 0 );
-      emit_vertex( exec, dest, 2 );
+      emit_vertex( exec, &dest, 0 );
+      emit_vertex( exec, &dest, 2 );
    }
 
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 2;
 }
 
@@ -478,11 +482,11 @@ static void emit_trifan_subsequent_slot_two( struct st_vbo_exec_context *exec )
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_TRIANGLE_FAN, 3 );
-      emit_vertex( exec, dest, 0 );
-      emit_vertex( exec, dest, 1 );
+      emit_vertex( exec, &dest, 0 );
+      emit_vertex( exec, &dest, 1 );
    }
 
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 1;
 }
 
@@ -491,9 +495,9 @@ static void emit_trifan_first_slot_two( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_TRIANGLE_STRIP, 3 );
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 1;
    exec->vtx.slot[1].vertex_func = emit_trifan_subsequent_slot_one;
    exec->vtx.slot[2].vertex_func = emit_trifan_subsequent_slot_two;
@@ -511,10 +515,10 @@ static void emit_quad_subsequent_slot_three( struct st_vbo_exec_context *exec )
       dest = wrap_prim( exec, GL_QUAD_STRIP, 4 );
    }
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
-   emit_vertex( exec, dest, 2 );
-   emit_vertex( exec, dest, 4 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
+   emit_vertex( exec, &dest, 2 );
+   emit_vertex( exec, &dest, 4 );
    exec->vtx.slotnr = 0;
 }
 
@@ -522,10 +526,10 @@ static void emit_quad_subsequent_slot_three( struct st_vbo_exec_context *exec )
 static void emit_quad_first_slot_three( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_QUAD_STRIP, 4 );
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
-   emit_vertex( exec, dest, 2 );
-   emit_vertex( exec, dest, 4 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
+   emit_vertex( exec, &dest, 2 );
+   emit_vertex( exec, &dest, 4 );
    exec->vtx.slotnr = 0;
    exec->vtx.slot[3].vertex_func = emit_quad_subsequent_slot_three;
 }
@@ -539,12 +543,12 @@ static void emit_quadstrip_subsequent_slot_one( struct st_vbo_exec_context *exec
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_QUAD_STRIP, 4 );
-      emit_vertex( exec, dest, 2 );
-      emit_vertex( exec, dest, 3 );
+      emit_vertex( exec, &dest, 2 );
+      emit_vertex( exec, &dest, 3 );
    }
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 2;
 }
 
@@ -554,12 +558,12 @@ static void emit_quadstrip_subsequent_slot_three( struct st_vbo_exec_context *ex
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_QUAD_STRIP, 4 );
-      emit_vertex( exec, dest, 0 );
-      emit_vertex( exec, dest, 1 );
+      emit_vertex( exec, &dest, 0 );
+      emit_vertex( exec, &dest, 1 );
    }
 
-   emit_vertex( exec, dest, 2 );
-   emit_vertex( exec, dest, 3 );
+   emit_vertex( exec, &dest, 2 );
+   emit_vertex( exec, &dest, 3 );
    exec->vtx.slotnr = 0;
 }
 
@@ -568,10 +572,10 @@ static void emit_quadstrip_first_slot_three( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_QUAD_STRIP, 4 );
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
-   emit_vertex( exec, dest, 2 );
-   emit_vertex( exec, dest, 3 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
+   emit_vertex( exec, &dest, 2 );
+   emit_vertex( exec, &dest, 3 );
    exec->vtx.slotnr = 0;
    exec->vtx.slot[1].vertex_func = emit_quadstrip_subsequent_slot_one;
    exec->vtx.slot[3].vertex_func = emit_quadstrip_subsequent_slot_three;
@@ -585,11 +589,11 @@ static void emit_polygon_subsequent_slot_one( struct st_vbo_exec_context *exec )
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_POLYGON, 3 );
-      emit_vertex( exec, dest, 0 );
-      emit_vertex( exec, dest, 2 );
+      emit_vertex( exec, &dest, 0 );
+      emit_vertex( exec, &dest, 2 );
    }
 
-   emit_vertex( exec, dest, 1 );
+   emit_vertex( exec, &dest, 1 );
    exec->vtx.slotnr = 2;
 }
 
@@ -599,11 +603,11 @@ static void emit_polygon_subsequent_slot_two( struct st_vbo_exec_context *exec )
 
    if (dest == 0) {
       dest = wrap_prim( exec, GL_POLYGON, 3 );
-      emit_vertex( exec, dest, 0 );
-      emit_vertex( exec, dest, 1 );
+      emit_vertex( exec, &dest, 0 );
+      emit_vertex( exec, &dest, 1 );
    }
 
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 1;
 }
 
@@ -612,9 +616,9 @@ static void emit_polygon_first_slot_two( struct st_vbo_exec_context *exec )
 {
    char *dest = new_prim( exec, GL_POLYGON, 3 );
 
-   emit_vertex( exec, dest, 0 );
-   emit_vertex( exec, dest, 1 );
-   emit_vertex( exec, dest, 2 );
+   emit_vertex( exec, &dest, 0 );
+   emit_vertex( exec, &dest, 1 );
+   emit_vertex( exec, &dest, 2 );
    exec->vtx.slotnr = 1;
    exec->vtx.slot[1].vertex_func = emit_polygon_subsequent_slot_one;
    exec->vtx.slot[2].vertex_func = emit_polygon_subsequent_slot_two;
