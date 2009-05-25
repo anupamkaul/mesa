@@ -51,11 +51,15 @@ enum mode {
 
 static enum mode get_mode()
 {
-   if (getenv("XMESA_TRACE"))
+#if defined(GALLIUM_TRACE) && defined(GALLIUM_SOFTPIPE)
+   if (getenv("GALLIUM_TRACE"))
       return MODE_TRACE;
+#endif
 
+#if defined(GALLIUM_BRW)
    if (getenv("XMESA_BRW"))
       return MODE_BRW;
+#endif
 
 #ifdef GALLIUM_CELL
    if (!getenv("GALLIUM_NOCELL")) 

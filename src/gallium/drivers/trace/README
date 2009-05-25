@@ -25,7 +25,6 @@ ensure the right libGL.so is being picked by doing
 
 and then try running
 
- export XMESA_TRACE=y
  GALLIUM_TRACE=tri.trace progs/trivial/tri
 
 which should create a tri.trace file, which is an XML file. You can view copying 
