@@ -22,7 +22,7 @@ INCLUDE_DIRS = \
 	-I$(TOP)/src/gallium/state_trackers/glx/xlib \
 	-I$(TOP)/src/gallium/auxiliary
 
-DEFINES = \
+DEFINES += \
 	-DGALLIUM_SOFTPIPE \
 	-DGALLIUM_TRACE \
 	-DGALLIUM_BRW
