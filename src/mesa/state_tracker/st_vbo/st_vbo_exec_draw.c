@@ -35,7 +35,7 @@
 #include "st_vbo_context.h"
 
 
-static void st_vbo_exec_debug_verts( struct st_vbo_exec_context *exec )
+static void st_vbo_exec_debug_prims( struct st_vbo_exec_context *exec )
 {
    GLuint count = exec->vtx.vert_count;
    GLuint i;
@@ -152,12 +152,6 @@ void st_vbo_exec_vtx_bind_arrays( GLcontext *ctx )
                                        exec->vtx.bufferobj);
 	 arrays[attr]._MaxElement = count; /* ??? */
 
-         _mesa_printf("%s attr %d ptr %x stride %d\n", 
-                      __FUNCTION__,
-                      attr,
-                      arrays[attr].Ptr,
-                      arrays[attr].Stride );
-
          varying_inputs |= 1<<attr;
       }
    }
@@ -258,7 +252,7 @@ void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec,
                             GLboolean unmap )
 {
    if (1)
-      st_vbo_exec_debug_verts( exec );
+      st_vbo_exec_debug_prims( exec );
 
    if (exec->vtx.prim_count) {
       GLcontext *ctx = exec->st_vbo->ctx;
@@ -267,7 +261,7 @@ void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec,
          st_vbo_exec_vtx_unmap( exec );
       }
 
-      if (1) _mesa_printf("%s %d %d\n", __FUNCTION__, exec->vtx.prim_count,
+      if (0) _mesa_printf("%s %d %d\n", __FUNCTION__, exec->vtx.prim_count,
                           exec->vtx.vert_count);
 
       st_vbo_context(ctx)->draw_prims( ctx,
