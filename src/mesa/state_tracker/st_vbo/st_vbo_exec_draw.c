@@ -277,28 +277,25 @@ void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec,
 				       NULL,
 				       0,
 				       exec->vtx.vert_count - 1);
-
-      /* If using a real ST_VBO, get new storage -- unless asked not to.
-       */
-      if (exec->vtx.bufferobj->Name && !unmap) {
-         st_vbo_exec_vtx_map( exec );
-      }
    }
 
    /* May have to unmap explicitly if we didn't draw:
     */
-   if (unmap &&
-       exec->vtx.bufferobj->Name &&
-       exec->vtx.buffer_map) {
-      st_vbo_exec_vtx_unmap( exec );
-   }
+   if (unmap) {
+      if (exec->vtx.bufferobj->Name &&
+          exec->vtx.buffer_map)
+         st_vbo_exec_vtx_unmap( exec );
 
-
-   if (unmap)
       exec->vtx.max_vert = 0;
-   else
+   }
+   else {
+      if (exec->vtx.bufferobj->Name &&
+          !exec->vtx.buffer_map)
+         st_vbo_exec_vtx_map( exec );
+
       exec->vtx.max_vert = ((ST_VBO_VERT_BUFFER_SIZE - exec->vtx.buffer_used) /
                             (exec->vtx.vertex_size * sizeof(GLfloat)));
+   }
 
 
    exec->vtx.buffer_ptr = exec->vtx.buffer_map;

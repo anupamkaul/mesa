@@ -513,11 +513,6 @@ void st_vbo_exec_vtx_destroy( struct st_vbo_exec_context *exec )
 
 void st_vbo_exec_BeginVertices( GLcontext *ctx )
 {
-   struct st_vbo_exec_context *exec = &st_vbo_context(ctx)->exec;
-
-   if (0) _mesa_printf("%s\n", __FUNCTION__);
-   st_vbo_exec_vtx_map( exec );
-
    assert((ctx->Driver.NeedFlush & FLUSH_UPDATE_CURRENT) == 0);
    ctx->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;
 }
