@@ -293,6 +293,7 @@ static void emit_lineloop_end_slot_one( struct st_vbo_exec_context *exec )
    }
 
    emit_vertex( exec, &dest, 0 );
+   end_prim( exec );
 }
 
 
@@ -306,6 +307,7 @@ static void emit_lineloop_end_slot_two( struct st_vbo_exec_context *exec )
    }
 
    emit_vertex( exec, &dest, 0 );
+   end_prim( exec );
 }
 
 
