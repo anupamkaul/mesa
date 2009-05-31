@@ -41,9 +41,9 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 static void end_prim( struct st_vbo_exec_context *exec );
 
 
-/* Raise a flag to prevent extend_prim() from succeeding on the next
- * call.  That will force a wrap_prim() and re-emit of duplicated
- * vertices at some point in the future.
+/* Prevent extend_prim() from succeeding on the next call.  That will
+ * force a wrap_prim() and re-emit of duplicated vertices at some
+ * point in the future.
  */
 void st_vbo_exec_vtx_choke_prim( struct st_vbo_exec_context *exec )
 {
@@ -75,9 +75,9 @@ static INLINE char *extend_prim( struct st_vbo_exec_context *exec,
  * vertices required to properly start a primitive, eg. for tristrips,
  * verts should be 3 or more.
  */
-static INLINE char *new_prim( struct st_vbo_exec_context *exec,
-                              GLenum mode,
-                              unsigned verts )
+static char *new_prim( struct st_vbo_exec_context *exec,
+                       GLenum mode,
+                       unsigned verts )
 {
    unsigned i;
 
@@ -122,7 +122,7 @@ static void end_prim( struct st_vbo_exec_context *exec )
 
    exec->vtx.prim[i].end = 1;
    exec->vtx.prim[i].count = (exec->vtx.vert_count -
-                              exec->vtx.prim[i].start);
+                              exec->vtx.prim[i].start) + 1;
    exec->vtx.prim_count++;
 
    /* Install dummy end_prim function:

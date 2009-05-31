@@ -82,6 +82,13 @@ static INLINE void upgrade_attrib( struct st_vbo_exec_context *exec,
    unsigned offset = exec->vtx.attrptr[attrib] - exec->vtx.vertex;
    unsigned i;
 
+   _mesa_printf("%s attr %d sz %d (was %d) offset %d\n",
+                __FUNCTION__,
+                attrib,
+                new_attrib_size,
+                old_attrib_size,
+                offset);
+
    /* Raise a flag to prevent extend_prim() from succeeding on the
     * next call.  That will force a wrap_prim() and re-emit of
     * duplicated vertices at some point in the future.
@@ -112,13 +119,18 @@ static INLINE void upgrade_attrib( struct st_vbo_exec_context *exec,
 
    /* Nasty loop to update the attrptr values:
     */
-   for (i = 0; i < ST_VBO_ATTRIB_MAX; i++) {
-      if (exec->vtx.attrsz[i]) {
-         unsigned this_offset = exec->vtx.attrptr[attrib] - exec->vtx.vertex;
-         if (this_offset > offset)
-            exec->vtx.attrptr[attrib] += extra_dwords;
-      }
+   for (i = attrib+1; i < ST_VBO_ATTRIB_MAX; i++) {
+      exec->vtx.attrptr[i] += extra_dwords;
    }
+
+   _mesa_printf("after upgrade, offsets:\n");
+   for (i = 0; i < ST_VBO_ATTRIB_MAX; i++) {
+      unsigned offset = exec->vtx.attrptr[i] - exec->vtx.vertex;
+      _mesa_printf("   attr[%d]: sz %d off %d\n", i,
+                   exec->vtx.attrsz[attrib],
+                   offset);
+   }
+
 
    exec->vtx.vertex_size += extra_dwords;
 }
@@ -140,11 +152,22 @@ static void grow_attrib( struct st_vbo_exec_context *exec,
    if (exec->vtx.attrsz[attrib] == 0)
    {
       const GLfloat *current = (GLfloat *)exec->st_vbo->currval[attrib].Ptr;
+      unsigned dword_offset = 0;
+      unsigned i;
 
-      /* Add the new attribute at the end of the vertex, still with
-       * size zero.
+      /* Try to keep attribs ordered to match old behaviour.
        */
-      exec->vtx.attrptr[attrib] = exec->vtx.vertex + exec->vtx.vertex_size;
+      for (i = attrib; i > 0; i--) {
+         unsigned j = i - 1;
+         if (exec->vtx.attrsz[j]) {
+            dword_offset = (exec->vtx.attrptr[j] +
+                            exec->vtx.attrsz[j] -
+                            exec->vtx.vertex);
+            break;
+         }
+      }
+
+      exec->vtx.attrptr[attrib] = exec->vtx.vertex + dword_offset;
 
       /* Upgrade the zero-sized attribute and fill with values from
        * ctx->Current.

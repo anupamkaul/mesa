@@ -71,10 +71,19 @@ static void st_vbo_exec_bind_arrays( GLcontext *ctx )
    struct st_vbo_exec_context *exec = &st_vbo->exec;
    struct gl_client_array *arrays = exec->vtx.arrays;
    GLuint count = exec->vtx.vert_count;
-   GLubyte *data = (GLubyte *)exec->vtx.buffer_map;
+   GLubyte *data;
+   GLsizeiptr offset;
    const GLuint *map;
    GLuint attr;
    GLbitfield varying_inputs = 0x0;
+
+   /* If this is a real buffer obj, we need an offset not a pointer.
+    * Otherwise we want the real pointer.
+    */
+   if (exec->vtx.bufferobj->Name)
+      data = NULL;
+   else
+      data = (GLubyte *)exec->vtx.buffer_map;
 
    /* Install the default (ie Current) attributes first, then overlay
     * all active ones.
@@ -126,18 +135,12 @@ static void st_vbo_exec_bind_arrays( GLcontext *ctx )
          /* override the default array set above */
          exec->vtx.inputs[attr] = &arrays[attr];
 
-         if (exec->vtx.bufferobj->Name) {
-            /* a real buffer obj: Ptr is an offset, not a pointer*/
-            GLsizeiptr offset;
-            assert(exec->vtx.bufferobj->Pointer);  /* buf should be mapped */
-            offset = (GLbyte *) data - (GLbyte *) exec->vtx.bufferobj->Pointer;
-            assert(offset >= 0);
-            arrays[attr].Ptr = (void *) offset;
-         }
-         else {
-            /* Ptr into ordinary app memory */
-            arrays[attr].Ptr = (void *) data;
-         }
+
+         offset = (GLbyte *) exec->vtx.attrptr[src] - (GLbyte *) exec->vtx.vertex;
+         assert(offset >= 0);
+
+         arrays[attr].Ptr = (void *) (data + offset);
+
 	 arrays[attr].Size = exec->vtx.attrsz[src];
 	 arrays[attr].StrideB = exec->vtx.vertex_size * sizeof(GLfloat);
 	 arrays[attr].Stride = exec->vtx.vertex_size * sizeof(GLfloat);
@@ -149,7 +152,12 @@ static void st_vbo_exec_bind_arrays( GLcontext *ctx )
                                        exec->vtx.bufferobj);
 	 arrays[attr]._MaxElement = count; /* ??? */
 
-	 data += exec->vtx.attrsz[src] * sizeof(GLfloat);
+         _mesa_printf("%s attr %d ptr %x stride %d\n", 
+                      __FUNCTION__,
+                      attr,
+                      arrays[attr].Ptr,
+                      arrays[attr].Stride );
+
          varying_inputs |= 1<<attr;
       }
    }
@@ -267,7 +275,7 @@ void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec,
          st_vbo_exec_vtx_unmap( exec );
       }
 
-      if (0) _mesa_printf("%s %d %d\n", __FUNCTION__, exec->vtx.prim_count,
+      if (1) _mesa_printf("%s %d %d\n", __FUNCTION__, exec->vtx.prim_count,
                           exec->vtx.vert_count);
 
       st_vbo_context(ctx)->draw_prims( ctx,
