@@ -493,7 +493,7 @@ static void emit_trifan_subsequent_slot_two( struct st_vbo_exec_context *exec )
 
 static void emit_trifan_first_slot_two( struct st_vbo_exec_context *exec )
 {
-   char *dest = new_prim( exec, GL_TRIANGLE_STRIP, 3 );
+   char *dest = new_prim( exec, GL_TRIANGLE_FAN, 3 );
 
    emit_vertex( exec, &dest, 0 );
    emit_vertex( exec, &dest, 1 );
