@@ -65,7 +65,7 @@ static INLINE char *extend_prim( struct st_vbo_exec_context *exec,
 
       exec->vtx.vert_count += verts;
 
-      return (char *)exec->vtx.buffer_map + offset;
+      return (char *)(exec->vtx.buffer_map + offset);
    }
 }
 
@@ -122,7 +122,7 @@ static void end_prim( struct st_vbo_exec_context *exec )
 
    exec->vtx.prim[i].end = 1;
    exec->vtx.prim[i].count = (exec->vtx.vert_count -
-                              exec->vtx.prim[i].start) + 1;
+                              exec->vtx.prim[i].start);
    exec->vtx.prim_count++;
 
    /* Install dummy end_prim function:
@@ -361,10 +361,10 @@ static void emit_lineloop_first_slot_one( struct st_vbo_exec_context *exec )
  */
 static void emit_triangle_subsequent_slot_two( struct st_vbo_exec_context *exec )
 {
-   char *dest = extend_prim( exec, 2 );
+   char *dest = extend_prim( exec, 3 );
 
    if (dest == 0) {
-      dest = wrap_prim( exec, GL_TRIANGLES, 2 );
+      dest = wrap_prim( exec, GL_TRIANGLES, 3 );
    }
 
    emit_vertex( exec, &dest, 0 );
@@ -375,7 +375,7 @@ static void emit_triangle_subsequent_slot_two( struct st_vbo_exec_context *exec 
 
 static void emit_triangle_first_slot_two( struct st_vbo_exec_context *exec )
 {
-   char *dest = new_prim( exec, GL_TRIANGLES, 2 );
+   char *dest = new_prim( exec, GL_TRIANGLES, 3 );
    emit_vertex( exec, &dest, 0 );
    emit_vertex( exec, &dest, 1 );
    emit_vertex( exec, &dest, 2 );
