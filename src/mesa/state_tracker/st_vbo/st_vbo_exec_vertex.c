@@ -82,12 +82,13 @@ static INLINE void upgrade_attrib( struct st_vbo_exec_context *exec,
    unsigned offset = exec->vtx.attrptr[attrib] - exec->vtx.vertex;
    unsigned i;
 
-   _mesa_printf("%s attr %d sz %d (was %d) offset %d\n",
-                __FUNCTION__,
-                attrib,
-                new_attrib_size,
-                old_attrib_size,
-                offset);
+   if (0)
+      _mesa_printf("%s attr %d sz %d (was %d) offset %d\n",
+                   __FUNCTION__,
+                   attrib,
+                   new_attrib_size,
+                   old_attrib_size,
+                   offset);
 
    /* Raise a flag to prevent extend_prim() from succeeding on the
     * next call.  That will force a wrap_prim() and re-emit of
