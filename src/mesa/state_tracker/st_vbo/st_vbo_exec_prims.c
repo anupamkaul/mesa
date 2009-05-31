@@ -512,24 +512,24 @@ static void emit_quad_subsequent_slot_three( struct st_vbo_exec_context *exec )
    char *dest = extend_prim( exec, 4 );
 
    if (dest == 0) {
-      dest = wrap_prim( exec, GL_QUAD_STRIP, 4 );
+      dest = wrap_prim( exec, GL_QUADS, 4 );
    }
 
    emit_vertex( exec, &dest, 0 );
    emit_vertex( exec, &dest, 1 );
    emit_vertex( exec, &dest, 2 );
-   emit_vertex( exec, &dest, 4 );
+   emit_vertex( exec, &dest, 3 );
    exec->vtx.slotnr = 0;
 }
 
 
 static void emit_quad_first_slot_three( struct st_vbo_exec_context *exec )
 {
-   char *dest = new_prim( exec, GL_QUAD_STRIP, 4 );
+   char *dest = new_prim( exec, GL_QUADS, 4 );
    emit_vertex( exec, &dest, 0 );
    emit_vertex( exec, &dest, 1 );
    emit_vertex( exec, &dest, 2 );
-   emit_vertex( exec, &dest, 4 );
+   emit_vertex( exec, &dest, 3 );
    exec->vtx.slotnr = 0;
    exec->vtx.slot[3].vertex_func = emit_quad_subsequent_slot_three;
 }
