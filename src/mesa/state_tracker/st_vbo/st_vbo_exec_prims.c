@@ -143,6 +143,12 @@ static void end_prim( struct st_vbo_exec_context *exec )
    exec->vtx.slot[1].end_func = end_prim_noop;
    exec->vtx.slot[2].end_func = end_prim_noop;
    exec->vtx.slot[3].end_func = end_prim_noop;
+
+   /* Flush if there isn't enough room to start a new primitive after
+    * this.
+    */
+   if (exec->vtx.vert_count + 8 < exec->vtx.max_vert)
+      st_vbo_exec_vtx_flush( exec, GL_FALSE );
 }
 
 
