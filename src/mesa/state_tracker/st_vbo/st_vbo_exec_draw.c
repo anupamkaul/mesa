@@ -304,4 +304,5 @@ void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec,
    exec->vtx.buffer_ptr = exec->vtx.buffer_map;
    exec->vtx.prim_count = 0;
    exec->vtx.vert_count = 0;
+   exec->vtx.choke_prim = 0;
 }

@@ -49,7 +49,10 @@ static void end_prim( struct st_vbo_exec_context *exec );
  */
 void st_vbo_exec_vtx_choke_prim( struct st_vbo_exec_context *exec )
 {
-   exec->vtx.max_vert = 0;
+   /* Don't need to do this if nothing has been emitted yet.
+    */
+   if (exec->vtx.vert_count != 0)
+      exec->vtx.choke_prim = 1;
 }
 
 
@@ -59,6 +62,9 @@ void st_vbo_exec_vtx_choke_prim( struct st_vbo_exec_context *exec )
 static INLINE char *extend_prim( struct st_vbo_exec_context *exec,
                                  unsigned verts )
 {
+   if (exec->vtx.choke_prim)
+      return NULL;
+
    if (exec->vtx.vert_count + verts > exec->vtx.max_vert)
       return NULL;
 
@@ -84,7 +90,8 @@ static char *new_prim( struct st_vbo_exec_context *exec,
    unsigned i;
 
    if (exec->vtx.prim_count == ST_VBO_MAX_PRIM ||
-       exec->vtx.max_vert == 0)
+       exec->vtx.max_vert == 0 ||
+       exec->vtx.choke_prim)
       st_vbo_exec_vtx_flush( exec, GL_FALSE );
 
    if (exec->vtx.prim_count == 0)

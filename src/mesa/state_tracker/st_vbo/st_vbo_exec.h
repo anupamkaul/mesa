@@ -135,6 +135,7 @@ struct st_vbo_exec_context
        */
       GLuint program_mode;
       GLuint enabled_flags;
+      GLboolean choke_prim;
       const struct gl_client_array *inputs[VERT_ATTRIB_MAX];
    } vtx;
 
