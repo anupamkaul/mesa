@@ -123,12 +123,14 @@ static INLINE void upgrade_attrib( struct st_vbo_exec_context *exec,
       exec->vtx.attrptr[i] += extra_dwords;
    }
 
-   _mesa_printf("after upgrade, offsets:\n");
-   for (i = 0; i < ST_VBO_ATTRIB_MAX; i++) {
-      unsigned offset = exec->vtx.attrptr[i] - exec->vtx.vertex;
-      _mesa_printf("   attr[%d]: sz %d off %d\n", i,
-                   exec->vtx.attrsz[attrib],
-                   offset);
+   if (0) {
+      _mesa_printf("after upgrade, offsets:\n");
+      for (i = 0; i < ST_VBO_ATTRIB_MAX; i++) {
+         unsigned offset = exec->vtx.attrptr[i] - exec->vtx.vertex;
+         _mesa_printf("   attr[%d]: sz %d off %d\n", i,
+                      exec->vtx.attrsz[attrib],
+                      offset);
+      }
    }
 
 

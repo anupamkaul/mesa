@@ -189,7 +189,7 @@ static INLINE void emit_vertex( struct st_vbo_exec_context *exec,
 {
    char *dest = *destptr;
 
-   {
+   if (0) {
       unsigned i;
 
       _mesa_printf("%s slot %d dest: %p\n",
