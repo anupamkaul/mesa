@@ -35,8 +35,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "main/context.h"
 #include "main/macros.h"
 #include "main/vtxfmt.h"
+#include "main/state.h"
 
 #include "st_vbo_exec.h"
+#include "st_vbo_context.h"
 
 static void end_prim( struct st_vbo_exec_context *exec );
 
@@ -84,6 +86,16 @@ static char *new_prim( struct st_vbo_exec_context *exec,
    if (exec->vtx.prim_count == ST_VBO_MAX_PRIM ||
        exec->vtx.max_vert == 0)
       st_vbo_exec_vtx_flush( exec, GL_FALSE );
+
+   if (exec->vtx.prim_count == 0)
+   {
+      GLcontext *ctx = exec->st_vbo->ctx;
+
+      st_vbo_exec_vtx_bind_arrays( ctx );
+
+      if (ctx->NewState)
+         _mesa_update_state( ctx );
+   }
 
    i = exec->vtx.prim_count;
    exec->vtx.prim[i].mode = mode;

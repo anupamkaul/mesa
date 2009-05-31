@@ -195,6 +195,8 @@ void st_vbo_exec_vtx_destroy( struct st_vbo_exec_context *exec );
 void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec, GLboolean unmap );
 void st_vbo_exec_vtx_map( struct st_vbo_exec_context *exec );
 
+void st_vbo_exec_vtx_bind_arrays( GLcontext *ctx );
+
 void st_vbo_exec_vtx_choke_prim( struct st_vbo_exec_context *exec );
 
 void st_vbo_exec_fixup_vertex( struct st_vbo_exec_context *exec,

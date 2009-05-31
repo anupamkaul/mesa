@@ -65,7 +65,7 @@ static void st_vbo_exec_debug_verts( struct st_vbo_exec_context *exec )
 
 /* TODO: populate these as the vertex is defined:
  */
-static void st_vbo_exec_bind_arrays( GLcontext *ctx )
+void st_vbo_exec_vtx_bind_arrays( GLcontext *ctx )
 {
    struct st_vbo_context *st_vbo = st_vbo_context(ctx);
    struct st_vbo_exec_context *exec = &st_vbo->exec;
@@ -262,14 +262,6 @@ void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec,
 
    if (exec->vtx.prim_count) {
       GLcontext *ctx = exec->st_vbo->ctx;
-
-      /* Before the update_state() as this may raise _NEW_ARRAY
-       * from _mesa_set_varying_vp_inputs().
-       */
-      st_vbo_exec_bind_arrays( ctx );
-
-      if (ctx->NewState)
-         _mesa_update_state( ctx );
 
       if (exec->vtx.bufferobj->Name) {
          st_vbo_exec_vtx_unmap( exec );
