@@ -95,6 +95,8 @@ static char *new_prim( struct st_vbo_exec_context *exec,
 
       if (ctx->NewState)
          _mesa_update_state( ctx );
+
+      ctx->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
    }
 
    i = exec->vtx.prim_count;
@@ -147,7 +149,7 @@ static void end_prim( struct st_vbo_exec_context *exec )
    /* Flush if there isn't enough room to start a new primitive after
     * this.
     */
-   if (exec->vtx.vert_count + 8 < exec->vtx.max_vert)
+   if (exec->vtx.vert_count + 8 > exec->vtx.max_vert)
       st_vbo_exec_vtx_flush( exec, GL_FALSE );
 }
 
