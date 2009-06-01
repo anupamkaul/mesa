@@ -90,7 +90,7 @@ static char *new_prim( struct st_vbo_exec_context *exec,
    unsigned i;
 
    if (exec->vtx.prim_count == ST_VBO_MAX_PRIM ||
-       exec->vtx.max_vert == 0 ||
+       exec->vtx.vert_count + 4 > exec->vtx.max_vert ||
        exec->vtx.choke_prim)
       st_vbo_exec_vtx_flush( exec, GL_FALSE );
 
@@ -152,12 +152,6 @@ static void end_prim( struct st_vbo_exec_context *exec )
    exec->vtx.slot[1].end_func = end_prim_noop;
    exec->vtx.slot[2].end_func = end_prim_noop;
    exec->vtx.slot[3].end_func = end_prim_noop;
-
-   /* Flush if there isn't enough room to start a new primitive after
-    * this.
-    */
-   if (exec->vtx.vert_count + 8 > exec->vtx.max_vert)
-      st_vbo_exec_vtx_flush( exec, GL_FALSE );
 }
 
 
