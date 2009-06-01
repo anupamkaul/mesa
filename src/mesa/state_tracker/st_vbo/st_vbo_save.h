@@ -39,6 +39,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "st_vbo_attrib.h"
 
 
+#define ST_VBO_MAX_COPIED_VERTS 3
+
 struct st_vbo_save_copied_vtx {
    GLfloat buffer[ST_VBO_ATTRIB_MAX * 4 * ST_VBO_MAX_COPIED_VERTS];
    GLuint nr;

@@ -138,7 +138,7 @@ static void Draw(void)
 
     glShadeModel( GL_FLAT );
 
-    for (i = 0; i < 360; i += 5) {
+    for (i = 0; i < 15; i += 5) {
 	glRotatef(5.0, 0,0,1);
 
 	(rgb) ? glColor3f(1.0, 1.0, 0.0) : glIndexi(ci);

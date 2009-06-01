@@ -38,6 +38,7 @@ SOURCES = \
 	line-userclip-nop.c \
 	line-userclip.c \
 	line-wide.c \
+	line-line.c \
 	line.c \
 	lineloop-clip.c \
 	lineloop-elts.c \
