@@ -205,12 +205,11 @@ GLboolean _st_vbo_CreateContext( GLcontext *ctx )
       /* When no vertex program, pull in the material attributes in
        * the 16..32 generic range.
        */
-      for (i = 0; i < 16; i++)
+      for (i = 0; i < VERT_ATTRIB_MAX; i++)
 	 st_vbo->map_vp_none[i] = i;
       for (i = 0; i < 12; i++)
 	 st_vbo->map_vp_none[16+i] = ST_VBO_ATTRIB_MAT_FRONT_AMBIENT + i;
-      for (i = 0; i < 4; i++)
-	 st_vbo->map_vp_none[28+i] = i;
+
 
       for (i = 0; i < VERT_ATTRIB_MAX; i++)
 	 st_vbo->map_vp_arb[i] = i;
