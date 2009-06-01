@@ -35,13 +35,8 @@
 
 /*
  * Note: The first attributes match the VERT_ATTRIB_* definitions
- * in mtypes.h.  However, the tnl module has additional attributes
- * for materials, color indexes, edge flags, etc.
- */
-/* Although it's nice to use these as bit indexes in a DWORD flag, we
- * could manage without if necessary.  Another limit currently is the
- * number of bits allocated for these numbers in places like vertex
- * program instruction formats and register layouts.
+ * in mtypes.h.  However, this module has additional attributes
+ * for materials, etc.
  */
 enum {
 	ST_VBO_ATTRIB_POS = 0,
@@ -81,7 +76,9 @@ enum {
 	/* XXX: in the vertex program InputsRead flag, we alias
 	 * materials and generics and use knowledge about the program
 	 * (whether it is a fixed-function emulation) to
-	 * differentiate.  Here we must keep them apart instead.
+	 * differentiate.  Here we keep them apart initially before
+	 * mapping down to the VERT_ATTRIB values according to the
+	 * current program mode.
 	 */
 	ST_VBO_ATTRIB_MAT_FRONT_AMBIENT = 32,
 	ST_VBO_ATTRIB_MAT_BACK_AMBIENT = 33,
