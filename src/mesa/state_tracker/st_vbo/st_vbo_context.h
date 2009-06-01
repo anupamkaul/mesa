@@ -70,8 +70,8 @@ struct st_vbo_context {
    struct gl_client_array *generic_currval;
    struct gl_client_array *mat_currval;
 
-   GLuint map_vp_none[32];
-   GLuint map_vp_arb[32];
+   GLuint map_vp_none[VERT_ATTRIB_MAX];
+   GLuint map_vp_arb[VERT_ATTRIB_MAX];
 
    GLfloat *current[ST_VBO_ATTRIB_MAX]; /* points into ctx->Current, ctx->Light.Material */
    GLfloat CurrentFloatEdgeFlag;
