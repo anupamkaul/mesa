@@ -45,6 +45,7 @@
 #include "st_context.h"
 #include "st_cb_bitmap.h"
 #include "st_cb_readpixels.h"
+#include "st_cb_bufferobjects.h"
 #include "st_cb_fbo.h"
 #include "st_format.h"
 #include "st_public.h"
@@ -159,6 +160,238 @@ st_get_color_read_renderbuffer(GLcontext *ctx)
    }
 
    return strb;
+}
+
+
+/**
+ * Try to do glReadPixels in a fast manner for common cases.
+ * \return GL_TRUE for success, GL_FALSE for failure
+ */
+static GLboolean
+st_accelerated_readpixels(GLcontext *ctx, struct st_renderbuffer *strb,
+                          GLint x, GLint y, GLsizei width, GLsizei height,
+                          GLenum format, GLenum type,
+                          const struct gl_pixelstore_attrib *pack,
+                          GLvoid *dest)
+{
+   struct pipe_context *pipe = ctx->st->pipe;
+   struct pipe_screen *screen = pipe->screen;
+   GLfloat temp[MAX_WIDTH][4];
+   const GLubyte *map;
+   GLubyte *dst;
+   GLint row, col, dy, dstStride;
+   struct gl_pixelstore_attrib clippedPacking = *pack;
+   struct pipe_transfer *trans;
+   struct st_buffer_object *st_obj = st_buffer_object(pack->BufferObj);
+   boolean do_flip = (st_fb_orientation(ctx->ReadBuffer) == Y_0_TOP);
+
+   enum combination {
+      A8R8G8B8_UNORM_TO_RGBA_UBYTE,
+      A8R8G8B8_UNORM_TO_RGB_UBYTE,
+      A8R8G8B8_UNORM_TO_BGRA_UINT,
+      A8R8G8B8_UNORM_TO_FLOAT
+   } combo;
+
+   if (ctx->_ImageTransferState)
+      return GL_FALSE;
+
+   if (strb->format != PIPE_FORMAT_A8R8G8B8_UNORM)
+      return GL_FALSE;
+
+   if (format == GL_RGBA &&
+       ((type == GL_UNSIGNED_BYTE) || (type == GL_UNSIGNED_INT_8_8_8_8))) {
+      combo = A8R8G8B8_UNORM_TO_RGBA_UBYTE;
+   }
+   else if (format == GL_RGB && type == GL_UNSIGNED_BYTE) {
+      combo = A8R8G8B8_UNORM_TO_RGB_UBYTE;
+   }
+   else if (format == GL_BGRA && type == GL_UNSIGNED_INT_8_8_8_8_REV) {
+      combo = A8R8G8B8_UNORM_TO_BGRA_UINT;
+   }
+   else if (type == GL_FLOAT) {
+      combo = A8R8G8B8_UNORM_TO_FLOAT;
+   }
+   else {
+      return GL_FALSE;
+   }
+
+   /* Try issue a copy to PBO if possible */
+   if (st_obj && (
+       (combo == A8R8G8B8_UNORM_TO_RGBA_UBYTE) ||
+       (combo == A8R8G8B8_UNORM_TO_BGRA_UINT))) {
+      struct pipe_surface *surface = NULL;
+      struct pipe_surface *surf = NULL;
+      struct pipe_texture template;
+      struct pipe_texture *tex;
+      GLuint stride = (width * 4);
+
+      surf = screen->get_tex_surface(screen, strb->texture,  0, 0, 0,
+                                     PIPE_BUFFER_USAGE_GPU_READ);
+      if (!surf) {
+         return GL_FALSE;
+      }
+
+      template.target = PIPE_TEXTURE_2D;
+      template.compressed = 0;
+      template.format = st_choose_format(pipe, GL_RGBA, PIPE_TEXTURE_2D,
+                                         PIPE_TEXTURE_USAGE_RENDER_TARGET);
+      if (template.format != PIPE_FORMAT_NONE) {
+         pipe_surface_reference(&surf, NULL);
+         return GL_FALSE;
+      }
+      pf_get_block(template.format, &template.block);
+      template.width[0] = width;
+      template.height[0] = height;
+      template.depth[0] = 1;
+      template.last_level = 0;
+      template.tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET;
+
+      tex = pipe->screen->texture_blanket( pipe->screen,
+                 &template,
+                 &stride,
+                 st_obj->buffer );
+      if (!tex) {
+         pipe_surface_reference(&surf, NULL);
+         return GL_FALSE;
+      }
+
+      surface = pipe->screen->get_tex_surface( pipe->screen,
+                     tex, 0, 0, 0,
+                     PIPE_BUFFER_USAGE_GPU_WRITE );
+
+      if (!surface) {
+         pipe_texture_reference(&tex, NULL);
+         pipe_surface_reference(&surf, NULL);
+         return GL_FALSE;
+      }
+
+      pipe->surface_copy(pipe,
+                         do_flip,
+                         /* dest */
+                         surface,
+                         0, 0,
+                         /* src */
+                         surf,
+                         x, y,
+                         /* size */
+                         width, height);
+
+      pipe_surface_reference(&surface, NULL);
+      pipe_texture_reference(&tex, NULL);
+      pipe_surface_reference(&surf, NULL);
+
+      return GL_TRUE;
+   }
+
+   if (!screen->get_tex_transfer ||
+       !screen->tex_transfer_destroy ||
+       !screen->transfer_map ||
+       !screen->transfer_unmap) {
+      return GL_FALSE;
+   }
+
+   if (do_flip) {
+      y = strb->texture->height[0] - y - height;
+   }
+
+   trans = screen->get_tex_transfer(screen, strb->texture,
+                 0, 0, 0,
+                 PIPE_TRANSFER_READ, x, y,
+                 width, height);
+   if (!trans) {
+      return GL_FALSE;
+   }
+
+   map = screen->transfer_map(screen, trans);
+   if (!map) {
+      screen->tex_transfer_destroy(trans);
+      return GL_FALSE;
+   }
+
+   if (do_flip) {
+      y = height - 1;
+      dy = -1;
+   }
+   else {
+      y = 0;
+      dy = 1;
+   }
+
+   dest = _mesa_map_readpix_pbo(ctx, &clippedPacking, dest);
+   if (!dest)
+      return GL_FALSE;
+
+   dst = _mesa_image_address2d(pack, dest, width, height,
+                               format, type, 0, 0);
+   dstStride = _mesa_image_row_stride(pack, width, format, type);
+
+   switch (combo) {
+   case A8R8G8B8_UNORM_TO_RGBA_UBYTE:
+      for (row = 0; row < height; row++) {
+         const GLubyte *src = map + y * trans->stride;
+         for (col = 0; col < width; col++) {
+            GLuint pixel = ((GLuint *) src)[col];
+            dst[col*4+0] = (pixel >> 16) & 0xff;
+            dst[col*4+1] = (pixel >>  8) & 0xff;
+            dst[col*4+2] = (pixel >>  0) & 0xff;
+            dst[col*4+3] = (pixel >> 24) & 0xff;
+         }
+         dst += dstStride;
+         y += dy;
+      }
+      break;
+   case A8R8G8B8_UNORM_TO_RGB_UBYTE:
+      for (row = 0; row < height; row++) {
+         const GLubyte *src = map + y * trans->stride;
+         for (col = 0; col < width; col++) {
+            GLuint pixel = ((GLuint *) src)[col];
+            dst[col*3+0] = (pixel >> 16) & 0xff;
+            dst[col*3+1] = (pixel >>  8) & 0xff;
+            dst[col*3+2] = (pixel >>  0) & 0xff;
+         }
+         dst += dstStride;
+         y += dy;
+      }
+      break;
+   case A8R8G8B8_UNORM_TO_BGRA_UINT:
+      for (row = 0; row < height; row++) {
+         const GLubyte *src = map + y * trans->stride;
+         memcpy(dst, src, 4 * width);
+         dst += dstStride;
+         y += dy;
+      }
+      break;
+   case A8R8G8B8_UNORM_TO_FLOAT:
+      if (format == GL_RGBA) {
+         /* write tile(row) directly into user's buffer */
+         for (row = 0; row < height; row++) {
+            const GLubyte *src = map + y * trans->stride;
+            pipe_tile_raw_to_rgba(strb->format, src, width, 1, dst, dstStride);
+            dst += dstStride;
+            y += dy;
+         }
+      }
+      else {
+         for (row = 0; row < height; row++) {
+            const GLubyte *src = map + y * trans->stride;
+            pipe_tile_raw_to_rgba(strb->format, src, width, 1, temp, dstStride);
+            _mesa_pack_rgba_span_float(ctx, width, temp, format, type, dst,
+                                       &clippedPacking, 0);
+            dst += dstStride;
+            y += dy;
+         }
+      }
+      break;
+   default:
+      ; /* nothing */
+   }
+
+   _mesa_unmap_readpix_pbo(ctx, &clippedPacking);
+
+   screen->transfer_unmap(screen, trans);
+   screen->tex_transfer_destroy(trans);
+
+   return GL_TRUE;
 }
 
 
@@ -313,15 +546,17 @@ st_readpixels(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
       return;
    }
 
-   dest = _mesa_map_readpix_pbo(ctx, &clippedPacking, dest);
-   if (!dest)
-      return;
-
    /* make sure rendering has completed */
    st_flush(ctx->st, PIPE_FLUSH_RENDER_CACHE, NULL);
 
    if (format == GL_STENCIL_INDEX) {
+      dest = _mesa_map_readpix_pbo(ctx, &clippedPacking, dest);
+      if (!dest)
+         return;
+
       st_read_stencil_pixels(ctx, x, y, width, height, type, pack, dest);
+
+      _mesa_unmap_readpix_pbo(ctx, &clippedPacking);
       return;
    }
    else if (format == GL_DEPTH_COMPONENT) {
@@ -333,6 +568,15 @@ st_readpixels(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
    }
 
    if (!strb)
+      return;
+
+   /* try an accelerated readpixels before anything else */
+   if (st_accelerated_readpixels(ctx, strb, x, y, width, height,
+                                 format, type, pack, dest))
+      return;
+
+   dest = _mesa_map_readpix_pbo(ctx, &clippedPacking, dest);
+   if (!dest)
       return;
 
    /* try a fast-path readpixels before anything else */

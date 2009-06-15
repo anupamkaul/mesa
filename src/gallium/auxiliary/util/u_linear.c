@@ -6,23 +6,27 @@ void
 pipe_linear_to_tile(size_t src_stride, void *src_ptr,
 		    struct pipe_tile_info *t, void *dst_ptr)
 {
-   unsigned x, y, z;
-   char *ptr;
+   unsigned x, y, offset;
+   char *ptr, *dst;
+   unsigned rows = t->rows, cols = t->cols;
    size_t bytes = t->cols * t->block.size;
 
 
    assert(pipe_linear_check_tile(t));
 
    /* lets write lineary to the tiled buffer */
-   for (y = 0; y < t->tiles_y; y++) {
-      for (x = 0; x < t->tiles_x; x++) {
-	 /* this inner loop could be replace with SSE magic */
-	 ptr = (char*)src_ptr + src_stride * t->rows * y + bytes * x;
-	 for (z = 0; z < t->rows; z++) {
-	    memcpy(dst_ptr, ptr, bytes);
-	    dst_ptr = (char *)dst_ptr + bytes;
-	    ptr += src_stride;
-	 }
+   for (x = t->left; x < t->right; x += cols) {
+      cols = t->cols - x % t->cols;
+      if (x + cols > t->right)
+         cols = t->right - x;
+      ptr = (char*)src_ptr + (x - t->left) * t->block.size;
+      offset = x / t->cols * t->tile.size + (x % t->cols) * t->block.size;
+      for (y = t->top; y < t->bottom; y++) {
+         dst = (char*)dst_ptr + offset
+                + y / t->rows * t->stride * t->rows
+                + (y % t->rows) * bytes;
+         memcpy(dst, ptr, cols * t->block.size);
+         ptr += src_stride;
       }
    }
 }
@@ -30,20 +34,24 @@ pipe_linear_to_tile(size_t src_stride, void *src_ptr,
 void pipe_linear_from_tile(struct pipe_tile_info *t, void  *src_ptr,
 			   size_t dst_stride, void *dst_ptr)
 {
-   unsigned x, y, z;
-   char *ptr;
+   unsigned x, y, offset;
+   unsigned rows = t->rows, cols = t->cols;
+   char *ptr, *src;
    size_t bytes = t->cols * t->block.size;
 
-   /* lets read lineary from the tiled buffer */
-   for (y = 0; y < t->tiles_y; y++) {
-      for (x = 0; x < t->tiles_x; x++) {
-	 /* this inner loop could be replace with SSE magic */
-	 ptr = (char*)dst_ptr + dst_stride * t->rows * y + bytes * x;
-	 for (z = 0; z < t->rows; z++) {
-	    memcpy(ptr, src_ptr, bytes);
-	    src_ptr = (char *)src_ptr + bytes;
-	    ptr += dst_stride;
-	 }
+   /* lets write lineary to the tiled buffer */
+   for (x = t->left; x < t->right; x += cols) {
+      cols = t->cols - x % t->cols;
+      if (x + cols > t->right)
+         cols = t->right - x;
+      ptr = (char*)dst_ptr + (x - t->left) * t->block.size;
+      offset = x / t->cols * t->tile.size + (x % t->cols) * t->block.size;
+      for (y = t->top; y < t->bottom; y++) {
+         src = (char*)src_ptr + offset
+                + y / t->rows * t->stride * t->rows
+                + (y % t->rows) * bytes;
+         memcpy(ptr, src, cols * t->block.size);
+         ptr += dst_stride;
       }
    }
 }
@@ -52,7 +60,9 @@ void
 pipe_linear_fill_info(struct pipe_tile_info *t,
 		      struct pipe_format_block *block,
 		      unsigned tile_width, unsigned tile_height,
-		      unsigned tiles_x, unsigned tiles_y)
+		      unsigned tiles_x, unsigned tiles_y,
+		      unsigned left, unsigned top,
+		      unsigned right, unsigned bottom)
 {
    t->block = *block;
 
@@ -66,4 +76,9 @@ pipe_linear_fill_info(struct pipe_tile_info *t,
    t->tiles_y = tiles_y;
    t->stride = t->cols * t->tiles_x * t->block.size;
    t->size = t->tiles_x * t->tiles_y * t->tile.size;
+
+   t->left = left;
+   t->top = top;
+   t->right = right;
+   t->bottom = bottom;
 }

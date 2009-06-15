@@ -299,6 +299,28 @@ struct pipe_surface
 
 
 /**
+ * Transfer object.  For data transfer to/from a texture.
+ */
+struct pipe_transfer
+{
+   enum pipe_format format;      /**< PIPE_FORMAT_x */
+   unsigned x;                   /**< x offset from start of texture image */
+   unsigned y;                   /**< y offset from start of texture image */
+   unsigned width;               /**< logical width in pixels */
+   unsigned height;              /**< logical height in pixels */
+   struct pipe_format_block block;
+   unsigned nblocksx;            /**< allocated width in blocks */
+   unsigned nblocksy;            /**< allocated height in blocks */
+   unsigned stride;              /**< stride in bytes between rows of blocks */
+   unsigned usage;               /**< PIPE_TRANSFER_*  */
+
+   struct pipe_texture *texture; /**< texture to transfer to/from  */
+   unsigned face;
+   unsigned level;
+   unsigned zslice;
+};
+
+/**
  * Texture object.
  */
 struct pipe_texture

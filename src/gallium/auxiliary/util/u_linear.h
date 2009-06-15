@@ -12,6 +12,12 @@ struct pipe_tile_info
    unsigned tiles_x;
    unsigned tiles_y;
 
+   /* The region to be converted */
+   unsigned left;
+   unsigned top;
+   unsigned right;
+   unsigned bottom;
+
    /* size of each tile expressed in blocks */
    unsigned cols;
    unsigned rows;
@@ -37,11 +43,14 @@ void pipe_linear_from_tile(struct pipe_tile_info *t, void  *src_ptr,
  * @tile_height the height of the tile in pixels
  * @tiles_x number of tiles in x axis
  * @tiles_y number of tiles in y axis
+ * @[left,top,right,bottom] the region to be converted, in pixels
  */
 void pipe_linear_fill_info(struct pipe_tile_info *t,
 			   struct pipe_format_block *block,
 			   unsigned tile_width, unsigned tile_height,
-			   unsigned tiles_x, unsigned tiles_y);
+			   unsigned tiles_x, unsigned tiles_y,
+			   unsigned left, unsigned top,
+			   unsigned right, unsigned bottom);
 
 static INLINE boolean pipe_linear_check_tile(struct pipe_tile_info *t)
 {

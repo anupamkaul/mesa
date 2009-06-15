@@ -40,6 +40,7 @@
 
 #include "pipe/p_compiler.h"
 #include "pipe/p_state.h"
+#include "pipe/p_defines.h"
 
 
 
@@ -129,6 +130,22 @@ struct pipe_screen {
    void (*surface_unmap)( struct pipe_screen *,
                           struct pipe_surface *surface );
    
+   /** Get a transfer object for transferring data to/from a texture */
+   struct pipe_transfer *(*get_tex_transfer)(struct pipe_screen *,
+                                             struct pipe_texture *texture,
+                                             unsigned face, unsigned level,
+                                             unsigned zslice,
+                                             enum pipe_transfer_usage usage,
+                                             unsigned x, unsigned y,
+                                             unsigned w, unsigned h);
+
+   void (*tex_transfer_destroy)(struct pipe_transfer *);
+   
+   void *(*transfer_map)( struct pipe_screen *,
+                          struct pipe_transfer *transfer );
+
+   void (*transfer_unmap)( struct pipe_screen *,
+                           struct pipe_transfer *transfer );
 };
 
 
