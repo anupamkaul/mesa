@@ -59,6 +59,7 @@
 #include "st_cb_texture.h"
 #include "st_cb_flush.h"
 #include "st_cb_strings.h"
+#include "st_cb_viewport.h"
 #include "st_atom.h"
 #include "st_draw.h"
 #include "st_extensions.h"
@@ -254,19 +255,8 @@ void st_make_current(struct st_context *st,
                      struct st_framebuffer *read)
 {
    if (st) {
-      GLboolean firstTime = st->ctx->FirstTimeCurrent;
       _mesa_make_current(st->ctx, &draw->Base, &read->Base);
-      /* Need to initialize viewport here since draw->Base->Width/Height
-       * will still be zero at this point.
-       * This could be improved, but would require rather extensive work
-       * elsewhere (allocate rb surface storage sooner)
-       */
-      if (firstTime) {
-         GLuint w = draw->InitWidth, h = draw->InitHeight;
-         _mesa_set_viewport(st->ctx, 0, 0, w, h);
-         _mesa_set_scissor(st->ctx, 0, 0, w, h);
-
-      }
+      _mesa_check_init_viewport(st->ctx, draw->InitWidth, draw->InitHeight);
    }
    else {
       _mesa_make_current(NULL, NULL, NULL);
