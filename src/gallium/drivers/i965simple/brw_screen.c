@@ -103,6 +103,8 @@ brw_get_param(struct pipe_screen *screen, int param)
       return 8;  /* max 128x128x128 */
    case PIPE_CAP_MAX_TEXTURE_CUBE_LEVELS:
       return 11; /* max 1024x1024 */
+   case PIPE_CAP_TGSI_CONT_SUPPORTED:
+      return 1;
    default:
       return 0;
    }
