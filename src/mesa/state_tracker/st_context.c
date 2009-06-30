@@ -32,7 +32,7 @@
 #include "main/buffers.h"
 #include "main/scissor.h"
 #include "main/viewport.h"
-#include "vbo/vbo.h"
+#include "st_vbo/st_vbo.h"
 #include "shader/shader_api.h"
 #include "glapi/glapi.h"
 #include "st_public.h"
@@ -85,7 +85,7 @@ void st_invalidate_state(GLcontext * ctx, GLuint new_state)
    /* This is the only core Mesa module we depend upon.
     * No longer use swrast, swsetup, tnl.
     */
-   _vbo_InvalidateState(ctx, new_state);
+   _st_vbo_InvalidateState(ctx, new_state);
 }
 
 
@@ -114,7 +114,7 @@ st_create_context_priv( GLcontext *ctx, struct pipe_context *pipe )
    st->pipe = pipe;
 
    /* state tracker needs the VBO module */
-   _vbo_CreateContext(ctx);
+   _st_vbo_CreateContext(ctx);
 
 #if FEATURE_feedback || FEATURE_drawpix
    st->draw = draw_create(); /* for selection/feedback */
@@ -144,7 +144,7 @@ st_create_context_priv( GLcontext *ctx, struct pipe_context *pipe )
       st->state.sampler_list[i] = &st->state.samplers[i];
 
    /* we want all vertex data to be placed in buffer objects */
-   vbo_use_buffer_objects(ctx);
+   st_vbo_use_buffer_objects(ctx);
 
    /* Need these flags:
     */
@@ -249,7 +249,7 @@ void st_destroy_context( struct st_context *st )
 
    _mesa_delete_program_cache(st->ctx, st->pixel_xfer.cache);
 
-   _vbo_DestroyContext(st->ctx);
+   _st_vbo_DestroyContext(st->ctx);
 
    _mesa_free_context_data(ctx);
 

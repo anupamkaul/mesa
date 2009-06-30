@@ -42,7 +42,7 @@
 #include "main/feedback.h"
 #include "main/macros.h"
 
-#include "vbo/vbo.h"
+#include "st_vbo/st_vbo.h"
 
 #include "st_context.h"
 #include "st_atom.h"
@@ -281,21 +281,21 @@ st_RenderMode(GLcontext *ctx, GLenum newMode )
 
    if (newMode == GL_RENDER) {
       /* restore normal VBO draw function */
-      vbo_set_draw_func(ctx, st_draw_vbo);
+      st_vbo_set_draw_func(ctx, st_draw_vbo);
    }
    else if (newMode == GL_SELECT) {
       if (!st->selection_stage)
          st->selection_stage = draw_glselect_stage(ctx, draw);
       draw_set_rasterize_stage(draw, st->selection_stage);
       /* Plug in new vbo draw function */
-      vbo_set_draw_func(ctx, st_feedback_draw_vbo);
+      st_vbo_set_draw_func(ctx, st_feedback_draw_vbo);
    }
    else {
       if (!st->feedback_stage)
          st->feedback_stage = draw_glfeedback_stage(ctx, draw);
       draw_set_rasterize_stage(draw, st->feedback_stage);
       /* Plug in new vbo draw function */
-      vbo_set_draw_func(ctx, st_feedback_draw_vbo);
+      st_vbo_set_draw_func(ctx, st_feedback_draw_vbo);
       /* need to generate/use a vertex program that emits pos/color/tex */
       st->dirty.st |= ST_NEW_VERTEX_PROGRAM;
    }

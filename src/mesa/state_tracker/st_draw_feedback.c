@@ -30,7 +30,7 @@
 #include "main/macros.h"
 #include "shader/prog_uniform.h"
 
-#include "vbo/vbo.h"
+#include "st_vbo/st_vbo.h"
 
 #include "st_context.h"
 #include "st_atom.h"
@@ -93,9 +93,9 @@ set_feedback_vertex_format(GLcontext *ctx)
 void
 st_feedback_draw_vbo(GLcontext *ctx,
                      const struct gl_client_array **arrays,
-                     const struct _mesa_prim *prims,
+                     const struct st_mesa_prim *prims,
                      GLuint nr_prims,
-                     const struct _mesa_index_buffer *ib,
+                     const struct st_mesa_index_buffer *ib,
                      GLuint min_index,
                      GLuint max_index)
 {

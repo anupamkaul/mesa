@@ -48,7 +48,7 @@
 #include "draw/draw_context.h"
 #include "draw/draw_pipe.h"
 #include "shader/prog_instruction.h"
-#include "vbo/vbo.h"
+#include "st_vbo/st_vbo.h"
 
 
 
@@ -63,7 +63,7 @@ struct rastpos_stage
    /* vertex attrib info we can setup once and re-use */
    struct gl_client_array array[VERT_ATTRIB_MAX];
    const struct gl_client_array *arrays[VERT_ATTRIB_MAX];
-   struct _mesa_prim prim;
+   struct st_mesa_prim prim;
 };
 
 

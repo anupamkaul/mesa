@@ -180,6 +180,16 @@ if env['platform'] != 'winddk':
 		'state_tracker/st_mesa_to_tgsi.c',
 		'state_tracker/st_program.c',
 		'state_tracker/st_texture.c',
+		'state_tracker/st_vbo/st_vbo_context.c',
+		'state_tracker/st_vbo/st_vbo_exec.c',
+		'state_tracker/st_vbo/st_vbo_exec_api.c',
+		'state_tracker/st_vbo/st_vbo_exec_array.c',
+		'state_tracker/st_vbo/st_vbo_exec_draw.c',
+		'state_tracker/st_vbo/st_vbo_exec_eval.c',
+		'state_tracker/st_vbo/st_vbo_save.c',
+		'state_tracker/st_vbo/st_vbo_save_api.c',
+		'state_tracker/st_vbo/st_vbo_save_draw.c',
+		'state_tracker/st_vbo/st_vbo_save_loopback.c',
 	]
 	
 	shader_sources = [

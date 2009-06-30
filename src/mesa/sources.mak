@@ -211,7 +211,18 @@ STATETRACKER_SOURCES = \
 	state_tracker/st_gen_mipmap.c \
 	state_tracker/st_mesa_to_tgsi.c \
 	state_tracker/st_program.c \
-	state_tracker/st_texture.c
+	state_tracker/st_texture.c \
+        state_tracker/st_vbo/st_vbo_context.c \
+        state_tracker/st_vbo/st_vbo_exec.c \
+        state_tracker/st_vbo/st_vbo_exec_api.c \
+        state_tracker/st_vbo/st_vbo_exec_array.c \
+        state_tracker/st_vbo/st_vbo_exec_draw.c \
+        state_tracker/st_vbo/st_vbo_exec_eval.c \
+        state_tracker/st_vbo/st_vbo_save.c \
+        state_tracker/st_vbo/st_vbo_save_api.c \
+        state_tracker/st_vbo/st_vbo_save_draw.c \
+        state_tracker/st_vbo/st_vbo_save_loopback.c
+
 
 SHADER_SOURCES = \
 	shader/arbprogparse.c \
@@ -324,7 +335,6 @@ MESA_SOURCES = \
 MESA_GALLIUM_SOURCES = \
 	$(MAIN_SOURCES)		\
 	$(MATH_SOURCES)		\
-	$(VBO_SOURCES)		\
 	$(STATETRACKER_SOURCES)	\
 	$(SHADER_SOURCES)	\
 	x86/common_x86.c	\
