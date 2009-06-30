@@ -872,7 +872,7 @@ static void GLAPIENTRY _save_OBE_DrawArrays(GLenum mode, GLint start, GLsizei co
    if (!_mesa_validate_DrawArrays( ctx, mode, start, count ))
       return;
 
-   _ae_map_st_vbos( ctx );
+   _ae_map_vbos( ctx );
 
    st_vbo_save_NotifyBegin( ctx, mode | ST_VBO_SAVE_PRIM_WEAK );
 
@@ -880,7 +880,7 @@ static void GLAPIENTRY _save_OBE_DrawArrays(GLenum mode, GLint start, GLsizei co
        CALL_ArrayElement(GET_DISPATCH(), (start + i));
    CALL_End(GET_DISPATCH(), ());
 
-   _ae_unmap_st_vbos( ctx );
+   _ae_unmap_vbos( ctx );
 }
 
 /* Could do better by copying the arrays and element list intact and
@@ -895,7 +895,7 @@ static void GLAPIENTRY _save_OBE_DrawElements(GLenum mode, GLsizei count, GLenum
    if (!_mesa_validate_DrawElements( ctx, mode, count, type, indices ))
       return;
 
-   _ae_map_st_vbos( ctx );
+   _ae_map_vbos( ctx );
 
    if (ctx->Array.ElementArrayBufferObj->Name)
       indices = ADD_POINTERS(ctx->Array.ElementArrayBufferObj->Pointer, indices);
@@ -922,7 +922,7 @@ static void GLAPIENTRY _save_OBE_DrawElements(GLenum mode, GLsizei count, GLenum
 
    CALL_End(GET_DISPATCH(), ());
 
-   _ae_unmap_st_vbos( ctx );
+   _ae_unmap_vbos( ctx );
 }
 
 static void GLAPIENTRY _save_OBE_DrawRangeElements(GLenum mode,

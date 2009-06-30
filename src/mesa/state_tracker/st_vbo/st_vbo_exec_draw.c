@@ -60,82 +60,6 @@ static void st_vbo_exec_debug_verts( struct st_vbo_exec_context *exec )
 }
 
 
-/*
- * NOTE: Need to have calculated primitives by this point -- do it on the fly.
- * NOTE: Old 'parity' issue is gone.
- */
-static GLuint st_vbo_copy_vertices( struct st_vbo_exec_context *exec )
-{
-   GLuint nr = exec->vtx.prim[exec->vtx.prim_count-1].count;
-   GLuint ovf, i;
-   GLuint sz = exec->vtx.vertex_size;
-   GLfloat *dst = exec->vtx.copied.buffer;
-   GLfloat *src = (exec->vtx.buffer_map +
-		   exec->vtx.prim[exec->vtx.prim_count-1].start *
-		   exec->vtx.vertex_size);
-
-
-   switch( exec->ctx->Driver.CurrentExecPrimitive )
-   {
-   case GL_POINTS:
-      return 0;
-   case GL_LINES:
-      ovf = nr&1;
-      for (i = 0 ; i < ovf ; i++)
-	 _mesa_memcpy( dst+i*sz, src+(nr-ovf+i)*sz, sz * sizeof(GLfloat) );
-      return i;
-   case GL_TRIANGLES:
-      ovf = nr%3;
-      for (i = 0 ; i < ovf ; i++)
-	 _mesa_memcpy( dst+i*sz, src+(nr-ovf+i)*sz, sz * sizeof(GLfloat) );
-      return i;
-   case GL_QUADS:
-      ovf = nr&3;
-      for (i = 0 ; i < ovf ; i++)
-	 _mesa_memcpy( dst+i*sz, src+(nr-ovf+i)*sz, sz * sizeof(GLfloat) );
-      return i;
-   case GL_LINE_STRIP:
-      if (nr == 0)
-	 return 0;
-      else {
-	 _mesa_memcpy( dst, src+(nr-1)*sz, sz * sizeof(GLfloat) );
-	 return 1;
-      }
-   case GL_LINE_LOOP:
-   case GL_TRIANGLE_FAN:
-   case GL_POLYGON:
-      if (nr == 0)
-	 return 0;
-      else if (nr == 1) {
-	 _mesa_memcpy( dst, src+0, sz * sizeof(GLfloat) );
-	 return 1;
-      } else {
-	 _mesa_memcpy( dst, src+0, sz * sizeof(GLfloat) );
-	 _mesa_memcpy( dst+sz, src+(nr-1)*sz, sz * sizeof(GLfloat) );
-	 return 2;
-      }
-   case GL_TRIANGLE_STRIP:
-      /* no parity issue, but need to make sure the tri is not drawn twice */
-      if (nr & 1) {
-	 exec->vtx.prim[exec->vtx.prim_count-1].count--;
-      }
-      /* fallthrough */
-   case GL_QUAD_STRIP:
-      switch (nr) {
-      case 0: ovf = 0; break;
-      case 1: ovf = 1; break;
-      default: ovf = 2 + (nr&1); break;
-      }
-      for (i = 0 ; i < ovf ; i++)
-	 _mesa_memcpy( dst+i*sz, src+(nr-ovf+i)*sz, sz * sizeof(GLfloat) );
-      return i;
-   case PRIM_OUTSIDE_BEGIN_END:
-      return 0;
-   default:
-      assert(0);
-      return 0;
-   }
-}
 
 
 
@@ -155,7 +79,7 @@ static void st_vbo_exec_bind_arrays( GLcontext *ctx )
    /* Install the default (ie Current) attributes first, then overlay
     * all active ones.
     */
-   switch (get_program_mode(exec->ctx)) {
+   switch (get_program_mode(ctx)) {
    case VP_NONE:
       for (attr = 0; attr < 16; attr++) {
          exec->vtx.inputs[attr] = &st_vbo->legacy_currval[attr];
@@ -239,7 +163,7 @@ static void st_vbo_exec_vtx_unmap( struct st_vbo_exec_context *exec )
    GLenum target = GL_ARRAY_BUFFER_ARB;
 
    if (exec->vtx.bufferobj->Name) {
-      GLcontext *ctx = exec->ctx;
+      GLcontext *ctx = exec->st_vbo->ctx;
 
       if(ctx->Driver.FlushMappedBufferRange) {
          GLintptr offset = exec->vtx.buffer_used - exec->vtx.bufferobj->Offset;
@@ -266,7 +190,7 @@ static void st_vbo_exec_vtx_unmap( struct st_vbo_exec_context *exec )
 
 void st_vbo_exec_vtx_map( struct st_vbo_exec_context *exec )
 {
-   GLcontext *ctx = exec->ctx;
+   GLcontext *ctx = exec->st_vbo->ctx;
    GLenum target = GL_ARRAY_BUFFER_ARB;
    GLenum access = GL_READ_WRITE_ARB;
    GLenum usage = GL_STREAM_DRAW_ARB;
@@ -314,40 +238,39 @@ void st_vbo_exec_vtx_map( struct st_vbo_exec_context *exec )
 
 
 
-/**
- * Execute the buffer and save copied verts.
+/*
+ * Do the following:
+ *   - unmap_vbo();
+ *   - fire primitives to backend()
+ *   - if (!unmap)
+ *      - maybe get_new_vbo();
+ *      - map_vbo();
  */
 void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec,
-                         GLboolean unmap )
+                            GLboolean unmap )
 {
-   if (0)
+   if (1)
       st_vbo_exec_debug_verts( exec );
 
+   if (exec->vtx.prim_count) {
+      GLcontext *ctx = exec->st_vbo->ctx;
 
-   if (exec->vtx.prim_count &&
-       exec->vtx.vert_count) {
+      /* Before the update_state() as this may raise _NEW_ARRAY
+       * from _mesa_set_varying_vp_inputs().
+       */
+      st_vbo_exec_bind_arrays( ctx );
 
-      exec->vtx.copied.nr = st_vbo_copy_vertices( exec );
+      if (ctx->NewState)
+         _mesa_update_state( ctx );
 
-      if (exec->vtx.copied.nr != exec->vtx.vert_count) {
-	 GLcontext *ctx = exec->ctx;
+      if (exec->vtx.bufferobj->Name) {
+         st_vbo_exec_vtx_unmap( exec );
+      }
 
-	 /* Before the update_state() as this may raise _NEW_ARRAY
-          * from _mesa_set_varying_vp_inputs().
-	  */
-	 st_vbo_exec_bind_arrays( ctx );
+      if (0) _mesa_printf("%s %d %d\n", __FUNCTION__, exec->vtx.prim_count,
+                          exec->vtx.vert_count);
 
-         if (ctx->NewState)
-            _mesa_update_state( ctx );
-
-         if (exec->vtx.bufferobj->Name) {
-            st_vbo_exec_vtx_unmap( exec );
-         }
-
-         if (0) _mesa_printf("%s %d %d\n", __FUNCTION__, exec->vtx.prim_count,
-                      exec->vtx.vert_count);
-
-	 st_vbo_context(ctx)->draw_prims( ctx,
+      st_vbo_context(ctx)->draw_prims( ctx,
 				       exec->vtx.inputs,
 				       exec->vtx.prim,
 				       exec->vtx.prim_count,
@@ -355,11 +278,10 @@ void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec,
 				       0,
 				       exec->vtx.vert_count - 1);
 
-	 /* If using a real ST_VBO, get new storage -- unless asked not to.
-          */
-         if (exec->vtx.bufferobj->Name && !unmap) {
-            st_vbo_exec_vtx_map( exec );
-          }
+      /* If using a real ST_VBO, get new storage -- unless asked not to.
+       */
+      if (exec->vtx.bufferobj->Name && !unmap) {
+         st_vbo_exec_vtx_map( exec );
       }
    }
 

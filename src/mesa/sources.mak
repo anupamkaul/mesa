@@ -218,6 +218,9 @@ STATETRACKER_SOURCES = \
         state_tracker/st_vbo/st_vbo_exec_array.c \
         state_tracker/st_vbo/st_vbo_exec_draw.c \
         state_tracker/st_vbo/st_vbo_exec_eval.c \
+        state_tracker/st_vbo/st_vbo_exec_prims.c \
+        state_tracker/st_vbo/st_vbo_exec_vertex.c \
+        state_tracker/st_vbo/st_vbo_exec_eval.c \
         state_tracker/st_vbo/st_vbo_save.c \
         state_tracker/st_vbo/st_vbo_save_api.c \
         state_tracker/st_vbo/st_vbo_save_draw.c \

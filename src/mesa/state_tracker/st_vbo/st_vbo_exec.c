@@ -40,7 +40,7 @@ void st_vbo_exec_init( GLcontext *ctx )
 {
    struct st_vbo_exec_context *exec = &st_vbo_context(ctx)->exec;
 
-   exec->ctx = ctx;
+   exec->st_vbo = st_vbo_context(ctx);
 
    /* Initialize the arrayelt helper
     */

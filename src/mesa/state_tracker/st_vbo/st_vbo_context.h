@@ -60,6 +60,8 @@
 
 
 struct st_vbo_context {
+   GLcontext *ctx;
+
    struct gl_client_array currval[ST_VBO_ATTRIB_MAX];
 
    /* These point into the above.  TODO: remove.

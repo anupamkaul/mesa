@@ -176,6 +176,7 @@ GLboolean _st_vbo_CreateContext( GLcontext *ctx )
 {
    struct st_vbo_context *st_vbo = CALLOC_STRUCT(st_vbo_context);
 
+   st_vbo->ctx = ctx;
    ctx->swtnl_im = (void *)st_vbo;
 
    /* Initialize the arrayelt helper

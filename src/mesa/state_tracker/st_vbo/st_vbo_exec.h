@@ -61,47 +61,77 @@ struct st_vbo_exec_eval2_map {
 };
 
 
-
-struct st_vbo_exec_copied_vtx {
-   GLfloat buffer[ST_VBO_ATTRIB_MAX * 4 * ST_VBO_MAX_COPIED_VERTS];
-   GLuint nr;
-};
-
-
 typedef void (*st_vbo_attrfv_func)( const GLfloat * );
 
+struct st_vbo_context;
 
 struct st_vbo_exec_context
 {
-   GLcontext *ctx;
+   struct st_vbo_context *st_vbo;
+//   GLcontext *ctx;
    GLvertexformat vtxfmt;
+
 
    struct {
       struct gl_buffer_object *bufferobj;
-
-      GLuint vertex_size;       /* in dwords */
-
-      struct st_mesa_prim prim[ST_VBO_MAX_PRIM];
-      GLuint prim_count;
-
       GLfloat *buffer_map;
       GLfloat *buffer_ptr;              /* cursor, points into buffer */
-      GLuint   buffer_used;             /* in bytes */
-      GLfloat vertex[ST_VBO_ATTRIB_MAX*4]; /* current vertex */
 
       GLuint vert_count;
       GLuint max_vert;
-      struct st_vbo_exec_copied_vtx copied;
+      GLuint vertex_size;       /* in dwords */
+
+      /* This tracks the portion of bufferobj which has been used in
+       * previous draw calls and submitted to the driver.  It does
+       * *not* track vertex allocations within a primitive.
+       */
+      GLuint   buffer_used;             /* in bytes */
+
+
+      /* A list of primitives against the current vertex buffer which
+       * are waiting to be submitted to hardware.  The vertex buffer
+       * will be unmapped prior to submitting.
+       */
+      struct st_mesa_prim prim[ST_VBO_MAX_PRIM];
+      GLuint prim_count;
+      GLenum mode;
+
+      /* Current vertex.  API functions directly update this vertex
+       * only.  This data will be copied to one of the vertex slots
+       * below, and from there to the vertex buffer.
+       */
+      GLfloat vertex[ST_VBO_ATTRIB_MAX * 4];
+
+      /* Set of four or fewer emitted vertices for current primitive.
+       * Each primitive defines a set of callbacks to implement a
+       * state machine which ensures the necessary vertices are held
+       * in these slots to allow the current primitive to be wrapped
+       * and restarted on full-buffer and other events.
+       */
+      struct {
+         GLfloat vertex[ST_VBO_ATTRIB_MAX * 4];
+         void (*vertex_func)( struct st_vbo_exec_context * );
+         void (*end_func)( struct st_vbo_exec_context * );
+      } slot[4];
+
+      /* Current slot - this is the slot which will be updated on the
+       * next call to glVertex().
+       */
+      unsigned slotnr;
 
       GLubyte attrsz[ST_VBO_ATTRIB_MAX];
       GLubyte active_sz[ST_VBO_ATTRIB_MAX];
-
       GLfloat *attrptr[ST_VBO_ATTRIB_MAX];
+
+
+
+      /* The data from attr[] expressed as gl_client_array structs:
+       */
       struct gl_client_array arrays[ST_VBO_ATTRIB_MAX];
 
-      /* According to program mode, the values above plus current
-       * values are squashed down to the 32 attributes passed to the
-       * vertex program below:
+      /* According to program mode, the arrays above, plus current
+       * values are squashed down to the actual vertex program inputs
+       * below:
        */
       GLuint program_mode;
       GLuint enabled_flags;
@@ -149,6 +179,13 @@ void st_vbo_exec_FlushVertices( GLcontext *ctx, GLuint flags );
 
 /* Internal functions:
  */
+
+typedef void (*st_vbo_exec_callback)( struct st_vbo_exec_context * );
+
+st_vbo_exec_callback st_vbo_vertex_funcs[GL_POLYGON+1][4];
+
+
+
 void st_vbo_exec_array_init( struct st_vbo_exec_context *exec );
 void st_vbo_exec_array_destroy( struct st_vbo_exec_context *exec );
 
@@ -157,7 +194,13 @@ void st_vbo_exec_vtx_init( struct st_vbo_exec_context *exec );
 void st_vbo_exec_vtx_destroy( struct st_vbo_exec_context *exec );
 void st_vbo_exec_vtx_flush( struct st_vbo_exec_context *exec, GLboolean unmap );
 void st_vbo_exec_vtx_map( struct st_vbo_exec_context *exec );
-void st_vbo_exec_vtx_wrap( struct st_vbo_exec_context *exec );
+
+void st_vbo_exec_vtx_choke_prim( struct st_vbo_exec_context *exec );
+
+void st_vbo_exec_fixup_vertex( struct st_vbo_exec_context *exec,
+                               GLuint attr,
+                               GLuint sz );
+
 
 void st_vbo_exec_eval_update( struct st_vbo_exec_context *exec );
 

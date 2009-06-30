@@ -31,6 +31,7 @@
 #include "math/m_eval.h"
 #include "glapi/dispatch.h"
 #include "st_vbo_exec.h"
+#include "st_vbo_context.h"
 
 
 static void clear_active_eval1( struct st_vbo_exec_context *exec, GLuint attr )
@@ -63,7 +64,7 @@ static void set_active_eval2( struct st_vbo_exec_context *exec, GLuint attr, GLu
 
 void st_vbo_exec_eval_update( struct st_vbo_exec_context *exec )
 {
-   GLcontext *ctx = exec->ctx;
+   GLcontext *ctx = exec->st_vbo->ctx;
    GLuint attr;
 
    /* Vertex program maps have priority over conventional attribs */
@@ -210,7 +211,7 @@ void st_vbo_exec_do_EvalCoord2f( struct st_vbo_exec_context *exec,
 
       ASSIGN_4V(vertex, 0, 0, 0, 1);
 
-      if (exec->ctx->Eval.AutoNormal) {
+      if (exec->st_vbo->ctx->Eval.AutoNormal) {
 	 GLfloat normal[4];
          GLfloat du[4], dv[4];
 
