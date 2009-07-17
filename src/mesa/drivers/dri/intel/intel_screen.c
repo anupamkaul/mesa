@@ -237,6 +237,28 @@ static const __DRItexBufferExtension intelTexBufferExtension = {
    intelSetTexBuffer2,
 };
 
+static void
+intelDRI2Flush(__DRIdrawable *drawable)
+{
+   struct intel_context *intel = drawable->driContextPriv->driverPrivate;
+   GLcontext *ctx = &intel->ctx;
+
+   intel_flush(ctx, GL_TRUE);
+}
+
+static void
+intelDRI2FlushInvalidate(__DRIdrawable *drawable)
+{
+   intelDRI2Flush(drawable);
+   drawable->validBuffers = GL_FALSE;
+}
+
+static const struct __DRI2flushExtensionRec intelFlushExtension = {
+    { __DRI2_FLUSH, __DRI2_FLUSH_VERSION },
+    intelDRI2Flush,
+    intelDRI2FlushInvalidate,
+};
+
 static const __DRIextension *intelScreenExtensions[] = {
     &driReadDrawableExtension,
     &driCopySubBufferExtension.base,
@@ -245,6 +267,7 @@ static const __DRIextension *intelScreenExtensions[] = {
     &driMediaStreamCounterExtension.base,
     &intelTexOffsetExtension.base,
     &intelTexBufferExtension.base,
+    &intelFlushExtension.base,
     NULL
 };
 
@@ -525,11 +548,9 @@ intelFillInModes(__DRIscreenPrivate *psp,
    unsigned back_buffer_factor;
    int i;
 
-   /* GLX_SWAP_COPY_OML is only supported because the Intel driver doesn't
-    * support pageflipping at all.
-    */
    static const GLenum back_buffer_modes[] = {
-      GLX_NONE, GLX_SWAP_UNDEFINED_OML, GLX_SWAP_COPY_OML
+       GLX_NONE, GLX_SWAP_UNDEFINED_OML,
+       GLX_SWAP_EXCHANGE_OML, GLX_SWAP_COPY_OML
    };
 
    uint8_t depth_bits_array[3];
@@ -750,11 +771,10 @@ __DRIconfig **intelInitScreen2(__DRIscreenPrivate *psp)
    intelScreenPrivate *intelScreen;
    GLenum fb_format[3];
    GLenum fb_type[3];
-   /* GLX_SWAP_COPY_OML is only supported because the Intel driver doesn't
-    * support pageflipping at all.
-    */
+
    static const GLenum back_buffer_modes[] = {
-      GLX_NONE, GLX_SWAP_UNDEFINED_OML, GLX_SWAP_COPY_OML
+       GLX_NONE, GLX_SWAP_UNDEFINED_OML,
+       GLX_SWAP_EXCHANGE_OML, GLX_SWAP_COPY_OML
    };
    uint8_t depth_bits[4], stencil_bits[4], msaa_samples_array[1];
    int color;

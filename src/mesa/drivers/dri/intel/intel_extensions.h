@@ -32,5 +32,8 @@
 extern void
 intelInitExtensions(GLcontext *ctx, GLboolean enable_imaging);
 
+extern void
+intelFlushDrawable(__DRIdrawable *drawable);
+
 
 #endif

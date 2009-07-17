@@ -377,3 +377,19 @@ DRI2CopyRegion(Display * dpy, XID drawable, XserverRegion region,
    UnlockDisplay(dpy);
    SyncHandle();
 }
+
+void DRI2SwapBuffers(Display *dpy, XID drawable)
+{
+    XExtDisplayInfo *info = DRI2FindDisplay(dpy);
+    xDRI2SwapBuffersReq *req;
+
+    XextSimpleCheckExtension (dpy, info, dri2ExtensionName);
+
+    LockDisplay(dpy);
+    GetReq(DRI2SwapBuffers, req);
+    req->reqType = info->codes->major_opcode;
+    req->dri2ReqType = X_DRI2SwapBuffers;
+    req->drawable = drawable;
+    UnlockDisplay(dpy);
+    SyncHandle();
+}
