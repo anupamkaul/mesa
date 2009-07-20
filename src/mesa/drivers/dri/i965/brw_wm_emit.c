@@ -353,6 +353,19 @@ static void emit_mad( struct brw_compile *p,
    }
 }
 
+static void emit_trunc( struct brw_compile *p,
+		      const struct brw_reg *dst,
+		      GLuint mask,
+		      const struct brw_reg *arg0)
+{
+   GLuint i;
+
+   for (i = 0; i < 4; i++) {
+      if (mask & (1<<i)) {
+	 brw_RNDZ(p, dst[i], arg0[i]);
+      }
+   }
+}
 
 static void emit_lrp( struct brw_compile *p, 
 		      const struct brw_reg *dst,
@@ -701,6 +714,7 @@ static void emit_tex( struct brw_wm_compile *c,
    GLuint msgLength, responseLength;
    GLuint i, nr;
    GLuint emit;
+   GLuint msg_type;
 
    /* How many input regs are there?
     */
@@ -738,19 +752,31 @@ static void emit_tex( struct brw_wm_compile *c,
 
    responseLength = 8;		/* always */
 
+   if (BRW_IS_IGDNG(p->brw)) {
+       if (inst->tex_shadow)
+           msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_COMPARE_IGDNG;
+       else
+           msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_IGDNG;
+   } else {
+       if (inst->tex_shadow)
+           msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_COMPARE;
+       else
+           msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE;
+   }
+
    brw_SAMPLE(p, 
 	      retype(vec16(dst[0]), BRW_REGISTER_TYPE_UW),
 	      1,
 	      retype(c->payload.depth[0].hw_reg, BRW_REGISTER_TYPE_UW),
-	      inst->tex_unit + MAX_DRAW_BUFFERS, /* surface */
+              SURF_INDEX_TEXTURE(inst->tex_unit),
 	      inst->tex_unit,	  /* sampler */
 	      inst->writemask,
-	      (inst->tex_shadow ? 
-	       BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_COMPARE : 
-	       BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE),
+	      msg_type, 
 	      responseLength,
 	      msgLength,
-	      0);	
+	      0,	
+	      1,
+	      BRW_SAMPLER_SIMD_MODE_SIMD16);	
 }
 
 
@@ -762,7 +788,7 @@ static void emit_txb( struct brw_wm_compile *c,
 {
    struct brw_compile *p = &c->func;
    GLuint msgLength;
-
+   GLuint msg_type;
    /* Shadow ignored for txb.
     */
    switch (inst->tex_idx) {
@@ -787,17 +813,24 @@ static void emit_txb( struct brw_wm_compile *c,
    brw_MOV(p, brw_message_reg(8), arg[3]);
    msgLength = 9;
 
+   if (BRW_IS_IGDNG(p->brw))
+       msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_BIAS_IGDNG;
+   else
+       msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_BIAS;
+
    brw_SAMPLE(p, 
 	      retype(vec16(dst[0]), BRW_REGISTER_TYPE_UW),
 	      1,
 	      retype(c->payload.depth[0].hw_reg, BRW_REGISTER_TYPE_UW),
-	      inst->tex_unit + MAX_DRAW_BUFFERS, /* surface */
+              SURF_INDEX_TEXTURE(inst->tex_unit),
 	      inst->tex_unit,	  /* sampler */
 	      inst->writemask,
-	      BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_BIAS,
+	      msg_type,
 	      8,		/* responseLength */
 	      msgLength,
-	      0);	
+	      0,	
+	      1,
+	      BRW_SAMPLER_SIMD_MODE_SIMD16);	
 }
 
 
@@ -1009,7 +1042,7 @@ static void emit_fb_write( struct brw_wm_compile *c,
 	      get_element_ud(brw_vec8_grf(1,0), 6), 
 	      brw_imm_ud(1<<26)); 
 
-      jmp = brw_JMPI(p, ip, ip, brw_imm_w(0));
+      jmp = brw_JMPI(p, ip, ip, brw_imm_d(0));
       {
 	 emit_aa(c, arg1, 2);
 	 fire_fb_write(c, 0, nr, target, eot);
@@ -1024,8 +1057,8 @@ static void emit_fb_write( struct brw_wm_compile *c,
 }
 
 
-/* Post-fragment-program processing.  Send the results to the
- * framebuffer.
+/**
+ * Move a GPR to scratch memory. 
  */
 static void emit_spill( struct brw_wm_compile *c,
 			struct brw_reg reg,
@@ -1044,11 +1077,13 @@ static void emit_spill( struct brw_wm_compile *c,
    */
    brw_dp_WRITE_16(p, 
 		   retype(vec16(brw_vec8_grf(0, 0)), BRW_REGISTER_TYPE_UW),
-		   1, 
 		   slot);
 }
 
 
+/**
+ * Load a GPR from scratch memory. 
+ */
 static void emit_unspill( struct brw_wm_compile *c,
 			  struct brw_reg reg,
 			  GLuint slot )
@@ -1069,13 +1104,13 @@ static void emit_unspill( struct brw_wm_compile *c,
 
    brw_dp_READ_16(p,
 		  retype(vec16(reg), BRW_REGISTER_TYPE_UW),
-		  1, 
 		  slot);
 }
 
 
 /**
- * Retrieve upto 4 GEN4 register pairs for the given wm reg:
+ * Retrieve up to 4 GEN4 register pairs for the given wm reg:
+ * Args with unspill_reg != 0 will be loaded from scratch memory.
  */
 static void get_argument_regs( struct brw_wm_compile *c,
 			       struct brw_wm_ref *arg[],
@@ -1085,13 +1120,12 @@ static void get_argument_regs( struct brw_wm_compile *c,
 
    for (i = 0; i < 4; i++) {
       if (arg[i]) {
-
-	 if (arg[i]->unspill_reg) 
-	    emit_unspill(c, 
+	 if (arg[i]->unspill_reg)
+	    emit_unspill(c,
 			 brw_vec8_grf(arg[i]->unspill_reg, 0),
 			 arg[i]->value->spill_slot);
 
-	 regs[i] = arg[i]->hw_reg;	 
+	 regs[i] = arg[i]->hw_reg;
       }
       else {
 	 regs[i] = brw_null_reg();
@@ -1100,6 +1134,9 @@ static void get_argument_regs( struct brw_wm_compile *c,
 }
 
 
+/**
+ * For values that have a spill_slot!=0, write those regs to scratch memory.
+ */
 static void spill_values( struct brw_wm_compile *c,
 			  struct brw_wm_value *values,
 			  GLuint nr )
@@ -1216,6 +1253,10 @@ void brw_wm_emit( struct brw_wm_compile *c )
 
       case OPCODE_DPH:
 	 emit_dph(p, dst, dst_flags, args[0], args[1]);
+	 break;
+
+      case OPCODE_TRUNC:
+	 emit_trunc(p, dst, dst_flags, args[0]);
 	 break;
 
       case OPCODE_LRP:

@@ -139,7 +139,7 @@ def test(dev):
         tex_usage=PIPE_TEXTURE_USAGE_DISPLAY_TARGET,
     ).get_surface()
     zbuf = dev.texture_create(
-        PIPE_FORMAT_Z32_UNORM, 
+        PIPE_FORMAT_Z16_UNORM, 
         width, height,
         tex_usage=PIPE_TEXTURE_USAGE_DEPTH_STENCIL,
     ).get_surface()
@@ -150,8 +150,12 @@ def test(dev):
     fb.set_cbuf(0, cbuf)
     fb.set_zsbuf(zbuf)
     ctx.set_framebuffer(fb)
-    ctx.surface_clear(cbuf, 0x00000000)
-    ctx.surface_clear(zbuf, 0xffffffff)
+    rgba = FloatArray(4);
+    rgba[0] = 0.0
+    rgba[1] = 0.0
+    rgba[2] = 0.0
+    rgba[3] = 0.0
+    ctx.clear(PIPE_CLEAR_COLOR | PIPE_CLEAR_DEPTHSTENCIL, rgba, 1.0, 0xff)
     
     # vertex shader
     vs = Shader('''

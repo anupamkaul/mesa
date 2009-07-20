@@ -277,6 +277,7 @@ copy_array_to_vbo_array( struct brw_context *brw,
 			 struct brw_vertex_element *element,
 			 GLuint dst_stride)
 {
+   struct intel_context *intel = &brw->intel;
    GLuint size = element->count * dst_stride;
 
    get_space(brw, size, &element->bo, &element->offset);
@@ -289,29 +290,52 @@ copy_array_to_vbo_array( struct brw_context *brw,
    }
 
    if (dst_stride == element->glarray->StrideB) {
-      dri_bo_subdata(element->bo,
-		     element->offset,
-		     size,
-		     element->glarray->Ptr);
+      if (intel->intelScreen->kernel_exec_fencing) {
+	 drm_intel_gem_bo_map_gtt(element->bo);
+	 memcpy((char *)element->bo->virtual + element->offset,
+		element->glarray->Ptr, size);
+	 drm_intel_gem_bo_unmap_gtt(element->bo);
+      } else {
+	 dri_bo_subdata(element->bo,
+			element->offset,
+			size,
+			element->glarray->Ptr);
+      }
    } else {
-      void *data;
       char *dest;
       const unsigned char *src = element->glarray->Ptr;
       int i;
 
-      data = _mesa_malloc(dst_stride * element->count);
-      dest = data;
-      for (i = 0; i < element->count; i++) {
-	 memcpy(dest, src, dst_stride);
-	 src += element->glarray->StrideB;
-	 dest += dst_stride;
-      }
+      if (intel->intelScreen->kernel_exec_fencing) {
+	 drm_intel_gem_bo_map_gtt(element->bo);
+	 dest = element->bo->virtual;
+	 dest += element->offset;
 
-      dri_bo_subdata(element->bo,
-		     element->offset,
-		     size,
-		     data);
-      _mesa_free(data);
+	 for (i = 0; i < element->count; i++) {
+	    memcpy(dest, src, dst_stride);
+	    src += element->glarray->StrideB;
+	    dest += dst_stride;
+	 }
+
+	 drm_intel_gem_bo_unmap_gtt(element->bo);
+      } else {
+	 void *data;
+
+	 data = _mesa_malloc(dst_stride * element->count);
+	 dest = data;
+	 for (i = 0; i < element->count; i++) {
+	    memcpy(dest, src, dst_stride);
+	    src += element->glarray->StrideB;
+	    dest += dst_stride;
+	 }
+
+	 dri_bo_subdata(element->bo,
+			element->offset,
+			size,
+			data);
+
+	 _mesa_free(data);
+      }
    }
 }
 
@@ -319,7 +343,7 @@ static void brw_prepare_vertices(struct brw_context *brw)
 {
    GLcontext *ctx = &brw->intel.ctx;
    struct intel_context *intel = intel_context(ctx);
-   GLuint tmp = brw->vs.prog_data->inputs_read; 
+   GLbitfield vs_inputs = brw->vs.prog_data->inputs_read; 
    GLuint i;
    const unsigned char *ptr = NULL;
    GLuint interleave = 0;
@@ -338,11 +362,11 @@ static void brw_prepare_vertices(struct brw_context *brw)
       _mesa_printf("%s %d..%d\n", __FUNCTION__, min_index, max_index);
 
    /* Accumulate the list of enabled arrays. */
-   while (tmp) {
-      GLuint i = _mesa_ffsll(tmp)-1;
+   while (vs_inputs) {
+      GLuint i = _mesa_ffsll(vs_inputs) - 1;
       struct brw_vertex_element *input = &brw->vb.inputs[i];
 
-      tmp &= ~(1<<i);
+      vs_inputs &= ~(1 << i);
       enabled[nr_enabled++] = input;
    }
 
@@ -453,17 +477,17 @@ static void brw_emit_vertices(struct brw_context *brw)
 {
    GLcontext *ctx = &brw->intel.ctx;
    struct intel_context *intel = intel_context(ctx);
-   GLuint tmp = brw->vs.prog_data->inputs_read;
+   GLbitfield vs_inputs = brw->vs.prog_data->inputs_read;
    struct brw_vertex_element *enabled[VERT_ATTRIB_MAX];
    GLuint i;
    GLuint nr_enabled = 0;
 
   /* Accumulate the list of enabled arrays. */
-   while (tmp) {
-      i = _mesa_ffsll(tmp)-1;
+   while (vs_inputs) {
+      i = _mesa_ffsll(vs_inputs) - 1;
       struct brw_vertex_element *input = &brw->vb.inputs[i];
 
-      tmp &= ~(1<<i);
+      vs_inputs &= ~(1 << i);
       enabled[nr_enabled++] = input;
    }
 
@@ -488,7 +512,19 @@ static void brw_emit_vertices(struct brw_context *brw)
       OUT_RELOC(input->bo,
 		I915_GEM_DOMAIN_VERTEX, 0,
 		input->offset);
-      OUT_BATCH(brw->vb.max_index);
+      if (BRW_IS_IGDNG(brw)) {
+          if (input->stride) {
+              OUT_RELOC(input->bo,
+                        I915_GEM_DOMAIN_VERTEX, 0,
+                        input->offset + input->stride * input->count);
+          } else {
+              assert(input->count == 1);
+              OUT_RELOC(input->bo,
+                        I915_GEM_DOMAIN_VERTEX, 0,
+                        input->offset + input->element_size);
+          }
+      } else
+          OUT_BATCH(brw->vb.max_index);
       OUT_BATCH(0); /* Instance data step rate */
    }
    ADVANCE_BATCH();
@@ -518,11 +554,18 @@ static void brw_emit_vertices(struct brw_context *brw)
 		BRW_VE0_VALID |
 		(format << BRW_VE0_FORMAT_SHIFT) |
 		(0 << BRW_VE0_SRC_OFFSET_SHIFT));
-      OUT_BATCH((comp0 << BRW_VE1_COMPONENT_0_SHIFT) |
-		(comp1 << BRW_VE1_COMPONENT_1_SHIFT) |
-		(comp2 << BRW_VE1_COMPONENT_2_SHIFT) |
-		(comp3 << BRW_VE1_COMPONENT_3_SHIFT) |
-		((i * 4) << BRW_VE1_DST_OFFSET_SHIFT));
+
+      if (BRW_IS_IGDNG(brw))
+          OUT_BATCH((comp0 << BRW_VE1_COMPONENT_0_SHIFT) |
+                    (comp1 << BRW_VE1_COMPONENT_1_SHIFT) |
+                    (comp2 << BRW_VE1_COMPONENT_2_SHIFT) |
+                    (comp3 << BRW_VE1_COMPONENT_3_SHIFT));
+      else
+          OUT_BATCH((comp0 << BRW_VE1_COMPONENT_0_SHIFT) |
+                    (comp1 << BRW_VE1_COMPONENT_1_SHIFT) |
+                    (comp2 << BRW_VE1_COMPONENT_2_SHIFT) |
+                    (comp3 << BRW_VE1_COMPONENT_3_SHIFT) |
+                    ((i * 4) << BRW_VE1_DST_OFFSET_SHIFT));
    }
    ADVANCE_BATCH();
 }
@@ -563,7 +606,13 @@ static void brw_prepare_indices(struct brw_context *brw)
 
       /* Straight upload
        */
-      dri_bo_subdata(bo, offset, ib_size, index_buffer->ptr);
+      if (intel->intelScreen->kernel_exec_fencing) {
+	 drm_intel_gem_bo_map_gtt(bo);
+	 memcpy((char *)bo->virtual + offset, index_buffer->ptr, ib_size);
+	 drm_intel_gem_bo_unmap_gtt(bo);
+      } else {
+	 dri_bo_subdata(bo, offset, ib_size, index_buffer->ptr);
+      }
    } else {
       offset = (GLuint) (unsigned long) index_buffer->ptr;
 
@@ -605,7 +654,7 @@ static void brw_emit_indices(struct brw_context *brw)
    if (index_buffer == NULL)
       return;
 
-   ib_size = get_size(index_buffer->type) * index_buffer->count;
+   ib_size = get_size(index_buffer->type) * index_buffer->count - 1;
 
    /* Emit the indexbuffer packet:
     */

@@ -7,9 +7,11 @@ include $(TOP)/configs/current
 INCLUDE_DIRS = -I$(TOP)/include -I$(TOP)/src/mesa/glapi
 
 HEADERS = \
+	eglcompiler.h \
 	eglconfig.h \
 	eglconfigutil.h \
 	eglcontext.h \
+	eglcurrent.h \
 	egldefines.h \
 	egldisplay.h \
 	egldriver.h \
@@ -28,6 +30,7 @@ SOURCES = \
 	eglconfig.c \
 	eglconfigutil.c \
 	eglcontext.c \
+	eglcurrent.c \
 	egldisplay.c \
 	egldriver.c \
 	eglglobals.c \
@@ -64,9 +67,9 @@ $(TOP)/$(LIB_DIR)/libEGL.so: $(OBJECTS)
 		-install $(TOP)/$(LIB_DIR) \
 		$(EGL_LIB_DEPS) $(OBJECTS)
 
-install:
+install: default
 	$(INSTALL) -d $(DESTDIR)$(INSTALL_LIB_DIR)
-	$(INSTALL) $(TOP)/$(LIB_DIR)/libEGL.so* $(DESTDIR)$(INSTALL_LIB_DIR)
+	$(MINSTALL) $(TOP)/$(LIB_DIR)/libEGL.so* $(DESTDIR)$(INSTALL_LIB_DIR)
 
 clean:
 	-rm -f *.o *.so*

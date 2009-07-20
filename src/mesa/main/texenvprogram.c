@@ -62,6 +62,18 @@ struct texenvprog_cache_item
    struct texenvprog_cache_item *next;
 };
 
+static GLboolean
+texenv_doing_secondary_color(GLcontext *ctx)
+{
+   if (ctx->Light.Enabled &&
+       (ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR))
+      return GL_TRUE;
+
+   if (ctx->Fog.ColorSumEnabled)
+      return GL_TRUE;
+
+   return GL_FALSE;
+}
 
 /**
  * Up to nine instructions per tex unit, plus fog, specular color.
@@ -261,6 +273,7 @@ static GLuint translate_tex_src_bit( GLbitfield bit )
  */
 static GLbitfield get_fp_input_mask( GLcontext *ctx )
 {
+   /* _NEW_PROGRAM */
    const GLboolean vertexShader = (ctx->Shader.CurrentProgram &&
                                    ctx->Shader.CurrentProgram->VertexProgram);
    const GLboolean vertexProgram = ctx->VertexProgram._Enabled;
@@ -274,29 +287,34 @@ static GLbitfield get_fp_input_mask( GLcontext *ctx )
       fp_inputs = ~0;
    }
    else if (ctx->RenderMode == GL_FEEDBACK) {
+      /* _NEW_RENDERMODE */
       fp_inputs = (FRAG_BIT_COL0 | FRAG_BIT_TEX0);
    }
    else if (!(vertexProgram || vertexShader) ||
             !ctx->VertexProgram._Current) {
       /* Fixed function vertex logic */
+      /* _NEW_ARRAY */
       GLbitfield varying_inputs = ctx->varying_vp_inputs;
 
       /* These get generated in the setup routine regardless of the
        * vertex program:
        */
+      /* _NEW_POINT */
       if (ctx->Point.PointSprite)
          varying_inputs |= FRAG_BITS_TEX_ANY;
 
       /* First look at what values may be computed by the generated
        * vertex program:
        */
+      /* _NEW_LIGHT */
       if (ctx->Light.Enabled) {
          fp_inputs |= FRAG_BIT_COL0;
 
-         if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR)
+         if (texenv_doing_secondary_color(ctx))
             fp_inputs |= FRAG_BIT_COL1;
       }
 
+      /* _NEW_TEXTURE */
       fp_inputs |= (ctx->Texture._TexGenEnabled |
                     ctx->Texture._TexMatEnabled) << FRAG_ATTRIB_TEX0;
 
@@ -329,6 +347,7 @@ static GLbitfield get_fp_input_mask( GLcontext *ctx )
       /* These get generated in the setup routine regardless of the
        * vertex program:
        */
+      /* _NEW_POINT */
       if (ctx->Point.PointSprite)
          vp_outputs |= FRAG_BITS_TEX_ANY;
 
@@ -355,6 +374,7 @@ static void make_state_key( GLcontext *ctx,  struct state_key *key )
 
    memset(key, 0, sizeof(*key));
 
+   /* _NEW_TEXTURE */
    for (i = 0; i < ctx->Const.MaxTextureUnits; i++) {
       const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[i];
       GLenum format;
@@ -408,11 +428,13 @@ static void make_state_key( GLcontext *ctx,  struct state_key *key )
        }
    }
 
-   if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR) {
+   /* _NEW_LIGHT | _NEW_FOG */
+   if (texenv_doing_secondary_color(ctx)) {
       key->separate_specular = 1;
       inputs_referenced |= FRAG_BIT_COL1;
    }
 
+   /* _NEW_FOG */
    if (ctx->Fog.Enabled) {
       key->fog_enabled = 1;
       key->fog_mode = translate_fog_mode(ctx->Fog.Mode);
@@ -663,9 +685,8 @@ static void emit_arg( struct prog_src_register *reg,
    reg->File = ureg.file;
    reg->Index = ureg.idx;
    reg->Swizzle = ureg.swz;
-   reg->NegateBase = ureg.negatebase ? 0xf : 0x0;
+   reg->Negate = ureg.negatebase ? NEGATE_XYZW : NEGATE_NONE;
    reg->Abs = ureg.abs;
-   reg->NegateAbs = ureg.negateabs;
 }
 
 static void emit_dst( struct prog_dst_register *dst,
@@ -878,6 +899,7 @@ static struct ureg get_source( struct texenv_fragment_program *p,
 
    default:
       assert(0);
+      return undef;
    }
 }
 

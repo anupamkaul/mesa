@@ -34,6 +34,7 @@
 #define need_GL_ARB_occlusion_query
 #define need_GL_ARB_point_parameters
 #define need_GL_ARB_shader_objects
+#define need_GL_ARB_vertex_array_object
 #define need_GL_ARB_vertex_program
 #define need_GL_ARB_vertex_shader
 #define need_GL_ARB_window_pos
@@ -45,9 +46,11 @@
 #define need_GL_EXT_fog_coord
 #define need_GL_EXT_framebuffer_object
 #define need_GL_EXT_framebuffer_blit
+#define need_GL_EXT_gpu_program_parameters
 #define need_GL_EXT_point_parameters
 #define need_GL_EXT_secondary_color
 #define need_GL_EXT_stencil_two_side
+#define need_GL_APPLE_vertex_array_object
 #define need_GL_ATI_separate_stencil
 #define need_GL_ATI_envmap_bumpmap
 #define need_GL_NV_point_sprite
@@ -65,6 +68,7 @@
  * i965_dri.
  */
 static const struct dri_extension card_extensions[] = {
+   { "GL_ARB_half_float_pixel",           NULL },
    { "GL_ARB_multitexture",               NULL },
    { "GL_ARB_point_parameters",           GL_ARB_point_parameters_functions },
    { "GL_ARB_texture_border_clamp",       NULL },
@@ -75,6 +79,7 @@ static const struct dri_extension card_extensions[] = {
    { "GL_ARB_texture_env_dot3",           NULL },
    { "GL_ARB_texture_mirrored_repeat",    NULL },
    { "GL_ARB_texture_rectangle",          NULL },
+   { "GL_ARB_vertex_array_object",        GL_ARB_vertex_array_object_functions},
    { "GL_ARB_vertex_program",             GL_ARB_vertex_program_functions },
    { "GL_ARB_window_pos",                 GL_ARB_window_pos_functions },
    { "GL_EXT_blend_color",                GL_EXT_blend_color_functions },
@@ -85,6 +90,7 @@ static const struct dri_extension card_extensions[] = {
    { "GL_EXT_blend_subtract",             NULL },
    { "GL_EXT_cull_vertex",                GL_EXT_cull_vertex_functions },
    { "GL_EXT_fog_coord",                  GL_EXT_fog_coord_functions },
+   { "GL_EXT_gpu_program_parameters",     GL_EXT_gpu_program_parameters_functions },
    { "GL_EXT_packed_depth_stencil",       NULL },
    { "GL_EXT_secondary_color",            GL_EXT_secondary_color_functions },
    { "GL_EXT_stencil_wrap",               NULL },
@@ -95,6 +101,7 @@ static const struct dri_extension card_extensions[] = {
    { "GL_EXT_texture_lod_bias",           NULL },
    { "GL_3DFX_texture_compression_FXT1",  NULL },
    { "GL_APPLE_client_storage",           NULL },
+   { "GL_APPLE_vertex_array_object",      GL_APPLE_vertex_array_object_functions},
    { "GL_MESA_pack_invert",               NULL },
    { "GL_MESA_ycbcr_texture",             NULL },
    { "GL_NV_blend_square",                NULL },

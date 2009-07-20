@@ -258,9 +258,11 @@ error1:
    flush(unsigned flags = 0) {
       struct pipe_fence_handle *fence = NULL; 
       $self->pipe->flush($self->pipe, flags | PIPE_FLUSH_RENDER_CACHE, &fence);
-      /* TODO: allow asynchronous operation */ 
-      $self->pipe->screen->fence_finish( $self->pipe->screen, fence, 0 );
-      $self->pipe->screen->fence_reference( $self->pipe->screen, &fence, NULL );
+      if(fence) {
+         /* TODO: allow asynchronous operation */ 
+         $self->pipe->screen->fence_finish( $self->pipe->screen, fence, 0 );
+         $self->pipe->screen->fence_reference( $self->pipe->screen, &fence, NULL );
+      }
    }
 
    /*
@@ -308,45 +310,10 @@ error1:
       pipe_surface_reference(&_dst, NULL);
    }
 
-   void surface_clear(struct st_surface *surface, unsigned value = 0) 
+   void clear(unsigned buffers, const float *rgba, double depth = 0.0f,
+              unsigned stencil = 0)
    {
-      unsigned i;
-      struct pipe_surface *_surface = NULL;
- 
-      if(!surface)
-          SWIG_exception(SWIG_TypeError, "surface must not be null");
-  
-      for(i = 0; i < $self->framebuffer.nr_cbufs; ++i) {
-         struct pipe_surface *cbuf = $self->framebuffer.cbufs[i];
-         if(cbuf) {
-            if(cbuf->texture == surface->texture &&
-               cbuf->face == surface->face &&
-               cbuf->level == surface->level &&
-               cbuf->zslice == surface->zslice) {                  
-               _surface = cbuf;
-               break;
-            }
-         }
-      }
-
-      if(!_surface) {
-         struct pipe_surface *zsbuf = $self->framebuffer.zsbuf;
-         if(zsbuf) {
-            if(zsbuf->texture == surface->texture &&
-               zsbuf->face == surface->face &&
-               zsbuf->level == surface->level &&
-               zsbuf->zslice == surface->zslice) {                  
-               _surface = zsbuf;
-            }
-         }
-      }
-
-      if(!_surface)
-         SWIG_exception(SWIG_ValueError, "surface not bound");
-      
-      $self->pipe->clear($self->pipe, _surface, value);
-   fail:
-      return;
+      $self->pipe->clear($self->pipe, buffers, rgba, depth, stencil);
    }
 
 };

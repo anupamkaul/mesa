@@ -19,9 +19,11 @@ PROGS = \
 	clearspd \
 	copypix \
 	cubemap \
+	dinoshade \
 	drawpix \
 	engine \
 	fbo_firecube \
+	fbotexture \
 	fire \
 	fogcoord \
 	fplight \
@@ -32,9 +34,7 @@ PROGS = \
 	geartrain \
 	glinfo \
 	gloss \
-	glslnoise \
 	gltestperf \
-	glutfx \
 	isosurf \
 	ipers \
 	lodbias \
@@ -42,6 +42,7 @@ PROGS = \
 	multiarb \
 	paltex \
 	pointblast \
+	projtex \
 	rain \
 	ray \
 	readpix \
@@ -49,7 +50,6 @@ PROGS = \
 	renormal \
 	shadowtex \
 	singlebuffer \
-	streaming_rect \
 	spectex \
 	spriteblast \
 	stex3d \
@@ -57,9 +57,7 @@ PROGS = \
 	terrain \
 	tessdemo \
 	texcyl \
-	texdown \
 	texenv \
-	texobj \
 	textures \
 	trispd \
 	tunnel \
@@ -145,6 +143,13 @@ engine: engine.o trackball.o readtex.o
 
 engine.o: engine.c trackball.h
 	$(APP_CC) -c -I$(INCDIR) $(CFLAGS) engine.c
+
+
+fbotexture: fbotexture.o
+	$(APP_CC) $(CFLAGS) $(LDFLAGS) fbotexture.o $(LIBS) -o $@
+
+fbotexture.o: fbotexture.c extfuncs.h
+	$(APP_CC) -c -I$(INCDIR) $(CFLAGS) fbotexture.c
 
 
 fslight: fslight.o

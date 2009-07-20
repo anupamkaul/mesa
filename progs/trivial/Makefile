@@ -19,6 +19,12 @@ SOURCES = \
 	clear-random.c \
 	clear.c \
 	dlist-dangling.c \
+	dlist-flat-tri.c \
+	dlist-mat-tri.c \
+	dlist-tri-flat-tri.c \
+	dlist-tri-mat-tri.c \
+	dlist-recursive-call.c \
+	dlist-begin-call-end.c \
 	dlist-edgeflag-dangling.c \
 	dlist-edgeflag.c \
 	dlist-degenerate.c \
@@ -30,6 +36,7 @@ SOURCES = \
 	fs-tri.c \
 	line-clip.c \
 	line-cull.c \
+	line-flat.c \
 	line-smooth.c \
 	line-stipple-wide.c \
 	line-userclip-clip.c \
@@ -104,6 +111,7 @@ SOURCES = \
 	tri-fp.c \
 	tri-fp-const-imm.c \
 	tri-lit.c \
+	tri-lit-material.c \
 	tri-mask-tri.c \
 	tri-orig.c \
 	tri-query.c \
@@ -138,6 +146,7 @@ SOURCES = \
 	tristrip-flat.c \
 	tristrip.c \
 	vbo-drawarrays.c \
+	vbo-noninterleaved.c \
 	vbo-drawelements.c \
 	vbo-drawrange.c \
 	vp-array.c \
@@ -145,6 +154,7 @@ SOURCES = \
 	vp-clip.c \
 	vp-line-clip.c \
 	vp-tri.c \
+	vp-tri-invariant.c \
 	vp-tri-swap.c \
 	vp-tri-tex.c \
 	vp-tri-imm.c \

@@ -164,7 +164,7 @@ GetGLXScreenConfigs(Display *dpy, int scrn)
 {
     __GLXdisplayPrivate * const priv = __glXInitialize(dpy);
 
-    return (priv->screenConfigs != NULL) ? &priv->screenConfigs[scrn] : NULL;
+    return (priv && priv->screenConfigs != NULL) ? &priv->screenConfigs[scrn] : NULL;
 }
 
 
@@ -869,6 +869,20 @@ PUBLIC void glXDestroyGLXPixmap(Display *dpy, GLXPixmap glxpixmap)
     req->glxpixmap = glxpixmap;
     UnlockDisplay(dpy);
     SyncHandle();
+
+#ifdef GLX_DIRECT_RENDERING
+    {
+	int screen;
+	__GLXdisplayPrivate *const priv = __glXInitialize(dpy);
+	__GLXDRIdrawable *pdraw = GetGLXDRIDrawable(dpy, glxpixmap, &screen);
+	__GLXscreenConfigs *psc = &priv->screenConfigs[screen];
+
+	if (pdraw != NULL) {
+	    (*pdraw->destroyDrawable) (pdraw);
+	    __glxHashDelete(psc->drawHash, glxpixmap);
+	}
+    }
+#endif
 }
 
 PUBLIC void glXSwapBuffers(Display *dpy, GLXDrawable drawable)
@@ -1319,28 +1333,29 @@ PUBLIC XVisualInfo *glXChooseVisual(Display *dpy, int screen, int *attribList)
     ** Eliminate visuals that don't meet minimum requirements
     ** Compute a score for those that do
     ** Remember which visual, if any, got the highest score
+    ** If no visual is acceptable, return None
+    ** Otherwise, create an XVisualInfo list with just the selected X visual
+    ** and return this.
     */
     for ( modes = psc->visuals ; modes != NULL ; modes = modes->next ) {
 	if ( fbconfigs_compatible( & test_config, modes )
 	     && ((best_config == NULL)
 		 || (fbconfig_compare( (const __GLcontextModes * const * const)&modes, &best_config ) < 0)) ) {
-	    best_config = modes;
+	    XVisualInfo visualTemplate;
+	    XVisualInfo *newList;
+	    int  i;
+
+	    visualTemplate.screen = screen;
+	    visualTemplate.visualid = modes->visualID;
+	    newList = XGetVisualInfo( dpy, VisualScreenMask|VisualIDMask,
+				      &visualTemplate, &i );
+
+	    if (newList) {
+		Xfree(visualList);
+		visualList = newList;
+		best_config = modes;
+	    }
 	}
-    }
-
-    /*
-    ** If no visual is acceptable, return None
-    ** Otherwise, create an XVisualInfo list with just the selected X visual
-    ** and return this.
-    */
-    if (best_config != NULL) {
-	XVisualInfo visualTemplate;
-	int  i;
-
-	visualTemplate.screen = screen;
-	visualTemplate.visualid = best_config->visualID;
-	visualList = XGetVisualInfo( dpy, VisualScreenMask|VisualIDMask,
-				     &visualTemplate, &i );
     }
 
     return visualList;
@@ -1702,7 +1717,8 @@ PUBLIC GLXFBConfig *glXGetFBConfigs(Display *dpy, int screen, int *nelements)
     int   i;
 
     *nelements = 0;
-    if ( (priv->screenConfigs != NULL)
+    if ( priv
+         && (priv->screenConfigs != NULL)
 	 && (screen >= 0) && (screen <= ScreenCount(dpy))
 	 && (priv->screenConfigs[screen].configs != NULL)
 	 && (priv->screenConfigs[screen].configs->fbconfigID != GLX_DONT_CARE) ) {

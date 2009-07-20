@@ -1112,7 +1112,7 @@ static void FETCH(f_ci8)( const struct gl_texture_image *texImage,
          texel[GCOMP] =
          texel[BCOMP] = 0.0F;
          texel[ACOMP] = table[index];
-         break;;
+         break;
       case GL_LUMINANCE:
          texel[RCOMP] =
          texel[GCOMP] =
@@ -1124,25 +1124,25 @@ static void FETCH(f_ci8)( const struct gl_texture_image *texImage,
          texel[GCOMP] =
          texel[BCOMP] =
          texel[ACOMP] = table[index];
-         break;;
+         break;
       case GL_LUMINANCE_ALPHA:
          texel[RCOMP] =
          texel[GCOMP] =
          texel[BCOMP] = table[index * 2 + 0];
          texel[ACOMP] = table[index * 2 + 1];
-         break;;
+         break;
       case GL_RGB:
          texel[RCOMP] = table[index * 3 + 0];
          texel[GCOMP] = table[index * 3 + 1];
          texel[BCOMP] = table[index * 3 + 2];
          texel[ACOMP] = 1.0F;
-         break;;
+         break;
       case GL_RGBA:
          texel[RCOMP] = table[index * 4 + 0];
          texel[GCOMP] = table[index * 4 + 1];
          texel[BCOMP] = table[index * 4 + 2];
          texel[ACOMP] = table[index * 4 + 3];
-         break;;
+         break;
       default:
          _mesa_problem(ctx, "Bad palette format in fetch_texel_ci8");
          return;
@@ -1164,14 +1164,15 @@ static void store_texel_ci8(struct gl_texture_image *texImage,
 #if FEATURE_EXT_texture_sRGB
 
 /* Fetch texel from 1D, 2D or 3D srgb8 texture, return 4 GLfloats */
+/* Note: component order is same as for MESA_FORMAT_RGB888 */
 static void FETCH(srgb8)(const struct gl_texture_image *texImage,
                          GLint i, GLint j, GLint k, GLfloat *texel )
 {
    const GLubyte *src = TEXEL_ADDR(GLubyte, texImage, i, j, k, 3);
-   texel[RCOMP] = nonlinear_to_linear(src[0]);
+   texel[RCOMP] = nonlinear_to_linear(src[2]);
    texel[GCOMP] = nonlinear_to_linear(src[1]);
-   texel[BCOMP] = nonlinear_to_linear(src[2]);
-   texel[ACOMP] = CHAN_MAX;
+   texel[BCOMP] = nonlinear_to_linear(src[0]);
+   texel[ACOMP] = 1.0F;
 }
 
 #if DIM == 3
@@ -1180,9 +1181,9 @@ static void store_texel_srgb8(struct gl_texture_image *texImage,
 {
    const GLubyte *rgba = (const GLubyte *) texel;
    GLubyte *dst = TEXEL_ADDR(GLubyte, texImage, i, j, k, 3);
-   dst[0] = rgba[RCOMP]; /* no conversion */
+   dst[0] = rgba[BCOMP]; /* no conversion */
    dst[1] = rgba[GCOMP];
-   dst[2] = rgba[BCOMP];
+   dst[2] = rgba[RCOMP];
 }
 #endif
 
@@ -1346,13 +1347,13 @@ static void FETCH(f_ycbcr)( const struct gl_texture_image *texImage,
    const GLubyte cb = *src0 & 0xff;         /* chroma U */
    const GLubyte y1 = (*src1 >> 8) & 0xff;  /* luminance */
    const GLubyte cr = *src1 & 0xff;         /* chroma V */
-   const GLfloat y = (i & 1) ? y1 : y0;     /* choose even/odd luminance */
-   GLfloat r = 1.164 * (y - 16) + 1.596 * (cr - 128);
-   GLfloat g = 1.164 * (y - 16) - 0.813 * (cr - 128) - 0.391 * (cb - 128);
-   GLfloat b = 1.164 * (y - 16) + 2.018 * (cb - 128);
-   r *= (1.0 / 255.0F);
-   g *= (1.0 / 255.0F);
-   b *= (1.0 / 255.0F);
+   const GLubyte y = (i & 1) ? y1 : y0;     /* choose even/odd luminance */
+   GLfloat r = 1.164F * (y - 16) + 1.596F * (cr - 128);
+   GLfloat g = 1.164F * (y - 16) - 0.813F * (cr - 128) - 0.391F * (cb - 128);
+   GLfloat b = 1.164F * (y - 16) + 2.018F * (cb - 128);
+   r *= (1.0F / 255.0F);
+   g *= (1.0F / 255.0F);
+   b *= (1.0F / 255.0F);
    texel[RCOMP] = CLAMP(r, 0.0F, 1.0F);
    texel[GCOMP] = CLAMP(g, 0.0F, 1.0F);
    texel[BCOMP] = CLAMP(b, 0.0F, 1.0F);
@@ -1387,13 +1388,13 @@ static void FETCH(f_ycbcr_rev)( const struct gl_texture_image *texImage,
    const GLubyte cr = (*src0 >> 8) & 0xff;  /* chroma V */
    const GLubyte y1 = *src1 & 0xff;         /* luminance */
    const GLubyte cb = (*src1 >> 8) & 0xff;  /* chroma U */
-   const GLfloat y = (i & 1) ? y1 : y0;     /* choose even/odd luminance */
-   GLfloat r = 1.164 * (y - 16) + 1.596 * (cr - 128);
-   GLfloat g = 1.164 * (y - 16) - 0.813 * (cr - 128) - 0.391 * (cb - 128);
-   GLfloat b = 1.164 * (y - 16) + 2.018 * (cb - 128);
-   r *= (1.0 / 255.0F);
-   g *= (1.0 / 255.0F);
-   b *= (1.0 / 255.0F);
+   const GLubyte y = (i & 1) ? y1 : y0;     /* choose even/odd luminance */
+   GLfloat r = 1.164F * (y - 16) + 1.596F * (cr - 128);
+   GLfloat g = 1.164F * (y - 16) - 0.813F * (cr - 128) - 0.391F * (cb - 128);
+   GLfloat b = 1.164F * (y - 16) + 2.018F * (cb - 128);
+   r *= (1.0F / 255.0F);
+   g *= (1.0F / 255.0F);
+   b *= (1.0F / 255.0F);
    texel[RCOMP] = CLAMP(r, 0.0F, 1.0F);
    texel[GCOMP] = CLAMP(g, 0.0F, 1.0F);
    texel[BCOMP] = CLAMP(b, 0.0F, 1.0F);

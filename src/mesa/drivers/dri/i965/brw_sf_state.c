@@ -66,7 +66,9 @@ static void upload_sf_vp(struct brw_context *brw)
    sfv.viewport.m31 = v[MAT_TY] * y_scale + y_bias;
    sfv.viewport.m32 = v[MAT_TZ] * depth_scale;
 
-   /* _NEW_SCISSOR */
+   /* _NEW_SCISSOR | _NEW_BUFFERS | _NEW_VIEWPORT
+    * for DrawBuffer->_[XY]{min,max}
+    */
 
    /* The scissor only needs to handle the intersection of drawable and
     * scissor rect.  Clipping to the boundaries of static shared buffers
@@ -97,7 +99,8 @@ static void upload_sf_vp(struct brw_context *brw)
 const struct brw_tracked_state brw_sf_vp = {
    .dirty = {
       .mesa  = (_NEW_VIEWPORT | 
-		_NEW_SCISSOR),
+		_NEW_SCISSOR |
+		_NEW_BUFFERS),
       .brw   = 0,
       .cache = 0
    },
@@ -147,7 +150,7 @@ sf_unit_populate_key(struct brw_context *brw, struct brw_sf_unit_key *key)
    key->line_smooth = ctx->Line.SmoothFlag;
 
    key->point_sprite = ctx->Point.PointSprite;
-   key->point_size = ctx->Point.Size;
+   key->point_size = CLAMP(ctx->Point.Size, ctx->Point.MinSize, ctx->Point.MaxSize);
    key->point_attenuated = ctx->Point._Attenuated;
 
    key->render_to_fbo = brw->intel.ctx.DrawBuffer->Name != 0;
@@ -159,7 +162,7 @@ sf_unit_create_from_key(struct brw_context *brw, struct brw_sf_unit_key *key,
 {
    struct brw_sf_unit_state sf;
    dri_bo *bo;
-
+   int chipset_max_threads;
    memset(&sf, 0, sizeof(sf));
 
    sf.thread0.grf_reg_count = ALIGN(key->total_grf, 16) / 16 - 1;
@@ -168,13 +171,26 @@ sf_unit_create_from_key(struct brw_context *brw, struct brw_sf_unit_key *key,
    sf.thread1.floating_point_mode = BRW_FLOATING_POINT_NON_IEEE_754;
 
    sf.thread3.dispatch_grf_start_reg = 3;
-   sf.thread3.urb_entry_read_offset = 1;
+
+   if (BRW_IS_IGDNG(brw))
+       sf.thread3.urb_entry_read_offset = 3;
+   else
+       sf.thread3.urb_entry_read_offset = 1;
+
    sf.thread3.urb_entry_read_length = key->urb_entry_read_length;
 
    sf.thread4.nr_urb_entries = key->nr_urb_entries;
    sf.thread4.urb_entry_allocation_size = key->sfsize - 1;
-   /* Each SF thread produces 1 PUE, and there can be up to 24 threads */
-   sf.thread4.max_threads = MIN2(24, key->nr_urb_entries) - 1;
+
+   /* Each SF thread produces 1 PUE, and there can be up to 24(Pre-IGDNG) or 
+    * 48(IGDNG) threads 
+    */
+   if (BRW_IS_IGDNG(brw))
+      chipset_max_threads = 48;
+   else
+      chipset_max_threads = 24;
+
+   sf.thread4.max_threads = MIN2(chipset_max_threads, key->nr_urb_entries) - 1;
 
    if (INTEL_DEBUG & DEBUG_SINGLE_THREAD)
       sf.thread4.max_threads = 0;
@@ -230,7 +246,7 @@ sf_unit_create_from_key(struct brw_context *brw, struct brw_sf_unit_key *key,
    else if (sf.sf6.line_width <= 0x2)
        sf.sf6.line_width = 0;
 
-   /* _NEW_POINT */
+   /* _NEW_BUFFERS */
    key->render_to_fbo = brw->intel.ctx.DrawBuffer->Name != 0;
    if (!key->render_to_fbo) {
       /* Rendering to an OpenGL window */
@@ -260,6 +276,7 @@ sf_unit_create_from_key(struct brw_context *brw, struct brw_sf_unit_key *key,
    }
    /* XXX clamp max depends on AA vs. non-AA */
 
+   /* _NEW_POINT */
    sf.sf7.sprite_point = key->point_sprite;
    sf.sf7.point_size = CLAMP(rint(key->point_size), 1, 255) * (1<<3);
    sf.sf7.use_point_size_state = !key->point_attenuated;
@@ -325,7 +342,8 @@ const struct brw_tracked_state brw_sf_unit = {
       .mesa  = (_NEW_POLYGON | 
 		_NEW_LINE | 
 		_NEW_POINT | 
-		_NEW_SCISSOR),
+		_NEW_SCISSOR |
+		_NEW_BUFFERS),
       .brw   = BRW_NEW_URB_FENCE,
       .cache = (CACHE_NEW_SF_VP |
 		CACHE_NEW_SF_PROG)

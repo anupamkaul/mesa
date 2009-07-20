@@ -53,6 +53,7 @@
 #include "pipe/p_compiler.h"
 #include "pipe/p_state.h"
 #include "pipe/p_shader_tokens.h"
+#include "tgsi/tgsi_dump.h"
 #include "tgsi/tgsi_parse.h"
 #include "tgsi/tgsi_util.h"
 #include "tgsi_exec.h"
@@ -169,6 +170,56 @@ print_temp(const struct tgsi_exec_machine *mach, uint index)
 #endif
 
 
+/**
+ * Check if there's a potential src/dst register data dependency when
+ * using SOA execution.
+ * Example:
+ *   MOV T, T.yxwz;
+ * This would expand into:
+ *   MOV t0, t1;
+ *   MOV t1, t0;
+ *   MOV t2, t3;
+ *   MOV t3, t2;
+ * The second instruction will have the wrong value for t0 if executed as-is.
+ */
+static boolean
+tgsi_check_soa_dependencies(const struct tgsi_full_instruction *inst)
+{
+   uint i, chan;
+
+   uint writemask = inst->FullDstRegisters[0].DstRegister.WriteMask;
+   if (writemask == TGSI_WRITEMASK_X ||
+       writemask == TGSI_WRITEMASK_Y ||
+       writemask == TGSI_WRITEMASK_Z ||
+       writemask == TGSI_WRITEMASK_W ||
+       writemask == TGSI_WRITEMASK_NONE) {
+      /* no chance of data dependency */
+      return FALSE;
+   }
+
+   /* loop over src regs */
+   for (i = 0; i < inst->Instruction.NumSrcRegs; i++) {
+      if ((inst->FullSrcRegisters[i].SrcRegister.File ==
+           inst->FullDstRegisters[0].DstRegister.File) &&
+          (inst->FullSrcRegisters[i].SrcRegister.Index ==
+           inst->FullDstRegisters[0].DstRegister.Index)) {
+         /* loop over dest channels */
+         uint channelsWritten = 0x0;
+         FOR_EACH_ENABLED_CHANNEL(*inst, chan) {
+            /* check if we're reading a channel that's been written */
+            uint swizzle = tgsi_util_get_full_src_register_extswizzle(&inst->FullSrcRegisters[i], chan);
+            if (swizzle <= TGSI_SWIZZLE_W &&
+                (channelsWritten & (1 << swizzle))) {
+               return TRUE;
+            }
+
+            channelsWritten |= (1 << chan);
+         }
+      }
+   }
+   return FALSE;
+}
+
 
 /**
  * Initialize machine state by expanding tokens to full instructions,
@@ -280,6 +331,17 @@ tgsi_exec_machine_bind_shader(
          memcpy(instructions + numInstructions,
                 &parse.FullToken.FullInstruction,
                 sizeof(instructions[0]));
+
+#if 0
+         if (tgsi_check_soa_dependencies(&parse.FullToken.FullInstruction)) {
+            debug_printf("SOA dependency in instruction:\n");
+            tgsi_dump_instruction(&parse.FullToken.FullInstruction,
+                                  numInstructions);
+         }
+#else
+         (void) tgsi_check_soa_dependencies;
+#endif
+
          numInstructions++;
          break;
 
@@ -303,14 +365,25 @@ tgsi_exec_machine_bind_shader(
 }
 
 
-void
-tgsi_exec_machine_init(
-   struct tgsi_exec_machine *mach )
+struct tgsi_exec_machine *
+tgsi_exec_machine_create( void )
 {
+   struct tgsi_exec_machine *mach;
    uint i;
 
-   mach->Temps = (struct tgsi_exec_vector *) tgsi_align_128bit( mach->_Temps);
+   mach = align_malloc( sizeof *mach, 16 );
+   if (!mach)
+      goto fail;
+
    mach->Addrs = &mach->Temps[TGSI_EXEC_TEMP_ADDR];
+
+   mach->Samplers = NULL;
+   mach->Consts = NULL;
+   mach->Tokens = NULL;
+   mach->Primitives = NULL;
+   mach->InterpCoefs = NULL;
+   mach->Instructions = NULL;
+   mach->Declarations = NULL;
 
    /* Setup constants. */
    for( i = 0; i < 4; i++ ) {
@@ -331,22 +404,24 @@ tgsi_exec_machine_init(
    (void) print_chan;
    (void) print_temp;
 #endif
+
+   return mach;
+
+fail:
+   align_free(mach);
+   return NULL;
 }
 
 
 void
-tgsi_exec_machine_free_data(struct tgsi_exec_machine *mach)
+tgsi_exec_machine_destroy(struct tgsi_exec_machine *mach)
 {
-   if (mach->Instructions) {
+   if (mach) {
       FREE(mach->Instructions);
-      mach->Instructions = NULL;
-      mach->NumInstructions = 0;
-   }
-   if (mach->Declarations) {
       FREE(mach->Declarations);
-      mach->Declarations = NULL;
-      mach->NumDeclarations = 0;
    }
+
+   align_free(mach);
 }
 
 
@@ -1333,10 +1408,48 @@ store_dest(
    union tgsi_exec_channel null;
    union tgsi_exec_channel *dst;
    uint execmask = mach->ExecMask;
+   int offset = 0;  /* indirection offset */
+   int index;
 
 #ifdef DEBUG
    check_inf_or_nan(chan);
 #endif
+
+   /* There is an extra source register that indirectly subscripts
+    * a register file. The direct index now becomes an offset
+    * that is being added to the indirect register.
+    *
+    *    file[ind[2].x+1],
+    *    where:
+    *       ind = DstRegisterInd.File
+    *       [2] = DstRegisterInd.Index
+    *       .x = DstRegisterInd.SwizzleX
+    */
+   if (reg->DstRegister.Indirect) {
+      union tgsi_exec_channel index;
+      union tgsi_exec_channel indir_index;
+      uint swizzle;
+
+      /* which address register (always zero for now) */
+      index.i[0] =
+      index.i[1] =
+      index.i[2] =
+      index.i[3] = reg->DstRegisterInd.Index;
+
+      /* get current value of address register[swizzle] */
+      swizzle = tgsi_util_get_src_register_swizzle( &reg->DstRegisterInd, CHAN_X );
+
+      /* fetch values from the address/indirection register */
+      fetch_src_file_channel(
+         mach,
+         reg->DstRegisterInd.File,
+         swizzle,
+         &index,
+         &indir_index );
+
+      /* save indirection offset */
+      offset = (int) indir_index.f[0];
+   }
 
    switch (reg->DstRegister.File) {
    case TGSI_FILE_NULL:
@@ -1344,17 +1457,20 @@ store_dest(
       break;
 
    case TGSI_FILE_OUTPUT:
-      dst = &mach->Outputs[mach->Temps[TEMP_OUTPUT_I].xyzw[TEMP_OUTPUT_C].u[0]
-                           + reg->DstRegister.Index].xyzw[chan_index];
+      index = mach->Temps[TEMP_OUTPUT_I].xyzw[TEMP_OUTPUT_C].u[0]
+         + reg->DstRegister.Index;
+      dst = &mach->Outputs[offset + index].xyzw[chan_index];
       break;
 
    case TGSI_FILE_TEMPORARY:
-      assert( reg->DstRegister.Index < TGSI_EXEC_NUM_TEMPS );
-      dst = &mach->Temps[reg->DstRegister.Index].xyzw[chan_index];
+      index = reg->DstRegister.Index;
+      assert( index < TGSI_EXEC_NUM_TEMPS );
+      dst = &mach->Temps[offset + index].xyzw[chan_index];
       break;
 
    case TGSI_FILE_ADDRESS:
-      dst = &mach->Addrs[reg->DstRegister.Index].xyzw[chan_index];
+      index = reg->DstRegister.Index;
+      dst = &mach->Addrs[index].xyzw[chan_index];
       break;
 
    default:
@@ -1904,7 +2020,7 @@ exec_instruction(
 
    switch (inst->Instruction.Opcode) {
    case TGSI_OPCODE_ARL:
-   /* TGSI_OPCODE_FLOOR */
+   case TGSI_OPCODE_FLOOR:
    /* TGSI_OPCODE_FLR */
       FOR_EACH_ENABLED_CHANNEL( *inst, chan_index ) {
          FETCH( &r[0], 0, chan_index );

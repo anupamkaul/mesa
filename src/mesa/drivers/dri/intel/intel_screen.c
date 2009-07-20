@@ -49,6 +49,10 @@
 #include "i915_drm.h"
 #include "i830_dri.h"
 
+#define DRI_CONF_TEXTURE_TILING(def) \
+	DRI_CONF_OPT_BEGIN(texture_tiling, bool, def)		\
+		DRI_CONF_DESC(en, "Enable texture tiling")	\
+	DRI_CONF_OPT_END					\
 
 PUBLIC const char __driConfigOptions[] =
    DRI_CONF_BEGIN
@@ -64,6 +68,13 @@ PUBLIC const char __driConfigOptions[] =
 	    DRI_CONF_ENUM(1, "Enable reuse of all sizes of buffer objects")
 	 DRI_CONF_DESC_END
       DRI_CONF_OPT_END
+
+      DRI_CONF_TEXTURE_TILING(false)
+
+      DRI_CONF_OPT_BEGIN(early_z, bool, false)
+	 DRI_CONF_DESC(en, "Enable early Z in classic mode (unstable, 945-only).")
+      DRI_CONF_OPT_END
+
    DRI_CONF_SECTION_END
    DRI_CONF_SECTION_QUALITY
       DRI_CONF_FORCE_S3TC_ENABLE(false)
@@ -76,7 +87,7 @@ PUBLIC const char __driConfigOptions[] =
    DRI_CONF_SECTION_END
 DRI_CONF_END;
 
-const GLuint __driNConfigOptions = 8;
+const GLuint __driNConfigOptions = 10;
 
 #ifdef USE_NEW_INTERFACE
 static PFNGLXCREATECONTEXTMODES create_context_modes = NULL;
@@ -236,7 +247,7 @@ intel_get_param(__DRIscreenPrivate *psp, int param, int *value)
 
    ret = drmCommandWriteRead(psp->fd, DRM_I915_GETPARAM, &gp, sizeof(gp));
    if (ret) {
-      fprintf(stderr, "drm_i915_getparam: %d\n", ret);
+      _mesa_warning(NULL, "drm_i915_getparam: %d", ret);
       return GL_FALSE;
    }
 
@@ -305,7 +316,7 @@ intelDestroyScreen(__DRIscreenPrivate * sPriv)
 
    dri_bufmgr_destroy(intelScreen->bufmgr);
    intelUnmapScreenRegions(intelScreen);
-   driDestroyOptionCache(&intelScreen->optionCache);
+   driDestroyOptionInfo(&intelScreen->optionCache);
 
    FREE(intelScreen);
    sPriv->private = NULL;
@@ -395,6 +406,30 @@ intelCreateBuffer(__DRIscreenPrivate * driScrnPriv,
 static void
 intelDestroyBuffer(__DRIdrawablePrivate * driDrawPriv)
 {
+   struct intel_framebuffer *intel_fb = driDrawPriv->driverPrivate;
+   struct intel_renderbuffer *depth_rb;
+   struct intel_renderbuffer *stencil_rb;
+
+   if (intel_fb) {
+      if (intel_fb->color_rb[0]) {
+         intel_renderbuffer_set_region(intel_fb->color_rb[0], NULL);
+      }
+
+      if (intel_fb->color_rb[1]) {
+         intel_renderbuffer_set_region(intel_fb->color_rb[1], NULL);
+      }
+
+      depth_rb = intel_get_renderbuffer(&intel_fb->Base, BUFFER_DEPTH);
+      if (depth_rb) {
+         intel_renderbuffer_set_region(depth_rb, NULL);
+      }
+
+      stencil_rb = intel_get_renderbuffer(&intel_fb->Base, BUFFER_STENCIL);
+      if (stencil_rb) {
+         intel_renderbuffer_set_region(stencil_rb, NULL);
+      }
+   }
+
    _mesa_reference_framebuffer((GLframebuffer **)(&(driDrawPriv->driverPrivate)), NULL);
 }
 
@@ -563,6 +598,7 @@ intel_init_bufmgr(intelScreenPrivate *intelScreen)
    GLboolean gem_supported;
    struct drm_i915_getparam gp;
    __DRIscreenPrivate *spriv = intelScreen->driScrnPriv;
+   int num_fences = 0;
 
    intelScreen->no_hw = getenv("INTEL_NO_HW") != NULL;
 
@@ -613,8 +649,10 @@ intel_init_bufmgr(intelScreenPrivate *intelScreen)
 				&intelScreen->sarea->last_dispatch);
    }
 
-   /* XXX bufmgr should be per-screen, not per-context */
-   intelScreen->ttm = intelScreen->ttm;
+   if (intel_get_param(spriv, I915_PARAM_NUM_FENCES_AVAIL, &num_fences))
+      intelScreen->kernel_exec_fencing = !!num_fences;
+   else
+      intelScreen->kernel_exec_fencing = GL_FALSE;
 
    return GL_TRUE;
 }

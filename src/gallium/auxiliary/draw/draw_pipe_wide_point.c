@@ -181,6 +181,16 @@ static void widepoint_point( struct draw_stage *stage,
 }
 
 
+static int
+find_fog_input_attrib(struct draw_context *draw)
+{
+   /* Scan the fragment program's input decls to find the fogcoord
+    * attribute.  The z/w components will store the point coord.
+    */
+   return 0; /* XXX fix this */
+}
+
+
 static void widepoint_first_point( struct draw_stage *stage, 
 			      struct prim_header *header )
 {
@@ -220,7 +230,7 @@ static void widepoint_first_point( struct draw_stage *stage,
       wide->num_texcoords = j;
 
       /* find fragment shader PointCoord/Fog input */
-      wide->point_coord_fs_input = 0; /* XXX fix this! */
+      wide->point_coord_fs_input = find_fog_input_attrib(draw);
 
       /* setup extra vp output (point coord implemented as a texcoord) */
       draw->extra_vp_outputs.semantic_name = TGSI_SEMANTIC_GENERIC;
@@ -253,6 +263,7 @@ static void widepoint_flush( struct draw_stage *stage, unsigned flags )
 {
    stage->point = widepoint_first_point;
    stage->next->flush( stage->next, flags );
+   stage->draw->extra_vp_outputs.slot = 0;
 }
 
 
@@ -279,6 +290,7 @@ struct draw_stage *draw_wide_point_stage( struct draw_context *draw )
       goto fail;
 
    wide->stage.draw = draw;
+   wide->stage.name = "wide-point";
    wide->stage.next = NULL;
    wide->stage.point = widepoint_first_point;
    wide->stage.line = draw_pipe_passthrough_line;

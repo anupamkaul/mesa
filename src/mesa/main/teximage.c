@@ -52,6 +52,17 @@
 
 
 /**
+ * State changes which we care about for glCopyTex[Sub]Image() calls.
+ * In particular, we care about pixel transfer state and buffer state
+ * (such as glReadBuffer to make sure we read from the right renderbuffer).
+ */
+#define NEW_COPY_TEX_STATE (_MESA_NEW_TRANSFER_STATE | \
+                            _NEW_BUFFERS | \
+                            _NEW_PIXEL)
+
+
+
+/**
  * We allocate texture memory on 512-byte boundaries so we can use MMX/SSE
  * elsewhere.
  */
@@ -1239,6 +1250,8 @@ _mesa_init_teximage_fields(GLcontext *ctx, GLenum target,
     * We allocate the array for 1D/2D textures too in order to avoid special-
     * case code in the texstore routines.
     */
+   if (img->ImageOffsets)
+      _mesa_free(img->ImageOffsets);
    img->ImageOffsets = (GLuint *) _mesa_malloc(depth * sizeof(GLuint));
    for (i = 0; i < depth; i++) {
       img->ImageOffsets[i] = i * width * height;
@@ -3008,7 +3021,7 @@ _mesa_CopyTexImage1D( GLenum target, GLint level,
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (ctx->NewState & _MESA_NEW_TRANSFER_STATE)
+   if (ctx->NewState & NEW_COPY_TEX_STATE)
       _mesa_update_state(ctx);
 
 #if FEATURE_convolve
@@ -3073,7 +3086,7 @@ _mesa_CopyTexImage2D( GLenum target, GLint level, GLenum internalFormat,
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (ctx->NewState & _MESA_NEW_TRANSFER_STATE)
+   if (ctx->NewState & NEW_COPY_TEX_STATE)
       _mesa_update_state(ctx);
 
 #if FEATURE_convolve
@@ -3141,7 +3154,7 @@ _mesa_CopyTexSubImage1D( GLenum target, GLint level,
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (ctx->NewState & _MESA_NEW_TRANSFER_STATE)
+   if (ctx->NewState & NEW_COPY_TEX_STATE)
       _mesa_update_state(ctx);
 
    if (copytexsubimage_error_check1(ctx, 1, target, level))
@@ -3196,7 +3209,7 @@ _mesa_CopyTexSubImage2D( GLenum target, GLint level,
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (ctx->NewState & _MESA_NEW_TRANSFER_STATE)
+   if (ctx->NewState & NEW_COPY_TEX_STATE)
       _mesa_update_state(ctx);
 
    if (copytexsubimage_error_check1(ctx, 2, target, level))
@@ -3251,7 +3264,7 @@ _mesa_CopyTexSubImage3D( GLenum target, GLint level,
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (ctx->NewState & _MESA_NEW_TRANSFER_STATE)
+   if (ctx->NewState & NEW_COPY_TEX_STATE)
       _mesa_update_state(ctx);
 
    if (copytexsubimage_error_check1(ctx, 3, target, level))

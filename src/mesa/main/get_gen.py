@@ -976,6 +976,13 @@ StateVars = [
 	( "GL_READ_FRAMEBUFFER_BINDING_EXT", GLint, ["ctx->ReadBuffer->Name"], "",
 	  ["EXT_framebuffer_blit"] ),
 
+	# GL_EXT_provoking_vertex
+	( "GL_PROVOKING_VERTEX_EXT", GLboolean,
+	  ["ctx->Light.ProvokingVertex"], "", ["EXT_provoking_vertex"] ),
+	( "GL_QUADS_FOLLOW_PROVOKING_VERTEX_CONVENTION_EXT", GLboolean,
+	  ["ctx->Const.QuadsFollowProvokingVertexConvention"], "",
+	  ["EXT_provoking_vertex"] ),
+
 	# GL_ARB_fragment_shader
 	( "GL_MAX_FRAGMENT_UNIFORM_COMPONENTS_ARB", GLint,
 	  ["ctx->Const.FragmentProgram.MaxUniformComponents"], "",
@@ -1003,7 +1010,11 @@ StateVars = [
 
 	# GL_ARB_framebuffer_object
 	( "GL_MAX_SAMPLES", GLint, ["ctx->Const.MaxSamples"], "",
-	  ["ARB_framebuffer_object"] )
+	  ["ARB_framebuffer_object"] ),
+
+	# GL_APPLE_vertex_array_object
+	( "GL_VERTEX_ARRAY_BINDING_APPLE", GLint, ["ctx->Array.ArrayObj->Name"], "",
+	  ["APPLE_vertex_array_object"] ),
 ]
 
 

@@ -398,6 +398,8 @@ def generate(env):
     if gcc:
         if debug:
             ccflags += ['-O0', '-g3']
+        elif env['toolchain'] == 'crossmingw':
+            ccflags += ['-O0', '-g3'] # mingw 4.2.1 optimizer is broken
         else:
             ccflags += ['-O3', '-g0']
         if env['profile']:
@@ -414,15 +416,17 @@ def generate(env):
         # See also:
         # - http://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html
         ccflags += [
-            '-Werror=declaration-after-statement',
             '-Wall',
-            '-Wmissing-prototypes',
             '-Wmissing-field-initializers',
             '-Wpointer-arith',
             '-Wno-long-long',
             '-ffast-math',
-            '-std=gnu99',
             '-fmessage-length=0', # be nice to Eclipse
+        ]
+        cflags += [
+            '-Werror=declaration-after-statement',
+            '-Wmissing-prototypes',
+            '-std=gnu99',
         ]
     if msvc:
         # See also:

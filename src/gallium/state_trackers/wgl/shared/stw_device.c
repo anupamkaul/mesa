@@ -30,12 +30,19 @@
 #include "glapi/glthread.h"
 #include "util/u_debug.h"
 #include "pipe/p_screen.h"
+#include "state_tracker/st_public.h"
+
+#ifdef DEBUG
+#include "trace/tr_screen.h"
+#include "trace/tr_texture.h"
+#endif
 
 #include "shared/stw_device.h"
 #include "shared/stw_winsys.h"
 #include "shared/stw_pixelformat.h"
 #include "shared/stw_public.h"
 #include "shared/stw_tls.h"
+#include "shared/stw_framebuffer.h"
 
 #ifdef WIN32_THREADS
 extern _glthread_Mutex OneTimeLock;
@@ -51,21 +58,50 @@ struct stw_device *stw_dev = NULL;
  * stw_winsys::flush_front_buffer.
  */
 static void 
-st_flush_frontbuffer(struct pipe_screen *screen,
-                     struct pipe_surface *surf,
+stw_flush_frontbuffer(struct pipe_screen *screen,
+                     struct pipe_surface *surface,
                      void *context_private )
 {
    const struct stw_winsys *stw_winsys = stw_dev->stw_winsys;
    HDC hdc = (HDC)context_private;
+   struct stw_framebuffer *fb;
    
-   stw_winsys->flush_frontbuffer(screen, surf, hdc);
+   fb = stw_framebuffer_from_hdc( hdc );
+   /* fb can be NULL if window was destroyed already */
+   if (fb) {
+#if DEBUG
+      {
+         struct pipe_surface *surface2;
+   
+         if(!st_get_framebuffer_surface( fb->stfb, ST_SURFACE_FRONT_LEFT, &surface2 ))
+            assert(0);
+         else
+            assert(surface2 == surface);
+      }
+#endif
+
+#ifdef DEBUG
+      if(stw_dev->trace_running) {
+         screen = trace_screen(screen)->screen;
+         surface = trace_surface(surface)->surface;
+      }
+#endif
+   }
+   
+   stw_winsys->flush_frontbuffer(screen, surface, hdc);
+   
+   if(fb) {
+      stw_framebuffer_update(fb);
+      stw_framebuffer_release(fb);
+   }
 }
 
 
 boolean
-st_init(const struct stw_winsys *stw_winsys)
+stw_init(const struct stw_winsys *stw_winsys)
 {
    static struct stw_device stw_dev_storage;
+   struct pipe_screen *screen;
 
    debug_printf("%s\n", __FUNCTION__);
    
@@ -86,20 +122,28 @@ st_init(const struct stw_winsys *stw_winsys)
    _glthread_INIT_MUTEX(OneTimeLock);
 #endif
 
-   stw_dev->screen = stw_winsys->create_screen();
-   if(!stw_dev->screen)
+   screen = stw_winsys->create_screen();
+   if(!screen)
       goto error1;
 
-   stw_dev->screen->flush_frontbuffer = st_flush_frontbuffer;
+#ifdef DEBUG
+   stw_dev->screen = trace_screen_create(screen);
+   stw_dev->trace_running = stw_dev->screen != screen ? TRUE : FALSE;
+#else
+   stw_dev->screen = screen;
+#endif
    
-   pipe_mutex_init( stw_dev->mutex );
+   stw_dev->screen->flush_frontbuffer = &stw_flush_frontbuffer;
+   
+   pipe_mutex_init( stw_dev->ctx_mutex );
+   pipe_mutex_init( stw_dev->fb_mutex );
 
    stw_dev->ctx_table = handle_table_create();
    if (!stw_dev->ctx_table) {
       goto error1;
    }
 
-   pixelformat_init();
+   stw_pixelformat_init();
 
    return TRUE;
 
@@ -110,25 +154,21 @@ error1:
 
 
 boolean
-st_init_thread(void)
+stw_init_thread(void)
 {
-   if (!stw_tls_init_thread()) {
-      return FALSE;
-   }
-
-   return TRUE;
+   return stw_tls_init_thread();
 }
 
 
 void
-st_cleanup_thread(void)
+stw_cleanup_thread(void)
 {
    stw_tls_cleanup_thread();
 }
 
 
 void
-st_cleanup(void)
+stw_cleanup(void)
 {
    unsigned i;
 
@@ -137,7 +177,7 @@ st_cleanup(void)
    if (!stw_dev)
       return;
    
-   pipe_mutex_lock( stw_dev->mutex );
+   pipe_mutex_lock( stw_dev->ctx_mutex );
    {
       /* Ensure all contexts are destroyed */
       i = handle_table_get_first_handle(stw_dev->ctx_table);
@@ -147,9 +187,12 @@ st_cleanup(void)
       }
       handle_table_destroy(stw_dev->ctx_table);
    }
-   pipe_mutex_unlock( stw_dev->mutex );
+   pipe_mutex_unlock( stw_dev->ctx_mutex );
 
-   pipe_mutex_destroy( stw_dev->mutex );
+   stw_framebuffer_cleanup();
+   
+   pipe_mutex_destroy( stw_dev->fb_mutex );
+   pipe_mutex_destroy( stw_dev->ctx_mutex );
    
    stw_dev->screen->destroy(stw_dev->screen);
 
@@ -169,7 +212,7 @@ st_cleanup(void)
 
 
 struct stw_context *
-stw_lookup_context( UINT_PTR dhglrc )
+stw_lookup_context_locked( UINT_PTR dhglrc )
 {
    if (dhglrc == 0)
       return NULL;

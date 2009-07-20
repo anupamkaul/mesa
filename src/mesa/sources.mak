@@ -68,6 +68,7 @@ MAIN_SOURCES = \
 	main/texenvprogram.c \
 	main/texformat.c \
 	main/texgen.c \
+	main/texgetimage.c \
 	main/teximage.c \
 	main/texobj.c \
 	main/texparam.c \
@@ -326,6 +327,7 @@ MESA_GALLIUM_SOURCES = \
 	$(VBO_SOURCES)		\
 	$(STATETRACKER_SOURCES)	\
 	$(SHADER_SOURCES)	\
+	ppc/common_ppc.c	\
 	x86/common_x86.c	\
 	$(SLANG_SOURCES)
 

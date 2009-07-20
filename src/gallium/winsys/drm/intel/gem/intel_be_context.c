@@ -1,6 +1,8 @@
 
 #include "pipe/p_screen.h"
 
+#include "softpipe/sp_winsys.h"
+
 #include "intel_be_device.h"
 #include "intel_be_context.h"
 #include "intel_be_batchbuffer.h"
@@ -95,7 +97,7 @@ intel_be_init_context(struct intel_be_context *intel, struct intel_be_device *de
 }
 
 struct pipe_context *
-intel_be_create_context(struct pipe_screen *screen)
+intel_be_create_context(struct drm_api *api, struct pipe_screen *screen)
 {
 	struct intel_be_context *intel;
 	struct pipe_context *pipe;
@@ -106,13 +108,13 @@ intel_be_create_context(struct pipe_screen *screen)
 
 	intel_be_init_context(intel, device);
 
-#if 0
-	pipe = intel_create_softpipe(intel, screen->winsys);
-#else
-	pipe = i915_create_context(screen, &device->base, &intel->base);
-#endif
+	if (device->softpipe)
+		pipe = softpipe_create(screen);
+	else
+		pipe = i915_create_context(screen, &device->base, &intel->base);
 
-	pipe->priv = intel;
+	if (pipe)
+		pipe->priv = intel;
 
 	return pipe;
 }

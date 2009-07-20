@@ -289,6 +289,31 @@ static void _save_compile_vertex_list( GLcontext *ctx )
    node->vertex_store->refcount++;
    node->prim_store->refcount++;
 
+
+   node->current_size = node->vertex_size - node->attrsz[0];
+   node->current_data = NULL;
+
+   if (node->current_size) {
+      /* If the malloc fails, we just pull the data out of the VBO
+       * later instead.
+       */
+      node->current_data = MALLOC( node->current_size * sizeof(GLfloat) );
+      if (node->current_data) {
+         const char *buffer = (const char *)save->vertex_store->buffer;
+         unsigned attr_offset = node->attrsz[0] * sizeof(GLfloat);
+         unsigned vertex_offset = 0;
+
+         if (node->count)
+            vertex_offset = (node->count-1) * node->vertex_size * sizeof(GLfloat);
+
+         memcpy( node->current_data,
+                 buffer + node->buffer_offset + vertex_offset + attr_offset,
+                 node->current_size * sizeof(GLfloat) );
+      }
+   }
+
+
+
    assert(node->attrsz[VBO_ATTRIB_POS] != 0 ||
 	  node->count == 0);
 
@@ -642,19 +667,33 @@ do {								\
  *     -- Flush current buffer
  *     -- Fallback to opcodes for the rest of the begin/end object.
  */
-#define DO_FALLBACK(ctx) 							\
-do {									\
-   struct vbo_save_context *save = &vbo_context(ctx)->save;					\
-									\
-   if (save->vert_count || save->prim_count) 						\
-      _save_compile_vertex_list( ctx );					\
-									\
-   _save_copy_to_current( ctx );					\
-   _save_reset_vertex( ctx );						\
-   _save_reset_counters( ctx );  \
-   _mesa_install_save_vtxfmt( ctx, &ctx->ListState.ListVtxfmt );	\
-   ctx->Driver.SaveNeedFlush = 0;					\
-} while (0)
+static void DO_FALLBACK( GLcontext *ctx )
+{
+   struct vbo_save_context *save = &vbo_context(ctx)->save;
+
+   if (save->vert_count || save->prim_count) {
+      GLint i = save->prim_count - 1;
+
+      /* Close off in-progress primitive.
+       */
+      save->prim[i].count = (save->vert_count - 
+                             save->prim[i].start);
+
+      /* Need to replay this display list with loopback,
+       * unfortunately, otherwise this primitive won't be handled
+       * properly:
+       */
+      save->dangling_attr_ref = 1;
+      
+      _save_compile_vertex_list( ctx );
+   }
+
+   _save_copy_to_current( ctx );
+   _save_reset_vertex( ctx );
+   _save_reset_counters( ctx );
+   _mesa_install_save_vtxfmt( ctx, &ctx->ListState.ListVtxfmt );
+   ctx->Driver.SaveNeedFlush = 0;
+}
 
 static void GLAPIENTRY _save_EvalCoord1f( GLfloat u )
 {
@@ -1105,6 +1144,11 @@ static void vbo_destroy_vertex_list( GLcontext *ctx, void *data )
 
    if ( --node->prim_store->refcount == 0 )
       FREE( node->prim_store );
+
+   if (node->current_data) {
+      FREE(node->current_data);
+      node->current_data = NULL;
+   }
 }
 
 
@@ -1114,16 +1158,16 @@ static void vbo_print_vertex_list( GLcontext *ctx, void *data )
    GLuint i;
    (void) ctx;
 
-   _mesa_debug(NULL, "VBO-VERTEX-LIST, %u vertices %d primitives, %d vertsize\n",
-               node->count,
-	       node->prim_count,
-	       node->vertex_size);
+   _mesa_printf("VBO-VERTEX-LIST, %u vertices %d primitives, %d vertsize\n",
+		node->count,
+		node->prim_count,
+		node->vertex_size);
 
    for (i = 0 ; i < node->prim_count ; i++) {
       struct _mesa_prim *prim = &node->prim[i];
       _mesa_debug(NULL, "   prim %d: %s%s %d..%d %s %s\n",
 		  i, 
-		  _mesa_lookup_enum_by_nr(prim->mode),
+		  _mesa_lookup_prim_by_nr(prim->mode),
 		  prim->weak ? " (weak)" : "",
 		  prim->start, 
 		  prim->start + prim->count,

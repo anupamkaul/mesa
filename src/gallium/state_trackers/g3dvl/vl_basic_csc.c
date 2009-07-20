@@ -82,7 +82,6 @@ static int vlResizeFrameBuffer
 	template.width[0] = width;
 	template.height[0] = height;
 	template.depth[0] = 1;
-	template.compressed = 0;
 	pf_get_block(template.format, &template.block);
 	template.tex_usage = PIPE_TEXTURE_USAGE_DISPLAY_TARGET;
 
@@ -98,7 +97,8 @@ static int vlResizeFrameBuffer
 	);
 
 	/* Clear to black, in case video doesn't fill the entire window */
-	pipe->clear(pipe, basic_csc->framebuffer.cbufs[0], 0);
+	pipe->set_framebuffer_state(pipe, &basic_csc->framebuffer);
+	pipe->clear(pipe, PIPE_CLEAR_COLOR, 0, 0.0f, 0);
 
 	return 0;
 }
@@ -668,7 +668,6 @@ static int vlInit
 	sampler.compare_func = PIPE_FUNC_ALWAYS;
 	sampler.normalized_coords = 1;
 	/*sampler.prefilter = ;*/
-	/*sampler.shadow_ambient = ;*/
 	/*sampler.lod_bias = ;*/
 	/*sampler.min_lod = ;*/
 	/*sampler.max_lod = ;*/

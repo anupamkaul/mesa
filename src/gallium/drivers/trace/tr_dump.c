@@ -45,6 +45,7 @@
 #endif
 
 #include "pipe/p_compiler.h"
+#include "pipe/p_thread.h"
 #include "util/u_debug.h"
 #include "util/u_memory.h"
 #include "util/u_string.h"
@@ -58,6 +59,10 @@
 
 static struct util_stream *stream = NULL;
 static unsigned refcount = 0;
+static pipe_mutex call_mutex;
+static long unsigned call_no = 0;
+static boolean dumping = FALSE;
+static boolean initialized = FALSE;
 
 
 static INLINE void
@@ -218,12 +223,26 @@ trace_dump_trace_close(void)
       util_stream_close(stream);
       stream = NULL;
       refcount = 0;
+      call_no = 0;
+      pipe_mutex_destroy(call_mutex);
    }
+}
+
+void trace_dump_init()
+{
+   if (initialized)
+      return;
+
+   pipe_mutex_init(call_mutex);
+   dumping = FALSE;
+   initialized = TRUE;
 }
 
 boolean trace_dump_trace_begin()
 {
    const char *filename;
+
+   assert(initialized);
 
    filename = debug_get_option("GALLIUM_TRACE", NULL);
    if(!filename)
@@ -251,7 +270,7 @@ boolean trace_dump_trace_begin()
    return TRUE;
 }
 
-boolean trace_dump_enabled(void)
+boolean trace_dump_trace_enabled(void)
 {
    return stream ? TRUE : FALSE;
 }
@@ -263,13 +282,75 @@ void trace_dump_trace_end(void)
          trace_dump_trace_close();
 }
 
-void trace_dump_call_begin(const char *klass, const char *method)
+/*
+ * Call lock
+ */
+
+void trace_dump_call_lock(void)
 {
-   static long unsigned no = 0;
-   ++no;
+   pipe_mutex_lock(call_mutex);
+}
+
+void trace_dump_call_unlock(void)
+{
+   pipe_mutex_unlock(call_mutex);
+}
+
+/*
+ * Dumping control
+ */
+
+void trace_dumping_start_locked(void)
+{
+   dumping = TRUE;
+}
+
+void trace_dumping_stop_locked(void)
+{
+   dumping = FALSE;
+}
+
+boolean trace_dumping_enabled_locked(void)
+{
+   return dumping;
+}
+
+void trace_dumping_start(void)
+{
+   pipe_mutex_lock(call_mutex);
+   trace_dumping_start_locked();
+   pipe_mutex_unlock(call_mutex);
+}
+
+void trace_dumping_stop(void)
+{
+   pipe_mutex_lock(call_mutex);
+   trace_dumping_stop_locked();
+   pipe_mutex_unlock(call_mutex);
+}
+
+boolean trace_dumping_enabled(void)
+{
+   boolean ret;
+   pipe_mutex_lock(call_mutex);
+   ret = trace_dumping_enabled_locked();
+   pipe_mutex_unlock(call_mutex);
+   return ret;
+}
+
+/*
+ * Dump functions
+ */
+
+void trace_dump_call_begin_locked(const char *klass, const char *method)
+{
+   if (!dumping)
+      return;
+
+   ++call_no;
    trace_dump_indent(1);
    trace_dump_writes("<call no=\'");
-   trace_dump_writef("%lu", no);
+   trace_dump_writef("%lu", call_no);
    trace_dump_writes("\' class =\'");
    trace_dump_escape(klass);
    trace_dump_writes("\' method=\'");
@@ -278,64 +359,107 @@ void trace_dump_call_begin(const char *klass, const char *method)
    trace_dump_newline();
 }
 
-void trace_dump_call_end(void)
+void trace_dump_call_end_locked(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_indent(1);
    trace_dump_tag_end("call");
    trace_dump_newline();
    util_stream_flush(stream);
 }
 
+void trace_dump_call_begin(const char *klass, const char *method)
+{
+   pipe_mutex_lock(call_mutex);
+   trace_dump_call_begin_locked(klass, method);
+}
+
+void trace_dump_call_end(void)
+{
+   trace_dump_call_end_locked();
+   pipe_mutex_unlock(call_mutex);
+}
+
 void trace_dump_arg_begin(const char *name)
 {
+   if (!dumping)
+      return;
+
    trace_dump_indent(2);
    trace_dump_tag_begin1("arg", "name", name);
 }
 
 void trace_dump_arg_end(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_tag_end("arg");
    trace_dump_newline();
 }
 
 void trace_dump_ret_begin(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_indent(2);
    trace_dump_tag_begin("ret");
 }
 
 void trace_dump_ret_end(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_tag_end("ret");
    trace_dump_newline();
 }
 
 void trace_dump_bool(int value)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writef("<bool>%c</bool>", value ? '1' : '0');
 }
 
 void trace_dump_int(long long int value)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writef("<int>%lli</int>", value);
 }
 
 void trace_dump_uint(long long unsigned value)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writef("<uint>%llu</uint>", value);
 }
 
 void trace_dump_float(double value)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writef("<float>%g</float>", value);
 }
 
 void trace_dump_bytes(const void *data,
-                      long unsigned size)
+                      size_t size)
 {
    static const char hex_table[16] = "0123456789ABCDEF";
    const uint8_t *p = data;
-   long unsigned i;
+   size_t i;
+
+   if (!dumping)
+      return;
+
    trace_dump_writes("<bytes>");
    for(i = 0; i < size; ++i) {
       uint8_t byte = *p++;
@@ -349,6 +473,9 @@ void trace_dump_bytes(const void *data,
 
 void trace_dump_string(const char *str)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("<string>");
    trace_dump_escape(str);
    trace_dump_writes("</string>");
@@ -356,6 +483,9 @@ void trace_dump_string(const char *str)
 
 void trace_dump_enum(const char *value)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("<enum>");
    trace_dump_escape(value);
    trace_dump_writes("</enum>");
@@ -363,51 +493,81 @@ void trace_dump_enum(const char *value)
 
 void trace_dump_array_begin(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("<array>");
 }
 
 void trace_dump_array_end(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("</array>");
 }
 
 void trace_dump_elem_begin(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("<elem>");
 }
 
 void trace_dump_elem_end(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("</elem>");
 }
 
 void trace_dump_struct_begin(const char *name)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writef("<struct name='%s'>", name);
 }
 
 void trace_dump_struct_end(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("</struct>");
 }
 
 void trace_dump_member_begin(const char *name)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writef("<member name='%s'>", name);
 }
 
 void trace_dump_member_end(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("</member>");
 }
 
 void trace_dump_null(void)
 {
+   if (!dumping)
+      return;
+
    trace_dump_writes("<null/>");
 }
 
 void trace_dump_ptr(const void *value)
 {
+   if (!dumping)
+      return;
+
    if(value)
       trace_dump_writef("<ptr>0x%08lx</ptr>", (unsigned long)(uintptr_t)value);
    else
@@ -416,9 +576,11 @@ void trace_dump_ptr(const void *value)
 
 void trace_dump_buffer_ptr(struct pipe_buffer *_buffer)
 {
+   if (!dumping)
+      return;
+
    if (_buffer) {
-      struct trace_screen *tr_scr = trace_screen(_buffer->screen);
-      struct trace_buffer *tr_buf = trace_buffer(tr_scr, _buffer);
+      struct trace_buffer *tr_buf = trace_buffer(_buffer);
       trace_dump_ptr(tr_buf->buffer);
    } else {
       trace_dump_null();
@@ -427,9 +589,11 @@ void trace_dump_buffer_ptr(struct pipe_buffer *_buffer)
 
 void trace_dump_texture_ptr(struct pipe_texture *_texture)
 {
+   if (!dumping)
+      return;
+
    if (_texture) {
-      struct trace_screen *tr_scr = trace_screen(_texture->screen);
-      struct trace_texture *tr_tex = trace_texture(tr_scr, _texture);
+      struct trace_texture *tr_tex = trace_texture(_texture);
       trace_dump_ptr(tr_tex->texture);
    } else {
       trace_dump_null();
@@ -438,10 +602,11 @@ void trace_dump_texture_ptr(struct pipe_texture *_texture)
 
 void trace_dump_surface_ptr(struct pipe_surface *_surface)
 {
+   if (!dumping)
+      return;
+
    if (_surface) {
-      struct trace_screen *tr_scr = trace_screen(_surface->texture->screen);
-      struct trace_texture *tr_tex = trace_texture(tr_scr, _surface->texture);
-      struct trace_surface *tr_surf = trace_surface(tr_tex, _surface);
+      struct trace_surface *tr_surf = trace_surface(_surface);
       trace_dump_ptr(tr_surf->surface);
    } else {
       trace_dump_null();
@@ -450,10 +615,11 @@ void trace_dump_surface_ptr(struct pipe_surface *_surface)
 
 void trace_dump_transfer_ptr(struct pipe_transfer *_transfer)
 {
+   if (!dumping)
+      return;
+
    if (_transfer) {
-      struct trace_screen *tr_scr = trace_screen(_transfer->texture->screen);
-      struct trace_texture *tr_tex = trace_texture(tr_scr, _transfer->texture);
-      struct trace_transfer *tr_tran = trace_transfer(tr_tex, _transfer);
+      struct trace_transfer *tr_tran = trace_transfer(_transfer);
       trace_dump_ptr(tr_tran->transfer);
    } else {
       trace_dump_null();

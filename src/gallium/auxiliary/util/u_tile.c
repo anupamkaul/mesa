@@ -1126,7 +1126,22 @@ pipe_get_tile_z(struct pipe_transfer *pt,
          for (i = 0; i < h; i++) {
             for (j = 0; j < w; j++) {
                /* convert 24-bit Z to 32-bit Z */
-               pDest[j] = (ptrc[j] << 8) | (ptrc[j] & 0xff);
+               pDest[j] = (ptrc[j] << 8) | ((ptrc[j] >> 16) & 0xff);
+            }
+            pDest += dstStride;
+            ptrc += pt->stride/4;
+         }
+      }
+      break;
+   case PIPE_FORMAT_Z24S8_UNORM:
+   case PIPE_FORMAT_Z24X8_UNORM:
+      {
+         const uint *ptrc
+            = (const uint *)(map + y * pt->stride + x*4);
+         for (i = 0; i < h; i++) {
+            for (j = 0; j < w; j++) {
+               /* convert 24-bit Z to 32-bit Z */
+               pDest[j] = (ptrc[j] & 0xffffff00) | ((ptrc[j] >> 24) & 0xff);
             }
             pDest += dstStride;
             ptrc += pt->stride/4;
@@ -1187,6 +1202,19 @@ pipe_put_tile_z(struct pipe_transfer *pt,
       }
       break;
    case PIPE_FORMAT_S8Z24_UNORM:
+      {
+         uint *pDest = (uint *) (map + y * pt->stride + x*4);
+         assert(pt->usage == PIPE_TRANSFER_READ_WRITE);
+         for (i = 0; i < h; i++) {
+            for (j = 0; j < w; j++) {
+               /* convert 32-bit Z to 24-bit Z, preserve stencil */
+               pDest[j] = (pDest[j] & 0xff000000) | ptrc[j] >> 8;
+            }
+            pDest += pt->stride/4;
+            ptrc += srcStride;
+         }
+      }
+      break;
    case PIPE_FORMAT_X8Z24_UNORM:
       {
          uint *pDest = (uint *) (map + y * pt->stride + x*4);
@@ -1201,13 +1229,26 @@ pipe_put_tile_z(struct pipe_transfer *pt,
       }
       break;
    case PIPE_FORMAT_Z24S8_UNORM:
+      {
+         uint *pDest = (uint *) (map + y * pt->stride + x*4);
+         assert(pt->usage == PIPE_TRANSFER_READ_WRITE);
+         for (i = 0; i < h; i++) {
+            for (j = 0; j < w; j++) {
+               /* convert 32-bit Z to 24-bit Z, preserve stencil */
+               pDest[j] = (pDest[j] & 0xff) | (ptrc[j] & 0xffffff00);
+            }
+            pDest += pt->stride/4;
+            ptrc += srcStride;
+         }
+      }
+      break;
    case PIPE_FORMAT_Z24X8_UNORM:
       {
          uint *pDest = (uint *) (map + y * pt->stride + x*4);
          for (i = 0; i < h; i++) {
             for (j = 0; j < w; j++) {
                /* convert 32-bit Z to 24-bit Z (0 stencil) */
-               pDest[j] = ptrc[j] << 8;
+               pDest[j] = ptrc[j] & 0xffffff00;
             }
             pDest += pt->stride/4;
             ptrc += srcStride;

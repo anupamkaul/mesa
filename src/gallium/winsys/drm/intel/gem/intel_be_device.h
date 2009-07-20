@@ -8,6 +8,8 @@
 #include "drm.h"
 #include "intel_bufmgr.h"
 
+struct drm_api;
+
 /*
  * Device
  */
@@ -15,6 +17,8 @@
 struct intel_be_device
 {
 	struct pipe_winsys base;
+
+	boolean softpipe;
 
 	int fd; /**< Drm file discriptor */
 
@@ -48,13 +52,23 @@ struct intel_be_buffer {
 	unsigned flink;
 };
 
+/*
+ * Wrapper for driver get_texture_buffer functions.
+ */
+boolean
+intel_be_get_texture_buffer(struct drm_api *api,
+                            struct pipe_texture *texture,
+                            struct pipe_buffer **buffer,
+                            unsigned *stride);
+
 /**
  * Create a be buffer from a drm bo handle.
  *
  * Takes a reference.
  */
 struct pipe_buffer *
-intel_be_buffer_from_handle(struct pipe_screen *screen,
+intel_be_buffer_from_handle(struct drm_api *api,
+                            struct pipe_screen *screen,
                             const char* name, unsigned handle);
 
 /**
@@ -63,7 +77,8 @@ intel_be_buffer_from_handle(struct pipe_screen *screen,
  * If buffer is destroyed handle may become invalid.
  */
 boolean
-intel_be_handle_from_buffer(struct pipe_screen *screen,
+intel_be_handle_from_buffer(struct drm_api *api,
+                            struct pipe_screen *screen,
                             struct pipe_buffer *buffer,
                             unsigned *handle);
 
@@ -73,7 +88,8 @@ intel_be_handle_from_buffer(struct pipe_screen *screen,
  * If buffer is destroyed handle may become invalid.
  */
 boolean
-intel_be_global_handle_from_buffer(struct pipe_screen *screen,
+intel_be_global_handle_from_buffer(struct drm_api *api,
+                                   struct pipe_screen *screen,
                                    struct pipe_buffer *buffer,
                                    unsigned *handle);
 

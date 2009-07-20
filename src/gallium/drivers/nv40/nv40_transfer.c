@@ -43,7 +43,6 @@ nv40_compatible_transfer_tex(struct pipe_texture *pt, unsigned level,
 	template->nblocksx[0] = pt->nblocksx[level];
 	template->nblocksy[0] = pt->nblocksx[level];
 	template->last_level = 0;
-	template->compressed = pt->compressed;
 	template->nr_samples = pt->nr_samples;
 
 	template->tex_usage = PIPE_TEXTURE_USAGE_DYNAMIC |
@@ -137,7 +136,7 @@ nv40_transfer_new(struct pipe_screen *pscreen, struct pipe_texture *pt,
 }
 
 static void
-nv40_transfer_del(struct pipe_screen *pscreen, struct pipe_transfer *ptx)
+nv40_transfer_del(struct pipe_transfer *ptx)
 {
 	struct nv40_transfer *tx = (struct nv40_transfer *)ptx;
 

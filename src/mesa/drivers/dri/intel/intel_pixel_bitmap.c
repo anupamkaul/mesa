@@ -42,6 +42,7 @@
 #include "main/varray.h"
 #include "main/attrib.h"
 #include "main/enable.h"
+#include "main/viewport.h"
 #include "shader/arbprogram.h"
 #include "glapi/dispatch.h"
 #include "swrast/swrast.h"
@@ -194,7 +195,7 @@ do_blit_bitmap( GLcontext *ctx,
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    GLfloat tmpColor[4];
    GLubyte ubcolor[4];
-   GLuint color8888, color565;
+   GLuint color;
    unsigned int num_cliprects;
    drm_clip_rect_t *cliprects;
    int x_off, y_off;
@@ -232,8 +233,11 @@ do_blit_bitmap( GLcontext *ctx,
    UNCLAMPED_FLOAT_TO_UBYTE(ubcolor[2], tmpColor[2]);
    UNCLAMPED_FLOAT_TO_UBYTE(ubcolor[3], tmpColor[3]);
 
-   color8888 = INTEL_PACKCOLOR8888(ubcolor[0], ubcolor[1], ubcolor[2], ubcolor[3]);
-   color565 = INTEL_PACKCOLOR565(ubcolor[0], ubcolor[1], ubcolor[2]);
+   if (dst->cpp == 2)
+      color = INTEL_PACKCOLOR565(ubcolor[0], ubcolor[1], ubcolor[2]);
+   else
+      color = INTEL_PACKCOLOR8888(ubcolor[0], ubcolor[1],
+				  ubcolor[2], ubcolor[3]);
 
    if (!intel_check_blit_fragment_ops(ctx, tmpColor[3] == 1.0F))
       return GL_FALSE;
@@ -307,21 +311,21 @@ do_blit_bitmap( GLcontext *ctx,
 				   fb->Name == 0 ? GL_TRUE : GL_FALSE) == 0)
 		  continue;
 
-	       /* 
-		*/
-	       intelEmitImmediateColorExpandBlit( intel,
-						  dst->cpp,
-						  (GLubyte *)stipple, 
-						  sz,
-						  (dst->cpp == 2) ? color565 : color8888,
-						  dst->pitch,
-						  dst->buffer,
-						  0,
-						  dst->tiling,
-						  box_x + px,
-						  box_y + py,
-						  w, h,
-						  logic_op);
+	       if (!intelEmitImmediateColorExpandBlit(intel,
+						      dst->cpp,
+						      (GLubyte *)stipple,
+						      sz,
+						      color,
+						      dst->pitch,
+						      dst->buffer,
+						      0,
+						      dst->tiling,
+						      box_x + px,
+						      box_y + py,
+						      w, h,
+						      logic_op)) {
+		  return GL_FALSE;
+	       }
 	    } 
 	 } 
       }
@@ -360,7 +364,6 @@ intel_texture_bitmap(GLcontext * ctx,
       "END\n";
    GLuint texname;
    GLfloat vertices[4][4];
-   GLfloat texcoords[4][2];
    GLint old_active_texture;
    GLubyte *unpacked_bitmap;
    GLubyte *a8_bitmap;
@@ -398,6 +401,20 @@ intel_texture_bitmap(GLcontext * ctx,
    if (ctx->VertexProgram.Enabled) {
       if (INTEL_DEBUG & DEBUG_FALLBACKS)
 	 fprintf(stderr, "glBitmap fallback: vertex program enabled\n");
+      return GL_FALSE;
+   }
+
+   if (!ctx->Extensions.ARB_texture_non_power_of_two &&
+       (!is_power_of_two(width) || !is_power_of_two(height))) {
+      if (INTEL_DEBUG & DEBUG_FALLBACKS)
+	 fprintf(stderr,
+		 "glBitmap() fallback: NPOT texture\n");
+      return GL_FALSE;
+   }
+
+   if (ctx->Fog.Enabled) {
+      if (INTEL_DEBUG & DEBUG_FALLBACKS)
+	 fprintf(stderr, "glBitmap() fallback: fog\n");
       return GL_FALSE;
    }
 
@@ -459,14 +476,17 @@ intel_texture_bitmap(GLcontext * ctx,
 		    GL_ALPHA, GL_UNSIGNED_BYTE, a8_bitmap);
    _mesa_free(a8_bitmap);
 
-   intel_meta_set_fragment_program(intel, &intel->meta.bitmap_fp, fp);
+   meta_set_fragment_program(&intel->meta, &intel->meta.bitmap_fp, fp);
    _mesa_ProgramLocalParameter4fvARB(GL_FRAGMENT_PROGRAM_ARB, 0,
 				     ctx->Current.RasterColor);
-   intel_meta_set_passthrough_vertex_program(intel);
-   intel_meta_set_passthrough_transform(intel);
+   meta_set_passthrough_vertex_program(&intel->meta);
+   meta_set_passthrough_transform(&intel->meta);
 
    /* convert rasterpos Z from [0,1] to NDC coord in [-1,1] */
    dst_z = -1.0 + 2.0 * ctx->Current.RasterPos[2];
+
+   /* RasterPos[2] already takes into account the DepthRange mapping. */
+   _mesa_DepthRange(0.0, 1.0);
 
    vertices[0][0] = dst_x;
    vertices[0][1] = dst_y;
@@ -485,25 +505,15 @@ intel_texture_bitmap(GLcontext * ctx,
    vertices[3][2] = dst_z;
    vertices[3][3] = 1.0;
 
-   texcoords[0][0] = 0.0;
-   texcoords[0][1] = 0.0;
-   texcoords[1][0] = 1.0;
-   texcoords[1][1] = 0.0;
-   texcoords[2][0] = 1.0;
-   texcoords[2][1] = 1.0;
-   texcoords[3][0] = 0.0;
-   texcoords[3][1] = 1.0;
-
    _mesa_VertexPointer(4, GL_FLOAT, 4 * sizeof(GLfloat), &vertices);
-   _mesa_ClientActiveTextureARB(GL_TEXTURE0);
-   _mesa_TexCoordPointer(2, GL_FLOAT, 2 * sizeof(GLfloat), &texcoords);
    _mesa_Enable(GL_VERTEX_ARRAY);
-   _mesa_Enable(GL_TEXTURE_COORD_ARRAY);
-   CALL_DrawArrays(ctx->Exec, (GL_TRIANGLE_FAN, 0, 4));
+   meta_set_default_texrect(&intel->meta);
+   _mesa_DrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
-   intel_meta_restore_transform(intel);
-   intel_meta_restore_fragment_program(intel);
-   intel_meta_restore_vertex_program(intel);
+   meta_restore_texcoords(&intel->meta);
+   meta_restore_transform(&intel->meta);
+   meta_restore_fragment_program(&intel->meta);
+   meta_restore_vertex_program(&intel->meta);
 
    _mesa_PopClientAttrib();
    _mesa_Disable(GL_TEXTURE_2D); /* asserted that it was disabled at entry */

@@ -45,6 +45,7 @@
 #include "main/depth.h"
 #include "main/hash.h"
 #include "main/blend.h"
+#include "main/viewport.h"
 #include "glapi/dispatch.h"
 #include "swrast/swrast.h"
 
@@ -70,7 +71,6 @@ intel_texture_drawpixels(GLcontext * ctx,
    struct intel_context *intel = intel_context(ctx);
    GLuint texname;
    GLfloat vertices[4][4];
-   GLfloat texcoords[4][2];
    GLfloat z;
    GLint old_active_texture;
    GLenum internalFormat;
@@ -97,7 +97,7 @@ intel_texture_drawpixels(GLcontext * ctx,
    /* We don't have a way to generate fragments with stencil values which
     * will set the resulting stencil value.
     */
-   if (format == GL_STENCIL_INDEX)
+   if (format == GL_STENCIL_INDEX || format == GL_DEPTH_STENCIL)
       return GL_FALSE;
 
    /* Check that we can load in a texture this big. */
@@ -120,8 +120,16 @@ intel_texture_drawpixels(GLcontext * ctx,
       return GL_FALSE;
    }
 
+   if (!ctx->Extensions.ARB_texture_non_power_of_two &&
+       (!is_power_of_two(width) || !is_power_of_two(height))) {
+      if (INTEL_DEBUG & DEBUG_FALLBACKS)
+	 fprintf(stderr,
+		 "glDrawPixels() fallback: NPOT texture\n");
+      return GL_FALSE;
+   }
+
    _mesa_PushAttrib(GL_ENABLE_BIT | GL_TEXTURE_BIT |
-		    GL_CURRENT_BIT);
+		    GL_CURRENT_BIT | GL_VIEWPORT_BIT);
    _mesa_PushClientAttrib(GL_CLIENT_VERTEX_ARRAY_BIT);
 
    /* XXX: pixel store stuff */
@@ -142,10 +150,13 @@ intel_texture_drawpixels(GLcontext * ctx,
    _mesa_TexImage2D(GL_TEXTURE_2D, 0, internalFormat, width, height, 0, format,
 		    type, pixels);
 
-   intel_meta_set_passthrough_transform(intel);
+   meta_set_passthrough_transform(&intel->meta);
 
    /* convert rasterpos Z from [0,1] to NDC coord in [-1,1] */
    z = -1.0 + 2.0 * ctx->Current.RasterPos[2];
+
+   /* RasterPos[2] already takes into account the DepthRange mapping. */
+   _mesa_DepthRange(0.0, 1.0);
 
    /* Create the vertex buffer based on the current raster pos.  The x and y
     * we're handed are ctx->Current.RasterPos[0,1] rounded to integers.
@@ -169,23 +180,14 @@ intel_texture_drawpixels(GLcontext * ctx,
    vertices[3][2] = z;
    vertices[3][3] = 1.0;
 
-   texcoords[0][0] = 0.0;
-   texcoords[0][1] = 0.0;
-   texcoords[1][0] = 1.0;
-   texcoords[1][1] = 0.0;
-   texcoords[2][0] = 1.0;
-   texcoords[2][1] = 1.0;
-   texcoords[3][0] = 0.0;
-   texcoords[3][1] = 1.0;
-
    _mesa_VertexPointer(4, GL_FLOAT, 4 * sizeof(GLfloat), &vertices);
-   _mesa_ClientActiveTextureARB(GL_TEXTURE0);
-   _mesa_TexCoordPointer(2, GL_FLOAT, 2 * sizeof(GLfloat), &texcoords);
    _mesa_Enable(GL_VERTEX_ARRAY);
-   _mesa_Enable(GL_TEXTURE_COORD_ARRAY);
-   CALL_DrawArrays(ctx->Exec, (GL_TRIANGLE_FAN, 0, 4));
+   meta_set_default_texrect(&intel->meta);
 
-   intel_meta_restore_transform(intel);
+   _mesa_DrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+   meta_restore_texcoords(&intel->meta);
+   meta_restore_transform(&intel->meta);
 
    _mesa_ActiveTextureARB(GL_TEXTURE0_ARB + old_active_texture);
    _mesa_PopClientAttrib();
@@ -208,14 +210,14 @@ intel_stencil_drawpixels(GLcontext * ctx,
    struct intel_context *intel = intel_context(ctx);
    GLuint texname, rb_name, fb_name, old_fb_name;
    GLfloat vertices[4][2];
-   GLfloat texcoords[4][2];
    struct intel_renderbuffer *irb;
    struct intel_renderbuffer *depth_irb;
    struct gl_renderbuffer *rb;
    struct gl_pixelstore_attrib old_unpack;
    GLstencil *stencil_pixels;
-   int row;
+   int row, y1, y2;
    GLint old_active_texture;
+   GLboolean rendering_to_fbo = ctx->DrawBuffer->Name != 0;
 
    if (format != GL_STENCIL_INDEX)
       return GL_FALSE;
@@ -270,6 +272,14 @@ intel_stencil_drawpixels(GLcontext * ctx,
 	 fprintf(stderr, "glDrawPixels(STENCIL_INDEX) fallback: "
 		 "bitmap too large (%dx%d)\n",
 		 width, height);
+      return GL_FALSE;
+   }
+
+   if (!ctx->Extensions.ARB_texture_non_power_of_two &&
+       (!is_power_of_two(width) || !is_power_of_two(height))) {
+      if (INTEL_DEBUG & DEBUG_FALLBACKS)
+	 fprintf(stderr,
+		 "glDrawPixels(GL_STENCIL_INDEX) fallback: NPOT texture\n");
       return GL_FALSE;
    }
 
@@ -342,34 +352,35 @@ intel_stencil_drawpixels(GLcontext * ctx,
    ctx->Unpack = old_unpack;
    _mesa_free(stencil_pixels);
 
-   intel_meta_set_passthrough_transform(intel);
+   meta_set_passthrough_transform(&intel->meta);
 
+   /* Since we're rendering to the framebuffer as if it was an FBO,
+    * if it's the window system we have to flip the coordinates.
+    */
+   if (rendering_to_fbo) {
+      y1 = y;
+      y2 = y + height * ctx->Pixel.ZoomY;
+   } else {
+      y1 = irb->Base.Height - (y + height * ctx->Pixel.ZoomY);
+      y2 = irb->Base.Height - y;
+   }
    vertices[0][0] = x;
-   vertices[0][1] = y;
+   vertices[0][1] = y1;
    vertices[1][0] = x + width * ctx->Pixel.ZoomX;
-   vertices[1][1] = y;
+   vertices[1][1] = y1;
    vertices[2][0] = x + width * ctx->Pixel.ZoomX;
-   vertices[2][1] = y + height * ctx->Pixel.ZoomY;
+   vertices[2][1] = y2;
    vertices[3][0] = x;
-   vertices[3][1] = y + height * ctx->Pixel.ZoomY;
-
-   texcoords[0][0] = 0.0;
-   texcoords[0][1] = 0.0;
-   texcoords[1][0] = 1.0;
-   texcoords[1][1] = 0.0;
-   texcoords[2][0] = 1.0;
-   texcoords[2][1] = 1.0;
-   texcoords[3][0] = 0.0;
-   texcoords[3][1] = 1.0;
+   vertices[3][1] = y2;
 
    _mesa_VertexPointer(2, GL_FLOAT, 2 * sizeof(GLfloat), &vertices);
-   _mesa_ClientActiveTextureARB(GL_TEXTURE0);
-   _mesa_TexCoordPointer(2, GL_FLOAT, 2 * sizeof(GLfloat), &texcoords);
    _mesa_Enable(GL_VERTEX_ARRAY);
-   _mesa_Enable(GL_TEXTURE_COORD_ARRAY);
-   CALL_DrawArrays(ctx->Exec, (GL_TRIANGLE_FAN, 0, 4));
+   meta_set_default_texrect(&intel->meta);
 
-   intel_meta_restore_transform(intel);
+   _mesa_DrawArrays(GL_TRIANGLE_FAN, 0, 4);
+
+   meta_restore_texcoords(&intel->meta);
+   meta_restore_transform(&intel->meta);
 
    _mesa_ActiveTextureARB(GL_TEXTURE0_ARB + old_active_texture);
    _mesa_BindFramebufferEXT(GL_FRAMEBUFFER_EXT, old_fb_name);

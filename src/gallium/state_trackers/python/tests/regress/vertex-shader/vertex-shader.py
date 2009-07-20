@@ -112,7 +112,7 @@ def test(dev, name):
 
     # framebuffer
     cbuf = dev.texture_create(
-        PIPE_FORMAT_X8R8G8B8_UNORM, 
+        PIPE_FORMAT_X8R8G8B8_UNORM,
         width, height,
         tex_usage=PIPE_TEXTURE_USAGE_DISPLAY_TARGET,
     ).get_surface()
@@ -122,7 +122,12 @@ def test(dev, name):
     fb.nr_cbufs = 1
     fb.set_cbuf(0, cbuf)
     ctx.set_framebuffer(fb)
-    ctx.surface_clear(cbuf, 0x80808080)
+    rgba = FloatArray(4);
+    rgba[0] = 0.5
+    rgba[1] = 0.5
+    rgba[2] = 0.5
+    rgba[3] = 0.5
+    ctx.clear(PIPE_CLEAR_COLOR, rgba, 0.0, 0)
 
     # vertex shader
     vs = Shader(file('vert-' + name + '.sh', 'rt').read())
@@ -206,10 +211,13 @@ def main():
     tests = [
         'abs',
         'add',
+        'arl',
+        'arr',
         'dp3',
         'dp4',
         'dst',
         'ex2',
+        'flr',
         'frc',
         'lg2',
         'lit',
@@ -223,28 +231,17 @@ def main():
         'rsq',
         'sge',
         'slt',
+        'srcmod-abs',
+        'srcmod-absneg',
+        'srcmod-neg',
+        'srcmod-swz',
         'sub',
         'xpd',
     ]
-    
-    html = '''<html>
-<head>
-<link rel=\"stylesheet\" type=\"text/css\" media=\"screen\" href=\"screen.css\">
-</head>
-<body>
-<div class=\"main\">
-<h2>regression tests for <span style=\"color: #FF8000\">vertex</span> shader</h2>
-<table><tbody>
-'''
 
     dev = Device()
     for t in tests:
         test(dev, t)
-        html += '<tr><td width=\"300px\">' + t + '</td>'
-        html += '<td><img src=\"vert-' + t + '.png\"></img></td></tr>\n'
-
-    html += '</tbody></table>\n</body>\n</html>\n'
-    file('vertex-shader.htm', 'wt').write(html)
 
 if __name__ == '__main__':
     main()

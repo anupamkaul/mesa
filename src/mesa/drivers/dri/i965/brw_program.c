@@ -95,6 +95,12 @@ static struct gl_program *brwNewProgram( GLcontext *ctx,
 static void brwDeleteProgram( GLcontext *ctx,
 			      struct gl_program *prog )
 {
+   if (prog->Target == GL_FRAGMENT_PROGRAM_ARB) {
+      struct gl_fragment_program *fprog = (struct gl_fragment_program *) prog;
+      struct brw_fragment_program *brw_fprog = brw_fragment_program(fprog);
+      dri_bo_unreference(brw_fprog->const_buffer);
+   }
+
    _mesa_delete_program( ctx, prog );
 }
 
@@ -111,6 +117,7 @@ static void brwProgramStringNotify( GLcontext *ctx,
 				    struct gl_program *prog )
 {
    struct brw_context *brw = brw_context(ctx);
+
    if (target == GL_FRAGMENT_PROGRAM_ARB) {
       struct gl_fragment_program *fprog = (struct gl_fragment_program *) prog;
       struct brw_fragment_program *newFP = brw_fragment_program(fprog);

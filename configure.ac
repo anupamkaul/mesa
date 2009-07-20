@@ -5,12 +5,8 @@ AC_PREREQ([2.59])
 dnl Versioning - scrape the version from configs/default
 m4_define([mesa_version],
     [m4_esyscmd([${MAKE-make} -s -f bin/version.mk version | tr -d '\n'])])
-m4_ifval(mesa_version,[],[
-    m4_errprint([Error: Failed to get the Mesa version from the output of
-       running `make -f bin/version.mk version'
-])
-    m4_exit([1])
-])
+m4_ifval(mesa_version,,
+    [m4_fatal([Failed to get the Mesa version from `make -f bin/version.mk version`])])
 
 dnl Tell the user about autoconf.html in the --help output
 m4_divert_once([HELP_END], [
@@ -32,6 +28,11 @@ AC_PROG_CXX
 AC_CHECK_PROGS([MAKE], [gmake make])
 AC_PATH_PROG([MKDEP], [makedepend])
 AC_PATH_PROG([SED], [sed])
+
+dnl Our fallback install-sh is a symlink to minstall. Use the existing
+dnl configuration in that case.
+AC_PROG_INSTALL
+test "x$INSTALL" = "x$ac_install_sh" && INSTALL='$(MINSTALL)'
 
 dnl We need a POSIX shell for parts of the build. Assume we have one
 dnl in most cases.
@@ -58,15 +59,11 @@ fi
 AC_SUBST([MKDEP_OPTIONS])
 
 dnl Make sure the pkg-config macros are defined
-m4_ifdef([PKG_PROG_PKG_CONFIG],[],[
-    m4_errprint([Error: Could not locate the pkg-config autoconf macros.
-       These are usually located in /usr/share/aclocal/pkg.m4. If your
-       macros are in a different location, try setting the environment
-       variable ACLOCAL="aclocal -I/other/macro/dir" before running
-       autoreconf.
-])
-    m4_exit([1])
-])
+m4_ifndef([PKG_PROG_PKG_CONFIG],
+    [m4_fatal([Could not locate the pkg-config autoconf macros.
+  These are usually located in /usr/share/aclocal/pkg.m4. If your macros
+  are in a different location, try setting the environment variable
+  ACLOCAL="aclocal -I/other/macro/dir" before running autoreconf.])])
 PKG_PROG_PKG_CONFIG()
 
 dnl LIB_DIR - library basename
@@ -87,7 +84,7 @@ dnl Compiler macros
 DEFINES=""
 AC_SUBST([DEFINES])
 case "$host_os" in
-linux*|*-gnu*)
+linux*|*-gnu*|gnu*)
     DEFINES="$DEFINES -D_GNU_SOURCE -DPTHREADS"
     ;;
 solaris*)
@@ -230,6 +227,8 @@ else
     case "$host_os" in
     darwin* )
         LIB_EXTENSION='dylib' ;;
+    cygwin* )
+        LIB_EXTENSION='dll' ;;
     * )
         LIB_EXTENSION='so' ;;
     esac
@@ -389,7 +388,7 @@ linux*)
     ;;
 *freebsd* | dragonfly*)
     case "$host_cpu" in
-    i*86|x86_64) default_driver="dri";;
+    i*86|x86_64|powerpc*|sparc*) default_driver="dri";;
     esac
     ;;
 esac
@@ -411,25 +410,26 @@ esac
 dnl
 dnl Driver specific build directories
 dnl
-SRC_DIRS="mesa egl glew"
+SRC_DIRS="mesa glew"
 GLU_DIRS="sgi"
 WINDOW_SYSTEM=""
 GALLIUM_DIRS="auxiliary drivers state_trackers"
 GALLIUM_WINSYS_DIRS=""
 GALLIUM_WINSYS_DRM_DIRS=""
-GALLIUM_AUXILIARY_DIRS="draw translate cso_cache pipebuffer tgsi sct rtasm util"
-GALLIUM_DRIVERS_DIRS="softpipe failover trace"
+GALLIUM_AUXILIARY_DIRS="rbug draw translate cso_cache pipebuffer tgsi sct rtasm util indices"
+GALLIUM_DRIVERS_DIRS="softpipe failover trace identity"
 GALLIUM_STATE_TRACKERS_DIRS=""
 
 case "$mesa_driver" in
 xlib)
     DRIVER_DIRS="x11"
+    GALLIUM_WINSYS_DIRS="$GALLIUM_WINSYS_DIRS xlib"
     ;;
 dri)
     SRC_DIRS="glx/x11 $SRC_DIRS"
     DRIVER_DIRS="dri"
     WINDOW_SYSTEM="dri"
-    GALLIUM_WINSYS_DIRS="drm $GALLIUM_WINSYS_DIRS"
+    GALLIUM_WINSYS_DIRS="$GALLIUM_WINSYS_DIRS drm"
     ;;
 osmesa)
     DRIVER_DIRS="osmesa"
@@ -445,6 +445,8 @@ AC_SUBST([GALLIUM_WINSYS_DRM_DIRS])
 AC_SUBST([GALLIUM_DRIVERS_DIRS])
 AC_SUBST([GALLIUM_AUXILIARY_DIRS])
 AC_SUBST([GALLIUM_STATE_TRACKERS_DIRS])
+AC_SUBST([RADEON_CFLAGS])
+AC_SUBST([RADEON_LDFLAGS])
 
 dnl
 dnl User supplied program configuration
@@ -572,6 +574,13 @@ dri)
     GL_PC_REQ_PRIV="libdrm >= $LIBDRM_REQUIRED dri2proto >= $DRI2PROTO_REQUIRED"
     DRI_PC_REQ_PRIV="libdrm >= $LIBDRM_REQUIRED"
 
+    PKG_CHECK_MODULES([LIBDRM_RADEON], [libdrm_radeon], HAVE_LIBDRM_RADEON=yes, HAVE_LIBDRM_RADEON=no)
+
+    if test "$HAVE_LIBDRM_RADEON" = yes; then
+	RADEON_CFLAGS="-DHAVE_LIBDRM_RADEON=1 $LIBDRM_RADEON_CFLAGS"
+	RADEON_LDFLAGS=$LIBDRM_RADEON_LIBS
+    fi
+
     # find the DRI deps for libGL
     if test "$x11_pkgconfig" = yes; then
         # add xcb modules if necessary
@@ -647,7 +656,7 @@ dnl Which drivers to build - default is chosen by platform
 AC_ARG_WITH([dri-drivers],
     [AS_HELP_STRING([--with-dri-drivers@<:@=DIRS...@:>@],
         [comma delimited DRI drivers list, e.g.
-        "swrast,i965,radeon,nouveau" @<:@default=auto@:>@])],
+        "swrast,i965,radeon" @<:@default=auto@:>@])],
     [with_dri_drivers="$withval"],
     [with_dri_drivers=yes])
 if test "x$with_dri_drivers" = x; then
@@ -704,7 +713,7 @@ if test "$mesa_driver" = dri; then
             # because there is no x86-64 system where they could *ever*
             # be used.
             if test "x$DRI_DIRS" = "xyes"; then
-                DRI_DIRS="i915 i965 mach64 mga r128 r200 r300 radeon \
+                DRI_DIRS="i915 i965 mach64 mga r128 r200 r300 r600 radeon \
                     savage tdfx unichrome swrast"
             fi
             ;;
@@ -712,13 +721,13 @@ if test "$mesa_driver" = dri; then
             # Build only the drivers for cards that exist on PowerPC.
             # At some point MGA will be added, but not yet.
             if test "x$DRI_DIRS" = "xyes"; then
-                DRI_DIRS="mach64 r128 r200 r300 radeon tdfx swrast"
+                DRI_DIRS="mach64 r128 r200 r300 r600 radeon tdfx swrast"
             fi
             ;;
         sparc*)
             # Build only the drivers for cards that exist on sparc`
             if test "x$DRI_DIRS" = "xyes"; then
-                DRI_DIRS="mach64 r128 r200 r300 radeon ffb swrast"
+                DRI_DIRS="mach64 r128 r200 r300 r600 radeon ffb swrast"
             fi
             ;;
         esac
@@ -737,10 +746,14 @@ if test "$mesa_driver" = dri; then
         # ffb and gamma are missing because they have not been converted
         # to use the new interface.
         if test "x$DRI_DIRS" = "xyes"; then
-            DRI_DIRS="i810 i915 i965 mach64 mga r128 r200 r300 radeon tdfx \
+            DRI_DIRS="i810 i915 i965 mach64 mga r128 r200 r300 r600 radeon tdfx \
                 unichrome savage sis swrast"
         fi
         ;;
+    gnu*)
+        DEFINES="$DEFINES -DUSE_EXTERNAL_DXTN_LIB=1 -DIN_DRI_DRIVER"
+        DEFINES="$DEFINES -DGLX_INDIRECT_RENDERING -DHAVE_ALIAS"
+	;;
     solaris*)
         DEFINES="$DEFINES -DUSE_EXTERNAL_DXTN_LIB=1 -DIN_DRI_DRIVER"
         DEFINES="$DEFINES -DGLX_INDIRECT_RENDERING"
@@ -752,7 +765,7 @@ if test "$mesa_driver" = dri; then
 
     # default drivers
     if test "x$DRI_DIRS" = "xyes"; then
-        DRI_DIRS="i810 i915 i965 mach64 mga r128 r200 r300 radeon s3v \
+        DRI_DIRS="i810 i915 i965 mach64 mga r128 r200 r300 r600 radeon s3v \
             savage sis tdfx trident unichrome ffb swrast"
     fi
 
@@ -829,12 +842,12 @@ case "$mesa_driver" in
 osmesa)
     # only link libraries with osmesa if shared
     if test "$enable_static" = no; then
-        OSMESA_LIB_DEPS="-lm -lpthread $SELINUX_LIBS"
+        OSMESA_LIB_DEPS="-lm -lpthread $SELINUX_LIBS $DLOPEN_LIBS"
     else
         OSMESA_LIB_DEPS=""
     fi
     OSMESA_MESA_DEPS=""
-    OSMESA_PC_LIB_PRIV="-lm -lpthread $SELINUX_LIBS"
+    OSMESA_PC_LIB_PRIV="-lm -lpthread $SELINUX_LIBS $DLOPEN_LIBS"
     ;;
 *)
     # Link OSMesa to libGL otherwise
@@ -848,9 +861,6 @@ osmesa)
     OSMESA_PC_REQ="gl"
     ;;
 esac
-if test "$enable_static" = no; then
-    OSMESA_LIB_DEPS="$OSMESA_LIB_DEPS"
-fi
 OSMESA_PC_LIB_PRIV="$OSMESA_PC_LIB_PRIV"
 AC_SUBST([OSMESA_LIB_DEPS])
 AC_SUBST([OSMESA_MESA_DEPS])
@@ -860,14 +870,23 @@ AC_SUBST([OSMESA_PC_LIB_PRIV])
 dnl
 dnl EGL configuration
 dnl
-if test "$x11_pkgconfig" = yes; then
-    PKG_CHECK_MODULES([EGL],[x11])
-    EGL_LIB_DEPS="$EGL_LIBS"
-else
-    # should check these...
-    EGL_LIB_DEPS="$X_LIBS -lX11"
+AC_ARG_ENABLE([egl],
+    [AS_HELP_STRING([--disable-egl],
+        [disable EGL library @<:@default=enabled@:>@])],
+    [enable_egl="$enableval"],
+    [enable_egl=yes])
+if test "x$enable_egl" = xyes; then
+    SRC_DIRS="$SRC_DIRS egl"
+
+    if test "$x11_pkgconfig" = yes; then
+        PKG_CHECK_MODULES([EGL], [x11])
+        EGL_LIB_DEPS="$EGL_LIBS"
+    else
+        # should check these...
+        EGL_LIB_DEPS="$X_LIBS -lX11"
+    fi
+    EGL_LIB_DEPS="$EGL_LIB_DEPS $DLOPEN_LIBS"
 fi
-EGL_LIB_DEPS="$EGL_LIB_DEPS $DLOPEN_LIBS"
 AC_SUBST([EGL_LIB_DEPS])
 
 dnl
@@ -1070,6 +1089,9 @@ if test "x$APP_LIB_DEPS" = x; then
     solaris*)
         APP_LIB_DEPS="-lX11 -lsocket -lnsl -lm"
         ;;
+    cygwin*)
+        APP_LIB_DEPS="-lX11"
+        ;;
     *)
         APP_LIB_DEPS="-lm"
         ;;
@@ -1107,8 +1129,11 @@ no)
 yes)
     # look at what else is built
     case "$mesa_driver" in
+    xlib)
+        GALLIUM_STATE_TRACKERS_DIRS=glx
+        ;;
     dri)
-        GALLIUM_STATE_TRACKERS_DIRS=egl
+        test "x$enable_egl" = xyes && GALLIUM_STATE_TRACKERS_DIRS=egl
         ;;
     esac
     ;;
@@ -1118,6 +1143,10 @@ yes)
     for tracker in $state_trackers; do
         test -d "$srcdir/src/gallium/state_trackers/$tracker" || \
             AC_MSG_ERROR([state tracker '$tracker' doesn't exist])
+
+        if test "$tracker" = egl && test "x$enable_egl" != xyes; then
+            AC_MSG_ERROR([cannot build egl state tracker without EGL library])
+        fi
     done
     GALLIUM_STATE_TRACKERS_DIRS="$state_trackers"
     ;;
@@ -1166,7 +1195,7 @@ AC_ARG_ENABLE([gallium-nouveau],
     [enable_gallium_nouveau=no])
 if test "x$enable_gallium_nouveau" = xyes; then
     GALLIUM_WINSYS_DRM_DIRS="$GALLIUM_WINSYS_DRM_DIRS nouveau"
-    GALLIUM_DRIVERS_DIRS="$GALLIUM_DRIVERS_DIRS nv04 nv10 nv20 nv30 nv40 nv50"
+    GALLIUM_DRIVERS_DIRS="$GALLIUM_DRIVERS_DIRS nouveau nv04 nv10 nv20 nv30 nv40 nv50"
 fi
 
 
@@ -1233,6 +1262,7 @@ dnl Libraries
 echo ""
 echo "        Shared libs:     $enable_shared"
 echo "        Static libs:     $enable_static"
+echo "        EGL:             $enable_egl"
 echo "        GLU:             $enable_glu"
 echo "        GLw:             $enable_glw (Motif: $enable_motif)"
 echo "        glut:            $enable_glut"

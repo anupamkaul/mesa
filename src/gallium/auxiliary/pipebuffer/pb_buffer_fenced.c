@@ -65,11 +65,11 @@ struct fenced_buffer_list
    
    struct pb_fence_ops *ops;
    
-   size_t numDelayed;
+   pb_size numDelayed;
    struct list_head delayed;
    
 #ifdef DEBUG
-   size_t numUnfenced;
+   pb_size numUnfenced;
    struct list_head unfenced;
 #endif
 };
@@ -365,21 +365,22 @@ fenced_buffer_validate(struct pb_buffer *buf,
    if(fenced_buf->vl && fenced_buf->vl != vl)
       return PIPE_ERROR_RETRY;
    
+#if 0
    /* Do not validate if buffer is still mapped */
    if(fenced_buf->flags & PIPE_BUFFER_USAGE_CPU_READ_WRITE) {
       /* TODO: wait for the thread that mapped the buffer to unmap it */
       return PIPE_ERROR_RETRY;
    }
+   /* Final sanity checking */
+   assert(!(fenced_buf->flags & PIPE_BUFFER_USAGE_CPU_READ_WRITE));
+   assert(!fenced_buf->mapcount);
+#endif
 
    if(fenced_buf->vl == vl &&
       (fenced_buf->validation_flags & flags) == flags) {
       /* Nothing to do -- buffer already validated */
       return PIPE_OK;
    }
-
-   /* Final sanity checking */
-   assert(!(fenced_buf->flags & PIPE_BUFFER_USAGE_CPU_READ_WRITE));
-   assert(!fenced_buf->mapcount);
    
    ret = pb_validate(fenced_buf->buffer, vl, flags);
    if (ret != PIPE_OK)
@@ -432,7 +433,7 @@ fenced_buffer_fence(struct pb_buffer *buf,
 static void
 fenced_buffer_get_base_buffer(struct pb_buffer *buf,
                               struct pb_buffer **base_buf,
-                              unsigned *offset)
+                              pb_size *offset)
 {
    struct fenced_buffer *fenced_buf = fenced_buffer(buf);
    pb_get_base_buffer(fenced_buf->buffer, base_buf, offset);
@@ -530,16 +531,17 @@ fenced_buffer_list_dump(struct fenced_buffer_list *fenced_list)
 
    pipe_mutex_lock(fenced_list->mutex);
 
-   debug_printf("%10s %7s %10s %s\n",
-                "buffer", "reference.count", "fence", "signalled");
+   debug_printf("%10s %7s %7s %10s %s\n",
+                "buffer", "size", "refcount", "fence", "signalled");
    
    curr = fenced_list->unfenced.next;
    next = curr->next;
    while(curr != &fenced_list->unfenced) {
       fenced_buf = LIST_ENTRY(struct fenced_buffer, curr, head);
       assert(!fenced_buf->fence);
-      debug_printf("%10p %7u\n",
+      debug_printf("%10p %7u %7u\n",
                    fenced_buf,
+                   fenced_buf->base.base.size,
                    fenced_buf->base.base.reference.count);
       curr = next; 
       next = curr->next;
@@ -551,8 +553,9 @@ fenced_buffer_list_dump(struct fenced_buffer_list *fenced_list)
       int signaled;
       fenced_buf = LIST_ENTRY(struct fenced_buffer, curr, head);
       signaled = ops->fence_signalled(ops, fenced_buf->fence, 0);
-      debug_printf("%10p %7u %10p %s\n",
+      debug_printf("%10p %7u %7u %10p %s\n",
                    fenced_buf,
+                   fenced_buf->base.base.size,
                    fenced_buf->base.base.reference.count,
                    fenced_buf->fence,
                    signaled == 0 ? "y" : "n");

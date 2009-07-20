@@ -87,7 +87,7 @@ struct pipe_screen {
     * Check if the given pipe_format is supported as a texture or
     * drawing surface.
     * \param tex_usage  bitmask of PIPE_TEXTURE_USAGE_*
-    * \param flags  bitmask of PIPE_TEXTURE_GEOM_*
+    * \param geom_flags  bitmask of PIPE_TEXTURE_GEOM_*
     */
    boolean (*is_format_supported)( struct pipe_screen *,
                                    enum pipe_format format,
@@ -102,7 +102,7 @@ struct pipe_screen {
                                            const struct pipe_texture *templat);
 
    /**
-    * Create a new texture object, using the given template info, but on top of 
+    * Create a new texture object, using the given template info, but on top of
     * existing memory.
     * 
     * It is assumed that the buffer data is layed out according to the expected
@@ -144,8 +144,10 @@ struct pipe_screen {
 
 
    /**
-    * Buffer management. Buffer attributes are mostly fixed over its lifetime.
-    *
+    * Create a new buffer.
+    * \param alignment  buffer start address alignment in bytes
+    * \param usage  bitmask of PIPE_BUFFER_USAGE_x
+    * \param size  size in bytes
     */
    struct pipe_buffer *(*buffer_create)( struct pipe_screen *screen,
                                          unsigned alignment,
@@ -219,23 +221,31 @@ struct pipe_screen {
    /**
     * Notify a range that was actually written into.
     * 
+    * Can only be used if the buffer was mapped with the 
+    * PIPE_BUFFER_USAGE_CPU_WRITE and PIPE_BUFFER_USAGE_FLUSH_EXPLICIT flags 
+    * set.
+    * 
     * The range is relative to the buffer start, regardless of the range 
     * specified to buffer_map_range. This is different from the 
     * ARB_map_buffer_range semantics because we don't forbid multiple mappings 
     * of the same buffer (yet).
     * 
-    * If the buffer was mapped for writing and no buffer_flush_mapped_range 
-    * call was done until the buffer_unmap is called then the pipe driver will
-    * assumed that the whole buffer was written. This is for backward 
-    * compatibility purposes and may affect performance -- the state tracker 
-    * should always specify exactly what got written while the buffer was 
-    * mapped.  
     */
    void (*buffer_flush_mapped_range)( struct pipe_screen *screen,
                                       struct pipe_buffer *buf,
                                       unsigned offset,
                                       unsigned length);
 
+   /**
+    * Unmap buffer.
+    * 
+    * If the buffer was mapped with PIPE_BUFFER_USAGE_CPU_WRITE flag but not
+    * PIPE_BUFFER_USAGE_FLUSH_EXPLICIT then the pipe driver will
+    * assume that the whole buffer was written. This is mostly for backward 
+    * compatibility purposes and may affect performance -- the state tracker 
+    * should always specify exactly what got written while the buffer was 
+    * mapped.
+    */
    void (*buffer_unmap)( struct pipe_screen *screen,
                          struct pipe_buffer *buf );
 
@@ -264,7 +274,7 @@ struct pipe_screen {
     */
    int (*fence_signalled)( struct pipe_screen *screen,
                            struct pipe_fence_handle *fence,
-                           unsigned flag );
+                           unsigned flags );
 
    /**
     * Wait for the fence to finish.
@@ -273,7 +283,7 @@ struct pipe_screen {
     */
    int (*fence_finish)( struct pipe_screen *screen,
                         struct pipe_fence_handle *fence,
-                        unsigned flag );
+                        unsigned flags );
 
 };
 

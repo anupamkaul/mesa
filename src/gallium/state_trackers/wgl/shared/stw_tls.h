@@ -28,11 +28,11 @@
 #ifndef STW_TLS_H
 #define STW_TLS_H
 
+#include <windows.h>
+
 struct stw_tls_data
 {
-   uint currentPixelFormat;
-   HDC currentDC;
-   UINT_PTR currentGLRC;
+   HHOOK hCallWndProcHook;
 };
 
 boolean
@@ -49,5 +49,11 @@ stw_tls_cleanup(void);
 
 struct stw_tls_data *
 stw_tls_get_data(void);
+
+LRESULT CALLBACK
+stw_call_window_proc(
+   int nCode,
+   WPARAM wParam,
+   LPARAM lParam );
 
 #endif /* STW_TLS_H */

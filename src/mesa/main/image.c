@@ -1,8 +1,9 @@
 /*
  * Mesa 3-D graphics library
- * Version:  7.1
+ * Version:  7.5
  *
  * Copyright (C) 1999-2008  Brian Paul   All Rights Reserved.
+ * Copyright (C) 2009  VMware, Inc.  All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -181,6 +182,8 @@ _mesa_sizeof_type( GLenum type )
 	 return sizeof(GLint);
       case GL_FLOAT:
 	 return sizeof(GLfloat);
+      case GL_DOUBLE:
+	 return sizeof(GLdouble);
       case GL_HALF_FLOAT_ARB:
 	 return sizeof(GLhalfARB);
       default:
@@ -755,12 +758,20 @@ _mesa_image_image_stride( const struct gl_pixelstore_attrib *packing,
                           GLint width, GLint height,
                           GLenum format, GLenum type )
 {
-   ASSERT(packing);
-   ASSERT(type != GL_BITMAP);
+   GLint bytesPerRow, bytesPerImage, remainder;
 
-   {
+   ASSERT(packing);
+
+   if (type == GL_BITMAP) {
+      if (packing->RowLength == 0) {
+         bytesPerRow = (width + 7) / 8;
+      }
+      else {
+         bytesPerRow = (packing->RowLength + 7) / 8;
+      }
+   }
+   else {
       const GLint bytesPerPixel = _mesa_bytes_per_pixel(format, type);
-      GLint bytesPerRow, bytesPerImage, remainder;
 
       if (bytesPerPixel <= 0)
          return -1;  /* error */
@@ -770,17 +781,18 @@ _mesa_image_image_stride( const struct gl_pixelstore_attrib *packing,
       else {
          bytesPerRow = bytesPerPixel * packing->RowLength;
       }
-      remainder = bytesPerRow % packing->Alignment;
-      if (remainder > 0)
-         bytesPerRow += (packing->Alignment - remainder);
-
-      if (packing->ImageHeight == 0)
-         bytesPerImage = bytesPerRow * height;
-      else
-         bytesPerImage = bytesPerRow * packing->ImageHeight;
-
-      return bytesPerImage;
    }
+
+   remainder = bytesPerRow % packing->Alignment;
+   if (remainder > 0)
+      bytesPerRow += (packing->Alignment - remainder);
+
+   if (packing->ImageHeight == 0)
+      bytesPerImage = bytesPerRow * height;
+   else
+      bytesPerImage = bytesPerRow * packing->ImageHeight;
+
+   return bytesPerImage;
 }
 
 
@@ -1677,7 +1689,6 @@ _mesa_apply_stencil_transfer_ops(const GLcontext *ctx, GLuint n,
  * Used to pack an array [][4] of RGBA float colors as specified
  * by the dstFormat, dstType and dstPacking.  Used by glReadPixels,
  * glGetConvolutionFilter(), etc.
- * Incoming colors will be clamped to [0,1] if needed.
  * Note: the rgba values will be modified by this function when any pixel
  * transfer ops are enabled.
  */
@@ -1686,13 +1697,17 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                            GLenum dstFormat, GLenum dstType,
                            GLvoid *dstAddr,
                            const struct gl_pixelstore_attrib *dstPacking,
-                           GLbitfield transferOps, GLboolean noClamp)
+                           GLbitfield transferOps)
 {
    GLfloat luminance[MAX_WIDTH];
    const GLint comps = _mesa_components_in_format(dstFormat);
    GLuint i;
 
-   if ((!noClamp) && (dstType != GL_FLOAT || ctx->Color.ClampReadColor == GL_TRUE)) {
+   /* XXX
+    * This test should probably go away.  Have the caller set/clear the
+    * IMAGE_CLAMP_BIT as needed.
+    */
+   if (dstType != GL_FLOAT || ctx->Color.ClampReadColor == GL_TRUE) {
       /* need to clamp to [0, 1] */
       transferOps |= IMAGE_CLAMP_BIT;
    }
@@ -2859,7 +2874,7 @@ extract_uint_indexes(GLuint n, GLuint indexes[],
             }
             else {
                for (i = 0; i < n; i++)
-                  indexes[i] = s[i] & 0xfff;  /* lower 8 bits */
+                  indexes[i] = s[i] & 0xff;  /* lower 8 bits */
             }
          }
          break;
@@ -4540,6 +4555,17 @@ _mesa_unpack_depth_span( const GLcontext *ctx, GLuint n,
          GLuint i;
          for (i = 0; i < n; i++) {
             dst[i] = src[i] | (src[i] << 16);
+         }
+         return;
+      }
+      if (srcType == GL_UNSIGNED_INT_24_8
+          && dstType == GL_UNSIGNED_INT
+          && depthMax == 0xffffff) {
+         const GLuint *src = (const GLuint *) source;
+         GLuint *dst = (GLuint *) dest;
+         GLuint i;
+         for (i = 0; i < n; i++) {
+            dst[i] = src[i] >> 8;
          }
          return;
       }

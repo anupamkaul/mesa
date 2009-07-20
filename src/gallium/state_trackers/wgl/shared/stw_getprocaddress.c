@@ -27,28 +27,43 @@
 
 #include <windows.h>
 
-#include "glapi/glapi.h"
-#include "stw_arbextensionsstring.h"
-#include "stw_arbpixelformat.h"
-#include "stw_public.h"
+#define WGL_WGLEXT_PROTOTYPES
 
-struct extension_entry
+#include <GL/gl.h>
+#include <GL/wglext.h>
+
+#include "glapi/glapi.h"
+#include "stw_public.h"
+#include "stw_extgallium.h"
+
+struct stw_extension_entry
 {
    const char *name;
    PROC proc;
 };
 
-#define EXTENTRY(P) { #P, (PROC) P }
+#define STW_EXTENSION_ENTRY(P) { #P, (PROC) P }
 
-static struct extension_entry extension_entries[] = {
+static const struct stw_extension_entry stw_extension_entries[] = {
 
    /* WGL_ARB_extensions_string */
-   EXTENTRY( wglGetExtensionsStringARB ),
+   STW_EXTENSION_ENTRY( wglGetExtensionsStringARB ),
 
    /* WGL_ARB_pixel_format */
-   EXTENTRY( wglChoosePixelFormatARB ),
-   EXTENTRY( wglGetPixelFormatAttribfvARB ),
-   EXTENTRY( wglGetPixelFormatAttribivARB ),
+   STW_EXTENSION_ENTRY( wglChoosePixelFormatARB ),
+   STW_EXTENSION_ENTRY( wglGetPixelFormatAttribfvARB ),
+   STW_EXTENSION_ENTRY( wglGetPixelFormatAttribivARB ),
+
+   /* WGL_EXT_extensions_string */
+   STW_EXTENSION_ENTRY( wglGetExtensionsStringEXT ),
+
+   /* WGL_EXT_swap_interval */
+   STW_EXTENSION_ENTRY( wglGetSwapIntervalEXT ),
+   STW_EXTENSION_ENTRY( wglSwapIntervalEXT ),
+
+   /* WGL_EXT_gallium ? */
+   STW_EXTENSION_ENTRY( wglGetGalliumScreenMESA ),
+   STW_EXTENSION_ENTRY( wglCreateGalliumContextMESA ),
 
    { NULL, NULL }
 };
@@ -57,15 +72,15 @@ PROC
 stw_get_proc_address(
    LPCSTR lpszProc )
 {
-   struct extension_entry *entry;
+   const struct stw_extension_entry *entry;
 
-   PROC p = (PROC) _glapi_get_proc_address( (const char *) lpszProc );
-   if (p)
-      return p;
+   if (lpszProc[0] == 'w' && lpszProc[1] == 'g' && lpszProc[2] == 'l')
+      for (entry = stw_extension_entries; entry->name; entry++)
+         if (strcmp( lpszProc, entry->name ) == 0)
+            return entry->proc;
 
-   for (entry = extension_entries; entry->name; entry++)
-      if (strcmp( lpszProc, entry->name ) == 0)
-         return entry->proc;
+   if (lpszProc[0] == 'g' && lpszProc[1] == 'l')
+      return (PROC) _glapi_get_proc_address( lpszProc );
 
    return NULL;
 }

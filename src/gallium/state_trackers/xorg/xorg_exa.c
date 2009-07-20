@@ -28,31 +28,21 @@
  *
  */
 
-#include "xf86.h"
+#include "xorg_exa.h"
 #include "xorg_tracker.h"
+#include "xorg_composite.h"
+
+#include <xorg-server.h>
+#include <xf86.h>
+#include <picturestr.h>
+#include <picture.h>
 
 #include "pipe/p_format.h"
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 #include "pipe/p_inlines.h"
 
-struct exa_entity
-{
-    ExaDriverPtr pExa;
-    struct pipe_context *ctx;
-    struct pipe_screen *scrn;
-};
-
-struct PixmapPriv
-{
-    int flags;
-    struct pipe_texture *tex;
-    unsigned int color;
-    struct pipe_surface *src_surf; /* for copies */
-
-    struct pipe_transfer *map_transfer;
-    unsigned map_count;
-};
+#include "util/u_rect.h"
 
 /*
  * Helper functions
@@ -110,8 +100,8 @@ ExaPrepareAccess(PixmapPtr pPix, int index)
     ScreenPtr pScreen = pPix->drawable.pScreen;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct exa_entity *exa = ms->exa;
-    struct PixmapPriv *priv;
+    struct exa_context *exa = ms->exa;
+    struct exa_pixmap_priv *priv;
 
     priv = exaGetPixmapDriverPrivate(pPix);
 
@@ -142,8 +132,8 @@ ExaFinishAccess(PixmapPtr pPix, int index)
     ScreenPtr pScreen = pPix->drawable.pScreen;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct exa_entity *exa = ms->exa;
-    struct PixmapPriv *priv;
+    struct exa_context *exa = ms->exa;
+    struct exa_pixmap_priv *priv;
     priv = exaGetPixmapDriverPrivate(pPix);
 
     if (!priv)
@@ -165,8 +155,8 @@ ExaDone(PixmapPtr pPixmap)
 {
     ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct PixmapPriv *priv = exaGetPixmapDriverPrivate(pPixmap);
-    struct exa_entity *exa = ms->exa;
+    struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pPixmap);
+    struct exa_context *exa = ms->exa;
 
     if (!priv)
 	return;
@@ -187,8 +177,8 @@ ExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
 {
     ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct PixmapPriv *priv = exaGetPixmapDriverPrivate(pPixmap);
-    struct exa_entity *exa = ms->exa;
+    struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pPixmap);
+    struct exa_context *exa = ms->exa;
 
     if (1)
         return FALSE;
@@ -218,8 +208,8 @@ ExaSolid(PixmapPtr pPixmap, int x0, int y0, int x1, int y1)
 {
     ScrnInfoPtr pScrn = xf86Screens[pPixmap->drawable.pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct exa_entity *exa = ms->exa;
-    struct PixmapPriv *priv = exaGetPixmapDriverPrivate(pPixmap);
+    struct exa_context *exa = ms->exa;
+    struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pPixmap);
     struct pipe_surface *surf =
 	exa->scrn->get_tex_surface(exa->scrn, priv->tex, 0, 0, 0,
 				   PIPE_BUFFER_USAGE_GPU_READ |
@@ -237,9 +227,9 @@ ExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
 {
     ScrnInfoPtr pScrn = xf86Screens[pDstPixmap->drawable.pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct exa_entity *exa = ms->exa;
-    struct PixmapPriv *priv = exaGetPixmapDriverPrivate(pDstPixmap);
-    struct PixmapPriv *src_priv = exaGetPixmapDriverPrivate(pSrcPixmap);
+    struct exa_context *exa = ms->exa;
+    struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pDstPixmap);
+    struct exa_pixmap_priv *src_priv = exaGetPixmapDriverPrivate(pSrcPixmap);
 
     if (1)
         return FALSE;
@@ -276,8 +266,8 @@ ExaCopy(PixmapPtr pDstPixmap, int srcX, int srcY, int dstX, int dstY,
 {
     ScrnInfoPtr pScrn = xf86Screens[pDstPixmap->drawable.pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct exa_entity *exa = ms->exa;
-    struct PixmapPriv *priv = exaGetPixmapDriverPrivate(pDstPixmap);
+    struct exa_context *exa = ms->exa;
+    struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pDstPixmap);
     struct pipe_surface *surf =
 	exa->scrn->get_tex_surface(exa->scrn, priv->tex, 0, 0, 0,
 				   PIPE_BUFFER_USAGE_GPU_READ |
@@ -293,13 +283,25 @@ ExaPrepareComposite(int op, PicturePtr pSrcPicture,
 		    PicturePtr pMaskPicture, PicturePtr pDstPicture,
 		    PixmapPtr pSrc, PixmapPtr pMask, PixmapPtr pDst)
 {
-    return FALSE;
+   ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
+   modesettingPtr ms = modesettingPTR(pScrn);
+   struct exa_context *exa = ms->exa;
+
+   return xorg_composite_bind_state(exa, op, pSrcPicture, pMaskPicture,
+                                    pDstPicture);
 }
 
 static void
 ExaComposite(PixmapPtr pDst, int srcX, int srcY, int maskX, int maskY,
 	     int dstX, int dstY, int width, int height)
 {
+   ScrnInfoPtr pScrn = xf86Screens[pDst->drawable.pScreen->myNum];
+   modesettingPtr ms = modesettingPTR(pScrn);
+   struct exa_context *exa = ms->exa;
+   struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pDst);
+
+   xorg_composite(exa, priv, srcX, srcY, maskX, maskY,
+                  dstX, dstY, width, height);
 }
 
 static Bool
@@ -307,15 +309,18 @@ ExaCheckComposite(int op,
 		  PicturePtr pSrcPicture, PicturePtr pMaskPicture,
 		  PicturePtr pDstPicture)
 {
-    return FALSE;
+   return xorg_composite_accelerated(op,
+                                     pSrcPicture,
+                                     pMaskPicture,
+                                     pDstPicture);
 }
 
 static void *
 ExaCreatePixmap(ScreenPtr pScreen, int size, int align)
 {
-    struct PixmapPriv *priv;
+    struct exa_pixmap_priv *priv;
 
-    priv = xcalloc(1, sizeof(struct PixmapPriv));
+    priv = xcalloc(1, sizeof(struct exa_pixmap_priv));
     if (!priv)
 	return NULL;
 
@@ -325,7 +330,7 @@ ExaCreatePixmap(ScreenPtr pScreen, int size, int align)
 static void
 ExaDestroyPixmap(ScreenPtr pScreen, void *dPriv)
 {
-    struct PixmapPriv *priv = (struct PixmapPriv *)dPriv;
+    struct exa_pixmap_priv *priv = (struct exa_pixmap_priv *)dPriv;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
 
@@ -341,7 +346,7 @@ ExaDestroyPixmap(ScreenPtr pScreen, void *dPriv)
 static Bool
 ExaPixmapIsOffscreen(PixmapPtr pPixmap)
 {
-    struct PixmapPriv *priv;
+    struct exa_pixmap_priv *priv;
 
     priv = exaGetPixmapDriverPrivate(pPixmap);
 
@@ -360,7 +365,7 @@ xorg_exa_get_pixmap_handle(PixmapPtr pPixmap)
     ScreenPtr pScreen = pPixmap->drawable.pScreen;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct PixmapPriv *priv;
+    struct exa_pixmap_priv *priv;
     struct pipe_buffer *buffer = NULL;
     unsigned handle;
     unsigned stride;
@@ -377,8 +382,8 @@ xorg_exa_get_pixmap_handle(PixmapPtr pPixmap)
 	return 0;
     }
 
-    drm_api_hooks.buffer_from_texture(priv->tex, &buffer, &stride);
-    drm_api_hooks.handle_from_buffer(ms->screen, buffer, &handle);
+    ms->api->buffer_from_texture(ms->api, priv->tex, &buffer, &stride);
+    ms->api->handle_from_buffer(ms->api, ms->screen, buffer, &handle);
     pipe_buffer_reference(&buffer, NULL);
     return handle;
 }
@@ -390,9 +395,9 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
 {
     ScreenPtr pScreen = pPixmap->drawable.pScreen;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    struct PixmapPriv *priv = exaGetPixmapDriverPrivate(pPixmap);
+    struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pPixmap);
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct exa_entity *exa = ms->exa;
+    struct exa_context *exa = ms->exa;
 
     if (!priv)
 	return FALSE;
@@ -425,7 +430,6 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
 
 	memset(&template, 0, sizeof(template));
 	template.target = PIPE_TEXTURE_2D;
-	template.compressed = 0;
 	exa_get_pipe_format(depth, &template.format, &bitsPerPixel);
 	pf_get_block(template.format, &template.block);
 	template.width[0] = width;
@@ -436,13 +440,25 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
 	priv->tex = exa->scrn->texture_create(exa->scrn, &template);
     }
 
+    if (pPixData) {
+	struct pipe_transfer *transfer =
+	    exa->scrn->get_tex_transfer(exa->scrn, priv->tex, 0, 0, 0,
+					PIPE_TRANSFER_WRITE,
+					0, 0, width, height);
+        pipe_copy_rect(exa->scrn->transfer_map(exa->scrn, transfer),
+                       &priv->tex->block, transfer->stride, 0, 0,
+                       width, height, pPixData, pPixmap->devKind, 0, 0);
+        exa->scrn->transfer_unmap(exa->scrn, transfer);
+        exa->scrn->tex_transfer_destroy(transfer);
+    }
+
     return TRUE;
 }
 
 struct pipe_texture *
 xorg_exa_get_texture(PixmapPtr pPixmap)
 {
-    struct PixmapPriv *priv = exaGetPixmapDriverPrivate(pPixmap);
+    struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pPixmap);
     struct pipe_texture *tex = NULL;
     pipe_texture_reference(&tex, priv->tex);
     return tex;
@@ -452,7 +468,7 @@ void
 xorg_exa_close(ScrnInfoPtr pScrn)
 {
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct exa_entity *exa = ms->exa;
+    struct exa_context *exa = ms->exa;
 
     if (exa->ctx)
 	exa->ctx->destroy(exa->ctx);
@@ -466,10 +482,10 @@ void *
 xorg_exa_init(ScrnInfoPtr pScrn)
 {
     modesettingPtr ms = modesettingPTR(pScrn);
-    struct exa_entity *exa;
+    struct exa_context *exa;
     ExaDriverPtr pExa;
 
-    exa = xcalloc(1, sizeof(struct exa_entity));
+    exa = xcalloc(1, sizeof(struct exa_context));
     if (!exa)
 	return NULL;
 
@@ -513,7 +529,7 @@ xorg_exa_init(ScrnInfoPtr pScrn)
     }
 
     exa->scrn = ms->screen;
-    exa->ctx = drm_api_hooks.create_context(exa->scrn);
+    exa->ctx = ms->api->create_context(ms->api, exa->scrn);
     /* Share context with DRI */
     ms->ctx = exa->ctx;
 

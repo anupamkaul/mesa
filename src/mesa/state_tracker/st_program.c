@@ -49,24 +49,10 @@
 #include "cso_cache/cso_context.h"
 
 
-#define ST_MAX_SHADER_TOKENS 4096
+#define ST_MAX_SHADER_TOKENS (8 * 1024)
 
 
 #define TGSI_DEBUG 0
-
-
-/** XXX we should use the version of this from u_memory.h but including
- * that header causes symbol collisions.
- */
-static INLINE void *
-mem_dup(const void *src, uint size)
-{
-   void *dup = _mesa_malloc(size);
-   if (dup)
-      _mesa_memcpy(dup, src, size);
-   return dup;
-}
-
 
 
 /**
@@ -84,7 +70,7 @@ st_translate_vertex_program(struct st_context *st,
                             const ubyte *outputSemanticIndex)
 {
    struct pipe_context *pipe = st->pipe;
-   struct tgsi_token tokens[ST_MAX_SHADER_TOKENS];
+   struct tgsi_token *tokens;
    GLuint defaultOutputMapping[VERT_RESULT_MAX];
    struct pipe_shader_state vs;
    GLuint attr, i;
@@ -101,6 +87,13 @@ st_translate_vertex_program(struct st_context *st,
 
    GLbitfield input_flags[MAX_PROGRAM_INPUTS];
    GLbitfield output_flags[MAX_PROGRAM_OUTPUTS];
+
+   tokens =  (struct tgsi_token *)MALLOC(ST_MAX_SHADER_TOKENS * sizeof *tokens);
+   if(!tokens) {
+      /* FIXME: propagate error to the caller */
+      assert(0);
+      return;
+   }
 
    memset(&vs, 0, sizeof(vs));
    memset(input_flags, 0, sizeof(input_flags));
@@ -158,6 +151,7 @@ st_translate_vertex_program(struct st_context *st,
          case VERT_ATTRIB_TEX5:
          case VERT_ATTRIB_TEX6:
          case VERT_ATTRIB_TEX7:
+            assert(slot < Elements(vs_input_semantic_name));
             vs_input_semantic_name[slot] = TGSI_SEMANTIC_GENERIC;
             vs_input_semantic_index[slot] = num_generic++;
             break;
@@ -169,7 +163,16 @@ st_translate_vertex_program(struct st_context *st,
          case VERT_ATTRIB_GENERIC5:
          case VERT_ATTRIB_GENERIC6:
          case VERT_ATTRIB_GENERIC7:
+         case VERT_ATTRIB_GENERIC8:
+         case VERT_ATTRIB_GENERIC9:
+         case VERT_ATTRIB_GENERIC10:
+         case VERT_ATTRIB_GENERIC11:
+         case VERT_ATTRIB_GENERIC12:
+         case VERT_ATTRIB_GENERIC13:
+         case VERT_ATTRIB_GENERIC14:
+         case VERT_ATTRIB_GENERIC15:
             assert(attr < VERT_ATTRIB_MAX);
+            assert(slot < Elements(vs_input_semantic_name));
             vs_input_semantic_name[slot] = TGSI_SEMANTIC_GENERIC;
             vs_input_semantic_index[slot] = num_generic++;
             break;
@@ -197,6 +200,7 @@ st_translate_vertex_program(struct st_context *st,
 
    /* initialize output semantics to defaults */
    for (i = 0; i < PIPE_MAX_SHADER_OUTPUTS; i++) {
+      assert(i < Elements(vs_output_semantic_name));
       vs_output_semantic_name[i] = TGSI_SEMANTIC_GENERIC;
       vs_output_semantic_index[i] = 0;
       output_flags[i] = 0x0;
@@ -272,6 +276,7 @@ st_translate_vertex_program(struct st_context *st,
          case VERT_RESULT_VAR0:
             /* fall-through */
          default:
+            assert(slot < Elements(vs_output_semantic_name));
             if (outputSemanticName) {
                /* use provided semantic into */
                assert(outputSemanticName[attr] != TGSI_SEMANTIC_COUNT);
@@ -285,12 +290,10 @@ st_translate_vertex_program(struct st_context *st,
             }
          }
 
+         assert(slot < Elements(output_flags));
          output_flags[slot] = stvp->Base.Base.OutputFlags[attr];
       }
    }
-
-   assert(vs_output_semantic_name[0] == TGSI_SEMANTIC_POSITION);
-
 
    if (outputMapping) {
       /* find max output slot referenced to compute vs_num_outputs */
@@ -304,6 +307,26 @@ st_translate_vertex_program(struct st_context *st,
    else {
       outputMapping = defaultOutputMapping;
    }
+
+#if 0 /* debug */
+   {
+      GLuint i;
+      printf("outputMapping? %d\n", outputMapping ? 1 : 0);
+      if (outputMapping) {
+         printf("attr -> slot\n");
+         for (i = 0; i < 16;  i++) {
+            printf(" %2d       %3d\n", i, outputMapping[i]);
+         }
+      }
+      printf("slot    sem_name  sem_index\n");
+      for (i = 0; i < vs_num_outputs; i++) {
+         printf(" %2d         %d         %d\n",
+                i,
+                vs_output_semantic_name[i],
+                vs_output_semantic_index[i]);
+      }
+   }
+#endif
 
    /* free old shader state, if any */
    if (stvp->state.tokens) {
@@ -339,7 +362,9 @@ st_translate_vertex_program(struct st_context *st,
    assert(num_tokens < ST_MAX_SHADER_TOKENS);
 
    vs.tokens = (struct tgsi_token *)
-      mem_dup(tokens, num_tokens * sizeof(tokens[0]));
+      _mesa_realloc(tokens,
+                    ST_MAX_SHADER_TOKENS * sizeof *tokens,
+                    num_tokens * sizeof *tokens);
 
    stvp->num_inputs = vs_num_inputs;
    stvp->state = vs; /* struct copy */
@@ -367,7 +392,7 @@ st_translate_fragment_program(struct st_context *st,
                               const GLuint inputMapping[])
 {
    struct pipe_context *pipe = st->pipe;
-   struct tgsi_token tokens[ST_MAX_SHADER_TOKENS];
+   struct tgsi_token *tokens;
    GLuint outputMapping[FRAG_RESULT_MAX];
    GLuint defaultInputMapping[FRAG_ATTRIB_MAX];
    struct pipe_shader_state fs;
@@ -386,6 +411,13 @@ st_translate_fragment_program(struct st_context *st,
 
    GLbitfield input_flags[MAX_PROGRAM_INPUTS];
    GLbitfield output_flags[MAX_PROGRAM_OUTPUTS];
+
+   tokens =  (struct tgsi_token *)MALLOC(ST_MAX_SHADER_TOKENS * sizeof *tokens);
+   if(!tokens) {
+      /* FIXME: propagate error to the caller */
+      assert(0);
+      return;
+   }
 
    memset(&fs, 0, sizeof(fs));
    memset(input_flags, 0, sizeof(input_flags));
@@ -426,13 +458,34 @@ st_translate_fragment_program(struct st_context *st,
             stfp->input_semantic_index[slot] = 1;
             interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
             break;
-         case FRAG_ATTRIB_FOGC:
-            if (stfp->Base.UsesPointCoord)
-               stfp->input_semantic_name[slot] = TGSI_SEMANTIC_GENERIC;
-            else
+         case FRAG_ATTRIB_FOGC: {
+            int extra_decls = 0;
+            if (stfp->Base.UsesFogFragCoord) {
                stfp->input_semantic_name[slot] = TGSI_SEMANTIC_FOG;
-            stfp->input_semantic_index[slot] = 0;
-            interpMode[slot] = TGSI_INTERPOLATE_PERSPECTIVE;
+               stfp->input_semantic_index[slot] = 0;
+               interpMode[slot] = TGSI_INTERPOLATE_PERSPECTIVE;
+               input_flags[slot] = stfp->Base.Base.InputFlags[attr];
+               ++extra_decls;
+	    }
+            if (stfp->Base.UsesFrontFacing) {
+               GLint idx = slot + extra_decls;
+               stfp->input_semantic_name[idx] = TGSI_SEMANTIC_FACE;
+               stfp->input_semantic_index[idx] = 0;
+               interpMode[idx] = TGSI_INTERPOLATE_CONSTANT;
+               input_flags[idx] = stfp->Base.Base.InputFlags[attr];
+               ++extra_decls;
+            }
+            if (stfp->Base.UsesPointCoord) {
+               GLint idx = slot + extra_decls;
+               stfp->input_semantic_name[idx] = TGSI_SEMANTIC_GENERIC;
+               stfp->input_semantic_index[idx] = num_generic++;
+               interpMode[idx] = TGSI_INTERPOLATE_PERSPECTIVE;
+               input_flags[idx] = stfp->Base.Base.InputFlags[attr];
+               ++extra_decls;
+            }
+            fs_num_inputs += extra_decls - 1;
+            continue;
+         }
             break;
          case FRAG_ATTRIB_TEX0:
          case FRAG_ATTRIB_TEX1:
@@ -482,14 +535,14 @@ st_translate_fragment_program(struct st_context *st,
                /* handled above */
                assert(0);
                break;
-            case FRAG_RESULT_COLOR:
+            default:
+               assert(attr == FRAG_RESULT_COLOR ||
+                      (FRAG_RESULT_DATA0 <= attr && attr < FRAG_RESULT_MAX));
                fs_output_semantic_name[fs_num_outputs] = TGSI_SEMANTIC_COLOR;
                fs_output_semantic_index[fs_num_outputs] = numColors;
                outputMapping[attr] = fs_num_outputs;
                numColors++;
                break;
-            default:
-               assert(0);
             }
 
             output_flags[fs_num_outputs] = stfp->Base.Base.OutputFlags[attr];
@@ -526,7 +579,9 @@ st_translate_fragment_program(struct st_context *st,
    assert(num_tokens < ST_MAX_SHADER_TOKENS);
 
    fs.tokens = (struct tgsi_token *)
-      mem_dup(tokens, num_tokens * sizeof(tokens[0]));
+      _mesa_realloc(tokens,
+                    ST_MAX_SHADER_TOKENS * sizeof *tokens,
+                    num_tokens * sizeof *tokens);
 
    stfp->state = fs; /* struct copy */
    stfp->driver_shader = pipe->create_fs_state(pipe, &fs);
