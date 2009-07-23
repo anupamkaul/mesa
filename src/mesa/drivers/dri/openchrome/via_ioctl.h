@@ -58,7 +58,6 @@ extern struct _WsbmVNodeFuncs *viaVNodeFuncs(void);
 static inline struct drm_via_validate_req *
 viaValReq(struct _ValidateNode *node)
 {
-    assert(node->driver_private == 0);
     return &(containerOf(node, struct _ViaDrmValidateNode, base)->
 	     val_arg.d.req);
 }
