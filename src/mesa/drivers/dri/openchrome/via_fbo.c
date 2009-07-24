@@ -502,9 +502,6 @@ via_alloc_texture_wrapper(void)
     struct via_renderbuffer *viarb;
     const GLuint name = ~0;
 
-    ASSERT(att->Type == GL_TEXTURE);
-    ASSERT(att->Renderbuffer == NULL);
-
     viarb = CALLOC_STRUCT(via_renderbuffer);
     if (!viarb) {
 	return NULL;
@@ -644,7 +641,6 @@ via_render_texture(GLcontext * ctx,
 	= att->Texture->Image[att->CubeMapFace][att->TextureLevel];
     struct gl_texture_object *newObj = newImage->TexObject;
     struct via_renderbuffer *viarb = via_renderbuffer(att->Renderbuffer);
-    struct via_texture_image *via_image;
 
     ASSERT(newImage);
 

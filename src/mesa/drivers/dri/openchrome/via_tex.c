@@ -40,6 +40,7 @@
 #include "main/texobj.h"
 #include "main/texstore.h"
 #include "main/teximage.h"
+#include "main/texgetimage.h"
 #include "swrast/swrast.h"
 
 #include "via_context.h"
