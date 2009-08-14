@@ -109,7 +109,7 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 0, 1, 0, 0, "REP" },
    { 0, 0, 0, 1, "ELSE" },
    { 0, 0, 0, 0, "ENDIF" },
-   { 1, 0, 0, 0, "ENDLOOP" },
+   { 0, 0, 0, 0, "ENDLOOP" },
    { 0, 0, 0, 0, "ENDREP" },
    { 0, 1, 0, 0, "PUSHA" },
    { 1, 0, 0, 0, "POPA" },
