@@ -146,10 +146,10 @@ static void store_texel_rg(struct gl_texture_image *texImage,
 }
 #endif
 
-/* MESA_FORMAT_R ***********************************************************/
+/* MESA_FORMAT_RED ***********************************************************/
 
 /* Fetch texel from 1D, 2D or 3D RED texture, returning 4 GLfloats */
-static void FETCH(f_r)(const struct gl_texture_image *texImage,
+static void FETCH(f_red)(const struct gl_texture_image *texImage,
 		       GLint i, GLint j, GLint k, GLfloat *texel)
 {
    const GLchan *src = TEXEL_ADDR(GLchan, texImage, i, j, k, 1);
@@ -160,7 +160,7 @@ static void FETCH(f_r)(const struct gl_texture_image *texImage,
 }
 
 #if DIM == 3
-static void store_texel_r(struct gl_texture_image *texImage,
+static void store_texel_red(struct gl_texture_image *texImage,
 			  GLint i, GLint j, GLint k, const void *texel)
 {
    const GLchan *rgba = (const GLchan *) texel;
@@ -407,6 +407,110 @@ static void FETCH(f_rgb_f16)( const struct gl_texture_image *texImage,
 
 #if DIM == 3
 static void store_texel_rgb_f16(struct gl_texture_image *texImage,
+                                GLint i, GLint j, GLint k, const void *texel)
+{
+   const GLfloat *depth = (const GLfloat *) texel;
+   GLhalfARB *dst = TEXEL_ADDR(GLhalfARB, texImage, i, j, k, 1);
+   dst[0] = _mesa_float_to_half(*depth);
+}
+#endif
+
+
+/* MESA_FORMAT_RG_F32 *******************************************************/
+
+/* Fetch texel from 1D, 2D or 3D RG_FLOAT32 texture,
+ * returning 4 GLfloats.
+ */
+static void FETCH(f_rg_f32)( const struct gl_texture_image *texImage,
+                              GLint i, GLint j, GLint k, GLfloat *texel )
+{
+   const GLfloat *src = TEXEL_ADDR(GLfloat, texImage, i, j, k, 3);
+   texel[RCOMP] = src[0];
+   texel[GCOMP] = src[1];
+   texel[BCOMP] = 0.0;
+   texel[ACOMP] = 1.0F;
+}
+
+#if DIM == 3
+static void store_texel_rg_f32(struct gl_texture_image *texImage,
+                                 GLint i, GLint j, GLint k, const void *texel)
+{
+   const GLfloat *depth = (const GLfloat *) texel;
+   GLfloat *dst = TEXEL_ADDR(GLfloat, texImage, i, j, k, 1);
+   dst[0] = *depth;
+}
+#endif
+
+
+/* MESA_FORMAT_RG_F16 *******************************************************/
+
+/* Fetch texel from 1D, 2D or 3D RG_FLOAT16 texture,
+ * returning 4 GLfloats.
+ */
+static void FETCH(f_rg_f16)( const struct gl_texture_image *texImage,
+                              GLint i, GLint j, GLint k, GLfloat *texel )
+{
+   const GLhalfARB *src = TEXEL_ADDR(GLhalfARB, texImage, i, j, k, 3);
+   texel[RCOMP] = _mesa_half_to_float(src[0]);
+   texel[GCOMP] = _mesa_half_to_float(src[1]);
+   texel[BCOMP] = 0.0;
+   texel[ACOMP] = 1.0F;
+}
+
+#if DIM == 3
+static void store_texel_rg_f16(struct gl_texture_image *texImage,
+                                GLint i, GLint j, GLint k, const void *texel)
+{
+   const GLfloat *depth = (const GLfloat *) texel;
+   GLhalfARB *dst = TEXEL_ADDR(GLhalfARB, texImage, i, j, k, 1);
+   dst[0] = _mesa_float_to_half(*depth);
+}
+#endif
+
+
+/* MESA_FORMAT_RED_F32 *******************************************************/
+
+/* Fetch texel from 1D, 2D or 3D RED_FLOAT32 texture,
+ * returning 4 GLfloats.
+ */
+static void FETCH(f_red_f32)( const struct gl_texture_image *texImage,
+                              GLint i, GLint j, GLint k, GLfloat *texel )
+{
+   const GLfloat *src = TEXEL_ADDR(GLfloat, texImage, i, j, k, 3);
+   texel[RCOMP] = src[0];
+   texel[GCOMP] = 0.0;
+   texel[BCOMP] = 0.0;;
+   texel[ACOMP] = 1.0F;
+}
+
+#if DIM == 3
+static void store_texel_red_f32(struct gl_texture_image *texImage,
+                                 GLint i, GLint j, GLint k, const void *texel)
+{
+   const GLfloat *depth = (const GLfloat *) texel;
+   GLfloat *dst = TEXEL_ADDR(GLfloat, texImage, i, j, k, 1);
+   dst[0] = *depth;
+}
+#endif
+
+
+/* MESA_FORMAT_RED_F16 *******************************************************/
+
+/* Fetch texel from 1D, 2D or 3D RED_FLOAT16 texture,
+ * returning 4 GLfloats.
+ */
+static void FETCH(f_red_f16)( const struct gl_texture_image *texImage,
+                              GLint i, GLint j, GLint k, GLfloat *texel )
+{
+   const GLhalfARB *src = TEXEL_ADDR(GLhalfARB, texImage, i, j, k, 3);
+   texel[RCOMP] = _mesa_half_to_float(src[0]);
+   texel[GCOMP] = 0.0;
+   texel[BCOMP] = 0.0;;
+   texel[ACOMP] = 1.0F;
+}
+
+#if DIM == 3
+static void store_texel_red_f16(struct gl_texture_image *texImage,
                                 GLint i, GLint j, GLint k, const void *texel)
 {
    const GLfloat *depth = (const GLfloat *) texel;
@@ -1051,7 +1155,6 @@ static void store_texel_r8(struct gl_texture_image *texImage,
    *dst = rgba[RCOMP];
 }
 #endif
-
 
 /* MESA_FORMAT_AL88 **********************************************************/
 

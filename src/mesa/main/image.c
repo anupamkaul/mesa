@@ -282,6 +282,8 @@ _mesa_components_in_format( GLenum format )
          return 1;
       case GL_LUMINANCE_ALPHA:
 	 return 2;
+      case GL_RG:
+	 return 2;
       case GL_RGB:
 	 return 3;
       case GL_RGBA:
@@ -435,6 +437,21 @@ _mesa_is_legal_format_and_type( GLcontext *ctx, GLenum format, GLenum type )
             default:
                return GL_FALSE;
          }
+      case GL_RG:
+         switch (type) {
+            case GL_BYTE:
+            case GL_UNSIGNED_BYTE:
+            case GL_SHORT:
+            case GL_UNSIGNED_SHORT:
+            case GL_INT:
+            case GL_UNSIGNED_INT:
+            case GL_FLOAT:
+               return GL_TRUE;
+            case GL_HALF_FLOAT_ARB:
+               return ctx->Extensions.ARB_half_float_pixel;
+            default:
+               return GL_FALSE;
+         }
       case GL_RGB:
          switch (type) {
             case GL_BYTE:
@@ -555,6 +572,7 @@ _mesa_is_color_format(GLenum format)
       case GL_LUMINANCE12:
       case GL_LUMINANCE16:
       case 2:
+      case GL_RG:
       case GL_LUMINANCE_ALPHA:
       case GL_LUMINANCE4_ALPHA4:
       case GL_LUMINANCE6_ALPHA2:

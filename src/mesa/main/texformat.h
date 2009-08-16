@@ -144,7 +144,7 @@ enum _format {
    MESA_FORMAT_RGBA,
    MESA_FORMAT_RGB,
    MESA_FORMAT_RG,
-   MESA_FORMAT_R,
+   MESA_FORMAT_RED,
    MESA_FORMAT_ALPHA,
    MESA_FORMAT_LUMINANCE,
    MESA_FORMAT_LUMINANCE_ALPHA,
@@ -159,6 +159,10 @@ enum _format {
    MESA_FORMAT_RGBA_FLOAT16,
    MESA_FORMAT_RGB_FLOAT32,
    MESA_FORMAT_RGB_FLOAT16,
+   MESA_FORMAT_RG_FLOAT32,
+   MESA_FORMAT_RG_FLOAT16,
+   MESA_FORMAT_RED_FLOAT32,
+   MESA_FORMAT_RED_FLOAT16,
    MESA_FORMAT_ALPHA_FLOAT32,
    MESA_FORMAT_ALPHA_FLOAT16,
    MESA_FORMAT_LUMINANCE_FLOAT32,
@@ -185,7 +189,7 @@ enum _format {
 extern const struct gl_texture_format _mesa_texformat_rgba;
 extern const struct gl_texture_format _mesa_texformat_rgb;
 extern const struct gl_texture_format _mesa_texformat_rg;
-extern const struct gl_texture_format _mesa_texformat_r;
+extern const struct gl_texture_format _mesa_texformat_red;
 extern const struct gl_texture_format _mesa_texformat_alpha;
 extern const struct gl_texture_format _mesa_texformat_luminance;
 extern const struct gl_texture_format _mesa_texformat_luminance_alpha;
@@ -215,6 +219,10 @@ extern const struct gl_texture_format _mesa_texformat_rgba_float32;
 extern const struct gl_texture_format _mesa_texformat_rgba_float16;
 extern const struct gl_texture_format _mesa_texformat_rgb_float32;
 extern const struct gl_texture_format _mesa_texformat_rgb_float16;
+extern const struct gl_texture_format _mesa_texformat_rg_float32;
+extern const struct gl_texture_format _mesa_texformat_rg_float16;
+extern const struct gl_texture_format _mesa_texformat_red_float32;
+extern const struct gl_texture_format _mesa_texformat_red_float16;
 extern const struct gl_texture_format _mesa_texformat_alpha_float32;
 extern const struct gl_texture_format _mesa_texformat_alpha_float16;
 extern const struct gl_texture_format _mesa_texformat_luminance_float32;

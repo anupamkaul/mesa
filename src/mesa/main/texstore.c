@@ -86,6 +86,7 @@ can_swizzle(GLenum logicalBaseFormat)
    switch (logicalBaseFormat) {
    case GL_RGBA:
    case GL_RGB:
+   case GL_RG:
    case GL_LUMINANCE_ALPHA:
    case GL_INTENSITY:
    case GL_ALPHA:
@@ -117,6 +118,7 @@ enum {
    IDX_BGR,
    IDX_BGRA,
    IDX_ABGR,
+   IDX_RG,
    MAX_IDX
 };
 
@@ -204,6 +206,13 @@ static const struct {
       MAP4(3,2,1,0),
       MAP4(3,2,1,0)
    },
+
+   {
+      IDX_RG,
+      MAP4(0, 1, ZERO, ONE),
+      MAP2(0, 1)
+   }
+
 };
 
 
@@ -227,6 +236,7 @@ get_map_idx(GLenum value)
    case GL_BGR: return IDX_BGR;
    case GL_BGRA: return IDX_BGRA;
    case GL_ABGR_EXT: return IDX_ABGR;
+   case GL_RG: return IDX_RG;
    default:
       _mesa_problem(NULL, "Unexpected inFormat");
       return 0;
@@ -321,6 +331,8 @@ make_temp_float_image(GLcontext *ctx, GLuint dims,
 
    ASSERT(logicalBaseFormat == GL_RGBA ||
           logicalBaseFormat == GL_RGB ||
+          logicalBaseFormat == GL_RG ||
+          logicalBaseFormat == GL_RED ||
           logicalBaseFormat == GL_LUMINANCE_ALPHA ||
           logicalBaseFormat == GL_LUMINANCE ||
           logicalBaseFormat == GL_ALPHA ||
@@ -330,6 +342,8 @@ make_temp_float_image(GLcontext *ctx, GLuint dims,
 
    ASSERT(textureBaseFormat == GL_RGBA ||
           textureBaseFormat == GL_RGB ||
+          textureBaseFormat == GL_RG ||
+          textureBaseFormat == GL_RED ||
           textureBaseFormat == GL_LUMINANCE_ALPHA ||
           textureBaseFormat == GL_LUMINANCE ||
           textureBaseFormat == GL_ALPHA ||
@@ -550,6 +564,8 @@ _mesa_make_temp_chan_image(GLcontext *ctx, GLuint dims,
 
    ASSERT(logicalBaseFormat == GL_RGBA ||
           logicalBaseFormat == GL_RGB ||
+          logicalBaseFormat == GL_RG ||
+          logicalBaseFormat == GL_RED ||
           logicalBaseFormat == GL_LUMINANCE_ALPHA ||
           logicalBaseFormat == GL_LUMINANCE ||
           logicalBaseFormat == GL_ALPHA ||
@@ -557,6 +573,8 @@ _mesa_make_temp_chan_image(GLcontext *ctx, GLuint dims,
 
    ASSERT(textureBaseFormat == GL_RGBA ||
           textureBaseFormat == GL_RGB ||
+          textureBaseFormat == GL_RG ||
+          textureBaseFormat == GL_RED ||
           textureBaseFormat == GL_LUMINANCE_ALPHA ||
           textureBaseFormat == GL_LUMINANCE ||
           textureBaseFormat == GL_ALPHA ||
@@ -1000,6 +1018,8 @@ memcpy_texture(GLcontext *ctx,
  * Store an image in any of the formats:
  *   _mesa_texformat_rgba
  *   _mesa_texformat_rgb
+ *   _mesa_texformat_rg
+ *   _mesa_texformat_red
  *   _mesa_texformat_alpha
  *   _mesa_texformat_luminance
  *   _mesa_texformat_luminance_alpha
@@ -1013,12 +1033,16 @@ _mesa_texstore_rgba(TEXSTORE_PARAMS)
 
    ASSERT(dstFormat == &_mesa_texformat_rgba ||
           dstFormat == &_mesa_texformat_rgb ||
+          dstFormat == &_mesa_texformat_rg ||
+          dstFormat == &_mesa_texformat_red ||
           dstFormat == &_mesa_texformat_alpha ||
           dstFormat == &_mesa_texformat_luminance ||
           dstFormat == &_mesa_texformat_luminance_alpha ||
           dstFormat == &_mesa_texformat_intensity);
    ASSERT(baseInternalFormat == GL_RGBA ||
           baseInternalFormat == GL_RGB ||
+          baseInternalFormat == GL_RG ||
+          baseInternalFormat == GL_RED ||
           baseInternalFormat == GL_ALPHA ||
           baseInternalFormat == GL_LUMINANCE ||
           baseInternalFormat == GL_LUMINANCE_ALPHA ||
@@ -1102,6 +1126,14 @@ _mesa_texstore_rgba(TEXSTORE_PARAMS)
       }
       else if (dstFormat == &_mesa_texformat_intensity) {
 	 dstmap = mappings[IDX_INTENSITY].from_rgba;
+	 components = 1;
+      }
+      else if (dstFormat == &_mesa_texformat_rg) {
+	 dstmap = mappings[IDX_RG].from_rgba;
+	 components = 2;
+      }
+      else if (dstFormat == &_mesa_texformat_red) {
+	 dstmap = mappings[IDX_RED].from_rgba;
 	 components = 1;
       }
       else {
@@ -2983,6 +3015,8 @@ _mesa_texstore_s8_z24(TEXSTORE_PARAMS)
  * Store an image in any of the formats:
  *   _mesa_texformat_rgba_float32
  *   _mesa_texformat_rgb_float32
+ *   _mesa_texformat_rg_float32
+ *   _mesa_texformat_red_float32
  *   _mesa_texformat_alpha_float32
  *   _mesa_texformat_luminance_float32
  *   _mesa_texformat_luminance_alpha_float32
@@ -2995,12 +3029,16 @@ _mesa_texstore_rgba_float32(TEXSTORE_PARAMS)
 
    ASSERT(dstFormat == &_mesa_texformat_rgba_float32 ||
           dstFormat == &_mesa_texformat_rgb_float32 ||
+          dstFormat == &_mesa_texformat_rg_float32 ||
+          dstFormat == &_mesa_texformat_red_float32 ||
           dstFormat == &_mesa_texformat_alpha_float32 ||
           dstFormat == &_mesa_texformat_luminance_float32 ||
           dstFormat == &_mesa_texformat_luminance_alpha_float32 ||
           dstFormat == &_mesa_texformat_intensity_float32);
    ASSERT(baseInternalFormat == GL_RGBA ||
           baseInternalFormat == GL_RGB ||
+          baseInternalFormat == GL_RG ||
+          baseInternalFormat == GL_RED ||
           baseInternalFormat == GL_ALPHA ||
           baseInternalFormat == GL_LUMINANCE ||
           baseInternalFormat == GL_LUMINANCE_ALPHA ||
@@ -3062,12 +3100,16 @@ _mesa_texstore_rgba_float16(TEXSTORE_PARAMS)
 
    ASSERT(dstFormat == &_mesa_texformat_rgba_float16 ||
           dstFormat == &_mesa_texformat_rgb_float16 ||
+          dstFormat == &_mesa_texformat_rg_float16 ||
+          dstFormat == &_mesa_texformat_red_float16 ||
           dstFormat == &_mesa_texformat_alpha_float16 ||
           dstFormat == &_mesa_texformat_luminance_float16 ||
           dstFormat == &_mesa_texformat_luminance_alpha_float16 ||
           dstFormat == &_mesa_texformat_intensity_float16);
    ASSERT(baseInternalFormat == GL_RGBA ||
           baseInternalFormat == GL_RGB ||
+          baseInternalFormat == GL_RG ||
+          baseInternalFormat == GL_RED ||
           baseInternalFormat == GL_ALPHA ||
           baseInternalFormat == GL_LUMINANCE ||
           baseInternalFormat == GL_LUMINANCE_ALPHA ||

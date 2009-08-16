@@ -211,8 +211,8 @@ const struct gl_texture_format _mesa_texformat_rg = {
    store_texel_rg			/* StoreTexel */
 };
 
-const struct gl_texture_format _mesa_texformat_r = {
-   MESA_FORMAT_R,			/* MesaFormat */
+const struct gl_texture_format _mesa_texformat_red = {
+   MESA_FORMAT_RED,			/* MesaFormat */
    GL_RED,				/* BaseFormat */
    GL_UNSIGNED_NORMALIZED_ARB,		/* DataType */
    CHAN_BITS,				/* RedBits */
@@ -229,10 +229,10 @@ const struct gl_texture_format _mesa_texformat_r = {
    NULL,				/* FetchTexel1D */
    NULL,				/* FetchTexel2D */
    NULL,				/* FetchTexel3D */
-   fetch_texel_1d_f_r,			/* FetchTexel1Df */
-   fetch_texel_2d_f_r,			/* FetchTexel2Df */
-   fetch_texel_3d_f_r,			/* FetchTexel3Df */
-   store_texel_r			/* StoreTexel */
+   fetch_texel_1d_f_red,		/* FetchTexel1Df */
+   fetch_texel_2d_f_red,		/* FetchTexel2Df */
+   fetch_texel_3d_f_red,		/* FetchTexel3Df */
+   store_texel_red			/* StoreTexel */
 };
 
 const struct gl_texture_format _mesa_texformat_alpha = {
@@ -551,6 +551,102 @@ const struct gl_texture_format _mesa_texformat_rgb_float16 = {
    fetch_texel_2d_f_rgb_f16,		/* FetchTexel2Df */
    fetch_texel_3d_f_rgb_f16,		/* FetchTexel3Df */
    store_texel_rgb_f16			/* StoreTexel */
+};
+
+const struct gl_texture_format _mesa_texformat_rg_float32 = {
+   MESA_FORMAT_RG_FLOAT32,		/* MesaFormat */
+   GL_RG,				/* BaseFormat */
+   GL_FLOAT,				/* DataType */
+   8 * sizeof(GLfloat),			/* RedBits */
+   8 * sizeof(GLfloat),			/* GreenBits */
+   0,					/* BlueBits */
+   0,					/* AlphaBits */
+   0,					/* LuminanceBits */
+   0,					/* IntensityBits */
+   0,					/* IndexBits */
+   0,					/* DepthBits */
+   0,					/* StencilBits */
+   2 * sizeof(GLfloat),			/* TexelBytes */
+   _mesa_texstore_rgba_float32,/*yes*/	/* StoreTexImageFunc */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel1D */
+   fetch_texel_1d_f_rg_f32,		/* FetchTexel1Df */
+   fetch_texel_2d_f_rg_f32,		/* FetchTexel2Df */
+   fetch_texel_3d_f_rg_f32,		/* FetchTexel3Df */
+   store_texel_rg_f32			/* StoreTexel */
+};
+
+const struct gl_texture_format _mesa_texformat_rg_float16 = {
+   MESA_FORMAT_RG_FLOAT16,		/* MesaFormat */
+   GL_RGB,				/* BaseFormat */
+   GL_FLOAT,				/* DataType */
+   8 * sizeof(GLhalfARB),		/* RedBits */
+   8 * sizeof(GLhalfARB),		/* GreenBits */
+   0,					/* BlueBits */
+   0,					/* AlphaBits */
+   0,					/* LuminanceBits */
+   0,					/* IntensityBits */
+   0,					/* IndexBits */
+   0,					/* DepthBits */
+   0,					/* StencilBits */
+   2 * sizeof(GLhalfARB),		/* TexelBytes */
+   _mesa_texstore_rgba_float16,/*yes*/	/* StoreTexImageFunc */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel1D */
+   fetch_texel_1d_f_rg_f16,		/* FetchTexel1Df */
+   fetch_texel_2d_f_rg_f16,		/* FetchTexel2Df */
+   fetch_texel_3d_f_rg_f16,		/* FetchTexel3Df */
+   store_texel_rg_f16			/* StoreTexel */
+};
+
+const struct gl_texture_format _mesa_texformat_red_float32 = {
+   MESA_FORMAT_RED_FLOAT32,		/* MesaFormat */
+   GL_RED,				/* BaseFormat */
+   GL_FLOAT,				/* DataType */
+   8 * sizeof(GLfloat),			/* RedBits */
+   0,					/* GreenBits */
+   0,					/* BlueBits */
+   0,					/* AlphaBits */
+   0,					/* LuminanceBits */
+   0,					/* IntensityBits */
+   0,					/* IndexBits */
+   0,					/* DepthBits */
+   0,					/* StencilBits */
+   1 * sizeof(GLfloat),			/* TexelBytes */
+   _mesa_texstore_rgba_float32,/*yes*/	/* StoreTexImageFunc */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel1D */
+   fetch_texel_1d_f_red_f32,		/* FetchTexel1Df */
+   fetch_texel_2d_f_red_f32,		/* FetchTexel2Df */
+   fetch_texel_3d_f_red_f32,		/* FetchTexel3Df */
+   store_texel_red_f32			/* StoreTexel */
+};
+
+const struct gl_texture_format _mesa_texformat_red_float16 = {
+   MESA_FORMAT_RED_FLOAT16,		/* MesaFormat */
+   GL_RED,				/* BaseFormat */
+   GL_FLOAT,				/* DataType */
+   8 * sizeof(GLhalfARB),		/* RedBits */
+   0,					/* GreenBits */
+   0,					/* BlueBits */
+   0,					/* AlphaBits */
+   0,					/* LuminanceBits */
+   0,					/* IntensityBits */
+   0,					/* IndexBits */
+   0,					/* DepthBits */
+   0,					/* StencilBits */
+   1 * sizeof(GLhalfARB),		/* TexelBytes */
+   _mesa_texstore_rgba_float16,/*yes*/	/* StoreTexImageFunc */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel1D */
+   fetch_texel_1d_f_red_f16,		/* FetchTexel1Df */
+   fetch_texel_2d_f_red_f16,		/* FetchTexel2Df */
+   fetch_texel_3d_f_red_f16,		/* FetchTexel3Df */
+   store_texel_red_f16			/* StoreTexel */
 };
 
 const struct gl_texture_format _mesa_texformat_alpha_float32 = {
@@ -1536,7 +1632,7 @@ const struct gl_texture_format _mesa_texformat_r8 = {
    0,					/* DepthBits */
    0,					/* StencilBits */
    1,					/* TexelBytes */
-   _mesa_texstore_r8,			/* StoreTexImageFunc */
+   _mesa_texstore_a8,			/* StoreTexImageFunc */
    NULL,				/* FetchTexel1D */
    NULL,				/* FetchTexel2D */
    NULL,				/* FetchTexel3D */
@@ -1907,21 +2003,39 @@ _mesa_choose_tex_format( GLcontext *ctx, GLint internalFormat,
    if (ctx->Extensions.ARB_texture_rg) {
       switch (internalFormat) {
       case GL_RG:
-	 return &_mesa_texformat_rg;
+        return &_mesa_texformat_rg;
       case GL_RG8:
-	 return &_mesa_texformat_rg88;
+        return &_mesa_texformat_rg88;
 
       case GL_RED:
-	 return &_mesa_texformat_r;
+        return &_mesa_texformat_red;
       case GL_R8:
-	 return &_mesa_texformat_r8;
+        return &_mesa_texformat_r8;
 
       default:
             ; /* fallthrough */
       }
-      _mesa_problem(ctx, "unexpected format in _mesa_choose_tex_format()");
-      return NULL;
+
+      if (ctx->Extensions.ARB_texture_float) {
+         switch (internalFormat) {
+         case GL_R16F:
+            return &_mesa_texformat_red_float16;
+         case GL_R32F:
+            return &_mesa_texformat_red_float32;
+
+         case GL_RG16F:
+            return &_mesa_texformat_rg_float16;
+         case GL_RG32F:
+            return &_mesa_texformat_rg_float32;
+
+         default:
+               ; /* fallthrough */
+        }
+      }
    }
+
+   _mesa_problem(ctx, "unexpected format in _mesa_choose_tex_format()");
+   return NULL;
 }
 
 
@@ -2080,7 +2194,7 @@ _mesa_format_to_type_and_comps(const struct gl_texture_format *format,
    case MESA_FORMAT_ALPHA:
    case MESA_FORMAT_LUMINANCE:
    case MESA_FORMAT_INTENSITY:
-   case MESA_FORMAT_R:
+   case MESA_FORMAT_RED:
       *datatype = CHAN_TYPE;
       *comps = 1;
       return;

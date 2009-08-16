@@ -8946,6 +8946,8 @@
     </function>
 </category>
 
+<xi:include href="ARB_texture_rg.xml" xmlns:xi="http://www.w3.org/2001/XInclude"/>
+
 <category name="GL_EXT_point_parameters" number="54">
     <enum name="POINT_SIZE_MIN_EXT"            count="1"  value="0x8126">
         <size name="PointParameterfvEXT"/>

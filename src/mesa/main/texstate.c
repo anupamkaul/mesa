@@ -180,6 +180,8 @@ calculate_derived_texenv( struct gl_tex_env_combine_state *state,
    case GL_RGB:
    case GL_YCBCR_MESA:
    case GL_DUDV_ATI:
+   case GL_RED:
+   case GL_RG:
       state->SourceA[0] = GL_PREVIOUS;
       break;
       
@@ -220,6 +222,8 @@ calculate_derived_texenv( struct gl_tex_env_combine_state *state,
       case GL_RGB:
       case GL_YCBCR_MESA:
       case GL_DUDV_ATI:
+      case GL_RED:
+      case GL_RG:
 	 mode_rgb = GL_REPLACE;
 	 break;
       case GL_RGBA:
@@ -247,6 +251,8 @@ calculate_derived_texenv( struct gl_tex_env_combine_state *state,
       case GL_RGBA:
       case GL_YCBCR_MESA:
       case GL_DUDV_ATI:
+      case GL_RED:
+      case GL_RG:
 	 state->SourceRGB[2] = GL_TEXTURE;
 	 state->SourceA[2]   = GL_TEXTURE;
 	 state->SourceRGB[0] = GL_CONSTANT;
