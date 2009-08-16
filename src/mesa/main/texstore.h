@@ -55,8 +55,6 @@ extern GLboolean _mesa_texstore_argb1555(TEXSTORE_PARAMS);
 extern GLboolean _mesa_texstore_argb1555_rev(TEXSTORE_PARAMS);
 extern GLboolean _mesa_texstore_r8(TEXSTORE_PARAMS);
 extern GLboolean _mesa_texstore_rg88(TEXSTORE_PARAMS);
-extern GLboolean _mesa_texstore_r16(TEXSTORE_PARAMS);
-extern GLboolean _mesa_texstore_rg1616(TEXSTORE_PARAMS);
 extern GLboolean _mesa_texstore_al88(TEXSTORE_PARAMS);
 extern GLboolean _mesa_texstore_al88_rev(TEXSTORE_PARAMS);
 extern GLboolean _mesa_texstore_rgb332(TEXSTORE_PARAMS);

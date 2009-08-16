@@ -2259,13 +2259,6 @@ _mesa_texstore_rg88(TEXSTORE_PARAMS)
 
 
 GLboolean
-_mesa_texstore_rg1616(TEXSTORE_PARAMS)
-{
-   return GL_FALSE;
-}
-
-
-GLboolean
 _mesa_texstore_al88(TEXSTORE_PARAMS)
 {
    const GLboolean littleEndian = _mesa_little_endian();

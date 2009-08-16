@@ -1522,54 +1522,6 @@ const struct gl_texture_format _mesa_texformat_rg88_rev = {
    store_texel_rg88_rev			/* StoreTexel */
 };
 
-const struct gl_texture_format _mesa_texformat_rg1616 = {
-   MESA_FORMAT_RG1616,			/* MesaFormat */
-   GL_RG,				/* BaseFormat */
-   GL_UNSIGNED_NORMALIZED_ARB,		/* DataType */
-   16,					/* RedBits */
-   16,					/* GreenBits */
-   0,					/* BlueBits */
-   0,					/* AlphaBits */
-   0,					/* LuminanceBits */
-   0,					/* IntensityBits */
-   0,					/* IndexBits */
-   0,					/* DepthBits */
-   0,					/* StencilBits */
-   4,					/* TexelBytes */
-   _mesa_texstore_rg1616,		/* StoreTexImageFunc */
-   NULL,				/* FetchTexel1D */
-   NULL,				/* FetchTexel2D */
-   NULL,				/* FetchTexel3D */
-   fetch_texel_1d_f_rg1616,		/* FetchTexel1Df */
-   fetch_texel_2d_f_rg1616,		/* FetchTexel2Df */
-   fetch_texel_3d_f_rg1616,		/* FetchTexel3Df */
-   store_texel_rg1616			/* StoreTexel */
-};
-
-const struct gl_texture_format _mesa_texformat_rg1616_rev = {
-   MESA_FORMAT_RG1616_REV,		/* MesaFormat */
-   GL_RG,				/* BaseFormat */
-   GL_UNSIGNED_NORMALIZED_ARB,		/* DataType */
-   16,					/* RedBits */
-   16,					/* GreenBits */
-   0,					/* BlueBits */
-   0,					/* AlphaBits */
-   0,					/* LuminanceBits */
-   0,					/* IntensityBits */
-   0,					/* IndexBits */
-   0,					/* DepthBits */
-   0,					/* StencilBits */
-   4,					/* TexelBytes */
-   _mesa_texstore_rg1616,		/* StoreTexImageFunc */
-   NULL,				/* FetchTexel1D */
-   NULL,				/* FetchTexel2D */
-   NULL,				/* FetchTexel3D */
-   fetch_texel_1d_f_rg1616_rev,		/* FetchTexel1Df */
-   fetch_texel_2d_f_rg1616_rev,		/* FetchTexel2Df */
-   fetch_texel_3d_f_rg1616_rev,		/* FetchTexel3Df */
-   store_texel_rg1616_rev		/* StoreTexel */
-};
-
 const struct gl_texture_format _mesa_texformat_r8 = {
    MESA_FORMAT_R8,			/* MesaFormat */
    GL_RED,				/* BaseFormat */
@@ -1592,30 +1544,6 @@ const struct gl_texture_format _mesa_texformat_r8 = {
    fetch_texel_2d_f_r8,			/* FetchTexel2Df */
    fetch_texel_3d_f_r8,			/* FetchTexel3Df */
    store_texel_r8			/* StoreTexel */
-};
-
-const struct gl_texture_format _mesa_texformat_r16 = {
-   MESA_FORMAT_R16,			/* MesaFormat */
-   GL_RED,				/* BaseFormat */
-   GL_UNSIGNED_NORMALIZED_ARB,		/* DataType */
-   16,					/* RedBits */
-   0,					/* GreenBits */
-   0,					/* BlueBits */
-   0,					/* AlphaBits */
-   0,					/* LuminanceBits */
-   0,					/* IntensityBits */
-   0,					/* IndexBits */
-   0,					/* DepthBits */
-   0,					/* StencilBits */
-   2,					/* TexelBytes */
-   _mesa_texstore_r16,			/* StoreTexImageFunc */
-   NULL,				/* FetchTexel1D */
-   NULL,				/* FetchTexel2D */
-   NULL,				/* FetchTexel3D */
-   fetch_texel_1d_f_r16,		/* FetchTexel1Df */
-   fetch_texel_2d_f_r16,		/* FetchTexel2Df */
-   fetch_texel_3d_f_r16,		/* FetchTexel3Df */
-   store_texel_r16			/* StoreTexel */
 };
 
 /*@}*/
@@ -1982,15 +1910,11 @@ _mesa_choose_tex_format( GLcontext *ctx, GLint internalFormat,
 	 return &_mesa_texformat_rg;
       case GL_RG8:
 	 return &_mesa_texformat_rg88;
-      case GL_RG16:
-	 return &_mesa_texformat_rg1616;
 
       case GL_RED:
 	 return &_mesa_texformat_r;
       case GL_R8:
 	 return &_mesa_texformat_r8;
-      case GL_R16:
-	 return &_mesa_texformat_r16;
 
       default:
             ; /* fallthrough */
@@ -2064,7 +1988,6 @@ _mesa_format_to_type_and_comps(const struct gl_texture_format *format,
 
    case MESA_FORMAT_YCBCR:
    case MESA_FORMAT_YCBCR_REV:
-   case MESA_FORMAT_RG1616:
       *datatype = GL_UNSIGNED_SHORT;
       *comps = 2;
       return;
@@ -2080,7 +2003,6 @@ _mesa_format_to_type_and_comps(const struct gl_texture_format *format,
       return;
 
    case MESA_FORMAT_Z16:
-   case MESA_FORMAT_R16:
       *datatype = GL_UNSIGNED_SHORT;
       *comps = 1;
       return;
