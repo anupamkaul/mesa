@@ -42,7 +42,7 @@ union tgsi_any_token {
    struct tgsi_declaration_range decl_range;
    struct tgsi_declaration_semantic decl_semantic;
    struct tgsi_immediate imm;
-   union  tgsi_immediate_data imm_data;
+   struct tgsi_immediate_float32 imm_data;
    struct tgsi_instruction insn;
    struct tgsi_instruction_ext_nv insn_ext_nv;
    struct tgsi_instruction_ext_label insn_ext_label;
@@ -518,10 +518,9 @@ ureg_emit_insn(struct ureg_program *ureg,
    out = get_tokens( ureg, DOMAIN_INSN, 1 );
    out[0].value = 0;
    out[0].insn.Type = TGSI_TOKEN_TYPE_INSTRUCTION;
-   out[0].insn.NrTokens = 0;
+   out[0].insn.Size = 0;
    out[0].insn.Opcode = opcode;
    out[0].insn.Saturate = saturate;
-   out[0].insn.NrTokens = 0;
    out[0].insn.NumDstRegs = num_dst;
    out[0].insn.NumSrcRegs = num_src;
    out[0].insn.Padding = 0;
@@ -572,7 +571,7 @@ ureg_fixup_insn_size(struct ureg_program *ureg,
 {
    union tgsi_any_token *out = retrieve_token( ureg, DOMAIN_INSN, insn );
 
-   out->insn.NrTokens = ureg->domain[DOMAIN_INSN].count - insn - 1;
+   out->insn.Size = ureg->domain[DOMAIN_INSN].count - insn - 1;
 }
 
 
@@ -590,7 +589,7 @@ static void emit_decl( struct ureg_program *ureg,
 
    out[0].value = 0;
    out[0].decl.Type = TGSI_TOKEN_TYPE_DECLARATION;
-   out[0].decl.NrTokens = 3;
+   out[0].decl.Size = 3;
    out[0].decl.File = file;
    out[0].decl.UsageMask = TGSI_WRITEMASK_XYZW; /* FIXME! */
    out[0].decl.Interpolate = interp;
@@ -616,7 +615,7 @@ static void emit_decl_range( struct ureg_program *ureg,
 
    out[0].value = 0;
    out[0].decl.Type = TGSI_TOKEN_TYPE_DECLARATION;
-   out[0].decl.NrTokens = 2;
+   out[0].decl.Size = 2;
    out[0].decl.File = file;
    out[0].decl.UsageMask = 0xf;
    out[0].decl.Interpolate = TGSI_INTERPOLATE_CONSTANT;
@@ -634,7 +633,7 @@ static void emit_immediate( struct ureg_program *ureg,
 
    out[0].value = 0;
    out[0].imm.Type = TGSI_TOKEN_TYPE_IMMEDIATE;
-   out[0].imm.NrTokens = 5;
+   out[0].imm.Size = 5;
    out[0].imm.DataType = TGSI_IMM_FLOAT32;
    out[0].imm.Padding = 0;
    out[0].imm.Extended = 0;
