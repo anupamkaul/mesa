@@ -30,12 +30,7 @@
 
 #include "pipe/p_compiler.h"
 #include "pipe/p_shader_tokens.h"
-#include "pipe/p_debug.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-   
 struct ureg_program;
 
 /* Almost a tgsi_src_register, but we need to pull in the Absolute
@@ -421,14 +416,6 @@ ureg_scalar( struct ureg_src reg, int x )
    return ureg_swizzle(reg, x, x, x, x);
 }
 
-static INLINE struct ureg_src 
-ureg_complement( struct ureg_src reg )
-{
-   /* FIXME */
-   assert(0);
-   return reg;
-}
-
 static INLINE struct ureg_dst 
 ureg_writemask( struct ureg_dst reg,
                 unsigned writemask )
@@ -444,20 +431,11 @@ ureg_saturate( struct ureg_dst reg )
    return reg;
 }
 
-static INLINE struct ureg_dst 
-ureg_modulate( struct ureg_dst reg, unsigned modulate )
-{
-   /* FIXME */
-   assert(modulate == TGSI_MODULATE_1X);
-   return reg;
-}
-
 static INLINE struct ureg_dst
 ureg_dst( struct ureg_src src )
 {
    struct ureg_dst dst;
 
-   assert(src.File);
    dst.File      = src.File;
    dst.WriteMask = TGSI_WRITEMASK_XYZW;
    dst.Indirect  = src.Indirect;
@@ -474,7 +452,6 @@ ureg_src( struct ureg_dst dst )
 {
    struct ureg_src src;
 
-   assert(dst.File);
    src.File      = dst.File;
    src.SwizzleX  = TGSI_SWIZZLE_X;
    src.SwizzleY  = TGSI_SWIZZLE_Y;
@@ -489,8 +466,6 @@ ureg_src( struct ureg_dst dst )
    return src;
 }
 
-#ifdef __cplusplus
-}
-#endif
+
 
 #endif
