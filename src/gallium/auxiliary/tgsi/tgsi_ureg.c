@@ -442,6 +442,10 @@ ureg_emit_src( struct ureg_program *ureg,
    union tgsi_any_token *out = get_tokens( ureg, DOMAIN_INSN, size );
    unsigned n = 0;
 
+   assert(src.File != TGSI_FILE_NULL);
+   assert(src.File != TGSI_FILE_OUTPUT);
+   assert(src.File < TGSI_FILE_COUNT);
+   
    out[n].value = 0;
    out[n].src.File = src.File;
    out[n].src.SwizzleX = src.SwizzleX;
@@ -484,6 +488,13 @@ ureg_emit_dst( struct ureg_program *ureg,
    union tgsi_any_token *out = get_tokens( ureg, DOMAIN_INSN, size );
    unsigned n = 0;
 
+   assert(dst.File != TGSI_FILE_NULL);
+   assert(dst.File != TGSI_FILE_CONSTANT);
+   assert(dst.File != TGSI_FILE_INPUT);
+   assert(dst.File != TGSI_FILE_SAMPLER);
+   assert(dst.File != TGSI_FILE_IMMEDIATE);
+   assert(dst.File < TGSI_FILE_COUNT);
+   
    out[n].value = 0;
    out[n].dst.File = dst.File;
    out[n].dst.WriteMask = dst.WriteMask;
@@ -783,7 +794,7 @@ const struct tgsi_token *ureg_finalize( struct ureg_program *ureg )
 
    tokens = &ureg->domain[DOMAIN_DECL].tokens[0].token;
 
-   if (0) {
+   if (1) {
       debug_printf("%s: emitted shader %d tokens:\n", __FUNCTION__, 
                    ureg->domain[DOMAIN_DECL].count);
       tgsi_dump( tokens, 0 );

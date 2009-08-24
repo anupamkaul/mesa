@@ -30,6 +30,7 @@
 
 #include "pipe/p_compiler.h"
 #include "pipe/p_shader_tokens.h"
+#include "pipe/p_debug.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -386,6 +387,7 @@ static INLINE void ureg_##op( struct ureg_program *ureg,                \
 static INLINE struct ureg_src 
 ureg_negate( struct ureg_src reg )
 {
+   assert(reg.File != TGSI_FILE_NULL);
    reg.Negate ^= 1;
    return reg;
 }
@@ -393,6 +395,7 @@ ureg_negate( struct ureg_src reg )
 static INLINE struct ureg_src
 ureg_abs( struct ureg_src reg )
 {
+   assert(reg.File != TGSI_FILE_NULL);
    reg.Absolute = 1;
    reg.Negate = 0;
    return reg;
@@ -406,6 +409,12 @@ ureg_swizzle( struct ureg_src reg,
                     (reg.SwizzleY << 2) |
                     (reg.SwizzleZ << 4) |
                     (reg.SwizzleW << 6));
+
+   assert(reg.File != TGSI_FILE_NULL);
+   assert(x < 4);
+   assert(y < 4);
+   assert(z < 4);
+   assert(w < 4);
 
    reg.SwizzleX = (swz >> (x*2)) & 0x3;
    reg.SwizzleY = (swz >> (y*2)) & 0x3;
@@ -424,6 +433,7 @@ static INLINE struct ureg_dst
 ureg_writemask( struct ureg_dst reg,
                 unsigned writemask )
 {
+   assert(reg.File != TGSI_FILE_NULL);
    reg.WriteMask &= writemask;
    return reg;
 }
@@ -431,6 +441,7 @@ ureg_writemask( struct ureg_dst reg,
 static INLINE struct ureg_dst 
 ureg_saturate( struct ureg_dst reg )
 {
+   assert(reg.File != TGSI_FILE_NULL);
    reg.Saturate = 1;
    return reg;
 }
@@ -440,6 +451,7 @@ ureg_dst( struct ureg_src src )
 {
    struct ureg_dst dst;
 
+   assert(src.File == TGSI_FILE_TEMPORARY);
    dst.File      = src.File;
    dst.WriteMask = TGSI_WRITEMASK_XYZW;
    dst.Indirect  = src.Indirect;
@@ -456,6 +468,7 @@ ureg_src( struct ureg_dst dst )
 {
    struct ureg_src src;
 
+   assert(dst.File == TGSI_FILE_TEMPORARY);
    src.File      = dst.File;
    src.SwizzleX  = TGSI_SWIZZLE_X;
    src.SwizzleY  = TGSI_SWIZZLE_Y;
