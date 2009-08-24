@@ -31,6 +31,10 @@
 #include "pipe/p_compiler.h"
 #include "pipe/p_shader_tokens.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+   
 struct ureg_program;
 
 /* Almost a tgsi_src_register, but we need to pull in the Absolute
@@ -466,6 +470,8 @@ ureg_src( struct ureg_dst dst )
    return src;
 }
 
-
+#ifdef __cplusplus
+}
+#endif
 
 #endif
