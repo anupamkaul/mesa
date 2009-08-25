@@ -794,7 +794,7 @@ const struct tgsi_token *ureg_finalize( struct ureg_program *ureg )
 
    tokens = &ureg->domain[DOMAIN_DECL].tokens[0].token;
 
-   if (1) {
+   if (0) {
       debug_printf("%s: emitted shader %d tokens:\n", __FUNCTION__, 
                    ureg->domain[DOMAIN_DECL].count);
       tgsi_dump( tokens, 0 );
