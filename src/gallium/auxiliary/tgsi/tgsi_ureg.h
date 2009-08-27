@@ -141,7 +141,7 @@ ureg_DECL_sampler( struct ureg_program * );
 
 
 static INLINE struct ureg_src
-ureg_DECL_immediate4f( struct ureg_program *ureg,
+ureg_imm4f( struct ureg_program *ureg,
                        float a, float b,
                        float c, float d)
 {
@@ -154,7 +154,7 @@ ureg_DECL_immediate4f( struct ureg_program *ureg,
 }
 
 static INLINE struct ureg_src
-ureg_DECL_immediate3f( struct ureg_program *ureg,
+ureg_imm3f( struct ureg_program *ureg,
                        float a, float b,
                        float c)
 {
@@ -166,7 +166,7 @@ ureg_DECL_immediate3f( struct ureg_program *ureg,
 }
 
 static INLINE struct ureg_src
-ureg_DECL_immediate2f( struct ureg_program *ureg,
+ureg_imm2f( struct ureg_program *ureg,
                        float a, float b)
 {
    float v[2];
@@ -176,7 +176,7 @@ ureg_DECL_immediate2f( struct ureg_program *ureg,
 }
 
 static INLINE struct ureg_src
-ureg_DECL_immediate1f( struct ureg_program *ureg,
+ureg_imm1f( struct ureg_program *ureg,
                        float a)
 {
    float v[1];
