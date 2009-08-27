@@ -254,6 +254,7 @@ ureg_DECL_fs_input( struct ureg_program *ureg,
                     unsigned index,
                     unsigned interp )
 {
+   assert(ureg->processor == TGSI_PROCESSOR_FRAGMENT);
    return ureg_DECL_input( ureg, name, index, interp );
 }
 
@@ -263,6 +264,7 @@ ureg_DECL_vs_input( struct ureg_program *ureg,
                     unsigned name,
                     unsigned index )
 {
+   assert(ureg->processor == TGSI_PROCESSOR_VERTEX);
    return ureg_DECL_input( ureg, name, index, TGSI_INTERPOLATE_CONSTANT );
 }
 
