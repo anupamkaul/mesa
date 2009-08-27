@@ -456,11 +456,14 @@ ureg_emit_src( struct ureg_program *ureg,
    out[n].src.SwizzleW = src.SwizzleW;
    out[n].src.Indirect = src.Indirect;
    out[n].src.Index = src.Index;
+   out[n].src.Negate = src.Negate;
    n++;
    
    if (src.Absolute) {
+      out[0].src.Negate = 0;
       out[n].value = 0;
       out[n].src_ext_mod.Absolute = 1;
+      out[n].src_ext_mod.Negate = src.Negate;
       n++;
    }
 
