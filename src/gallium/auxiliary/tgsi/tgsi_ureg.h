@@ -483,6 +483,56 @@ ureg_src( struct ureg_dst dst )
    return src;
 }
 
+
+
+static INLINE struct ureg_dst
+ureg_dst_undef( void )
+{
+   struct ureg_dst dst;
+
+   dst.File      = TGSI_FILE_NULL;
+   dst.WriteMask = 0;
+   dst.Indirect  = 0;
+   dst.Saturate  = 0;
+   dst.Index     = 0;
+   dst.Pad1      = 0;
+   dst.Pad2      = 0;
+
+   return dst;
+}
+
+static INLINE struct ureg_src
+ureg_src_undef( void )
+{
+   struct ureg_src src;
+
+   src.File      = TGSI_FILE_NULL;
+   src.SwizzleX  = 0;
+   src.SwizzleY  = 0;
+   src.SwizzleZ  = 0;
+   src.SwizzleW  = 0;
+   src.Pad       = 0;
+   src.Indirect  = 0;
+   src.Absolute  = 0;
+   src.Index     = 0;
+   src.Negate    = 0;
+   
+   return src;
+}
+
+static INLINE boolean
+ureg_src_is_undef( struct ureg_src src )
+{
+   return src.File == TGSI_FILE_NULL;
+}
+
+static INLINE boolean
+ureg_dst_is_undef( struct ureg_dst dst )
+{
+   return dst.File == TGSI_FILE_NULL;
+}
+
+
 #ifdef __cplusplus
 }
 #endif
