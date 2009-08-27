@@ -99,11 +99,13 @@ struct ureg_program
    } immediate[UREG_MAX_IMMEDIATE];
    unsigned nr_immediates;
 
+   struct ureg_src sampler[PIPE_MAX_SAMPLERS];
+   unsigned nr_samplers;
+
    unsigned temps_active[UREG_MAX_TEMP / 32];
    unsigned nr_temps;
 
    unsigned nr_constants;
-   unsigned nr_samplers;
    unsigned nr_instructions;
 
    struct ureg_tokens domain[2];
@@ -350,9 +352,23 @@ void ureg_release_temporary( struct ureg_program *ureg,
 
 /* Allocate a new sampler.
  */
-struct ureg_src ureg_DECL_sampler( struct ureg_program *ureg )
+struct ureg_src ureg_DECL_sampler( struct ureg_program *ureg,
+                                   unsigned nr )
 {
-   return ureg_src_register( TGSI_FILE_SAMPLER, ureg->nr_samplers++ );
+   unsigned i;
+
+   for (i = 0; i < ureg->nr_samplers; i++)
+      if (ureg->sampler[i].Index == nr)
+         return ureg->sampler[i];
+   
+   if (i < PIPE_MAX_SAMPLERS) {
+      ureg->sampler[i] = ureg_src_register( TGSI_FILE_SAMPLER, nr );
+      ureg->nr_samplers++;
+      return ureg->sampler[i];
+   }
+
+   assert( 0 );
+   return ureg->sampler[0];
 }
 
 
@@ -715,10 +731,11 @@ static void emit_decls( struct ureg_program *ureg )
                  TGSI_INTERPOLATE_CONSTANT );
    }
 
-   if (ureg->nr_samplers) {
+   for (i = 0; i < ureg->nr_samplers; i++) {
       emit_decl_range( ureg, 
                        TGSI_FILE_SAMPLER,
-                       0, ureg->nr_samplers );
+                       ureg->sampler[i].Index, 
+                       ureg->sampler[i].Index );
    }
 
    if (ureg->nr_constants) {

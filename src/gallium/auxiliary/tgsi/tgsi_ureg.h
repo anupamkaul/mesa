@@ -136,8 +136,14 @@ void
 ureg_release_temporary( struct ureg_program *ureg,
                         struct ureg_dst tmp );
 
+/* Supply an index to the sampler declaration as this is the hook to
+ * the external pipe_sampler state.  Users of this function probably
+ * don't want just any sampler, but a specific one which they've set
+ * up state for in the context.
+ */
 struct ureg_src
-ureg_DECL_sampler( struct ureg_program * );
+ureg_DECL_sampler( struct ureg_program *,
+                   unsigned index );
 
 
 static INLINE struct ureg_src
