@@ -42,6 +42,7 @@
 #define WIN32_LEAN_AND_MEAN      // Exclude rarely-used stuff from Windows headers
 #endif
 #include <windows.h>
+#include <stdio.h>
 
 #else
 
@@ -49,6 +50,7 @@
 #include <stdlib.h>
 
 #endif
+
 
 #include "pipe/p_compiler.h" 
 #include "pipe/p_debug.h" 
@@ -98,6 +100,15 @@ void _debug_vprintf(const char *format, va_list ap)
       OutputDebugStringA(buf);
       buf[0] = '\0';
    }
+
+   
+   if(GetConsoleWindow() && !IsDebuggerPresent()) {
+      fflush(stdout);
+      vfprintf(stderr, format, ap);
+      fflush(stderr);
+   }
+   
+
 #elif defined(PIPE_SUBSYSTEM_WINDOWS_CE) || defined(PIPE_SUBSYSTEM_WINDOWS_MINIPORT) 
    /* TODO */
 #else /* !PIPE_SUBSYSTEM_WINDOWS */
