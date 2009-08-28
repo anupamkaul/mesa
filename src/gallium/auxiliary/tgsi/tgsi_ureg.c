@@ -412,7 +412,7 @@ struct ureg_src ureg_DECL_immediate( struct ureg_program *ureg,
                                      const float *v,
                                      unsigned nr )
 {
-   unsigned i;
+   unsigned i, j;
    unsigned swizzle = 0;
 
    /* Could do a first pass where we examine all existing immediates
@@ -441,6 +441,12 @@ struct ureg_src ureg_DECL_immediate( struct ureg_program *ureg,
    set_bad( ureg );
 
 out:
+   /* Make sure that all referenced elements are from this immediate.
+    * Has the effect of making size-one immediates into scalars.
+    */
+   for (j = nr; j < 4; j++)
+      swizzle |= (swizzle & 0x3) << (j * 2);
+
    return ureg_swizzle( ureg_src_register( TGSI_FILE_IMMEDIATE, i ),
                         (swizzle >> 0) & 0x3,
                         (swizzle >> 2) & 0x3,
