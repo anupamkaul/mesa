@@ -757,8 +757,7 @@ static void emit_decls( struct ureg_program *ureg )
    for (i = 0; i < ureg->nr_samplers; i++) {
       emit_decl_range( ureg, 
                        TGSI_FILE_SAMPLER,
-                       ureg->sampler[i].Index, 
-                       ureg->sampler[i].Index );
+                       ureg->sampler[i].Index, 1 );
    }
 
    if (ureg->nr_constants) {
@@ -839,7 +838,7 @@ const struct tgsi_token *ureg_finalize( struct ureg_program *ureg )
 
    tokens = &ureg->domain[DOMAIN_DECL].tokens[0].token;
 
-   if (0) {
+   if (1) {
       debug_printf("%s: emitted shader %d tokens:\n", __FUNCTION__, 
                    ureg->domain[DOMAIN_DECL].count);
       tgsi_dump( tokens, 0 );
