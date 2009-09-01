@@ -483,7 +483,6 @@ ureg_dst( struct ureg_src src )
 {
    struct ureg_dst dst;
 
-   assert(src.File == TGSI_FILE_TEMPORARY);
    dst.File      = src.File;
    dst.WriteMask = TGSI_WRITEMASK_XYZW;
    dst.Indirect  = src.Indirect;
@@ -500,7 +499,6 @@ ureg_src( struct ureg_dst dst )
 {
    struct ureg_src src;
 
-   assert(dst.File == TGSI_FILE_TEMPORARY);
    src.File      = dst.File;
    src.SwizzleX  = TGSI_SWIZZLE_X;
    src.SwizzleY  = TGSI_SWIZZLE_Y;
