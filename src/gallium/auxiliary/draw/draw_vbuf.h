@@ -38,6 +38,7 @@
 
 
 
+struct pipe_rasterizer_state;
 struct draw_context;
 struct vertex_info;
 
