@@ -45,7 +45,7 @@ import mslib_sa
 import mslink_sa
 
 versions = [
-    '6001.18002',
+    #'6001.18002',
     '3790.1830',
 ]
 
@@ -56,7 +56,11 @@ def cpu_bin(target_cpu):
         return target_cpu
 
 def get_winddk_root(env, version):
-    default_path = os.path.join(r'C:\WINDDK', version)
+    try:
+        root = os.environ['WINDDK_DIR']
+    except KeyError:
+        root = r'C:\WINDDK'
+    default_path = os.path.join(root, version)
     if os.path.exists(default_path):
         return default_path
     return None 
