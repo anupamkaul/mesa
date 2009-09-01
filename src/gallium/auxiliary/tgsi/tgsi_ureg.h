@@ -462,6 +462,22 @@ ureg_saturate( struct ureg_dst reg )
    return reg;
 }
 
+static INLINE struct ureg_dst 
+ureg_indirect_dst( struct ureg_dst reg )
+{
+   assert(reg.File != TGSI_FILE_NULL);
+   reg.Indirect = 1;
+   return reg;
+}
+
+static INLINE struct ureg_src 
+ureg_indirect_src( struct ureg_src reg )
+{
+   assert(reg.File != TGSI_FILE_NULL);
+   reg.Indirect = 1;
+   return reg;
+}
+
 static INLINE struct ureg_dst
 ureg_dst( struct ureg_src src )
 {
