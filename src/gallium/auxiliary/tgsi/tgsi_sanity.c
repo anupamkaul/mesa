@@ -26,6 +26,7 @@
  **************************************************************************/
 
 #include "pipe/p_debug.h"
+#include "util/u_memory.h"
 #include "tgsi_sanity.h"
 #include "tgsi_info.h"
 #include "tgsi_iterate.h"
@@ -34,7 +35,7 @@ typedef uint reg_flag;
 
 #define BITS_IN_REG_FLAG (sizeof( reg_flag ) * 8)
 
-#define MAX_REGISTERS 256
+#define MAX_REGISTERS 512
 #define MAX_REG_FLAGS ((MAX_REGISTERS + BITS_IN_REG_FLAG - 1) / BITS_IN_REG_FLAG)
 
 struct sanity_check_ctx
@@ -341,26 +342,33 @@ boolean
 tgsi_sanity_check(
    struct tgsi_token *tokens )
 {
-   struct sanity_check_ctx ctx;
-
-   ctx.iter.prolog = NULL;
-   ctx.iter.iterate_instruction = iter_instruction;
-   ctx.iter.iterate_declaration = iter_declaration;
-   ctx.iter.iterate_immediate = iter_immediate;
-   ctx.iter.epilog = epilog;
-
-   memset( ctx.regs_decl, 0, sizeof( ctx.regs_decl ) );
-   memset( ctx.regs_used, 0, sizeof( ctx.regs_used ) );
-   memset( ctx.regs_ind_used, 0, sizeof( ctx.regs_ind_used ) );
-   ctx.num_imms = 0;
-   ctx.num_instructions = 0;
-   ctx.index_of_END = ~0;
-
-   ctx.errors = 0;
-   ctx.warnings = 0;
-
-   if (!tgsi_iterate_shader( tokens, &ctx.iter ))
+   struct sanity_check_ctx *ctx;
+   boolean ret;
+   
+   ctx = CALLOC_STRUCT(sanity_check_ctx);
+   if(!ctx)
       return FALSE;
+   
+   ctx->iter.prolog = NULL;
+   ctx->iter.iterate_instruction = iter_instruction;
+   ctx->iter.iterate_declaration = iter_declaration;
+   ctx->iter.iterate_immediate = iter_immediate;
+   ctx->iter.epilog = epilog;
 
-   return ctx.errors == 0;
+   memset( ctx->regs_decl, 0, sizeof( ctx->regs_decl ) );
+   memset( ctx->regs_used, 0, sizeof( ctx->regs_used ) );
+   memset( ctx->regs_ind_used, 0, sizeof( ctx->regs_ind_used ) );
+   ctx->num_imms = 0;
+   ctx->num_instructions = 0;
+   ctx->index_of_END = ~0;
+
+   ctx->errors = 0;
+   ctx->warnings = 0;
+
+   ret = tgsi_iterate_shader( tokens, &ctx->iter ) && 
+         (ctx->errors == 0);
+ 
+   FREE(ctx);
+
+   return ret;
 }
