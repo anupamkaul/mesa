@@ -29,6 +29,7 @@
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 #include "tgsi/tgsi_ureg.h"
+#include "tgsi/tgsi_info.h"
 #include "tgsi/tgsi_dump.h"
 #include "util/u_memory.h"
 #include "util/u_math.h"
@@ -654,6 +655,17 @@ ureg_insn(struct ureg_program *ureg,
    unsigned insn, i;
    boolean saturate;
 
+#ifdef DEBUG
+   {
+      const struct tgsi_opcode_info *info = tgsi_get_opcode_info( opcode );
+      assert(info);
+      if(info) {
+         assert(nr_dst == info->num_dst);
+         assert(nr_src == info->num_src);
+      }
+   }
+#endif
+   
    saturate = nr_dst ? dst[0].Saturate : FALSE;
 
    insn = ureg_emit_insn( ureg, opcode, saturate, nr_dst, nr_src );
