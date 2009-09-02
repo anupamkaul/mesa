@@ -2855,6 +2855,8 @@ exec_instruction(
       mach->LoopStack[mach->LoopStackTop++] = mach->LoopMask;
       assert(mach->ContStackTop < TGSI_EXEC_MAX_LOOP_NESTING);
       mach->ContStack[mach->ContStackTop++] = mach->ContMask;
+      assert(mach->LoopLabelStackTop < TGSI_EXEC_MAX_LOOP_NESTING);
+      mach->LoopLabelStack[mach->LoopLabelStackTop++] = *pc - 1;
       break;
 
    case TGSI_OPCODE_ENDLOOP:
@@ -2866,7 +2868,8 @@ exec_instruction(
       UPDATE_EXEC_MASK(mach);
       if (mach->ExecMask) {
          /* repeat loop: jump to instruction just past BGNLOOP */
-         *pc = inst->InstructionExtLabel.Label + 1;
+         assert(mach->LoopLabelStackTop > 0);
+         *pc = mach->LoopLabelStack[mach->LoopLabelStackTop - 1] + 1;
       }
       else {
          /* exit loop: pop LoopMask */
@@ -2875,6 +2878,8 @@ exec_instruction(
          /* pop ContMask */
          assert(mach->ContStackTop > 0);
          mach->ContMask = mach->ContStack[--mach->ContStackTop];
+         assert(mach->LoopLabelStackTop > 0);
+         --mach->LoopLabelStackTop;
       }
       UPDATE_EXEC_MASK(mach);
       break;
