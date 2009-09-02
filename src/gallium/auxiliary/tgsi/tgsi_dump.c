@@ -337,7 +337,7 @@ iter_instruction(
    TXT( ": " );
    
    ctx->indent -= info->pre_dedent;
-   for(i = 0; i < ctx->indent; ++i)
+   for(i = 0; (int)i < ctx->indent; ++i)
       TXT( "  " );
    ctx->indent += info->post_indent;
    
