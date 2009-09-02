@@ -1257,6 +1257,7 @@ _mesa_texstore_rgb565(TEXSTORE_PARAMS)
    ASSERT(dstFormat == &_mesa_texformat_rgb565 ||
           dstFormat == &_mesa_texformat_rgb565_rev);
    ASSERT(dstFormat->TexelBytes == 2);
+   ASSERT(dstFormat->BaseFormat == GL_RGB);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -1365,6 +1366,7 @@ _mesa_texstore_rgba8888(TEXSTORE_PARAMS)
    ASSERT(dstFormat == &_mesa_texformat_rgba8888 ||
           dstFormat == &_mesa_texformat_rgba8888_rev);
    ASSERT(dstFormat->TexelBytes == 4);
+   ASSERT(dstFormat->BaseFormat == GL_RGBA);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -1685,6 +1687,7 @@ _mesa_texstore_rgb888(TEXSTORE_PARAMS)
 
    ASSERT(dstFormat == &_mesa_texformat_rgb888);
    ASSERT(dstFormat->TexelBytes == 3);
+   ASSERT(dstFormat->BaseFormat == GL_RGB);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -1810,6 +1813,7 @@ _mesa_texstore_bgr888(TEXSTORE_PARAMS)
 
    ASSERT(dstFormat == &_mesa_texformat_bgr888);
    ASSERT(dstFormat->TexelBytes == 3);
+   ASSERT(dstFormat->BaseFormat == GL_RGB);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -1913,6 +1917,7 @@ _mesa_texstore_rgba4444(TEXSTORE_PARAMS)
 {
    ASSERT(dstFormat == &_mesa_texformat_rgba4444);
    ASSERT(dstFormat->TexelBytes == 2);
+   ASSERT(dstFormat->BaseFormat == GL_RGBA);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -1969,6 +1974,7 @@ _mesa_texstore_argb4444(TEXSTORE_PARAMS)
    ASSERT(dstFormat == &_mesa_texformat_argb4444 ||
           dstFormat == &_mesa_texformat_argb4444_rev);
    ASSERT(dstFormat->TexelBytes == 2);
+   ASSERT(dstFormat->BaseFormat == GL_RGBA);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -2035,6 +2041,7 @@ _mesa_texstore_rgba5551(TEXSTORE_PARAMS)
 {
    ASSERT(dstFormat == &_mesa_texformat_rgba5551);
    ASSERT(dstFormat->TexelBytes == 2);
+   ASSERT(dstFormat->BaseFormat == GL_RGBA);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -2091,6 +2098,7 @@ _mesa_texstore_argb1555(TEXSTORE_PARAMS)
    ASSERT(dstFormat == &_mesa_texformat_argb1555 ||
           dstFormat == &_mesa_texformat_argb1555_rev);
    ASSERT(dstFormat->TexelBytes == 2);
+   ASSERT(dstFormat->BaseFormat == GL_RGBA);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -2161,6 +2169,7 @@ _mesa_texstore_al88(TEXSTORE_PARAMS)
    ASSERT(dstFormat == &_mesa_texformat_al88 ||
           dstFormat == &_mesa_texformat_al88_rev);
    ASSERT(dstFormat->TexelBytes == 2);
+   ASSERT(dstFormat->BaseFormat == GL_LUMINANCE_ALPHA);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -2259,6 +2268,7 @@ _mesa_texstore_rgb332(TEXSTORE_PARAMS)
 {
    ASSERT(dstFormat == &_mesa_texformat_rgb332);
    ASSERT(dstFormat->TexelBytes == 1);
+   ASSERT(dstFormat->BaseFormat == GL_RGB);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
@@ -2316,6 +2326,9 @@ _mesa_texstore_a8(TEXSTORE_PARAMS)
           dstFormat == &_mesa_texformat_l8 ||
           dstFormat == &_mesa_texformat_i8);
    ASSERT(dstFormat->TexelBytes == 1);
+   ASSERT(dstFormat->BaseFormat == GL_ALPHA ||
+          dstFormat->BaseFormat == GL_LUMINANCE ||
+          dstFormat->BaseFormat == GL_INTENSITY);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
