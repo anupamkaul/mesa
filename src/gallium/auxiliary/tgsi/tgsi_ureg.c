@@ -477,20 +477,22 @@ ureg_emit_src( struct ureg_program *ureg,
    out[n].src.SwizzleY = src.SwizzleY;
    out[n].src.SwizzleZ = src.SwizzleZ;
    out[n].src.SwizzleW = src.SwizzleW;
-   out[n].src.Indirect = src.Indirect;
    out[n].src.Index = src.Index;
    out[n].src.Negate = src.Negate;
    n++;
    
    if (src.Absolute) {
+      out[0].src.Extended = 1;
       out[0].src.Negate = 0;
       out[n].value = 0;
+      out[n].src_ext_mod.Type = TGSI_SRC_REGISTER_EXT_TYPE_MOD;
       out[n].src_ext_mod.Absolute = 1;
       out[n].src_ext_mod.Negate = src.Negate;
       n++;
    }
 
    if (src.Indirect) {
+      out[0].src.Indirect = 1;
       out[n].value = 0;
       out[n].src.File = TGSI_FILE_ADDRESS;
       out[n].src.SwizzleX = TGSI_SWIZZLE_X;
