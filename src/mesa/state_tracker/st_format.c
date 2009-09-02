@@ -228,6 +228,8 @@ st_mesa_format_to_pipe_format(GLuint mesaFormat)
 {
    switch (mesaFormat) {
       /* fix this */
+   case MESA_FORMAT_XRGB8888:
+      return PIPE_FORMAT_X8R8G8B8_UNORM;
    case MESA_FORMAT_ARGB8888_REV:
    case MESA_FORMAT_ARGB8888:
       return PIPE_FORMAT_A8R8G8B8_UNORM;
@@ -317,6 +319,35 @@ default_rgba_format(struct pipe_screen *screen,
    return PIPE_FORMAT_NONE;
 }
 
+
+
+/**
+ * Find an RGB format supported by the context/winsys.
+ */
+static enum pipe_format
+default_rgb_format(struct pipe_screen *screen, 
+                    enum pipe_texture_target target,
+                    unsigned tex_usage, 
+                    unsigned geom_flags)
+{
+   static const enum pipe_format colorFormats[] = {
+      PIPE_FORMAT_R8G8B8_UNORM,
+      PIPE_FORMAT_X8R8G8B8_UNORM,
+      /* PIPE_FORMAT_B8G8R8X8_UNORM, */
+      /* PIPE_FORMAT_R8G8B8X8_UNORM, */
+      PIPE_FORMAT_R5G6B5_UNORM,
+   };
+   uint i;
+   for (i = 0; i < Elements(colorFormats); i++) {
+      if (screen->is_format_supported( screen, colorFormats[i], target, tex_usage, geom_flags )) {
+         return colorFormats[i];
+      }
+   }
+   return default_rgba_format( screen, target, tex_usage, geom_flags );
+}
+
+
+
 /**
  * Find an sRGBA format supported by the context/winsys.
  */
@@ -402,13 +433,14 @@ st_choose_format(struct pipe_context *pipe, GLenum internalFormat,
    case 4:
    case GL_RGBA:
    case GL_COMPRESSED_RGBA:
-   case 3:
-   case GL_RGB:
-   case GL_COMPRESSED_RGB:
    case GL_RGBA8:
    case GL_RGB10_A2:
    case GL_RGBA12:
       return default_rgba_format( screen, target, tex_usage, geom_flags );
+   case 3:
+   case GL_RGB:
+   case GL_COMPRESSED_RGB:
+      return default_rgb_format( screen, target, tex_usage, geom_flags );
    case GL_RGBA16:
       if (tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET)
          return default_deep_rgba_format( screen, target, tex_usage, geom_flags );
@@ -430,7 +462,7 @@ st_choose_format(struct pipe_context *pipe, GLenum internalFormat,
    case GL_RGB10:
    case GL_RGB12:
    case GL_RGB16:
-      return default_rgba_format( screen, target, tex_usage, geom_flags );
+      return default_rgb_format( screen, target, tex_usage, geom_flags );
 
    case GL_RGB5:
    case GL_RGB4:
@@ -439,7 +471,7 @@ st_choose_format(struct pipe_context *pipe, GLenum internalFormat,
          return PIPE_FORMAT_R5G6B5_UNORM;
       if (screen->is_format_supported( screen, PIPE_FORMAT_A1R5G5B5_UNORM, target, tex_usage, geom_flags ))
          return PIPE_FORMAT_A1R5G5B5_UNORM;
-      return default_rgba_format( screen, target, tex_usage, geom_flags );
+      return default_rgb_format( screen, target, tex_usage, geom_flags );
 
    case GL_ALPHA:
    case GL_ALPHA4:
@@ -460,7 +492,7 @@ st_choose_format(struct pipe_context *pipe, GLenum internalFormat,
    case GL_COMPRESSED_LUMINANCE:
       if (screen->is_format_supported( screen, PIPE_FORMAT_L8_UNORM, target, tex_usage, geom_flags ))
          return PIPE_FORMAT_L8_UNORM;
-      return default_rgba_format( screen, target, tex_usage, geom_flags );
+      return default_rgb_format( screen, target, tex_usage, geom_flags );
 
    case 2:
    case GL_LUMINANCE_ALPHA:
@@ -633,6 +665,10 @@ static const struct gl_texture_format *
 translate_gallium_format_to_mesa_format(enum pipe_format format)
 {
    switch (format) {
+   case PIPE_FORMAT_R8G8B8_UNORM:
+      return &_mesa_texformat_rgb888;
+   case PIPE_FORMAT_X8R8G8B8_UNORM:
+      return &_mesa_texformat_xrgb8888;
    case PIPE_FORMAT_A8R8G8B8_UNORM:
       return &_mesa_texformat_argb8888;
    case PIPE_FORMAT_A1R5G5B5_UNORM:

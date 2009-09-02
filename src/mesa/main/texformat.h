@@ -66,6 +66,7 @@ enum _format {
    MESA_FORMAT_RGBA8888,	/* RRRR RRRR GGGG GGGG BBBB BBBB AAAA AAAA */
    MESA_FORMAT_RGBA8888_REV,	/* AAAA AAAA BBBB BBBB GGGG GGGG RRRR RRRR */
    MESA_FORMAT_ARGB8888,	/* AAAA AAAA RRRR RRRR GGGG GGGG BBBB BBBB */
+   MESA_FORMAT_XRGB8888,	/* xxxx xxxx RRRR RRRR GGGG GGGG BBBB BBBB */
    MESA_FORMAT_ARGB8888_REV,	/* BBBB BBBB GGGG GGGG RRRR RRRR AAAA AAAA */
    MESA_FORMAT_RGB888,		/*           RRRR RRRR GGGG GGGG BBBB BBBB */
    MESA_FORMAT_BGR888,		/*           BBBB BBBB GGGG GGGG RRRR RRRR */
@@ -229,6 +230,7 @@ extern const struct gl_texture_format _mesa_texformat_signed_rgba8888_rev;
 /*@{*/
 extern const struct gl_texture_format _mesa_texformat_rgba8888;
 extern const struct gl_texture_format _mesa_texformat_rgba8888_rev;
+extern const struct gl_texture_format _mesa_texformat_xrgb8888;
 extern const struct gl_texture_format _mesa_texformat_argb8888;
 extern const struct gl_texture_format _mesa_texformat_argb8888_rev;
 extern const struct gl_texture_format _mesa_texformat_rgb888;

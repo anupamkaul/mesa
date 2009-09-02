@@ -1486,12 +1486,14 @@ _mesa_texstore_argb8888(TEXSTORE_PARAMS)
    const GLboolean littleEndian = _mesa_little_endian();
 
    ASSERT(dstFormat == &_mesa_texformat_argb8888 ||
+          dstFormat == &_mesa_texformat_xrgb8888 ||
           dstFormat == &_mesa_texformat_argb8888_rev);
    ASSERT(dstFormat->TexelBytes == 4);
 
    if (!ctx->_ImageTransferState &&
        !srcPacking->SwapBytes &&
-       dstFormat == &_mesa_texformat_argb8888 &&
+       (dstFormat == &_mesa_texformat_argb8888 ||
+        dstFormat == &_mesa_texformat_xrgb8888) &&
        baseInternalFormat == GL_RGBA &&
        srcFormat == GL_BGRA &&
        ((srcType == GL_UNSIGNED_BYTE && littleEndian) ||
@@ -1521,7 +1523,8 @@ _mesa_texstore_argb8888(TEXSTORE_PARAMS)
    }
    else if (!ctx->_ImageTransferState &&
             !srcPacking->SwapBytes &&
-	    dstFormat == &_mesa_texformat_argb8888 &&
+	    (dstFormat == &_mesa_texformat_argb8888 ||
+             dstFormat == &_mesa_texformat_xrgb8888) &&
             srcFormat == GL_RGB &&
 	    (baseInternalFormat == GL_RGBA ||
 	     baseInternalFormat == GL_RGB) &&
@@ -1551,7 +1554,8 @@ _mesa_texstore_argb8888(TEXSTORE_PARAMS)
    }
    else if (!ctx->_ImageTransferState &&
             !srcPacking->SwapBytes &&
-	    dstFormat == &_mesa_texformat_argb8888 &&
+	    (dstFormat == &_mesa_texformat_argb8888 ||
+             dstFormat == &_mesa_texformat_xrgb8888) &&
             srcFormat == GL_RGBA &&
 	    baseInternalFormat == GL_RGBA &&
             srcType == GL_UNSIGNED_BYTE) {
@@ -1597,6 +1601,7 @@ _mesa_texstore_argb8888(TEXSTORE_PARAMS)
       /* dstmap - how to swizzle from RGBA to dst format:
        */
       if ((littleEndian && dstFormat == &_mesa_texformat_argb8888) ||
+	  (littleEndian && dstFormat == &_mesa_texformat_xrgb8888) ||
 	  (!littleEndian && dstFormat == &_mesa_texformat_argb8888_rev)) {
 	 dstmap[3] = 3;		/* alpha */
 	 dstmap[2] = 0;		/* red */
@@ -1605,6 +1610,7 @@ _mesa_texstore_argb8888(TEXSTORE_PARAMS)
       }
       else {
 	 assert((littleEndian && dstFormat == &_mesa_texformat_argb8888_rev) ||
+                (!littleEndian && dstFormat == &_mesa_texformat_xrgb8888) ||
 		(!littleEndian && dstFormat == &_mesa_texformat_argb8888));
 	 dstmap[3] = 2;
 	 dstmap[2] = 1;
@@ -1644,7 +1650,8 @@ _mesa_texstore_argb8888(TEXSTORE_PARAMS)
             + dstXoffset * dstFormat->TexelBytes;
          for (row = 0; row < srcHeight; row++) {
             GLuint *dstUI = (GLuint *) dstRow;
-            if (dstFormat == &_mesa_texformat_argb8888) {
+            if (dstFormat == &_mesa_texformat_argb8888 ||
+                dstFormat == &_mesa_texformat_xrgb8888) {
                for (col = 0; col < srcWidth; col++) {
                   dstUI[col] = PACK_COLOR_8888( CHAN_TO_UBYTE(src[ACOMP]),
                                                 CHAN_TO_UBYTE(src[RCOMP]),

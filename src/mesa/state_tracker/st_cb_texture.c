@@ -1394,6 +1394,59 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
 
 
 /**
+ * Check if it's OK to do a glCopyPixels from the src renderbuffer to the
+ * dest texture using a blit/render path.
+ * We have to be careful about the case where the dest texture was "promoted"
+ * from the user's requested format.  For example, he requested GL_RGB but
+ * Mesa chose a GL_RGBA format.  We need to ensure A=1 in that case when
+ * the src renderbuffer may have random A values.
+ *
+ * Note that there's an additional test to ask the gallium driver if it
+ * supports rendering to the dest format so this test isn't the final decider.
+ */
+static GLboolean
+compatible_src_dst_formats(const struct gl_renderbuffer *src,
+                           const struct gl_texture_image *dst)
+{
+   const GLenum srcFormat = src->_BaseFormat;
+   const GLenum dstLogicalFormat = dst->_BaseFormat;
+   const GLenum dstActualFormat = dst->TexFormat->BaseFormat;
+
+   /* XXX we may need to add additional special cases here */
+
+   if (dstLogicalFormat == dstActualFormat) {
+      /* If dst is GL_RGB and implemented as GL_RGB, then don't have
+       * to worry about alpha values in the src data.
+       */
+      return TRUE;
+   }
+   else if (srcFormat == dstLogicalFormat) {
+      /* Need to consider texture format promotion... */
+      if (srcFormat == dstActualFormat) {
+         /* OK, everything's the same format */
+         return GL_TRUE;
+      }
+      else if (srcFormat == GL_RGB && dstActualFormat == GL_RGBA) {
+         /* Copy RGB framebuffer data to GL_RGB texture which was
+          * promoted to GL_RGBA.  A will correctly be set to 1.
+          */
+         return GL_TRUE;
+      }
+      else {
+         return GL_FALSE;
+      }
+   }
+   else if (srcFormat == GL_DEPTH_STENCIL_EXT &&
+            dstActualFormat == GL_DEPTH_COMPONENT) {
+      return GL_TRUE;
+   }
+   else {
+      return GL_FALSE;
+   }
+}
+
+
+/**
  * Do a CopyTex[Sub]Image1/2/3D() using a hardware (blit) path if possible.
  * Note that the region to copy has already been clipped so we know we
  * won't read from outside the source renderbuffer's bounds.
@@ -1421,7 +1474,6 @@ st_copy_texsubimage(GLcontext *ctx,
    struct pipe_screen *screen = pipe->screen;
    enum pipe_format dest_format, src_format;
    GLboolean use_fallback = GL_TRUE;
-   GLboolean matching_base_formats;
 
    /* any rendering in progress must flushed before we grab the fb image */
    st_flush(ctx->st, PIPE_FLUSH_RENDER_CACHE, NULL);
@@ -1483,17 +1535,8 @@ st_copy_texsubimage(GLcontext *ctx,
    src_format = strb->surface->format;
    dest_format = stImage->pt->format;
 
-   /*
-    * Determine if the src framebuffer and dest texture have the same
-    * base format.  We need this to detect a case such as the framebuffer
-    * being GL_RGBA but the texture being GL_RGB.  If the actual hardware
-    * texture format stores RGBA we need to set A=1 (overriding the
-    * framebuffer's alpha values).  We can't do that with the blit or
-    * textured-quad paths.
-    */
-   matching_base_formats = (strb->Base._BaseFormat == texImage->_BaseFormat);
-
-   if (matching_base_formats && ctx->_ImageTransferState == 0x0) {
+   if (ctx->_ImageTransferState == 0x0 &&
+       compatible_src_dst_formats(&strb->Base, texImage)) {
       /* try potential hardware path */
       struct pipe_surface *dest_surface = NULL;
       boolean do_flip = (st_fb_orientation(ctx->ReadBuffer) == Y_0_TOP);

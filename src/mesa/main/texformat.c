@@ -874,6 +874,35 @@ const struct gl_texture_format _mesa_texformat_argb8888_rev = {
    store_texel_argb8888_rev		/* StoreTexel */
 };
 
+
+/* A version of ARGB8888 where the hardware ignores the alpha
+ * component, meaning that mesa can be less careful about maintaining
+ * a 1.0 in that location in order to implement GL_RGB semantics.
+ */
+const struct gl_texture_format _mesa_texformat_xrgb8888 = {
+   MESA_FORMAT_XRGB8888,		/* MesaFormat */
+   GL_RGB,				/* BaseFormat */
+   GL_UNSIGNED_NORMALIZED_ARB,		/* DataType */
+   8,					/* RedBits */
+   8,					/* GreenBits */
+   8,					/* BlueBits */
+   0,					/* AlphaBits */
+   0,					/* LuminanceBits */
+   0,					/* IntensityBits */
+   0,					/* IndexBits */
+   0,					/* DepthBits */
+   0,					/* StencilBits */
+   4,					/* TexelBytes */
+   _mesa_texstore_argb8888,		/* StoreTexImageFunc */
+   NULL,				/* FetchTexel1D */
+   NULL,				/* FetchTexel2D */
+   NULL,				/* FetchTexel3D */
+   fetch_texel_1d_f_xrgb8888,		/* FetchTexel1Df */
+   fetch_texel_2d_f_xrgb8888,		/* FetchTexel2Df */
+   fetch_texel_3d_f_xrgb8888,		/* FetchTexel3Df */
+   store_texel_xrgb8888			/* StoreTexel */
+};
+
 const struct gl_texture_format _mesa_texformat_rgb888 = {
    MESA_FORMAT_RGB888,			/* MesaFormat */
    GL_RGB,				/* BaseFormat */
