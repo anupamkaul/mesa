@@ -107,7 +107,7 @@ static const struct name_format IntFormats[] = {
 #define NUM_INT_FORMATS (sizeof(IntFormats) / sizeof(IntFormats[0]))
 static GLuint CurFormat = 0;
 
-static GLboolean Test3D = GL_FALSE;
+static GLuint TexDims = 2; /* 1 or 2 or 3 */
 
 
 
@@ -172,7 +172,7 @@ MakeTexture(const struct pixel_format *format, GLenum intFormat, GLboolean swap)
       abort();
    }
 
-   if (Test3D) {
+   if (TexDims == 3) {
       /* 4 x 4 x 4 texture, undefined data */
       glTexImage3D(GL_TEXTURE_3D, 0, intFormat, 4, 4, 4, 0,
                    format->format, format->type, NULL);
@@ -186,8 +186,14 @@ MakeTexture(const struct pixel_format *format, GLenum intFormat, GLboolean swap)
                       4, 4, 1,  /* size */
                       format->format, format->type, texBuffer);
    }
-   else {
+   else if (TexDims == 2) {
+      /* 4 x 4 texture */
       glTexImage2D(GL_TEXTURE_2D, 0, intFormat, 4, 4, 0,
+                   format->format, format->type, texBuffer);
+   }
+   else {
+      /* note: width=16 texture */
+      glTexImage1D(GL_TEXTURE_1D, 0, intFormat, 16, 0,
                    format->format, format->type, texBuffer);
    }
 
@@ -208,6 +214,7 @@ Draw(void)
    int w = 350, h = 20;
    int i, swap;
 
+   glClearColor(0.2, 0.2, 0.2, 0.2);
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
    for (swap = 0; swap < 2; swap++) {
@@ -217,21 +224,34 @@ Draw(void)
 
         MakeTexture(Formats + i, IntFormats[CurFormat].format, swap);
 
-        if (Test3D)
-           glEnable(GL_TEXTURE_3D);
-        else
+        if (TexDims == 1)
+           glEnable(GL_TEXTURE_1D);
+        else if (TexDims == 2)
            glEnable(GL_TEXTURE_2D);
-        glBegin(GL_POLYGON);
-        glTexCoord3f(0, 0, 0.5);  glVertex2f(0, 0);
-        glTexCoord3f(1, 0, 0.5);  glVertex2f(w, 0);
-        glTexCoord3f(1, 1, 0.5);  glVertex2f(w, h);
-        glTexCoord3f(0, 1, 0.5);  glVertex2f(0, h);
-        glEnd();
-
-        if (Test3D)
-           glDisable(GL_TEXTURE_3D);
         else
-           glDisable(GL_TEXTURE_2D);
+           glEnable(GL_TEXTURE_3D);
+
+        if (TexDims == 1) {
+           glBegin(GL_POLYGON);
+           glTexCoord3f(0.0, 0, 0);  glVertex2f(0, 0);
+           glTexCoord3f(0.0, 0, 0);  glVertex2f(w, 0);
+           glTexCoord3f(1.0, 0, 0);  glVertex2f(w, h);
+           glTexCoord3f(1.0, 0, 0);  glVertex2f(0, h);
+           glEnd();
+        }
+        else {
+           glBegin(GL_POLYGON);
+           glTexCoord3f(0, 0, 0.5);  glVertex2f(0, 0);
+           glTexCoord3f(1, 0, 0.5);  glVertex2f(w, 0);
+           glTexCoord3f(1, 1, 0.5);  glVertex2f(w, h);
+           glTexCoord3f(0, 1, 0.5);  glVertex2f(0, h);
+           glEnd();
+        }
+
+        glDisable(GL_TEXTURE_1D);
+        glDisable(GL_TEXTURE_2D);
+        glDisable(GL_TEXTURE_3D);
+
         glColor3f(0, 0, 0);
         glRasterPos2i(8, 6);
         PrintString(Formats[i].name);
@@ -260,10 +280,8 @@ Draw(void)
    glPushMatrix();
    glTranslatef(2, (i + 2) * (h + 2), 0);
    glRasterPos2i(8, 6);
-   if (Test3D)
-      PrintString("Target [2/3]: GL_TEXTURE_3D");
-   else
-      PrintString("Target [2/3]: GL_TEXTURE_2D");
+   sprintf(s, "Target [1/2/3]: GL_TEXTURE_%uD", TexDims);
+   PrintString(s);
    glPopMatrix();
 
    glutSwapBuffers();
@@ -299,11 +317,14 @@ Key(unsigned char key, int x, int y)
          if (CurFormat == NUM_INT_FORMATS)
             CurFormat = 0;
          break;
+      case '1':
+         TexDims = 1;
+         break;
       case '2':
-         Test3D = GL_FALSE;
+         TexDims = 2;
          break;
       case '3':
-         Test3D = GL_TRUE;
+         TexDims = 3;
          break;
       case 27:
          exit(0);
@@ -318,6 +339,8 @@ Init(void)
 {
    printf("GL_RENDERER = %s\n", (char *) glGetString(GL_RENDERER));
    printf("GL_VERSION = %s\n", (char *) glGetString(GL_VERSION));
+   glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+   glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
