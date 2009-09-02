@@ -1634,7 +1634,7 @@ _mesa_texstore_argb8888(TEXSTORE_PARAMS)
       /* general path */
       const GLchan *tempImage = _mesa_make_temp_chan_image(ctx, dims,
                                                  baseInternalFormat,
-                                                 dstFormat->BaseFormat,
+                                                 GL_RGBA, /* need RGBA below */
                                                  srcWidth, srcHeight, srcDepth,
                                                  srcFormat, srcType, srcAddr,
                                                  srcPacking);
