@@ -37,6 +37,7 @@ struct dump_ctx
    struct tgsi_iterate_context iter;
 
    uint instno;
+   int indent;
    
    void (*printf)(struct dump_ctx *ctx, const char *format, ...);
 };
@@ -328,13 +329,19 @@ iter_instruction(
 {
    struct dump_ctx *ctx = (struct dump_ctx *) iter;
    uint instno = ctx->instno++;
-   
+   const struct tgsi_opcode_info *info = tgsi_get_opcode_info( inst->Instruction.Opcode );
    uint i;
    boolean first_reg = TRUE;
 
    INSTID( instno );
    TXT( ": " );
-   TXT( tgsi_get_opcode_info( inst->Instruction.Opcode )->mnemonic );
+   
+   ctx->indent -= info->pre_dedent;
+   for(i = 0; i < ctx->indent; ++i)
+      TXT( "  " );
+   ctx->indent += info->post_indent;
+   
+   TXT( info->mnemonic );
 
    switch (inst->Instruction.Saturate) {
    case TGSI_SAT_NONE:
@@ -476,6 +483,7 @@ tgsi_dump_instruction(
    struct dump_ctx ctx;
 
    ctx.instno = instno;
+   ctx.indent = 0;
    ctx.printf = dump_ctx_printf;
 
    iter_instruction( &ctx.iter, (struct tgsi_full_instruction *)inst );
@@ -508,6 +516,7 @@ tgsi_dump(
    ctx.iter.epilog = NULL;
 
    ctx.instno = 0;
+   ctx.indent = 0;
    ctx.printf = dump_ctx_printf;
 
    tgsi_iterate_shader( tokens, &ctx.iter );
@@ -560,6 +569,7 @@ tgsi_dump_str(
    ctx.base.iter.epilog = NULL;
 
    ctx.base.instno = 0;
+   ctx.base.indent = 0;
    ctx.base.printf = &str_dump_ctx_printf;
 
    ctx.str = str;
