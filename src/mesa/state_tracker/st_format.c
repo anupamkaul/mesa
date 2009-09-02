@@ -227,7 +227,8 @@ enum pipe_format
 st_mesa_format_to_pipe_format(GLuint mesaFormat)
 {
    switch (mesaFormat) {
-      /* fix this */
+   case MESA_FORMAT_BGR888:
+      return PIPE_FORMAT_R8G8B8_UNORM;
    case MESA_FORMAT_XRGB8888:
       return PIPE_FORMAT_X8R8G8B8_UNORM;
    case MESA_FORMAT_ARGB8888_REV:
@@ -331,8 +332,8 @@ default_rgb_format(struct pipe_screen *screen,
                     unsigned geom_flags)
 {
    static const enum pipe_format colorFormats[] = {
-      PIPE_FORMAT_R8G8B8_UNORM,
       PIPE_FORMAT_X8R8G8B8_UNORM,
+      PIPE_FORMAT_R8G8B8_UNORM,
       /* PIPE_FORMAT_B8G8R8X8_UNORM, */
       /* PIPE_FORMAT_R8G8B8X8_UNORM, */
       PIPE_FORMAT_R5G6B5_UNORM,
@@ -666,7 +667,7 @@ translate_gallium_format_to_mesa_format(enum pipe_format format)
 {
    switch (format) {
    case PIPE_FORMAT_R8G8B8_UNORM:
-      return &_mesa_texformat_rgb888;
+      return &_mesa_texformat_bgr888;
    case PIPE_FORMAT_X8R8G8B8_UNORM:
       return &_mesa_texformat_xrgb8888;
    case PIPE_FORMAT_A8R8G8B8_UNORM:
