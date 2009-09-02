@@ -53,6 +53,8 @@ struct ureg_src
    unsigned Absolute    : 1;  /* BOOL */
    int      Index       : 16; /* SINT */
    unsigned Negate      : 1;  /* BOOL */
+   int      IndirectIndex   : 16; /* SINT */
+   int      IndirectSwizzle : 2;  /* TGSI_SWIZZLE_ */
 };
 
 /* Very similar to a tgsi_dst_register, removing unsupported fields
@@ -69,6 +71,8 @@ struct ureg_dst
    int      Index       : 16; /* SINT */
    unsigned Pad1        : 5;
    unsigned Pad2        : 1;  /* BOOL */
+   int      IndirectIndex   : 16; /* SINT */
+   int      IndirectSwizzle : 2;  /* TGSI_SWIZZLE_ */
 };
 
 struct pipe_context;
@@ -135,6 +139,9 @@ ureg_DECL_temporary( struct ureg_program * );
 void 
 ureg_release_temporary( struct ureg_program *ureg,
                         struct ureg_dst tmp );
+
+struct ureg_dst
+ureg_DECL_address( struct ureg_program * );
 
 /* Supply an index to the sampler declaration as this is the hook to
  * the external pipe_sampler state.  Users of this function probably
@@ -463,18 +470,24 @@ ureg_saturate( struct ureg_dst reg )
 }
 
 static INLINE struct ureg_dst 
-ureg_dst_indirect( struct ureg_dst reg )
+ureg_dst_indirect( struct ureg_dst reg, struct ureg_src addr )
 {
    assert(reg.File != TGSI_FILE_NULL);
+   assert(addr.File == TGSI_FILE_ADDRESS);
    reg.Indirect = 1;
+   reg.IndirectIndex = addr.Index;
+   reg.IndirectSwizzle = addr.SwizzleX;
    return reg;
 }
 
 static INLINE struct ureg_src 
-ureg_src_indirect( struct ureg_src reg )
+ureg_src_indirect( struct ureg_src reg, struct ureg_src addr )
 {
    assert(reg.File != TGSI_FILE_NULL);
+   assert(addr.File == TGSI_FILE_ADDRESS);
    reg.Indirect = 1;
+   reg.IndirectIndex = addr.Index;
+   reg.IndirectSwizzle = addr.SwizzleX;
    return reg;
 }
 
@@ -486,6 +499,8 @@ ureg_dst( struct ureg_src src )
    dst.File      = src.File;
    dst.WriteMask = TGSI_WRITEMASK_XYZW;
    dst.Indirect  = src.Indirect;
+   dst.IndirectIndex = src.IndirectIndex;
+   dst.IndirectSwizzle = src.IndirectSwizzle;
    dst.Saturate  = 0;
    dst.Index     = src.Index;
    dst.Pad1      = 0;
@@ -506,6 +521,8 @@ ureg_src( struct ureg_dst dst )
    src.SwizzleW  = TGSI_SWIZZLE_W;
    src.Pad       = 0;
    src.Indirect  = dst.Indirect;
+   src.IndirectIndex = dst.IndirectIndex;
+   src.IndirectSwizzle = dst.IndirectSwizzle;
    src.Absolute  = 0;
    src.Index     = dst.Index;
    src.Negate    = 0;
@@ -523,6 +540,8 @@ ureg_dst_undef( void )
    dst.File      = TGSI_FILE_NULL;
    dst.WriteMask = 0;
    dst.Indirect  = 0;
+   dst.IndirectIndex = 0;
+   dst.IndirectSwizzle = 0;
    dst.Saturate  = 0;
    dst.Index     = 0;
    dst.Pad1      = 0;
@@ -543,6 +562,8 @@ ureg_src_undef( void )
    src.SwizzleW  = 0;
    src.Pad       = 0;
    src.Indirect  = 0;
+   src.IndirectIndex = 0;
+   src.IndirectSwizzle = 0;
    src.Absolute  = 0;
    src.Index     = 0;
    src.Negate    = 0;

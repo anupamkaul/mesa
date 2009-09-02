@@ -72,6 +72,7 @@ struct ureg_tokens {
 #define UREG_MAX_OUTPUT PIPE_MAX_ATTRIBS
 #define UREG_MAX_IMMEDIATE 32
 #define UREG_MAX_TEMP 256
+#define UREG_MAX_ADDR 2
 
 #define DOMAIN_DECL 0
 #define DOMAIN_INSN 1
@@ -105,6 +106,8 @@ struct ureg_program
 
    unsigned temps_active[UREG_MAX_TEMP / 32];
    unsigned nr_temps;
+
+   unsigned nr_addrs;
 
    unsigned nr_constants;
    unsigned nr_instructions;
@@ -190,6 +193,8 @@ ureg_dst_register( unsigned file,
    dst.File      = file;
    dst.WriteMask = TGSI_WRITEMASK_XYZW;
    dst.Indirect  = 0;
+   dst.IndirectIndex = 0;
+   dst.IndirectSwizzle = 0;
    dst.Saturate  = 0;
    dst.Index     = index;
    dst.Pad1      = 0;
@@ -211,6 +216,8 @@ ureg_src_register( unsigned file,
    src.SwizzleW = TGSI_SWIZZLE_W;
    src.Pad      = 0;
    src.Indirect = 0;
+   src.IndirectIndex = 0;
+   src.IndirectSwizzle = 0;
    src.Absolute = 0;
    src.Index    = index;
    src.Negate   = 0;
@@ -350,6 +357,17 @@ void ureg_release_temporary( struct ureg_program *ureg,
          ureg->temps_active[tmp.Index/32] &= ~(1 << (tmp.Index % 32));
 }
 
+
+/* Allocate a new address register.
+ */
+struct ureg_dst ureg_DECL_address( struct ureg_program *ureg )
+{
+   if (ureg->nr_addrs < UREG_MAX_ADDR)
+      return ureg_dst_register( TGSI_FILE_ADDRESS, ureg->nr_addrs++ );
+
+   assert( 0 );
+   return ureg_dst_register( TGSI_FILE_ADDRESS, 0 );
+}
 
 /* Allocate a new sampler.
  */
@@ -495,12 +513,11 @@ ureg_emit_src( struct ureg_program *ureg,
       out[0].src.Indirect = 1;
       out[n].value = 0;
       out[n].src.File = TGSI_FILE_ADDRESS;
-      out[n].src.SwizzleX = TGSI_SWIZZLE_X;
-      out[n].src.SwizzleY = TGSI_SWIZZLE_X;
-      out[n].src.SwizzleZ = TGSI_SWIZZLE_X;
-      out[n].src.SwizzleW = TGSI_SWIZZLE_X;
-      out[n].src.Indirect = 0;
-      out[n].src.Index = 0;
+      out[n].src.SwizzleX = src.IndirectSwizzle;
+      out[n].src.SwizzleY = src.IndirectSwizzle;
+      out[n].src.SwizzleZ = src.IndirectSwizzle;
+      out[n].src.SwizzleW = src.IndirectSwizzle;
+      out[n].src.Index = src.IndirectIndex;
       n++;
    }
 
@@ -535,12 +552,11 @@ ureg_emit_dst( struct ureg_program *ureg,
    if (dst.Indirect) {
       out[n].value = 0;
       out[n].src.File = TGSI_FILE_ADDRESS;
-      out[n].src.SwizzleX = TGSI_SWIZZLE_X;
-      out[n].src.SwizzleY = TGSI_SWIZZLE_X;
-      out[n].src.SwizzleZ = TGSI_SWIZZLE_X;
-      out[n].src.SwizzleW = TGSI_SWIZZLE_X;
-      out[n].src.Indirect = 0;
-      out[n].src.Index = 0;
+      out[n].src.SwizzleX = dst.IndirectSwizzle;
+      out[n].src.SwizzleY = dst.IndirectSwizzle;
+      out[n].src.SwizzleZ = dst.IndirectSwizzle;
+      out[n].src.SwizzleW = dst.IndirectSwizzle;
+      out[n].src.Index = dst.IndirectIndex;
       n++;
    }
 
@@ -581,6 +597,9 @@ ureg_emit_label(struct ureg_program *ureg,
                 unsigned *label_token )
 {
    union tgsi_any_token *out, *insn;
+
+   if(!label_token)
+      return;
 
    out = get_tokens( ureg, DOMAIN_INSN, 1 );
    insn = retrieve_token( ureg, DOMAIN_INSN, insn_token );
@@ -790,6 +809,12 @@ static void emit_decls( struct ureg_program *ureg )
       emit_decl_range( ureg,
                        TGSI_FILE_TEMPORARY,
                        0, ureg->nr_temps );
+   }
+
+   if (ureg->nr_addrs) {
+      emit_decl_range( ureg,
+                       TGSI_FILE_ADDRESS,
+                       0, ureg->nr_addrs );
    }
 
    for (i = 0; i < ureg->nr_immediates; i++) {
