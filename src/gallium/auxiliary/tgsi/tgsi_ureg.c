@@ -400,6 +400,8 @@ static int match_or_expand_immediate( const float *v,
                                       unsigned *swizzle )
 {
    unsigned i, j;
+   
+   *swizzle = 0;
 
    for (i = 0; i < nr; i++) {
       boolean found = FALSE;
@@ -432,7 +434,7 @@ struct ureg_src ureg_DECL_immediate( struct ureg_program *ureg,
                                      unsigned nr )
 {
    unsigned i, j;
-   unsigned swizzle = 0;
+   unsigned swizzle;
 
    /* Could do a first pass where we examine all existing immediates
     * without expanding.
