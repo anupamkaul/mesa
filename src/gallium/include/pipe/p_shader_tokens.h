@@ -378,7 +378,7 @@ struct tgsi_immediate_float32
  * vs_1_1
  */
 #define TGSI_OPCODE_EXPP                TGSI_OPCODE_EXP
-#define TGSI_OPCODE_LOGP                TGSI_OPCODE_LG2
+#define TGSI_OPCODE_LOGP                TGSI_OPCODE_LOG
 
 /*
  * vs_2_0
