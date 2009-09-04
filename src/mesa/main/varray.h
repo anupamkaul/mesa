@@ -161,15 +161,25 @@ _mesa_DrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count,
 
 
 extern void
+_mesa_copy_client_array(GLcontext *ctx,
+                        struct gl_client_array *dst,
+                        struct gl_client_array *src);
+
+
+extern void
 _mesa_print_arrays(GLcontext *ctx);
 
 extern void
 _mesa_init_varray( GLcontext * ctx );
 
+extern void 
+_mesa_free_varray_data(GLcontext *ctx);
+
 #else
 
 /** No-op */
 #define _mesa_init_varray( c )  ((void)0)
+#define _mesa_free_varray_data( c )  ((void)0)
 
 #endif
 

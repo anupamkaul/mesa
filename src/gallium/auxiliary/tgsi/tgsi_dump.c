@@ -27,9 +27,16 @@
 
 #include "util/u_debug.h"
 #include "util/u_string.h"
+#include "util/u_math.h"
+#include "util/u_memory.h"
 #include "tgsi_dump.h"
 #include "tgsi_info.h"
 #include "tgsi_iterate.h"
+
+
+/** Number of spaces to indent for IF/LOOP/etc */
+static const int indent_spaces = 3;
+
 
 struct dump_ctx
 {
@@ -37,6 +44,8 @@ struct dump_ctx
 
    uint instno;
    
+   uint indentation;
+
    void (*printf)(struct dump_ctx *ctx, const char *format, ...);
 };
 
@@ -80,7 +89,7 @@ static const char *processor_type_names[] =
    "GEOM"
 };
 
-static const char *file_names[] =
+static const char *file_names[TGSI_FILE_COUNT] =
 {
    "NULL",
    "CONST",
@@ -89,7 +98,8 @@ static const char *file_names[] =
    "TEMP",
    "SAMP",
    "ADDR",
-   "IMM"
+   "IMM",
+   "LOOP"
 };
 
 static const char *interpolate_names[] =
@@ -107,7 +117,8 @@ static const char *semantic_names[] =
    "FOG",
    "PSIZE",
    "GENERIC",
-   "NORMAL"
+   "NORMAL",
+   "FACE"
 };
 
 static const char *immediate_type_names[] =
@@ -223,6 +234,9 @@ iter_declaration(
 {
    struct dump_ctx *ctx = (struct dump_ctx *)iter;
 
+   assert(Elements(semantic_names) == TGSI_SEMANTIC_COUNT);
+   assert(Elements(interpolate_names) == TGSI_INTERPOLATE_COUNT);
+
    TXT( "DCL " );
 
    _dump_register(
@@ -289,10 +303,12 @@ iter_immediate(
    ENM( imm->Immediate.DataType, immediate_type_names );
 
    TXT( " { " );
+
+   assert( imm->Immediate.NrTokens <= 4 + 1 );
    for (i = 0; i < imm->Immediate.NrTokens - 1; i++) {
       switch (imm->Immediate.DataType) {
       case TGSI_IMM_FLOAT32:
-         FLT( imm->u.ImmediateFloat32[i].Float );
+         FLT( imm->u[i].Float );
          break;
       default:
          assert( 0 );
@@ -319,6 +335,14 @@ tgsi_dump_immediate(
    iter_immediate( &ctx.iter, (struct tgsi_full_immediate *)imm );
 }
 
+static void
+indent(struct dump_ctx *ctx)
+{
+   uint i;
+   for (i = 0; i < ctx->indentation; i++)
+      TXT(" ");
+}
+
 static boolean
 iter_instruction(
    struct tgsi_iterate_context *iter,
@@ -332,6 +356,15 @@ iter_instruction(
 
    INSTID( instno );
    TXT( ": " );
+
+   /* update indentation */
+   if (inst->Instruction.Opcode == TGSI_OPCODE_ENDIF ||
+       inst->Instruction.Opcode == TGSI_OPCODE_ENDFOR ||
+       inst->Instruction.Opcode == TGSI_OPCODE_ENDLOOP) {
+      ctx->indentation -= indent_spaces;
+   }
+   indent(ctx);
+
    TXT( tgsi_get_opcode_info( inst->Instruction.Opcode )->mnemonic );
 
    switch (inst->Instruction.Saturate) {
@@ -354,11 +387,22 @@ iter_instruction(
          CHR( ',' );
       CHR( ' ' );
 
-      _dump_register(
-         ctx,
-         dst->DstRegister.File,
-         dst->DstRegister.Index,
-         dst->DstRegister.Index );
+      if (dst->DstRegister.Indirect) {
+         _dump_register_ind(
+            ctx,
+            dst->DstRegister.File,
+            dst->DstRegister.Index,
+            dst->DstRegisterInd.File,
+            dst->DstRegisterInd.Index,
+            dst->DstRegisterInd.SwizzleX );
+      }
+      else {
+         _dump_register(
+            ctx,
+            dst->DstRegister.File,
+            dst->DstRegister.Index,
+            dst->DstRegister.Index );
+      }
       ENM( dst->DstRegisterExtModulate.Modulate, modulate_names );
       _dump_writemask( ctx, dst->DstRegister.WriteMask );
 
@@ -453,12 +497,20 @@ iter_instruction(
    switch (inst->Instruction.Opcode) {
    case TGSI_OPCODE_IF:
    case TGSI_OPCODE_ELSE:
-   case TGSI_OPCODE_BGNLOOP2:
-   case TGSI_OPCODE_ENDLOOP2:
+   case TGSI_OPCODE_BGNLOOP:
+   case TGSI_OPCODE_ENDLOOP:
    case TGSI_OPCODE_CAL:
       TXT( " :" );
       UID( inst->InstructionExtLabel.Label );
       break;
+   }
+
+   /* update indentation */
+   if (inst->Instruction.Opcode == TGSI_OPCODE_IF ||
+       inst->Instruction.Opcode == TGSI_OPCODE_ELSE ||
+       inst->Instruction.Opcode == TGSI_OPCODE_BGNFOR ||
+       inst->Instruction.Opcode == TGSI_OPCODE_BGNLOOP) {
+      ctx->indentation += indent_spaces;
    }
 
    EOL();
@@ -475,6 +527,7 @@ tgsi_dump_instruction(
 
    ctx.instno = instno;
    ctx.printf = dump_ctx_printf;
+   ctx.indentation = 0;
 
    iter_instruction( &ctx.iter, (struct tgsi_full_instruction *)inst );
 }
@@ -507,6 +560,7 @@ tgsi_dump(
 
    ctx.instno = 0;
    ctx.printf = dump_ctx_printf;
+   ctx.indentation = 0;
 
    tgsi_iterate_shader( tokens, &ctx.iter );
 }
@@ -516,7 +570,7 @@ struct str_dump_ctx
    struct dump_ctx base;
    char *str;
    char *ptr;
-   size_t left;
+   int left;
 };
 
 static void
@@ -525,13 +579,20 @@ str_dump_ctx_printf(struct dump_ctx *ctx, const char *format, ...)
    struct str_dump_ctx *sctx = (struct str_dump_ctx *)ctx;
    
    if(sctx->left > 1) {
-      size_t written;
+      int written;
       va_list ap;
       va_start(ap, format);
       written = util_vsnprintf(sctx->ptr, sctx->left, format, ap);
       va_end(ap);
-      sctx->ptr += written;
-      sctx->left -= written;
+
+      /* Some complicated logic needed to handle the return value of
+       * vsnprintf:
+       */
+      if (written > 0) {
+         written = MIN2(sctx->left, written);
+         sctx->ptr += written;
+         sctx->left -= written;
+      }
    }
 }
 
@@ -552,11 +613,12 @@ tgsi_dump_str(
 
    ctx.base.instno = 0;
    ctx.base.printf = &str_dump_ctx_printf;
+   ctx.base.indentation = 0;
 
    ctx.str = str;
    ctx.str[0] = 0;
    ctx.ptr = str;
-   ctx.left = size;
+   ctx.left = (int)size;
 
    tgsi_iterate_shader( tokens, &ctx.base.iter );
 }

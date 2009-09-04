@@ -15,12 +15,14 @@ LINKS = \
 	$(PROG_LINKS)
 
 SOURCES = \
+	bin_to_bmp.c \
 	simple_client.c \
 	simple_server.c \
 	shdr_info.c \
 	shdr_dump.c \
 	shdr_disable.c \
 	ctx_info.c \
+	ctx_rule.c \
 	tex_info.c \
 	tex_dump.c
 

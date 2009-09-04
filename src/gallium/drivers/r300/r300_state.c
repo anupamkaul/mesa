@@ -24,12 +24,15 @@
 #include "util/u_pack_color.h"
 
 #include "util/u_debug.h"
+
+#include "pipe/p_config.h"
 #include "pipe/internal/p_winsys_screen.h"
 
 #include "r300_context.h"
 #include "r300_reg.h"
 #include "r300_state_inlines.h"
-#include "r300_state_shader.h"
+#include "r300_fs.h"
+#include "r300_vs.h"
 
 /* r300_state: Functions used to intialize state context by translating
  * Gallium state objects into semi-native r300 state objects. */
@@ -135,7 +138,6 @@ static void
                              const struct pipe_constant_buffer* buffer)
 {
     struct r300_context* r300 = r300_context(pipe);
-    int i = r300->shader_constants[shader].user_count;
 
     /* This entire chunk of code seems ever-so-slightly baked.
      * It's as if I've got pipe_buffer* matryoshkas... */
@@ -146,26 +148,13 @@ static void
             map, buffer->buffer->size);
         pipe->winsys->buffer_unmap(pipe->winsys, buffer->buffer);
 
-        r300->shader_constants[shader].user_count =
+        r300->shader_constants[shader].count =
             buffer->buffer->size / (sizeof(float) * 4);
     } else {
-        r300->shader_constants[shader].user_count = 0;
+        r300->shader_constants[shader].count = 0;
     }
 
     r300->dirty_state |= R300_NEW_CONSTANTS;
-
-    /* If the number of constants have changed, invalidate the shader. */
-    if (r300->shader_constants[shader].user_count != i) {
-        if (shader == PIPE_SHADER_FRAGMENT && r300->fs &&
-                r300->fs->uses_imms) {
-            r300->fs->translated = FALSE;
-            r300_translate_fragment_shader(r300, r300->fs);
-        } else if (shader == PIPE_SHADER_VERTEX && r300->vs &&
-                r300->vs->uses_imms) {
-            r300->vs->translated = FALSE;
-            r300_translate_vertex_shader(r300, r300->vs);
-        }
-    }
 }
 
 /* Create a new depth, stencil, and alpha state based on the CSO dsa state.
@@ -235,7 +224,8 @@ static void*
         dsa->alpha_reference = CLAMP(state->alpha.ref_value * 1023.0f,
                                      0, 1023);
     } else {
-        dsa->z_buffer_top = R300_ZTOP_ENABLE;
+        /* XXX need to fix this to be dynamically set
+        dsa->z_buffer_top = R300_ZTOP_ENABLE; */
     }
 
     return (void*)dsa;
@@ -282,16 +272,9 @@ static void
 static void* r300_create_fs_state(struct pipe_context* pipe,
                                   const struct pipe_shader_state* shader)
 {
-    struct r300_context* r300 = r300_context(pipe);
-    struct r3xx_fragment_shader* fs = NULL;
+    struct r300_fragment_shader* fs = NULL;
 
-    if (r300_screen(r300->context.screen)->caps->is_r500) {
-        fs =
-            (struct r3xx_fragment_shader*)CALLOC_STRUCT(r500_fragment_shader);
-    } else {
-        fs =
-            (struct r3xx_fragment_shader*)CALLOC_STRUCT(r300_fragment_shader);
-    }
+    fs = (struct r300_fragment_shader*)CALLOC_STRUCT(r300_fragment_shader);
 
     /* Copy state directly into shader. */
     fs->state = *shader;
@@ -306,7 +289,7 @@ static void* r300_create_fs_state(struct pipe_context* pipe,
 static void r300_bind_fs_state(struct pipe_context* pipe, void* shader)
 {
     struct r300_context* r300 = r300_context(pipe);
-    struct r3xx_fragment_shader* fs = (struct r3xx_fragment_shader*)shader;
+    struct r300_fragment_shader* fs = (struct r300_fragment_shader*)shader;
 
     if (fs == NULL) {
         r300->fs = NULL;
@@ -315,7 +298,6 @@ static void r300_bind_fs_state(struct pipe_context* pipe, void* shader)
         r300_translate_fragment_shader(r300, fs);
     }
 
-    fs->translated = TRUE;
     r300->fs = fs;
 
     r300->dirty_state |= R300_NEW_FRAGMENT_SHADER;
@@ -324,7 +306,8 @@ static void r300_bind_fs_state(struct pipe_context* pipe, void* shader)
 /* Delete fragment shader state. */
 static void r300_delete_fs_state(struct pipe_context* pipe, void* shader)
 {
-    struct r3xx_fragment_shader* fs = (struct r3xx_fragment_shader*)shader;
+    struct r300_fragment_shader* fs = (struct r300_fragment_shader*)shader;
+    rc_constants_destroy(&fs->code.constants);
     FREE(fs->state.tokens);
     FREE(shader);
 }
@@ -352,14 +335,19 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
 
     rs->enable_vte = !state->bypass_vs_clip_and_viewport;
 
+#ifdef PIPE_ARCH_LITTLE_ENDIAN
+    rs->vap_control_status = R300_VC_NO_SWAP;
+#else
+    rs->vap_control_status = R300_VC_32BIT_SWAP;
+#endif
+
     /* If bypassing TCL, or if no TCL engine is present, turn off the HW TCL.
      * Else, enable HW TCL and force Draw's TCL off. */
     if (state->bypass_vs_clip_and_viewport ||
             !r300_screen(pipe->screen)->caps->has_tcl) {
-        rs->vap_control_status = R300_VAP_TCL_BYPASS;
+        rs->vap_control_status |= R300_VAP_TCL_BYPASS;
     } else {
         rs->rs.bypass_vs_clip_and_viewport = TRUE;
-        rs->vap_control_status = 0;
     }
 
     rs->point_size = pack_float_16_6x(state->point_size) |
@@ -421,6 +409,10 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
         rs->color_control = R300_SHADE_MODEL_FLAT;
     } else {
         rs->color_control = R300_SHADE_MODEL_SMOOTH;
+    }
+
+    if (!state->flatshade_first) {
+        rs->color_control |= R300_GA_COLOR_CONTROL_PROVOKING_VERTEX_LAST;
     }
 
     return (void*)rs;
@@ -679,6 +671,7 @@ static void r300_delete_vs_state(struct pipe_context* pipe, void* shader)
     if (r300_screen(pipe->screen)->caps->has_tcl) {
         struct r300_vertex_shader* vs = (struct r300_vertex_shader*)shader;
 
+        rc_constants_destroy(&vs->code.constants);
         draw_delete_vertex_shader(r300->draw, vs->draw);
         FREE(vs->state.tokens);
         FREE(shader);

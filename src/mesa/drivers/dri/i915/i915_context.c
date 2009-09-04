@@ -75,6 +75,10 @@ i915InvalidateState(GLcontext * ctx, GLuint new_state)
 
    if (new_state & (_NEW_FOG | _NEW_HINT | _NEW_PROGRAM | _NEW_PROGRAM_CONSTANTS))
       i915_update_fog(ctx);
+   if (new_state & (_NEW_STENCIL | _NEW_BUFFERS | _NEW_POLYGON))
+      i915_update_stencil(ctx);
+   if (new_state & (_NEW_LIGHT))
+       i915_update_provoking_vertex(ctx);
 }
 
 
@@ -162,6 +166,9 @@ i915CreateContext(const __GLcontextModes * mesaVis,
    ctx->Const.FragmentProgram.MaxNativeTexIndirections =
       I915_MAX_TEX_INDIRECT;
    ctx->Const.FragmentProgram.MaxNativeAddressRegs = 0; /* I don't think we have one */
+   ctx->Const.FragmentProgram.MaxEnvParams =
+      MIN2(ctx->Const.FragmentProgram.MaxNativeParameters,
+	   ctx->Const.FragmentProgram.MaxEnvParams);
 
    ctx->FragmentProgram._MaintainTexEnvProgram = GL_TRUE;
 

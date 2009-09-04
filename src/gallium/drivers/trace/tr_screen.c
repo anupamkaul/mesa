@@ -38,6 +38,7 @@
 
 
 static boolean trace = FALSE;
+static boolean rbug = FALSE;
 
 static const char *
 trace_screen_get_name(struct pipe_screen *_screen)
@@ -461,6 +462,7 @@ trace_screen_surface_buffer_create(struct pipe_screen *_screen,
                                    unsigned width, unsigned height,
                                    enum pipe_format format,
                                    unsigned usage,
+                                   unsigned tex_usage,
                                    unsigned *pstride)
 {
    struct trace_screen *tr_scr = trace_screen(_screen);
@@ -475,11 +477,13 @@ trace_screen_surface_buffer_create(struct pipe_screen *_screen,
    trace_dump_arg(uint, height);
    trace_dump_arg(format, format);
    trace_dump_arg(uint, usage);
+   trace_dump_arg(uint, tex_usage);
 
    result = screen->surface_buffer_create(screen,
                                           width, height,
                                           format,
                                           usage,
+                                          tex_usage,
                                           pstride);
 
    stride = *pstride;
@@ -837,18 +841,11 @@ trace_screen_destroy(struct pipe_screen *_screen)
 boolean
 trace_enabled(void)
 {
-   return trace;
-}
+   static boolean firstrun = TRUE;
 
-struct pipe_screen *
-trace_screen_create(struct pipe_screen *screen)
-{
-   struct trace_screen *tr_scr;
-   struct pipe_winsys *winsys;
-   boolean rbug = FALSE;
-
-   if(!screen)
-      goto error1;
+   if (!firstrun)
+      return trace;
+   firstrun = FALSE;
 
    trace_dump_init();
 
@@ -862,7 +859,19 @@ trace_screen_create(struct pipe_screen *screen)
       rbug = TRUE;
    }
 
-   if (!trace)
+   return trace;
+}
+
+struct pipe_screen *
+trace_screen_create(struct pipe_screen *screen)
+{
+   struct trace_screen *tr_scr;
+   struct pipe_winsys *winsys;
+
+   if(!screen)
+      goto error1;
+
+   if (!trace_enabled())
       goto error1;
 
    trace_dump_call_begin("", "pipe_screen_create");

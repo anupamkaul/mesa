@@ -129,7 +129,6 @@ struct brw_context;
 #define BRW_NEW_PRIMITIVE               0x40
 #define BRW_NEW_CONTEXT                 0x80
 #define BRW_NEW_WM_INPUT_DIMENSIONS     0x100
-#define BRW_NEW_INPUT_VARYING           0x200
 #define BRW_NEW_PSP                     0x800
 #define BRW_NEW_WM_SURFACES		0x1000
 #define BRW_NEW_FENCE                   0x2000
@@ -144,6 +143,7 @@ struct brw_context;
 #define BRW_NEW_DEPTH_BUFFER		0x20000
 #define BRW_NEW_NR_WM_SURFACES		0x40000
 #define BRW_NEW_NR_VS_SURFACES		0x80000
+#define BRW_NEW_INDEX_BUFFER		0x100000
 
 struct brw_state_flags {
    /** State update flags signalled by mesa internals */
@@ -174,6 +174,9 @@ struct brw_fragment_program {
 
    dri_bo *const_buffer;    /** Program constant buffer/surface */
    GLboolean use_const_buffer;
+
+   /** for debugging, which texture units are referenced */
+   GLbitfield tex_units_used;
 };
 
 
@@ -245,9 +248,6 @@ struct brw_vs_ouput_sizes {
    GLubyte output_size[VERT_RESULT_MAX];
 };
 
-
-/** Number of general purpose registers (VS, WM, etc) */
-#define BRW_MAX_GRF 128
 
 /** Number of texture sampler units */
 #define BRW_MAX_TEX_UNIT 16
@@ -405,7 +405,6 @@ struct brw_vertex_element {
 
 
 struct brw_vertex_info {
-   GLuint varying;  /* varying:1[VERT_ATTRIB_MAX] */
    GLuint sizes[ATTRIB_BIT_DWORDS * 2]; /* sizes:2[VERT_ATTRIB_MAX] */
 };
 
@@ -443,9 +442,13 @@ struct brw_query_object {
    unsigned int count;
 };
 
+
+/**
+ * brw_context is derived from intel_context.
+ */
 struct brw_context 
 {
-   struct intel_context intel;
+   struct intel_context intel;  /**< base class, must be first field */
    GLuint primitive;
 
    GLboolean emit_state_always;
@@ -480,6 +483,9 @@ struct brw_context
    struct {
       struct brw_vertex_element inputs[VERT_ATTRIB_MAX];
 
+      struct brw_vertex_element *enabled[VERT_ATTRIB_MAX];
+      GLuint nr_enabled;
+
 #define BRW_NR_UPLOAD_BUFS 17
 #define BRW_UPLOAD_INIT_SIZE (128*1024)
 
@@ -503,8 +509,15 @@ struct brw_context
        */
       const struct _mesa_index_buffer *ib;
 
+      /* Updates to these fields are signaled by BRW_NEW_INDEX_BUFFER. */
       dri_bo *bo;
       unsigned int offset;
+      unsigned int size;
+      /* Offset to index buffer index to use in CMD_3D_PRIM so that we can
+       * avoid re-uploading the IB packet over and over if we're actually
+       * referencing the same index buffer.
+       */
+      unsigned int start_vertex_offset;
    } ib;
 
    /* Active vertex program: 
@@ -614,9 +627,10 @@ struct brw_context
       struct brw_wm_prog_data *prog_data;
       struct brw_wm_compile *compile_data;
 
-      /* Input sizes, calculated from active vertex program:
+      /** Input sizes, calculated from active vertex program.
+       * One bit per fragment program input attribute.
        */
-      GLuint input_size_masks[4];
+      GLbitfield input_size_masks[4];
 
       /** Array of surface default colors (texture border color) */
       dri_bo *sdc_bo[BRW_MAX_TEX_UNIT];
@@ -710,6 +724,8 @@ void brw_upload_urb_fence(struct brw_context *brw);
  */
 void brw_upload_cs_urb_state(struct brw_context *brw);
 
+/* brw_disasm.c */
+int brw_disasm (FILE *file, struct brw_instruction *inst);
 
 /*======================================================================
  * Inline conversion functions.  These are better-typed than the

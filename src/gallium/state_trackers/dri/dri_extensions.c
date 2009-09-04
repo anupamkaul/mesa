@@ -33,6 +33,7 @@
 #include "dri_context.h"
 #include "state_tracker/st_context.h"
 
+#define need_GL_ARB_map_buffer_range
 #define need_GL_ARB_multisample
 #define need_GL_ARB_occlusion_query
 #define need_GL_ARB_point_parameters
@@ -61,6 +62,7 @@
  */
 const struct dri_extension card_extensions[] = {
    {"GL_ARB_fragment_shader", NULL},
+   {"GL_ARB_map_buffer_range", GL_ARB_map_buffer_range_functions},
    {"GL_ARB_multisample", GL_ARB_multisample_functions},
    {"GL_ARB_multitexture", NULL},
    {"GL_ARB_occlusion_query", GL_ARB_occlusion_query_functions},
@@ -82,8 +84,7 @@ const struct dri_extension card_extensions[] = {
    {"GL_ARB_vertex_program", GL_ARB_vertex_program_functions},
    {"GL_ARB_window_pos", GL_ARB_window_pos_functions},
    {"GL_EXT_blend_color", GL_EXT_blend_color_functions},
-   {"GL_EXT_blend_equation_separate",
-    GL_EXT_blend_equation_separate_functions},
+   {"GL_EXT_blend_equation_separate", GL_EXT_blend_equation_separate_functions},
    {"GL_EXT_blend_func_separate", GL_EXT_blend_func_separate_functions},
    {"GL_EXT_blend_minmax", GL_EXT_blend_minmax_functions},
    {"GL_EXT_blend_subtract", NULL},

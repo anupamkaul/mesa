@@ -30,6 +30,7 @@
  */
 
 #include "main/glheader.h"
+#include "main/bufferobj.h"
 #include "main/imports.h"
 #include "main/image.h"
 #include "main/macros.h"
@@ -194,6 +195,7 @@ flush( struct copy_context *copy )
 	       copy->dstprim,
 	       copy->dstprim_nr,
 	       &copy->dstib,
+	       GL_TRUE,
 	       0,
 	       copy->dstbuf_nr );
 
@@ -219,7 +221,7 @@ begin( struct copy_context *copy, GLenum mode, GLboolean begin_flag )
 {
    struct _mesa_prim *prim = &copy->dstprim[copy->dstprim_nr];
 
-/*    _mesa_printf("begin %s (%d)\n", _mesa_lookup_enum_by_nr(mode), begin_flag); */
+/*    _mesa_printf("begin %s (%d)\n", _mesa_lookup_prim_by_nr(mode), begin_flag); */
 		
    prim->mode = mode;
    prim->begin = begin_flag;
@@ -443,7 +445,7 @@ replay_init( struct copy_context *copy )
 	 copy->varying[j].size = attr_size(copy->array[i]);
 	 copy->vertex_size += attr_size(copy->array[i]);
       
-	 if (vbo->Name && !vbo->Pointer) 
+	 if (_mesa_is_bufferobj(vbo) && !_mesa_bufferobj_mapped(vbo)) 
 	    ctx->Driver.MapBuffer(ctx, GL_ARRAY_BUFFER, GL_READ_ONLY, vbo);
 
 	 copy->varying[j].src_ptr = ADD_POINTERS(vbo->Pointer,
@@ -457,7 +459,8 @@ replay_init( struct copy_context *copy )
     * caller convert non-indexed prims to indexed.  Could alternately
     * do it internally.
     */
-   if (copy->ib->obj->Name && !copy->ib->obj->Pointer) 
+   if (_mesa_is_bufferobj(copy->ib->obj) &&
+       !_mesa_bufferobj_mapped(copy->ib->obj)) 
       ctx->Driver.MapBuffer(ctx, GL_ELEMENT_ARRAY_BUFFER, GL_READ_ONLY,
 			    copy->ib->obj);
 
@@ -561,13 +564,14 @@ replay_finish( struct copy_context *copy )
     */
    for (i = 0; i < copy->nr_varying; i++) {
       struct gl_buffer_object *vbo = copy->varying[i].array->BufferObj;
-      if (vbo->Name && vbo->Pointer) 
+      if (_mesa_is_bufferobj(vbo) && _mesa_bufferobj_mapped(vbo)) 
 	 ctx->Driver.UnmapBuffer(ctx, GL_ARRAY_BUFFER, vbo);
    }
 
    /* Unmap index buffer:
     */
-   if (copy->ib->obj->Name && copy->ib->obj->Pointer) {
+   if (_mesa_is_bufferobj(copy->ib->obj) &&
+       _mesa_bufferobj_mapped(copy->ib->obj)) {
       ctx->Driver.UnmapBuffer(ctx, GL_ELEMENT_ARRAY_BUFFER, copy->ib->obj);
    }
 }

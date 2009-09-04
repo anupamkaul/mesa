@@ -5,6 +5,8 @@
  * Author: Zack Rusin
  */
 
+#include <GL/glew.h>
+
 #define GL_GLEXT_PROTOTYPES
 #include "readtex.h"
 
@@ -446,7 +448,6 @@ int main(int argc, char **argv)
 {
    glutInit(&argc, argv);
 
-   glutInitWindowPosition(0, 0);
    glutInitWindowSize(400, 400);
    glutInitDisplayMode(GLUT_RGB | GLUT_ALPHA | GLUT_DOUBLE);
 
@@ -455,6 +456,7 @@ int main(int argc, char **argv)
       exit(1);
    }
 
+   glewInit();
    init();
 
    glutReshapeFunc(reshape);

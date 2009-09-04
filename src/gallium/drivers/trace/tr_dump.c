@@ -351,7 +351,7 @@ void trace_dump_call_begin_locked(const char *klass, const char *method)
    trace_dump_indent(1);
    trace_dump_writes("<call no=\'");
    trace_dump_writef("%lu", call_no);
-   trace_dump_writes("\' class =\'");
+   trace_dump_writes("\' class=\'");
    trace_dump_escape(klass);
    trace_dump_writes("\' method=\'");
    trace_dump_escape(method);
@@ -451,11 +451,11 @@ void trace_dump_float(double value)
 }
 
 void trace_dump_bytes(const void *data,
-                      long unsigned size)
+                      size_t size)
 {
    static const char hex_table[16] = "0123456789ABCDEF";
    const uint8_t *p = data;
-   long unsigned i;
+   size_t i;
 
    if (!dumping)
       return;

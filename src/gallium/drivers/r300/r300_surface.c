@@ -37,7 +37,7 @@ static void r300_surface_setup(struct r300_context* r300,
     r300_emit_dsa_state(r300, &dsa_clear_state);
     r300_emit_rs_state(r300, &rs_clear_state);
 
-    BEGIN_CS(24);
+    BEGIN_CS(26);
 
     /* Viewport setup */
     OUT_CS_REG_SEQ(R300_SE_VPORT_XSCALE, 6);
@@ -78,8 +78,10 @@ static void r300_surface_setup(struct r300_context* r300,
     /* Setup colorbuffer. */
     OUT_CS_REG_SEQ(R300_RB3D_COLOROFFSET0, 1);
     OUT_CS_RELOC(dest->buffer, 0, 0, RADEON_GEM_DOMAIN_VRAM, 0);
-    OUT_CS_REG(R300_RB3D_COLORPITCH0, pixpitch |
-        r300_translate_colorformat(dest->tex.format));
+    OUT_CS_REG_SEQ(R300_RB3D_COLORPITCH0, 1);
+    OUT_CS_RELOC(dest->buffer, pixpitch |
+                 r300_translate_colorformat(dest->tex.format), 0,
+                 RADEON_GEM_DOMAIN_VRAM, 0);
     OUT_CS_REG(RB3D_COLOR_CHANNEL_MASK, 0xf);
 
     END_CS;
@@ -125,9 +127,10 @@ validate:
         r300->context.flush(&r300->context, 0, NULL);
         goto validate;
     }
-    if (r300->winsys->validate(r300->winsys)) {
+    if (!r300->winsys->validate(r300->winsys)) {
         r300->context.flush(&r300->context, 0, NULL);
         if (invalid) {
+            debug_printf("r300: Stuck in validation loop, gonna fallback.");
             goto fallback;
         }
         invalid = TRUE;
@@ -138,10 +141,14 @@ validate:
 
     /* Vertex shader setup */
     if (caps->has_tcl) {
-        r300_emit_vertex_shader(r300, &r300_passthrough_vertex_shader);
+        r300_emit_vertex_program_code(r300, &r300_passthrough_vertex_shader, 0);
     } else {
         BEGIN_CS(4);
-        OUT_CS_REG(R300_VAP_CNTL_STATUS, R300_VAP_TCL_BYPASS);
+        OUT_CS_REG(R300_VAP_CNTL_STATUS,
+#ifdef PIPE_ARCH_BIG_ENDIAN
+                   R300_VC_32BIT_SWAP |
+#endif
+                   R300_VAP_TCL_BYPASS);
         OUT_CS_REG(R300_VAP_CNTL, R300_PVS_NUM_SLOTS(5) |
                 R300_PVS_NUM_CNTLRS(5) |
                 R300_PVS_NUM_FPUS(caps->num_vert_fpus) |
@@ -151,11 +158,11 @@ validate:
 
     /* Fragment shader setup */
     if (caps->is_r500) {
-        r500_emit_fragment_shader(r300, &r500_passthrough_fragment_shader);
-        r300_emit_rs_block_state(r300, &r500_rs_block_clear_state);
+        r500_emit_fragment_program_code(r300, &r5xx_passthrough_fragment_shader, 0);
+        r300_emit_rs_block_state(r300, &r5xx_rs_block_clear_state);
     } else {
-        r300_emit_fragment_shader(r300, &r300_passthrough_fragment_shader);
-        r300_emit_rs_block_state(r300, &r300_rs_block_clear_state);
+        r300_emit_fragment_program_code(r300, &r3xx_passthrough_fragment_shader, 0);
+        r300_emit_rs_block_state(r300, &r3xx_rs_block_clear_state);
     }
 
     BEGIN_CS(26);
@@ -228,13 +235,14 @@ static void r300_surface_copy(struct pipe_context* pipe,
     struct r300_texture* desttex = (struct r300_texture*)dest->texture;
     unsigned pixpitch = srctex->stride / srctex->tex.block.size;
     boolean invalid = FALSE;
+    float fsrcx = srcx, fsrcy = srcy, fdestx = destx, fdesty = desty;
     CS_LOCALS(r300);
 
     debug_printf("r300: Copying surface %p at (%d,%d) to %p at (%d, %d),"
         " dimensions %dx%d (pixel pitch %d)\n",
         src, srcx, srcy, dest, destx, desty, w, h, pixpitch);
 
-    if ((srctex == desttex) &&
+    if ((srctex->buffer == desttex->buffer) &&
             ((destx < srcx + w) || (srcx < destx + w)) &&
             ((desty < srcy + h) || (srcy < desty + h))) {
 fallback:
@@ -255,9 +263,10 @@ validate:
         r300->context.flush(&r300->context, 0, NULL);
         goto validate;
     }
-    if (r300->winsys->validate(r300->winsys)) {
+    if (!r300->winsys->validate(r300->winsys)) {
         r300->context.flush(&r300->context, 0, NULL);
         if (invalid) {
+            debug_printf("r300: Stuck in validation loop, gonna fallback.");
             goto fallback;
         }
         invalid = TRUE;
@@ -267,21 +276,21 @@ validate:
     r300_surface_setup(r300, desttex, destx, desty, w, h);
 
     /* Setup the texture. */
-    r300_emit_sampler(r300, &r300_sampler_copy_state, 0);
-    r300_emit_texture(r300, srctex, 0);
+    r300_emit_texture(r300, &r300_sampler_copy_state, srctex, 0);
 
     /* Flush and enable. */
-    BEGIN_CS(4);
-    OUT_CS_REG(R300_TX_INVALTAGS, 0);
-    OUT_CS_REG(R300_TX_ENABLE, 0x1);
-    END_CS;
+    r300_flush_textures(r300);
 
     /* Vertex shader setup */
     if (caps->has_tcl) {
-        r300_emit_vertex_shader(r300, &r300_passthrough_vertex_shader);
+        r300_emit_vertex_program_code(r300, &r300_passthrough_vertex_shader, 0);
     } else {
         BEGIN_CS(4);
-        OUT_CS_REG(R300_VAP_CNTL_STATUS, R300_VAP_TCL_BYPASS);
+        OUT_CS_REG(R300_VAP_CNTL_STATUS,
+#ifdef PIPE_ARCH_BIG_ENDIAN
+                   R300_VC_32BIT_SWAP |
+#endif
+                   R300_VAP_TCL_BYPASS);
         OUT_CS_REG(R300_VAP_CNTL, R300_PVS_NUM_SLOTS(5) |
                 R300_PVS_NUM_CNTLRS(5) |
                 R300_PVS_NUM_FPUS(caps->num_vert_fpus) |
@@ -291,11 +300,11 @@ validate:
 
     /* Fragment shader setup */
     if (caps->is_r500) {
-        r500_emit_fragment_shader(r300, &r500_texture_fragment_shader);
-        r300_emit_rs_block_state(r300, &r500_rs_block_copy_state);
+        r500_emit_fragment_program_code(r300, &r5xx_texture_fragment_shader, 0);
+        r300_emit_rs_block_state(r300, &r5xx_rs_block_copy_state);
     } else {
-        r300_emit_fragment_shader(r300, &r300_texture_fragment_shader);
-        r300_emit_rs_block_state(r300, &r300_rs_block_copy_state);
+        r300_emit_fragment_program_code(r300, &r3xx_texture_fragment_shader, 0);
+        r300_emit_rs_block_state(r300, &r3xx_rs_block_copy_state);
     }
 
     BEGIN_CS(30);
@@ -329,25 +338,25 @@ validate:
     OUT_CS(R300_PRIM_TYPE_QUADS | R300_PRIM_WALK_RING |
             (4 << R300_PRIM_NUM_VERTICES_SHIFT));
     /* (x    , y    ) */
-    OUT_CS_32F((float)(destx / dest->width));
-    OUT_CS_32F((float)(desty / dest->height));
-    OUT_CS_32F((float)(srcx  / dest->width));
-    OUT_CS_32F((float)(srcy  / dest->height));
+    OUT_CS_32F(fdestx / dest->width);
+    OUT_CS_32F(fdesty / dest->height);
+    OUT_CS_32F(fsrcx  / src->width);
+    OUT_CS_32F(fsrcy  / src->height);
     /* (x    , y + h) */
-    OUT_CS_32F((float)(destx / dest->width));
-    OUT_CS_32F((float)((desty + h) / dest->height));
-    OUT_CS_32F((float)(srcx  / dest->width));
-    OUT_CS_32F((float)((srcy  + h) / dest->height));
+    OUT_CS_32F(fdestx / dest->width);
+    OUT_CS_32F((fdesty + h) / dest->height);
+    OUT_CS_32F(fsrcx  / src->width);
+    OUT_CS_32F((fsrcy  + h) / src->height);
     /* (x + w, y + h) */
-    OUT_CS_32F((float)((destx + w) / dest->width));
-    OUT_CS_32F((float)((desty + h) / dest->height));
-    OUT_CS_32F((float)((srcx  + w) / dest->width));
-    OUT_CS_32F((float)((srcy  + h) / dest->height));
+    OUT_CS_32F((fdestx + w) / dest->width);
+    OUT_CS_32F((fdesty + h) / dest->height);
+    OUT_CS_32F((fsrcx  + w) / src->width);
+    OUT_CS_32F((fsrcy  + h) / src->height);
     /* (x + w, y    ) */
-    OUT_CS_32F((float)((destx + w) / dest->width));
-    OUT_CS_32F((float)(desty / dest->height));
-    OUT_CS_32F((float)((srcx  + w) / dest->width));
-    OUT_CS_32F((float)(srcy  / dest->height));
+    OUT_CS_32F((fdestx + w) / dest->width);
+    OUT_CS_32F(fdesty / dest->height);
+    OUT_CS_32F((fsrcx  + w) / src->width);
+    OUT_CS_32F(fsrcy  / src->height);
 
     OUT_CS_REG(R300_RB3D_DSTCACHE_CTLSTAT, 0xA);
 

@@ -34,6 +34,8 @@ struct r300_capabilities {
     int family;
     /* The number of vertex floating-point units */
     int num_vert_fpus;
+    /* The number of fragment pipes */
+    int num_frag_pipes;
     /* Whether or not TCL is physically present */
     boolean has_tcl;
     /* Whether or not this is an RV515 or newer; R500s have many differences
@@ -42,6 +44,8 @@ struct r300_capabilities {
      * - Blend color is split across two registers
      * - Universal Shader (US) block used for fragment shaders */
     boolean is_r500;
+    /* Whether or not the second pixel pipe is accessed with the high bit */
+    boolean high_second_pipe;
 };
 
 /* Enumerations for legibility and telling which card we're running on. */

@@ -17,7 +17,9 @@ PROGRAMS = \
 	eglgears \
 	eglscreen \
 	peglgears \
+	xeglbindtex \
 	xeglgears \
+	xeglthreads \
 	xegl_tri
 
 
@@ -83,11 +85,24 @@ peglgears.o: peglgears.c $(HEADERS)
 	$(CC) -c $(CFLAGS) -I$(TOP)/include peglgears.c
 
 
+xeglbindtex: xeglbindtex.o $(TOP)/$(LIB_DIR)/libEGL.so
+	$(CC) $(CFLAGS) xeglbindtex.o -L$(TOP)/$(LIB_DIR) -lEGL -lGL $(LIBDRM_LIB) $(APP_LIB_DEPS) -o $@
+
+xeglbindtex.o: xeglbindtex.c $(HEADERS)
+	$(CC) -c $(CFLAGS) -I$(TOP)/include xeglbindtex.c
+
 xeglgears: xeglgears.o $(TOP)/$(LIB_DIR)/libEGL.so
 	$(CC) $(CFLAGS) xeglgears.o -L$(TOP)/$(LIB_DIR) -lEGL -lGL $(LIBDRM_LIB) $(APP_LIB_DEPS) -o $@
 
 xeglgears.o: xeglgears.c $(HEADERS)
 	$(CC) -c $(CFLAGS) -I$(TOP)/include xeglgears.c
+
+
+xeglthreads: xeglthreads.o $(TOP)/$(LIB_DIR)/libEGL.so
+	$(CC) $(CFLAGS) xeglthreads.o -L$(TOP)/$(LIB_DIR) -lEGL -lGL $(LIBDRM_LIB) $(APP_LIB_DEPS) -o $@
+
+xeglthreads.o: xeglthreads.c $(HEADERS)
+	$(CC) -c $(CFLAGS) -I$(TOP)/include xeglthreads.c
 
 
 xegl_tri: xegl_tri.o $(TOP)/$(LIB_DIR)/libEGL.so

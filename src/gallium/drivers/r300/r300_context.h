@@ -25,14 +25,21 @@
 
 #include "draw/draw_context.h"
 #include "draw/draw_vertex.h"
+
 #include "pipe/p_context.h"
+
 #include "tgsi/tgsi_scan.h"
+
 #include "util/u_memory.h"
+#include "util/u_simple_list.h"
 
 #include "r300_clear.h"
 #include "r300_query.h"
 #include "r300_screen.h"
 #include "r300_winsys.h"
+
+struct r300_fragment_shader;
+struct r300_vertex_shader;
 
 struct r300_blend_state {
     uint32_t blend_control;       /* R300_RB3D_CBLEND: 0x4e04 */
@@ -143,69 +150,31 @@ struct r300_constant_buffer {
     /* Buffer of constants */
     /* XXX first number should be raised */
     float constants[32][4];
-    /* Number of user-defined constants */
-    unsigned user_count;
     /* Total number of constants */
     unsigned count;
 };
 
-struct r3xx_fragment_shader {
-    /* Parent class */
-    struct pipe_shader_state state;
-    struct tgsi_shader_info info;
-
-    /* Has this shader been translated yet? */
-    boolean translated;
-
-    /* Pixel stack size */
-    int stack_size;
-
-    /* Are there immediates in this shader?
-     * If not, we can heavily optimize recompilation. */
-    boolean uses_imms;
-};
-
-struct r300_fragment_shader {
-    /* Parent class */
-    struct r3xx_fragment_shader shader;
-
-    /* Number of ALU instructions */
-    int alu_instruction_count;
-
-    /* Number of texture instructions */
-    int tex_instruction_count;
-
-    /* Number of texture indirections */
-    int indirections;
-
-    /* Indirection node offsets */
-    int alu_offset[4];
-
-    /* Machine instructions */
-    struct {
-        uint32_t alu_rgb_inst;
-        uint32_t alu_rgb_addr;
-        uint32_t alu_alpha_inst;
-        uint32_t alu_alpha_addr;
-    } instructions[64]; /* XXX magic num */
-};
-
-struct r500_fragment_shader {
-    /* Parent class */
-    struct r3xx_fragment_shader shader;
-
-    /* Number of used instructions */
-    int instruction_count;
-
-    /* Machine instructions */
-    struct {
-        uint32_t inst0;
-        uint32_t inst1;
-        uint32_t inst2;
-        uint32_t inst3;
-        uint32_t inst4;
-        uint32_t inst5;
-    } instructions[256]; /*< XXX magic number */
+/* Query object.
+ *
+ * This is not a subclass of pipe_query because pipe_query is never
+ * actually fully defined. So, rather than have it as a member, and do
+ * subclass-style casting, we treat pipe_query as an opaque, and just
+ * trust that our state tracker does not ever mess up query objects.
+ */
+struct r300_query {
+    /* The kind of query. Currently only OQ is supported. */
+    unsigned type;
+    /* Whether this query is currently active. Only active queries will
+     * get emitted into the command stream, and only active queries get
+     * tallied. */
+    boolean active;
+    /* The current count of this query. Required to be at least 32 bits. */
+    unsigned int count;
+    /* The offset of this query into the query buffer, in bytes. */
+    unsigned offset;
+    /* Linked list members. */
+    struct r300_query* prev;
+    struct r300_query* next;
 };
 
 struct r300_texture {
@@ -217,7 +186,7 @@ struct r300_texture {
 
     /* Stride (pitch?) of this texture in bytes */
     unsigned stride;
-    
+
     /* Total size of this texture, in bytes. */
     unsigned size;
 
@@ -242,33 +211,6 @@ struct r300_vertex_format {
     int fs_tab[16];
 };
 
-struct r300_vertex_shader {
-    /* Parent class */
-    struct pipe_shader_state state;
-    struct tgsi_shader_info info;
-
-    /* Fallback shader, because Draw has issues */
-    struct draw_vertex_shader* draw;
-
-    /* Has this shader been translated yet? */
-    boolean translated;
-
-    /* Are there immediates in this shader?
-     * If not, we can heavily optimize recompilation. */
-    boolean uses_imms;
-
-    /* Number of used instructions */
-    int instruction_count;
-
-    /* Machine instructions */
-    struct {
-        uint32_t inst0;
-        uint32_t inst1;
-        uint32_t inst2;
-        uint32_t inst3;
-    } instructions[128]; /*< XXX magic number */
-};
-
 static struct pipe_viewport_state r300_viewport_identity = {
     .scale = {1.0, 1.0, 1.0, 1.0},
     .translate = {0.0, 0.0, 0.0, 0.0},
@@ -288,6 +230,11 @@ struct r300_context {
     /* Offset into the VBO. */
     size_t vbo_offset;
 
+    /* Occlusion query buffer. */
+    struct pipe_buffer* oqbo;
+    /* Query list. */
+    struct r300_query* query_list;
+
     /* Various CSO state objects. */
     /* Blend state. */
     struct r300_blend_state* blend_state;
@@ -300,7 +247,7 @@ struct r300_context {
     /* Depth, stencil, and alpha state. */
     struct r300_dsa_state* dsa_state;
     /* Fragment shader. */
-    struct r3xx_fragment_shader* fs;
+    struct r300_fragment_shader* fs;
     /* Framebuffer state. We currently don't need our own version of this. */
     struct pipe_framebuffer_state framebuffer_state;
     /* Rasterizer state. */
@@ -331,7 +278,8 @@ struct r300_context {
 };
 
 /* Convenience cast wrapper. */
-static struct r300_context* r300_context(struct pipe_context* context) {
+static INLINE struct r300_context* r300_context(struct pipe_context* context)
+{
     return (struct r300_context*)context;
 }
 

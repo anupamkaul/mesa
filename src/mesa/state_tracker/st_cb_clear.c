@@ -103,20 +103,6 @@ st_destroy_clear(struct st_context *st)
 }
 
 
-static GLboolean
-is_depth_stencil_format(enum pipe_format pipeFormat)
-{
-   switch (pipeFormat) {
-   case PIPE_FORMAT_S8Z24_UNORM:
-   case PIPE_FORMAT_Z24S8_UNORM:
-      return GL_TRUE;
-   default:
-      return GL_FALSE;
-   }
-}
-
-
-
 /**
  * Draw a screen-aligned quadrilateral.
  * Coords are window coords with y=0=bottom.  These will be passed
@@ -294,7 +280,11 @@ clear_with_quad(GLcontext *ctx,
 static INLINE GLboolean
 check_clear_color_with_quad(GLcontext *ctx, struct gl_renderbuffer *rb)
 {
-   if (ctx->Scissor.Enabled)
+   if (ctx->Scissor.Enabled &&
+       (ctx->Scissor.X != 0 ||
+        ctx->Scissor.Y != 0 ||
+        ctx->Scissor.Width < rb->Width ||
+        ctx->Scissor.Height < rb->Height))
       return TRUE;
 
    if (!ctx->Color.ColorMask[0] ||
@@ -314,7 +304,11 @@ check_clear_depth_stencil_with_quad(GLcontext *ctx, struct gl_renderbuffer *rb)
    GLboolean maskStencil
       = (ctx->Stencil.WriteMask[0] & stencilMax) != stencilMax;
 
-   if (ctx->Scissor.Enabled)
+   if (ctx->Scissor.Enabled &&
+       (ctx->Scissor.X != 0 ||
+        ctx->Scissor.Y != 0 ||
+        ctx->Scissor.Width < rb->Width ||
+        ctx->Scissor.Height < rb->Height))
       return TRUE;
 
    if (maskStencil)
@@ -331,9 +325,13 @@ static INLINE GLboolean
 check_clear_depth_with_quad(GLcontext *ctx, struct gl_renderbuffer *rb)
 {
    const struct st_renderbuffer *strb = st_renderbuffer(rb);
-   const GLboolean isDS = is_depth_stencil_format(strb->surface->format);
+   const GLboolean isDS = pf_is_depth_and_stencil(strb->surface->format);
 
-   if (ctx->Scissor.Enabled)
+   if (ctx->Scissor.Enabled &&
+       (ctx->Scissor.X != 0 ||
+        ctx->Scissor.Y != 0 ||
+        ctx->Scissor.Width < rb->Width ||
+        ctx->Scissor.Height < rb->Height))
       return TRUE;
 
    if (isDS && 
@@ -351,7 +349,7 @@ static INLINE GLboolean
 check_clear_stencil_with_quad(GLcontext *ctx, struct gl_renderbuffer *rb)
 {
    const struct st_renderbuffer *strb = st_renderbuffer(rb);
-   const GLboolean isDS = is_depth_stencil_format(strb->surface->format);
+   const GLboolean isDS = pf_is_depth_and_stencil(strb->surface->format);
    const GLuint stencilMax = (1 << rb->StencilBits) - 1;
    const GLboolean maskStencil
       = (ctx->Stencil.WriteMask[0] & stencilMax) != stencilMax;
@@ -359,7 +357,11 @@ check_clear_stencil_with_quad(GLcontext *ctx, struct gl_renderbuffer *rb)
    if (maskStencil) 
       return TRUE;
 
-   if (ctx->Scissor.Enabled)
+   if (ctx->Scissor.Enabled &&
+       (ctx->Scissor.X != 0 ||
+        ctx->Scissor.Y != 0 ||
+        ctx->Scissor.Width < rb->Width ||
+        ctx->Scissor.Height < rb->Height))
       return TRUE;
 
    /* This is correct, but it is necessary to look at the depth clear

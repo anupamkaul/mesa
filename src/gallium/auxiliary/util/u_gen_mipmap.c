@@ -46,10 +46,6 @@
 #include "util/u_gen_mipmap.h"
 #include "util/u_simple_shaders.h"
 
-#include "tgsi/tgsi_build.h"
-#include "tgsi/tgsi_dump.h"
-#include "tgsi/tgsi_parse.h"
-
 #include "cso_cache/cso_context.h"
 
 
@@ -1385,7 +1381,7 @@ set_vertex_data(struct gen_mipmap_state *ctx,
           * Not +/-1 to avoid cube face selection ambiguity near the edges,
           * though that can still sometimes happen with this scale factor...
           */
-         const float scale = 0.9999;
+         const float scale = 0.9999f;
          const float sc = (2.0f * st[i][0] - 1.0f) * scale;
          const float tc = (2.0f * st[i][1] - 1.0f) * scale;
 

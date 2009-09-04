@@ -150,6 +150,7 @@
 #include "glapi/glapioffsets.h"
 #include "glapi/glapitable.h"
 #include "shader/program.h"
+#include "shader/prog_print.h"
 #include "shader/shader_api.h"
 #if FEATURE_ATI_fragment_shader
 #include "shader/atifragshader.h"
@@ -486,7 +487,7 @@ init_program_limits(GLenum type, struct gl_program_constants *prog)
    prog->MaxUniformComponents = 4 * MAX_UNIFORMS;
 
    if (type == GL_VERTEX_PROGRAM_ARB) {
-      prog->MaxParameters = MAX_NV_VERTEX_PROGRAM_PARAMS;
+      prog->MaxParameters = MAX_VERTEX_PROGRAM_PARAMS;
       prog->MaxAttribs = MAX_NV_VERTEX_PROGRAM_INPUTS;
       prog->MaxAddressRegs = MAX_VERTEX_PROGRAM_ADDRESS_REGS;
    }
@@ -496,15 +497,17 @@ init_program_limits(GLenum type, struct gl_program_constants *prog)
       prog->MaxAddressRegs = MAX_FRAGMENT_PROGRAM_ADDRESS_REGS;
    }
 
-   /* copy the above limits to init native limits */
-   prog->MaxNativeInstructions = prog->MaxInstructions;
-   prog->MaxNativeAluInstructions = prog->MaxAluInstructions;
-   prog->MaxNativeTexInstructions = prog->MaxTexInstructions;
-   prog->MaxNativeTexIndirections = prog->MaxTexIndirections;
-   prog->MaxNativeAttribs = prog->MaxAttribs;
-   prog->MaxNativeTemps = prog->MaxTemps;
-   prog->MaxNativeAddressRegs = prog->MaxAddressRegs;
-   prog->MaxNativeParameters = prog->MaxParameters;
+   /* Set the native limits to zero.  This implies that there is no native
+    * support for shaders.  Let the drivers fill in the actual values.
+    */
+   prog->MaxNativeInstructions = 0;
+   prog->MaxNativeAluInstructions = 0;
+   prog->MaxNativeTexInstructions = 0;
+   prog->MaxNativeTexIndirections = 0;
+   prog->MaxNativeAttribs = 0;
+   prog->MaxNativeTemps = 0;
+   prog->MaxNativeAddressRegs = 0;
+   prog->MaxNativeParameters = 0;
 }
 
 
@@ -591,6 +594,9 @@ _mesa_init_constants(GLcontext *ctx)
 
    /* GL_ATI_envmap_bumpmap */
    ctx->Const.SupportedBumpUnits = SUPPORTED_ATI_BUMP_UNITS;
+
+   /* GL_EXT_provoking_vertex */
+   ctx->Const.QuadsFollowProvokingVertexConvention = GL_TRUE;
 
    /* sanity checks */
    ASSERT(ctx->Const.MaxTextureUnits == MIN2(ctx->Const.MaxTextureImageUnits,
@@ -1008,6 +1014,7 @@ _mesa_free_context_data( GLcontext *ctx )
 #if FEATURE_ARB_occlusion_query
    _mesa_free_query_data(ctx);
 #endif
+   _mesa_free_varray_data(ctx);
 
    _mesa_delete_array_object(ctx, ctx->Array.DefaultArrayObj);
 
@@ -1256,6 +1263,24 @@ initialize_framebuffer_size(GLcontext *ctx, GLframebuffer *fb)
 
 
 /**
+ * Check if the viewport/scissor size has not yet been initialized.
+ * Initialize the size if the given width and height are non-zero.
+ */
+void
+_mesa_check_init_viewport(GLcontext *ctx, GLuint width, GLuint height)
+{
+   if (!ctx->ViewportInitialized && width > 0 && height > 0) {
+      /* Note: set flag here, before calling _mesa_set_viewport(), to prevent
+       * potential infinite recursion.
+       */
+      ctx->ViewportInitialized = GL_TRUE;
+      _mesa_set_viewport(ctx, 0, 0, width, height);
+      _mesa_set_scissor(ctx, 0, 0, width, height);
+   }
+}
+
+
+/**
  * Bind the given context to the given drawBuffer and readBuffer and
  * make it the current context for the calling thread.
  * We'll render into the drawBuffer and read pixels from the
@@ -1372,25 +1397,24 @@ _mesa_make_current( GLcontext *newCtx, GLframebuffer *drawBuffer,
          ASSERT(drawBuffer->Height > 0);
 #endif
 
-         if (newCtx->FirstTimeCurrent) {
-            /* set initial viewport and scissor size now */
-            _mesa_set_viewport(newCtx, 0, 0,
-                               drawBuffer->Width, drawBuffer->Height);
-	    _mesa_set_scissor(newCtx, 0, 0,
-			      drawBuffer->Width, drawBuffer->Height );
-            check_context_limits(newCtx);
+         if (drawBuffer) {
+            _mesa_check_init_viewport(newCtx,
+                                      drawBuffer->Width, drawBuffer->Height);
          }
       }
 
-      /* We can use this to help debug user's problems.  Tell them to set
-       * the MESA_INFO env variable before running their app.  Then the
-       * first time each context is made current we'll print some useful
-       * information.
-       */
       if (newCtx->FirstTimeCurrent) {
+         check_context_limits(newCtx);
+
+         /* We can use this to help debug user's problems.  Tell them to set
+          * the MESA_INFO env variable before running their app.  Then the
+          * first time each context is made current we'll print some useful
+          * information.
+          */
 	 if (_mesa_getenv("MESA_INFO")) {
 	    _mesa_print_info();
 	 }
+
 	 newCtx->FirstTimeCurrent = GL_FALSE;
       }
    }
@@ -1552,6 +1576,84 @@ _mesa_set_mvp_with_dp4( GLcontext *ctx,
                         GLboolean flag )
 {
    ctx->mvp_with_dp4 = flag;
+}
+
+
+
+/**
+ * Prior to drawing anything with glBegin, glDrawArrays, etc. this function
+ * is called to see if it's valid to render.  This involves checking that
+ * the current shader is valid and the framebuffer is complete.
+ * If an error is detected it'll be recorded here.
+ * \return GL_TRUE if OK to render, GL_FALSE if not
+ */
+GLboolean
+_mesa_valid_to_render(GLcontext *ctx, const char *where)
+{
+   if (ctx->Shader.CurrentProgram) {
+      /* using shaders */
+      if (!ctx->Shader.CurrentProgram->LinkStatus) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "%s(shader not linked), where");
+         return GL_FALSE;
+      }
+#if 0 /* not normally enabled */
+      {
+         char errMsg[100];
+         if (!_mesa_validate_shader_program(ctx, ctx->Shader.CurrentProgram,
+                                            errMsg)) {
+            _mesa_warning(ctx, "Shader program %u is invalid: %s",
+                          ctx->Shader.CurrentProgram->Name, errMsg);
+         }
+      }
+#endif
+   }
+   else {
+      if (ctx->VertexProgram.Enabled && !ctx->VertexProgram._Enabled) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "%s(vertex program not valid)", where);
+         return GL_FALSE;
+      }
+      if (ctx->FragmentProgram.Enabled && !ctx->FragmentProgram._Enabled) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "%s(fragment program not valid)", where);
+         return GL_FALSE;
+      }
+   }
+
+   if (ctx->DrawBuffer->_Status != GL_FRAMEBUFFER_COMPLETE_EXT) {
+      _mesa_error(ctx, GL_INVALID_FRAMEBUFFER_OPERATION_EXT,
+                  "%s(incomplete framebuffer)", where);
+      return GL_FALSE;
+   }
+
+#ifdef DEBUG
+   if (ctx->Shader.Flags & GLSL_LOG) {
+      struct gl_shader_program *shProg = ctx->Shader.CurrentProgram;
+      if (shProg) {
+         if (!shProg->_Used) {
+            /* This is the first time this shader is being used.
+             * Append shader's constants/uniforms to log file.
+             */
+            GLuint i;
+            for (i = 0; i < shProg->NumShaders; i++) {
+               struct gl_shader *sh = shProg->Shaders[i];
+               if (sh->Type == GL_VERTEX_SHADER) {
+                  _mesa_append_uniforms_to_file(sh,
+                                                &shProg->VertexProgram->Base);
+               }
+               else if (sh->Type == GL_FRAGMENT_SHADER) {
+                  _mesa_append_uniforms_to_file(sh,
+                                                &shProg->FragmentProgram->Base);
+               }
+            }
+            shProg->_Used = GL_TRUE;
+         }
+      }
+   }
+#endif
+
+   return GL_TRUE;
 }
 
 

@@ -10,6 +10,9 @@ enum _subroutine {
     SUB_NOISE1, SUB_NOISE2, SUB_NOISE3, SUB_NOISE4
 };
 
+static struct brw_reg get_dst_reg(struct brw_wm_compile *c,
+                                  const struct prog_instruction *inst,
+                                  GLuint component);
 
 /**
  * Determine if the given fragment program uses GLSL features such
@@ -22,6 +25,7 @@ GLboolean brw_wm_is_glsl(const struct gl_fragment_program *fp)
     for (i = 0; i < fp->Base.NumInstructions; i++) {
 	const struct prog_instruction *inst = &fp->Base.Instructions[i];
 	switch (inst->Opcode) {
+	    case OPCODE_ARL:
 	    case OPCODE_IF:
 	    case OPCODE_ENDIF:
 	    case OPCODE_CAL:
@@ -128,19 +132,6 @@ static void set_reg(struct brw_wm_compile *c, int file, int index,
 {
     c->wm_regs[file][index][component].reg = reg;
     c->wm_regs[file][index][component].inited = GL_TRUE;
-}
-
-/**
- * Examine instruction's write mask to find index of first component
- * enabled for writing.
- */
-static int get_scalar_dst_index(const struct prog_instruction *inst)
-{
-    int i;
-    for (i = 0; i < 4; i++)
-	if (inst->DstReg.WriteMask & (1<<i))
-	    break;
-    return i;
 }
 
 static struct brw_reg alloc_tmp(struct brw_wm_compile *c)
@@ -402,6 +393,27 @@ static void prealloc_reg(struct brw_wm_compile *c)
     prealloc_grf(c, 126);
     prealloc_grf(c, 127);
 
+    for (i = 0; i < c->nr_fp_insns; i++) {
+	const struct prog_instruction *inst = &c->prog_instructions[i];
+	struct brw_reg dst[4];
+
+	switch (inst->Opcode) {
+	case OPCODE_TEX:
+	case OPCODE_TXB:
+	    /* Allocate the channels of texture results contiguously,
+	     * since they are written out that way by the sampler unit.
+	     */
+	    for (j = 0; j < 4; j++) {
+		dst[j] = get_dst_reg(c, inst, j);
+		if (j != 0)
+		    assert(dst[j].nr == dst[j - 1].nr + 1);
+	    }
+	    break;
+	default:
+	    break;
+	}
+    }
+
     /* An instruction may reference up to three constants.
      * They'll be found in these registers.
      * XXX alloc these on demand!
@@ -446,7 +458,6 @@ static void fetch_constants(struct brw_wm_compile *c,
 	 /* need to fetch the constant now */
 	 brw_dp_READ_4(p,
 		       c->current_const[i].reg,  /* writeback dest */
-		       1,                        /* msg_reg */
 		       src->RelAddr,             /* relative indexing? */
 		       16 * src->Index,          /* byte offset */
 		       SURF_INDEX_FRAG_CONST_BUFFER/* binding table index */
@@ -638,23 +649,6 @@ static void invoke_subroutine( struct brw_wm_compile *c,
 	
 	release_tmps( c, mark );
     }
-}
-
-static void emit_abs( struct brw_wm_compile *c,
-                      const struct prog_instruction *inst)
-{
-    int i;
-    struct brw_compile *p = &c->func;
-    brw_set_saturate(p, inst->SaturateMode != SATURATE_OFF);
-    for (i = 0; i < 4; i++) {
-	if (inst->DstReg.WriteMask & (1<<i)) {
-	    struct brw_reg src, dst;
-	    dst = get_dst_reg(c, inst, i);
-	    src = get_src_reg(c, inst, 0, i);
-	    brw_MOV(p, dst, brw_abs(src));
-	}
-    }
-    brw_set_saturate(p, 0);
 }
 
 static void emit_trunc( struct brw_wm_compile *c,
@@ -1032,12 +1026,20 @@ static void emit_dp3(struct brw_wm_compile *c,
     struct brw_reg src0[3], src1[3], dst;
     int i;
     struct brw_compile *p = &c->func;
+    GLuint mask = inst->DstReg.WriteMask;
+    int dst_chan = _mesa_ffs(mask & WRITEMASK_XYZW) - 1;
+
+    if (!(mask & WRITEMASK_XYZW))
+	return;
+
+    assert(is_power_of_two(mask & WRITEMASK_XYZW));
+
     for (i = 0; i < 3; i++) {
 	src0[i] = get_src_reg(c, inst, 0, i);
 	src1[i] = get_src_reg_imm(c, inst, 1, i);
     }
 
-    dst = get_dst_reg(c, inst, get_scalar_dst_index(inst));
+    dst = get_dst_reg(c, inst, dst_chan);
     brw_MUL(p, brw_null_reg(), src0[0], src1[0]);
     brw_MAC(p, brw_null_reg(), src0[1], src1[1]);
     brw_set_saturate(p, (inst->SaturateMode != SATURATE_OFF) ? 1 : 0);
@@ -1051,11 +1053,19 @@ static void emit_dp4(struct brw_wm_compile *c,
     struct brw_reg src0[4], src1[4], dst;
     int i;
     struct brw_compile *p = &c->func;
+    GLuint mask = inst->DstReg.WriteMask;
+    int dst_chan = _mesa_ffs(mask & WRITEMASK_XYZW) - 1;
+
+    if (!(mask & WRITEMASK_XYZW))
+	return;
+
+    assert(is_power_of_two(mask & WRITEMASK_XYZW));
+
     for (i = 0; i < 4; i++) {
 	src0[i] = get_src_reg(c, inst, 0, i);
 	src1[i] = get_src_reg_imm(c, inst, 1, i);
     }
-    dst = get_dst_reg(c, inst, get_scalar_dst_index(inst));
+    dst = get_dst_reg(c, inst, dst_chan);
     brw_MUL(p, brw_null_reg(), src0[0], src1[0]);
     brw_MAC(p, brw_null_reg(), src0[1], src1[1]);
     brw_MAC(p, brw_null_reg(), src0[2], src1[2]);
@@ -1070,11 +1080,19 @@ static void emit_dph(struct brw_wm_compile *c,
     struct brw_reg src0[4], src1[4], dst;
     int i;
     struct brw_compile *p = &c->func;
+    GLuint mask = inst->DstReg.WriteMask;
+    int dst_chan = _mesa_ffs(mask & WRITEMASK_XYZW) - 1;
+
+    if (!(mask & WRITEMASK_XYZW))
+	return;
+
+    assert(is_power_of_two(mask & WRITEMASK_XYZW));
+
     for (i = 0; i < 4; i++) {
 	src0[i] = get_src_reg(c, inst, 0, i);
 	src1[i] = get_src_reg_imm(c, inst, 1, i);
     }
-    dst = get_dst_reg(c, inst, get_scalar_dst_index(inst));
+    dst = get_dst_reg(c, inst, dst_chan);
     brw_MUL(p, brw_null_reg(), src0[0], src1[0]);
     brw_MAC(p, brw_null_reg(), src0[1], src1[1]);
     brw_MAC(p, dst, src0[2], src1[2]);
@@ -1092,37 +1110,28 @@ static void emit_math1(struct brw_wm_compile *c,
                        const struct prog_instruction *inst, GLuint func)
 {
     struct brw_compile *p = &c->func;
-    struct brw_reg src0, dst, tmp;
-    const int mark = mark_tmps( c );
-    int i;
+    struct brw_reg src0, dst;
+    GLuint mask = inst->DstReg.WriteMask;
+    int dst_chan = _mesa_ffs(mask & WRITEMASK_XYZW) - 1;
 
-    tmp = alloc_tmp(c);
+    if (!(mask & WRITEMASK_XYZW))
+	return;
+
+    assert(is_power_of_two(mask & WRITEMASK_XYZW));
 
     /* Get first component of source register */
+    dst = get_dst_reg(c, inst, dst_chan);
     src0 = get_src_reg(c, inst, 0, 0);
 
-    /* tmp = func(src0) */
     brw_MOV(p, brw_message_reg(2), src0);
     brw_math(p,
-             tmp,
+             dst,
              func,
              (inst->SaturateMode != SATURATE_OFF) ? BRW_MATH_SATURATE_SATURATE : BRW_MATH_SATURATE_NONE,
              2,
              brw_null_reg(),
              BRW_MATH_DATA_VECTOR,
              BRW_MATH_PRECISION_FULL);
-
-    /*tmp.dw1.bits.swizzle = SWIZZLE_XXXX;*/
-
-    /* replicate tmp value across enabled dest channels */
-    for (i = 0; i < 4; i++) {
-       if (inst->DstReg.WriteMask & (1 << i)) {
-          dst = get_dst_reg(c, inst, i);
-          brw_MOV(p, dst, tmp);
-       }
-    }
-
-    release_tmps(c, mark);
 }
 
 static void emit_rcp(struct brw_wm_compile *c,
@@ -1193,24 +1202,6 @@ static void emit_arl(struct brw_wm_compile *c,
     brw_set_saturate(p, 0);
 }
 
-static void emit_sub(struct brw_wm_compile *c,
-                     const struct prog_instruction *inst)
-{
-    struct brw_compile *p = &c->func;
-    struct brw_reg src0, src1, dst;
-    GLuint mask = inst->DstReg.WriteMask;
-    int i;
-    brw_set_saturate(p, (inst->SaturateMode != SATURATE_OFF) ? 1 : 0);
-    for (i = 0 ; i < 4; i++) {
-	if (mask & (1<<i)) {
-	    dst = get_dst_reg(c, inst, i);
-	    src0 = get_src_reg(c, inst, 0, i);
-	    src1 = get_src_reg_imm(c, inst, 1, i);
-	    brw_ADD(p, dst, src0, negate(src1));
-	}
-    }
-    brw_set_saturate(p, 0);
-}
 
 static void emit_mul(struct brw_wm_compile *c,
                      const struct prog_instruction *inst)
@@ -1322,7 +1313,15 @@ static void emit_pow(struct brw_wm_compile *c,
 {
     struct brw_compile *p = &c->func;
     struct brw_reg dst, src0, src1;
-    dst = get_dst_reg(c, inst, get_scalar_dst_index(inst));
+    GLuint mask = inst->DstReg.WriteMask;
+    int dst_chan = _mesa_ffs(mask & WRITEMASK_XYZW) - 1;
+
+    if (!(mask & WRITEMASK_XYZW))
+	return;
+
+    assert(is_power_of_two(mask & WRITEMASK_XYZW));
+
+    dst = get_dst_reg(c, inst, dst_chan);
     src0 = get_src_reg_imm(c, inst, 0, 0);
     src1 = get_src_reg_imm(c, inst, 1, 0);
 
@@ -2624,8 +2623,12 @@ static void emit_txb(struct brw_wm_compile *c,
 {
     struct brw_compile *p = &c->func;
     struct brw_reg dst[4], src[4], payload_reg;
-    GLuint unit = c->fp->program.Base.SamplerUnits[inst->TexSrcUnit];
+    /* Note: TexSrcUnit was already looked up through SamplerTextures[] */
+    const GLuint unit = inst->TexSrcUnit;
     GLuint i;
+    GLuint msg_type;
+
+    assert(unit < BRW_MAX_TEX_UNIT);
 
     payload_reg = get_reg(c, PROGRAM_PAYLOAD, PAYLOAD_DEPTH, 0, 1, 0, 0);
 
@@ -2646,14 +2649,26 @@ static void emit_txb(struct brw_wm_compile *c,
 	    brw_MOV(p, brw_message_reg(3), src[1]);
 	    brw_MOV(p, brw_message_reg(4), brw_imm_f(0));
 	    break;
-	default:
+	case TEXTURE_3D_INDEX:
+	case TEXTURE_CUBE_INDEX:
 	    brw_MOV(p, brw_message_reg(2), src[0]);
 	    brw_MOV(p, brw_message_reg(3), src[1]);
 	    brw_MOV(p, brw_message_reg(4), src[2]);
 	    break;
+	default:
+            /* invalid target */
+            abort();
     }
     brw_MOV(p, brw_message_reg(5), src[3]);          /* bias */
     brw_MOV(p, brw_message_reg(6), brw_imm_f(0));    /* ref (unused?) */
+
+    if (BRW_IS_IGDNG(p->brw)) {
+        msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_BIAS_IGDNG;
+    } else {
+        /* Does it work well on SIMD8? */
+        msg_type = BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_BIAS;
+    }
+
     brw_SAMPLE(p,
                retype(vec8(dst[0]), BRW_REGISTER_TYPE_UW),  /* dest */
                1,                                           /* msg_reg_nr */
@@ -2661,10 +2676,12 @@ static void emit_txb(struct brw_wm_compile *c,
                SURF_INDEX_TEXTURE(unit),
                unit,                                        /* sampler */
                inst->DstReg.WriteMask,                      /* writemask */
-               BRW_SAMPLER_MESSAGE_SIMD16_SAMPLE_BIAS,      /* msg_type */
+               msg_type,                                    /* msg_type */
                4,                                           /* response_length */
                4,                                           /* msg_length */
-               0);                                          /* eot */
+               0,                                           /* eot */
+               1,
+               BRW_SAMPLER_SIMD_MODE_SIMD8);	
 }
 
 
@@ -2673,11 +2690,15 @@ static void emit_tex(struct brw_wm_compile *c,
 {
     struct brw_compile *p = &c->func;
     struct brw_reg dst[4], src[4], payload_reg;
-    GLuint unit = c->fp->program.Base.SamplerUnits[inst->TexSrcUnit];
+    /* Note: TexSrcUnit was already looked up through SamplerTextures[] */
+    const GLuint unit = inst->TexSrcUnit;
     GLuint msg_len;
     GLuint i, nr;
     GLuint emit;
     GLboolean shadow = (c->key.shadowtex_mask & (1<<unit)) ? 1 : 0;
+    GLuint msg_type;
+
+    assert(unit < BRW_MAX_TEX_UNIT);
 
     payload_reg = get_reg(c, PROGRAM_PAYLOAD, PAYLOAD_DEPTH, 0, 1, 0, 0);
 
@@ -2696,10 +2717,14 @@ static void emit_tex(struct brw_wm_compile *c,
 	    emit = WRITEMASK_XY;
 	    nr = 2;
 	    break;
-	default:
+	case TEXTURE_3D_INDEX:
+	case TEXTURE_CUBE_INDEX:
 	    emit = WRITEMASK_XYZ;
 	    nr = 3;
 	    break;
+	default:
+           /* invalid target */
+           abort();
     }
     msg_len = 1;
 
@@ -2718,6 +2743,16 @@ static void emit_tex(struct brw_wm_compile *c,
        brw_MOV(p, brw_message_reg(6), src[2]);        /* ref value / R coord */
     }
 
+    if (BRW_IS_IGDNG(p->brw)) {
+        if (shadow)
+            msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_COMPARE_IGDNG;
+        else
+            msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE_IGDNG;
+    } else {
+        /* Does it work for shadow on SIMD8 ? */
+        msg_type = BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE;
+    }
+    
     brw_SAMPLE(p,
                retype(vec8(dst[0]), BRW_REGISTER_TYPE_UW), /* dest */
                1,                                          /* msg_reg_nr */
@@ -2725,10 +2760,12 @@ static void emit_tex(struct brw_wm_compile *c,
                SURF_INDEX_TEXTURE(unit),
                unit,                                       /* sampler */
                inst->DstReg.WriteMask,                     /* writemask */
-               BRW_SAMPLER_MESSAGE_SIMD8_SAMPLE,           /* msg_type */
+               msg_type,                                   /* msg_type */
                4,                                          /* response_length */
                shadow ? 6 : 4,                             /* msg_length */
-               0);                                         /* eot */
+               0,                                          /* eot */
+               1,
+               BRW_SAMPLER_SIMD_MODE_SIMD8);	
 
     if (shadow)
 	brw_MOV(p, dst[3], brw_imm_f(1.0));
@@ -2745,11 +2782,10 @@ static void post_wm_emit( struct brw_wm_compile *c )
 
 static void brw_wm_emit_glsl(struct brw_context *brw, struct brw_wm_compile *c)
 {
-#define MAX_IFSN 32
+#define MAX_IF_DEPTH 32
 #define MAX_LOOP_DEPTH 32
-    struct brw_instruction *if_inst[MAX_IFSN], *loop_inst[MAX_LOOP_DEPTH];
-    struct brw_instruction *inst0, *inst1;
-    int i, if_insn = 0, loop_insn = 0;
+    struct brw_instruction *if_inst[MAX_IF_DEPTH], *loop_inst[MAX_LOOP_DEPTH];
+    GLuint i, if_depth = 0, loop_depth = 0;
     struct brw_compile *p = &c->func;
     struct brw_indirect stack_index = brw_indirect(0, 0);
 
@@ -2806,17 +2842,11 @@ static void brw_wm_emit_glsl(struct brw_context *brw, struct brw_wm_compile *c)
 	    case WM_FRONTFACING:
 		emit_frontfacing(c, inst);
 		break;
-	    case OPCODE_ABS:
-		emit_abs(c, inst);
-		break;
 	    case OPCODE_ADD:
 		emit_add(c, inst);
 		break;
 	    case OPCODE_ARL:
 		emit_arl(c, inst);
-		break;
-	    case OPCODE_SUB:
-		emit_sub(c, inst);
 		break;
 	    case OPCODE_FRC:
 		emit_frc(c, inst);
@@ -2831,6 +2861,7 @@ static void brw_wm_emit_glsl(struct brw_context *brw, struct brw_wm_compile *c)
 		emit_trunc(c, inst);
 		break;
 	    case OPCODE_MOV:
+	    case OPCODE_SWZ:
 		emit_mov(c, inst);
 		break;
 	    case OPCODE_DP3:
@@ -2922,15 +2953,15 @@ static void brw_wm_emit_glsl(struct brw_context *brw, struct brw_wm_compile *c)
 		emit_kil(c);
 		break;
 	    case OPCODE_IF:
-		assert(if_insn < MAX_IFSN);
-		if_inst[if_insn++] = brw_IF(p, BRW_EXECUTE_8);
+		assert(if_depth < MAX_IF_DEPTH);
+		if_inst[if_depth++] = brw_IF(p, BRW_EXECUTE_8);
 		break;
 	    case OPCODE_ELSE:
-		if_inst[if_insn-1]  = brw_ELSE(p, if_inst[if_insn-1]);
+		if_inst[if_depth-1]  = brw_ELSE(p, if_inst[if_depth-1]);
 		break;
 	    case OPCODE_ENDIF:
-		assert(if_insn > 0);
-		brw_ENDIF(p, if_inst[--if_insn]);
+		assert(if_depth > 0);
+		brw_ENDIF(p, if_inst[--if_depth]);
 		break;
 	    case OPCODE_BGNSUB:
 		brw_save_label(p, inst->Comment, p->nr_insn);
@@ -2964,7 +2995,7 @@ static void brw_wm_emit_glsl(struct brw_context *brw, struct brw_wm_compile *c)
 		break;
 	    case OPCODE_BGNLOOP:
                 /* XXX may need to invalidate the current_constant regs */
-		loop_inst[loop_insn++] = brw_DO(p, BRW_EXECUTE_8);
+		loop_inst[loop_depth++] = brw_DO(p, BRW_EXECUTE_8);
 		break;
 	    case OPCODE_BRK:
 		brw_BREAK(p);
@@ -2975,21 +3006,29 @@ static void brw_wm_emit_glsl(struct brw_context *brw, struct brw_wm_compile *c)
 		brw_set_predicate_control(p, BRW_PREDICATE_NONE);
 		break;
 	    case OPCODE_ENDLOOP: 
-		loop_insn--;
-		inst0 = inst1 = brw_WHILE(p, loop_inst[loop_insn]);
-		/* patch all the BREAK instructions from
-		   last BEGINLOOP */
-		while (inst0 > loop_inst[loop_insn]) {
-		    inst0--;
-		    if (inst0->header.opcode == BRW_OPCODE_BREAK) {
-			inst0->bits3.if_else.jump_count = inst1 - inst0 + 1;
+               {
+                  struct brw_instruction *inst0, *inst1;
+                  GLuint br = 1;
+
+                  if (BRW_IS_IGDNG(brw))
+                     br = 2;
+ 
+                  loop_depth--;
+                  inst0 = inst1 = brw_WHILE(p, loop_inst[loop_depth]);
+                  /* patch all the BREAK/CONT instructions from last BGNLOOP */
+                  while (inst0 > loop_inst[loop_depth]) {
+                     inst0--;
+                     if (inst0->header.opcode == BRW_OPCODE_BREAK) {
+			inst0->bits3.if_else.jump_count = br * (inst1 - inst0 + 1);
 			inst0->bits3.if_else.pop_count = 0;
-		    } else if (inst0->header.opcode == BRW_OPCODE_CONTINUE) {
-                        inst0->bits3.if_else.jump_count = inst1 - inst0;
+                     }
+                     else if (inst0->header.opcode == BRW_OPCODE_CONTINUE) {
+                        inst0->bits3.if_else.jump_count = br * (inst1 - inst0);
                         inst0->bits3.if_else.pop_count = 0;
-                    }
-		}
-		break;
+                     }
+                  }
+               }
+               break;
 	    default:
 		_mesa_printf("unsupported IR in fragment shader %d\n",
 			inst->Opcode);
@@ -3001,8 +3040,14 @@ static void brw_wm_emit_glsl(struct brw_context *brw, struct brw_wm_compile *c)
 	    brw_set_predicate_control(p, BRW_PREDICATE_NONE);
     }
     post_wm_emit(c);
-}
 
+    if (INTEL_DEBUG & DEBUG_WM) {
+      _mesa_printf("wm-native:\n");
+      for (i = 0; i < p->nr_insn; i++)
+	 brw_disasm(stderr, &p->store[i]);
+      _mesa_printf("\n");
+    }
+}
 
 /**
  * Do GPU code generation for shaders that use GLSL features such as

@@ -218,21 +218,27 @@ SHADER_SOURCES = \
 	shader/arbprogram.c \
 	shader/atifragshader.c \
 	shader/grammar/grammar_mesa.c \
+	shader/hash_table.c \
+	shader/lex.yy.c \
 	shader/nvfragparse.c \
 	shader/nvprogram.c \
 	shader/nvvertparse.c \
 	shader/program.c \
+	shader/program_parse.tab.c \
+	shader/program_parse_extra.c \
 	shader/prog_cache.c \
 	shader/prog_execute.c \
 	shader/prog_instruction.c \
 	shader/prog_noise.c \
 	shader/prog_optimize.c \
 	shader/prog_parameter.c \
+	shader/prog_parameter_layout.c \
 	shader/prog_print.c \
 	shader/prog_statevars.c \
 	shader/prog_uniform.c \
 	shader/programopt.c \
-	shader/shader_api.c \
+	shader/symbol_table.c \
+	shader/shader_api.c
 
 SLANG_SOURCES =	\
 	shader/slang/slang_builtin.c	\
@@ -303,7 +309,8 @@ SPARC_API =			\
 	sparc/glapi_sparc.S
 
 COMMON_DRIVER_SOURCES =			\
-	drivers/common/driverfuncs.c
+	drivers/common/driverfuncs.c	\
+	drivers/common/meta.c
 
 
 # Sources for building non-Gallium drivers
@@ -327,6 +334,7 @@ MESA_GALLIUM_SOURCES = \
 	$(VBO_SOURCES)		\
 	$(STATETRACKER_SOURCES)	\
 	$(SHADER_SOURCES)	\
+	ppc/common_ppc.c	\
 	x86/common_x86.c	\
 	$(SLANG_SOURCES)
 
@@ -363,5 +371,4 @@ INCLUDE_DIRS = \
 	-I$(TOP)/include \
 	-I$(TOP)/src/mesa \
 	-I$(TOP)/src/gallium/include \
-	-I$(TOP)/src/gallium/drivers \
 	-I$(TOP)/src/gallium/auxiliary

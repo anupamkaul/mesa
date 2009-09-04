@@ -63,9 +63,10 @@ struct brw_wm_prog_key {
    GLuint computes_depth:1;	/* could be derived from program string */
    GLuint source_depth_to_render_target:1;
    GLuint flat_shade:1;
+   GLuint linear_color:1;  /**< linear interpolation vs perspective interp */
    GLuint runtime_check_aads_emit:1;
    
-   GLuint projtex_mask:16;
+   GLbitfield proj_attrib_mask; /**< one bit per fragment program attribute */
    GLuint shadowtex_mask:16;
    GLuint yuvtex_mask:16;
    GLuint yuvtex_swap_mask:16;	/* UV swaped */
@@ -259,6 +260,7 @@ struct brw_wm_compile {
    GLuint tmp_index;
    GLuint tmp_max;
    GLuint subroutines[BRW_WM_MAX_SUBROUTINE];
+   GLuint dispatch_width;
 
    /** we may need up to 3 constants per instruction (if use_const_buffer) */
    struct {
@@ -291,6 +293,7 @@ void brw_wm_print_program( struct brw_wm_compile *c,
 
 void brw_wm_lookup_iz( GLuint line_aa,
 		       GLuint lookup,
+		       GLboolean ps_uses_depth,
 		       struct brw_wm_prog_key *key );
 
 GLboolean brw_wm_is_glsl(const struct gl_fragment_program *fp);

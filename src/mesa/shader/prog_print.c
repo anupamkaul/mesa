@@ -541,7 +541,7 @@ _mesa_print_alu_instruction(const struct prog_instruction *inst,
 /**
  * Print a single vertex/fragment program instruction.
  */
-static GLint
+GLint
 _mesa_fprint_instruction_opt(FILE *f,
                             const struct prog_instruction *inst,
                             GLint indent,
@@ -816,7 +816,30 @@ _mesa_fprint_program_opt(FILE *f,
 void
 _mesa_print_program(const struct gl_program *prog)
 {
-   _mesa_fprint_program_opt(stdout, prog, PROG_PRINT_DEBUG, GL_TRUE);
+   _mesa_fprint_program_opt(stderr, prog, PROG_PRINT_DEBUG, GL_TRUE);
+}
+
+
+/**
+ * Return binary representation of value (as a string).
+ * Insert a comma to separate each group of 8 bits.
+ * XXX move to imports.[ch] if useful elsewhere.
+ */
+static const char *
+binary(GLbitfield val)
+{
+   static char buf[50];
+   GLint i, len = 0;
+   for (i = 31; i >= 0; --i) {
+      if (val & (1 << i))
+         buf[len++] = '1';
+      else if (len > 0 || i == 0)
+         buf[len++] = '0';
+      if (len > 0 && ((i-1) % 8) == 7)
+         buf[len++] = ',';
+   }
+   buf[len] = '\0';
+   return buf;
 }
 
 
@@ -830,13 +853,17 @@ _mesa_fprint_program_parameters(FILE *f,
 {
    GLuint i;
 
-   _mesa_fprintf(f, "InputsRead: 0x%x\n", prog->InputsRead);
-   _mesa_fprintf(f, "OutputsWritten: 0x%x\n", prog->OutputsWritten);
+   _mesa_fprintf(f, "InputsRead: 0x%x (0b%s)\n",
+                 prog->InputsRead, binary(prog->InputsRead));
+   _mesa_fprintf(f, "OutputsWritten: 0x%x (0b%s)\n",
+                 prog->OutputsWritten, binary(prog->OutputsWritten));
    _mesa_fprintf(f, "NumInstructions=%d\n", prog->NumInstructions);
    _mesa_fprintf(f, "NumTemporaries=%d\n", prog->NumTemporaries);
    _mesa_fprintf(f, "NumParameters=%d\n", prog->NumParameters);
    _mesa_fprintf(f, "NumAttributes=%d\n", prog->NumAttributes);
    _mesa_fprintf(f, "NumAddressRegs=%d\n", prog->NumAddressRegs);
+   _mesa_fprintf(f, "SamplersUsed: 0x%x (0b%s)\n",
+                 prog->SamplersUsed, binary(prog->SamplersUsed));
    _mesa_fprintf(f, "Samplers=[ ");
    for (i = 0; i < MAX_SAMPLERS; i++) {
       _mesa_fprintf(f, "%d ", prog->SamplerUnits[i]);
@@ -933,7 +960,7 @@ _mesa_write_shader_to_file(const struct gl_shader *shader)
       return;
    }
 
-   fprintf(f, "/* Shader %u source */\n", shader->Name);
+   fprintf(f, "/* Shader %u source, checksum %u */\n", shader->Name, shader->SourceChecksum);
    fputs(shader->Source, f);
    fprintf(f, "\n");
 
@@ -958,3 +985,35 @@ _mesa_write_shader_to_file(const struct gl_shader *shader)
 }
 
 
+/**
+ * Append the shader's uniform info/values to the shader log file.
+ * The log file will typically have been created by the
+ * _mesa_write_shader_to_file function.
+ */
+void
+_mesa_append_uniforms_to_file(const struct gl_shader *shader,
+                              const struct gl_program *prog)
+{
+   const char *type;
+   char filename[100];
+   FILE *f;
+
+   if (shader->Type == GL_FRAGMENT_SHADER)
+      type = "frag";
+   else
+      type = "vert";
+
+   _mesa_snprintf(filename, sizeof(filename), "shader_%u.%s", shader->Name, type);
+   f = fopen(filename, "a"); /* append */
+   if (!f) {
+      fprintf(stderr, "Unable to open %s for appending\n", filename);
+      return;
+   }
+
+   fprintf(f, "/* First-draw parameters / constants */\n");
+   fprintf(f, "/*\n");
+   _mesa_fprint_parameter_list(f, prog->Parameters);
+   fprintf(f, "*/\n");
+
+   fclose(f);
+}

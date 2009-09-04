@@ -69,7 +69,7 @@ dri_create_context(const __GLcontextModes * visual,
    driParseConfigFiles(&ctx->optionCache,
 		       &screen->optionCache, sPriv->myNum, "dri");
 
-   ctx->pipe = drm_api_hooks.create_context(screen->pipe_screen);
+   ctx->pipe = screen->api->create_context(screen->api, screen->pipe_screen);
 
    if (ctx->pipe == NULL)
       goto fail;
@@ -108,9 +108,6 @@ dri_destroy_context(__DRIcontextPrivate * cPriv)
     * partially destroyed context.
     */
    st_flush(ctx->st, 0, NULL);
-
-   if (screen->dummyContext == ctx)
-      screen->dummyContext = NULL;
 
    /* Also frees ctx->pipe?
     */
@@ -152,11 +149,6 @@ dri_make_current(__DRIcontextPrivate * cPriv,
 	 st_flush(old_st, PIPE_FLUSH_RENDER_CACHE, NULL);
 
       ++ctx->bind_count;
-
-      /* This is for situations in which we need a rendering context but
-       * there may not be any currently bound.
-       */
-      screen->dummyContext = ctx;
 
       if (ctx->dPriv != driDrawPriv) {
 	 ctx->dPriv = driDrawPriv;

@@ -176,7 +176,8 @@ StateVars = [
 	   "ctx->Current.Attrib[VERT_ATTRIB_TEX0 + texUnit][1]",
 	   "ctx->Current.Attrib[VERT_ATTRIB_TEX0 + texUnit][2]",
 	   "ctx->Current.Attrib[VERT_ATTRIB_TEX0 + texUnit][3]"],
-	  "const GLuint texUnit = ctx->Texture.CurrentUnit;", None ),
+	  """const GLuint texUnit = ctx->Texture.CurrentUnit;
+         FLUSH_CURRENT(ctx, 0);""", None ),
 	( "GL_DEPTH_BIAS", GLfloat, ["ctx->Pixel.DepthBias"], "", None ),
 	( "GL_DEPTH_BITS", GLint, ["ctx->DrawBuffer->Visual.depthBits"],
 	  "", None ),
@@ -976,6 +977,13 @@ StateVars = [
 	( "GL_READ_FRAMEBUFFER_BINDING_EXT", GLint, ["ctx->ReadBuffer->Name"], "",
 	  ["EXT_framebuffer_blit"] ),
 
+	# GL_EXT_provoking_vertex
+	( "GL_PROVOKING_VERTEX_EXT", GLboolean,
+	  ["ctx->Light.ProvokingVertex"], "", ["EXT_provoking_vertex"] ),
+	( "GL_QUADS_FOLLOW_PROVOKING_VERTEX_CONVENTION_EXT", GLboolean,
+	  ["ctx->Const.QuadsFollowProvokingVertexConvention"], "",
+	  ["EXT_provoking_vertex"] ),
+
 	# GL_ARB_fragment_shader
 	( "GL_MAX_FRAGMENT_UNIFORM_COMPONENTS_ARB", GLint,
 	  ["ctx->Const.FragmentProgram.MaxUniformComponents"], "",
@@ -1008,6 +1016,10 @@ StateVars = [
 	# GL_APPLE_vertex_array_object
 	( "GL_VERTEX_ARRAY_BINDING_APPLE", GLint, ["ctx->Array.ArrayObj->Name"], "",
 	  ["APPLE_vertex_array_object"] ),
+
+	# GL_ARB_seamless_cube_map
+	( "GL_TEXTURE_CUBE_MAP_SEAMLESS", GLboolean, ["ctx->Texture.CubeMapSeamless"], "",
+	  ["ARB_seamless_cube_map"] ),
 ]
 
 

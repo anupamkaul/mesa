@@ -94,6 +94,7 @@ const struct brw_tracked_state *atoms[] =
 
    &brw_drawing_rect,
    &brw_indices,
+   &brw_index_buffer,
    &brw_vertices,
 
    &brw_constant_buffer
@@ -205,10 +206,10 @@ static struct dirty_bit_map brw_bits[] = {
    DEFINE_BIT(BRW_NEW_PRIMITIVE),
    DEFINE_BIT(BRW_NEW_CONTEXT),
    DEFINE_BIT(BRW_NEW_WM_INPUT_DIMENSIONS),
-   DEFINE_BIT(BRW_NEW_INPUT_VARYING),
    DEFINE_BIT(BRW_NEW_PSP),
    DEFINE_BIT(BRW_NEW_FENCE),
    DEFINE_BIT(BRW_NEW_INDICES),
+   DEFINE_BIT(BRW_NEW_INDEX_BUFFER),
    DEFINE_BIT(BRW_NEW_VERTICES),
    DEFINE_BIT(BRW_NEW_BATCH),
    DEFINE_BIT(BRW_NEW_DEPTH_BUFFER),
@@ -319,6 +320,19 @@ void brw_validate_state( struct brw_context *brw )
          if (atom->prepare) {
             atom->prepare(brw);
         }
+      }
+   }
+
+   /* Make sure that the textures which are referenced by the current
+    * brw fragment program are actually present/valid.
+    * If this fails, we can experience GPU lock-ups.
+    */
+   {
+      const struct brw_fragment_program *fp;
+      fp = brw_fragment_program_const(brw->fragment_program);
+      if (fp) {
+         assert((fp->tex_units_used & ctx->Texture._EnabledUnits)
+                == fp->tex_units_used);
       }
    }
 }

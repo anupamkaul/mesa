@@ -36,7 +36,7 @@ intel_be_batch_reloc(struct i915_winsys *sws,
 	}
 
 	if (access_flags & I915_BUFFER_ACCESS_READ) {
-		read |= I915_GEM_DOMAIN_VERTEX;
+		read |= I915_GEM_DOMAIN_SAMPLER;
 	}
 
 	ret = intel_be_offset_relocation(intel->batch,
@@ -56,9 +56,6 @@ intel_be_batch_flush(struct i915_winsys *sws,
 {
 	struct intel_be_context *intel = intel_be_context(sws);
 	struct intel_be_fence **f = (struct intel_be_fence **)fence;
-
-	if (fence && *fence)
-		assert(0);
 
 	intel_be_batchbuffer_flush(intel->batch, f);
 }
@@ -97,7 +94,7 @@ intel_be_init_context(struct intel_be_context *intel, struct intel_be_device *de
 }
 
 struct pipe_context *
-intel_be_create_context(struct pipe_screen *screen)
+intel_be_create_context(struct drm_api *api, struct pipe_screen *screen)
 {
 	struct intel_be_context *intel;
 	struct pipe_context *pipe;

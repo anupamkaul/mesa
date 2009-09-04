@@ -7,6 +7,7 @@
 #include "pipe/p_inlines.h"
 #include "util/u_memory.h"
 #include "util/u_debug.h"
+#include "util/u_math.h"
 
 #include "intel_be_fence.h"
 
@@ -15,6 +16,8 @@
 
 #include "intel_be_api.h"
 #include <stdio.h>
+
+#define I915_TILING_X 1
 
 /*
  * Buffer
@@ -25,9 +28,10 @@ intel_be_buffer_map(struct pipe_winsys *winsys,
 		    struct pipe_buffer *buf,
 		    unsigned flags)
 {
+	struct intel_be_buffer *buffer = intel_be_buffer(buf);
 	drm_intel_bo *bo = intel_bo(buf);
 	int write = 0;
-	int ret;
+	int ret = 0;
 
         if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
            /* Remove this when drm_intel_bo_map supports DONTBLOCK 
@@ -38,19 +42,37 @@ intel_be_buffer_map(struct pipe_winsys *winsys,
 	if (flags & PIPE_BUFFER_USAGE_CPU_WRITE)
 		write = 1;
 
-	ret = drm_intel_bo_map(bo, write);
+	if (buffer->map_count)
+		goto out;
 
+	if (buffer->map_gtt)
+		ret = drm_intel_gem_bo_map_gtt(bo);
+	else
+		ret = drm_intel_bo_map(bo, write);
+
+	buffer->ptr = bo->virtual;
+
+out:
 	if (ret)
 		return NULL;
 
-	return bo->virtual;
+	buffer->map_count++;
+	return buffer->ptr;
 }
 
 static void
 intel_be_buffer_unmap(struct pipe_winsys *winsys,
 		      struct pipe_buffer *buf)
 {
-	drm_intel_bo_unmap(intel_bo(buf));
+	struct intel_be_buffer *buffer = intel_be_buffer(buf);
+
+	if (--buffer->map_count)
+		return;
+
+	if (buffer->map_gtt)
+		drm_intel_gem_bo_unmap_gtt(intel_bo(buf));
+	else
+		drm_intel_bo_unmap(intel_bo(buf));
 }
 
 static void
@@ -80,8 +102,13 @@ intel_be_buffer_create(struct pipe_winsys *winsys,
 	buffer->base.size = size;
 	buffer->flinked = FALSE;
 	buffer->flink = 0;
+	buffer->map_gtt = FALSE;
 
-	if (usage & (PIPE_BUFFER_USAGE_VERTEX | PIPE_BUFFER_USAGE_CONSTANT)) {
+	if (usage & I915_BUFFER_USAGE_SCANOUT) {
+		/* Scanout buffer */
+		name = "gallium3d_scanout";
+		pool = dev->pools.gem;
+	} else if (usage & (PIPE_BUFFER_USAGE_VERTEX | PIPE_BUFFER_USAGE_CONSTANT)) {
 		/* Local buffer */
 		name = "gallium3d_local";
 		pool = dev->pools.gem;
@@ -96,6 +123,12 @@ intel_be_buffer_create(struct pipe_winsys *winsys,
 	}
 
 	buffer->bo = drm_intel_bo_alloc(pool, name, size, alignment);
+	if (usage & I915_BUFFER_USAGE_SCANOUT) {
+		unsigned tiling = I915_TILING_X;
+		unsigned stride = 2048 * 4; /* TODO do something smarter here */
+		drm_intel_bo_set_tiling(buffer->bo, &tiling, stride);
+		buffer->map_gtt = TRUE;
+	}
 
 	if (!buffer->bo)
 		goto err;
@@ -142,8 +175,61 @@ err:
 	return NULL;
 }
 
+static struct pipe_buffer *
+intel_be_surface_buffer_create(struct pipe_winsys *winsys,
+                               unsigned width, unsigned height,
+                               enum pipe_format format,
+                               unsigned usage,
+                               unsigned tex_usage,
+                               unsigned *stride)
+{
+	struct pipe_format_block block;
+	unsigned buf_usage = 0;
+	unsigned buf_stride = 0;
+	unsigned buf_size = 0;
+
+	pf_get_block(format, &block);
+	buf_stride = pf_get_stride(&block, width);
+	buf_stride = align(buf_stride, 64);
+
+	if (tex_usage & PIPE_TEXTURE_USAGE_PRIMARY) {
+		/* TODO more checks */
+		assert(buf_stride <= 2048*4);
+		assert(height % 8 == 0);
+		buf_stride = 2048 * 4;
+		buf_usage |= I915_BUFFER_USAGE_SCANOUT;
+	}
+
+	buf_size = buf_stride * height;
+	*stride = buf_stride;
+
+	return intel_be_buffer_create(winsys,
+	                              0,
+	                              buf_usage,
+	                              buf_size);
+}
+
+boolean
+intel_be_get_texture_buffer(struct drm_api *api,
+                            struct pipe_texture *texture,
+                            struct pipe_buffer **buffer,
+                            unsigned *stride)
+{
+	struct intel_be_device *dev;
+
+	if (!texture)
+		return FALSE;
+
+	dev = intel_be_device(texture->screen->winsys);
+	if (dev->softpipe)
+		return softpipe_get_texture_buffer(texture, buffer, stride);
+	else
+		return i915_get_texture_buffer(texture, buffer, stride);
+}
+
 struct pipe_buffer *
-intel_be_buffer_from_handle(struct pipe_screen *screen,
+intel_be_buffer_from_handle(struct drm_api *api,
+                            struct pipe_screen *screen,
                             const char* name, unsigned handle)
 {
 	struct intel_be_device *dev = intel_be_device(screen->winsys);
@@ -174,7 +260,8 @@ err:
 }
 
 boolean
-intel_be_handle_from_buffer(struct pipe_screen *screen,
+intel_be_handle_from_buffer(struct drm_api *api,
+                            struct pipe_screen *screen,
                             struct pipe_buffer *buffer,
                             unsigned *handle)
 {
@@ -186,7 +273,8 @@ intel_be_handle_from_buffer(struct pipe_screen *screen,
 }
 
 boolean
-intel_be_global_handle_from_buffer(struct pipe_screen *screen,
+intel_be_global_handle_from_buffer(struct drm_api *api,
+                                   struct pipe_screen *screen,
 				   struct pipe_buffer *buffer,
 				   unsigned *handle)
 {
@@ -204,6 +292,7 @@ intel_be_global_handle_from_buffer(struct pipe_screen *screen,
 	*handle = buf->flink;
 	return TRUE;
 }
+
 /*
  * Fence
  */
@@ -275,8 +364,8 @@ intel_be_init_device(struct intel_be_device *dev, int fd, unsigned id)
 	dev->base.buffer_unmap = intel_be_buffer_unmap;
 	dev->base.buffer_destroy = intel_be_buffer_destroy;
 
-	/* Not used anymore */
-	dev->base.surface_buffer_create = NULL;
+	/* Used by softpipe */
+	dev->base.surface_buffer_create = intel_be_surface_buffer_create;
 
 	dev->base.fence_reference = intel_be_fence_refunref;
 	dev->base.fence_signalled = intel_be_fence_signalled;
@@ -287,6 +376,7 @@ intel_be_init_device(struct intel_be_device *dev, int fd, unsigned id)
 	dev->pools.gem = drm_intel_bufmgr_gem_init(dev->fd, dev->max_batch_size);
 
 	dev->softpipe = debug_get_bool_option("INTEL_SOFTPIPE", FALSE);
+	dev->dump_cmd = debug_get_bool_option("INTEL_DUMP_CMD", FALSE);
 
 	return true;
 }
@@ -296,6 +386,7 @@ intel_be_get_device_id(unsigned int *device_id)
 {
    char path[512];
    FILE *file;
+   void *shutup_gcc;
 
    /*
     * FIXME: Fix this up to use a drm ioctl or whatever.
@@ -307,13 +398,14 @@ intel_be_get_device_id(unsigned int *device_id)
       return;
    }
 
-   fgets(path, sizeof(path), file);
+   shutup_gcc = fgets(path, sizeof(path), file);
    sscanf(path, "%x", device_id);
    fclose(file);
 }
 
 struct pipe_screen *
-intel_be_create_screen(int drmFD, struct drm_create_screen_arg *arg)
+intel_be_create_screen(struct drm_api *api, int drmFD,
+		       struct drm_create_screen_arg *arg)
 {
 	struct intel_be_device *dev;
 	struct pipe_screen *screen;
@@ -339,7 +431,6 @@ intel_be_create_screen(int drmFD, struct drm_create_screen_arg *arg)
 
 	if (dev->softpipe) {
 		screen = softpipe_create_screen(&dev->base);
-		drm_api_hooks.buffer_from_texture = softpipe_get_texture_buffer;
 	} else
 		screen = i915_create_screen(&dev->base, deviceID);
 

@@ -68,6 +68,7 @@ static void release_tmps( struct brw_vs_compile *c )
 static void brw_vs_alloc_regs( struct brw_vs_compile *c )
 {
    GLuint i, reg = 0, mrf;
+   int attributes_in_vue;
 
    /* Determine whether to use a real constant buffer or use a block
     * of GRF registers for constants.  The later is faster but only
@@ -128,16 +129,27 @@ static void brw_vs_alloc_regs( struct brw_vs_compile *c )
 	 reg++;
       }
    }
+   /* If there are no inputs, we'll still be reading one attribute's worth
+    * because it's required -- see urb_read_length setting.
+    */
+   if (c->nr_inputs == 0)
+      reg++;
 
-   /* Allocate outputs: TODO: could organize the non-position outputs
-    * to go straight into message regs.
+   /* Allocate outputs.  The non-position outputs go straight into message regs.
     */
    c->nr_outputs = 0;
    c->first_output = reg;
-   mrf = 4;
+   c->first_overflow_output = 0;
+
+   if (BRW_IS_IGDNG(c->func.brw))
+       mrf = 8;
+   else
+       mrf = 4;
+
    for (i = 0; i < VERT_RESULT_MAX; i++) {
       if (c->prog_data.outputs_written & (1 << i)) {
 	 c->nr_outputs++;
+         assert(i < Elements(c->regs[PROGRAM_OUTPUT]));
 	 if (i == VERT_RESULT_HPOS) {
 	    c->regs[PROGRAM_OUTPUT][i] = brw_vec8_grf(reg, 0);
 	    reg++;
@@ -148,8 +160,17 @@ static void brw_vs_alloc_regs( struct brw_vs_compile *c )
 	    mrf++;		/* just a placeholder?  XXX fix later stages & remove this */
 	 }
 	 else {
-	    c->regs[PROGRAM_OUTPUT][i] = brw_message_reg(mrf);
-	    mrf++;
+            if (mrf < 16) {
+               c->regs[PROGRAM_OUTPUT][i] = brw_message_reg(mrf);
+               mrf++;
+            }
+            else {
+               /* too many vertex results to fit in MRF, use GRF for overflow */
+               if (!c->first_overflow_output)
+                  c->first_overflow_output = i;
+               c->regs[PROGRAM_OUTPUT][i] = brw_vec8_grf(reg, 0);
+               reg++;
+            }
 	 }
       }
    }     
@@ -205,8 +226,23 @@ static void brw_vs_alloc_regs( struct brw_vs_compile *c )
     * vertex urb, so is half the amount:
     */
    c->prog_data.urb_read_length = (c->nr_inputs + 1) / 2;
+   /* Setting this field to 0 leads to undefined behavior according to the
+    * the VS_STATE docs.  Our VUEs will always have at least one attribute
+    * sitting in them, even if it's padding.
+    */
+   if (c->prog_data.urb_read_length == 0)
+      c->prog_data.urb_read_length = 1;
 
-   c->prog_data.urb_entry_size = (c->nr_outputs + 2 + 3) / 4;
+   /* The VS VUEs are shared by VF (outputting our inputs) and VS, so size
+    * them to fit the biggest thing they need to.
+    */
+   attributes_in_vue = MAX2(c->nr_outputs, c->nr_inputs);
+
+   if (BRW_IS_IGDNG(c->func.brw))
+       c->prog_data.urb_entry_size = (attributes_in_vue + 6 + 3) / 4;
+   else
+       c->prog_data.urb_entry_size = (attributes_in_vue + 2 + 3) / 4;
+
    c->prog_data.total_grf = reg;
 
    if (INTEL_DEBUG & DEBUG_VS) {
@@ -1067,6 +1103,8 @@ static void emit_vertex_write( struct brw_vs_compile *c)
    struct brw_reg m0 = brw_message_reg(0);
    struct brw_reg pos = c->regs[PROGRAM_OUTPUT][VERT_RESULT_HPOS];
    struct brw_reg ndc;
+   int eot;
+   GLuint len_vertext_header = 2;
 
    if (c->key.copy_edgeflag) {
       brw_MOV(p, 
@@ -1076,14 +1114,16 @@ static void emit_vertex_write( struct brw_vs_compile *c)
 
    /* Build ndc coords */
    ndc = get_tmp(c);
+   /* ndc = 1.0 / pos.w */
    emit_math1(c, BRW_MATH_FUNCTION_INV, ndc, brw_swizzle1(pos, 3), BRW_MATH_PRECISION_FULL);
+   /* ndc.xyz = pos * ndc */
    brw_MUL(p, brw_writemask(ndc, WRITEMASK_XYZ), pos, ndc);
 
    /* Update the header for point size, user clipping flags, and -ve rhw
     * workaround.
     */
    if ((c->prog_data.outputs_written & (1<<VERT_RESULT_PSIZ)) ||
-       c->key.nr_userclip || !BRW_IS_G4X(p->brw))
+       c->key.nr_userclip || BRW_IS_965(p->brw))
    {
       struct brw_reg header1 = retype(get_tmp(c), BRW_REGISTER_TYPE_UD);
       GLuint i;
@@ -1114,7 +1154,7 @@ static void emit_vertex_write( struct brw_vs_compile *c)
        * Later, clipping will detect ucp[6] and ensure the primitive is
        * clipped against all fixed planes.
        */
-      if (!BRW_IS_G4X(p->brw)) {
+      if (BRW_IS_965(p->brw)) {
 	 brw_CMP(p,
 		 vec8(brw_null_reg()),
 		 BRW_CONDITIONAL_L,
@@ -1141,7 +1181,23 @@ static void emit_vertex_write( struct brw_vs_compile *c)
     */
    brw_set_access_mode(p, BRW_ALIGN_1);
    brw_MOV(p, offset(m0, 2), ndc);
-   brw_MOV(p, offset(m0, 3), pos);
+
+   if (BRW_IS_IGDNG(p->brw)) {
+       /* There are 20 DWs (D0-D19) in VUE vertex header on IGDNG */
+       brw_MOV(p, offset(m0, 3), pos); /* a portion of vertex header */
+       /* m4, m5 contain the distances from vertex to the user clip planeXXX. 
+        * Seems it is useless for us.
+        * m6 is used for aligning, so that the remainder of vertex element is 
+        * reg-aligned.
+        */
+       brw_MOV(p, offset(m0, 7), pos); /* the remainder of vertex element */
+       len_vertext_header = 6;
+   } else {
+       brw_MOV(p, offset(m0, 3), pos);
+       len_vertext_header = 2;
+   }
+
+   eot = (c->first_overflow_output == 0);
 
    brw_urb_WRITE(p, 
 		 brw_null_reg(), /* dest */
@@ -1149,12 +1205,43 @@ static void emit_vertex_write( struct brw_vs_compile *c)
 		 c->r0,		/* src */
 		 0,		/* allocate */
 		 1,		/* used */
-		 c->nr_outputs + 3, /* msg len */
+		 MIN2(c->nr_outputs + 1 + len_vertext_header, (BRW_MAX_MRF-1)), /* msg len */
 		 0,		/* response len */
-		 1, 		/* eot */
+		 eot, 		/* eot */
 		 1, 		/* writes complete */
 		 0, 		/* urb destination offset */
 		 BRW_URB_SWIZZLE_INTERLEAVE);
+
+   if (c->first_overflow_output > 0) {
+      /* Not all of the vertex outputs/results fit into the MRF.
+       * Move the overflowed attributes from the GRF to the MRF and
+       * issue another brw_urb_WRITE().
+       */
+      /* XXX I'm not 100% sure about which MRF regs to use here.  Starting
+       * at mrf[4] atm...
+       */
+      GLuint i, mrf = 0;
+      for (i = c->first_overflow_output; i < VERT_RESULT_MAX; i++) {
+         if (c->prog_data.outputs_written & (1 << i)) {
+            /* move from GRF to MRF */
+            brw_MOV(p, brw_message_reg(4+mrf), c->regs[PROGRAM_OUTPUT][i]);
+            mrf++;
+         }
+      }
+
+      brw_urb_WRITE(p,
+                    brw_null_reg(), /* dest */
+                    4,              /* starting mrf reg nr */
+                    c->r0,          /* src */
+                    0,              /* allocate */
+                    1,              /* used */
+                    mrf+1,          /* msg len */
+                    0,              /* response len */
+                    1,              /* eot */
+                    1,              /* writes complete */
+                    BRW_MAX_MRF-1,  /* urb destination offset */
+                    BRW_URB_SWIZZLE_INTERLEAVE);
+   }
 }
 
 
@@ -1175,28 +1262,49 @@ post_vs_emit( struct brw_vs_compile *c,
 
    /* patch up the END code to jump past subroutines, etc */
    offset = last_inst - end_inst;
-   brw_set_src1(end_inst, brw_imm_d(offset * 16));
+   if (offset > 1) {
+      brw_set_src1(end_inst, brw_imm_d(offset * 16));
+   } else {
+      end_inst->header.opcode = BRW_OPCODE_NOP;
+   }
 }
 
+static uint32_t
+get_predicate(uint32_t swizzle)
+{
+   switch (swizzle) {
+   case SWIZZLE_XXXX:
+      return BRW_PREDICATE_ALIGN16_REPLICATE_X;
+   case SWIZZLE_YYYY:
+      return BRW_PREDICATE_ALIGN16_REPLICATE_Y;
+   case SWIZZLE_ZZZZ:
+      return BRW_PREDICATE_ALIGN16_REPLICATE_Z;
+   case SWIZZLE_WWWW:
+      return BRW_PREDICATE_ALIGN16_REPLICATE_W;
+   default:
+      _mesa_problem(NULL, "Unexpected predicate: 0x%08x\n", swizzle);
+      return BRW_PREDICATE_NORMAL;
+   }
+}
 
 /* Emit the vertex program instructions here.
  */
 void brw_vs_emit(struct brw_vs_compile *c )
 {
-#define MAX_IFSN 32
+#define MAX_IF_DEPTH 32
+#define MAX_LOOP_DEPTH 32
    struct brw_compile *p = &c->func;
-   GLuint nr_insns = c->vp->program.Base.NumInstructions;
-   GLuint insn, if_insn = 0;
+   const GLuint nr_insns = c->vp->program.Base.NumInstructions;
+   GLuint insn, if_depth = 0, loop_depth = 0;
    GLuint end_offset = 0;
    struct brw_instruction *end_inst, *last_inst;
-   struct brw_instruction *if_inst[MAX_IFSN];
-   struct brw_indirect stack_index = brw_indirect(0, 0);   
-
+   struct brw_instruction *if_inst[MAX_IF_DEPTH], *loop_inst[MAX_LOOP_DEPTH];
+   const struct brw_indirect stack_index = brw_indirect(0, 0);   
    GLuint index;
    GLuint file;
 
    if (INTEL_DEBUG & DEBUG_VS) {
-      _mesa_printf("vs-emit:\n");
+      _mesa_printf("vs-mesa:\n");
       _mesa_print_program(&c->vp->program.Base); 
       _mesa_printf("\n");
    }
@@ -1382,16 +1490,54 @@ void brw_vs_emit(struct brw_vs_compile *c )
 	 emit_xpd(p, dst, args[0], args[1]);
 	 break;
       case OPCODE_IF:
-	 assert(if_insn < MAX_IFSN);
-         if_inst[if_insn++] = brw_IF(p, BRW_EXECUTE_8);
+	 assert(if_depth < MAX_IF_DEPTH);
+	 if_inst[if_depth] = brw_IF(p, BRW_EXECUTE_8);
+	 if_inst[if_depth]->header.predicate_control =
+	    get_predicate(inst->DstReg.CondSwizzle);
+	 if_depth++;
 	 break;
       case OPCODE_ELSE:
-	 if_inst[if_insn-1] = brw_ELSE(p, if_inst[if_insn-1]);
+	 if_inst[if_depth-1] = brw_ELSE(p, if_inst[if_depth-1]);
 	 break;
       case OPCODE_ENDIF:
-         assert(if_insn > 0);
-	 brw_ENDIF(p, if_inst[--if_insn]);
+         assert(if_depth > 0);
+	 brw_ENDIF(p, if_inst[--if_depth]);
 	 break;			
+#if 0
+      case OPCODE_BGNLOOP:
+         loop_inst[loop_depth++] = brw_DO(p, BRW_EXECUTE_8);
+         break;
+      case OPCODE_BRK:
+         brw_BREAK(p);
+         brw_set_predicate_control(p, BRW_PREDICATE_NONE);
+         break;
+      case OPCODE_CONT:
+         brw_CONT(p);
+         brw_set_predicate_control(p, BRW_PREDICATE_NONE);
+         break;
+      case OPCODE_ENDLOOP: 
+         {
+            struct brw_instruction *inst0, *inst1;
+            loop_depth--;
+            inst0 = inst1 = brw_WHILE(p, loop_inst[loop_depth]);
+            /* patch all the BREAK/CONT instructions from last BEGINLOOP */
+            while (inst0 > loop_inst[loop_depth]) {
+               inst0--;
+               if (inst0->header.opcode == BRW_OPCODE_BREAK) {
+                  inst0->bits3.if_else.jump_count = inst1 - inst0 + 1;
+                  inst0->bits3.if_else.pop_count = 0;
+               }
+               else if (inst0->header.opcode == BRW_OPCODE_CONTINUE) {
+                  inst0->bits3.if_else.jump_count = inst1 - inst0;
+                  inst0->bits3.if_else.pop_count = 0;
+               }
+            }
+         }
+         break;
+#else
+         (void) loop_inst;
+         (void) loop_depth;
+#endif
       case OPCODE_BRA:
          brw_set_predicate_control(p, BRW_PREDICATE_NORMAL);
          brw_ADD(p, brw_ip_reg(), brw_ip_reg(), brw_imm_d(1*16));
@@ -1436,6 +1582,19 @@ void brw_vs_emit(struct brw_vs_compile *c )
 				    "unknown");
       }
 
+      /* Set the predication update on the last instruction of the native
+       * instruction sequence.
+       *
+       * This would be problematic if it was set on a math instruction,
+       * but that shouldn't be the case with the current GLSL compiler.
+       */
+      if (inst->CondUpdate) {
+	 struct brw_instruction *hw_insn = &p->store[p->nr_insn - 1];
+
+	 assert(hw_insn->header.destreg__conditionalmod == 0);
+	 hw_insn->header.destreg__conditionalmod = BRW_CONDITIONAL_NZ;
+      }
+
       if ((inst->DstReg.File == PROGRAM_OUTPUT)
           && (inst->DstReg.Index != VERT_RESULT_HPOS)
           && c->output_regs[inst->DstReg.Index].used_in_src) {
@@ -1473,4 +1632,13 @@ void brw_vs_emit(struct brw_vs_compile *c )
    emit_vertex_write(c);
 
    post_vs_emit(c, end_inst, last_inst);
+
+   if (INTEL_DEBUG & DEBUG_VS) {
+      int i;
+
+      _mesa_printf("vs-native:\n");
+      for (i = 0; i < p->nr_insn; i++)
+	 brw_disasm(stderr, &p->store[i]);
+      _mesa_printf("\n");
+   }
 }

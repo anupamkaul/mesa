@@ -107,6 +107,7 @@
 #include "state.h"
 #include "stencil.h"
 #include "texenv.h"
+#include "texgetimage.h"
 #include "teximage.h"
 #if FEATURE_texgen
 #include "texgen.h"
@@ -641,6 +642,8 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    /* ???. GL_EXT_depth_bounds_test */
    SET_DepthBoundsEXT(exec, _mesa_DepthBoundsEXT);
 
+   SET_ProvokingVertexEXT(exec, _mesa_ProvokingVertexEXT);
+
    /* ARB 1. GL_ARB_multitexture */
 #if _HAVE_FULL_GL
    SET_ActiveTextureARB(exec, _mesa_ActiveTextureARB);
@@ -895,7 +898,15 @@ _mesa_init_exec_table(struct _glapi_table *exec)
    SET_RenderbufferStorageMultisample(exec, _mesa_RenderbufferStorageMultisample);
 #endif
 
+#if FEATURE_ARB_map_buffer_range
+   SET_MapBufferRange(exec, _mesa_MapBufferRange);
+   SET_FlushMappedBufferRange(exec, _mesa_FlushMappedBufferRange);
+#endif
+
    /* GL_ARB_copy_buffer */
    SET_CopyBufferSubData(exec, _mesa_CopyBufferSubData);
-}
 
+   /* GL_ARB_vertex_array_object */
+   SET_BindVertexArray(exec, _mesa_BindVertexArray);
+   SET_GenVertexArrays(exec, _mesa_GenVertexArrays);
+}

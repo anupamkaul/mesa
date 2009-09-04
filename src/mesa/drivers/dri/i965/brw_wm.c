@@ -41,13 +41,13 @@ GLuint brw_wm_nr_args( GLuint opcode )
 {
    switch (opcode) {
    case WM_FRONTFACING:
-      return 0;
    case WM_PIXELXY:
+      return 0;
    case WM_CINTERP:
    case WM_WPOSXY:
+   case WM_DELTAXY:
       return 1;
    case WM_LINTERP:
-   case WM_DELTAXY:
    case WM_PIXELW:
       return 2;
    case WM_FB_WRITE:
@@ -171,9 +171,11 @@ static void do_wm_prog( struct brw_context *brw,
     * differently from "simple" shaders.
     */
    if (fp->isGLSL) {
+      c->dispatch_width = 8;
       brw_wm_glsl_emit(brw, c);
    }
    else {
+      c->dispatch_width = 16;
       brw_wm_non_glsl_emit(brw, c);
    }
 
@@ -202,6 +204,7 @@ static void brw_wm_populate_key( struct brw_context *brw,
    /* BRW_NEW_FRAGMENT_PROGRAM */
    const struct brw_fragment_program *fp = 
       (struct brw_fragment_program *)brw->fragment_program;
+   GLboolean uses_depth = (fp->program.Base.InputsRead & (1 << FRAG_ATTRIB_WPOS)) != 0;
    GLuint lookup = 0;
    GLuint line_aa;
    GLuint i;
@@ -263,14 +266,18 @@ static void brw_wm_populate_key( struct brw_context *brw,
 	 
    brw_wm_lookup_iz(line_aa,
 		    lookup,
+		    uses_depth,
 		    key);
 
 
    /* BRW_NEW_WM_INPUT_DIMENSIONS */
-   key->projtex_mask = brw->wm.input_size_masks[4-1] >> (FRAG_ATTRIB_TEX0 - FRAG_ATTRIB_WPOS); 
+   key->proj_attrib_mask = brw->wm.input_size_masks[4-1];
 
    /* _NEW_LIGHT */
    key->flat_shade = (ctx->Light.ShadeModel == GL_FLAT);
+
+   /* _NEW_HINT */
+   key->linear_color = (ctx->Hint.PerspectiveCorrection == GL_FASTEST);
 
    /* _NEW_TEXTURE */
    for (i = 0; i < BRW_MAX_TEX_UNIT; i++) {
@@ -351,6 +358,7 @@ const struct brw_tracked_state brw_wm_prog = {
    .dirty = {
       .mesa  = (_NEW_COLOR |
 		_NEW_DEPTH |
+                _NEW_HINT |
 		_NEW_STENCIL |
 		_NEW_POLYGON |
 		_NEW_LINE |

@@ -23,6 +23,7 @@ DRIVER_SOURCES = \
 	intel_pixel_bitmap.c \
 	intel_pixel_copy.c \
 	intel_pixel_draw.c \
+	intel_pixel_read.c \
 	intel_state.c \
 	intel_swapbuffers.c \
 	intel_tex.c \
@@ -42,6 +43,7 @@ DRIVER_SOURCES = \
 	brw_clip_util.c \
 	brw_context.c \
 	brw_curbe.c \
+	brw_disasm.c \
 	brw_draw.c \
 	brw_draw_upload.c \
 	brw_eu.c \

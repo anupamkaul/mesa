@@ -130,6 +130,9 @@ extern void
 _mesa_copy_context(const GLcontext *src, GLcontext *dst, GLuint mask);
 
 
+extern void
+_mesa_check_init_viewport(GLcontext *ctx, GLuint width, GLuint height);
+
 extern GLboolean
 _mesa_make_current( GLcontext *ctx, GLframebuffer *drawBuffer,
                     GLframebuffer *readBuffer );
@@ -156,6 +159,11 @@ _mesa_set_mvp_with_dp4( GLcontext *ctx,
                         GLboolean flag );
 
 
+extern GLboolean
+_mesa_valid_to_render(GLcontext *ctx, const char *where);
+
+
+
 /** \name Miscellaneous */
 /*@{*/
 
@@ -169,7 +177,6 @@ extern void GLAPIENTRY
 _mesa_Flush( void );
 
 /*@}*/
-
 
 
 /**
