@@ -2999,11 +2999,10 @@ tgsi_exec_machine_run( struct tgsi_exec_machine *mach )
    mach->FuncMask = 0xf;
    mach->ExecMask = 0xf;
 
-   mach->CondStackTop = 0; /* temporarily subvert this assertion */
-   assert(mach->CondStackTop == 0);
-   assert(mach->LoopStackTop == 0);
-   assert(mach->ContStackTop == 0);
-   assert(mach->CallStackTop == 0);
+   mach->CondStackTop = 0;
+   mach->LoopStackTop = 0;
+   mach->ContStackTop = 0;
+   mach->CallStackTop = 0;
 
    mach->Temps[TEMP_KILMASK_I].xyzw[TEMP_KILMASK_C].u[0] = 0;
    mach->Temps[TEMP_OUTPUT_I].xyzw[TEMP_OUTPUT_C].u[0] = 0;
@@ -3032,6 +3031,11 @@ tgsi_exec_machine_run( struct tgsi_exec_machine *mach )
       exec_instruction( mach, mach->Instructions + pc, &pc );
    }
 
+   assert(mach->CondStackTop == 0);
+   assert(mach->LoopStackTop == 0);
+   assert(mach->ContStackTop == 0);
+   assert(mach->CallStackTop == 0);
+   
 #if 0
    /* we scale from floats in [0,1] to Zbuffer ints in sp_quad_depth_test.c */
    if (mach->Processor == TGSI_PROCESSOR_FRAGMENT) {
