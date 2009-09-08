@@ -2688,16 +2688,16 @@ exec_instruction(
       mach->CondStack[mach->CondStackTop++] = mach->CondMask;
       FETCH( &r[0], 0, CHAN_X );
       /* update CondMask */
-      if( ! r[0].u[0] ) {
+      if( ! r[0].f[0] ) {
          mach->CondMask &= ~0x1;
       }
-      if( ! r[0].u[1] ) {
+      if( ! r[0].f[1] ) {
          mach->CondMask &= ~0x2;
       }
-      if( ! r[0].u[2] ) {
+      if( ! r[0].f[2] ) {
          mach->CondMask &= ~0x4;
       }
-      if( ! r[0].u[3] ) {
+      if( ! r[0].f[3] ) {
          mach->CondMask &= ~0x8;
       }
       UPDATE_EXEC_MASK(mach);
