@@ -123,6 +123,45 @@ static void softpipe_destroy( struct pipe_context *pipe )
 }
 
 
+/**
+ * if (the texture is being used as a framebuffer surface)
+ *    return PIPE_REFERENCED_FOR_WRITE
+ * else if (the texture is a bound texture source)
+ *    return PIPE_REFERENCED_FOR_READ  XXX not done yet
+ * else
+ *    return PIPE_UNREFERENCED
+ */
+static unsigned int
+softpipe_is_texture_referenced( struct pipe_context *pipe,
+                                struct pipe_texture *texture,
+                                unsigned face, unsigned level)
+{
+   struct softpipe_context *softpipe = softpipe_context( pipe );
+   unsigned i;
+
+   for (i = 0; i < softpipe->framebuffer.num_cbufs; i++) {
+      if (softpipe->framebuffer.cbufs[i] && 
+          softpipe->framebuffer.cbufs[i]->texture == texture) {
+         return PIPE_REFERENCED_FOR_WRITE;
+      }
+   }
+   if (softpipe->framebuffer.zsbuf && 
+       softpipe->framebuffer.zsbuf->texture == texture) {
+      return PIPE_REFERENCED_FOR_WRITE;
+   }
+   
+   return PIPE_UNREFERENCED;
+}
+
+
+static unsigned int
+softpipe_is_buffer_referenced( struct pipe_context *pipe,
+                               struct pipe_buffer *buf)
+{
+   return PIPE_UNREFERENCED;
+}
+
+
 struct pipe_context *
 softpipe_create( struct pipe_screen *screen,
                  struct pipe_winsys *pipe_winsys,
@@ -190,6 +229,9 @@ softpipe_create( struct pipe_screen *screen,
 
    softpipe->pipe.clear = softpipe_clear;
    softpipe->pipe.flush = softpipe_flush;
+
+   softpipe->pipe.is_texture_referenced = softpipe_is_texture_referenced;
+   softpipe->pipe.is_buffer_referenced = softpipe_is_buffer_referenced;
 
    softpipe_init_query_funcs( softpipe );
    softpipe_init_texture_funcs( softpipe );
