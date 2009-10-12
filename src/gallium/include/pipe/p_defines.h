@@ -296,6 +296,14 @@ enum pipe_texture_target {
 #define PIPE_CAP_TEXTURE_MIRROR_REPEAT   25
 
 
+/**
+ * Referenced query flags.
+ */
+
+#define PIPE_UNREFERENCED         0
+#define PIPE_REFERENCED_FOR_READ  (1 << 0)
+#define PIPE_REFERENCED_FOR_WRITE (1 << 1)
+
 
 #ifdef __cplusplus
 }

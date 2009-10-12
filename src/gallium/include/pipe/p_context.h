@@ -216,6 +216,33 @@ struct pipe_context {
    void (*flush)( struct pipe_context *pipe,
                   unsigned flags,
                   struct pipe_fence_handle **fence );
+
+   /**
+    * Check whether a texture is referenced by an unflushed hw command.
+    * The state-tracker uses this function to optimize away unnecessary
+    * flushes. It is safe (but wasteful) to always return.
+    * PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE.
+    * \param pipe  The pipe context whose unflushed hw commands will be
+    *              checked.
+    * \param level  mipmap level.
+    * \param texture  texture to check.
+    * \param face  cubemap face. Use 0 for non-cubemap texture.
+    */
+   unsigned int (*is_texture_referenced) (struct pipe_context *pipe,
+                                          struct pipe_texture *texture,
+                                          unsigned face, unsigned level);
+
+   /**
+    * Check whether a buffer is referenced by an unflushed hw command.
+    * The state-tracker uses this function to optimize away unnecessary
+    * flushes. It is safe (but wasteful) to always return
+    * PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE.
+    * \param pipe  The pipe context whose unflushed hw commands will be
+    *              checked.
+    * \param buf  Buffer to check.
+    */
+   unsigned int (*is_buffer_referenced) (struct pipe_context *pipe,
+                                         struct pipe_buffer *buf);
 };
 
 
