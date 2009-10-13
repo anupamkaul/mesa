@@ -61,6 +61,14 @@ pb_validate_add_buffer(struct pb_validate *vl,
                        struct pb_buffer *buf);
 
 /**
+ * Helper for pipe_context::is_texture_referenced and 
+ * pipe_context::is_buffer_referenced
+ */
+unsigned
+pb_validate_is_buffer_referenced(struct pb_validate *vl,
+                                 struct pb_buffer *buf);
+
+/**
  * Validate all buffers for hardware access.
  * 
  * Should be called right before issuing commands to the hardware.

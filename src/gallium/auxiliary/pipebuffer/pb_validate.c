@@ -99,6 +99,20 @@ pb_validate_add_buffer(struct pb_validate *vl,
 }
 
 
+unsigned
+pb_validate_is_buffer_referenced(struct pb_validate *vl,
+                                 struct pb_buffer *buf)
+{
+   unsigned i;
+   
+   for(i = 0; i < vl->used; ++i)
+      if(vl->buffers[i] == buf)
+         return PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE;
+   
+   return 0;
+}
+
+
 enum pipe_error
 pb_validate_validate(struct pb_validate *vl) 
 {
