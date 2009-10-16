@@ -79,6 +79,12 @@
 
 
 /**
+ * 64-bit extension of GLbitfield.
+ */
+typedef GLuint64 GLbitfield64;
+
+
+/**
  * \name Some forward type declarations
  */
 /*@{*/
