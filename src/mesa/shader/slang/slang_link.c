@@ -524,13 +524,13 @@ _slang_update_inputs_outputs(struct gl_program *prog)
             if (prog->Target == GL_VERTEX_PROGRAM_ARB) {
                if (inst->DstReg.Index == VERT_RESULT_TEX0) {
                   /* mark all texcoord outputs as written */
-                  const GLbitfield mask =
+                  const GLbitfield64 mask =
                      ((1 << MAX_TEXTURE_COORD_UNITS) - 1) << VERT_RESULT_TEX0;
                   prog->OutputsWritten |= mask;
                }
                else if (inst->DstReg.Index == VERT_RESULT_VAR0) {
                   /* mark all generic varying outputs as written */
-                  const GLbitfield mask =
+                  const GLbitfield64 mask =
                      ((1 << MAX_VARYING) - 1) << VERT_RESULT_VAR0;
                   prog->OutputsWritten |= mask;
                }
@@ -821,7 +821,7 @@ _slang_link(GLcontext *ctx,
    if (shProg->FragmentProgram) {
       const GLbitfield varyingRead
          = shProg->FragmentProgram->Base.InputsRead >> FRAG_ATTRIB_VAR0;
-      const GLbitfield varyingWritten = shProg->VertexProgram ?
+      const GLbitfield64 varyingWritten = shProg->VertexProgram ?
          shProg->VertexProgram->Base.OutputsWritten >> VERT_RESULT_VAR0 : 0x0;
       if ((varyingRead & varyingWritten) != varyingRead) {
          link_error(shProg,
@@ -832,7 +832,8 @@ _slang_link(GLcontext *ctx,
 
    /* check that gl_FragColor and gl_FragData are not both written to */
    if (shProg->FragmentProgram) {
-      GLbitfield outputsWritten = shProg->FragmentProgram->Base.OutputsWritten;
+      const GLbitfield64 outputsWritten =
+	 shProg->FragmentProgram->Base.OutputsWritten;
       if ((outputsWritten & ((1 << FRAG_RESULT_COLOR))) &&
           (outputsWritten >= (1 << FRAG_RESULT_DATA0))) {
          link_error(shProg, "Fragment program cannot write both gl_FragColor"

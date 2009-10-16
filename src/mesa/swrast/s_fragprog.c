@@ -190,7 +190,7 @@ run_program(GLcontext *ctx, SWspan *span, GLuint start, GLuint end)
 {
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
    const struct gl_fragment_program *program = ctx->FragmentProgram._Current;
-   const GLbitfield outputsWritten = program->Base.OutputsWritten;
+   const GLbitfield64 outputsWritten = program->Base.OutputsWritten;
    struct gl_program_machine *machine = &swrast->FragProgMachine;
    GLuint i;
 
