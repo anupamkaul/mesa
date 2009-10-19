@@ -509,7 +509,8 @@ static GLboolean r200_run_tcl_render( GLcontext *ctx,
 	 prog to a not enabled output however, so just don't mess with it.
 	 We only need to change compsel. */
       GLuint out_compsel = 0;
-      GLuint vp_out = rmesa->curr_vp_hw->mesa_program.Base.OutputsWritten;
+      const GLbitfield64 vp_out =
+	 rmesa->curr_vp_hw->mesa_program.Base.OutputsWritten;
 
       vimap_rev = &rmesa->curr_vp_hw->inputmap_rev[0];
       assert(vp_out & (1 << VERT_RESULT_HPOS));
