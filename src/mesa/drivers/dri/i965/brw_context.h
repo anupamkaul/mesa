@@ -231,7 +231,7 @@ struct brw_vs_prog_data {
    GLuint curb_read_length;
    GLuint urb_read_length;
    GLuint total_grf;
-   GLuint outputs_written;
+   GLbitfield64 outputs_written;
    GLuint nr_params;       /**< number of float params/constants */
 
    GLuint inputs_read;
