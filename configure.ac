@@ -19,7 +19,7 @@ AC_CANONICAL_HOST
 
 dnl Versions for external dependencies
 LIBDRM_REQUIRED=2.4.3
-DRI2PROTO_REQUIRED=1.99.3
+DRI2PROTO_REQUIRED=2.2
 
 dnl Check for progs
 AC_PROG_CPP
