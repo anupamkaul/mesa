@@ -70,7 +70,7 @@ static void compile_sf_prog( struct brw_context *brw,
    /* Construct map from attribute number to position in the vertex.
     */
    for (i = idx = 0; i < VERT_RESULT_MAX; i++) 
-      if (c.key.attrs & (1<<i)) {
+      if (c.key.attrs & BITFIELD64_BIT(i)) {
 	 c.attr_to_idx[i] = idx;
 	 c.idx_to_attr[idx] = i;
 	 if (i >= VERT_RESULT_TEX0 && i <= VERT_RESULT_TEX7) {
@@ -147,7 +147,7 @@ static void upload_sf_prog(struct brw_context *brw)
        * edgeflag testing here, it is already done in the clip
        * program.
        */
-      if (key.attrs & (1<<VERT_RESULT_EDGE))
+      if (key.attrs & BITFIELD64_BIT(VERT_RESULT_EDGE))
 	 key.primitive = SF_UNFILLED_TRIS;
       else
 	 key.primitive = SF_TRIANGLES;
