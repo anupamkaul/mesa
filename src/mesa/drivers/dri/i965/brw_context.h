@@ -759,9 +759,5 @@ brw_fragment_program_const(const struct gl_fragment_program *p)
    return (const struct brw_fragment_program *) p;
 }
 
-
-
-#define DO_SETUP_BITS ((1<<(FRAG_ATTRIB_MAX)) - 1)
-
 #endif
 

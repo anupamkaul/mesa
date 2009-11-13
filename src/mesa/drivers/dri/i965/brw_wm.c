@@ -327,7 +327,7 @@ static void brw_wm_populate_key( struct brw_context *brw,
    }
 
    /* CACHE_NEW_VS_PROG */
-   key->vp_outputs_written = brw->vs.prog_data->outputs_written & DO_SETUP_BITS;
+   key->vp_outputs_written = brw->vs.prog_data->outputs_written;
 
    /* The unique fragment program ID */
    key->program_string_id = fp->id;
