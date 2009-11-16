@@ -238,48 +238,67 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
 }
 
 void
+intel_tex_map_level_image(struct intel_context *intel,
+			  struct intel_texture_object *intelObj,
+			  GLuint level, GLuint face)
+{
+   struct intel_texture_image *intelImage =
+      intel_texture_image(intelObj->base.Image[face][level]);
+
+   if (intelImage && intelImage->mt) {
+      intelImage->base.Data =
+         intel_miptree_image_map(intel,
+                                 intelImage->mt,
+                                 intelImage->face,
+                                 intelImage->level,
+                                 &intelImage->base.RowStride,
+                                 intelImage->base.ImageOffsets);
+      /* convert stride to texels, not bytes */
+      intelImage->base.RowStride /= intelImage->mt->cpp;
+      /* intelImage->base.ImageStride /= intelImage->mt->cpp; */
+   }
+}
+
+
+void
+intel_tex_unmap_level_image(struct intel_context *intel,
+			    struct intel_texture_object *intelObj,
+			    GLuint level, GLuint face)
+{
+   struct intel_texture_image *intelImage =
+      intel_texture_image(intelObj->base.Image[face][level]);
+
+   if (intelImage && intelImage->mt) {
+      intel_miptree_image_unmap(intel, intelImage->mt);
+      intelImage->base.Data = NULL;
+   }
+}
+
+
+void
 intel_tex_map_level_images(struct intel_context *intel,
 			   struct intel_texture_object *intelObj,
-			   int level)
+			   GLuint level)
 {
    GLuint nr_faces = (intelObj->base.Target == GL_TEXTURE_CUBE_MAP) ? 6 : 1;
    GLuint face;
 
    for (face = 0; face < nr_faces; face++) {
-      struct intel_texture_image *intelImage =
-	 intel_texture_image(intelObj->base.Image[face][level]);
-
-      if (intelImage && intelImage->mt) {
-	 intelImage->base.Data =
-	    intel_miptree_image_map(intel,
-				    intelImage->mt,
-				    intelImage->face,
-				    intelImage->level,
-				    &intelImage->base.RowStride,
-				    intelImage->base.ImageOffsets);
-	 /* convert stride to texels, not bytes */
-	 intelImage->base.RowStride /= intelImage->mt->cpp;
-	 /* intelImage->base.ImageStride /= intelImage->mt->cpp; */
-      }
+      intel_tex_map_level_image(intel, intelObj, level, face);
    }
 }
+
 
 void
 intel_tex_unmap_level_images(struct intel_context *intel,
 			     struct intel_texture_object *intelObj,
-			     int level)
+			     GLuint level)
 {
    GLuint nr_faces = (intelObj->base.Target == GL_TEXTURE_CUBE_MAP) ? 6 : 1;
    GLuint face;
 
    for (face = 0; face < nr_faces; face++) {
-      struct intel_texture_image *intelImage =
-	 intel_texture_image(intelObj->base.Image[face][level]);
-
-      if (intelImage && intelImage->mt) {
-	 intel_miptree_image_unmap(intel, intelImage->mt);
-	 intelImage->base.Data = NULL;
-      }
+      intel_tex_unmap_level_image(intel, intelObj, level, face);
    }
 }
 

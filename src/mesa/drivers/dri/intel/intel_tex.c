@@ -206,6 +206,50 @@ intelGenerateMipmap(GLcontext *ctx, GLenum target,
 }
 
 
+/** Map all texture images for the given texture object */
+static void 
+intelMapTexture(GLcontext *ctx, struct gl_texture_object *tObj, GLenum mode)
+{
+   struct intel_context *intel = intel_context(ctx);
+   struct intel_texture_object *intelObj = intel_texture_object(tObj);
+   intel_tex_map_images(intel, intelObj);
+}
+
+
+/** Unmap all texture images for the given texture object */
+static void
+intelUnmapTexture(GLcontext *ctx, struct gl_texture_object *tObj)
+{
+   struct intel_context *intel = intel_context(ctx);
+   struct intel_texture_object *intelObj = intel_texture_object(tObj);
+   intel_tex_unmap_images(intel, intelObj);
+}
+
+
+/** Map single texture image */
+static void
+intelMapTextureImage(GLcontext *ctx, struct gl_texture_object *tObj,
+                     GLuint level, GLuint face, GLenum mode)
+{
+   struct intel_context *intel = intel_context(ctx);
+   struct intel_texture_object *intelObj = intel_texture_object(tObj);
+   intel_tex_map_level_image(intel, intelObj, level, face);
+}
+
+
+/** Unmap single texture image */
+static void
+intelUnmapTextureImage(GLcontext *ctx, struct gl_texture_object *tObj,
+                       GLuint level, GLuint face)
+{
+   struct intel_context *intel = intel_context(ctx);
+   struct intel_texture_object *intelObj = intel_texture_object(tObj);
+   intel_tex_unmap_level_image(intel, intelObj, level, face);
+}
+
+
+
+
 void
 intelInitTextureFuncs(struct dd_function_table *functions)
 {
@@ -218,6 +262,11 @@ intelInitTextureFuncs(struct dd_function_table *functions)
    functions->FreeTexImageData = intelFreeTextureImageData;
    functions->UpdateTexturePalette = 0;
    functions->IsTextureResident = intelIsTextureResident;
+
+   functions->MapTexture = intelMapTexture;
+   functions->UnmapTexture = intelUnmapTexture;
+   functions->MapTextureImage = intelMapTextureImage;
+   functions->UnmapTextureImage = intelUnmapTextureImage;
 
 #if DO_DEBUG && !defined(__ia64__)
    if (INTEL_DEBUG & DEBUG_BUFMGR)
