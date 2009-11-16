@@ -72,9 +72,9 @@ intelFreeTextureImageData(GLcontext * ctx, struct gl_texture_image *texImage)
       intel_miptree_release(intel, &intelImage->mt);
    }
 
-   if (texImage->Data) {
-      _mesa_free_texmemory(texImage->Data);
-      texImage->Data = NULL;
+   if (texImage->Map.Data) {
+      _mesa_free_texmemory(texImage->Map.Data);
+      texImage->Map.Data = NULL;
    }
 }
 

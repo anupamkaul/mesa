@@ -281,7 +281,7 @@ st_generate_mipmap(GLcontext *ctx, GLenum target,
       }
 
       /* Free old image data */
-      if (dstImage->Data)
+      if (dstImage->Map.Data)
          ctx->Driver.FreeTexImageData(ctx, dstImage);
 
       /* initialize new image */

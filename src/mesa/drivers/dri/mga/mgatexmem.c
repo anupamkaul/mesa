@@ -112,7 +112,7 @@ static void mgaUploadSubImage( mgaContextPtr mmesa,
    }
 
 
-   if (texImage->Data == NULL) {
+   if (texImage->Map.Data == NULL) {
       fprintf(stderr, "null texture image data tObj %p level %d\n",
 	      (void *) t->base.tObj, level);
       return;
@@ -160,7 +160,7 @@ static void mgaUploadSubImage( mgaContextPtr mmesa,
 
 	 to_copy = MIN2( length, MGA_BUFFER_SIZE );
 	 (void) memcpy( mmesa->iload_buffer->address,
-			(GLubyte *) texImage->Data + tex_offset, to_copy );
+			(GLubyte *) texImage->Map.Data + tex_offset, to_copy );
 
 	 if ( MGA_DEBUG & DEBUG_VERBOSE_TEXTURE )
 	     fprintf(stderr, "[%s:%d] address/size = 0x%08lx/%d\n",
@@ -181,7 +181,7 @@ static void mgaUploadSubImage( mgaContextPtr mmesa,
       UPDATE_LOCK(mmesa, DRM_LOCK_FLUSH | DRM_LOCK_QUIESCENT);
 
       memcpy( mmesa->mgaScreen->texVirtual[t->base.heap->heapId] + offset,
-	      texImage->Data, length );
+	      texImage->Map.Data, length );
 
       if ( MGA_DEBUG & DEBUG_VERBOSE_TEXTURE )
 	 fprintf(stderr, "[%s:%d] address/size = 0x%08lx/%d\n",

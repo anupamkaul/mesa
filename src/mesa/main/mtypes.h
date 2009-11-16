@@ -1151,17 +1151,20 @@ struct gl_texture_image
    FetchTexelFuncC FetchTexelc;	/**< GLchan texel fetch function pointer */
    FetchTexelFuncF FetchTexelf;	/**< Float texel fetch function pointer */
 
-   GLuint RowStride;		/**< Padded width in units of texels */
-   GLuint *ImageOffsets;        /**< if 3D texture: array [Depth] of offsets to
-                                     each 2D slice in 'Data', in texels */
-   GLvoid *Data;		/**< Image data, accessed via FetchTexel() */
-
    /**
     * \name For device driver:
     */
    /*@{*/
    void *DriverData;		/**< Arbitrary device driver data */
    /*@}*/
+
+   /** Only valid while a texture image is mapped */
+   struct {
+      GLuint RowStride;         /**< Padded width in units of texels */
+      GLuint *ImageOffsets;     /**< if 3D texture: array [Depth] of offsets to
+                                     each 2D slice in 'Data', in texels */
+      GLvoid *Data;             /**< Image data, accessed via FetchTexel() */
+   } Map;
 };
 
 

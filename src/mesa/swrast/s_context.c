@@ -447,9 +447,9 @@ _swrast_validate_texture_images(GLcontext *ctx)
                GLint lvl;
                for (lvl = texObj->BaseLevel; lvl <= texObj->_MaxLevel; lvl++) {
                   struct gl_texture_image *texImg = texObj->Image[face][lvl];
-                  if (texImg && !texImg->Data) {
+                  if (texImg && !texImg->Map.Data) {
                      swrast->ValidateTextureImage(ctx, texObj, face, lvl);
-                     ASSERT(texObj->Image[face][lvl]->Data);
+                     ASSERT(texObj->Image[face][lvl]->Map.Data);
                   }
                }
             }
@@ -485,9 +485,9 @@ _swrast_eject_texture_images(GLcontext *ctx)
                GLint lvl;
                for (lvl = texObj->BaseLevel; lvl <= texObj->_MaxLevel; lvl++) {
                   struct gl_texture_image *texImg = texObj->Image[face][lvl];
-                  if (texImg && texImg->Data) {
-                     _mesa_free_texmemory(texImg->Data);
-                     texImg->Data = NULL;
+                  if (texImg && texImg->Map.Data) {
+                     _mesa_free_texmemory(texImg->Map.Data);
+                     texImg->Map.Data = NULL;
                   }
                }
             }

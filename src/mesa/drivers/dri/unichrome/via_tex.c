@@ -271,7 +271,7 @@ static GLboolean viaMoveTexBuffers( struct via_context *vmesa,
 
 	 newTexBuf[i]->image = buffers[i]->image;
 	 newTexBuf[i]->image->texMem = newTexBuf[i];
-	 newTexBuf[i]->image->image.Data = newTexBuf[i]->bufAddr;
+	 newTexBuf[i]->image->image.Map.Data = newTexBuf[i]->bufAddr;
 	 via_free_texture(vmesa, buffers[i]);
       }
    }
@@ -694,10 +694,10 @@ static void viaTexImage(GLcontext *ctx,
    /* Minimum pitch of 32 bytes */
    if (postConvWidth * texelBytes < 32) {
       postConvWidth = 32 / texelBytes;
-      texImage->RowStride = postConvWidth;
+      texImage->Map.RowStride = postConvWidth;
    }
 
-   assert(texImage->RowStride == postConvWidth);
+   assert(texImage->Map.RowStride == postConvWidth);
    viaImage->pitchLog2 = logbase2(postConvWidth * texelBytes);
 
    /* allocate memory */
@@ -756,7 +756,7 @@ static void viaTexImage(GLcontext *ctx,
 	      get_memtype_name(viaImage->texMem->memType));
 
    viaImage->texMem->image = viaImage;
-   texImage->Data = viaImage->texMem->bufAddr;
+   texImage->Map.Data = viaImage->texMem->bufAddr;
 
    if (viaObj->memType == VIA_MEM_UNKNOWN)
       viaObj->memType = viaImage->texMem->memType;
@@ -793,10 +793,10 @@ static void viaTexImage(GLcontext *ctx,
       success = _mesa_texstore(ctx, dims,
                                texImage->_BaseFormat,
                                texImage->TexFormat,
-                               texImage->Data,
+                               texImage->Map.Data,
                                0, 0, 0,  /* dstX/Y/Zoffset */
                                dstRowStride,
-                               texImage->ImageOffsets,
+                               texImage->Map.ImageOffsets,
                                width, height, 1,
                                format, type, pixels, packing);
       if (!success) {
@@ -926,7 +926,7 @@ static void viaFreeTextureImageData( GLcontext *ctx,
       image->texMem = NULL;
    }
    
-   texImage->Data = NULL;
+   texImage->Map.Data = NULL;
 }
 
 

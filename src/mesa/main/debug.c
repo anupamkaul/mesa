@@ -392,7 +392,7 @@ dump_texture(struct gl_texture_object *texObj, GLuint writeImages)
                          j, i,
                          texImg->Width, texImg->Height, texImg->Depth,
                          _mesa_get_format_name(texImg->TexFormat),
-                         texImg->Data);
+                         texImg->Map.Data);
             if (writeImages == WRITE_ALL ||
                 (writeImages == WRITE_ONE && !written)) {
                write_texture_image(texObj, j, i);
@@ -586,7 +586,7 @@ _mesa_print_texture(GLcontext *ctx, const struct gl_texture_image *img)
    _mesa_problem(NULL, "PrintTexture not supported");
 #else
    GLuint i, j, c;
-   const GLubyte *data = (const GLubyte *) img->Data;
+   const GLubyte *data = (const GLubyte *) img->Map.Data;
 
    if (!data) {
       _mesa_printf("No texture data\n");
@@ -628,7 +628,7 @@ _mesa_print_texture(GLcontext *ctx, const struct gl_texture_image *img)
             _mesa_printf("%02x%02x%02x  ", data[0], data[1], data[2]);
          else if (c==4)
             _mesa_printf("%02x%02x%02x%02x  ", data[0], data[1], data[2], data[3]);
-         data += (img->RowStride - img->Width) * c;
+         data += (img->Map.RowStride - img->Width) * c;
       }
       /* XXX use img->ImageStride here */
       _mesa_printf("\n");

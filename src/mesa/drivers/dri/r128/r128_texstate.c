@@ -107,7 +107,7 @@ static void r128SetTexImages( r128ContextPtr rmesa,
       const struct gl_texture_image *texImage;
 
       texImage = tObj->Image[0][i];
-      if ( !texImage || !texImage->Data ) {
+      if ( !texImage || !texImage->Map.Data ) {
          lastLevel = i - 1;
 	 break;
       }

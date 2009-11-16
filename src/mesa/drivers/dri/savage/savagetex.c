@@ -266,7 +266,7 @@ static void savageUploadTexLevel( savageTexObjPtr t, int level )
 	if (width >= tileInfo->width && height >= tileInfo->height) {
 	    GLuint wInTiles = width / tileInfo->width;
 	    GLuint hInTiles = height / tileInfo->height;
-	    GLubyte *srcTRow = image->Data, *src;
+	    GLubyte *srcTRow = image->Map.Data, *src;
 	    GLubyte *dest = (GLubyte *)(t->bufAddr + t->image[level].offset);
 	    GLuint x, y;
 	    for (y = 0; y < hInTiles; ++y) {
@@ -289,7 +289,7 @@ static void savageUploadTexLevel( savageTexObjPtr t, int level )
 	    }
 	} else if (width >= tileInfo->width) {
 	    GLuint wInTiles = width / tileInfo->width;
-	    GLubyte *src = image->Data;
+	    GLubyte *src = image->Map.Data;
 	    GLubyte *dest = (GLubyte *)(t->bufAddr + t->image[level].offset);
 	    GLuint tileStride = tileInfo->width * bpp * height;
 	    savageContextPtr imesa = (savageContextPtr)t->base.heap->driverContext;
@@ -319,7 +319,7 @@ static void savageUploadTexLevel( savageTexObjPtr t, int level )
 	} else {
 	    savageUploadTile (tileInfo, width / tileInfo->subWidth,
 			      height / tileInfo->subHeight, bpp,
-			      image->Data, width * bpp,
+			      image->Map.Data, width * bpp,
 			      (GLubyte *)(t->bufAddr+t->image[level].offset));
 	}
     } else {
@@ -339,7 +339,7 @@ static void savageUploadTexLevel( savageTexObjPtr t, int level )
 	    GLuint offset = y * tileInfo->subWidth*height * bpp;
 	    for (x = 0; x < hRepeat; ++x) {
 		savageUploadTiny (tileInfo, pixWidth, pixHeight,
-				  width, height, bpp, image->Data,
+				  width, height, bpp, image->Map.Data,
 				  (GLubyte *)(t->bufAddr +
 					      t->image[level].offset+offset));
 		offset += width * bpp;

@@ -3314,8 +3314,8 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
 
    /* allocate memory */
    sizeInBytes = texture_size(texImage);
-   texImage->Data = _mesa_alloc_texmemory(sizeInBytes);
-   if (!texImage->Data) {
+   texImage->Map.Data = _mesa_alloc_texmemory(sizeInBytes);
+   if (!texImage->Map.Data) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage1D");
       return;
    }
@@ -3332,10 +3332,10 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
       const GLint dstRowStride = 0;
       GLboolean success = _mesa_texstore(ctx, 1, texImage->_BaseFormat,
                                          texImage->TexFormat,
-                                         texImage->Data,
+                                         texImage->Map.Data,
                                          0, 0, 0,  /* dstX/Y/Zoffset */
                                          dstRowStride,
-                                         texImage->ImageOffsets,
+                                         texImage->Map.ImageOffsets,
                                          width, 1, 1,
                                          format, type, pixels, packing);
       if (!success) {
@@ -3371,8 +3371,8 @@ _mesa_store_teximage2d(GLcontext *ctx, GLenum target, GLint level,
 
    /* allocate memory */
    sizeInBytes = texture_size(texImage);
-   texImage->Data = _mesa_alloc_texmemory(sizeInBytes);
-   if (!texImage->Data) {
+   texImage->Map.Data = _mesa_alloc_texmemory(sizeInBytes);
+   if (!texImage->Map.Data) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
       return;
    }
@@ -3389,10 +3389,10 @@ _mesa_store_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       GLint dstRowStride = texture_row_stride(texImage);
       GLboolean success = _mesa_texstore(ctx, 2, texImage->_BaseFormat,
                                          texImage->TexFormat,
-                                         texImage->Data,
+                                         texImage->Map.Data,
                                          0, 0, 0,  /* dstX/Y/Zoffset */
                                          dstRowStride,
-                                         texImage->ImageOffsets,
+                                         texImage->Map.ImageOffsets,
                                          width, height, 1,
                                          format, type, pixels, packing);
       if (!success) {
@@ -3424,8 +3424,8 @@ _mesa_store_teximage3d(GLcontext *ctx, GLenum target, GLint level,
 
    /* allocate memory */
    sizeInBytes = texture_size(texImage);
-   texImage->Data = _mesa_alloc_texmemory(sizeInBytes);
-   if (!texImage->Data) {
+   texImage->Map.Data = _mesa_alloc_texmemory(sizeInBytes);
+   if (!texImage->Map.Data) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage3D");
       return;
    }
@@ -3442,10 +3442,10 @@ _mesa_store_teximage3d(GLcontext *ctx, GLenum target, GLint level,
       GLint dstRowStride = texture_row_stride(texImage);
       GLboolean success = _mesa_texstore(ctx, 3, texImage->_BaseFormat,
                                          texImage->TexFormat,
-                                         texImage->Data,
+                                         texImage->Map.Data,
                                          0, 0, 0,  /* dstX/Y/Zoffset */
                                          dstRowStride,
-                                         texImage->ImageOffsets,
+                                         texImage->Map.ImageOffsets,
                                          width, height, depth,
                                          format, type, pixels, packing);
       if (!success) {
@@ -3481,10 +3481,10 @@ _mesa_store_texsubimage1d(GLcontext *ctx, GLenum target, GLint level,
       const GLint dstRowStride = 0;
       GLboolean success = _mesa_texstore(ctx, 1, texImage->_BaseFormat,
                                          texImage->TexFormat,
-                                         texImage->Data,
+                                         texImage->Map.Data,
                                          xoffset, 0, 0,  /* offsets */
                                          dstRowStride,
-                                         texImage->ImageOffsets,
+                                         texImage->Map.ImageOffsets,
                                          width, 1, 1,
                                          format, type, pixels, packing);
       if (!success) {
@@ -3520,10 +3520,10 @@ _mesa_store_texsubimage2d(GLcontext *ctx, GLenum target, GLint level,
       GLint dstRowStride = texture_row_stride(texImage);
       GLboolean success = _mesa_texstore(ctx, 2, texImage->_BaseFormat,
                                          texImage->TexFormat,
-                                         texImage->Data,
+                                         texImage->Map.Data,
                                          xoffset, yoffset, 0,
                                          dstRowStride,
-                                         texImage->ImageOffsets,
+                                         texImage->Map.ImageOffsets,
                                          width, height, 1,
                                          format, type, pixels, packing);
       if (!success) {
@@ -3559,10 +3559,10 @@ _mesa_store_texsubimage3d(GLcontext *ctx, GLenum target, GLint level,
       GLint dstRowStride = texture_row_stride(texImage);
       GLboolean success = _mesa_texstore(ctx, 3, texImage->_BaseFormat,
                                          texImage->TexFormat,
-                                         texImage->Data,
+                                         texImage->Map.Data,
                                          xoffset, yoffset, zoffset,
                                          dstRowStride,
-                                         texImage->ImageOffsets,
+                                         texImage->Map.ImageOffsets,
                                          width, height, depth,
                                          format, type, pixels, packing);
       if (!success) {
@@ -3618,11 +3618,11 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
    ASSERT(texImage->Width > 0);
    ASSERT(texImage->Height > 0);
    ASSERT(texImage->Depth == 1);
-   ASSERT(texImage->Data == NULL); /* was freed in glCompressedTexImage2DARB */
+   ASSERT(texImage->Map.Data == NULL); /* was freed in glCompressedTexImage2DARB */
 
    /* allocate storage */
-   texImage->Data = _mesa_alloc_texmemory(imageSize);
-   if (!texImage->Data) {
+   texImage->Map.Data = _mesa_alloc_texmemory(imageSize);
+   if (!texImage->Map.Data) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage2DARB");
       return;
    }
@@ -3634,7 +3634,7 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       return;
 
    /* copy the data */
-   MEMCPY(texImage->Data, data, imageSize);
+   MEMCPY(texImage->Map.Data, data, imageSize);
 
    _mesa_unmap_teximage_pbo(ctx, &ctx->Unpack);
 }
@@ -3734,7 +3734,7 @@ _mesa_store_compressed_texsubimage2d(GLcontext *ctx, GLenum target,
    destRowStride = _mesa_format_row_stride(texFormat, destWidth);
    dest = _mesa_compressed_image_address(xoffset, yoffset, 0,
                                          texFormat, destWidth,
-                                         (GLubyte *) texImage->Data);
+                                         (GLubyte *) texImage->Map.Data);
 
    bytesPerRow = srcRowStride;  /* bytes per row of blocks */
    rows = height / bh;  /* rows in blocks */

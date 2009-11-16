@@ -185,9 +185,9 @@ st_FreeTextureImageData(GLcontext * ctx, struct gl_texture_image *texImage)
       pipe_texture_reference(&stImage->pt, NULL);
    }
 
-   if (texImage->Data) {
-      _mesa_align_free(texImage->Data);
-      texImage->Data = NULL;
+   if (texImage->Map.Data) {
+      _mesa_align_free(texImage->Map.Data);
+      texImage->Map.Data = NULL;
    }
 }
 
@@ -571,11 +571,11 @@ st_TexImage(GLcontext * ctx,
       /* Minimum pitch of 32 bytes */
       if (postConvWidth * texelBytes < 32) {
 	 postConvWidth = 32 / texelBytes;
-	 texImage->RowStride = postConvWidth;
+	 texImage->Map.RowStride = postConvWidth;
       }
       
       /* we'll set RowStride elsewhere when the texture is a "mapped" state */
-      /*assert(texImage->RowStride == postConvWidth);*/
+      /*assert(texImage->Map.RowStride == postConvWidth);*/
    }
 
    /* Release the reference to a potentially orphaned buffer.   
@@ -583,10 +583,10 @@ st_TexImage(GLcontext * ctx,
     */
    if (stImage->pt) {
       pipe_texture_reference(&stImage->pt, NULL);
-      assert(!texImage->Data);
+      assert(!texImage->Map.Data);
    }
-   else if (texImage->Data) {
-      _mesa_align_free(texImage->Data);
+   else if (texImage->Map.Data) {
+      _mesa_align_free(texImage->Map.Data);
    }
 
    if (width == 0 || height == 0 || depth == 0) {
@@ -684,7 +684,7 @@ st_TexImage(GLcontext * ctx,
       else
          transfer_usage = PIPE_TRANSFER_WRITE;
 
-      texImage->Data = st_texture_image_map(ctx->st, stImage, 0,
+      texImage->Map.Data = st_texture_image_map(ctx->st, stImage, 0,
                                             transfer_usage, 0, 0,
                                             stImage->base.Width,
                                             stImage->base.Height);
@@ -706,10 +706,10 @@ st_TexImage(GLcontext * ctx,
          sizeInBytes = depth * dstRowStride * postConvHeight;
       }
 
-      texImage->Data = _mesa_align_malloc(sizeInBytes, 16);
+      texImage->Map.Data = _mesa_align_malloc(sizeInBytes, 16);
    }
 
-   if (!texImage->Data) {
+   if (!texImage->Map.Data) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
       return;
    }
@@ -725,7 +725,7 @@ st_TexImage(GLcontext * ctx,
     * conversion and copy:
     */
    if (compressed_src) {
-      memcpy(texImage->Data, pixels, imageSize);
+      memcpy(texImage->Map.Data, pixels, imageSize);
    }
    else {
       const GLuint srcImageStride =
@@ -737,10 +737,10 @@ st_TexImage(GLcontext * ctx,
 	 if (!_mesa_texstore(ctx, dims, 
                              texImage->_BaseFormat, 
                              texImage->TexFormat, 
-                             texImage->Data,
+                             texImage->Map.Data,
                              0, 0, 0, /* dstX/Y/Zoffset */
                              dstRowStride,
-                             texImage->ImageOffsets,
+                             texImage->Map.ImageOffsets,
                              width, height, 1,
                              format, type, src, unpack)) {
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
@@ -750,7 +750,7 @@ st_TexImage(GLcontext * ctx,
             /* unmap this slice */
 	    st_texture_image_unmap(ctx->st, stImage);
             /* map next slice of 3D texture */
-	    texImage->Data = st_texture_image_map(ctx->st, stImage, i + 1,
+	    texImage->Map.Data = st_texture_image_map(ctx->st, stImage, i + 1,
                                                   transfer_usage, 0, 0,
                                                   stImage->base.Width,
                                                   stImage->base.Height);
@@ -762,9 +762,9 @@ st_TexImage(GLcontext * ctx,
 done:
    _mesa_unmap_teximage_pbo(ctx, unpack);
 
-   if (stImage->pt && texImage->Data) {
+   if (stImage->pt && texImage->Map.Data) {
       st_texture_image_unmap(ctx->st, stImage);
-      texImage->Data = NULL;
+      texImage->Map.Data = NULL;
    }
 }
 
@@ -956,22 +956,22 @@ st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
       st_teximage_flush_before_map(ctx->st, stImage->pt, face, level,
 				   PIPE_TRANSFER_READ);
 
-      texImage->Data = st_texture_image_map(ctx->st, stImage, 0,
+      texImage->Map.Data = st_texture_image_map(ctx->st, stImage, 0,
                                             PIPE_TRANSFER_READ, 0, 0,
                                             stImage->base.Width,
                                             stImage->base.Height);
-      texImage->RowStride = stImage->transfer->stride / stImage->pt->block.size;
+      texImage->Map.RowStride = stImage->transfer->stride / stImage->pt->block.size;
    }
    else {
       /* Otherwise, the image should actually be stored in
-       * texImage->Data.  This is pretty confusing for
+       * texImage->Map.Data.  This is pretty confusing for
        * everybody, I'd much prefer to separate the two functions of
-       * texImage->Data - storage for texture images in main memory
+       * texImage->Map.Data - storage for texture images in main memory
        * and access (ie mappings) of images.  In other words, we'd
        * create a new texImage->Map field and leave Data simply for
        * storage.
        */
-      assert(texImage->Data);
+      assert(texImage->Map.Data);
    }
 
    depth = texImage->Depth;
@@ -993,7 +993,7 @@ st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
          /* unmap this slice */
 	 st_texture_image_unmap(ctx->st, stImage);
          /* map next slice of 3D texture */
-	 texImage->Data = st_texture_image_map(ctx->st, stImage, i + 1,
+	 texImage->Map.Data = st_texture_image_map(ctx->st, stImage, i + 1,
                                                PIPE_TRANSFER_READ, 0, 0,
                                                stImage->base.Width,
                                                stImage->base.Height);
@@ -1006,7 +1006,7 @@ st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
    /* Unmap */
    if (stImage->pt) {
       st_texture_image_unmap(ctx->st, stImage);
-      texImage->Data = NULL;
+      texImage->Map.Data = NULL;
    }
 }
 
@@ -1093,13 +1093,13 @@ st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
 
       st_teximage_flush_before_map(ctx->st, stImage->pt, face, level,
 				   transfer_usage);
-      texImage->Data = st_texture_image_map(ctx->st, stImage, zoffset, 
+      texImage->Map.Data = st_texture_image_map(ctx->st, stImage, zoffset, 
                                             transfer_usage,
                                             xoffset, yoffset,
                                             width, height);
    }
 
-   if (!texImage->Data) {
+   if (!texImage->Map.Data) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage");
       goto done;
    }
@@ -1110,10 +1110,10 @@ st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
    for (i = 0; i < depth; i++) {
       if (!_mesa_texstore(ctx, dims, texImage->_BaseFormat,
                           texImage->TexFormat,
-                          texImage->Data,
+                          texImage->Map.Data,
                           0, 0, 0,
                           dstRowStride,
-                          texImage->ImageOffsets,
+                          texImage->Map.ImageOffsets,
                           width, height, 1,
                           format, type, src, packing)) {
 	 _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage");
@@ -1123,7 +1123,7 @@ st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
          /* unmap this slice */
 	 st_texture_image_unmap(ctx->st, stImage);
          /* map next slice of 3D texture */
-	 texImage->Data = st_texture_image_map(ctx->st, stImage,
+	 texImage->Map.Data = st_texture_image_map(ctx->st, stImage,
                                                zoffset + i + 1,
                                                transfer_usage,
                                                xoffset, yoffset,
@@ -1137,7 +1137,7 @@ done:
 
    if (stImage->pt) {
       st_texture_image_unmap(ctx->st, stImage);
-      texImage->Data = NULL;
+      texImage->Map.Data = NULL;
    }
 }
 
@@ -1218,7 +1218,7 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
 
       st_teximage_flush_before_map(ctx->st, stImage->pt, face, level,
 				   PIPE_TRANSFER_WRITE);
-      texImage->Data = st_texture_image_map(ctx->st, stImage, 0, 
+      texImage->Map.Data = st_texture_image_map(ctx->st, stImage, 0, 
                                             PIPE_TRANSFER_WRITE,
                                             xoffset, yoffset,
                                             width, height);
@@ -1233,7 +1233,7 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   if (!texImage->Data) {
+   if (!texImage->Map.Data) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexSubImage");
       return;
    }
@@ -1246,13 +1246,13 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
    for (y = 0; y < height; y += block.height) {
       /* don't need to adjust for xoffset and yoffset as st_texture_image_map does that */
       const char *src = (const char*)data + srcBlockStride * pf_get_nblocksy(&block, y);
-      char *dst = (char*)texImage->Data + dstBlockStride * pf_get_nblocksy(&block, y);
+      char *dst = (char*)texImage->Map.Data + dstBlockStride * pf_get_nblocksy(&block, y);
       memcpy(dst, src, pf_get_stride(&block, width));
    }
 
    if (stImage->pt) {
       st_texture_image_unmap(ctx->st, stImage);
-      texImage->Data = NULL;
+      texImage->Map.Data = NULL;
    }
 }
 
@@ -1381,7 +1381,7 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
                         texDest,
                         0, 0, 0,
                         dstRowStride,
-                        texImage->ImageOffsets,
+                        texImage->Map.ImageOffsets,
                         width, height, 1,
                         GL_RGBA, GL_FLOAT, tempSrc, /* src */
                         &unpack);
@@ -1723,8 +1723,8 @@ copy_image_data_to_texture(struct st_context *st,
 
       pipe_texture_reference(&stImage->pt, NULL);
    }
-   else if (stImage->base.Data) {
-      assert(stImage->base.Data != NULL);
+   else if (stImage->base.Map.Data) {
+      assert(stImage->base.Map.Data != NULL);
 
       /* More straightforward upload.  
        */
@@ -1737,14 +1737,14 @@ copy_image_data_to_texture(struct st_context *st,
                             stObj->pt,
                             stImage->face,
                             dstLevel,
-                            stImage->base.Data,
-                            stImage->base.RowStride * 
+                            stImage->base.Map.Data,
+                            stImage->base.Map.RowStride * 
                             stObj->pt->block.size,
-                            stImage->base.RowStride *
+                            stImage->base.Map.RowStride *
                             stImage->base.Height *
                             stObj->pt->block.size);
-      _mesa_align_free(stImage->base.Data);
-      stImage->base.Data = NULL;
+      _mesa_align_free(stImage->base.Map.Data);
+      stImage->base.Map.Data = NULL;
    }
 
    pipe_texture_reference(&stImage->pt, stObj->pt);

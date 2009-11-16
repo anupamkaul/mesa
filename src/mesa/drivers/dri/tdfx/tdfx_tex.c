@@ -214,7 +214,7 @@ tdfxGenerateMipmap(GLcontext *ctx, GLenum target,
                                 texImage,
                                 texelBytes,
                                 mml->width, mml->height,
-                                texImage->Data, mipImage->Data);
+                                texImage->Map.Data, mipImage->Map.Data);
       texImage = mipImage;
       mml = mip;
       width = mipWidth;
@@ -938,7 +938,7 @@ fetch_intensity8(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLubyte *) texImage->Data) + j * mml->width + i;
+    texel = ((GLubyte *) texImage->Map.Data) + j * mml->width + i;
     rgba[RCOMP] = *texel;
     rgba[GCOMP] = *texel;
     rgba[BCOMP] = *texel;
@@ -956,7 +956,7 @@ fetch_luminance8(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLubyte *) texImage->Data) + j * mml->width + i;
+    texel = ((GLubyte *) texImage->Map.Data) + j * mml->width + i;
     rgba[RCOMP] = *texel;
     rgba[GCOMP] = *texel;
     rgba[BCOMP] = *texel;
@@ -974,7 +974,7 @@ fetch_alpha8(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLubyte *) texImage->Data) + j * mml->width + i;
+    texel = ((GLubyte *) texImage->Map.Data) + j * mml->width + i;
     rgba[RCOMP] = 255;
     rgba[GCOMP] = 255;
     rgba[BCOMP] = 255;
@@ -992,7 +992,7 @@ fetch_index8(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLubyte *) texImage->Data) + j * mml->width + i;
+    texel = ((GLubyte *) texImage->Map.Data) + j * mml->width + i;
     *indexOut = *texel;
 }
 
@@ -1007,7 +1007,7 @@ fetch_luminance8_alpha8(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLubyte *) texImage->Data) + (j * mml->width + i) * 2;
+    texel = ((GLubyte *) texImage->Map.Data) + (j * mml->width + i) * 2;
     rgba[RCOMP] = texel[0];
     rgba[GCOMP] = texel[0];
     rgba[BCOMP] = texel[0];
@@ -1025,7 +1025,7 @@ fetch_r5g6b5(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLushort *) texImage->Data) + j * mml->width + i;
+    texel = ((GLushort *) texImage->Map.Data) + j * mml->width + i;
     rgba[RCOMP] = (((*texel) >> 11) & 0x1f) * 255 / 31;
     rgba[GCOMP] = (((*texel) >> 5) & 0x3f) * 255 / 63;
     rgba[BCOMP] = (((*texel) >> 0) & 0x1f) * 255 / 31;
@@ -1043,7 +1043,7 @@ fetch_r4g4b4a4(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLushort *) texImage->Data) + j * mml->width + i;
+    texel = ((GLushort *) texImage->Map.Data) + j * mml->width + i;
     rgba[RCOMP] = (((*texel) >> 12) & 0xf) * 255 / 15;
     rgba[GCOMP] = (((*texel) >> 8) & 0xf) * 255 / 15;
     rgba[BCOMP] = (((*texel) >> 4) & 0xf) * 255 / 15;
@@ -1061,7 +1061,7 @@ fetch_r5g5b5a1(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLushort *) texImage->Data) + j * mml->width + i;
+    texel = ((GLushort *) texImage->Map.Data) + j * mml->width + i;
     rgba[RCOMP] = (((*texel) >> 11) & 0x1f) * 255 / 31;
     rgba[GCOMP] = (((*texel) >> 6) & 0x1f) * 255 / 31;
     rgba[BCOMP] = (((*texel) >> 1) & 0x1f) * 255 / 31;
@@ -1079,7 +1079,7 @@ fetch_a8r8g8b8(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    texel = ((GLuint *) texImage->Data) + j * mml->width + i;
+    texel = ((GLuint *) texImage->Map.Data) + j * mml->width + i;
     rgba[RCOMP] = (((*texel) >> 16) & 0xff);
     rgba[GCOMP] = (((*texel) >>  8) & 0xff);
     rgba[BCOMP] = (((*texel)      ) & 0xff);
@@ -1096,7 +1096,7 @@ fetch_rgb_fxt1(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    fxt1_decode_1(texImage->Data, mml->width, i, j, rgba);
+    fxt1_decode_1(texImage->Map.Data, mml->width, i, j, rgba);
     rgba[ACOMP] = 255;
 }
 
@@ -1110,7 +1110,7 @@ fetch_rgba_fxt1(const struct gl_texture_image *texImage,
     i = i * mml->wScale;
     j = j * mml->hScale;
 
-    fxt1_decode_1(texImage->Data, mml->width, i, j, rgba);
+    fxt1_decode_1(texImage->Map.Data, mml->width, i, j, rgba);
 }
 
 
@@ -1249,7 +1249,7 @@ adjust2DRatio (GLcontext *ctx,
 
       /* now rescale */
       /* compute address of dest subimage within the overal tex image */
-      destAddr = (GLubyte *) texImage->Data
+      destAddr = (GLubyte *) texImage->Map.Data
          + (yoffset * mml->hScale * mml->width
             + xoffset * mml->wScale) * texelBytes;
 
@@ -1286,7 +1286,7 @@ adjust2DRatio (GLcontext *ctx,
                                newWidth, newHeight, /* dst */
                                rawImage /*src*/, tempImage /*dst*/ );
       _mesa_texstore(ctx, 2, texImage->_BaseFormat,
-                     texImage->TexFormat, texImage->Data,
+                     texImage->TexFormat, texImage->Map.Data,
                      xoffset * mml->wScale, yoffset * mml->hScale, 0, /* dstX/Y/Zoffset */
                      dstRowStride,
                      &dstImageOffsets,
@@ -1406,12 +1406,12 @@ tdfxTexImage2D(GLcontext *ctx, GLenum target, GLint level,
        GLuint compressedSize = _mesa_format_image_size(mesaFormat, mml->width,
                                                        mml->height, 1);
        dstRowStride = _mesa_format_row_stride(texImage->TexFormat, mml->width);
-       texImage->Data = _mesa_alloc_texmemory(compressedSize);
+       texImage->Map.Data = _mesa_alloc_texmemory(compressedSize);
     } else {
        dstRowStride = mml->width * texelBytes;
-       texImage->Data = _mesa_alloc_texmemory(mml->width * mml->height * texelBytes);
+       texImage->Map.Data = _mesa_alloc_texmemory(mml->width * mml->height * texelBytes);
     }
-    if (!texImage->Data) {
+    if (!texImage->Map.Data) {
        _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
        return;
     }
@@ -1435,12 +1435,12 @@ tdfxTexImage2D(GLcontext *ctx, GLenum target, GLint level,
        }
        else {
           /* no rescaling needed */
-          /* unpack image, apply transfer ops and store in texImage->Data */
+          /* unpack image, apply transfer ops and store in texImage->Map.Data */
           _mesa_texstore(ctx, 2, texImage->_BaseFormat,
-                         texImage->TexFormat, texImage->Data,
+                         texImage->TexFormat, texImage->Map.Data,
                          0, 0, 0, /* dstX/Y/Zoffset */
                          dstRowStride,
-                         texImage->ImageOffsets,
+                         texImage->Map.ImageOffsets,
                          width, height, 1,
                          format, type, pixels, packing);
        }
@@ -1478,7 +1478,7 @@ tdfxTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
     mml = TDFX_TEXIMAGE_DATA(texImage);
     assert(mml);
 
-    assert(texImage->Data);	/* must have an existing texture image! */
+    assert(texImage->Map.Data);	/* must have an existing texture image! */
     assert(texImage->_BaseFormat);
 
     texelBytes = _mesa_get_format_bytes(texImage->TexFormat);
@@ -1507,10 +1507,10 @@ tdfxTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
     else {
         /* no rescaling needed */
        _mesa_texstore(ctx, 2, texImage->_BaseFormat,
-                      texImage->TexFormat, texImage->Data,
+                      texImage->TexFormat, texImage->Map.Data,
                       xoffset, yoffset, 0,
                       dstRowStride,
-                      texImage->ImageOffsets,
+                      texImage->Map.ImageOffsets,
                       width, height, 1,
                       format, type, pixels, packing);
     }
@@ -1622,11 +1622,11 @@ tdfxCompressedTexImage2D (GLcontext *ctx, GLenum target,
     texImage->FetchTexelc = fxFetchFunction(mesaFormat);
 
     /* allocate new storage for texture image, if needed */
-    if (!texImage->Data) {
+    if (!texImage->Map.Data) {
        compressedSize = _mesa_format_image_size(mesaFormat, mml->width,
                                                 mml->height, 1);
-       texImage->Data = _mesa_alloc_texmemory(compressedSize);
-       if (!texImage->Data) {
+       texImage->Map.Data = _mesa_alloc_texmemory(compressedSize);
+       if (!texImage->Map.Data) {
           _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage2D");
           return;
        }
@@ -1657,10 +1657,10 @@ tdfxCompressedTexImage2D (GLcontext *ctx, GLenum target,
        _mesa_upscale_teximage2d(srcRowStride, (height+3) / 4,
                                 destRowStride, (mml->height+3) / 4,
                                 1, data, srcRowStride,
-                                texImage->Data);
+                                texImage->Map.Data);
        ti->padded = GL_TRUE;
     } else {
-       MEMCPY(texImage->Data, data, compressedSize);
+       MEMCPY(texImage->Map.Data, data, compressedSize);
     }
 
     RevalidateTexture(ctx, texObj);
@@ -1702,7 +1702,7 @@ tdfxCompressedTexSubImage2D( GLcontext *ctx, GLenum target,
     dest = _mesa_compressed_image_address(xoffset, yoffset, 0,
                                           mesaFormat,
                                           mml->width,
-                               (GLubyte*) texImage->Data);
+                               (GLubyte*) texImage->Map.Data);
 
     rows = height / 4; /* [dBorca] hardcoded 4, but works for FXT1/DXTC */
 
@@ -1721,8 +1721,8 @@ tdfxCompressedTexSubImage2D( GLcontext *ctx, GLenum target,
        destRowStride = _mesa_format_row_stride(mesaFormat, mml->width);
        _mesa_upscale_teximage2d(srcRowStride, texImage->Height / 4,
                                 destRowStride, mml->height / 4,
-                                1, texImage->Data, destRowStride,
-                                texImage->Data);
+                                1, texImage->Map.Data, destRowStride,
+                                texImage->Map.Data);
     }
 
     RevalidateTexture(ctx, texObj);

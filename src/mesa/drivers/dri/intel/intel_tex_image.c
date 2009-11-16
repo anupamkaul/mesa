@@ -319,7 +319,7 @@ intelTexImage(GLcontext * ctx,
    GLint postConvWidth = width;
    GLint postConvHeight = height;
    GLint texelBytes, sizeInBytes;
-   GLuint dstRowStride = 0, srcRowStride = texImage->RowStride;
+   GLuint dstRowStride = 0, srcRowStride = texImage->Map.RowStride;
 
    DBG("%s target %s level %d %dx%dx%d border %d\n", __FUNCTION__,
        _mesa_lookup_enum_by_nr(target), level, width, height, depth, border);
@@ -341,11 +341,11 @@ intelTexImage(GLcontext * ctx,
       /* Minimum pitch of 32 bytes */
       if (postConvWidth * texelBytes < 32) {
 	 postConvWidth = 32 / texelBytes;
-	 texImage->RowStride = postConvWidth;
+	 texImage->Map.RowStride = postConvWidth;
       }
 
       if (!intelImage->mt) {      
-	  assert(texImage->RowStride == postConvWidth);
+	  assert(texImage->Map.RowStride == postConvWidth);
       }
    }
 
@@ -354,11 +354,11 @@ intelTexImage(GLcontext * ctx,
     */
    if (intelImage->mt) {
       intel_miptree_release(intel, &intelImage->mt);
-      assert(!texImage->Data);
+      assert(!texImage->Map.Data);
    }
-   else if (texImage->Data) {
-      _mesa_free_texmemory(texImage->Data);
-      texImage->Data = NULL;
+   else if (texImage->Map.Data) {
+      _mesa_free_texmemory(texImage->Map.Data);
+      texImage->Map.Data = NULL;
    }
 
    /* If this is the only texture image in the tree, could call
@@ -478,15 +478,15 @@ intelTexImage(GLcontext * ctx,
 				     intelImage->mt->region->buffer)) {
 	    intelFlush(ctx);
 	 }
-         texImage->Data = intel_miptree_image_map(intel,
+         texImage->Map.Data = intel_miptree_image_map(intel,
                                                   intelImage->mt,
                                                   intelImage->face,
                                                   intelImage->level,
                                                   &dstRowStride,
-                                                  intelImage->base.ImageOffsets);
+                                                  intelImage->base.Map.ImageOffsets);
       }
 
-      texImage->RowStride = dstRowStride / intelImage->mt->cpp;
+      texImage->Map.RowStride = dstRowStride / intelImage->mt->cpp;
    }
    else {
       /* Allocate regular memory and store the image there temporarily.   */
@@ -504,7 +504,7 @@ intelTexImage(GLcontext * ctx,
          sizeInBytes = depth * dstRowStride * postConvHeight;
       }
 
-      texImage->Data = _mesa_alloc_texmemory(sizeInBytes);
+      texImage->Map.Data = _mesa_alloc_texmemory(sizeInBytes);
    }
 
    DBG("Upload image %dx%dx%d row_len %d "
@@ -520,7 +520,7 @@ intelTexImage(GLcontext * ctx,
        if (compressed) {
 	   if (intelImage->mt) {
 	       struct intel_region *dst = intelImage->mt->region;
-	       _mesa_copy_rect(texImage->Data, dst->cpp, dst->pitch,
+	       _mesa_copy_rect(texImage->Map.Data, dst->cpp, dst->pitch,
 			       0, 0,
 			       intelImage->mt->level[level].width,
 			       (intelImage->mt->level[level].height+3)/4,
@@ -529,15 +529,15 @@ intelTexImage(GLcontext * ctx,
 			       0, 0);
 	   }
            else {
-	       memcpy(texImage->Data, pixels, imageSize);
+	       memcpy(texImage->Map.Data, pixels, imageSize);
            }
        }
        else if (!_mesa_texstore(ctx, dims, 
                                 texImage->_BaseFormat, 
                                 texImage->TexFormat, 
-                                texImage->Data, 0, 0, 0, /* dstX/Y/Zoffset */
+                                texImage->Map.Data, 0, 0, 0, /* dstX/Y/Zoffset */
                                 dstRowStride,
-                                texImage->ImageOffsets,
+                                texImage->Map.ImageOffsets,
                                 width, height, depth,
                                 format, type, pixels, unpack)) {
           _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
@@ -549,7 +549,7 @@ intelTexImage(GLcontext * ctx,
    if (intelImage->mt) {
       if (pixels != NULL)
          intel_miptree_image_unmap(intel, intelImage->mt);
-      texImage->Data = NULL;
+      texImage->Map.Data = NULL;
    }
 
    UNLOCK_HARDWARE(intel);
@@ -643,25 +643,25 @@ intel_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
       /* Image is stored in hardware format in a buffer managed by the
        * kernel.  Need to explicitly map and unmap it.
        */
-      intelImage->base.Data =
+      intelImage->base.Map.Data =
          intel_miptree_image_map(intel,
                                  intelImage->mt,
                                  intelImage->face,
                                  intelImage->level,
-                                 &intelImage->base.RowStride,
-                                 intelImage->base.ImageOffsets);
-      intelImage->base.RowStride /= intelImage->mt->cpp;
+                                 &intelImage->base.Map.RowStride,
+                                 intelImage->base.Map.ImageOffsets);
+      intelImage->base.Map.RowStride /= intelImage->mt->cpp;
    }
    else {
       /* Otherwise, the image should actually be stored in
        * intelImage->base.Data.  This is pretty confusing for
        * everybody, I'd much prefer to separate the two functions of
-       * texImage->Data - storage for texture images in main memory
+       * texImage->Map.Data - storage for texture images in main memory
        * and access (ie mappings) of images.  In other words, we'd
        * create a new texImage->Map field and leave Data simply for
        * storage.
        */
-      assert(intelImage->base.Data);
+      assert(intelImage->base.Map.Data);
    }
 
 
@@ -678,7 +678,7 @@ intel_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
    /* Unmap */
    if (intelImage->mt) {
       intel_miptree_image_unmap(intel, intelImage->mt);
-      intelImage->base.Data = NULL;
+      intelImage->base.Map.Data = NULL;
    }
 }
 
@@ -776,7 +776,7 @@ intelSetTexBuffer2(__DRIcontext *pDRICtx, GLint target,
 
    if (intelImage->mt) {
       intel_miptree_release(intel, &intelImage->mt);
-      assert(!texImage->Data);
+      assert(!texImage->Map.Data);
    }
    if (intelObj->mt)
       intel_miptree_release(intel, &intelObj->mt);
@@ -792,7 +792,7 @@ intelSetTexBuffer2(__DRIcontext *pDRICtx, GLint target,
       texImage->TexFormat = MESA_FORMAT_XRGB8888;
    else
       texImage->TexFormat = MESA_FORMAT_ARGB8888;
-   texImage->RowStride = rb->region->pitch;
+   texImage->Map.RowStride = rb->region->pitch;
    intel_miptree_reference(&intelImage->mt, intelObj->mt);
 
    if (!intel_miptree_match_image(intelObj->mt, &intelImage->base)) {

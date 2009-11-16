@@ -202,7 +202,7 @@ static void uploadSubImage( r128ContextPtr rmesa, r128TexObjPtr t,
       uint32_t *dst;
       drmBufPtr buffer;
 
-      assert(image->Data);
+      assert(image->Map.Data);
 
       height = MIN2(remaining, rows);
 
@@ -216,7 +216,7 @@ static void uploadSubImage( r128ContextPtr rmesa, r128TexObjPtr t,
       {
          const GLuint texelBytes =
             _mesa_get_format_bytes(image->TexFormat);
-         const GLubyte *src = (const GLubyte *) image->Data +
+         const GLubyte *src = (const GLubyte *) image->Map.Data +
             (y * image->Width + x) * texelBytes;            
          const GLuint bytes = width * height * texelBytes;
          memcpy(dst, src, bytes);

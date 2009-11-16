@@ -462,12 +462,12 @@ _mesa_free_texture_image_data(GLcontext *ctx,
 {
    (void) ctx;
 
-   if (texImage->Data && !texImage->IsClientData) {
+   if (texImage->Map.Data && !texImage->IsClientData) {
       /* free the old texture data */
-      _mesa_free_texmemory(texImage->Data);
+      _mesa_free_texmemory(texImage->Map.Data);
    }
 
-   texImage->Data = NULL;
+   texImage->Map.Data = NULL;
 }
 
 
@@ -481,15 +481,15 @@ _mesa_free_texture_image_data(GLcontext *ctx,
 void
 _mesa_delete_texture_image( GLcontext *ctx, struct gl_texture_image *texImage )
 {
-   /* Free texImage->Data and/or any other driver-specific texture
+   /* Free texImage->Map.Data and/or any other driver-specific texture
     * image storage.
     */
    ASSERT(ctx->Driver.FreeTexImageData);
    ctx->Driver.FreeTexImageData( ctx, texImage );
 
-   ASSERT(texImage->Data == NULL);
-   if (texImage->ImageOffsets)
-      _mesa_free(texImage->ImageOffsets);
+   ASSERT(texImage->Map.Data == NULL);
+   if (texImage->Map.ImageOffsets)
+      _mesa_free(texImage->Map.ImageOffsets);
    _mesa_free(texImage);
 }
 
@@ -842,10 +842,10 @@ clear_teximage_fields(struct gl_texture_image *img)
    img->Width = 0;
    img->Height = 0;
    img->Depth = 0;
-   img->RowStride = 0;
-   if (img->ImageOffsets) {
-      _mesa_free(img->ImageOffsets);
-      img->ImageOffsets = NULL;
+   img->Map.RowStride = 0;
+   if (img->Map.ImageOffsets) {
+      _mesa_free(img->Map.ImageOffsets);
+      img->Map.ImageOffsets = NULL;
    }
    img->Width2 = 0;
    img->Height2 = 0;
@@ -853,7 +853,7 @@ clear_teximage_fields(struct gl_texture_image *img)
    img->WidthLog2 = 0;
    img->HeightLog2 = 0;
    img->DepthLog2 = 0;
-   img->Data = NULL;
+   img->Map.Data = NULL;
    img->TexFormat = MESA_FORMAT_NONE;
    img->FetchTexelc = NULL;
    img->FetchTexelf = NULL;
@@ -926,17 +926,17 @@ _mesa_init_teximage_fields(GLcontext *ctx, GLenum target,
    else
       img->_IsPowerOfTwo = GL_FALSE;
 
-   /* RowStride and ImageOffsets[] describe how to address texels in 'Data' */
-   img->RowStride = width;
-   /* Allocate the ImageOffsets array and initialize to typical values.
+   /* RowStride and ImageOffsetss[] describe how to address texels in 'Data' */
+   img->Map.RowStride = width;
+   /* Allocate the Map.ImageOffsetss array and initialize to typical values.
     * We allocate the array for 1D/2D textures too in order to avoid special-
     * case code in the texstore routines.
     */
-   if (img->ImageOffsets)
-      _mesa_free(img->ImageOffsets);
-   img->ImageOffsets = (GLuint *) _mesa_malloc(depth * sizeof(GLuint));
+   if (img->Map.ImageOffsets)
+      _mesa_free(img->Map.ImageOffsets);
+   img->Map.ImageOffsets = (GLuint *) _mesa_malloc(depth * sizeof(GLuint));
    for (i = 0; i < depth; i++) {
-      img->ImageOffsets[i] = i * width * height;
+      img->Map.ImageOffsets[i] = i * width * height;
    }
 
    /* Compute Width/Height/DepthScale for mipmap lod computation */
@@ -2137,11 +2137,11 @@ _mesa_TexImage1D( GLenum target, GLint level, GLint internalFormat,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage1D");
 	 }
          else {
-            if (texImage->Data) {
+            if (texImage->Map.Data) {
                ctx->Driver.FreeTexImageData( ctx, texImage );
             }
 
-            ASSERT(texImage->Data == NULL);
+            ASSERT(texImage->Map.Data == NULL);
 
             clear_teximage_fields(texImage); /* not really needed, but helpful */
             _mesa_init_teximage_fields(ctx, target, texImage,
@@ -2258,11 +2258,11 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
 	 }
          else {
-            if (texImage->Data) {
+            if (texImage->Map.Data) {
                ctx->Driver.FreeTexImageData( ctx, texImage );
             }
 
-            ASSERT(texImage->Data == NULL);
+            ASSERT(texImage->Map.Data == NULL);
             clear_teximage_fields(texImage); /* not really needed, but helpful */
             _mesa_init_teximage_fields(ctx, target, texImage,
                                        postConvWidth, postConvHeight, 1,
@@ -2374,11 +2374,11 @@ _mesa_TexImage3D( GLenum target, GLint level, GLint internalFormat,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage3D");
 	 }
          else {
-            if (texImage->Data) {
+            if (texImage->Map.Data) {
                ctx->Driver.FreeTexImageData( ctx, texImage );
             }
 
-            ASSERT(texImage->Data == NULL);
+            ASSERT(texImage->Map.Data == NULL);
             clear_teximage_fields(texImage); /* not really needed, but helpful */
             _mesa_init_teximage_fields(ctx, target, texImage,
                                        width, height, depth,
@@ -2684,11 +2684,11 @@ _mesa_CopyTexImage1D( GLenum target, GLint level,
 	 _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCopyTexImage1D");
       }
       else {
-         if (texImage->Data) {
+         if (texImage->Map.Data) {
             ctx->Driver.FreeTexImageData( ctx, texImage );
          }
 
-         ASSERT(texImage->Data == NULL);
+         ASSERT(texImage->Map.Data == NULL);
 
          clear_teximage_fields(texImage); /* not really needed, but helpful */
          _mesa_init_teximage_fields(ctx, target, texImage, postConvWidth, 1, 1,
@@ -2764,11 +2764,11 @@ _mesa_CopyTexImage2D( GLenum target, GLint level, GLenum internalFormat,
 	 _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCopyTexImage2D");
       }
       else {
-         if (texImage->Data) {
+         if (texImage->Map.Data) {
             ctx->Driver.FreeTexImageData( ctx, texImage );
          }
 
-         ASSERT(texImage->Data == NULL);
+         ASSERT(texImage->Map.Data == NULL);
 
          clear_teximage_fields(texImage); /* not really needed, but helpful */
          _mesa_init_teximage_fields(ctx, target, texImage,
@@ -3292,10 +3292,10 @@ _mesa_CompressedTexImage1DARB(GLenum target, GLint level,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage1D");
 	 }
          else {
-            if (texImage->Data) {
+            if (texImage->Map.Data) {
                ctx->Driver.FreeTexImageData( ctx, texImage );
             }
-            ASSERT(texImage->Data == NULL);
+            ASSERT(texImage->Map.Data == NULL);
 
             _mesa_init_teximage_fields(ctx, target, texImage, width, 1, 1,
                                        border, internalFormat);
@@ -3402,10 +3402,10 @@ _mesa_CompressedTexImage2DARB(GLenum target, GLint level,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage2D");
 	 }
          else {
-            if (texImage->Data) {
+            if (texImage->Map.Data) {
                ctx->Driver.FreeTexImageData( ctx, texImage );
             }
-            ASSERT(texImage->Data == NULL);
+            ASSERT(texImage->Map.Data == NULL);
 
             _mesa_init_teximage_fields(ctx, target, texImage, width, height, 1,
                                        border, internalFormat);
@@ -3510,10 +3510,10 @@ _mesa_CompressedTexImage3DARB(GLenum target, GLint level,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage3D");
 	 }
          else {
-            if (texImage->Data) {
+            if (texImage->Map.Data) {
                ctx->Driver.FreeTexImageData( ctx, texImage );
             }
-            ASSERT(texImage->Data == NULL);
+            ASSERT(texImage->Map.Data == NULL);
 
             _mesa_init_teximage_fields(ctx, target, texImage,
                                        width, height, depth,

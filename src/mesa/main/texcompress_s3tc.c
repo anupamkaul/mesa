@@ -410,8 +410,8 @@ fetch_texel_2d_rgb_dxt1( const struct gl_texture_image *texImage,
    (void) k;
    if (fetch_ext_rgb_dxt1) {
       ASSERT (sizeof(GLchan) == sizeof(GLubyte));
-      fetch_ext_rgb_dxt1(texImage->RowStride,
-                         (GLubyte *)(texImage)->Data, i, j, texel);
+      fetch_ext_rgb_dxt1(texImage->Map.RowStride,
+                         (GLubyte *)(texImage)->Map.Data, i, j, texel);
    }
    else
       _mesa_debug(NULL, "attempted to decode s3tc texture without library available: fetch_texel_2d_rgb_dxt1");
@@ -438,8 +438,8 @@ fetch_texel_2d_rgba_dxt1( const struct gl_texture_image *texImage,
 {
    (void) k;
    if (fetch_ext_rgba_dxt1) {
-      fetch_ext_rgba_dxt1(texImage->RowStride,
-                          (GLubyte *)(texImage)->Data, i, j, texel);
+      fetch_ext_rgba_dxt1(texImage->Map.RowStride,
+                          (GLubyte *)(texImage)->Map.Data, i, j, texel);
    }
    else
       _mesa_debug(NULL, "attempted to decode s3tc texture without library available: fetch_texel_2d_rgba_dxt1\n");
@@ -467,7 +467,8 @@ fetch_texel_2d_rgba_dxt3( const struct gl_texture_image *texImage,
    (void) k;
    if (fetch_ext_rgba_dxt3) {
       ASSERT (sizeof(GLchan) == sizeof(GLubyte));
-      fetch_ext_rgba_dxt3(texImage->RowStride, (GLubyte *)(texImage)->Data,
+      fetch_ext_rgba_dxt3(texImage->Map.RowStride,
+                          (GLubyte *)(texImage)->Map.Data,
                           i, j, texel);
    }
    else
@@ -495,7 +496,8 @@ fetch_texel_2d_rgba_dxt5( const struct gl_texture_image *texImage,
 {
    (void) k;
    if (fetch_ext_rgba_dxt5) {
-      fetch_ext_rgba_dxt5(texImage->RowStride, (GLubyte *)(texImage)->Data,
+      fetch_ext_rgba_dxt5(texImage->Map.RowStride,
+                          (GLubyte *)(texImage)->Map.Data,
                           i, j, texel);
    }
    else

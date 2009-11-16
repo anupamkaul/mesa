@@ -674,7 +674,7 @@ tdfxTMDownloadTexture(tdfxContextPtr fxMesa, struct gl_texture_object *tObj)
     case TDFX_TMU1:
         if (ti->tm[targetTMU]) {
             for (l = ti->minLevel; l <= ti->maxLevel
-                    && tObj->Image[0][l]->Data; l++) {
+                    && tObj->Image[0][l]->Map.Data; l++) {
                 GrLOD_t glideLod = ti->info.largeLodLog2 - l + tObj->BaseLevel;
                 fxMesa->Glide.grTexDownloadMipMapLevel(targetTMU,
                                                   ti->tm[targetTMU]->startAddr,
@@ -683,14 +683,14 @@ tdfxTMDownloadTexture(tdfxContextPtr fxMesa, struct gl_texture_object *tObj)
                                                   ti->info.aspectRatioLog2,
                                                   ti->info.format,
                                                   GR_MIPMAPLEVELMASK_BOTH,
-                                                  tObj->Image[0][l]->Data);
+                                                  tObj->Image[0][l]->Map.Data);
             }
         }
         break;
     case TDFX_TMU_SPLIT:
         if (ti->tm[TDFX_TMU0] && ti->tm[TDFX_TMU1]) {
             for (l = ti->minLevel; l <= ti->maxLevel
-                    && tObj->Image[0][l]->Data; l++) {
+                    && tObj->Image[0][l]->Map.Data; l++) {
                 GrLOD_t glideLod = ti->info.largeLodLog2 - l + tObj->BaseLevel;
                 fxMesa->Glide.grTexDownloadMipMapLevel(GR_TMU0,
                                                   ti->tm[TDFX_TMU0]->startAddr,
@@ -699,7 +699,7 @@ tdfxTMDownloadTexture(tdfxContextPtr fxMesa, struct gl_texture_object *tObj)
                                                   ti->info.aspectRatioLog2,
                                                   ti->info.format,
                                                   GR_MIPMAPLEVELMASK_ODD,
-                                                  tObj->Image[0][l]->Data);
+                                                  tObj->Image[0][l]->Map.Data);
 
                 fxMesa->Glide.grTexDownloadMipMapLevel(GR_TMU1,
                                                   ti->tm[TDFX_TMU1]->startAddr,
@@ -708,14 +708,14 @@ tdfxTMDownloadTexture(tdfxContextPtr fxMesa, struct gl_texture_object *tObj)
                                                   ti->info.aspectRatioLog2,
                                                   ti->info.format,
                                                   GR_MIPMAPLEVELMASK_EVEN,
-                                                  tObj->Image[0][l]->Data);
+                                                  tObj->Image[0][l]->Map.Data);
             }
         }
         break;
     case TDFX_TMU_BOTH:
         if (ti->tm[TDFX_TMU0] && ti->tm[TDFX_TMU1]) {
             for (l = ti->minLevel; l <= ti->maxLevel
-                    && tObj->Image[0][l]->Data; l++) {
+                    && tObj->Image[0][l]->Map.Data; l++) {
                 GrLOD_t glideLod = ti->info.largeLodLog2 - l + tObj->BaseLevel;
                 fxMesa->Glide.grTexDownloadMipMapLevel(GR_TMU0,
                                                   ti->tm[TDFX_TMU0]->startAddr,
@@ -724,7 +724,7 @@ tdfxTMDownloadTexture(tdfxContextPtr fxMesa, struct gl_texture_object *tObj)
                                                   ti->info.aspectRatioLog2,
                                                   ti->info.format,
                                                   GR_MIPMAPLEVELMASK_BOTH,
-                                                  tObj->Image[0][l]->Data);
+                                                  tObj->Image[0][l]->Map.Data);
 
                 fxMesa->Glide.grTexDownloadMipMapLevel(GR_TMU1,
                                                   ti->tm[TDFX_TMU1]->startAddr,
@@ -733,7 +733,7 @@ tdfxTMDownloadTexture(tdfxContextPtr fxMesa, struct gl_texture_object *tObj)
                                                   ti->info.aspectRatioLog2,
                                                   ti->info.format,
                                                   GR_MIPMAPLEVELMASK_BOTH,
-                                                  tObj->Image[0][l]->Data);
+                                                  tObj->Image[0][l]->Map.Data);
             }
         }
         break;
@@ -769,7 +769,7 @@ tdfxTMReloadMipMapLevel(GLcontext *ctx, struct gl_texture_object *tObj,
                                     ti->info.aspectRatioLog2,
                                     ti->info.format,
                                     GR_MIPMAPLEVELMASK_BOTH,
-                                    tObj->Image[0][level]->Data);
+                                    tObj->Image[0][level]->Map.Data);
         break;
     case TDFX_TMU_SPLIT:
         fxMesa->Glide.grTexDownloadMipMapLevel(GR_TMU0,
@@ -779,7 +779,7 @@ tdfxTMReloadMipMapLevel(GLcontext *ctx, struct gl_texture_object *tObj,
                                     ti->info.aspectRatioLog2,
                                     ti->info.format,
                                     GR_MIPMAPLEVELMASK_ODD,
-                                    tObj->Image[0][level]->Data);
+                                    tObj->Image[0][level]->Map.Data);
 
         fxMesa->Glide.grTexDownloadMipMapLevel(GR_TMU1,
                                     ti->tm[GR_TMU1]->startAddr,
@@ -788,7 +788,7 @@ tdfxTMReloadMipMapLevel(GLcontext *ctx, struct gl_texture_object *tObj,
                                     ti->info.aspectRatioLog2,
                                     ti->info.format,
                                     GR_MIPMAPLEVELMASK_EVEN,
-                                    tObj->Image[0][level]->Data);
+                                    tObj->Image[0][level]->Map.Data);
         break;
     case TDFX_TMU_BOTH:
         fxMesa->Glide.grTexDownloadMipMapLevel(GR_TMU0,
@@ -798,7 +798,7 @@ tdfxTMReloadMipMapLevel(GLcontext *ctx, struct gl_texture_object *tObj,
                                     ti->info.aspectRatioLog2,
                                     ti->info.format,
                                     GR_MIPMAPLEVELMASK_BOTH,
-                                    tObj->Image[0][level]->Data);
+                                    tObj->Image[0][level]->Map.Data);
 
         fxMesa->Glide.grTexDownloadMipMapLevel(GR_TMU1,
                                     ti->tm[GR_TMU1]->startAddr,
@@ -807,7 +807,7 @@ tdfxTMReloadMipMapLevel(GLcontext *ctx, struct gl_texture_object *tObj,
                                     ti->info.aspectRatioLog2,
                                     ti->info.format,
                                     GR_MIPMAPLEVELMASK_BOTH,
-                                    tObj->Image[0][level]->Data);
+                                    tObj->Image[0][level]->Map.Data);
         break;
 
     default:

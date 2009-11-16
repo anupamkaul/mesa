@@ -98,7 +98,7 @@ copy_image_data_to_tree(struct intel_context *intel,
       intel_miptree_release(intel, &intelImage->mt);
    }
    else {
-      assert(intelImage->base.Data != NULL);
+      assert(intelImage->base.Map.Data != NULL);
 
       /* More straightforward upload.  
        */
@@ -106,12 +106,12 @@ copy_image_data_to_tree(struct intel_context *intel,
                                intelObj->mt,
                                intelImage->face,
                                intelImage->level,
-                               intelImage->base.Data,
-                               intelImage->base.RowStride,
-                               intelImage->base.RowStride *
+                               intelImage->base.Map.Data,
+                               intelImage->base.Map.RowStride,
+                               intelImage->base.Map.RowStride *
                                intelImage->base.Height);
-      _mesa_align_free(intelImage->base.Data);
-      intelImage->base.Data = NULL;
+      _mesa_align_free(intelImage->base.Map.Data);
+      intelImage->base.Map.Data = NULL;
    }
 
    intel_miptree_reference(&intelImage->mt, intelObj->mt);
@@ -246,15 +246,15 @@ intel_tex_map_level_image(struct intel_context *intel,
       intel_texture_image(intelObj->base.Image[face][level]);
 
    if (intelImage && intelImage->mt) {
-      intelImage->base.Data =
+      intelImage->base.Map.Data =
          intel_miptree_image_map(intel,
                                  intelImage->mt,
                                  intelImage->face,
                                  intelImage->level,
-                                 &intelImage->base.RowStride,
-                                 intelImage->base.ImageOffsets);
+                                 &intelImage->base.Map.RowStride,
+                                 intelImage->base.Map.ImageOffsets);
       /* convert stride to texels, not bytes */
-      intelImage->base.RowStride /= intelImage->mt->cpp;
+      intelImage->base.Map.RowStride /= intelImage->mt->cpp;
       /* intelImage->base.ImageStride /= intelImage->mt->cpp; */
    }
 }
@@ -270,7 +270,7 @@ intel_tex_unmap_level_image(struct intel_context *intel,
 
    if (intelImage && intelImage->mt) {
       intel_miptree_image_unmap(intel, intelImage->mt);
-      intelImage->base.Data = NULL;
+      intelImage->base.Map.Data = NULL;
    }
 }
 

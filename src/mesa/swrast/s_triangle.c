@@ -141,7 +141,7 @@ _swrast_culltriangle( GLcontext *ctx,
    const GLfloat twidth = (GLfloat) texImg->Width;			\
    const GLfloat theight = (GLfloat) texImg->Height;			\
    const GLint twidth_log2 = texImg->WidthLog2;				\
-   const GLubyte *texture = (const GLubyte *) texImg->Data;		\
+   const GLubyte *texture = (const GLubyte *) texImg->Map.Data;		\
    const GLint smask = texImg->Width - 1;				\
    const GLint tmask = texImg->Height - 1;				\
    ASSERT(texImg->TexFormat == MESA_FORMAT_RGB888);			\
@@ -195,7 +195,7 @@ _swrast_culltriangle( GLcontext *ctx,
    const GLfloat twidth = (GLfloat) texImg->Width;			\
    const GLfloat theight = (GLfloat) texImg->Height;			\
    const GLint twidth_log2 = texImg->WidthLog2;				\
-   const GLubyte *texture = (const GLubyte *) texImg->Data;		\
+   const GLubyte *texture = (const GLubyte *) texImg->Map.Data;		\
    const GLint smask = texImg->Width - 1;				\
    const GLint tmask = texImg->Height - 1;				\
    ASSERT(texImg->TexFormat == MESA_FORMAT_RGB888);			\
@@ -546,7 +546,7 @@ affine_span(GLcontext *ctx, SWspan *span,
       obj->Image[0][obj->BaseLevel]; 					\
    const GLfloat twidth = (GLfloat) texImg->Width;			\
    const GLfloat theight = (GLfloat) texImg->Height;			\
-   info.texture = (const GLchan *) texImg->Data;			\
+   info.texture = (const GLchan *) texImg->Map.Data;			\
    info.twidth_log2 = texImg->WidthLog2;				\
    info.smask = texImg->Width - 1;					\
    info.tmask = texImg->Height - 1;					\
@@ -808,7 +808,7 @@ fast_persp_span(GLcontext *ctx, SWspan *span,
       ctx->Texture.Unit[0].CurrentTex[TEXTURE_2D_INDEX];		\
    const struct gl_texture_image *texImg = 				\
       obj->Image[0][obj->BaseLevel];			 		\
-   info.texture = (const GLchan *) texImg->Data;			\
+   info.texture = (const GLchan *) texImg->Map.Data;			\
    info.twidth_log2 = texImg->WidthLog2;				\
    info.smask = texImg->Width - 1;					\
    info.tmask = texImg->Height - 1;					\
@@ -1073,7 +1073,7 @@ _swrast_choose_triangle( GLcontext *ctx )
              && texObj2D->_Swizzle == SWIZZLE_NOOP
              && texImg->_IsPowerOfTwo
              && texImg->Border == 0
-             && texImg->Width == texImg->RowStride
+             && texImg->Width == texImg->Map.RowStride
              && (format == MESA_FORMAT_RGB888 || format == MESA_FORMAT_RGBA8888)
              && minFilter == magFilter
              && ctx->Light.Model.ColorControl == GL_SINGLE_COLOR

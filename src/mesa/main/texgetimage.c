@@ -110,14 +110,14 @@ get_tex_color_index(GLcontext *ctx, GLuint dimensions,
          assert(dest);
 
          if (indexBits == 8) {
-            const GLubyte *src = (const GLubyte *) texImage->Data;
+            const GLubyte *src = (const GLubyte *) texImage->Map.Data;
             src += width * (img * texImage->Height + row);
             for (col = 0; col < width; col++) {
                indexRow[col] = src[col];
             }
          }
          else if (indexBits == 16) {
-            const GLushort *src = (const GLushort *) texImage->Data;
+            const GLushort *src = (const GLushort *) texImage->Map.Data;
             src += width * (img * texImage->Height + row);
             for (col = 0; col < width; col++) {
                indexRow[col] = src[col];
@@ -174,7 +174,7 @@ get_tex_depth_stencil(GLcontext *ctx, GLuint dimensions,
    const GLint width = texImage->Width;
    const GLint height = texImage->Height;
    const GLint depth = texImage->Depth;
-   const GLuint *src = (const GLuint *) texImage->Data;
+   const GLuint *src = (const GLuint *) texImage->Map.Data;
    GLint img, row;
 
    for (img = 0; img < depth; img++) {
@@ -204,8 +204,8 @@ get_tex_ycbcr(GLcontext *ctx, GLuint dimensions,
    const GLint width = texImage->Width;
    const GLint height = texImage->Height;
    const GLint depth = texImage->Depth;
-   const GLint rowstride = texImage->RowStride;
-   const GLushort *src = (const GLushort *) texImage->Data;
+   const GLint rowstride = texImage->Map.RowStride;
+   const GLushort *src = (const GLushort *) texImage->Map.Data;
    GLint img, row;
 
    for (img = 0; img < depth; img++) {
@@ -366,7 +366,7 @@ get_tex_memcpy(GLcontext *ctx, GLenum format, GLenum type, GLvoid *pixels,
    GLboolean memCopy = GL_FALSE;
 
    /* Texture image should have been mapped already */
-   assert(texImage->Data);
+   assert(texImage->Map.Data);
 
    /*
     * Check if the src/dst formats are compatible.
@@ -413,8 +413,8 @@ get_tex_memcpy(GLcontext *ctx, GLenum format, GLenum type, GLvoid *pixels,
                                texImage->Height, format, type, 0, 0);
       const GLint dstRowStride =
          _mesa_image_row_stride(&ctx->Pack, texImage->Width, format, type);
-      const GLubyte *src = texImage->Data;
-      const GLint srcRowStride = texImage->RowStride * bpp;
+      const GLubyte *src = texImage->Map.Data;
+      const GLint srcRowStride = texImage->Map.RowStride * bpp;
       GLuint row;
 
       if (bytesPerRow == dstRowStride && bytesPerRow == srcRowStride) {
@@ -447,7 +447,7 @@ _mesa_get_teximage(GLcontext *ctx, GLenum target, GLint level,
    GLuint dimensions;
 
    /* If we get here, the texture image should be mapped */
-   assert(texImage->Data);
+   assert(texImage->Map.Data);
 
    switch (target) {
    case GL_TEXTURE_1D:
@@ -541,7 +541,7 @@ _mesa_get_compressed_teximage(GLcontext *ctx, GLenum target, GLint level,
    }
 
    /* just memcpy, no pixelstore or pixel transfer */
-   _mesa_memcpy(img, texImage->Data, size);
+   _mesa_memcpy(img, texImage->Map.Data, size);
 
    if (_mesa_is_bufferobj(ctx->Pack.BufferObj)) {
       ctx->Driver.UnmapBuffer(ctx, GL_PIXEL_PACK_BUFFER_EXT,

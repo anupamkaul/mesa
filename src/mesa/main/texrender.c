@@ -512,7 +512,7 @@ update_wrapper(GLcontext *ctx, const struct gl_renderbuffer_attachment *att)
       trb->Base.Format = trb->TexImage->TexFormat;
       trb->Base.DataType = CHAN_TYPE;
    }
-   trb->Base.Data = trb->TexImage->Data;
+   trb->Base.Data = trb->TexImage->Map.Data;
    trb->Base._BaseFormat = _mesa_base_fbo_format(ctx, trb->Base.InternalFormat);
 }
 

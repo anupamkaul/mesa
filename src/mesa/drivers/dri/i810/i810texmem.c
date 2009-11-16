@@ -93,14 +93,14 @@ static void i810UploadTexLevel( i810ContextPtr imesa,
    int j;
    GLuint texelBytes;
 
-   if (!image || !image->Data)
+   if (!image || !image->Map.Data)
       return;
 
    texelBytes = _mesa_get_format_bytes(image->TexFormat);
 
    if (image->Width * texelBytes == t->Pitch) {
 	 GLubyte *dst = (GLubyte *)(t->BufAddr + t->image[hwlevel].offset);
-	 GLubyte *src = (GLubyte *)image->Data;
+	 GLubyte *src = (GLubyte *)image->Map.Data;
 	 
 	 memcpy( dst, src, t->Pitch * image->Height );
    }
@@ -109,7 +109,7 @@ static void i810UploadTexLevel( i810ContextPtr imesa,
       case 1:
          {
             GLubyte *dst = (GLubyte *)(t->BufAddr + t->image[hwlevel].offset);
-            GLubyte *src = (GLubyte *)image->Data;
+            GLubyte *src = (GLubyte *)image->Map.Data;
 
             for (j = 0 ; j < image->Height ; j++, dst += t->Pitch) {
                __memcpy(dst, src, image->Width );
@@ -120,7 +120,7 @@ static void i810UploadTexLevel( i810ContextPtr imesa,
       case 2:
          {
             GLushort *dst = (GLushort *)(t->BufAddr + t->image[hwlevel].offset);
-            GLushort *src = (GLushort *)image->Data;
+            GLushort *src = (GLushort *)image->Map.Data;
 
             for (j = 0 ; j < image->Height ; j++, dst += (t->Pitch/2)) {
                __memcpy(dst, src, image->Width * 2 );

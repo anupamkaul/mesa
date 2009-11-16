@@ -379,7 +379,7 @@ static void sisTexImage1D( GLcontext *ctx, GLenum target, GLint level,
 
    /* Upload the texture */
    WaitEngIdle(smesa);
-   memcpy(t->image[level].Data, texImage->Data, t->image[level].size);
+   memcpy(t->image[level].Data, texImage->Map.Data, t->image[level].size);
    
    if (smesa->PrevTexFormat[ctx->Texture.CurrentUnit] != t->format)
    {
@@ -425,7 +425,7 @@ static void sisTexSubImage1D( GLcontext *ctx,
    texelBytes = _mesa_get_format_bytes(texImage->TexFormat);
 
    copySize = width * texelBytes;
-   src = (char *)texImage->Data + xoffset * texelBytes;
+   src = (char *)texImage->Map.Data + xoffset * texelBytes;
    dst = t->image[level].Data + xoffset * texelBytes;
 
    memcpy( dst, src, copySize );
@@ -466,7 +466,7 @@ static void sisTexImage2D( GLcontext *ctx, GLenum target, GLint level,
 
    /* Upload the texture */
    WaitEngIdle(smesa);
-   memcpy(t->image[level].Data, texImage->Data, t->image[level].size);
+   memcpy(t->image[level].Data, texImage->Map.Data, t->image[level].size);
    
    if (smesa->PrevTexFormat[ctx->Texture.CurrentUnit] != t->format)
    {
@@ -513,7 +513,7 @@ static void sisTexSubImage2D( GLcontext *ctx,
    texelBytes = _mesa_get_format_bytes(texImage->TexFormat);
 
    copySize = width * texelBytes;
-   src = (char *)texImage->Data + (xoffset + yoffset * texImage->Width) *
+   src = (char *)texImage->Map.Data + (xoffset + yoffset * texImage->Width) *
       texelBytes;
    dst = t->image[level].Data + (xoffset + yoffset * texImage->Width) *
       texelBytes;

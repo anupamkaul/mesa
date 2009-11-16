@@ -1605,7 +1605,7 @@ _mesa_generate_mipmap(GLcontext *ctx, GLenum target,
       }
 
       /* Free old image data */
-      if (dstImage->Data)
+      if (dstImage->Map.Data)
          ctx->Driver.FreeTexImageData(ctx, dstImage);
 
       /* initialize new image */
@@ -1625,8 +1625,8 @@ _mesa_generate_mipmap(GLcontext *ctx, GLenum target,
                                     dstImage->Height, dstImage->Depth);
          ASSERT(dstCompressedSize > 0);
 
-         dstImage->Data = _mesa_alloc_texmemory(dstCompressedSize);
-         if (!dstImage->Data) {
+         dstImage->Map.Data = _mesa_alloc_texmemory(dstCompressedSize);
+         if (!dstImage->Map.Data) {
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "generating mipmaps");
             return;
          }
@@ -1637,14 +1637,14 @@ _mesa_generate_mipmap(GLcontext *ctx, GLenum target,
       else {
          bytesPerTexel = _mesa_get_format_bytes(dstImage->TexFormat);
          ASSERT(dstWidth * dstHeight * dstDepth * bytesPerTexel > 0);
-         dstImage->Data = _mesa_alloc_texmemory(dstWidth * dstHeight
-                                                * dstDepth * bytesPerTexel);
-         if (!dstImage->Data) {
+         dstImage->Map.Data = _mesa_alloc_texmemory(dstWidth * dstHeight
+                                                    * dstDepth * bytesPerTexel);
+         if (!dstImage->Map.Data) {
             _mesa_error(ctx, GL_OUT_OF_MEMORY, "generating mipmaps");
             return;
          }
-         srcData = (const GLubyte *) srcImage->Data;
-         dstData = (GLubyte *) dstImage->Data;
+         srcData = (const GLubyte *) srcImage->Map.Data;
+         dstData = (GLubyte *) dstImage->Map.Data;
       }
 
       ASSERT(dstImage->TexFormat);
@@ -1653,9 +1653,9 @@ _mesa_generate_mipmap(GLcontext *ctx, GLenum target,
 
       _mesa_generate_mipmap_level(target, datatype, comps, border,
                                   srcWidth, srcHeight, srcDepth, 
-                                  srcData, srcImage->RowStride,
+                                  srcData, srcImage->Map.RowStride,
                                   dstWidth, dstHeight, dstDepth, 
-                                  dstData, dstImage->RowStride);
+                                  dstData, dstImage->Map.RowStride);
 
 
       if (_mesa_is_format_compressed(dstImage->TexFormat)) {
@@ -1668,7 +1668,7 @@ _mesa_generate_mipmap(GLcontext *ctx, GLenum target,
 
          _mesa_texstore(ctx, 2, dstImage->_BaseFormat,
                         dstImage->TexFormat,
-                        dstImage->Data,
+                        dstImage->Map.Data,
                         0, 0, 0, /* dstX/Y/Zoffset */
                         dstRowStride, 0, /* strides */
                         dstWidth, dstHeight, 1, /* size */

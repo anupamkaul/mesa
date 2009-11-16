@@ -115,11 +115,11 @@ static void mach64UploadAGPSubImage( mach64ContextPtr mmesa,
 	       (GLuint)t->bufAddr, (GLint)width, dwords );
    }
 
-   assert(image->Data);
+   assert(image->Map.Data);
 
    {
       CARD32 *dst = (CARD32 *)((char *)mach64Screen->agpTextures.map + t->base.memBlock->ofs);
-      const GLubyte *src = (const GLubyte *) image->Data +
+      const GLubyte *src = (const GLubyte *) image->Map.Data +
 	 (y * image->Width + x) * texelBytes;
       const GLuint bytes = width * height * texelBytes;
       memcpy(dst, src, bytes);
@@ -260,10 +260,10 @@ static void mach64UploadLocalSubImage( mach64ContextPtr mmesa,
    {
        height = MIN2(remaining, rows);
 
-       assert(image->Data);
+       assert(image->Map.Data);
 
        {
-          const GLubyte *src = (const GLubyte *) image->Data +
+          const GLubyte *src = (const GLubyte *) image->Map.Data +
              (y * image->Width + x) * texelBytes;
 
           mach64FireBlitLocked( mmesa, (void *)src, offset, pitch, format,

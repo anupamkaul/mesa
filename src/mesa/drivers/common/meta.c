@@ -2517,7 +2517,7 @@ copy_tex_image(GLcontext *ctx, GLuint dims, GLenum target, GLint level,
    }
 #endif
 
-   if (texImage->Data) {
+   if (texImage->Map.Data) {
       ctx->Driver.FreeTexImageData(ctx, texImage);
    }
 
