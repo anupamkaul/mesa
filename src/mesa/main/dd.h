@@ -523,6 +523,16 @@ struct dd_function_table {
    void (*UnmapTexture)( GLcontext *ctx, struct gl_texture_object *tObj );
 
    /**
+    * Map a single texture image.
+    * \param mode  either GL_READ_ONLY, GL_WRITE_ONLY, GL_READ_WRITE
+    */
+   void (*MapTextureImage)( GLcontext *ctx, struct gl_texture_object *tObj,
+                            GLuint level, GLuint face, GLenum mode );
+   /** Unmap single texture image */
+   void (*UnmapTextureImage)( GLcontext *ctx, struct gl_texture_object *tObj,
+                              GLuint level, GLuint face );
+
+   /**
     * Note: no context argument.  This function doesn't initially look
     * like it belongs here, except that the driver is the only entity
     * that knows for sure how the texture memory is allocated - via
