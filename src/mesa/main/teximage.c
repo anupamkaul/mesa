@@ -2137,9 +2137,7 @@ _mesa_TexImage1D( GLenum target, GLint level, GLint internalFormat,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage1D");
 	 }
          else {
-            if (texImage->Map.Data) {
-               ctx->Driver.FreeTexImageData( ctx, texImage );
-            }
+            ctx->Driver.FreeTexImageData( ctx, texImage );
 
             ASSERT(texImage->Map.Data == NULL);
 
@@ -2258,9 +2256,7 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
 	 }
          else {
-            if (texImage->Map.Data) {
-               ctx->Driver.FreeTexImageData( ctx, texImage );
-            }
+            ctx->Driver.FreeTexImageData( ctx, texImage );
 
             ASSERT(texImage->Map.Data == NULL);
             clear_teximage_fields(texImage); /* not really needed, but helpful */
@@ -2374,9 +2370,7 @@ _mesa_TexImage3D( GLenum target, GLint level, GLint internalFormat,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage3D");
 	 }
          else {
-            if (texImage->Map.Data) {
-               ctx->Driver.FreeTexImageData( ctx, texImage );
-            }
+            ctx->Driver.FreeTexImageData( ctx, texImage );
 
             ASSERT(texImage->Map.Data == NULL);
             clear_teximage_fields(texImage); /* not really needed, but helpful */
@@ -2684,9 +2678,7 @@ _mesa_CopyTexImage1D( GLenum target, GLint level,
 	 _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCopyTexImage1D");
       }
       else {
-         if (texImage->Map.Data) {
-            ctx->Driver.FreeTexImageData( ctx, texImage );
-         }
+         ctx->Driver.FreeTexImageData( ctx, texImage );
 
          ASSERT(texImage->Map.Data == NULL);
 
@@ -2764,9 +2756,7 @@ _mesa_CopyTexImage2D( GLenum target, GLint level, GLenum internalFormat,
 	 _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCopyTexImage2D");
       }
       else {
-         if (texImage->Map.Data) {
-            ctx->Driver.FreeTexImageData( ctx, texImage );
-         }
+         ctx->Driver.FreeTexImageData( ctx, texImage );
 
          ASSERT(texImage->Map.Data == NULL);
 
@@ -3292,10 +3282,7 @@ _mesa_CompressedTexImage1DARB(GLenum target, GLint level,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage1D");
 	 }
          else {
-            if (texImage->Map.Data) {
-               ctx->Driver.FreeTexImageData( ctx, texImage );
-            }
-            ASSERT(texImage->Map.Data == NULL);
+            ctx->Driver.FreeTexImageData( ctx, texImage );
 
             _mesa_init_teximage_fields(ctx, target, texImage, width, 1, 1,
                                        border, internalFormat);
@@ -3402,10 +3389,7 @@ _mesa_CompressedTexImage2DARB(GLenum target, GLint level,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage2D");
 	 }
          else {
-            if (texImage->Map.Data) {
-               ctx->Driver.FreeTexImageData( ctx, texImage );
-            }
-            ASSERT(texImage->Map.Data == NULL);
+            ctx->Driver.FreeTexImageData( ctx, texImage );
 
             _mesa_init_teximage_fields(ctx, target, texImage, width, height, 1,
                                        border, internalFormat);
@@ -3510,10 +3494,7 @@ _mesa_CompressedTexImage3DARB(GLenum target, GLint level,
 	    _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage3D");
 	 }
          else {
-            if (texImage->Map.Data) {
-               ctx->Driver.FreeTexImageData( ctx, texImage );
-            }
-            ASSERT(texImage->Map.Data == NULL);
+            ctx->Driver.FreeTexImageData( ctx, texImage );
 
             _mesa_init_teximage_fields(ctx, target, texImage,
                                        width, height, depth,
