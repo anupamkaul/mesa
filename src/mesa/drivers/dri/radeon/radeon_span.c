@@ -811,7 +811,7 @@ static void radeonSpanRenderStart(GLcontext * ctx)
 
 	for (i = 0; i < ctx->Const.MaxTextureImageUnits; i++) {
 		if (ctx->Texture.Unit[i]._ReallyEnabled)
-			ctx->Driver.MapTexture(ctx, ctx->Texture.Unit[i]._Current);
+			ctx->Driver.MapTexture(ctx, ctx->Texture.Unit[i]._Current, GL_READ_WRITE);
 	}
 
 	radeon_map_unmap_buffers(ctx, 1);

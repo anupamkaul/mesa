@@ -273,7 +273,8 @@ map_textures(GLcontext *ctx, const struct gl_vertex_program *vp)
          /* Note: _Current *should* correspond to the target indicated
           * in TexturesUsed[u].
           */
-         ctx->Driver.MapTexture(ctx, ctx->Texture.Unit[u]._Current);
+         ctx->Driver.MapTexture(ctx, ctx->Texture.Unit[u]._Current,
+                                GL_READ_ONLY);
       }
    }
 }

@@ -513,8 +513,12 @@ struct dd_function_table {
     */
    void (*FreeTexImageData)( GLcontext *ctx, struct gl_texture_image *tImage );
 
-   /** Map texture image data into user space */
-   void (*MapTexture)( GLcontext *ctx, struct gl_texture_object *tObj );
+   /**
+    * Map texture image data into user space.
+    * \param mode  either GL_READ_ONLY or GL_READ_WRITE
+    */
+   void (*MapTexture)( GLcontext *ctx, struct gl_texture_object *tObj,
+                       GLenum mode );
    /** Unmap texture images from user space */
    void (*UnmapTexture)( GLcontext *ctx, struct gl_texture_object *tObj );
 
