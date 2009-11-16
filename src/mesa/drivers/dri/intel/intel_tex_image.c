@@ -352,14 +352,7 @@ intelTexImage(GLcontext * ctx,
    /* Release the reference to a potentially orphaned buffer.   
     * Release any old malloced memory.
     */
-   if (intelImage->mt) {
-      intel_miptree_release(intel, &intelImage->mt);
-      assert(!texImage->Map.Data);
-   }
-   else if (texImage->Map.Data) {
-      _mesa_free_texmemory(texImage->Map.Data);
-      texImage->Map.Data = NULL;
-   }
+   ctx->Driver.FreeTexImageData(ctx, texImage);
 
    /* If this is the only texture image in the tree, could call
     * bmBufferData with NULL data to free the old block and avoid
