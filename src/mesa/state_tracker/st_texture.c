@@ -194,6 +194,7 @@ st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
    struct pipe_context *pipe = st->pipe;
    struct pipe_screen *screen = pipe->screen;
    struct pipe_texture *pt = stImage->pt;
+   GLubyte *map = NULL;
 
    DBG("%s \n", __FUNCTION__);
 
@@ -202,9 +203,9 @@ st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
 						    usage, x, y, w, h);
 
    if (stImage->transfer)
-      return screen->transfer_map(screen, stImage->transfer);
-   else
-      return NULL;
+      map = screen->transfer_map(screen, stImage->transfer);
+
+   return map;
 }
 
 
