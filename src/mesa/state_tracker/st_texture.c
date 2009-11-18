@@ -267,7 +267,14 @@ st_surface_data(struct pipe_context *pipe,
 }
 
 
-/* Upload data for a particular image.
+/**
+ * Load texture image data.
+ * \param dst  the destination texture
+ * \param face  destination cube face in [0,5]
+ * \param level  destination mipmap level
+ * \param src  the source data
+ * \param src_row_stride  source data row stride, in texels
+ * \param src_image_stride  source image stride, in bytes
  */
 void
 st_texture_image_data(struct st_context *st,
@@ -306,7 +313,13 @@ st_texture_image_data(struct st_context *st,
 }
 
 
-/* Copy mipmap image between textures
+/**
+ * Copy a textur image from one texture object to another.
+ * \param pipe  gallium rendering context
+ * \param dst  the destination texture object
+ * \param dstLevel  destination texture level
+ * \param src  the src texture object (use image level 0)
+ * \param face  cube map face index in [0,5]
  */
 void
 st_texture_image_copy(struct pipe_context *pipe,
@@ -380,16 +393,15 @@ st_texture_image_copy(struct pipe_context *pipe,
 
 
 /**
- * Bind a pipe surface to a texture object.  After the call,
- * the texture object is marked dirty and will be (re-)validated.
+ * Bind a pipe surface to a texture object.  After the call, the texture
+ * object is marked dirty and will be (re-)validated.
  *
- * If this is the first surface bound, the texture object is said to
- * switch from normal to surface based.  It will be cleared first in
- * this case.
+ * If this is the first surface bound, the texture object is said to switch
+ * from normal to surface based.  It will be cleared first in this case.
  *
  * \param ps      pipe surface to be unbound
- * \param target  texture target
- * \param level   image level
+ * \param target  texture target (ST_TEXTURE_x)
+ * \param level   texture image level
  * \param format  internal format of the texture
  */
 int
@@ -452,8 +464,8 @@ st_bind_texture_surface(struct pipe_surface *ps, int target, int level,
  * the texture object is marked dirty and will be (re-)validated.
  *
  * \param ps      pipe surface to be unbound
- * \param target  texture target
- * \param level   image level
+ * \param target  texture target (ST_TEXTURE_x)
+ * \param level   texture image level
  */
 int
 st_unbind_texture_surface(struct pipe_surface *ps, int target, int level)
@@ -498,7 +510,15 @@ st_unbind_texture_surface(struct pipe_surface *ps, int target, int level)
 }
 
 
-/** Redirect rendering into stfb's surface to a texture image */
+/**
+ * Redirect rendering into stfb's surface to a texture image
+ * \param stfb  the framebuffer object
+ * \param surfIndex  one of  ST_SURFACE_x
+ * \param target  one of ST_TEXTURE_x
+ * \param format  unused at this time
+ * \param level  texture image level
+ * \return 1 for success, 0 if error
+ */
 int
 st_bind_teximage(struct st_framebuffer *stfb, uint surfIndex,
                  int target, int format, int level)
@@ -551,7 +571,15 @@ st_bind_teximage(struct st_framebuffer *stfb, uint surfIndex,
 }
 
 
-/** Undo surface-to-texture binding */
+/**
+ * Undo surface-to-texture redirection.
+ * \param stfb  the framebuffer object
+ * \param surfIndex  one of  ST_SURFACE_x
+ * \param target  one of ST_TEXTURE_x
+ * \param format  unused at this time
+ * \param level  texture image level
+ * \return 1 for success, 0 if error
+ */
 int
 st_release_teximage(struct st_framebuffer *stfb, uint surfIndex,
                     int target, int format, int level)
@@ -583,6 +611,12 @@ st_release_teximage(struct st_framebuffer *stfb, uint surfIndex,
    return 1;
 }
 
+
+/**
+ * Flush any buffered rendering if the given pipe_texture is referenced
+ * by those buffered commands.
+ * Called prior to changing texture contents.
+ */
 void
 st_teximage_flush_before_map(struct st_context *st,
 			     struct pipe_texture *pt,
@@ -591,10 +625,10 @@ st_teximage_flush_before_map(struct st_context *st,
 			     enum pipe_transfer_usage usage)
 {
    struct pipe_context *pipe = st->pipe;
-   unsigned referenced =
-      pipe->is_texture_referenced(pipe, pt, face, level);
+   unsigned referenced = pipe->is_texture_referenced(pipe, pt, face, level);
 
    if (referenced && ((referenced & PIPE_REFERENCED_FOR_WRITE) ||
-		      (usage & PIPE_TRANSFER_WRITE)))
+		      (usage & PIPE_TRANSFER_WRITE))) {
       st_flush(st, PIPE_FLUSH_RENDER_CACHE, NULL);
+   }
 }
