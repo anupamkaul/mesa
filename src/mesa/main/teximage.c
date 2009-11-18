@@ -945,6 +945,8 @@ _mesa_init_teximage_fields(GLcontext *ctx, GLenum target,
       img->DepthScale = (GLfloat) img->Depth;
    }
 
+   img->TexFormat = MESA_FORMAT_NONE;
+
    img->FetchTexelc = NULL;
    img->FetchTexelf = NULL;
 }
@@ -2132,9 +2134,6 @@ _mesa_TexImage1D( GLenum target, GLint level, GLint internalFormat,
          else {
             ctx->Driver.FreeTexImageData( ctx, texImage );
 
-            ASSERT(texImage->Map.Data == NULL);
-
-            clear_teximage_fields(texImage); /* not really needed, but helpful */
             _mesa_init_teximage_fields(ctx, target, texImage,
                                        postConvWidth, 1, 1,
                                        border, internalFormat);
@@ -2251,8 +2250,6 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
          else {
             ctx->Driver.FreeTexImageData( ctx, texImage );
 
-            ASSERT(texImage->Map.Data == NULL);
-            clear_teximage_fields(texImage); /* not really needed, but helpful */
             _mesa_init_teximage_fields(ctx, target, texImage,
                                        postConvWidth, postConvHeight, 1,
                                        border, internalFormat);
@@ -2365,8 +2362,6 @@ _mesa_TexImage3D( GLenum target, GLint level, GLint internalFormat,
          else {
             ctx->Driver.FreeTexImageData( ctx, texImage );
 
-            ASSERT(texImage->Map.Data == NULL);
-            clear_teximage_fields(texImage); /* not really needed, but helpful */
             _mesa_init_teximage_fields(ctx, target, texImage,
                                        width, height, depth,
                                        border, internalFormat);
@@ -2673,9 +2668,6 @@ _mesa_CopyTexImage1D( GLenum target, GLint level,
       else {
          ctx->Driver.FreeTexImageData( ctx, texImage );
 
-         ASSERT(texImage->Map.Data == NULL);
-
-         clear_teximage_fields(texImage); /* not really needed, but helpful */
          _mesa_init_teximage_fields(ctx, target, texImage, postConvWidth, 1, 1,
                                     border, internalFormat);
 
@@ -2751,9 +2743,6 @@ _mesa_CopyTexImage2D( GLenum target, GLint level, GLenum internalFormat,
       else {
          ctx->Driver.FreeTexImageData( ctx, texImage );
 
-         ASSERT(texImage->Map.Data == NULL);
-
-         clear_teximage_fields(texImage); /* not really needed, but helpful */
          _mesa_init_teximage_fields(ctx, target, texImage,
                                     postConvWidth, postConvHeight, 1,
                                     border, internalFormat);
