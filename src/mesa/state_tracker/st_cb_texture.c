@@ -185,10 +185,7 @@ st_FreeTextureImageData(GLcontext * ctx, struct gl_texture_image *texImage)
       pipe_texture_reference(&stImage->pt, NULL);
    }
 
-   if (texImage->Map.Data) {
-      _mesa_align_free(texImage->Map.Data);
-      texImage->Map.Data = NULL;
-   }
+   _mesa_free_texture_image_data(ctx, texImage);
 }
 
 
@@ -521,7 +518,7 @@ st_TexImage(GLcontext * ctx,
    struct st_texture_object *stObj = st_texture_object(texObj);
    struct st_texture_image *stImage = st_texture_image(texImage);
    GLint postConvWidth, postConvHeight;
-   GLint texelBytes, sizeInBytes;
+   GLint texelBytes;
    GLuint dstRowStride = 0;
    struct gl_pixelstore_attrib unpackNB;
    enum pipe_transfer_usage transfer_usage = 0;
@@ -585,8 +582,8 @@ st_TexImage(GLcontext * ctx,
       pipe_texture_reference(&stImage->pt, NULL);
       assert(!texImage->Map.Data);
    }
-   else if (texImage->Map.Data) {
-      _mesa_align_free(texImage->Map.Data);
+   else {
+      _mesa_free_texture_image_data(ctx, texImage);
    }
 
    if (width == 0 || height == 0 || depth == 0) {
@@ -694,24 +691,17 @@ st_TexImage(GLcontext * ctx,
    else {
       /* Allocate regular memory and store the image there temporarily.   */
       if (_mesa_is_format_compressed(texImage->TexFormat)) {
-         sizeInBytes = _mesa_format_image_size(texImage->TexFormat,
-                                               texImage->Width,
-                                               texImage->Height,
-                                               texImage->Depth);
          dstRowStride = _mesa_format_row_stride(texImage->TexFormat, width);
          assert(dims != 3);
       }
       else {
          dstRowStride = postConvWidth * texelBytes;
-         sizeInBytes = depth * dstRowStride * postConvHeight;
       }
 
-      texImage->Map.Data = _mesa_align_malloc(sizeInBytes, 16);
-   }
-
-   if (!texImage->Map.Data) {
-      _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
-      return;
+      if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
+         return;
+      }
    }
 
    if (!pixels)
@@ -1707,11 +1697,13 @@ st_CopyTexSubImage3D(GLcontext * ctx, GLenum target, GLint level,
 
 
 static void
-copy_image_data_to_texture(struct st_context *st,
+copy_image_data_to_texture(GLcontext *ctx,
 			   struct st_texture_object *stObj,
                            GLuint dstLevel,
 			   struct st_texture_image *stImage)
 {
+   struct st_context *st = ctx->st;
+
    if (stImage->pt) {
       /* Copy potentially with the blitter:
        */
@@ -1743,8 +1735,8 @@ copy_image_data_to_texture(struct st_context *st,
                             stImage->base.Map.RowStride *
                             stImage->base.Height *
                             stObj->pt->block.size);
-      _mesa_align_free(stImage->base.Map.Data);
-      stImage->base.Map.Data = NULL;
+
+      _mesa_free_texture_image_data(ctx, &stImage->base);
    }
 
    pipe_texture_reference(&stImage->pt, stObj->pt);
@@ -1857,7 +1849,7 @@ st_finalize_texture(GLcontext *ctx,
          /* Need to import images in main memory or held in other textures.
           */
          if (stImage && stObj->pt != stImage->pt) {
-            copy_image_data_to_texture(ctx->st, stObj, level, stImage);
+            copy_image_data_to_texture(ctx, stObj, level, stImage);
 	    *needFlush = GL_TRUE;
          }
       }
