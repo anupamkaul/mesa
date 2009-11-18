@@ -640,16 +640,7 @@ st_TexImage(GLcontext * ctx,
     * the expectation that the texture will be set up but nothing
     * more will be done.  This is where those calls return:
     */
-   if (compressed_src) {
-      pixels = _mesa_validate_pbo_compressed_teximage(ctx, imageSize, pixels,
-						      unpack,
-						      "glCompressedTexImage");
-   }
-   else {
-      pixels = _mesa_validate_pbo_teximage(ctx, dims, width, height, 1,
-					   format, type,
-					   pixels, unpack, "glTexImage");
-   }
+   pixels = _mesa_map_teximage_pbo(ctx, unpack, pixels);
 
    /* Note: we can't check for pixels==NULL until after we've allocated
     * memory for the texture.
@@ -1026,9 +1017,7 @@ st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
        _mesa_lookup_enum_by_nr(target),
        level, xoffset, yoffset, width, height);
 
-   pixels =
-      _mesa_validate_pbo_teximage(ctx, dims, width, height, depth, format,
-                                  type, pixels, packing, "glTexSubImage2D");
+   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
    if (!pixels)
       return;
 

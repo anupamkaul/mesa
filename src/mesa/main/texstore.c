@@ -3178,17 +3178,16 @@ _mesa_texstore(TEXSTORE_PARAMS)
 
 
 /**
- * Check if an unpack PBO is active prior to fetching a texture image.
- * If so, do bounds checking and map the buffer into main memory.
- * Any errors detected will be recorded.
+ * If texture image data is coming from a PBO, map the PBO and
+ * return a pointer into the mapping.
+ * Else return the 'pixels' pointer unchanged.
+ * PBO error checking was already done in the teximage.c code.
  * The caller _must_ call _mesa_unmap_teximage_pbo() too!
  */
 const GLvoid *
-_mesa_validate_pbo_teximage(GLcontext *ctx, GLuint dimensions,
-			    GLsizei width, GLsizei height, GLsizei depth,
-			    GLenum format, GLenum type, const GLvoid *pixels,
-			    const struct gl_pixelstore_attrib *unpack,
-			    const char *funcName)
+_mesa_map_teximage_pbo(GLcontext *ctx,
+                       const struct gl_pixelstore_attrib *unpack,
+                       const GLvoid *pixels)
 {
    GLubyte *buf;
 
@@ -3197,7 +3196,7 @@ _mesa_validate_pbo_teximage(GLcontext *ctx, GLuint dimensions,
       return pixels;
    }
 
-   buf = (GLubyte *) ctx->Driver.MapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
+   buf = (GLubyte*) ctx->Driver.MapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
                                           GL_READ_ONLY_ARB, unpack->BufferObj);
    if (!buf) {
       return NULL;
@@ -3208,38 +3207,7 @@ _mesa_validate_pbo_teximage(GLcontext *ctx, GLuint dimensions,
 
 
 /**
- * Check if an unpack PBO is active prior to fetching a compressed texture
- * image.
- * If so, do bounds checking and map the buffer into main memory.
- * Any errors detected will be recorded.
- * The caller _must_ call _mesa_unmap_teximage_pbo() too!
- */
-const GLvoid *
-_mesa_validate_pbo_compressed_teximage(GLcontext *ctx,
-                                 GLsizei imageSize, const GLvoid *pixels,
-                                 const struct gl_pixelstore_attrib *packing,
-                                 const char *funcName)
-{
-   GLubyte *buf;
-
-   if (!_mesa_is_bufferobj(packing->BufferObj)) {
-      /* not using a PBO - return pointer unchanged */
-      return pixels;
-   }
-
-   buf = (GLubyte*) ctx->Driver.MapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
-                                         GL_READ_ONLY_ARB, packing->BufferObj);
-   if (!buf) {
-      return NULL;
-   }
-
-   return ADD_POINTERS(buf, pixels);
-}
-
-
-/**
- * This function must be called after either of the validate_pbo_*_teximage()
- * functions.  It unmaps the PBO buffer if it was mapped earlier.
+ * This is the counterpart to the _mesa_map_teximage_pbo().
  */
 void
 _mesa_unmap_teximage_pbo(GLcontext *ctx,
@@ -3285,8 +3253,7 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = _mesa_validate_pbo_teximage(ctx, 1, width, 1, 1, format, type,
-                                        pixels, packing, "glTexImage1D");
+   pixels = _mesa_map_teximage_pbo(ctx, pixels, packing);
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
        * memory for the texture.  That's what the GL spec calls for.
@@ -3339,8 +3306,7 @@ _mesa_store_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = _mesa_validate_pbo_teximage(ctx, 2, width, height, 1, format, type,
-                                        pixels, packing, "glTexImage2D");
+   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
        * memory for the texture.  That's what the GL spec calls for.
@@ -3389,8 +3355,7 @@ _mesa_store_teximage3d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = _mesa_validate_pbo_teximage(ctx, 3, width, height, depth, format,
-                                        type, pixels, packing, "glTexImage3D");
+   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
        * memory for the texture.  That's what the GL spec calls for.
@@ -3431,8 +3396,7 @@ _mesa_store_texsubimage1d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_image *texImage)
 {
    /* get pointer to src pixels (may be in a pbo which we'll map here) */
-   pixels = _mesa_validate_pbo_teximage(ctx, 1, width, 1, 1, format, type,
-                                        pixels, packing, "glTexSubImage1D");
+   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
    if (!pixels)
       return;
 
@@ -3470,8 +3434,7 @@ _mesa_store_texsubimage2d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_image *texImage)
 {
    /* get pointer to src pixels (may be in a pbo which we'll map here) */
-   pixels = _mesa_validate_pbo_teximage(ctx, 2, width, height, 1, format, type,
-                                        pixels, packing, "glTexSubImage2D");
+   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
    if (!pixels)
       return;
 
@@ -3508,9 +3471,7 @@ _mesa_store_texsubimage3d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_image *texImage)
 {
    /* get pointer to src pixels (may be in a pbo which we'll map here) */
-   pixels = _mesa_validate_pbo_teximage(ctx, 3, width, height, depth, format,
-                                        type, pixels, packing,
-                                        "glTexSubImage3D");
+   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
    if (!pixels)
       return;
 
@@ -3584,9 +3545,7 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   data = _mesa_validate_pbo_compressed_teximage(ctx, imageSize, data,
-                                                 &ctx->Unpack,
-                                                 "glCompressedTexImage2D");
+   data = _mesa_map_teximage_pbo(ctx, &ctx->Unpack, data);
    if (!data)
       return;
 
@@ -3679,9 +3638,7 @@ _mesa_store_compressed_texsubimage2d(GLcontext *ctx, GLenum target,
    ASSERT((yoffset % bh) == 0);
 
    /* get pointer to src pixels (may be in a pbo which we'll map here) */
-   data = _mesa_validate_pbo_compressed_teximage(ctx, imageSize, data,
-                                                 &ctx->Unpack,
-                                                 "glCompressedTexSubImage2D");
+   data = _mesa_map_teximage_pbo(ctx, &ctx->Unpack, data);
    if (!data)
       return;
 

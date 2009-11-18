@@ -451,15 +451,7 @@ intelTexImage(GLcontext * ctx,
     * the expectation that the mipmap tree will be set up but nothing
     * more will be done.  This is where those calls return:
     */
-   if (compressed) {
-      pixels = _mesa_validate_pbo_compressed_teximage(ctx, imageSize, pixels,
-						      unpack,
-						      "glCompressedTexImage");
-   } else {
-      pixels = _mesa_validate_pbo_teximage(ctx, dims, width, height, 1,
-					   format, type,
-					   pixels, unpack, "glTexImage");
-   }
+   pixels = _mesa_map_teximage_pbo(ctx, unpack, pixels);
 
    LOCK_HARDWARE(intel);
 

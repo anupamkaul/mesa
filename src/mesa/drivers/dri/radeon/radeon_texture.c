@@ -584,15 +584,7 @@ static void radeon_teximage(
 	}
 
 	/* Upload texture image; note that the spec allows pixels to be NULL */
-	if (compressed) {
-		pixels = _mesa_validate_pbo_compressed_teximage(
-			ctx, imageSize, pixels, packing, "glCompressedTexImage");
-	} else {
-		pixels = _mesa_validate_pbo_teximage(
-			ctx, dims, width, height, depth,
-			format, type, pixels, packing, "glTexImage");
-	}
-
+	pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
 	if (pixels) {
 		radeon_teximage_map(image, GL_TRUE);
 		if (compressed) {
@@ -725,14 +717,8 @@ static void radeon_texsubimage(GLcontext* ctx, int dims, GLenum target, int leve
 	radeon_firevertices(rmesa);
 
 	t->validated = GL_FALSE;
-	if (compressed) {
-		pixels = _mesa_validate_pbo_compressed_teximage(
-			ctx, imageSize, pixels, packing, "glCompressedTexImage");
-	} else {
-		pixels = _mesa_validate_pbo_teximage(ctx, dims,
-			width, height, depth, format, type, pixels, packing, "glTexSubImage1D");
-	}
 
+	pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
 	if (pixels) {
 		GLint dstRowStride;
 		radeon_teximage_map(image, GL_TRUE);

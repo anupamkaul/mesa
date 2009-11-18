@@ -61,14 +61,7 @@ intelTexSubimage(GLcontext * ctx,
 
    intelFlush(ctx);
 
-   if (compressed)
-      pixels = _mesa_validate_pbo_compressed_teximage(ctx, imageSize,
-                                                      pixels, packing,
-                                                      "glCompressedTexImage");
-   else
-      pixels = _mesa_validate_pbo_teximage(ctx, dims, width, height, depth,
-                                           format, type, pixels, packing,
-                                           "glTexSubImage");
+   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
    if (!pixels)
       return;
 

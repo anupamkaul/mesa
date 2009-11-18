@@ -771,9 +771,7 @@ static void viaTexImage(GLcontext *ctx,
 
    vmesa->clearTexCache = 1;
 
-   pixels = _mesa_validate_pbo_teximage(ctx, dims, width, height, 1, 
-					format, type,
-					pixels, packing, "glTexImage");
+   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
        * memory for the texture.  That's what the GL spec calls for.
