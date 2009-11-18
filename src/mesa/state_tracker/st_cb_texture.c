@@ -1414,10 +1414,7 @@ st_copy_texsubimage(GLcontext *ctx,
                     GLint srcX, GLint srcY,
                     GLsizei width, GLsizei height)
 {
-   struct gl_texture_unit *texUnit =
-      &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
-   struct gl_texture_object *texObj =
-      _mesa_select_tex_object(ctx, texUnit, target);
+   struct gl_texture_object *texObj = _mesa_get_current_tex_object(ctx, target);
    struct gl_texture_image *texImage =
       _mesa_select_tex_image(ctx, texObj, target, level);
    struct st_texture_image *stImage = st_texture_image(texImage);
@@ -1588,10 +1585,7 @@ st_CopyTexImage1D(GLcontext * ctx, GLenum target, GLint level,
                   GLenum internalFormat,
                   GLint x, GLint y, GLsizei width, GLint border)
 {
-   struct gl_texture_unit *texUnit =
-      &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
-   struct gl_texture_object *texObj =
-      _mesa_select_tex_object(ctx, texUnit, target);
+   struct gl_texture_object *texObj = _mesa_get_current_tex_object(ctx, target);
    struct gl_texture_image *texImage =
       _mesa_select_tex_image(ctx, texObj, target, level);
 
@@ -1615,10 +1609,7 @@ st_CopyTexImage2D(GLcontext * ctx, GLenum target, GLint level,
                   GLint x, GLint y, GLsizei width, GLsizei height,
                   GLint border)
 {
-   struct gl_texture_unit *texUnit =
-      &ctx->Texture.Unit[ctx->Texture.CurrentUnit];
-   struct gl_texture_object *texObj =
-      _mesa_select_tex_object(ctx, texUnit, target);
+   struct gl_texture_object *texObj = _mesa_get_current_tex_object(ctx, target);
    struct gl_texture_image *texImage =
       _mesa_select_tex_image(ctx, texObj, target, level);
 

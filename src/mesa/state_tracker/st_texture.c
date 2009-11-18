@@ -397,8 +397,6 @@ st_bind_texture_surface(struct pipe_surface *ps, int target, int level,
                         enum pipe_format format)
 {
    GET_CURRENT_CONTEXT(ctx);
-   const GLuint unit = ctx->Texture.CurrentUnit;
-   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
    struct gl_texture_object *texObj;
    struct gl_texture_image *texImage;
    struct st_texture_object *stObj;
@@ -422,7 +420,7 @@ st_bind_texture_surface(struct pipe_surface *ps, int target, int level,
    else
       internalFormat = GL_RGB;
 
-   texObj = _mesa_select_tex_object(ctx, texUnit, target);
+   texObj = _mesa_get_current_tex_object(ctx, target);
    _mesa_lock_texture(ctx, texObj);
 
    stObj = st_texture_object(texObj);
@@ -461,8 +459,6 @@ int
 st_unbind_texture_surface(struct pipe_surface *ps, int target, int level)
 {
    GET_CURRENT_CONTEXT(ctx);
-   const GLuint unit = ctx->Texture.CurrentUnit;
-   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
    struct gl_texture_object *texObj;
    struct gl_texture_image *texImage;
    struct st_texture_object *stObj;
@@ -479,7 +475,7 @@ st_unbind_texture_surface(struct pipe_surface *ps, int target, int level)
       return 0;
    }
 
-   texObj = _mesa_select_tex_object(ctx, texUnit, target);
+   texObj = _mesa_get_current_tex_object(ctx, target);
 
    _mesa_lock_texture(ctx, texObj);
 
