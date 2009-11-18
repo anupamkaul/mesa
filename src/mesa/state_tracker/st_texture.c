@@ -219,6 +219,8 @@ st_texture_image_unmap(struct st_context *st,
    screen->transfer_unmap(screen, stImage->transfer);
 
    screen->tex_transfer_destroy(stImage->transfer);
+
+   stImage->base.Map.Data = NULL;
 }
 
 

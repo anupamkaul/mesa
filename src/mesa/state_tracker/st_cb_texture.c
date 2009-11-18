@@ -748,7 +748,6 @@ done:
 
    if (stImage->pt && texImage->Map.Data) {
       st_texture_image_unmap(ctx->st, stImage);
-      texImage->Map.Data = NULL;
    }
 }
 
@@ -990,7 +989,6 @@ st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
    /* Unmap */
    if (stImage->pt) {
       st_texture_image_unmap(ctx->st, stImage);
-      texImage->Map.Data = NULL;
    }
 }
 
@@ -1121,7 +1119,6 @@ done:
 
    if (stImage->pt) {
       st_texture_image_unmap(ctx->st, stImage);
-      texImage->Map.Data = NULL;
    }
 }
 
@@ -1236,7 +1233,6 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
 
    if (stImage->pt) {
       st_texture_image_unmap(ctx->st, stImage);
-      texImage->Map.Data = NULL;
    }
 }
 
