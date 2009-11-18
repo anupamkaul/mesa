@@ -640,7 +640,7 @@ st_TexImage(GLcontext * ctx,
     * the expectation that the texture will be set up but nothing
     * more will be done.  This is where those calls return:
     */
-   pixels = _mesa_map_teximage_pbo(ctx, unpack, pixels);
+   pixels = _mesa_map_pbo_source(ctx, unpack, pixels);
 
    /* Note: we can't check for pixels==NULL until after we've allocated
     * memory for the texture.
@@ -728,7 +728,7 @@ st_TexImage(GLcontext * ctx,
    }
 
 done:
-   _mesa_unmap_teximage_pbo(ctx, unpack);
+   _mesa_unmap_pbo_source(ctx, unpack);
 
    if (stImage->pt && texImage->Map.Data) {
       st_texture_image_unmap(ctx->st, stImage);
@@ -1017,7 +1017,7 @@ st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
        _mesa_lookup_enum_by_nr(target),
        level, xoffset, yoffset, width, height);
 
-   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels)
       return;
 
@@ -1087,7 +1087,7 @@ st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
    }
 
 done:
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 
    if (stImage->pt) {
       st_texture_image_unmap(ctx->st, stImage);

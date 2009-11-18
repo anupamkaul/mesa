@@ -197,15 +197,4 @@ _mesa_store_compressed_texsubimage3d(GLcontext *ctx, GLenum target,
                                 struct gl_texture_image *texImage);
 
 
-extern const GLvoid *
-_mesa_map_teximage_pbo(GLcontext *ctx,
-                       const struct gl_pixelstore_attrib *unpack,
-                       const GLvoid *pixels);
-
-
-extern void
-_mesa_unmap_teximage_pbo(GLcontext *ctx,
-                         const struct gl_pixelstore_attrib *unpack);
-
-
 #endif

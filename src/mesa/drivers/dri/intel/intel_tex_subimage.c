@@ -27,6 +27,7 @@
  **************************************************************************/
 
 #include "main/mtypes.h"
+#include "main/bufferobj.h"
 #include "main/texobj.h"
 #include "main/texstore.h"
 #include "main/texcompress.h"
@@ -61,7 +62,7 @@ intelTexSubimage(GLcontext * ctx,
 
    intelFlush(ctx);
 
-   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels)
       return;
 
@@ -116,7 +117,7 @@ intelTexSubimage(GLcontext * ctx,
       }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 
    if (intelImage->mt) {
       intel_miptree_image_unmap(intel, intelImage->mt);

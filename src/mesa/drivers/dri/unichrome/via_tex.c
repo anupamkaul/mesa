@@ -27,6 +27,7 @@
 #include <stdio.h>
 
 #include "main/glheader.h"
+#include "main/bufferobj.h"
 #include "main/macros.h"
 #include "main/mtypes.h"
 #include "main/enums.h"
@@ -771,7 +772,7 @@ static void viaTexImage(GLcontext *ctx,
 
    vmesa->clearTexCache = 1;
 
-   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
        * memory for the texture.  That's what the GL spec calls for.
@@ -802,7 +803,7 @@ static void viaTexImage(GLcontext *ctx,
       }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 }
 
 static void viaTexImage2D(GLcontext *ctx, 

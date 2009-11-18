@@ -3177,49 +3177,6 @@ _mesa_texstore(TEXSTORE_PARAMS)
 }
 
 
-/**
- * If texture image data is coming from a PBO, map the PBO and
- * return a pointer into the mapping.
- * Else return the 'pixels' pointer unchanged.
- * PBO error checking was already done in the teximage.c code.
- * The caller _must_ call _mesa_unmap_teximage_pbo() too!
- */
-const GLvoid *
-_mesa_map_teximage_pbo(GLcontext *ctx,
-                       const struct gl_pixelstore_attrib *unpack,
-                       const GLvoid *pixels)
-{
-   GLubyte *buf;
-
-   if (!_mesa_is_bufferobj(unpack->BufferObj)) {
-      /* no PBO */
-      return pixels;
-   }
-
-   buf = (GLubyte*) ctx->Driver.MapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
-                                          GL_READ_ONLY_ARB, unpack->BufferObj);
-   if (!buf) {
-      return NULL;
-   }
-
-   return ADD_POINTERS(buf, pixels);
-}
-
-
-/**
- * This is the counterpart to the _mesa_map_teximage_pbo().
- */
-void
-_mesa_unmap_teximage_pbo(GLcontext *ctx,
-                         const struct gl_pixelstore_attrib *unpack)
-{
-   if (_mesa_is_bufferobj(unpack->BufferObj)) {
-      ctx->Driver.UnmapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
-                              unpack->BufferObj);
-   }
-}
-
-
 /** Return row stride in bytes */
 static GLuint
 texture_row_stride(const struct gl_texture_image *texImage)
@@ -3253,7 +3210,7 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = _mesa_map_teximage_pbo(ctx, pixels, packing);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
        * memory for the texture.  That's what the GL spec calls for.
@@ -3275,7 +3232,7 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
       }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 }
 
 
@@ -3306,7 +3263,7 @@ _mesa_store_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
        * memory for the texture.  That's what the GL spec calls for.
@@ -3328,7 +3285,7 @@ _mesa_store_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 }
 
 
@@ -3355,7 +3312,7 @@ _mesa_store_teximage3d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels) {
       /* Note: we check for a NULL image pointer here, _after_ we allocated
        * memory for the texture.  That's what the GL spec calls for.
@@ -3377,7 +3334,7 @@ _mesa_store_teximage3d(GLcontext *ctx, GLenum target, GLint level,
       }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 }
 
 
@@ -3396,7 +3353,7 @@ _mesa_store_texsubimage1d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_image *texImage)
 {
    /* get pointer to src pixels (may be in a pbo which we'll map here) */
-   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels)
       return;
 
@@ -3415,7 +3372,7 @@ _mesa_store_texsubimage1d(GLcontext *ctx, GLenum target, GLint level,
       }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 }
 
 
@@ -3434,7 +3391,7 @@ _mesa_store_texsubimage2d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_image *texImage)
 {
    /* get pointer to src pixels (may be in a pbo which we'll map here) */
-   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels)
       return;
 
@@ -3453,7 +3410,7 @@ _mesa_store_texsubimage2d(GLcontext *ctx, GLenum target, GLint level,
       }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 }
 
 
@@ -3471,7 +3428,7 @@ _mesa_store_texsubimage3d(GLcontext *ctx, GLenum target, GLint level,
                           struct gl_texture_image *texImage)
 {
    /* get pointer to src pixels (may be in a pbo which we'll map here) */
-   pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+   pixels = _mesa_map_pbo_source(ctx, packing, pixels);
    if (!pixels)
       return;
 
@@ -3490,7 +3447,7 @@ _mesa_store_texsubimage3d(GLcontext *ctx, GLenum target, GLint level,
       }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, packing);
+   _mesa_unmap_pbo_source(ctx, packing);
 }
 
 
@@ -3545,14 +3502,14 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
       return;
    }
 
-   data = _mesa_map_teximage_pbo(ctx, &ctx->Unpack, data);
+   data = _mesa_map_pbo_source(ctx, &ctx->Unpack, data);
    if (!data)
       return;
 
    /* copy the data */
    MEMCPY(texImage->Map.Data, data, imageSize);
 
-   _mesa_unmap_teximage_pbo(ctx, &ctx->Unpack);
+   _mesa_unmap_pbo_source(ctx, &ctx->Unpack);
 }
 
 
@@ -3638,7 +3595,7 @@ _mesa_store_compressed_texsubimage2d(GLcontext *ctx, GLenum target,
    ASSERT((yoffset % bh) == 0);
 
    /* get pointer to src pixels (may be in a pbo which we'll map here) */
-   data = _mesa_map_teximage_pbo(ctx, &ctx->Unpack, data);
+   data = _mesa_map_pbo_source(ctx, &ctx->Unpack, data);
    if (!data)
       return;
 
@@ -3660,7 +3617,7 @@ _mesa_store_compressed_texsubimage2d(GLcontext *ctx, GLenum target,
       src += srcRowStride;
    }
 
-   _mesa_unmap_teximage_pbo(ctx, &ctx->Unpack);
+   _mesa_unmap_pbo_source(ctx, &ctx->Unpack);
 }
 
 

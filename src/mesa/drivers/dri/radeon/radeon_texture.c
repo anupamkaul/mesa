@@ -30,6 +30,7 @@
 
 #include "main/glheader.h"
 #include "main/imports.h"
+#include "main/bufferobj.h"
 #include "main/context.h"
 #include "main/convolve.h"
 #include "main/mipmap.h"
@@ -584,7 +585,7 @@ static void radeon_teximage(
 	}
 
 	/* Upload texture image; note that the spec allows pixels to be NULL */
-	pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+	pixels = _mesa_map_pbo_source(ctx, packing, pixels);
 	if (pixels) {
 		radeon_teximage_map(image, GL_TRUE);
 		if (compressed) {
@@ -639,7 +640,7 @@ static void radeon_teximage(
 		}
 	}
 
-	_mesa_unmap_teximage_pbo(ctx, packing);
+	_mesa_unmap_pbo_source(ctx, packing);
 
 	if (pixels)
 	  radeon_teximage_unmap(image);
@@ -718,7 +719,7 @@ static void radeon_texsubimage(GLcontext* ctx, int dims, GLenum target, int leve
 
 	t->validated = GL_FALSE;
 
-	pixels = _mesa_map_teximage_pbo(ctx, packing, pixels);
+	pixels = _mesa_map_pbo_source(ctx, packing, pixels);
 	if (pixels) {
 		GLint dstRowStride;
 		radeon_teximage_map(image, GL_TRUE);
@@ -765,7 +766,7 @@ static void radeon_texsubimage(GLcontext* ctx, int dims, GLenum target, int leve
 
 	radeon_teximage_unmap(image);
 
-	_mesa_unmap_teximage_pbo(ctx, packing);
+	_mesa_unmap_pbo_source(ctx, packing);
 
 
 }

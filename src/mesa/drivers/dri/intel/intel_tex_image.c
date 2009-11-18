@@ -451,7 +451,7 @@ intelTexImage(GLcontext * ctx,
     * the expectation that the mipmap tree will be set up but nothing
     * more will be done.  This is where those calls return:
     */
-   pixels = _mesa_map_teximage_pbo(ctx, unpack, pixels);
+   pixels = _mesa_map_pbo_source(ctx, unpack, pixels);
 
    LOCK_HARDWARE(intel);
 
@@ -520,7 +520,7 @@ intelTexImage(GLcontext * ctx,
        }
    }
 
-   _mesa_unmap_teximage_pbo(ctx, unpack);
+   _mesa_unmap_pbo_source(ctx, unpack);
 
    if (intelImage->mt) {
       if (pixels != NULL)
