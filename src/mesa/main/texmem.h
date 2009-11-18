@@ -35,5 +35,19 @@ extern void
 _mesa_free_texture_image_data( GLcontext *ctx, 
 			       struct gl_texture_image *texImage );
 
+extern void
+_mesa_map_texture(GLcontext *ctx, struct gl_texture_object *tObj, GLenum mode);
+
+extern void
+_mesa_unmap_texture(GLcontext *ctx, struct gl_texture_object *tObj);
+
+extern void
+_mesa_map_texture_image(GLcontext *ctx, struct gl_texture_object *tObj,
+                        GLuint level, GLuint face, GLenum mode);
+
+extern void
+_mesa_unmap_texture_image(GLcontext *ctx, struct gl_texture_object *tObj,
+                          GLuint level, GLuint face);
+
 
 #endif /* TEXMEM_H */

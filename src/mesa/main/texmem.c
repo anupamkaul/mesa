@@ -72,3 +72,68 @@ _mesa_free_texture_image_data(GLcontext *ctx,
 
    texImage->Map.Data = NULL;
 }
+
+
+/**
+ * Default/fallback for ctx->Driver.MapTexture()
+ * Map all images in a texture.
+ */
+void
+_mesa_map_texture(GLcontext *ctx, struct gl_texture_object *tObj, GLenum mode)
+{
+   const GLuint numFaces = tObj->Target == GL_TEXTURE_CUBE_MAP ? 6 : 1;
+   GLuint face, level;
+
+   for (face = 0; face < numFaces; face++) {
+      for (level = tObj->BaseLevel; level <= tObj->MaxLevel; level++) {
+         ctx->Driver.MapTextureImage(ctx, tObj, level, face, mode);
+      }
+   }
+}
+
+
+/**
+ * Default/fallback for ctx->Driver.UnmapTexture()
+ * Unmap all images in a texture.
+ */
+void
+_mesa_unmap_texture(GLcontext *ctx, struct gl_texture_object *tObj)
+{
+   const GLuint numFaces = tObj->Target == GL_TEXTURE_CUBE_MAP ? 6 : 1;
+   GLuint face, level;
+
+   for (face = 0; face < numFaces; face++) {
+      for (level = tObj->BaseLevel; level <= tObj->MaxLevel; level++) {
+         ctx->Driver.UnmapTextureImage(ctx, tObj, level, face);
+      }
+   }
+}
+
+
+/**
+ * Default/fallback for ctx->Driver.MapTextureImage()
+ * Map a single image in a texture.
+ * This function should only be used by software drivers that store
+ * the actual texture image data off the DriverData pointer.
+ */
+void
+_mesa_map_texture_image(GLcontext *ctx, struct gl_texture_object *tObj,
+                        GLuint level, GLuint face, GLenum mode)
+{
+   struct gl_texture_image *texImage = tObj->Image[face][level];
+   texImage->Map.Data = texImage->DriverData;
+   ASSERT(texImage->Map.RowStride > 0);
+}
+
+
+/**
+ * Default/fallback for ctx->Driver.UnmapTextureImage()
+ * Unmap a single image in a texture.
+ */
+void
+_mesa_unmap_texture_image(GLcontext *ctx, struct gl_texture_object *tObj,
+                          GLuint level, GLuint face)
+{
+   struct gl_texture_image *texImage = tObj->Image[face][level];
+   texImage->Map.Data = NULL;
+}
