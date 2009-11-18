@@ -36,6 +36,7 @@
 #include "main/texformat.h"
 #include "main/texgetimage.h"
 #include "main/teximage.h"
+#include "main/texmem.h"
 #include "main/texobj.h"
 #include "main/texstore.h"
 #if FEATURE_ARB_vertex_buffer_object
@@ -119,10 +120,14 @@ _mesa_init_driver_functions(struct dd_function_table *driver)
    driver->NewTextureObject = _mesa_new_texture_object;
    driver->DeleteTexture = _mesa_delete_texture_object;
    driver->NewTextureImage = _mesa_new_texture_image;
+
    driver->AllocTexImageData = _mesa_alloc_texture_image_data; 
    driver->FreeTexImageData = _mesa_free_texture_image_data; 
    driver->MapTexture = NULL;
    driver->UnmapTexture = NULL;
+   driver->MapTextureImage = NULL;
+   driver->UnmapTextureImage = NULL;
+
    driver->TextureMemCpy = _mesa_memcpy; 
    driver->IsTextureResident = NULL;
    driver->UpdateTexturePalette = NULL;

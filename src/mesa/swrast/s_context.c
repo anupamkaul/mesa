@@ -32,6 +32,7 @@
 #include "main/colormac.h"
 #include "main/mtypes.h"
 #include "main/teximage.h"
+#include "main/texmem.h"
 #include "shader/prog_parameter.h"
 #include "shader/prog_statevars.h"
 #include "swrast.h"
@@ -436,6 +437,7 @@ _swrast_validate_texture_images(GLcontext *ctx)
       return;
    }
 
+   /* Make sure that all the texture images which we need are mapped */
    for (u = 0; u < ctx->Const.MaxTextureImageUnits; u++) {
       if (ctx->Texture.Unit[u]._ReallyEnabled) {
          struct gl_texture_object *texObj = ctx->Texture.Unit[u]._Current;

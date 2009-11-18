@@ -428,43 +428,6 @@ _mesa_new_texture_image( GLcontext *ctx )
 
 
 /**
- * Allocate space for the given texture image.
- * This is a fallback called via ctx->Driver.AllocTexImageData().
- */
-GLboolean
-_mesa_alloc_texture_image_data(GLcontext *ctx, struct gl_texture_image *tImage)
-{
-   GLint bytes = _mesa_format_image_size(tImage->TexFormat, tImage->Width,
-                                         tImage->Height, tImage->Depth);
-   tImage->Map.Data = _mesa_align_malloc(bytes, 512);
-   return tImage->Map.Data != NULL;
-}
-
-
-/**
- * Free texture image data.
- * This function is a fallback called via ctx->Driver.FreeTexImageData().
- *
- * \param texImage texture image.
- *
- * Free the texture image data if it's not marked as client data.
- */
-void
-_mesa_free_texture_image_data(GLcontext *ctx,
-                              struct gl_texture_image *texImage)
-{
-   (void) ctx;
-
-   if (texImage->Map.Data && !texImage->IsClientData) {
-      /* free the old texture data */
-      _mesa_align_free(texImage->Map.Data);
-   }
-
-   texImage->Map.Data = NULL;
-}
-
-
-/**
  * Free texture image.
  *
  * \param texImage texture image.

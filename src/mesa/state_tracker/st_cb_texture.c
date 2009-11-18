@@ -42,6 +42,7 @@
 #include "main/texformat.h"
 #include "main/texgetimage.h"
 #include "main/teximage.h"
+#include "main/texmem.h"
 #include "main/texobj.h"
 #include "main/texstore.h"
 
