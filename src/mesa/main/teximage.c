@@ -1145,8 +1145,8 @@ teximage_error_check(GLcontext *ctx, GLenum target,
                      GLint level, GLint internalFormat,
                      GLenum format, GLenum type,
                      GLuint dimensions,
-                     GLint width, GLint height,
-                     GLint depth, GLint border)
+                     GLint width, GLint height, GLint depth, GLint border,
+                     const GLvoid *pixels)
 {
    const GLboolean isProxy = _mesa_is_proxy_texture(target);
    GLboolean sizeOK = GL_TRUE;
@@ -1360,6 +1360,21 @@ teximage_error_check(GLcontext *ctx, GLenum target,
       }
    }
 
+   /* if getting texels from a PBO: */
+   if (_mesa_is_bufferobj(ctx->Unpack.BufferObj)) {
+      if (_mesa_bufferobj_mapped(ctx->Unpack.BufferObj)) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glTexImage%u(source PBO is mapped)", dimensions);
+         return GL_TRUE;
+      }
+      if (!_mesa_validate_pbo_access(dimensions, &ctx->Unpack, width, height,
+                                     depth, format, type, pixels)) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glTexImage%u(invalid PBO access)", dimensions);
+         return GL_TRUE;
+      }
+   }
+
    /* if we get here, the parameters are OK */
    return GL_FALSE;
 }
@@ -1392,7 +1407,8 @@ subteximage_error_check(GLcontext *ctx, GLuint dimensions,
                         GLenum target, GLint level,
                         GLint xoffset, GLint yoffset, GLint zoffset,
                         GLint width, GLint height, GLint depth,
-                        GLenum format, GLenum type)
+                        GLenum format, GLenum type,
+                        const GLvoid *pixels)
 {
    /* Check target */
    if (dimensions == 1) {
@@ -1470,6 +1486,21 @@ subteximage_error_check(GLcontext *ctx, GLuint dimensions,
                   "glTexSubImage%dD(incompatible format 0x%x, type 0x%x)",
                   dimensions, format, type);
       return GL_TRUE;
+   }
+
+   /* if getting texels from a PBO: */
+   if (_mesa_is_bufferobj(ctx->Unpack.BufferObj)) {
+      if (_mesa_bufferobj_mapped(ctx->Unpack.BufferObj)) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glTexSubImage%u(source PBO is mapped)", dimensions);
+         return GL_TRUE;
+      }
+      if (!_mesa_validate_pbo_access(dimensions, &ctx->Unpack, width, height,
+                                     depth, format, type, pixels)) {
+         _mesa_error(ctx, GL_INVALID_OPERATION,
+                     "glTexSubImage%u(invalid PBO access)", dimensions);
+         return GL_TRUE;
+      }
    }
 
    return GL_FALSE;
@@ -2132,7 +2163,8 @@ _mesa_TexImage1D( GLenum target, GLint level, GLint internalFormat,
       const GLuint face = _mesa_tex_target_to_face(target);
 
       if (teximage_error_check(ctx, target, level, internalFormat,
-                               format, type, 1, postConvWidth, 1, 1, border)) {
+                               format, type, 1, postConvWidth, 1, 1, border,
+                               pixels)) {
          return;   /* error was recorded */
       }
 
@@ -2179,7 +2211,8 @@ _mesa_TexImage1D( GLenum target, GLint level, GLint internalFormat,
       struct gl_texture_image *texImage;
       texImage = _mesa_get_proxy_tex_image(ctx, target, level);
       if (teximage_error_check(ctx, target, level, internalFormat,
-                               format, type, 1, postConvWidth, 1, 1, border)) {
+                               format, type, 1, postConvWidth, 1, 1, border,
+                               pixels)) {
          /* when error, clear all proxy texture image parameters */
          if (texImage)
             clear_teximage_fields(texImage);
@@ -2241,7 +2274,7 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
 
       if (teximage_error_check(ctx, target, level, internalFormat,
                                format, type, 2, postConvWidth, postConvHeight,
-                               1, border)) {
+                               1, border, pixels)) {
          return;   /* error was recorded */
       }
 
@@ -2295,7 +2328,7 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
       texImage = _mesa_get_proxy_tex_image(ctx, target, level);
       if (teximage_error_check(ctx, target, level, internalFormat,
                                format, type, 2, postConvWidth, postConvHeight,
-                               1, border)) {
+                               1, border, pixels)) {
          /* when error, clear all proxy texture image parameters */
          if (texImage)
             clear_teximage_fields(texImage);
@@ -2346,7 +2379,8 @@ _mesa_TexImage3D( GLenum target, GLint level, GLint internalFormat,
       const GLuint face = _mesa_tex_target_to_face(target);
 
       if (teximage_error_check(ctx, target, level, (GLint) internalFormat,
-                               format, type, 3, width, height, depth, border)) {
+                               format, type, 3, width, height, depth, border,
+                               pixels)) {
          return;   /* error was recorded */
       }
 
@@ -2395,7 +2429,8 @@ _mesa_TexImage3D( GLenum target, GLint level, GLint internalFormat,
       struct gl_texture_image *texImage;
       texImage = _mesa_get_proxy_tex_image(ctx, target, level);
       if (teximage_error_check(ctx, target, level, internalFormat,
-                               format, type, 3, width, height, depth, border)) {
+                               format, type, 3, width, height, depth, border,
+                               pixels)) {
          /* when error, clear all proxy texture image parameters */
          if (texImage)
             clear_teximage_fields(texImage);
@@ -2455,7 +2490,7 @@ _mesa_TexSubImage1D( GLenum target, GLint level,
 #endif
 
    if (subteximage_error_check(ctx, 1, target, level, xoffset, 0, 0,
-			       postConvWidth, 1, 1, format, type)) {
+			       postConvWidth, 1, 1, format, type, pixels)) {
       return;   /* error was detected */
    }
 
@@ -2523,7 +2558,7 @@ _mesa_TexSubImage2D( GLenum target, GLint level,
 
    if (subteximage_error_check(ctx, 2, target, level, xoffset, yoffset, 0,
 			       postConvWidth, postConvHeight, 1,
-                               format, type)) {
+                               format, type, pixels)) {
       return;   /* error was detected */
    }
 
@@ -2581,7 +2616,7 @@ _mesa_TexSubImage3D( GLenum target, GLint level,
       _mesa_update_state(ctx);
 
    if (subteximage_error_check(ctx, 3, target, level, xoffset, yoffset, zoffset,
-                               width, height, depth, format, type)) {
+                               width, height, depth, format, type, pixels)) {
       return;   /* error was detected */
    }
 
@@ -2981,10 +3016,10 @@ get_compressed_block_size(GLenum glformat, GLuint *bw, GLuint *bh)
  */
 static GLenum
 compressed_teximage_error_check(GLcontext *ctx, GLint dimensions,
-                               GLenum target, GLint level,
-                               GLenum internalFormat, GLsizei width,
-                               GLsizei height, GLsizei depth, GLint border,
-                               GLsizei imageSize)
+                                GLenum target, GLint level,
+                                GLenum internalFormat, GLsizei width,
+                                GLsizei height, GLsizei depth, GLint border,
+                                GLsizei imageSize, const GLvoid *pixels)
 {
    GLint expectedSize, maxLevels = 0, maxTextureSize;
 
@@ -3070,6 +3105,18 @@ compressed_teximage_error_check(GLcontext *ctx, GLint dimensions,
       return GL_INVALID_OPERATION;
    }
 #endif
+
+   /* if getting texels from a PBO: */
+   if (_mesa_is_bufferobj(ctx->Unpack.BufferObj)) {
+      if (_mesa_bufferobj_mapped(ctx->Unpack.BufferObj)) {
+         return GL_INVALID_OPERATION;
+      }
+      if ((const GLubyte *) pixels + imageSize >
+          ((const GLubyte *) 0) + ctx->Unpack.BufferObj->Size) {
+         /* out of bounds read! */
+         return GL_INVALID_OPERATION;
+      }
+   }
 
    return GL_NO_ERROR;
 }
@@ -3232,7 +3279,7 @@ _mesa_CompressedTexImage1DARB(GLenum target, GLint level,
       struct gl_texture_object *texObj;
       struct gl_texture_image *texImage;
       GLenum error = compressed_teximage_error_check(ctx, 1, target, level,
-                               internalFormat, width, 1, 1, border, imageSize);
+                        internalFormat, width, 1, 1, border, imageSize, data);
       if (error) {
          _mesa_error(ctx, error, "glCompressedTexImage1D");
          return;
@@ -3274,7 +3321,7 @@ _mesa_CompressedTexImage1DARB(GLenum target, GLint level,
    else if (target == GL_PROXY_TEXTURE_1D) {
       /* Proxy texture: check for errors and update proxy state */
       GLenum error = compressed_teximage_error_check(ctx, 1, target, level,
-                               internalFormat, width, 1, 1, border, imageSize);
+                         internalFormat, width, 1, 1, border, imageSize, data);
       if (!error) {
          ASSERT(ctx->Driver.TestProxyTexImage);
          error = !(*ctx->Driver.TestProxyTexImage)(ctx, target, level,
@@ -3335,7 +3382,7 @@ _mesa_CompressedTexImage2DARB(GLenum target, GLint level,
       struct gl_texture_image *texImage;
 
       GLenum error = compressed_teximage_error_check(ctx, 2, target, level,
-                          internalFormat, width, height, 1, border, imageSize);
+                    internalFormat, width, height, 1, border, imageSize, data);
       if (error) {
          _mesa_error(ctx, error, "glCompressedTexImage2D");
          return;
@@ -3379,7 +3426,7 @@ _mesa_CompressedTexImage2DARB(GLenum target, GLint level,
              ctx->Extensions.ARB_texture_cube_map)) {
       /* Proxy texture: check for errors and update proxy state */
       GLenum error = compressed_teximage_error_check(ctx, 2, target, level,
-                          internalFormat, width, height, 1, border, imageSize);
+                   internalFormat, width, height, 1, border, imageSize, data);
       if (!error) {
          ASSERT(ctx->Driver.TestProxyTexImage);
          error = !(*ctx->Driver.TestProxyTexImage)(ctx, target, level,
@@ -3436,7 +3483,7 @@ _mesa_CompressedTexImage3DARB(GLenum target, GLint level,
       struct gl_texture_object *texObj;
       struct gl_texture_image *texImage;
       GLenum error = compressed_teximage_error_check(ctx, 3, target, level,
-                      internalFormat, width, height, depth, border, imageSize);
+                internalFormat, width, height, depth, border, imageSize, data);
       if (error) {
          _mesa_error(ctx, error, "glCompressedTexImage3D");
          return;
@@ -3480,7 +3527,7 @@ _mesa_CompressedTexImage3DARB(GLenum target, GLint level,
    else if (target == GL_PROXY_TEXTURE_3D) {
       /* Proxy texture: check for errors and update proxy state */
       GLenum error = compressed_teximage_error_check(ctx, 3, target, level,
-                      internalFormat, width, height, depth, border, imageSize);
+               internalFormat, width, height, depth, border, imageSize, data);
       if (!error) {
          ASSERT(ctx->Driver.TestProxyTexImage);
          error = !(*ctx->Driver.TestProxyTexImage)(ctx, target, level,

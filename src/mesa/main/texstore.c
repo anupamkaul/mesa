@@ -3196,16 +3196,10 @@ _mesa_validate_pbo_teximage(GLcontext *ctx, GLuint dimensions,
       /* no PBO */
       return pixels;
    }
-   if (!_mesa_validate_pbo_access(dimensions, unpack, width, height, depth,
-                                  format, type, pixels)) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, funcName, "(invalid PBO access");
-      return NULL;
-   }
 
    buf = (GLubyte *) ctx->Driver.MapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
                                           GL_READ_ONLY_ARB, unpack->BufferObj);
    if (!buf) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, funcName, "(PBO is mapped");
       return NULL;
    }
 
@@ -3232,17 +3226,10 @@ _mesa_validate_pbo_compressed_teximage(GLcontext *ctx,
       /* not using a PBO - return pointer unchanged */
       return pixels;
    }
-   if ((const GLubyte *) pixels + imageSize >
-       ((const GLubyte *) 0) + packing->BufferObj->Size) {
-      /* out of bounds read! */
-      _mesa_error(ctx, GL_INVALID_OPERATION, funcName, "(invalid PBO access");
-      return NULL;
-   }
 
    buf = (GLubyte*) ctx->Driver.MapBuffer(ctx, GL_PIXEL_UNPACK_BUFFER_EXT,
                                          GL_READ_ONLY_ARB, packing->BufferObj);
    if (!buf) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, funcName, "(PBO is mapped");
       return NULL;
    }
 
