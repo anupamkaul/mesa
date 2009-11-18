@@ -606,7 +606,8 @@ intel_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
 		    struct gl_texture_image *texImage, GLboolean compressed)
 {
    struct intel_context *intel = intel_context(ctx);
-   struct intel_texture_image *intelImage = intel_texture_image(texImage);
+   struct intel_texture_object *intelObj = intel_texture_object(texObj);
+   const GLuint face = _mesa_tex_target_to_face(target);
 
    /* If we're reading from a texture that has been rendered to, need to
     * make sure rendering is complete.
@@ -614,32 +615,7 @@ intel_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
     */
    intelFlush(ctx);
 
-   /* Map */
-   if (intelImage->mt) {
-      /* Image is stored in hardware format in a buffer managed by the
-       * kernel.  Need to explicitly map and unmap it.
-       */
-      intelImage->base.Map.Data =
-         intel_miptree_image_map(intel,
-                                 intelImage->mt,
-                                 intelImage->face,
-                                 intelImage->level,
-                                 &intelImage->base.Map.RowStride,
-                                 intelImage->base.Map.ImageOffsets);
-      intelImage->base.Map.RowStride /= intelImage->mt->cpp;
-   }
-   else {
-      /* Otherwise, the image should actually be stored in
-       * intelImage->base.Data.  This is pretty confusing for
-       * everybody, I'd much prefer to separate the two functions of
-       * texImage->Map.Data - storage for texture images in main memory
-       * and access (ie mappings) of images.  In other words, we'd
-       * create a new texImage->Map field and leave Data simply for
-       * storage.
-       */
-      assert(intelImage->base.Map.Data);
-   }
-
+   intel_tex_map_level_image(intel, intelObj, level, face);
 
    if (compressed) {
       _mesa_get_compressed_teximage(ctx, target, level, pixels,
@@ -649,13 +625,8 @@ intel_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
       _mesa_get_teximage(ctx, target, level, format, type, pixels,
                          texObj, texImage);
    }
-     
 
-   /* Unmap */
-   if (intelImage->mt) {
-      intel_miptree_image_unmap(intel, intelImage->mt);
-      intelImage->base.Map.Data = NULL;
-   }
+   intel_tex_unmap_level_image(intel, intelObj, level, face);
 }
 
 
