@@ -137,3 +137,64 @@ _mesa_unmap_texture_image(GLcontext *ctx, struct gl_texture_object *tObj,
    struct gl_texture_image *texImage = tObj->Image[face][level];
    texImage->Map.Data = NULL;
 }
+
+
+
+/**
+ * Map all current texture object images.
+ * Typically called prior to software rendering.
+ */
+void
+_mesa_map_current_textures(GLcontext *ctx)
+{
+   GLuint u;
+
+   if (!ctx->Texture._EnabledUnits) {
+      /* no textures enabled, or no way to validate images! */
+      return;
+   }
+
+   if (!ctx->Driver.MapTexture)
+      return;
+
+   for (u = 0; u < ctx->Const.MaxTextureImageUnits; u++) {
+      if (ctx->Texture.Unit[u]._ReallyEnabled) {
+         struct gl_texture_object *texObj = ctx->Texture.Unit[u]._Current;
+         ASSERT(texObj);
+         if (texObj) {
+            /* Map read/write in case of render to texture */
+            ctx->Driver.MapTexture(ctx, texObj, GL_READ_WRITE);
+         }
+      }
+   }
+}
+
+
+/**
+ * Unmap all current texture object images.
+ * Typically called after software rendering is finished.
+ */
+void
+_mesa_unmap_current_textures(GLcontext *ctx)
+{
+   GLuint u;
+
+   if (!ctx->Texture._EnabledUnits) {
+      /* no textures enabled */
+      return;
+   }
+
+   if (!ctx->Driver.UnmapTexture)
+      return;
+
+   for (u = 0; u < ctx->Const.MaxTextureImageUnits; u++) {
+      if (ctx->Texture.Unit[u]._ReallyEnabled) {
+         struct gl_texture_object *texObj = ctx->Texture.Unit[u]._Current;
+         ASSERT(texObj);
+         if (texObj) {
+            ctx->Driver.UnmapTexture(ctx, texObj);
+         }
+      }
+   }
+}
+
