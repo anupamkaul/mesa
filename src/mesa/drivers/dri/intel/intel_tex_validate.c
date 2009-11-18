@@ -255,7 +255,6 @@ intel_tex_map_level_image(struct intel_context *intel,
                                  intelImage->base.Map.ImageOffsets);
       /* convert stride to texels, not bytes */
       intelImage->base.Map.RowStride /= intelImage->mt->cpp;
-      /* intelImage->base.ImageStride /= intelImage->mt->cpp; */
    }
 }
 
