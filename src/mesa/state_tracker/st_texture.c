@@ -220,6 +220,11 @@ st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
 }
 
 
+/**
+ * Unmap a texture image.  Image must have been mapped by
+ * st_texture_image_map() or st_subtexture_image_map().
+ * The image's transfer object is also freed.
+ */
 void
 st_texture_image_unmap(struct st_context *st,
                        struct st_texture_image *stImage)
