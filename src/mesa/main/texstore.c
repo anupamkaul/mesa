@@ -3280,9 +3280,6 @@ texture_row_stride(const struct gl_texture_image *texImage)
  * This is the software fallback for Driver.TexImage1D()
  * and Driver.CopyTexImage1D().
  * \sa _mesa_store_teximage2d()
- * Note that the width may not be the actual texture width since it may
- * be changed by convolution w/ GL_REDUCE.  The texImage->Width field will
- * have the actual texture size.
  */
 void
 _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
@@ -3332,8 +3329,8 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
  * This is the software fallback for Driver.TexImage2D()
  * and Driver.CopyTexImage2D().
  *
- * This function is oriented toward storing images in main memory, rather
- * than VRAM.  Device driver's can easily plug in their own replacement.
+ * Basically, allocate space for the image, then store it.
+ * When the source data is in a PBO, validate/map the PBO first.
  *
  * Note: width and height may be pre-convolved dimensions, but
  * texImage->Width and texImage->Height will be post-convolved dimensions.
