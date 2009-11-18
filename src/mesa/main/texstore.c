@@ -3487,15 +3487,6 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
 {
    (void) width; (void) height; (void) border;
 
-   /* This is pretty simple, basically just do a memcpy without worrying
-    * about the usual image unpacking or image transfer operations.
-    */
-   ASSERT(texObj);
-   ASSERT(texImage);
-   ASSERT(texImage->Width > 0);
-   ASSERT(texImage->Height > 0);
-   ASSERT(texImage->Depth == 1);
-
    /* allocate storage */
    if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage2DARB");
@@ -3506,8 +3497,10 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
    if (!data)
       return;
 
-   /* copy the data */
-   MEMCPY(texImage->Map.Data, data, imageSize);
+   /* This is pretty simple, just do a memcpy without worrying
+    * about the usual image unpacking or image transfer operations.
+    */
+   _mesa_memcpy(texImage->Map.Data, data, imageSize);
 
    _mesa_unmap_pbo_source(ctx, &ctx->Unpack);
 }
