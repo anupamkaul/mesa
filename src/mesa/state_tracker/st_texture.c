@@ -48,24 +48,6 @@
 
 #define DBG if(0) printf
 
-#if 0
-static GLenum
-target_to_target(GLenum target)
-{
-   switch (target) {
-   case GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB:
-   case GL_TEXTURE_CUBE_MAP_NEGATIVE_X_ARB:
-   case GL_TEXTURE_CUBE_MAP_POSITIVE_Y_ARB:
-   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_ARB:
-   case GL_TEXTURE_CUBE_MAP_POSITIVE_Z_ARB:
-   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_ARB:
-      return GL_TEXTURE_CUBE_MAP_ARB;
-   default:
-      return target;
-   }
-}
-#endif
-
 
 /**
  * Allocate a new pipe_texture object
@@ -142,42 +124,6 @@ st_texture_match_image(const struct pipe_texture *pt,
 
    return GL_TRUE;
 }
-
-
-#if 000
-/* Although we use the image_offset[] array to store relative offsets
- * to cube faces, Mesa doesn't know anything about this and expects
- * each cube face to be treated as a separate image.
- *
- * These functions present that view to mesa:
- */
-const GLuint *
-st_texture_depth_offsets(struct pipe_texture *pt, GLuint level)
-{
-   static const GLuint zero = 0;
-
-   if (pt->target != PIPE_TEXTURE_3D || pt->level[level].nr_images == 1)
-      return &zero;
-   else
-      return pt->level[level].image_offset;
-}
-
-
-/**
- * Return the offset to the given mipmap texture image within the
- * texture memory buffer, in bytes.
- */
-GLuint
-st_texture_image_offset(const struct pipe_texture * pt,
-                        GLuint face, GLuint level)
-{
-   if (pt->target == PIPE_TEXTURE_CUBE)
-      return (pt->level[level].level_offset +
-              pt->level[level].image_offset[face] * pt->cpp);
-   else
-      return pt->level[level].level_offset;
-}
-#endif
 
 
 /**

@@ -140,25 +140,6 @@ st_texture_image_unmap(struct st_context *st,
                        struct st_texture_image *stImage);
 
 
-/* Return pointers to each 2d slice within an image.  Indexed by depth
- * value.
- */
-extern const GLuint *
-st_texture_depth_offsets(struct pipe_texture *pt, GLuint level);
-
-
-/* Return the linear offset of an image relative to the start of its region.
- */
-extern GLuint
-st_texture_image_offset(const struct pipe_texture *pt,
-                        GLuint face, GLuint level);
-
-extern GLuint
-st_texture_texel_offset(const struct pipe_texture * pt,
-                        GLuint face, GLuint level,
-                        GLuint col, GLuint row, GLuint img);
-
-
 /* Upload an image into a texture
  */
 extern void
