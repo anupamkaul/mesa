@@ -1269,7 +1269,7 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
    struct pipe_context *pipe = ctx->st->pipe;
    struct pipe_screen *screen = pipe->screen;
    struct pipe_transfer *src_trans;
-   GLvoid *texDest;
+   struct gl_texture_image *texImage = &stImage->base;
    enum pipe_transfer_usage transfer_usage;
    
    if (ST_DEBUG & DEBUG_FALLBACK)
@@ -1298,8 +1298,9 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
    st_teximage_flush_before_map(ctx->st, stImage->pt, 0, 0,
 				transfer_usage);
 
-   texDest = st_texture_image_map(ctx->st, stImage, 0, transfer_usage,
-                                  destX, destY, width, height);
+   texImage->Map.Data = st_texture_image_map(ctx->st, stImage,
+                                             0, transfer_usage,
+                                             destX, destY, width, height);
 
    if (baseFormat == GL_DEPTH_COMPONENT ||
        baseFormat == GL_DEPTH_STENCIL) {
@@ -1332,10 +1333,9 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
       GLfloat *tempSrc =
          (GLfloat *) _mesa_malloc(width * height * 4 * sizeof(GLfloat));
 
-      if (tempSrc && texDest) {
+      if (tempSrc && texImage->Map.Data) {
          const GLint dims = 2;
          const GLint dstRowStride = stImage->transfer->stride;
-         struct gl_texture_image *texImage = &stImage->base;
          struct gl_pixelstore_attrib unpack = ctx->DefaultPacking;
 
          if (st_fb_orientation(ctx->ReadBuffer) == Y_0_TOP) {
@@ -1357,7 +1357,7 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
          _mesa_texstore(ctx, dims,
                         texImage->_BaseFormat, 
                         texImage->TexFormat, 
-                        texDest,
+                        texImage->Map.Data,
                         0, 0, 0,
                         dstRowStride,
                         texImage->Map.ImageOffsets,
