@@ -123,10 +123,7 @@ st_texture_match_image(const struct pipe_texture *pt,
                        const struct gl_texture_image *image,
                        GLuint face, GLuint level);
 
-/* Return a pointer to an image within a texture.  Return image stride as
- * well.
- */
-extern GLubyte *
+extern void
 st_texture_image_map(struct st_context *st,
                      struct st_texture_image *stImage,
 		     GLuint zoffset,

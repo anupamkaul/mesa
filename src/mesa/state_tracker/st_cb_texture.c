@@ -680,10 +680,8 @@ st_TexImage(GLcontext * ctx,
       else
          transfer_usage = PIPE_TRANSFER_WRITE;
 
-      texImage->Map.Data = st_texture_image_map(ctx->st, stImage, 0,
-                                            transfer_usage, 0, 0,
-                                            stImage->base.Width,
-                                            stImage->base.Height);
+      st_texture_image_map(ctx->st, stImage, 0, transfer_usage, 0, 0,
+                           stImage->base.Width, stImage->base.Height);
       if (stImage->transfer)
          dstRowStride = stImage->transfer->stride;
    }
@@ -733,10 +731,9 @@ st_TexImage(GLcontext * ctx,
             /* unmap this slice */
 	    st_texture_image_unmap(ctx->st, stImage);
             /* map next slice of 3D texture */
-	    texImage->Map.Data = st_texture_image_map(ctx->st, stImage, i + 1,
-                                                  transfer_usage, 0, 0,
-                                                  stImage->base.Width,
-                                                  stImage->base.Height);
+	    st_texture_image_map(ctx->st, stImage, i + 1,
+                                 transfer_usage, 0, 0,
+                                 stImage->base.Width, stImage->base.Height);
 	    src += srcImageStride;
 	 }
       }
@@ -938,10 +935,9 @@ st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
       st_teximage_flush_before_map(ctx->st, stImage->pt, face, level,
 				   PIPE_TRANSFER_READ);
 
-      texImage->Map.Data = st_texture_image_map(ctx->st, stImage, 0,
-                                            PIPE_TRANSFER_READ, 0, 0,
-                                            stImage->base.Width,
-                                            stImage->base.Height);
+      st_texture_image_map(ctx->st, stImage, 0,
+                           PIPE_TRANSFER_READ, 0, 0,
+                           stImage->base.Width, stImage->base.Height);
       texImage->Map.RowStride = stImage->transfer->stride / stImage->pt->block.size;
    }
    else {
@@ -975,10 +971,9 @@ st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
          /* unmap this slice */
 	 st_texture_image_unmap(ctx->st, stImage);
          /* map next slice of 3D texture */
-	 texImage->Map.Data = st_texture_image_map(ctx->st, stImage, i + 1,
-                                               PIPE_TRANSFER_READ, 0, 0,
-                                               stImage->base.Width,
-                                               stImage->base.Height);
+	 st_texture_image_map(ctx->st, stImage, i + 1,
+                              PIPE_TRANSFER_READ, 0, 0,
+                              stImage->base.Width, stImage->base.Height);
 	 dest += dstImageStride;
       }
    }
@@ -1074,10 +1069,8 @@ st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
 
       st_teximage_flush_before_map(ctx->st, stImage->pt, face, level,
 				   transfer_usage);
-      texImage->Map.Data = st_texture_image_map(ctx->st, stImage, zoffset, 
-                                            transfer_usage,
-                                            xoffset, yoffset,
-                                            width, height);
+      st_texture_image_map(ctx->st, stImage, zoffset, transfer_usage,
+                           xoffset, yoffset, width, height);
    }
 
    if (!texImage->Map.Data) {
@@ -1104,11 +1097,9 @@ st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
          /* unmap this slice */
 	 st_texture_image_unmap(ctx->st, stImage);
          /* map next slice of 3D texture */
-	 texImage->Map.Data = st_texture_image_map(ctx->st, stImage,
-                                               zoffset + i + 1,
-                                               transfer_usage,
-                                               xoffset, yoffset,
-                                               width, height);
+	 st_texture_image_map(ctx->st, stImage,
+                              zoffset + i + 1, transfer_usage,
+                              xoffset, yoffset, width, height);
 	 src += srcImageStride;
       }
    }
@@ -1198,10 +1189,8 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
 
       st_teximage_flush_before_map(ctx->st, stImage->pt, face, level,
 				   PIPE_TRANSFER_WRITE);
-      texImage->Map.Data = st_texture_image_map(ctx->st, stImage, 0, 
-                                            PIPE_TRANSFER_WRITE,
-                                            xoffset, yoffset,
-                                            width, height);
+      st_texture_image_map(ctx->st, stImage, 0, PIPE_TRANSFER_WRITE,
+                           xoffset, yoffset, width, height);
       
       block = stImage->pt->block;
       srcBlockStride = pf_get_stride(&block, width);
@@ -1298,9 +1287,8 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
    st_teximage_flush_before_map(ctx->st, stImage->pt, 0, 0,
 				transfer_usage);
 
-   texImage->Map.Data = st_texture_image_map(ctx->st, stImage,
-                                             0, transfer_usage,
-                                             destX, destY, width, height);
+   st_texture_image_map(ctx->st, stImage, 0, transfer_usage,
+                        destX, destY, width, height);
 
    if (baseFormat == GL_DEPTH_COMPONENT ||
        baseFormat == GL_DEPTH_STENCIL) {

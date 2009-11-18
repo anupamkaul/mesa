@@ -182,11 +182,9 @@ st_texture_image_offset(const struct pipe_texture * pt,
 
 /**
  * Map a teximage in a mipmap texture.
- * \param row_stride  returns row stride in bytes
- * \param image_stride  returns image stride in bytes (for 3D textures).
- * \return address of mapping
+ * This sets the texture image's Map.Data field.
  */
-GLubyte *
+void
 st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
 		     GLuint zoffset, enum pipe_transfer_usage usage,
                      GLuint x, GLuint y, GLuint w, GLuint h)
@@ -205,7 +203,7 @@ st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
    if (stImage->transfer)
       map = screen->transfer_map(screen, stImage->transfer);
 
-   return map;
+   stImage->base.Map.Data = map;
 }
 
 
