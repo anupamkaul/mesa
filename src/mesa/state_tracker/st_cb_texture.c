@@ -572,7 +572,6 @@ st_TexImage(GLcontext * ctx,
       }
       
       /* we'll set RowStride elsewhere when the texture is a "mapped" state */
-      /*assert(texImage->Map.RowStride == postConvWidth);*/
    }
 
    /* Release the reference to a potentially orphaned buffer.   
