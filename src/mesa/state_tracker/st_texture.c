@@ -507,8 +507,6 @@ st_bind_teximage(struct st_framebuffer *stfb, uint surfIndex,
    struct st_context *st = ctx->st;
    struct pipe_context *pipe = st->pipe;
    struct pipe_screen *screen = pipe->screen;
-   const GLuint unit = ctx->Texture.CurrentUnit;
-   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
    struct gl_texture_object *texObj;
    struct gl_texture_image *texImage;
    struct st_texture_image *stImage;
@@ -525,7 +523,7 @@ st_bind_teximage(struct st_framebuffer *stfb, uint surfIndex,
    }
 
    if (target == ST_TEXTURE_2D) {
-      texObj = texUnit->CurrentTex[TEXTURE_2D_INDEX];
+      texObj = _mesa_get_current_tex_object(ctx, GL_TEXTURE_2D);
       texImage = _mesa_get_tex_image(ctx, texObj, GL_TEXTURE_2D, level);
       stImage = st_texture_image(texImage);
    }
