@@ -2161,8 +2161,6 @@ _mesa_TexImage1D( GLenum target, GLint level, GLint internalFormat,
                                    width, border, format, type, pixels,
                                    &ctx->Unpack, texObj, texImage);
 
-            ASSERT(texImage->TexFormat);
-
             _mesa_set_fetch_functions(texImage, 1);
 
             check_gen_mipmap(ctx, target, texObj, level);
@@ -2272,8 +2270,6 @@ _mesa_TexImage2D( GLenum target, GLint level, GLint internalFormat,
                                    width, height, border, format, type,
                                    pixels, &ctx->Unpack, texObj, texImage);
 
-            ASSERT(texImage->TexFormat);
-
             _mesa_set_fetch_functions(texImage, 2);
 
             check_gen_mipmap(ctx, target, texObj, level);
@@ -2378,8 +2374,6 @@ _mesa_TexImage3D( GLenum target, GLint level, GLint internalFormat,
             ctx->Driver.TexImage3D(ctx, target, level, internalFormat,
                                    width, height, depth, border, format, type,
                                    pixels, &ctx->Unpack, texObj, texImage);
-
-            ASSERT(texImage->TexFormat);
 
             _mesa_set_fetch_functions(texImage, 3);
 
@@ -2677,8 +2671,6 @@ _mesa_CopyTexImage1D( GLenum target, GLint level,
          ctx->Driver.CopyTexImage1D(ctx, target, level, internalFormat,
                                     x, y, width, border);
 
-         ASSERT(texImage->TexFormat);
-
          _mesa_set_fetch_functions(texImage, 1);
 
          check_gen_mipmap(ctx, target, texObj, level);
@@ -2748,8 +2740,6 @@ _mesa_CopyTexImage2D( GLenum target, GLint level, GLenum internalFormat,
          ASSERT(ctx->Driver.CopyTexImage2D);
          ctx->Driver.CopyTexImage2D(ctx, target, level, internalFormat,
                                     x, y, width, height, border);
-
-         ASSERT(texImage->TexFormat);
 
          _mesa_set_fetch_functions(texImage, 2);
 
