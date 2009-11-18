@@ -388,8 +388,7 @@ intelTexImage(GLcontext * ctx,
       GLuint texelBytes = _mesa_get_format_bytes(intelImage->base.TexFormat);
       GLenum baseFormat = _mesa_get_format_base_format(intelImage->base.TexFormat);
       if (_mesa_is_format_compressed(intelImage->base.TexFormat)) {
-	 comp_byte =
-	    intel_compressed_num_bytes(intelImage->base.TexFormat);
+	 comp_byte = intel_compressed_num_bytes(intelImage->base.TexFormat);
       }
 
       /* Didn't fit in the object miptree, but it's suitable for inclusion in
@@ -484,8 +483,7 @@ intelTexImage(GLcontext * ctx,
    else {
       /* Allocate regular memory and store the image there temporarily.   */
       if (_mesa_is_format_compressed(texImage->TexFormat)) {
-         dstRowStride =
-            _mesa_format_row_stride(texImage->TexFormat, width);
+         dstRowStride = _mesa_format_row_stride(texImage->TexFormat, width);
          assert(dims != 3);
       }
       else {
