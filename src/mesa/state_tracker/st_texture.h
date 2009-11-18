@@ -124,12 +124,16 @@ st_texture_match_image(const struct pipe_texture *pt,
                        GLuint face, GLuint level);
 
 extern void
-st_texture_image_map(struct st_context *st,
-                     struct st_texture_image *stImage,
-		     GLuint zoffset,
-                     enum pipe_transfer_usage usage,
-                     unsigned x, unsigned y,
-                     unsigned w, unsigned h);
+st_subtexture_image_map(struct st_context *st,
+                        struct st_texture_image *stImage,
+                        GLuint zoffset,
+                        enum pipe_transfer_usage usage,
+                        unsigned x, unsigned y,
+                        unsigned w, unsigned h);
+
+extern void
+st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
+		     GLuint zoffset, enum pipe_transfer_usage usage);
 
 extern void
 st_texture_image_unmap(struct st_context *st,

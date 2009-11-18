@@ -181,13 +181,14 @@ st_texture_image_offset(const struct pipe_texture * pt,
 
 
 /**
- * Map a teximage in a mipmap texture.
+ * Map one teximage in a texture object.  When mapped, the image's contents 
+ * can be read/written.
  * This sets the texture image's Map.Data field.
  */
 void
-st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
-		     GLuint zoffset, enum pipe_transfer_usage usage,
-                     GLuint x, GLuint y, GLuint w, GLuint h)
+st_subtexture_image_map(struct st_context *st, struct st_texture_image *stImage,
+                        GLuint zoffset, enum pipe_transfer_usage usage,
+                        GLuint x, GLuint y, GLuint w, GLuint h)
 {
    struct pipe_context *pipe = st->pipe;
    struct pipe_screen *screen = pipe->screen;
@@ -204,6 +205,18 @@ st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
       map = screen->transfer_map(screen, stImage->transfer);
 
    stImage->base.Map.Data = map;
+}
+
+
+/**
+ * As st_subtexture_image_map() but map the whole image, not a sub-region.
+ */
+void
+st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
+		     GLuint zoffset, enum pipe_transfer_usage usage)
+{
+   st_subtexture_image_map(st, stImage, zoffset, usage,
+                           0, 0, stImage->base.Width, stImage->base.Height);
 }
 
 
