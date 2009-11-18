@@ -1706,14 +1706,10 @@ copy_image_data_to_texture(GLcontext *ctx,
       pipe_texture_reference(&stImage->pt, NULL);
    }
    else if (stImage->base.Map.Data) {
-      assert(stImage->base.Map.Data != NULL);
-
       /* More straightforward upload.  
        */
-
       st_teximage_flush_before_map(st, stObj->pt, stImage->face, dstLevel,
 				   PIPE_TRANSFER_WRITE);
-
 
       st_texture_image_data(st,
                             stObj->pt,
