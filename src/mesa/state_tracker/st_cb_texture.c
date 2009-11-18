@@ -1188,7 +1188,8 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
       block = stImage->pt->block;
       srcBlockStride = pf_get_stride(&block, width);
       dstBlockStride = stImage->transfer->stride;
-   } else {
+   }
+   else {
       assert(stImage->pt);
       /* TODO find good values for block and strides */
       /* TODO also adjust texImage->data for yoffset/xoffset */
@@ -1206,9 +1207,13 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
    assert(height % block.height == 0);
 
    for (y = 0; y < height; y += block.height) {
-      /* don't need to adjust for xoffset and yoffset as st_texture_image_map does that */
-      const char *src = (const char*)data + srcBlockStride * pf_get_nblocksy(&block, y);
-      char *dst = (char*)texImage->Map.Data + dstBlockStride * pf_get_nblocksy(&block, y);
+      /* don't need to adjust for xoffset and yoffset as
+       * st_texture_image_map does that.
+       */
+      const char *src = (const char *) data
+         + srcBlockStride * pf_get_nblocksy(&block, y);
+      char *dst = (char *) texImage->Map.Data
+         + dstBlockStride * pf_get_nblocksy(&block, y);
       memcpy(dst, src, pf_get_stride(&block, width));
    }
 
