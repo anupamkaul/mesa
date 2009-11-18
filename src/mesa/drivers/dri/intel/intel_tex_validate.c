@@ -245,16 +245,22 @@ intel_tex_map_level_image(struct intel_context *intel,
    struct intel_texture_image *intelImage =
       intel_texture_image(intelObj->base.Image[face][level]);
 
-   if (intelImage && intelImage->mt) {
-      intelImage->base.Map.Data =
-         intel_miptree_image_map(intel,
-                                 intelImage->mt,
-                                 intelImage->face,
-                                 intelImage->level,
-                                 &intelImage->base.Map.RowStride,
-                                 intelImage->base.Map.ImageOffsets);
-      /* convert stride to texels, not bytes */
-      intelImage->base.Map.RowStride /= intelImage->mt->cpp;
+   if (intelImage) {
+      if (intelImage->mt) {
+         intelImage->base.Map.Data =
+            intel_miptree_image_map(intel,
+                                    intelImage->mt,
+                                    intelImage->face,
+                                    intelImage->level,
+                                    &intelImage->base.Map.RowStride,
+                                    intelImage->base.Map.ImageOffsets);
+         /* convert stride to texels, not bytes */
+         intelImage->base.Map.RowStride /= intelImage->mt->cpp;
+      }
+      else {
+         /* XXX revisit this */
+         assert(intelImage->base.Map.Data);
+      }
    }
 }
 
