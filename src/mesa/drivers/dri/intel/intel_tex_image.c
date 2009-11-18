@@ -318,7 +318,7 @@ intelTexImage(GLcontext * ctx,
    struct intel_texture_image *intelImage = intel_texture_image(texImage);
    GLint postConvWidth = width;
    GLint postConvHeight = height;
-   GLint texelBytes, sizeInBytes;
+   GLint texelBytes;
    GLuint dstRowStride = 0, srcRowStride = texImage->Map.RowStride;
 
    DBG("%s target %s level %d %dx%dx%d border %d\n", __FUNCTION__,
@@ -484,20 +484,18 @@ intelTexImage(GLcontext * ctx,
    else {
       /* Allocate regular memory and store the image there temporarily.   */
       if (_mesa_is_format_compressed(texImage->TexFormat)) {
-         sizeInBytes = _mesa_format_image_size(texImage->TexFormat,
-                                               texImage->Width,
-                                               texImage->Height,
-                                               texImage->Depth);
          dstRowStride =
             _mesa_format_row_stride(texImage->TexFormat, width);
          assert(dims != 3);
       }
       else {
          dstRowStride = postConvWidth * texelBytes;
-         sizeInBytes = depth * dstRowStride * postConvHeight;
       }
 
-      texImage->Map.Data = _mesa_alloc_texmemory(sizeInBytes);
+      if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
+         return;
+      }
    }
 
    DBG("Upload image %dx%dx%d row_len %d "

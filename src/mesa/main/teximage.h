@@ -35,13 +35,6 @@
 #include "mtypes.h"
 
 
-extern void *
-_mesa_alloc_texmemory(GLsizei bytes);
-
-extern void
-_mesa_free_texmemory(void *m);
-
-
 /** \name Internal functions */
 /*@{*/
 
@@ -59,6 +52,10 @@ _mesa_new_texture_image( GLcontext *ctx );
 
 extern void
 _mesa_delete_texture_image( GLcontext *ctx, struct gl_texture_image *teximage );
+
+extern GLboolean
+_mesa_alloc_texture_image_data(GLcontext *ctx,
+                               struct gl_texture_image *texImage);
 
 extern void
 _mesa_free_texture_image_data( GLcontext *ctx, 

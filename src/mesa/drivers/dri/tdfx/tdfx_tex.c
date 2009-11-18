@@ -1403,15 +1403,11 @@ tdfxTexImage2D(GLcontext *ctx, GLenum target, GLint level,
     texelBytes = _mesa_get_format_bytes(texImage->TexFormat);
 
     if (_mesa_is_format_compressed(texImage->TexFormat)) {
-       GLuint compressedSize = _mesa_format_image_size(mesaFormat, mml->width,
-                                                       mml->height, 1);
        dstRowStride = _mesa_format_row_stride(texImage->TexFormat, mml->width);
-       texImage->Map.Data = _mesa_alloc_texmemory(compressedSize);
     } else {
        dstRowStride = mml->width * texelBytes;
-       texImage->Map.Data = _mesa_alloc_texmemory(mml->width * mml->height * texelBytes);
     }
-    if (!texImage->Map.Data) {
+    if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
        _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
        return;
     }
@@ -1625,7 +1621,7 @@ tdfxCompressedTexImage2D (GLcontext *ctx, GLenum target,
     if (!texImage->Map.Data) {
        compressedSize = _mesa_format_image_size(mesaFormat, mml->width,
                                                 mml->height, 1);
-       texImage->Map.Data = _mesa_alloc_texmemory(compressedSize);
+       ctx->Driver.AllocTexImageData(ctx, texImage);
        if (!texImage->Map.Data) {
           _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage2D");
           return;

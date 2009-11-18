@@ -61,27 +61,6 @@
 
 
 
-/**
- * We allocate texture memory on 512-byte boundaries so we can use MMX/SSE
- * elsewhere.
- */
-void *
-_mesa_alloc_texmemory(GLsizei bytes)
-{
-   return _mesa_align_malloc(bytes, 512);
-}
-
-
-/**
- * Free texture memory allocated with _mesa_alloc_texmemory()
- */
-void
-_mesa_free_texmemory(void *m)
-{
-   _mesa_align_free(m);
-}
-
-
 /*
  * Compute floor(log_base_2(n)).
  * If n < 0 return -1.
@@ -449,6 +428,20 @@ _mesa_new_texture_image( GLcontext *ctx )
 
 
 /**
+ * Allocate space for the given texture image.
+ * This is a fallback called via ctx->Driver.AllocTexImageData().
+ */
+GLboolean
+_mesa_alloc_texture_image_data(GLcontext *ctx, struct gl_texture_image *tImage)
+{
+   GLint bytes = _mesa_format_image_size(tImage->TexFormat, tImage->Width,
+                                         tImage->Height, tImage->Depth);
+   tImage->Map.Data = _mesa_align_malloc(bytes, 512);
+   return tImage->Map.Data != NULL;
+}
+
+
+/**
  * Free texture image data.
  * This function is a fallback called via ctx->Driver.FreeTexImageData().
  *
@@ -464,7 +457,7 @@ _mesa_free_texture_image_data(GLcontext *ctx,
 
    if (texImage->Map.Data && !texImage->IsClientData) {
       /* free the old texture data */
-      _mesa_free_texmemory(texImage->Map.Data);
+      _mesa_align_free(texImage->Map.Data);
    }
 
    texImage->Map.Data = NULL;

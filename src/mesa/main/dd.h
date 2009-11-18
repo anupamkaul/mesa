@@ -508,6 +508,12 @@ struct dd_function_table {
     */
    struct gl_texture_image * (*NewTextureImage)( GLcontext *ctx );
 
+   /**
+    * Allocate space for texture image data.
+    */
+   GLboolean (*AllocTexImageData)( GLcontext *ctx,
+                                   struct gl_texture_image *texImage );
+
    /** 
     * Called to free tImage->Data.
     */

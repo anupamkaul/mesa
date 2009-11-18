@@ -75,6 +75,7 @@ struct gl_texture_image *radeonNewTextureImage(GLcontext *ctx)
 
 /**
  * Free memory associated with this texture image.
+ * Called via ctx->Driver.FreeTexImageData().
  */
 void radeonFreeTexImageData(GLcontext *ctx, struct gl_texture_image *timage)
 {
@@ -90,10 +91,6 @@ void radeonFreeTexImageData(GLcontext *ctx, struct gl_texture_image *timage)
 	if (image->bo) {
 		radeon_bo_unref(image->bo);
 		image->bo = NULL;
-	}
-	if (timage->Map.Data) {
-		_mesa_free_texmemory(timage->Map.Data);
-		timage->Map.Data = NULL;
 	}
 }
 
@@ -580,16 +577,10 @@ static void radeon_teximage(
 		lvl = &image->mt->levels[image->mtlevel];
 		dstRowStride = lvl->rowstride;
 	} else {
-		int size;
-		if (_mesa_is_format_compressed(texImage->TexFormat)) {
-			size = _mesa_format_image_size(texImage->TexFormat,
-						       texImage->Width,
-						       texImage->Height,
-						       texImage->Depth);
-		} else {
-			size = texImage->Width * texImage->Height * texImage->Depth * _mesa_get_format_bytes(texImage->TexFormat);
+		if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
+			_mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
+			return;
 		}
-		texImage->Map.Data = _mesa_alloc_texmemory(size);
 	}
 
 	/* Upload texture image; note that the spec allows pixels to be NULL */
@@ -851,7 +842,7 @@ void radeonTexSubImage3D(GLcontext * ctx, GLenum target, GLint level,
 /**
  * Ensure that the given image is stored in the given miptree from now on.
  */
-static void migrate_image_to_miptree(radeon_mipmap_tree *mt, radeon_texture_image *image, int face, int level)
+static void migrate_image_to_miptree(GLcontext *ctx, radeon_mipmap_tree *mt, radeon_texture_image *image, int face, int level)
 {
 	radeon_mipmap_level *dstlvl = &mt->levels[level - mt->firstLevel];
 	unsigned char *dest;
@@ -901,7 +892,7 @@ static void migrate_image_to_miptree(radeon_mipmap_tree *mt, radeon_texture_imag
 		copy_rows(dest, dstlvl->rowstride, image->base.Map.Data, srcrowstride,
 			  height, srcrowstride);
 
-		_mesa_free_texmemory(image->base.Map.Data);
+		_mesa_free_texture_image_data(ctx, &image->base);
 		image->base.Map.Data = 0;
 	}
 
@@ -975,7 +966,7 @@ int radeon_validate_texture_miptree(GLcontext * ctx, struct gl_texture_object *t
 
 			if (RADEON_DEBUG & RADEON_TEXTURE)
 				fprintf(stderr, "migrating\n");
-			migrate_image_to_miptree(t->mt, image, face, level);
+			migrate_image_to_miptree(ctx, t->mt, image, face, level);
 		}
 	}
 

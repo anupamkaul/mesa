@@ -3265,16 +3265,6 @@ _mesa_unmap_teximage_pbo(GLcontext *ctx,
 }
 
 
-/** Return texture size in bytes */
-static GLuint
-texture_size(const struct gl_texture_image *texImage)
-{
-   GLuint sz = _mesa_format_image_size(texImage->TexFormat, texImage->Width,
-                                       texImage->Height, texImage->Depth);
-   return sz;
-}
-
-
 /** Return row stride in bytes */
 static GLuint
 texture_row_stride(const struct gl_texture_image *texImage)
@@ -3303,13 +3293,10 @@ _mesa_store_teximage1d(GLcontext *ctx, GLenum target, GLint level,
                        struct gl_texture_object *texObj,
                        struct gl_texture_image *texImage)
 {
-   GLuint sizeInBytes;
    (void) border;
 
    /* allocate memory */
-   sizeInBytes = texture_size(texImage);
-   texImage->Map.Data = _mesa_alloc_texmemory(sizeInBytes);
-   if (!texImage->Map.Data) {
+   if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage1D");
       return;
    }
@@ -3360,13 +3347,10 @@ _mesa_store_teximage2d(GLcontext *ctx, GLenum target, GLint level,
                        struct gl_texture_object *texObj,
                        struct gl_texture_image *texImage)
 {
-   GLuint sizeInBytes;
    (void) border;
 
    /* allocate memory */
-   sizeInBytes = texture_size(texImage);
-   texImage->Map.Data = _mesa_alloc_texmemory(sizeInBytes);
-   if (!texImage->Map.Data) {
+   if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
       return;
    }
@@ -3413,13 +3397,10 @@ _mesa_store_teximage3d(GLcontext *ctx, GLenum target, GLint level,
                        struct gl_texture_object *texObj,
                        struct gl_texture_image *texImage)
 {
-   GLuint sizeInBytes;
    (void) border;
 
    /* allocate memory */
-   sizeInBytes = texture_size(texImage);
-   texImage->Map.Data = _mesa_alloc_texmemory(sizeInBytes);
-   if (!texImage->Map.Data) {
+   if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage3D");
       return;
    }
@@ -3612,11 +3593,9 @@ _mesa_store_compressed_teximage2d(GLcontext *ctx, GLenum target, GLint level,
    ASSERT(texImage->Width > 0);
    ASSERT(texImage->Height > 0);
    ASSERT(texImage->Depth == 1);
-   ASSERT(texImage->Map.Data == NULL); /* was freed in glCompressedTexImage2DARB */
 
    /* allocate storage */
-   texImage->Map.Data = _mesa_alloc_texmemory(imageSize);
-   if (!texImage->Map.Data) {
+   if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
       _mesa_error(ctx, GL_OUT_OF_MEMORY, "glCompressedTexImage2DARB");
       return;
    }
