@@ -37,6 +37,7 @@
 #include "main/texcompress.h"
 #include "main/texstore.h"
 #include "main/teximage.h"
+#include "main/texmem.h"
 #include "main/texobj.h"
 #include "main/texgetimage.h"
 
@@ -155,7 +156,8 @@ static void unmap_override(GLcontext *ctx, radeonTexObj *t)
 /**
  * Map a validated texture for reading during software rendering.
  */
-void radeonMapTexture(GLcontext *ctx, struct gl_texture_object *texObj)
+void radeonMapTexture(GLcontext *ctx, struct gl_texture_object *texObj,
+                      GLenum mode)
 {
 	radeonTexObj* t = radeon_tex_obj(texObj);
 	int face, level;
