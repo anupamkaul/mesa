@@ -319,7 +319,9 @@ intelTexImage(GLcontext * ctx,
    GLint postConvWidth = width;
    GLint postConvHeight = height;
    GLint texelBytes;
-   GLuint dstRowStride = 0, srcRowStride = texImage->Map.RowStride;
+   const GLuint srcRowStride = unpack->RowLength ? unpack->RowLength : width;
+
+   assert(srcRowStride == texImage->Map.RowStride);
 
    DBG("%s target %s level %d %dx%dx%d border %d\n", __FUNCTION__,
        _mesa_lookup_enum_by_nr(target), level, width, height, depth, border);
@@ -462,30 +464,24 @@ intelTexImage(GLcontext * ctx,
 				     intelImage->mt->region->buffer)) {
 	    intelFlush(ctx);
 	 }
-         texImage->Map.Data = intel_miptree_image_map(intel,
-                                                  intelImage->mt,
-                                                  intelImage->face,
-                                                  intelImage->level,
-                                                  &dstRowStride,
-                                                  intelImage->base.Map.ImageOffsets);
+         intel_tex_map_level_image(intel, intelImage);
       }
-
-      texImage->Map.RowStride = dstRowStride / intelImage->mt->cpp;
    }
    else {
       /* Allocate regular memory and store the image there temporarily.   */
-      dstRowStride = _mesa_format_row_stride(texImage->TexFormat,
-                                             postConvWidth);
-
       if (!ctx->Driver.AllocTexImageData(ctx, texImage)) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
          return;
       }
+      /* XXX we'll add a "map texture image" call here */
+      texImage->Map.RowStride =
+         _mesa_format_row_stride(texImage->TexFormat, postConvWidth)
+         / intelImage->mt->cpp;
    }
 
    DBG("Upload image %dx%dx%d row_len %d "
        "pitch %d pixels %d compressed %d\n",
-       width, height, depth, width * texelBytes, dstRowStride,
+       width, height, depth, width * texelBytes, texImage->Map.RowStride,
        pixels ? 1 : 0, compressed);
 
    /* Copy data.  Would like to know when it's ok for us to eg. use
@@ -511,8 +507,9 @@ intelTexImage(GLcontext * ctx,
        else if (!_mesa_texstore(ctx, dims, 
                                 texImage->_BaseFormat, 
                                 texImage->TexFormat, 
-                                texImage->Map.Data, 0, 0, 0, /* dstX/Y/Zoffset */
-                                dstRowStride,
+                                texImage->Map.Data,  /* dest addr */
+                                0, 0, 0, /* dstX/Y/Zoffset */
+                                texImage->Map.RowStride * intelImage->mt->cpp,
                                 texImage->Map.ImageOffsets,
                                 width, height, depth,
                                 format, type, pixels, unpack)) {
@@ -522,11 +519,8 @@ intelTexImage(GLcontext * ctx,
 
    _mesa_unmap_pbo_source(ctx, unpack);
 
-   if (intelImage->mt) {
-      if (pixels != NULL)
-         intel_miptree_image_unmap(intel, intelImage->mt);
-      texImage->Map.Data = NULL;
-   }
+   if (pixels != NULL)
+      intel_tex_unmap_level_image(intel, intelImage);
 
    UNLOCK_HARDWARE(intel);
 }
