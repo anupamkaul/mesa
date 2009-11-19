@@ -130,7 +130,7 @@ void radeon_teximage_unmap(radeon_texture_image *image)
 	if (image->mt) {
 		assert(image->base.Map.Data);
 
-		image->base.Map.Data = 0;
+		image->base.Map.Data = NULL;
 		radeon_bo_unmap(image->mt->bo);
 	}
 }
@@ -196,7 +196,7 @@ void radeonUnmapTexture(GLcontext *ctx, struct gl_texture_object *texObj)
 
 	for(face = 0; face < t->mt->faces; ++face) {
 		for(level = t->mt->firstLevel; level <= t->mt->lastLevel; ++level)
-			texObj->Image[face][level]->Map.Data = 0;
+			texObj->Image[face][level]->Map.Data = NULL;
 	}
 	radeon_bo_unmap(t->mt->bo);
 }
@@ -872,7 +872,7 @@ static void migrate_image_to_miptree(GLcontext *ctx, radeon_mipmap_tree *mt, rad
 			  height, srcrowstride);
 
 		_mesa_free_texture_image_data(ctx, &image->base);
-		image->base.Map.Data = 0;
+		image->base.Map.Data = NULL;
 	}
 
 	radeon_bo_unmap(mt->bo);
