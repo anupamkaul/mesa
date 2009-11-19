@@ -155,6 +155,7 @@ static void unmap_override(GLcontext *ctx, radeonTexObj *t)
 
 /**
  * Map a validated texture for reading during software rendering.
+ * Called via ctx->Driver.MapTexture()
  */
 void radeonMapTexture(GLcontext *ctx, struct gl_texture_object *texObj,
                       GLenum mode)
@@ -179,6 +180,9 @@ void radeonMapTexture(GLcontext *ctx, struct gl_texture_object *texObj,
 	}
 }
 
+/**
+ * Called via ctx->Driver.UnmapTexture()
+ */
 void radeonUnmapTexture(GLcontext *ctx, struct gl_texture_object *texObj)
 {
 	radeonTexObj* t = radeon_tex_obj(texObj);
