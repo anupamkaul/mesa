@@ -839,6 +839,11 @@ _mesa_format_image_size(gl_format format, GLsizei width,
 
 
 
+/**
+ * Return row stride for an image encoded in the given format, with
+ * the given width.
+ * \return stride in bytes
+ */
 GLint
 _mesa_format_row_stride(gl_format format, GLsizei width)
 {
