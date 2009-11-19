@@ -201,20 +201,6 @@ void radeonUnmapTexture(GLcontext *ctx, struct gl_texture_object *texObj)
 	radeon_bo_unmap(t->mt->bo);
 }
 
-GLuint radeon_face_for_target(GLenum target)
-{
-	switch (target) {
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-	case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-	case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-		return (GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X;
-	default:
-		return 0;
-	}
-}
 
 /**
  * Wraps Mesa's implementation to ensure that the base level image is mapped.
@@ -253,7 +239,7 @@ static void radeon_generate_mipmap(GLcontext *ctx, GLenum target,
 
 void radeonGenerateMipmap(GLcontext* ctx, GLenum target, struct gl_texture_object *texObj)
 {
-	GLuint face = radeon_face_for_target(target);
+	const GLuint face = _mesa_tex_target_to_face(target);
 	radeon_texture_image *baseimage = get_radeon_texture_image(texObj->Image[face][texObj->BaseLevel]);
 
 	radeon_teximage_map(baseimage, GL_FALSE);
@@ -536,7 +522,7 @@ static void radeon_teximage(
 	GLint postConvWidth = width;
 	GLint postConvHeight = height;
 	GLuint texelBytes;
-	GLuint face = radeon_face_for_target(target);
+	const GLuint face = _mesa_tex_target_to_face(target);
 
 	radeon_firevertices(rmesa);
 
