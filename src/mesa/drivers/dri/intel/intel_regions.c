@@ -300,6 +300,8 @@ intel_region_release(struct intel_region **region_handle)
 
 /*
  * XXX Move this into core Mesa?
+ * \param dst_pitch  dest image pitch in pixels
+ * \param src_pitch  source image pitch in pixels
  */
 void
 _mesa_copy_rect(GLubyte * dst,
