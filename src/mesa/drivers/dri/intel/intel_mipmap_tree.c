@@ -64,12 +64,13 @@ intel_miptree_create_internal(struct intel_context *intel,
 			      GLuint last_level,
 			      GLuint width0,
 			      GLuint height0,
-			      GLuint depth0, GLuint cpp,
+			      GLuint depth0,
 			      uint32_t tiling)
 {
    GLboolean ok;
    struct intel_mipmap_tree *mt = calloc(sizeof(*mt), 1);
    const int compress_byte = intel_compressed_num_bytes(format);
+   const GLuint cpp = _mesa_get_format_bytes(format);
 
    DBG("%s target %s format %s level %d..%d <-- %p\n", __FUNCTION__,
        _mesa_lookup_enum_by_nr(target),
@@ -84,7 +85,7 @@ intel_miptree_create_internal(struct intel_context *intel,
    mt->height0 = height0;
    mt->depth0 = depth0;
    mt->cpp = compress_byte ? compress_byte : cpp;
-   mt->compressed = compress_byte ? 1 : 0;
+   mt->compressed = _mesa_is_format_compressed(format);
    mt->refcount = 1; 
    mt->pitch = 0;
 
@@ -116,7 +117,7 @@ intel_miptree_create(struct intel_context *intel,
 		     GLuint last_level,
 		     GLuint width0,
 		     GLuint height0,
-		     GLuint depth0, GLuint cpp,
+		     GLuint depth0,
 		     GLboolean expect_accelerated_upload)
 {
    struct intel_mipmap_tree *mt;
@@ -139,7 +140,7 @@ intel_miptree_create(struct intel_context *intel,
 
    mt = intel_miptree_create_internal(intel, target, format,
 				      first_level, last_level, width0,
-				      height0, depth0, cpp,
+				      height0, depth0,
 				      tiling);
    /*
     * pitch == 0 || height == 0  indicates the null texture
@@ -180,7 +181,6 @@ intel_miptree_create_for_region(struct intel_context *intel,
    mt = intel_miptree_create_internal(intel, target, format,
 				      first_level, last_level,
 				      region->width, region->height, 1,
-				      region->cpp,
 				      I915_TILING_NONE);
    if (!mt)
       return mt;

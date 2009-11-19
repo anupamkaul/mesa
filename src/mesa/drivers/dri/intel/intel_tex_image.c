@@ -71,7 +71,6 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
    GLuint depth = intelImage->base.Depth;
    GLuint l2width, l2height, l2depth;
    GLuint i;
-   GLuint texelBytes;
 
    DBG("%s\n", __FUNCTION__);
 
@@ -128,8 +127,6 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
 
    assert(!intelObj->mt);
 
-   texelBytes = _mesa_get_format_bytes(intelImage->base.TexFormat);
-
    intelObj->mt = intel_miptree_create(intel,
                                        intelObj->base.Target,
                                        intelImage->base._BaseFormat,
@@ -139,7 +136,6 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
                                        width,
                                        height,
                                        depth,
-                                       texelBytes,
 				       expect_accelerated_upload);
 
    DBG("%s - success\n", __FUNCTION__);
@@ -297,7 +293,6 @@ intelTexImage(GLcontext * ctx,
    struct intel_texture_image *intelImage = intel_texture_image(texImage);
    GLint postConvWidth = width;
    GLint postConvHeight = height;
-   GLint texelBytes;
    const GLuint srcRowStride = unpack->RowLength ? unpack->RowLength : width;
 
    assert(srcRowStride == texImage->Map.RowStride);
@@ -313,11 +308,8 @@ intelTexImage(GLcontext * ctx,
                                          &postConvHeight);
    }
 
-   if (_mesa_is_format_compressed(texImage->TexFormat)) {
-      texelBytes = 0;
-   }
-   else {
-      texelBytes = _mesa_get_format_bytes(texImage->TexFormat);
+   if (!_mesa_is_format_compressed(texImage->TexFormat)) {
+      const GLint texelBytes = _mesa_get_format_bytes(texImage->TexFormat);
       
       /* Minimum pitch of 32 bytes */
       if (postConvWidth * texelBytes < 32) {
@@ -377,7 +369,6 @@ intelTexImage(GLcontext * ctx,
 					    texImage->TexFormat,
 					    level, level,
 					    width, height, depth,
-					    texelBytes,
                                             pixels == NULL);
    }
 
@@ -453,9 +444,9 @@ intelTexImage(GLcontext * ctx,
          / intelImage->mt->cpp;
    }
 
-   DBG("Upload image %dx%dx%d row_len %d "
+   DBG("Upload image %dx%dx%d "
        "pitch %d pixels %d compressed %d\n",
-       width, height, depth, width * texelBytes, texImage->Map.RowStride,
+       width, height, depth, texImage->Map.RowStride,
        pixels ? 1 : 0, compressed);
 
    /* Copy data.  Would like to know when it's ok for us to eg. use
