@@ -149,24 +149,6 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
 }
 
 
-
-
-static GLuint
-target_to_face(GLenum target)
-{
-   switch (target) {
-   case GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB:
-   case GL_TEXTURE_CUBE_MAP_NEGATIVE_X_ARB:
-   case GL_TEXTURE_CUBE_MAP_POSITIVE_Y_ARB:
-   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_ARB:
-   case GL_TEXTURE_CUBE_MAP_POSITIVE_Z_ARB:
-   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_ARB:
-      return ((GLuint) target - (GLuint) GL_TEXTURE_CUBE_MAP_POSITIVE_X);
-   default:
-      return 0;
-   }
-}
-
 /* There are actually quite a few combinations this will work for,
  * more than what I've listed here.
  */
@@ -326,7 +308,7 @@ intelTexImage(GLcontext * ctx,
    DBG("%s target %s level %d %dx%dx%d border %d\n", __FUNCTION__,
        _mesa_lookup_enum_by_nr(target), level, width, height, depth, border);
 
-   intelImage->face = target_to_face(target);
+   intelImage->face = _mesa_tex_target_to_face(target);
    intelImage->level = level;
 
    if (ctx->_ImageTransferState & IMAGE_CONVOLUTION_BIT) {
@@ -385,7 +367,8 @@ intelTexImage(GLcontext * ctx,
 
       intel_miptree_reference(&intelImage->mt, intelObj->mt);
       assert(intelImage->mt);
-   } else if (intelImage->base.Border == 0) {
+   }
+   else if (intelImage->base.Border == 0) {
       int comp_byte = 0;
       GLenum baseFormat = _mesa_get_format_base_format(intelImage->base.TexFormat);
 
@@ -404,7 +387,6 @@ intelTexImage(GLcontext * ctx,
 					    width, height, depth,
 					    texelBytes,
 					    comp_byte, pixels == NULL);
-
    }
 
    /* PBO fastpaths:
@@ -726,7 +708,7 @@ intelSetTexBuffer2(__DRIcontext *pDRICtx, GLint target,
 			      rb->region->width, rb->region->height, 1,
 			      0, internalFormat);
 
-   intelImage->face = target_to_face(target);
+   intelImage->face = _mesa_tex_target_to_face(target);
    intelImage->level = level;
    if (glx_texture_format == GLX_TEXTURE_FORMAT_RGB_EXT)
       texImage->TexFormat = MESA_FORMAT_XRGB8888;
