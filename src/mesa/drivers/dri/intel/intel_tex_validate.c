@@ -239,12 +239,8 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
 
 void
 intel_tex_map_level_image(struct intel_context *intel,
-			  struct intel_texture_object *intelObj,
-			  GLuint level, GLuint face)
+                          struct intel_texture_image *intelImage)
 {
-   struct intel_texture_image *intelImage =
-      intel_texture_image(intelObj->base.Image[face][level]);
-
    if (intelImage) {
       if (intelImage->mt) {
          intelImage->base.Map.Data =
@@ -267,12 +263,8 @@ intel_tex_map_level_image(struct intel_context *intel,
 
 void
 intel_tex_unmap_level_image(struct intel_context *intel,
-			    struct intel_texture_object *intelObj,
-			    GLuint level, GLuint face)
+                            struct intel_texture_image *intelImage)
 {
-   struct intel_texture_image *intelImage =
-      intel_texture_image(intelObj->base.Image[face][level]);
-
    if (intelImage && intelImage->mt) {
       intel_miptree_image_unmap(intel, intelImage->mt);
       intelImage->base.Map.Data = NULL;
@@ -289,7 +281,9 @@ intel_tex_map_level_images(struct intel_context *intel,
    GLuint face;
 
    for (face = 0; face < nr_faces; face++) {
-      intel_tex_map_level_image(intel, intelObj, level, face);
+      struct intel_texture_image *intelImage =
+         intel_texture_image(intelObj->base.Image[face][level]);
+      intel_tex_map_level_image(intel, intelImage);
    }
 }
 
@@ -303,7 +297,9 @@ intel_tex_unmap_level_images(struct intel_context *intel,
    GLuint face;
 
    for (face = 0; face < nr_faces; face++) {
-      intel_tex_unmap_level_image(intel, intelObj, level, face);
+      struct intel_texture_image *intelImage =
+         intel_texture_image(intelObj->base.Image[face][level]);
+      intel_tex_unmap_level_image(intel, intelImage);
    }
 }
 

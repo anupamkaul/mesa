@@ -231,7 +231,10 @@ intelMapTextureImage(GLcontext *ctx, struct gl_texture_object *tObj,
 {
    struct intel_context *intel = intel_context(ctx);
    struct intel_texture_object *intelObj = intel_texture_object(tObj);
-   intel_tex_map_level_image(intel, intelObj, level, face);
+   struct intel_texture_image *intelImage =
+      intel_texture_image(intelObj->base.Image[face][level]);
+
+   intel_tex_map_level_image(intel, intelImage);
 }
 
 
@@ -242,7 +245,10 @@ intelUnmapTextureImage(GLcontext *ctx, struct gl_texture_object *tObj,
 {
    struct intel_context *intel = intel_context(ctx);
    struct intel_texture_object *intelObj = intel_texture_object(tObj);
-   intel_tex_unmap_level_image(intel, intelObj, level, face);
+   struct intel_texture_image *intelImage =
+      intel_texture_image(intelObj->base.Image[face][level]);
+
+   intel_tex_unmap_level_image(intel, intelImage);
 }
 
 

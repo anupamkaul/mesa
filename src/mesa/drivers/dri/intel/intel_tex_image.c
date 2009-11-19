@@ -606,8 +606,7 @@ intel_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
 		    struct gl_texture_image *texImage, GLboolean compressed)
 {
    struct intel_context *intel = intel_context(ctx);
-   struct intel_texture_object *intelObj = intel_texture_object(texObj);
-   const GLuint face = _mesa_tex_target_to_face(target);
+   struct intel_texture_image *intelImage = intel_texture_image(texImage);
 
    /* If we're reading from a texture that has been rendered to, need to
     * make sure rendering is complete.
@@ -615,7 +614,7 @@ intel_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
     */
    intelFlush(ctx);
 
-   intel_tex_map_level_image(intel, intelObj, level, face);
+   intel_tex_map_level_image(intel, intelImage);
 
    if (compressed) {
       _mesa_get_compressed_teximage(ctx, target, level, pixels,
@@ -626,7 +625,7 @@ intel_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
                          texObj, texImage);
    }
 
-   intel_tex_unmap_level_image(intel, intelObj, level, face);
+   intel_tex_unmap_level_image(intel, intelImage);
 }
 
 

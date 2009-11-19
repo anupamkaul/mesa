@@ -57,13 +57,11 @@ GLuint intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit);
 
 void
 intel_tex_map_level_image(struct intel_context *intel,
-			  struct intel_texture_object *intelObj,
-			  GLuint level, GLuint face);
+			  struct intel_texture_image *intelImg);
 
 void
 intel_tex_unmap_level_image(struct intel_context *intel,
-			    struct intel_texture_object *intelObj,
-			    GLuint level, GLuint face);
+			    struct intel_texture_image *intelImg);
 
 void
 intel_tex_map_level_images(struct intel_context *intel,
