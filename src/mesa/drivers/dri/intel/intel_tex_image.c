@@ -70,7 +70,7 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
    GLuint height = intelImage->base.Height;
    GLuint depth = intelImage->base.Depth;
    GLuint l2width, l2height, l2depth;
-   GLuint i, comp_byte = 0;
+   GLuint i;
    GLuint texelBytes;
 
    DBG("%s\n", __FUNCTION__);
@@ -127,8 +127,6 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
    }
 
    assert(!intelObj->mt);
-   if (_mesa_is_format_compressed(intelImage->base.TexFormat))
-      comp_byte = intel_compressed_num_bytes(intelImage->base.TexFormat);
 
    texelBytes = _mesa_get_format_bytes(intelImage->base.TexFormat);
 
@@ -142,7 +140,6 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
                                        height,
                                        depth,
                                        texelBytes,
-                                       comp_byte,
 				       expect_accelerated_upload);
 
    DBG("%s - success\n", __FUNCTION__);
@@ -369,12 +366,7 @@ intelTexImage(GLcontext * ctx,
       assert(intelImage->mt);
    }
    else if (intelImage->base.Border == 0) {
-      int comp_byte = 0;
       GLenum baseFormat = _mesa_get_format_base_format(intelImage->base.TexFormat);
-
-      if (_mesa_is_format_compressed(intelImage->base.TexFormat)) {
-	 comp_byte = intel_compressed_num_bytes(intelImage->base.TexFormat);
-      }
 
       /* Didn't fit in the object miptree, but it's suitable for inclusion in
        * a miptree, so create one just for our level and store it in the image.
@@ -386,7 +378,7 @@ intelTexImage(GLcontext * ctx,
 					    level, level,
 					    width, height, depth,
 					    texelBytes,
-					    comp_byte, pixels == NULL);
+                                            pixels == NULL);
    }
 
    /* PBO fastpaths:
@@ -690,7 +682,7 @@ intelSetTexBuffer2(__DRIcontext *pDRICtx, GLint target,
 
    mt = intel_miptree_create_for_region(intel, target,
 					texImage->TexFormat,
-					0, 0, rb->region, 1, 0);
+					0, 0, rb->region, 1);
    if (mt == NULL)
        return;
 
