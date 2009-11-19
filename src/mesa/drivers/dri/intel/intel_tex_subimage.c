@@ -54,7 +54,6 @@ intelTexSubimage(GLcontext * ctx,
 {
    struct intel_context *intel = intel_context(ctx);
    struct intel_texture_image *intelImage = intel_texture_image(texImage);
-   GLuint dstRowStride = 0;
    
    DBG("%s target %s level %d offset %d,%d %dx%d\n", __FUNCTION__,
        _mesa_lookup_enum_by_nr(target),
@@ -71,25 +70,15 @@ intelTexSubimage(GLcontext * ctx,
    /* Map buffer if necessary.  Need to lock to prevent other contexts
     * from uploading the buffer under us.
     */
-   if (intelImage->mt) 
-      texImage->Map.Data = intel_miptree_image_map(intel,
-                                               intelImage->mt,
-                                               intelImage->face,
-                                               intelImage->level,
-                                               &dstRowStride,
-                                               texImage->Map.ImageOffsets);
-   else {
-      if (_mesa_is_format_compressed(texImage->TexFormat)) {
-         dstRowStride =
-            _mesa_format_row_stride(texImage->TexFormat, width);
-         assert(dims != 3);
-      }
-      else {
-         dstRowStride = texImage->Map.RowStride * _mesa_get_format_bytes(texImage->TexFormat);
-      }
+   if (intelImage->mt) {
+      intel_tex_map_level_image(intel, intelImage);
    }
-
-   assert(dstRowStride);
+   else {
+      /* XXX we'll add a "map texture image" call here */
+      texImage->Map.RowStride =
+         _mesa_format_row_stride(texImage->TexFormat, width)
+         / intelImage->mt->cpp;
+   }
 
    if (compressed) {
       if (intelImage->mt) {
@@ -109,7 +98,7 @@ intelTexSubimage(GLcontext * ctx,
                           texImage->TexFormat,
                           texImage->Map.Data,
                           xoffset, yoffset, zoffset,
-                          dstRowStride,
+                          texImage->Map.RowStride * intelImage->mt->cpp,
                           texImage->Map.ImageOffsets,
                           width, height, depth,
                           format, type, pixels, packing)) {
@@ -119,10 +108,7 @@ intelTexSubimage(GLcontext * ctx,
 
    _mesa_unmap_pbo_source(ctx, packing);
 
-   if (intelImage->mt) {
-      intel_miptree_image_unmap(intel, intelImage->mt);
-      texImage->Map.Data = NULL;
-   }
+   intel_tex_unmap_level_image(intel, intelImage);
 
    UNLOCK_HARDWARE(intel);
 }
