@@ -96,7 +96,6 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
    else
       firstLevel = intelObj->base.BaseLevel;
 
-
    /* Figure out image dimensions at start level. 
     */
    for (i = intelImage->level; i > firstLevel; i--) {
@@ -391,7 +390,6 @@ intelTexImage(GLcontext * ctx,
          if (try_pbo_zcopy(intel, intelImage, unpack,
                            internalFormat,
                            width, height, format, type, pixels)) {
-
             DBG("pbo zcopy upload succeeded\n");
             return;
          }
@@ -450,32 +448,32 @@ intelTexImage(GLcontext * ctx,
     * conversion and copy:
     */
    if (pixels) {
-       if (compressed) {
-	   if (intelImage->mt) {
-	       struct intel_region *dst = intelImage->mt->region;
-	       _mesa_copy_rect(texImage->Map.Data, dst->cpp, dst->pitch,
-			       0, 0,
-			       intelImage->mt->level[level].width,
-			       (intelImage->mt->level[level].height+3)/4,
-			       pixels,
-			       srcRowStride,
-			       0, 0);
-	   }
-           else {
-	       memcpy(texImage->Map.Data, pixels, imageSize);
-           }
-       }
-       else if (!_mesa_texstore(ctx, dims, 
-                                texImage->_BaseFormat, 
-                                texImage->TexFormat, 
-                                texImage->Map.Data,  /* dest addr */
-                                0, 0, 0, /* dstX/Y/Zoffset */
-                                texImage->Map.RowStride * intelImage->mt->cpp,
-                                texImage->Map.ImageOffsets,
-                                width, height, depth,
-                                format, type, pixels, unpack)) {
-          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
-       }
+      if (compressed) {
+         if (intelImage->mt) {
+            struct intel_region *dst = intelImage->mt->region;
+            _mesa_copy_rect(texImage->Map.Data, dst->cpp, dst->pitch,
+                            0, 0,
+                            intelImage->mt->level[level].width,
+                            (intelImage->mt->level[level].height+3)/4,
+                            pixels,
+                            srcRowStride,
+                            0, 0);
+         }
+         else {
+            memcpy(texImage->Map.Data, pixels, imageSize);
+         }
+      }
+      else if (!_mesa_texstore(ctx, dims, 
+                               texImage->_BaseFormat, 
+                               texImage->TexFormat, 
+                               texImage->Map.Data,  /* dest addr */
+                               0, 0, 0, /* dstX/Y/Zoffset */
+                               texImage->Map.RowStride * intelImage->mt->cpp,
+                               texImage->Map.ImageOffsets,
+                               width, height, depth,
+                               format, type, pixels, unpack)) {
+         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage");
+      }
    }
 
    _mesa_unmap_pbo_source(ctx, unpack);
@@ -697,11 +695,12 @@ intelSetTexBuffer2(__DRIcontext *pDRICtx, GLint target,
    intel_miptree_reference(&intelImage->mt, intelObj->mt);
 
    if (!intel_miptree_match_image(intelObj->mt, &intelImage->base)) {
-	   fprintf(stderr, "miptree doesn't match image\n");
+      fprintf(stderr, "miptree doesn't match image\n");
    }
 
    _mesa_unlock_texture(&intel->ctx, texObj);
 }
+
 
 void
 intelSetTexBuffer(__DRIcontext *pDRICtx, GLint target, __DRIdrawable *dPriv)
