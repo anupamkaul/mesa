@@ -58,7 +58,7 @@ target_to_target(GLenum target)
 static struct intel_mipmap_tree *
 intel_miptree_create_internal(struct intel_context *intel,
 			      GLenum target,
-			      GLenum internal_format,
+			      gl_format format,
 			      GLuint first_level,
 			      GLuint last_level,
 			      GLuint width0,
@@ -71,11 +71,11 @@ intel_miptree_create_internal(struct intel_context *intel,
 
    DBG("%s target %s format %s level %d..%d <-- %p\n", __FUNCTION__,
        _mesa_lookup_enum_by_nr(target),
-       _mesa_lookup_enum_by_nr(internal_format), 
+       _mesa_get_format_name(format), 
        first_level, last_level, mt);
 
    mt->target = target_to_target(target);
-   mt->internal_format = internal_format;
+   mt->format = format;
    mt->first_level = first_level;
    mt->last_level = last_level;
    mt->width0 = width0;
@@ -109,7 +109,7 @@ struct intel_mipmap_tree *
 intel_miptree_create(struct intel_context *intel,
 		     GLenum target,
 		     GLenum base_format,
-		     GLenum internal_format,
+		     gl_format format,
 		     GLuint first_level,
 		     GLuint last_level,
 		     GLuint width0,
@@ -131,7 +131,7 @@ intel_miptree_create(struct intel_context *intel,
    } else
       tiling = I915_TILING_NONE;
 
-   mt = intel_miptree_create_internal(intel, target, internal_format,
+   mt = intel_miptree_create_internal(intel, target, format,
 				      first_level, last_level, width0,
 				      height0, depth0, cpp, compress_byte,
 				      tiling);
@@ -163,7 +163,7 @@ intel_miptree_create(struct intel_context *intel,
 struct intel_mipmap_tree *
 intel_miptree_create_for_region(struct intel_context *intel,
 				GLenum target,
-				GLenum internal_format,
+				gl_format format,
 				GLuint first_level,
 				GLuint last_level,
 				struct intel_region *region,
@@ -172,7 +172,7 @@ intel_miptree_create_for_region(struct intel_context *intel,
 {
    struct intel_mipmap_tree *mt;
 
-   mt = intel_miptree_create_internal(intel, target, internal_format,
+   mt = intel_miptree_create_internal(intel, target, format,
 				      first_level, last_level,
 				      region->width, region->height, 1,
 				      region->cpp, compress_byte,
@@ -325,7 +325,7 @@ intel_miptree_match_image(struct intel_mipmap_tree *mt,
    if (image->Border)
       return GL_FALSE;
 
-   if (image->InternalFormat != mt->internal_format ||
+   if (image->TexFormat != mt->format ||
        isCompressed != mt->compressed)
       return GL_FALSE;
 
@@ -520,8 +520,7 @@ intel_miptree_image_copy(struct intel_context *intel,
    if (dst->compressed) {
        GLuint align_w, align_h;
 
-       intel_get_texture_alignment_unit(dst->internal_format,
-                                        &align_w, &align_h);
+       intel_get_texture_alignment_unit(dst->format, &align_w, &align_h);
        height = (height + 3) / 4;
        width = ALIGN(width, align_w);
    }

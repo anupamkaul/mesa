@@ -135,7 +135,7 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
    intelObj->mt = intel_miptree_create(intel,
                                        intelObj->base.Target,
                                        intelImage->base._BaseFormat,
-                                       intelImage->base.InternalFormat,
+                                       intelImage->base.TexFormat,
                                        firstLevel,
                                        lastLevel,
                                        width,
@@ -382,7 +382,7 @@ intelTexImage(GLcontext * ctx,
        */
       intelImage->mt = intel_miptree_create(intel, target,
 					    baseFormat,
-					    internalFormat,
+					    texImage->TexFormat,
 					    level, level,
 					    width, height, depth,
 					    texelBytes,
@@ -685,16 +685,16 @@ intelSetTexBuffer2(__DRIcontext *pDRICtx, GLint target,
    else
       internalFormat = GL_RGBA;
 
+   texImage = _mesa_get_tex_image(&intel->ctx, texObj, target, level);
+   intelImage = intel_texture_image(texImage);
+
    mt = intel_miptree_create_for_region(intel, target,
-					internalFormat,
+					texImage->TexFormat,
 					0, 0, rb->region, 1, 0);
    if (mt == NULL)
        return;
 
    _mesa_lock_texture(&intel->ctx, texObj);
-
-   texImage = _mesa_get_tex_image(&intel->ctx, texObj, target, level);
-   intelImage = intel_texture_image(texImage);
 
    if (intelImage->mt) {
       intel_miptree_release(intel, &intelImage->mt);

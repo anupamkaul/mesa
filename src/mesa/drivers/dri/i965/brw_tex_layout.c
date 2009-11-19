@@ -60,7 +60,7 @@ GLboolean brw_miptree_layout(struct intel_context *intel,
           GLuint y_pitch = 0;
 
           mt->pitch = mt->width0;
-          intel_get_texture_alignment_unit(mt->internal_format, &align_w, &align_h);
+          intel_get_texture_alignment_unit(mt->format, &align_w, &align_h);
           y_pitch = ALIGN(height, align_h);
 
           if (mt->compressed) {
@@ -135,7 +135,7 @@ GLboolean brw_miptree_layout(struct intel_context *intel,
       GLuint align_w = 4;
 
       mt->total_height = 0;
-      intel_get_texture_alignment_unit(mt->internal_format, &align_w, &align_h);
+      intel_get_texture_alignment_unit(mt->format, &align_w, &align_h);
 
       if (mt->compressed) {
           mt->pitch = ALIGN(width, align_w);

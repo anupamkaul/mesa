@@ -28,6 +28,7 @@
 #ifndef INTEL_MIPMAP_TREE_H
 #define INTEL_MIPMAP_TREE_H
 
+#include "main/formats.h"
 #include "intel_regions.h"
 
 /* A layer on top of the intel_regions code which adds:
@@ -98,7 +99,7 @@ struct intel_mipmap_tree
    /* Effectively the key:
     */
    GLenum target;
-   GLenum internal_format;
+   gl_format format;
 
    GLuint first_level;
    GLuint last_level;
@@ -131,7 +132,7 @@ struct intel_mipmap_tree
 struct intel_mipmap_tree *intel_miptree_create(struct intel_context *intel,
                                                GLenum target,
                                                GLenum base_format,
-                                               GLenum internal_format,
+                                               gl_format format,
                                                GLuint first_level,
                                                GLuint last_level,
                                                GLuint width0,
@@ -144,7 +145,7 @@ struct intel_mipmap_tree *intel_miptree_create(struct intel_context *intel,
 struct intel_mipmap_tree *
 intel_miptree_create_for_region(struct intel_context *intel,
 				GLenum target,
-				GLenum internal_format,
+				gl_format format,
 				GLuint first_level,
 				GLuint last_level,
 				struct intel_region *region,

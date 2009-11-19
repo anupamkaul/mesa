@@ -35,23 +35,25 @@
 #include "intel_context.h"
 #include "main/macros.h"
 
-void intel_get_texture_alignment_unit(GLenum internalFormat, GLuint *w, GLuint *h)
+void
+intel_get_texture_alignment_unit(gl_format internalFormat,
+                                 GLuint *w, GLuint *h)
 {
     switch (internalFormat) {
-    case GL_COMPRESSED_RGB_FXT1_3DFX:
-    case GL_COMPRESSED_RGBA_FXT1_3DFX:
+    case MESA_FORMAT_RGB_FXT1:
+    case MESA_FORMAT_RGBA_FXT1:
         *w = 8;
         *h = 4;
         break;
 
-    case GL_RGB_S3TC:
-    case GL_RGB4_S3TC:
-    case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
-    case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
-    case GL_RGBA_S3TC:
-    case GL_RGBA4_S3TC:
-    case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-    case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
+    case MESA_FORMAT_RGB_DXT1:
+    case MESA_FORMAT_RGBA_DXT1:
+    case MESA_FORMAT_RGBA_DXT3:
+    case MESA_FORMAT_RGBA_DXT5:
+    case MESA_FORMAT_SRGB_DXT1:
+    case MESA_FORMAT_SRGBA_DXT1:
+    case MESA_FORMAT_SRGBA_DXT3:
+    case MESA_FORMAT_SRGBA_DXT5:
         *w = 4;
         *h = 4;
         break;
@@ -75,7 +77,7 @@ void i945_miptree_layout_2d( struct intel_context *intel,
    GLuint height = mt->height0;
 
    mt->pitch = mt->width0;
-   intel_get_texture_alignment_unit(mt->internal_format, &align_w, &align_h);
+   intel_get_texture_alignment_unit(mt->format, &align_w, &align_h);
 
    if (mt->compressed) {
        mt->pitch = ALIGN(mt->width0, align_w);

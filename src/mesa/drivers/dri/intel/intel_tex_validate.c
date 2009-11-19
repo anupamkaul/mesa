@@ -184,7 +184,7 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
     */
    if (intelObj->mt &&
        (intelObj->mt->target != intelObj->base.Target ||
-	intelObj->mt->internal_format != firstImage->base.InternalFormat ||
+	intelObj->mt->format != firstImage->base.TexFormat ||
 	intelObj->mt->first_level != intelObj->firstLevel ||
 	intelObj->mt->last_level != intelObj->lastLevel ||
 	intelObj->mt->width0 != firstImage->base.Width ||
@@ -202,7 +202,7 @@ intel_finalize_mipmap_tree(struct intel_context *intel, GLuint unit)
       intelObj->mt = intel_miptree_create(intel,
                                           intelObj->base.Target,
                                           firstImage->base._BaseFormat,
-                                          firstImage->base.InternalFormat,
+                                          firstImage->base.TexFormat,
                                           intelObj->firstLevel,
                                           intelObj->lastLevel,
                                           firstImage->base.Width,
