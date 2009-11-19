@@ -387,8 +387,8 @@ intelTexImage(GLcontext * ctx,
       assert(intelImage->mt);
    } else if (intelImage->base.Border == 0) {
       int comp_byte = 0;
-      GLuint texelBytes = _mesa_get_format_bytes(intelImage->base.TexFormat);
       GLenum baseFormat = _mesa_get_format_base_format(intelImage->base.TexFormat);
+
       if (_mesa_is_format_compressed(intelImage->base.TexFormat)) {
 	 comp_byte = intel_compressed_num_bytes(intelImage->base.TexFormat);
       }
