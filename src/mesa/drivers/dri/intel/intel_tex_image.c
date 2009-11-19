@@ -129,7 +129,6 @@ guess_and_alloc_mipmap_tree(struct intel_context *intel,
 
    intelObj->mt = intel_miptree_create(intel,
                                        intelObj->base.Target,
-                                       intelImage->base._BaseFormat,
                                        intelImage->base.TexFormat,
                                        firstLevel,
                                        lastLevel,
@@ -358,14 +357,11 @@ intelTexImage(GLcontext * ctx,
       assert(intelImage->mt);
    }
    else if (intelImage->base.Border == 0) {
-      GLenum baseFormat = _mesa_get_format_base_format(intelImage->base.TexFormat);
-
       /* Didn't fit in the object miptree, but it's suitable for inclusion in
        * a miptree, so create one just for our level and store it in the image.
        * It'll get moved into the object miptree at validate time.
        */
       intelImage->mt = intel_miptree_create(intel, target,
-					    baseFormat,
 					    texImage->TexFormat,
 					    level, level,
 					    width, height, depth,
