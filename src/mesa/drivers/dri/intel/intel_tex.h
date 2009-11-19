@@ -79,6 +79,4 @@ void intel_tex_map_images(struct intel_context *intel,
 void intel_tex_unmap_images(struct intel_context *intel,
                             struct intel_texture_object *intelObj);
 
-int intel_compressed_num_bytes(GLuint mesaFormat);
-
 #endif

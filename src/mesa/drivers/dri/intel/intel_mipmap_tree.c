@@ -39,6 +39,25 @@
 #define FILE_DEBUG_FLAG DEBUG_MIPTREE
 
 
+
+static GLuint
+intel_compressed_num_bytes(gl_format mesaFormat)
+{
+   switch(mesaFormat) {
+   case MESA_FORMAT_RGB_FXT1:
+   case MESA_FORMAT_RGBA_FXT1:
+   case MESA_FORMAT_RGB_DXT1:
+   case MESA_FORMAT_RGBA_DXT1:
+      return 2;
+   case MESA_FORMAT_RGBA_DXT3:
+   case MESA_FORMAT_RGBA_DXT5:
+      return 4;
+   default:
+      return 0;
+   }
+}
+
+
 static GLenum
 target_to_target(GLenum target)
 {
@@ -69,7 +88,7 @@ intel_miptree_create_internal(struct intel_context *intel,
 {
    GLboolean ok;
    struct intel_mipmap_tree *mt = calloc(sizeof(*mt), 1);
-   const int compress_byte = intel_compressed_num_bytes(format);
+   const GLuint compress_byte = intel_compressed_num_bytes(format);
    const GLuint cpp = _mesa_get_format_bytes(format);
 
    DBG("%s target %s format %s level %d..%d <-- %p\n", __FUNCTION__,
@@ -122,7 +141,7 @@ intel_miptree_create(struct intel_context *intel,
 {
    struct intel_mipmap_tree *mt;
    uint32_t tiling;
-   const int compress_byte = intel_compressed_num_bytes(format);
+   const GLuint compress_byte = intel_compressed_num_bytes(format);
 
    /* Determine tiling mode, if any */
    if (intel->use_texture_tiling && compress_byte == 0 &&
