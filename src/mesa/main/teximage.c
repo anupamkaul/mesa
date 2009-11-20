@@ -210,6 +210,42 @@ _mesa_base_tex_format( GLcontext *ctx, GLint internalFormat )
       }
    }
 
+   if (ctx->Extensions.ARB_texture_rg) {
+      switch (internalFormat) {
+      case GL_R16F:
+	 if (!ctx->Extensions.ARB_half_float_pixel) {
+	    break;
+	 }
+	 /* FALLTHROUGH */
+      case GL_R32F:
+	 if (!ctx->Extensions.ARB_texture_float) {
+	    break;
+	 }
+	 /* FALLTHROUGH */
+      case GL_RED:
+      case GL_R8:
+      case GL_R16:
+	 return GL_RED;
+
+      case GL_RG16F:
+	 if (!ctx->Extensions.ARB_half_float_pixel) {
+	    break;
+	 }
+	 /* FALLTHROUGH */
+      case GL_RG32F:
+	 if (!ctx->Extensions.ARB_texture_float) {
+	    break;
+	 }
+	 /* FALLTHROUGH */
+      case GL_RG:
+      case GL_RG8:
+      case GL_RG16:
+	 return GL_RG;
+      default:
+	 ; /* fallthrough */
+      }
+   }
+
    switch (internalFormat) {
    case GL_COMPRESSED_ALPHA:
       return GL_ALPHA;
