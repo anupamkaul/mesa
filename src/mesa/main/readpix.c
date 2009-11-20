@@ -72,6 +72,7 @@ _mesa_error_check_format_type(GLcontext *ctx, GLenum format, GLenum type,
    case GL_ALPHA:
    case GL_LUMINANCE:
    case GL_LUMINANCE_ALPHA:
+   case GL_RG:
    case GL_RGB:
    case GL_BGR:
    case GL_RGBA:
