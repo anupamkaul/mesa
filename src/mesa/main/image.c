@@ -281,6 +281,7 @@ _mesa_components_in_format( GLenum format )
       case GL_INTENSITY:
          return 1;
       case GL_LUMINANCE_ALPHA:
+      case GL_RG:
 	 return 2;
       case GL_RGB:
 	 return 3;
@@ -411,6 +412,11 @@ _mesa_is_legal_format_and_type( GLcontext *ctx, GLenum format, GLenum type )
             default:
                return GL_FALSE;
          }
+      case GL_RG:
+	 if (!ctx->Extensions.ARB_texture_rg) {
+	    return GL_FALSE;
+	 }
+	 /* FALLTHROUGH */
       case GL_RED:
       case GL_GREEN:
       case GL_BLUE:
@@ -541,6 +547,10 @@ _mesa_is_color_format(GLenum format)
 {
    switch (format) {
       case GL_RED:
+      case GL_R8:
+      case GL_R16:
+      case GL_R16F:
+      case GL_R32F:
       case GL_GREEN:
       case GL_BLUE:
       case GL_ALPHA:
@@ -567,6 +577,11 @@ _mesa_is_color_format(GLenum format)
       case GL_INTENSITY8:
       case GL_INTENSITY12:
       case GL_INTENSITY16:
+      case GL_RG:
+      case GL_RG8:
+      case GL_RG16:
+      case GL_RG16F:
+      case GL_RG32F:
       case 3:
       case GL_RGB:
       case GL_BGR:
@@ -2073,6 +2088,12 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                      dst[i*2+1] = FLOAT_TO_UBYTE(rgba[i][ACOMP]);
                   }
                   break;
+               case GL_RG:
+                  for (i=0;i<n;i++) {
+                     dst[i*3+0] = FLOAT_TO_UBYTE(rgba[i][RCOMP]);
+                     dst[i*2+1] = FLOAT_TO_UBYTE(rgba[i][GCOMP]);
+                  }
+                  break;
                case GL_RGB:
                   for (i=0;i<n;i++) {
                      dst[i*3+0] = FLOAT_TO_UBYTE(rgba[i][RCOMP]);
@@ -2151,6 +2172,12 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                   for (i=0;i<n;i++) {
                      dst[i*2+0] = FLOAT_TO_BYTE(luminance[i]);
                      dst[i*2+1] = FLOAT_TO_BYTE(rgba[i][ACOMP]);
+                  }
+                  break;
+               case GL_RG:
+                  for (i=0;i<n;i++) {
+                     dst[i*2+0] = FLOAT_TO_BYTE(rgba[i][RCOMP]);
+                     dst[i*2+1] = FLOAT_TO_BYTE(rgba[i][GCOMP]);
                   }
                   break;
                case GL_RGB:
@@ -2233,6 +2260,12 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                      CLAMPED_FLOAT_TO_USHORT(dst[i*2+1], rgba[i][ACOMP]);
                   }
                   break;
+               case GL_RG:
+                  for (i=0;i<n;i++) {
+                     CLAMPED_FLOAT_TO_USHORT(dst[i*2+0], rgba[i][RCOMP]);
+                     CLAMPED_FLOAT_TO_USHORT(dst[i*2+1], rgba[i][GCOMP]);
+                  }
+                  break;
                case GL_RGB:
                   for (i=0;i<n;i++) {
                      CLAMPED_FLOAT_TO_USHORT(dst[i*3+0], rgba[i][RCOMP]);
@@ -2311,6 +2344,12 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                   for (i=0;i<n;i++) {
                      dst[i*2+0] = FLOAT_TO_SHORT(luminance[i]);
                      dst[i*2+1] = FLOAT_TO_SHORT(rgba[i][ACOMP]);
+                  }
+                  break;
+               case GL_RG:
+                  for (i=0;i<n;i++) {
+                     dst[i*2+0] = FLOAT_TO_SHORT(rgba[i][RCOMP]);
+                     dst[i*2+1] = FLOAT_TO_SHORT(rgba[i][GCOMP]);
                   }
                   break;
                case GL_RGB:
@@ -2393,6 +2432,12 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                      dst[i*2+1] = FLOAT_TO_UINT(rgba[i][ACOMP]);
                   }
                   break;
+               case GL_RG:
+                  for (i=0;i<n;i++) {
+                     dst[i*2+0] = FLOAT_TO_UINT(rgba[i][RCOMP]);
+                     dst[i*2+1] = FLOAT_TO_UINT(rgba[i][GCOMP]);
+                  }
+                  break;
                case GL_RGB:
                   for (i=0;i<n;i++) {
                      dst[i*3+0] = FLOAT_TO_UINT(rgba[i][RCOMP]);
@@ -2471,6 +2516,12 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                   for (i=0;i<n;i++) {
                      dst[i*2+0] = FLOAT_TO_INT(luminance[i]);
                      dst[i*2+1] = FLOAT_TO_INT(rgba[i][ACOMP]);
+                  }
+                  break;
+               case GL_RG:
+                  for (i=0;i<n;i++) {
+                     dst[i*2+0] = FLOAT_TO_INT(rgba[i][RCOMP]);
+                     dst[i*2+2] = FLOAT_TO_INT(rgba[i][BCOMP]);
                   }
                   break;
                case GL_RGB:
@@ -2553,6 +2604,12 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                      dst[i*2+1] = rgba[i][ACOMP];
                   }
                   break;
+               case GL_RG:
+                  for (i=0;i<n;i++) {
+                     dst[i*2+0] = rgba[i][RCOMP];
+                     dst[i*2+1] = rgba[i][GCOMP];
+                  }
+                  break;
                case GL_RGB:
                   for (i=0;i<n;i++) {
                      dst[i*3+0] = rgba[i][RCOMP];
@@ -2631,6 +2688,12 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
                   for (i=0;i<n;i++) {
                      dst[i*2+0] = _mesa_float_to_half(luminance[i]);
                      dst[i*2+1] = _mesa_float_to_half(rgba[i][ACOMP]);
+                  }
+                  break;
+               case GL_RG:
+                  for (i=0;i<n;i++) {
+                     dst[i*2+0] = _mesa_float_to_half(rgba[i][RCOMP]);
+                     dst[i*2+1] = _mesa_float_to_half(rgba[i][BCOMP]);
                   }
                   break;
                case GL_RGB:
@@ -3223,6 +3286,7 @@ extract_float_rgba(GLuint n, GLfloat rgba[][4],
           srcFormat == GL_LUMINANCE ||
           srcFormat == GL_LUMINANCE_ALPHA ||
           srcFormat == GL_INTENSITY ||
+          srcFormat == GL_RG ||
           srcFormat == GL_RGB ||
           srcFormat == GL_BGR ||
           srcFormat == GL_RGBA ||
@@ -3288,6 +3352,13 @@ extract_float_rgba(GLuint n, GLfloat rgba[][4],
          redIndex = greenIndex = blueIndex = alphaIndex = 0;
          stride = 1;
          break;
+     case GL_RG:
+         redIndex = 0;
+         greenIndex = 1;
+         blueIndex = -1;
+         alphaIndex = -1;
+         stride = 2;
+	 break;
       case GL_RGB:
          redIndex = 0;
          greenIndex = 1;
@@ -3746,6 +3817,8 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
           dstFormat == GL_LUMINANCE ||
           dstFormat == GL_LUMINANCE_ALPHA ||
           dstFormat == GL_INTENSITY ||
+          dstFormat == GL_RED ||
+          dstFormat == GL_RG ||
           dstFormat == GL_RGB ||
           dstFormat == GL_RGBA ||
           dstFormat == GL_COLOR_INDEX);
@@ -3757,6 +3830,7 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
           srcFormat == GL_LUMINANCE ||
           srcFormat == GL_LUMINANCE_ALPHA ||
           srcFormat == GL_INTENSITY ||
+          srcFormat == GL_RG ||
           srcFormat == GL_RGB ||
           srcFormat == GL_BGR ||
           srcFormat == GL_RGBA ||
@@ -3963,6 +4037,11 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
        * And determine the dest index (offset) within each color tuple.
        */
       switch (dstFormat) {
+         case GL_RED:
+            dstRedIndex = 0;
+            dstGreenIndex = dstBlueIndex = dstAlphaIndex = -1;
+            dstLuminanceIndex = dstIntensityIndex = -1;
+            break;
          case GL_ALPHA:
             dstAlphaIndex = 0;
             dstRedIndex = dstGreenIndex = dstBlueIndex = -1;
@@ -3983,6 +4062,12 @@ _mesa_unpack_color_span_chan( GLcontext *ctx,
             dstIntensityIndex = 0;
             dstRedIndex = dstGreenIndex = dstBlueIndex = dstAlphaIndex = -1;
             dstLuminanceIndex = -1;
+            break;
+         case GL_RG:
+            dstRedIndex = 0;
+            dstGreenIndex = 1;
+            dstBlueIndex = -1;
+            dstAlphaIndex = dstLuminanceIndex = dstIntensityIndex = -1;
             break;
          case GL_RGB:
             dstRedIndex = 0;
