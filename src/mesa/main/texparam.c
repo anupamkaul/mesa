@@ -795,7 +795,22 @@ _mesa_GetTexLevelParameteriv( GLenum target, GLint level,
          *params = img->Border;
          break;
       case GL_TEXTURE_RED_SIZE:
+         if (img->_BaseFormat == GL_RED
+	     || img->_BaseFormat == GL_RG
+	     || img->_BaseFormat == GL_RGB
+	     || img->_BaseFormat == GL_RGBA)
+            *params = _mesa_get_format_bits(texFormat, pname);
+         else
+            *params = 0;
+         break;
       case GL_TEXTURE_GREEN_SIZE:
+         if (img->_BaseFormat == GL_RG
+	     || img->_BaseFormat == GL_RGB
+	     || img->_BaseFormat == GL_RGBA)
+            *params = _mesa_get_format_bits(texFormat, pname);
+         else
+            *params = 0;
+         break;
       case GL_TEXTURE_BLUE_SIZE:
          if (img->_BaseFormat == GL_RGB || img->_BaseFormat == GL_RGBA)
             *params = _mesa_get_format_bits(texFormat, pname);
