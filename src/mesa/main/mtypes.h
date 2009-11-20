@@ -2416,6 +2416,7 @@ struct gl_extensions
    GLboolean ARB_texture_float;
    GLboolean ARB_texture_mirrored_repeat;
    GLboolean ARB_texture_non_power_of_two;
+   GLboolean ARB_texture_rg;
    GLboolean ARB_transpose_matrix;
    GLboolean ARB_vertex_array_object;
    GLboolean ARB_vertex_buffer_object;
