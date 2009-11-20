@@ -225,6 +225,7 @@ _mesa_base_tex_format( GLcontext *ctx, GLint internalFormat )
       case GL_RED:
       case GL_R8:
       case GL_R16:
+      case GL_COMPRESSED_RED:
 	 return GL_RED;
 
       case GL_RG16F:
@@ -240,6 +241,7 @@ _mesa_base_tex_format( GLcontext *ctx, GLint internalFormat )
       case GL_RG:
       case GL_RG8:
       case GL_RG16:
+      case GL_COMPRESSED_RG:
 	 return GL_RG;
       default:
 	 ; /* fallthrough */

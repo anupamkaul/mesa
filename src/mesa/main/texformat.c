@@ -97,12 +97,14 @@ _mesa_choose_tex_format( GLcontext *ctx, GLint internalFormat,
       case GL_RG:
       case GL_RG8:
       case GL_RG16:
+      case GL_COMPRESSED_RG:
 	 return MESA_FORMAT_RG88;
 
       /* RED formats */
       case GL_RED:
       case GL_R8:
       case GL_R16:
+      case GL_COMPRESSED_RED:
 	 return MESA_FORMAT_R8;
 
       /* Alpha formats */
