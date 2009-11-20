@@ -322,7 +322,7 @@
 #define BRW_SURFACEFORMAT_R32_SINT                       0x0D6 
 #define BRW_SURFACEFORMAT_R32_UINT                       0x0D7 
 #define BRW_SURFACEFORMAT_R32_FLOAT                      0x0D8 
-#define BRW_SURFACEFORMAT_R24_UNORM_X8_TYPELESS          0x0D9 
+#define BRW_SURFACEFORMAT_R24X8_UNORM                    0x0D9
 #define BRW_SURFACEFORMAT_X24_TYPELESS_G8_UINT           0x0DA 
 #define BRW_SURFACEFORMAT_L16A16_UNORM                   0x0DF 
 #define BRW_SURFACEFORMAT_I24X8_UNORM                    0x0E0 
