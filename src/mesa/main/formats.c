@@ -223,6 +223,33 @@ static struct gl_format_info format_info[MESA_FORMAT_COUNT] =
       1, 1, 2                      /* BlockWidth/Height,Bytes */
    },
    {
+      MESA_FORMAT_RG88,            /* Name */
+      "MESA_FORMAT_RG88",          /* StrName */
+      GL_RG,                       /* BaseFormat */
+      GL_UNSIGNED_NORMALIZED,      /* DataType */
+      8, 8, 0, 0,                  /* Red/Green/Blue/AlphaBits */
+      0, 0, 0, 0, 0,               /* Lum/Int/Index/Depth/StencilBits */
+      1, 1, 2                      /* BlockWidth/Height,Bytes */
+   },
+   {
+      MESA_FORMAT_RG88_REV,        /* Name */
+      "MESA_FORMAT_RG88_REV",      /* StrName */
+      GL_RG,                       /* BaseFormat */
+      GL_UNSIGNED_NORMALIZED,      /* DataType */
+      8, 8, 0, 0,                  /* Red/Green/Blue/AlphaBits */
+      0, 0, 0, 0, 0,               /* Lum/Int/Index/Depth/StencilBits */
+      1, 1, 2                      /* BlockWidth/Height,Bytes */
+   },
+   {
+      MESA_FORMAT_R8,              /* Name */
+      "MESA_FORMAT_R8",            /* StrName */
+      GL_RED,                      /* BaseFormat */
+      GL_UNSIGNED_NORMALIZED,      /* DataType */
+      8, 0, 0, 0,                  /* Red/Green/Blue/AlphaBits */
+      0, 0, 0, 0, 0,               /* Lum/Int/Index/Depth/StencilBits */
+      1, 1, 1                      /* BlockWidth/Height,Bytes */
+   },
+   {
       MESA_FORMAT_AL88,            /* Name */
       "MESA_FORMAT_AL88",          /* StrName */
       GL_LUMINANCE_ALPHA,          /* BaseFormat */
@@ -931,6 +958,22 @@ _mesa_test_formats(void)
          assert(info->GreenBits > 0);
          assert(info->BlueBits > 0);
          assert(info->AlphaBits > 0);
+         assert(info->LuminanceBits == 0);
+         assert(info->IntensityBits == 0);
+      }
+      else if (info->BaseFormat == GL_RG) {
+         assert(info->RedBits > 0);
+         assert(info->GreenBits > 0);
+         assert(info->BlueBits == 0);
+         assert(info->AlphaBits == 0);
+         assert(info->LuminanceBits == 0);
+         assert(info->IntensityBits == 0);
+      }
+      else if (info->BaseFormat == GL_RED) {
+         assert(info->RedBits > 0);
+         assert(info->GreenBits == 0);
+         assert(info->BlueBits == 0);
+         assert(info->AlphaBits == 0);
          assert(info->LuminanceBits == 0);
          assert(info->IntensityBits == 0);
       }

@@ -2047,6 +2047,109 @@ _mesa_texstore_argb1555(TEXSTORE_PARAMS)
 
 
 static GLboolean
+_mesa_texstore_rg88(TEXSTORE_PARAMS)
+{
+   const GLboolean littleEndian = _mesa_little_endian();
+   const GLuint texelBytes = _mesa_get_format_bytes(dstFormat);
+   const GLenum baseFormat = _mesa_get_format_base_format(dstFormat);
+
+   ASSERT(dstFormat == MESA_FORMAT_RG88 ||
+          dstFormat == MESA_FORMAT_RG88_REV);
+   ASSERT(texelBytes == 2);
+
+   if (!ctx->_ImageTransferState &&
+       !srcPacking->SwapBytes &&
+       dstFormat == MESA_FORMAT_RG88 &&
+       baseInternalFormat == GL_RG &&
+       srcFormat == GL_RG &&
+       srcType == GL_UNSIGNED_BYTE &&
+       littleEndian) {
+      /* simple memcpy path */
+      memcpy_texture(ctx, dims,
+                     dstFormat, dstAddr, dstXoffset, dstYoffset, dstZoffset,
+                     dstRowStride,
+                     dstImageOffsets,
+                     srcWidth, srcHeight, srcDepth, srcFormat, srcType,
+                     srcAddr, srcPacking);
+   }
+   else if (!ctx->_ImageTransferState &&
+	    littleEndian &&
+	    srcType == GL_UNSIGNED_BYTE &&
+	    can_swizzle(baseInternalFormat) &&
+	    can_swizzle(srcFormat)) {
+
+      GLubyte dstmap[4];
+
+      /* dstmap - how to swizzle from RGBA to dst format:
+       */
+      if ((littleEndian && dstFormat == MESA_FORMAT_RG88) ||
+	  (!littleEndian && dstFormat == MESA_FORMAT_RG88_REV)) {
+	 dstmap[0] = 0;
+	 dstmap[1] = 1;
+      }
+      else {
+	 dstmap[0] = 1;
+	 dstmap[1] = 0;
+      }
+      dstmap[2] = ZERO;		/* ? */
+      dstmap[3] = ONE;		/* ? */
+
+      _mesa_swizzle_ubyte_image(ctx, dims,
+				srcFormat,
+				srcType,
+				baseInternalFormat,
+				dstmap, 2,
+				dstAddr, dstXoffset, dstYoffset, dstZoffset,
+				dstRowStride, dstImageOffsets,
+				srcWidth, srcHeight, srcDepth, srcAddr,
+				srcPacking);
+   }
+   else {
+      /* general path */
+      const GLchan *tempImage = _mesa_make_temp_chan_image(ctx, dims,
+                                                 baseInternalFormat,
+                                                 baseFormat,
+                                                 srcWidth, srcHeight, srcDepth,
+                                                 srcFormat, srcType, srcAddr,
+                                                 srcPacking);
+      const GLchan *src = tempImage;
+      GLint img, row, col;
+      if (!tempImage)
+         return GL_FALSE;
+      _mesa_adjust_image_for_convolution(ctx, dims, &srcWidth, &srcHeight);
+      for (img = 0; img < srcDepth; img++) {
+         GLubyte *dstRow = (GLubyte *) dstAddr
+            + dstImageOffsets[dstZoffset + img] * texelBytes
+            + dstYoffset * dstRowStride
+            + dstXoffset * texelBytes;
+         for (row = 0; row < srcHeight; row++) {
+            GLushort *dstUS = (GLushort *) dstRow;
+            if (dstFormat == MESA_FORMAT_RG88) {
+               for (col = 0; col < srcWidth; col++) {
+                  /* src[0] is luminance, src[1] is alpha */
+                 dstUS[col] = PACK_COLOR_88( CHAN_TO_UBYTE(src[1]),
+                                             CHAN_TO_UBYTE(src[0]) );
+                 src += 2;
+               }
+            }
+            else {
+               for (col = 0; col < srcWidth; col++) {
+                  /* src[0] is luminance, src[1] is alpha */
+                 dstUS[col] = PACK_COLOR_88_REV( CHAN_TO_UBYTE(src[1]),
+                                                 CHAN_TO_UBYTE(src[0]) );
+                 src += 2;
+               }
+            }
+            dstRow += dstRowStride;
+         }
+      }
+      _mesa_free((void *) tempImage);
+   }
+   return GL_TRUE;
+}
+
+
+static GLboolean
 _mesa_texstore_al88(TEXSTORE_PARAMS)
 {
    const GLboolean littleEndian = _mesa_little_endian();
@@ -2286,7 +2389,8 @@ _mesa_texstore_a8(TEXSTORE_PARAMS)
 
    ASSERT(dstFormat == MESA_FORMAT_A8 ||
           dstFormat == MESA_FORMAT_L8 ||
-          dstFormat == MESA_FORMAT_I8);
+          dstFormat == MESA_FORMAT_I8 ||
+          dstFormat == MESA_FORMAT_R8);
    ASSERT(texelBytes == 1);
 
    if (!ctx->_ImageTransferState &&
@@ -3147,6 +3251,9 @@ texstore_funcs[MESA_FORMAT_COUNT] =
    { MESA_FORMAT_RGBA5551, _mesa_texstore_rgba5551 },
    { MESA_FORMAT_ARGB1555, _mesa_texstore_argb1555 },
    { MESA_FORMAT_ARGB1555_REV, _mesa_texstore_argb1555 },
+   { MESA_FORMAT_RG88, _mesa_texstore_rg88 },
+   { MESA_FORMAT_RG88_REV, _mesa_texstore_rg88 },
+   { MESA_FORMAT_R8, _mesa_texstore_a8 },
    { MESA_FORMAT_AL88, _mesa_texstore_al88 },
    { MESA_FORMAT_AL88_REV, _mesa_texstore_al88 },
    { MESA_FORMAT_AL1616, _mesa_texstore_al1616 },
