@@ -38,13 +38,33 @@
 /**
  * Allocate space for the given texture image.
  * This is a fallback called via ctx->Driver.AllocTexImageData().
+ * Hardware drivers typically won't use this unless they need to temporarily
+ * store texture data in user memory rather than video memory.
  */
 GLboolean
 _mesa_alloc_texture_image_data(GLcontext *ctx, struct gl_texture_image *tImage)
 {
-   GLint bytes = _mesa_format_image_size(tImage->TexFormat, tImage->Width,
-                                         tImage->Height, tImage->Depth);
-   /* XXX store data on tImgae->DriverData */
+   GLuint width, bytes;
+
+   /*
+    * XXX in the future, we probably don't want to rely on Map.RowStride
+    * here since it may only be valid while the texture memory is mapped.
+    * Drivers should implement their own version of this function which
+    * does the proper alignment.
+    */
+   if (tImage->Map.RowStride > 0) {
+      /* sanity check: the stride should be at least as large as the width */
+      assert(tImage->Map.RowStride >= tImage->Width);
+      width = tImage->Map.RowStride;
+   }
+   else {
+      width = tImage->Width;
+   }
+
+   bytes = _mesa_format_image_size(tImage->TexFormat, width,
+                                   tImage->Height, tImage->Depth);
+
+   /* XXX future step: store data off of tImage->DriverData */
    tImage->Map.Data = _mesa_align_malloc(bytes, 512);
    return tImage->Map.Data != NULL;
 }
