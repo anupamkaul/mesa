@@ -292,6 +292,7 @@ intelTexImage(GLcontext * ctx,
    GLint postConvWidth = width;
    GLint postConvHeight = height;
    const GLuint srcRowStride = unpack->RowLength ? unpack->RowLength : width;
+   const GLuint texelBytes = _mesa_get_format_bytes(texImage->TexFormat);
 
    assert(srcRowStride == texImage->Map.RowStride);
 
@@ -307,8 +308,6 @@ intelTexImage(GLcontext * ctx,
    }
 
    if (!_mesa_is_format_compressed(texImage->TexFormat)) {
-      const GLint texelBytes = _mesa_get_format_bytes(texImage->TexFormat);
-      
       /* Minimum pitch of 32 bytes */
       if (postConvWidth * texelBytes < 32) {
 	 postConvWidth = 32 / texelBytes;
@@ -435,7 +434,7 @@ intelTexImage(GLcontext * ctx,
       /* XXX we'll add a "map texture image" call here */
       texImage->Map.RowStride =
          _mesa_format_row_stride(texImage->TexFormat, postConvWidth)
-         / intelImage->mt->cpp;
+         / texelBytes;
    }
 
    DBG("Upload image %dx%dx%d "
@@ -468,7 +467,7 @@ intelTexImage(GLcontext * ctx,
                                texImage->TexFormat, 
                                texImage->Map.Data,  /* dest addr */
                                0, 0, 0, /* dstX/Y/Zoffset */
-                               texImage->Map.RowStride * intelImage->mt->cpp,
+                               texImage->Map.RowStride * texelBytes,
                                texImage->Map.ImageOffsets,
                                width, height, depth,
                                format, type, pixels, unpack)) {
