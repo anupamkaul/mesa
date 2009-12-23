@@ -140,6 +140,8 @@ struct tgsi_declaration_semantic
 };
 
 #define TGSI_IMM_FLOAT32   0
+#define TGSI_IMM_UINT32    1
+#define TGSI_IMM_INT32     2
 
 struct tgsi_immediate
 {
@@ -152,6 +154,8 @@ struct tgsi_immediate
 union tgsi_immediate_data
 {
    float Float;
+   unsigned Uint;
+   int Int;
 };
 
 #define TGSI_PROPERTY_GS_INPUT_PRIM          0
