@@ -117,6 +117,9 @@ struct cell_context
    struct pipe_clip_state clip;
    struct pipe_constant_buffer constants[2];
    struct pipe_framebuffer_state framebuffer;
+   uint framebuffer_width;
+   uint framebuffer_height;
+
    struct pipe_poly_stipple poly_stipple;
    struct pipe_scissor_state scissor;
    struct cell_texture *texture[PIPE_MAX_SAMPLERS];

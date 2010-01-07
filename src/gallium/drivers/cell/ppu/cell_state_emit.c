@@ -204,8 +204,8 @@ cell_emit_state(struct cell_context *cell)
       fb->color_format = cbuf->format;
       fb->depth_start = cell->zsbuf_map;
       fb->depth_format = zbuf ? zbuf->format : PIPE_FORMAT_NONE;
-      fb->width = cell->framebuffer.width;
-      fb->height = cell->framebuffer.height;
+      fb->width = cell->framebuffer_width;
+      fb->height = cell->framebuffer_height;
 #if 0
       printf("EMIT color format %s\n", pf_name(fb->color_format));
       printf("EMIT depth format %s\n", pf_name(fb->depth_format));

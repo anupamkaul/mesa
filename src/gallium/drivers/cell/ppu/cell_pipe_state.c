@@ -358,8 +358,10 @@ cell_set_framebuffer_state(struct pipe_context *pipe,
       /* update my state
        * (this is also where old surfaces will finally get freed)
        */
-      cell->framebuffer.width = fb->width;
-      cell->framebuffer.height = fb->height;
+      util_framebuffer_uniform_size( fb, 
+                                     &cell->framebuffer_width,
+                                     &cell->framebuffer_height );
+                                     
       cell->framebuffer.nr_cbufs = fb->nr_cbufs;
       for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
          pipe_surface_reference(&cell->framebuffer.cbufs[i], fb->cbufs[i]);
