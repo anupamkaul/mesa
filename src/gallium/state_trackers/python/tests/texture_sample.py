@@ -201,8 +201,6 @@ class TextureColorSampleTest(TestCase):
 
         cbuf = cbuf_tex.get_surface()
         fb = Framebuffer()
-        fb.width = width
-        fb.height = height
         fb.nr_cbufs = 1
         fb.set_cbuf(0, cbuf)
         ctx.set_framebuffer(fb)
@@ -399,8 +397,6 @@ class TextureDepthSampleTest(TestCase):
         cbuf = cbuf_tex.get_surface()
         zsbuf = zsbuf_tex.get_surface()
         fb = Framebuffer()
-        fb.width = width
-        fb.height = height
         fb.nr_cbufs = 1
         fb.set_cbuf(0, cbuf)
         fb.set_zsbuf(zsbuf)

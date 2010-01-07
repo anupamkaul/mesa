@@ -144,8 +144,6 @@ def test(dev):
         tex_usage=PIPE_TEXTURE_USAGE_DEPTH_STENCIL,
     ).get_surface()
     fb = Framebuffer()
-    fb.width = width
-    fb.height = height
     fb.nr_cbufs = 1
     fb.set_cbuf(0, cbuf)
     fb.set_zsbuf(zbuf)

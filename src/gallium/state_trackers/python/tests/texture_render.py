@@ -156,8 +156,6 @@ class TextureTest(TestCase):
         )
 
         fb = Framebuffer()
-        fb.width = dst_surface.width
-        fb.height = dst_surface.height
         fb.nr_cbufs = 1
         fb.set_cbuf(0, dst_surface)
         ctx.set_framebuffer(fb)
