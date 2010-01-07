@@ -1531,8 +1531,6 @@ util_gen_mipmap(struct gen_mipmap_state *ctx,
        * Setup framebuffer / dest surface
        */
       fb.cbufs[0] = surf;
-      fb.width = u_minify(pt->width0, dstLevel);
-      fb.height = u_minify(pt->height0, dstLevel);
       cso_set_framebuffer(ctx->cso, &fb);
 
       /*

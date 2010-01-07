@@ -71,6 +71,21 @@ util_copy_framebuffer_state(struct pipe_framebuffer_state *dst,
                             const struct pipe_framebuffer_state *src);
 
 
+extern boolean
+util_framebuffer_max_size(const struct pipe_framebuffer_state *fb,
+                          unsigned *width,
+                          unsigned *height);
+
+extern boolean
+util_framebuffer_min_size(const struct pipe_framebuffer_state *fb,
+                          unsigned *width,
+                          unsigned *height);
+
+extern boolean
+util_framebuffer_uniform_size(const struct pipe_framebuffer_state *fb,
+                              unsigned *width,
+                              unsigned *height);
+
 extern void
 util_unreference_framebuffer_state(struct pipe_framebuffer_state *fb);
 

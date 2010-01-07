@@ -432,8 +432,6 @@ util_blit_pixels_writemask(struct blit_state *ctx,
 
    /* drawing dest */
    memset(&fb, 0, sizeof(fb));
-   fb.width = dst->width;
-   fb.height = dst->height;
    fb.nr_cbufs = 1;
    fb.cbufs[0] = dst;
    cso_set_framebuffer(ctx->cso, &fb);
@@ -564,8 +562,6 @@ util_blit_pixels_tex(struct blit_state *ctx,
 
    /* drawing dest */
    memset(&fb, 0, sizeof(fb));
-   fb.width = dst->width;
-   fb.height = dst->height;
    fb.nr_cbufs = 1;
    fb.cbufs[0] = dst;
    cso_set_framebuffer(ctx->cso, &fb);

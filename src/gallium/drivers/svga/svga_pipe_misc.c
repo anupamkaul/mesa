@@ -81,8 +81,6 @@ static void svga_set_framebuffer_state(struct pipe_context *pipe,
    boolean propagate = FALSE;
    int i;
 
-   dst->width = fb->width;
-   dst->height = fb->height;
    dst->nr_cbufs = fb->nr_cbufs;
 
    /* check if we need to propaget any of the target surfaces */
@@ -101,14 +99,16 @@ static void svga_set_framebuffer_state(struct pipe_context *pipe,
             svga_propagate_surface(pipe, dst->cbufs[i]);
    }
 
-   /* XXX: Actually the virtual hardware may support rendertargets with
-    * different size, depending on the host API and driver, but since we cannot
-    * know that make no such assumption here. */
-   for(i = 0; i < fb->nr_cbufs; ++i) {
-      if (fb->zsbuf && fb->cbufs[i]) {
-         assert(fb->zsbuf->width == fb->cbufs[i]->width); 
-         assert(fb->zsbuf->height == fb->cbufs[i]->height); 
-      }
+   /* XXX: Actually the virtual hardware may support rendertargets
+    * with different size, depending on the host API and driver, but
+    * since we cannot know that make no such assumption here.  Hence
+    * we do not advertise the ALLOW_FB_MIXED_SIZES capability.
+    */
+   if (!util_get_framebuffer_size( fb,
+                                   &svga->curr.fb_width,
+                                   &svga->curr.fb_height ))
+   {
+      assert(0);
    }
 
    for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++)

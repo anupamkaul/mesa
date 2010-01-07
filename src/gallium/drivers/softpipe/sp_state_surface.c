@@ -97,8 +97,10 @@ softpipe_set_framebuffer_state(struct pipe_context *pipe,
       }
    }
 
+   /*
    sp->framebuffer.width = fb->width;
    sp->framebuffer.height = fb->height;
+   */
 
    sp->dirty |= SP_NEW_FRAMEBUFFER;
 }

@@ -71,8 +71,8 @@ static int upload_drawing_rect(struct brw_context *brw)
    BEGIN_BATCH(4, NO_LOOP_CLIPRECTS);
    OUT_BATCH(_3DSTATE_DRAWRECT_INFO_I965);
    OUT_BATCH(0);
-   OUT_BATCH(((brw->curr.fb.width - 1) & 0xffff) |
-	    ((brw->curr.fb.height - 1) << 16));
+   OUT_BATCH(((brw->curr.fb_width - 1) & 0xffff) |
+             ((brw->curr.fb_height - 1) << 16));
    OUT_BATCH(0);
    ADVANCE_BATCH();
    return 0;

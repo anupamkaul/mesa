@@ -612,9 +612,6 @@ void util_blitter_copy(struct blitter_context *blitter,
    assert(src->texture->target < PIPE_MAX_TEXTURE_TYPES);
 
    /* bind CSOs */
-   fb_state.width = dst->width;
-   fb_state.height = dst->height;
-
    if (is_depth) {
       pipe->bind_blend_state(pipe, ctx->blend_keep_color);
       pipe->bind_depth_stencil_alpha_state(pipe,
@@ -712,8 +709,6 @@ void util_blitter_fill(struct blitter_context *blitter,
    pipe->bind_vs_state(pipe, ctx->vs_col);
 
    /* set a framebuffer state */
-   fb_state.width = dst->width;
-   fb_state.height = dst->height;
    fb_state.nr_cbufs = 1;
    fb_state.cbufs[0] = dst;
    fb_state.zsbuf = 0;

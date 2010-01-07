@@ -100,11 +100,6 @@ update_framebuffer_state( struct st_context *st )
    struct st_renderbuffer *strb;
    GLuint i;
 
-   framebuffer->width = fb->Width;
-   framebuffer->height = fb->Height;
-
-   /*printf("------ fb size %d x %d\n", fb->Width, fb->Height);*/
-
    /* Examine Mesa's ctx->DrawBuffer->_ColorDrawBuffers state
     * to determine which surfaces to draw to
     */

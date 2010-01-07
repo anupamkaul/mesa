@@ -258,13 +258,12 @@ struct pipe_blend_color
 
 struct pipe_framebuffer_state
 {
-   unsigned width, height;
-
+   /** Z/stencil buffer */
+   struct pipe_surface *zsbuf;
+ 
    /** multiple colorbuffers for multiple render targets */
    unsigned nr_cbufs;
    struct pipe_surface *cbufs[PIPE_MAX_COLOR_BUFS];
-
-   struct pipe_surface *zsbuf;      /**< Z/stencil buffer */
 };
 
 

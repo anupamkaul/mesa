@@ -568,7 +568,15 @@ struct brw_context
       struct brw_blend_constant_color bcc;
       struct brw_polygon_stipple bps;
       struct brw_cc_viewport ccv;
+      
+      /* Framebuffer dimensions.
+       *
+       * Updates are signaled by PIPE_NEW_FRAMEBUFFER_DIMENSIONS
+       */
+      unsigned fb_width;
+      unsigned fb_height;
 
+      
       /**
        * Index buffer for this draw_prims call.
        *

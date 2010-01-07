@@ -729,10 +729,6 @@ init_pipe_state(struct vl_mpeg12_mc_renderer *r)
    r->scissor.maxy = r->pot_buffers ?
       util_next_power_of_two(r->picture_height) : r->picture_height;
 
-   r->fb_state.width = r->pot_buffers ?
-      util_next_power_of_two(r->picture_width) : r->picture_width;
-   r->fb_state.height = r->pot_buffers ?
-      util_next_power_of_two(r->picture_height) : r->picture_height;
    r->fb_state.nr_cbufs = 1;
    r->fb_state.zsbuf = NULL;
 

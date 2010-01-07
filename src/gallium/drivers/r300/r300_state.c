@@ -508,11 +508,21 @@ static void
         draw_flush(r300->draw);
     }
 
-    r300->framebuffer_state = *state;
+    /* Copy state and adjust surface refcounts:
+     */
+    util_copy_framebuffer_state( &r300->framebuffer_state, state );
 
+    /* r300 supports only matching MRT sizes:
+     */
+    util_framebuffer_uniform_size( state, 
+                                   &r300->framebuffer_width,
+                                   &r300->framebuffer_height );
+
+    /* Set up scissor state.
+     */
     scissor.minx = scissor.miny = 0;
-    scissor.maxx = state->width;
-    scissor.maxy = state->height;
+    scissor.maxx = r300->framebuffer_width;
+    scissor.maxy = r300->framebuffer_height;
     r300_set_scissor_regs(&scissor, &r300->scissor_state->framebuffer,
                           r300_screen(r300->context.screen)->caps->is_r500);
 

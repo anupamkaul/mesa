@@ -203,6 +203,12 @@ struct svga_state
    struct pipe_clip_state clip;
    struct pipe_viewport_state viewport;
 
+   /* We support only matched-size framebuffer surfaces, so can
+    * calculate a single width/height for the current fb:
+    */
+   unsigned fb_width;
+   unsigned fb_height;
+
    unsigned num_samplers;
    unsigned num_textures;
    unsigned num_vertex_elements;

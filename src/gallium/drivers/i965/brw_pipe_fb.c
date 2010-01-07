@@ -1,4 +1,5 @@
 #include "util/u_math.h"
+#include "util/u_surface.h"
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 
@@ -12,14 +13,20 @@ static void brw_set_framebuffer_state( struct pipe_context *pipe,
 				       const struct pipe_framebuffer_state *fb )
 {
    struct brw_context *brw = brw_context(pipe);
+   unsigned fb_width, fb_height;
    unsigned i;
+
+   if (util_framebuffer_state_equal( &brw->curr.fb, fb ))
+      return;
+
+   util_framebuffer_uniform_size( fb, &fb_width, &fb_height );
 
    /* Dimensions:
     */
-   if (brw->curr.fb.width != fb->width ||
-       brw->curr.fb.height != fb->height) {
-      brw->curr.fb.width = fb->width;
-      brw->curr.fb.height = fb->height;
+   if (brw->curr.fb_width != fb_width ||
+       brw->curr.fb_height != fb_height) {
+      brw->curr.fb_width = fb_width;
+      brw->curr.fb_height = fb_height;
       brw->state.dirty.mesa |= PIPE_NEW_FRAMEBUFFER_DIMENSIONS;
    }
    

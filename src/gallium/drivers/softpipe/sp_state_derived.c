@@ -165,10 +165,15 @@ softpipe_get_vbuf_vertex_info(struct softpipe_context *softpipe)
 static void
 compute_cliprect(struct softpipe_context *sp)
 {
-   /* SP_NEW_FRAMEBUFFER
+   /* This used to track framebuffer width/height, but that's a fairly
+    * meaningless concept for once we allow multiple rendertargets of
+    * differing sizes.  It will be down to the handling of individual
+    * rendertarget read/writes to ensure that no stray pixels exceed
+    * rendertarget bounds.  Possibly there could be one of these
+    * cliprects computed per rendertarget.
     */
-   uint surfWidth = sp->framebuffer.width;
-   uint surfHeight = sp->framebuffer.height;
+   uint surfWidth = 100000;
+   uint surfHeight = 100000;
 
    /* SP_NEW_RASTERIZER
     */

@@ -79,8 +79,8 @@ void r300_clear(struct pipe_context* pipe,
     r300_blitter_save_states(r300);
 
     util_blitter_clear(r300->blitter,
-                       r300->framebuffer_state.width,
-                       r300->framebuffer_state.height,
+                       r300->framebuffer_width,
+                       r300->framebuffer_height,
                        r300->framebuffer_state.nr_cbufs,
                        buffers, rgba, depth, stencil);
 }

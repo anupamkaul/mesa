@@ -945,8 +945,6 @@ copy_framebuffer_state(struct pipe_framebuffer_state *dst,
 {
    uint i;
 
-   dst->width = src->width;
-   dst->height = src->height;
    dst->nr_cbufs = src->nr_cbufs;
    for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
       pipe_surface_reference(&dst->cbufs[i], src->cbufs[i]);

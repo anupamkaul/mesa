@@ -453,8 +453,6 @@ void vl_compositor_render(struct vl_compositor          *compositor,
    assert(dst_area);
    assert(picture_type == PIPE_MPEG12_PICTURE_TYPE_FRAME);
 
-   compositor->fb_state.width = dst_surface->width0;
-   compositor->fb_state.height = dst_surface->height0;
    compositor->fb_state.cbufs[0] = compositor->pipe->screen->get_tex_surface
    (
       compositor->pipe->screen,
@@ -462,8 +460,8 @@ void vl_compositor_render(struct vl_compositor          *compositor,
       0, 0, 0, PIPE_BUFFER_USAGE_GPU_READ | PIPE_BUFFER_USAGE_GPU_WRITE
    );
 
-   compositor->viewport.scale[0] = compositor->fb_state.width;
-   compositor->viewport.scale[1] = compositor->fb_state.height;
+   compositor->viewport.scale[0] = dst_surface->width0;
+   compositor->viewport.scale[1] = dst_surface->height0;
    compositor->viewport.scale[2] = 1;
    compositor->viewport.scale[3] = 1;
    compositor->viewport.translate[0] = 0;
@@ -471,8 +469,8 @@ void vl_compositor_render(struct vl_compositor          *compositor,
    compositor->viewport.translate[2] = 0;
    compositor->viewport.translate[3] = 0;
 
-   compositor->scissor.maxx = compositor->fb_state.width;
-   compositor->scissor.maxy = compositor->fb_state.height;
+   compositor->scissor.maxx = dst_surface->width0;
+   compositor->scissor.maxy = dst_surface->height0;
 
    compositor->pipe->set_framebuffer_state(compositor->pipe, &compositor->fb_state);
    compositor->pipe->set_viewport_state(compositor->pipe, &compositor->viewport);

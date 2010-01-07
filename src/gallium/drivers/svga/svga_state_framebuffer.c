@@ -119,8 +119,8 @@ static int emit_viewport( struct svga_context *svga,
    boolean degenerate = FALSE;
    enum pipe_error ret;
 
-   float fb_width = svga->curr.framebuffer.width;
-   float fb_height = svga->curr.framebuffer.height;
+   float fb_width = svga->curr.fb_width;
+   float fb_height = svga->curr.fb_height;
 
    memset( &prescale, 0, sizeof(prescale) );
 
@@ -131,8 +131,8 @@ static int emit_viewport( struct svga_context *svga,
        */
       rect.x = 0;
       rect.y = 0;
-      rect.w = svga->curr.framebuffer.width;
-      rect.h = svga->curr.framebuffer.height;
+      rect.w = svga->curr.fb_width;
+      rect.h = svga->curr.fb_height;
 
       prescale.scale[0] = 2.0 / (float)rect.w;
       prescale.scale[1] = - 2.0 / (float)rect.h;

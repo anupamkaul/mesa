@@ -34,6 +34,7 @@
 #include "pipe/p_inlines.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+#include "util/u_surface.h"
 #include "tgsi/tgsi_parse.h"
 
 #include "i915_context.h"
@@ -591,18 +592,13 @@ static void i915_set_framebuffer_state(struct pipe_context *pipe,
 				       const struct pipe_framebuffer_state *fb)
 {
    struct i915_context *i915 = i915_context(pipe);
-   int i;
 
+   if (util_framebuffer_state_equal( &i915->framebuffer, fb ))
+      return;
+      
    draw_flush(i915->draw);
 
-   i915->framebuffer.width = fb->width;
-   i915->framebuffer.height = fb->height;
-   i915->framebuffer.nr_cbufs = fb->nr_cbufs;
-   for (i = 0; i < PIPE_MAX_COLOR_BUFS; i++) {
-      pipe_surface_reference(&i915->framebuffer.cbufs[i], fb->cbufs[i]);
-   }
-   pipe_surface_reference(&i915->framebuffer.zsbuf, fb->zsbuf);
-
+   util_copy_framebuffer_state( &i915->framebuffer, fb );
    i915->dirty |= I915_NEW_FRAMEBUFFER;
 }
 

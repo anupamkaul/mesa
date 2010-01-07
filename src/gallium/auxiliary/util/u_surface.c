@@ -39,6 +39,7 @@
 #include "util/u_format.h"
 #include "util/u_memory.h"
 #include "util/u_surface.h"
+#include "util/u_math.h"
 
 
 /**
@@ -113,6 +114,109 @@ util_destroy_rgba_surface(struct pipe_texture *texture,
 }
 
 
+/**
+ * Where framebuffer surfaces are required to have the same size, find
+ * that size.
+ *
+ * \return TRUE if same, FALSE if different
+ */
+boolean
+util_framebuffer_uniform_size(const struct pipe_framebuffer_state *fb,
+                              unsigned *width,
+                              unsigned *height)
+{
+   int i;
+
+   if (fb->cbufs[0]) {
+      *width = fb->cbufs[0]->width;
+      *height = fb->cbufs[0]->height;
+      goto found;
+   }
+
+   if (fb->zsbuf) {
+      *width = fb->zsbuf->width;
+      *height = fb->zsbuf->height;
+      goto found;
+   }
+
+   *width = 0;
+   *height = 0;
+   return FALSE;
+
+found:
+   /* On debug builds, check that all surfaces match in size:
+    */
+   for (i = 0; i < fb->nr_cbufs; i++) {
+      assert(*width == fb->cbufs[i]->width);
+      assert(*height == fb->cbufs[i]->height);
+   }
+
+   if (fb->zsbuf) {
+      assert(*width == fb->zsbuf->width);
+      assert(*height == fb->zsbuf->height);
+   }
+
+   return TRUE;
+}
+
+/* Where multiple sizes are allowed for framebuffer surfaces, find the
+ * minimum width and height of all bound surfaces.
+ */
+boolean
+util_framebuffer_min_size(const struct pipe_framebuffer_state *fb,
+                              unsigned *width,
+                              unsigned *height)
+{
+   unsigned w = ~0;
+   unsigned h = ~0;
+   unsigned i;
+
+   for (i = 0; i < fb->nr_cbufs; i++) {
+      w = MIN2(w, fb->cbufs[i]->width);
+      h = MIN2(h, fb->cbufs[i]->height);
+   }
+
+   if (fb->zsbuf) {
+      w = MIN2(w, fb->zsbuf->width);
+      h = MIN2(h, fb->zsbuf->height);
+   }
+
+   *width = w;
+   *height = h;
+
+   return w != ~0;
+}
+
+/* Where multiple sizes are allowed for framebuffer surfaces, find the
+ * maximum width and height of all bound surfaces.
+ */
+boolean
+util_framebuffer_max_size(const struct pipe_framebuffer_state *fb,
+                              unsigned *width,
+                              unsigned *height)
+{
+   unsigned w = 0;
+   unsigned h = 0;
+   unsigned i;
+
+   for (i = 0; i < fb->nr_cbufs; i++) {
+      w = MAX2(w, fb->cbufs[i]->width);
+      h = MAX2(h, fb->cbufs[i]->height);
+   }
+
+   if (fb->zsbuf) {
+      w = MAX2(w, fb->zsbuf->width);
+      h = MAX2(h, fb->zsbuf->height);
+   }
+
+   *width = w;
+   *height = h;
+
+   return w != 0;
+}
+
+
+
 
 /**
  * Compare pipe_framebuffer_state objects.
@@ -123,10 +227,6 @@ util_framebuffer_state_equal(const struct pipe_framebuffer_state *dst,
                              const struct pipe_framebuffer_state *src)
 {
    unsigned i;
-
-   if (dst->width != src->width ||
-       dst->height != src->height)
-      return FALSE;
 
    for (i = 0; i < Elements(src->cbufs); i++) {
       if (dst->cbufs[i] != src->cbufs[i]) {
@@ -155,9 +255,6 @@ util_copy_framebuffer_state(struct pipe_framebuffer_state *dst,
 {
    unsigned i;
 
-   dst->width = src->width;
-   dst->height = src->height;
-
    for (i = 0; i < Elements(src->cbufs); i++) {
       pipe_surface_reference(&dst->cbufs[i], src->cbufs[i]);
    }
@@ -179,6 +276,5 @@ util_unreference_framebuffer_state(struct pipe_framebuffer_state *fb)
 
    pipe_surface_reference(&fb->zsbuf, NULL);
 
-   fb->width = fb->height = 0;
    fb->nr_cbufs = 0;
 }
