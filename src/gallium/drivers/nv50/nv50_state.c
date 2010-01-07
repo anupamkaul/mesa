@@ -604,7 +604,9 @@ nv50_set_framebuffer_state(struct pipe_context *pipe,
 			   const struct pipe_framebuffer_state *fb)
 {
 	struct nv50_context *nv50 = nv50_context(pipe);
-
+        
+        /* XXX: util_copy_framebuffer_state() for refcounting: 
+         */
 	nv50->framebuffer = *fb;
 	nv50->dirty |= NV50_NEW_FRAMEBUFFER;
 }

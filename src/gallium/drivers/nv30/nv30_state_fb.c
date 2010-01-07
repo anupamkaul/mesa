@@ -12,10 +12,11 @@ nv30_state_framebuffer_validate(struct nv30_context *nv30)
 	int i, colour_format = 0, zeta_format = 0, depth_only = 0;
 	struct nouveau_stateobj *so = so_new(12, 18, 10);
 	unsigned rt_flags = NOUVEAU_BO_RDWR | NOUVEAU_BO_VRAM;
-	unsigned w = fb->width;
-	unsigned h = fb->height;
+	unsigned w, h;
 	struct nv30_miptree *nv30mt;
 	int colour_bits = 32, zeta_bits = 32;
+
+        util_framebuffer_uniform_size( fb, &w, &h );
 
 	for (i = 0; i < fb->nr_cbufs; i++) {
 		if (colour_format) {
@@ -38,7 +39,8 @@ nv30_state_framebuffer_validate(struct nv30_context *nv30)
 	if (rt_enable & (NV34TCL_RT_ENABLE_COLOR0|NV34TCL_RT_ENABLE_COLOR1)) {
 		/* Render to at least a colour buffer */
 		if (!(rt[0]->base.texture->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR)) {
-			assert(!(fb->width & (fb->width - 1)) && !(fb->height & (fb->height - 1)));
+			assert(util_is_power_of_two(w) &&
+                               util_is_power_of_two(h));
 			for (i = 1; i < fb->nr_cbufs; i++)
 				assert(!(rt[i]->base.texture->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR));
 
@@ -53,8 +55,9 @@ nv30_state_framebuffer_validate(struct nv30_context *nv30)
 
 		/* Render to depth buffer only */
 		if (!(zeta->base.texture->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR)) {
-			assert(!(fb->width & (fb->width - 1)) && !(fb->height & (fb->height - 1)));
-
+                        assert(util_is_power_of_two(w) &&
+                               util_is_power_of_two(h));
+w
 			rt_format = NV34TCL_RT_FORMAT_TYPE_SWIZZLED |
 				(log2i(zeta->base.width) << NV34TCL_RT_FORMAT_LOG2_WIDTH_SHIFT) |
 				(log2i(zeta->base.height) << NV34TCL_RT_FORMAT_LOG2_HEIGHT_SHIFT);

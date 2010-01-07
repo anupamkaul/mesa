@@ -626,6 +626,9 @@ nv40_set_framebuffer_state(struct pipe_context *pipe,
 {
 	struct nv40_context *nv40 = nv40_context(pipe);
 
+        /* XXX: use util_copy_framebuffer_state to get correct
+         * refcounting.
+         */
 	nv40->framebuffer = *fb;
 	nv40->dirty |= NV40_NEW_FB;
 }

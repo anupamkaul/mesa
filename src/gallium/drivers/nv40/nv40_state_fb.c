@@ -21,8 +21,9 @@ nv40_state_framebuffer_validate(struct nv40_context *nv40)
 	int i, colour_format = 0, zeta_format = 0;
 	struct nouveau_stateobj *so = so_new(18, 24, 10);
 	unsigned rt_flags = NOUVEAU_BO_RDWR | NOUVEAU_BO_VRAM;
-	unsigned w = fb->width;
-	unsigned h = fb->height;
+	unsigned w, h;
+
+        util_framebuffer_uniform_size( fb, &w, &h );
 
 	rt_enable = 0;
 	for (i = 0; i < fb->nr_cbufs; i++) {
@@ -45,13 +46,14 @@ nv40_state_framebuffer_validate(struct nv40_context *nv40)
 	}
 
 	if (!(rt[0]->base.texture->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR)) {
-		assert(!(fb->width & (fb->width - 1)) && !(fb->height & (fb->height - 1)));
+                assert(util_is_power_of_two(w) &&
+                       util_is_power_of_two(h));
 		for (i = 1; i < fb->nr_cbufs; i++)
 			assert(!(rt[i]->base.texture->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR));
 
 		rt_format = NV40TCL_RT_FORMAT_TYPE_SWIZZLED |
-		            log2i(fb->width) << NV40TCL_RT_FORMAT_LOG2_WIDTH_SHIFT |
-		            log2i(fb->height) << NV40TCL_RT_FORMAT_LOG2_HEIGHT_SHIFT;
+		            log2i(w) << NV40TCL_RT_FORMAT_LOG2_WIDTH_SHIFT |
+		            log2i(h) << NV40TCL_RT_FORMAT_LOG2_HEIGHT_SHIFT;
 	}
 	else
 		rt_format = NV40TCL_RT_FORMAT_TYPE_LINEAR;
