@@ -325,8 +325,6 @@ void renderer_bind_destination(struct xorg_renderer *r,
    /* Framebuffer uses actual surface width/height
     */
    memset(&fb, 0, sizeof fb);
-   fb.width  = surface->width;
-   fb.height = surface->height;
    fb.nr_cbufs = 1;
    fb.cbufs[0] = surface;
    fb.zsbuf = 0;
