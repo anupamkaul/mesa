@@ -102,15 +102,9 @@ static INLINE struct pipe_surface * setup_framebuffer(struct vg_image *dst)
 
    /* drawing dest */
    memset(&fb, 0, sizeof(fb));
-   fb.width  = dst->x + dst_surf->width;
-   fb.height = dst->y + dst_surf->height;
    fb.nr_cbufs = 1;
    fb.cbufs[0] = dst_surf;
-   {
-      VGint i;
-      for (i = 1; i < PIPE_MAX_COLOR_BUFS; ++i)
-         fb.cbufs[i] = 0;
-   }
+
    cso_set_framebuffer(ctx->cso_context, &fb);
 
    return dst_surf;

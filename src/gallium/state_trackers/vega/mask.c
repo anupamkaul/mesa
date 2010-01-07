@@ -118,7 +118,7 @@ static void read_alpha_mask(void * data, VGint dataStride,
 
    VGfloat temp[VEGA_MAX_IMAGE_WIDTH][4];
    VGfloat *df = (VGfloat*)temp;
-   VGint y = (fb->height - sy) - 1, yStep = -1;
+   VGint y = (fb->cbufs[0]->height - sy) - 1, yStep = -1;
    VGint i;
    VGubyte *dst = (VGubyte *)data;
    VGint xoffset = 0, yoffset = 0;
@@ -135,7 +135,7 @@ static void read_alpha_mask(void * data, VGint dataStride,
       yoffset = -sy;
       height += sy;
       sy = 0;
-      y = (fb->height - sy) - 1;
+      y = (fb->cbufs[0]->height - sy) - 1;
       yoffset *= dataStride;
    }
 
@@ -166,21 +166,23 @@ void save_alpha_to_file(const char *filename)
    struct vg_context *ctx = vg_current_context();
    struct pipe_framebuffer_state *fb = &ctx->state.g3d.fb;
    VGint *data;
+   int width = fb->cbufs[0]->width;
+   int height = fb->cbufs[0]->height;
    int i, j;
 
-   data = malloc(sizeof(int) * fb->width * fb->height);
-   read_alpha_mask(data, fb->width * sizeof(int),
+   data = malloc(sizeof(int) * width * height);
+   read_alpha_mask(data, width * sizeof(int),
                    VG_sRGBA_8888,
-                   0, 0, fb->width, fb->height);
+                   0, 0, width, height);
    fprintf(stderr, "/*---------- start */\n");
    fprintf(stderr, "const int image_width = %d;\n",
-           fb->width);
+           width);
    fprintf(stderr, "const int image_height = %d;\n",
-           fb->height);
+           height);
    fprintf(stderr, "const int image_data = {\n");
-   for (i = 0; i < fb->height; ++i) {
-      for (j = 0; j < fb->width; ++j) {
-         int rgba = data[i * fb->height + j];
+   for (i = 0; i < height; ++i) {
+      for (j = 0; j < width; ++j) {
+         int rgba = data[i * height + j];
          int argb = 0;
          argb = (rgba >> 8);
          argb |= ((rgba & 0xff) << 24);
@@ -200,15 +202,8 @@ static void setup_mask_framebuffer(struct pipe_surface *surf,
    struct pipe_framebuffer_state fb;
 
    memset(&fb, 0, sizeof(fb));
-   fb.width = surf_width;
-   fb.height = surf_height;
    fb.nr_cbufs = 1;
    fb.cbufs[0] = surf;
-   {
-      VGint i;
-      for (i = 1; i < PIPE_MAX_COLOR_BUFS; ++i)
-         fb.cbufs[i] = 0;
-   }
    cso_set_framebuffer(ctx->cso_context, &fb);
 }
 

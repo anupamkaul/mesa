@@ -351,15 +351,8 @@ void renderer_copy_texture(struct renderer *ctx,
 
    /* drawing dest */
    memset(&fb, 0, sizeof(fb));
-   fb.width = dst_surf->width;
-   fb.height = dst_surf->height;
    fb.nr_cbufs = 1;
    fb.cbufs[0] = dst_surf;
-   {
-      VGint i;
-      for (i = 1; i < PIPE_MAX_COLOR_BUFS; ++i)
-         fb.cbufs[i] = 0;
-   }
    cso_set_framebuffer(ctx->cso, &fb);
 
    /* draw quad */
@@ -521,11 +514,15 @@ void renderer_copy_surface(struct renderer *ctx,
    /* drawing dest */
    if (stfb->strb->surface != dst) {
       memset(&fb, 0, sizeof(fb));
-      fb.width = dst->width;
-      fb.height = dst->height;
       fb.nr_cbufs = 1;
       fb.cbufs[0] = dst;
       fb.zsbuf = stfb->dsrb->surface;
+      
+      if (dst && stfb->dsrb->surface) {
+         assert(dst->width == stfb->dsrb->surface->width);
+         assert(dst->height == stfb->dsrb->surface->height);
+      }
+
       cso_set_framebuffer(ctx->cso, &fb);
    }
 

@@ -405,7 +405,8 @@ void vgReadPixels(void * data, VGint dataStride,
 
    VGfloat temp[VEGA_MAX_IMAGE_WIDTH][4];
    VGfloat *df = (VGfloat*)temp;
-   VGint y = (fb->height - sy) - 1, yStep = -1;
+   VGint y = 0;
+   VGint yStep = -1;
    VGint i;
    VGubyte *dst = (VGubyte *)data;
    VGint xoffset = 0, yoffset = 0;
@@ -422,6 +423,10 @@ void vgReadPixels(void * data, VGint dataStride,
       vg_set_error(ctx, VG_ILLEGAL_ARGUMENT_ERROR);
       return;
    }
+   if (fb->cbufs[0] == NULL)
+      return;
+
+   yStep = (fb->cbufs[0]->height - sy) - 1;
 
    /* make sure rendering has completed */
    pipe->flush(pipe, PIPE_FLUSH_RENDER_CACHE, NULL);
@@ -435,7 +440,7 @@ void vgReadPixels(void * data, VGint dataStride,
       yoffset = -sy;
       height += sy;
       sy = 0;
-      y = (fb->height - sy) - 1;
+      y = (fb->cbufs[0]->height - sy) - 1;
       yoffset *= dataStride;
    }
 
@@ -469,6 +474,7 @@ void vgCopyPixels(VGint dx, VGint dy,
    struct vg_context *ctx = vg_current_context();
    struct pipe_framebuffer_state *fb = &ctx->state.g3d.fb;
    struct st_renderbuffer *strb = ctx->draw_buffer->strb;
+   VGint fb_width, fb_height;
 
    if (width <= 0 || height <= 0) {
       vg_set_error(ctx, VG_ILLEGAL_ARGUMENT_ERROR);
@@ -476,9 +482,16 @@ void vgCopyPixels(VGint dx, VGint dy,
    }
 
    /* do nothing if we copy from outside the fb */
-   if (dx >= (VGint)fb->width || dy >= (VGint)fb->height ||
-       sx >= (VGint)fb->width || sy >= (VGint)fb->height)
+   if (fb->cbufs[0] == NULL)
       return;
+
+   fb_width = (VGint)fb->cbufs[0]->width;
+   fb_height = (VGint)fb->cbufs[0]->height;
+
+   if (dx >= (VGint)fb_width || dy >= (VGint)fb_height ||
+       sx >= (VGint)fb_width || sy >= (VGint)fb_height)
+      return;
+
 
    vg_validate_state(ctx);
    /* make sure rendering has completed */

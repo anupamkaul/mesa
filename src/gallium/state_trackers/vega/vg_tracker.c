@@ -297,9 +297,6 @@ void st_resize_framebuffer(struct st_framebuffer *stfb,
 
       memset(state, 0, sizeof(struct pipe_framebuffer_state));
 
-      state->width  = width;
-      state->height = height;
-
       state->nr_cbufs = 1;
       state->cbufs[0] = strb->surface;
       for (i = 1; i < PIPE_MAX_COLOR_BUFS; ++i)

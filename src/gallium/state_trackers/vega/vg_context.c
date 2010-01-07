@@ -228,7 +228,8 @@ static void update_clip_state(struct vg_context *ctx)
 
    memset(dsa, 0, sizeof(struct pipe_depth_stencil_alpha_state));
 
-   if (state->scissoring) {
+   if (state->scissoring &&
+       ctx->state.g3d.fb.cbufs[0]) {
       struct pipe_blend_state *blend = &ctx->state.g3d.blend;
       struct pipe_framebuffer_state *fb = &ctx->state.g3d.fb;
       int i;
@@ -265,8 +266,8 @@ static void update_clip_state(struct vg_context *ctx)
 
          minx = 0;
          miny = 0;
-         maxx = fb->width;
-         maxy = fb->height;
+         maxx = fb->cbufs[0]->width;
+         maxy = fb->cbufs[0]->height;
 
          if (x > minx)
             minx = x;
@@ -368,12 +369,17 @@ void vg_validate_state(struct vg_context *ctx)
       struct pipe_framebuffer_state *fb = &ctx->state.g3d.fb;
       const VGint param_bytes = 8 * sizeof(VGfloat);
       VGfloat vs_consts[8] = {
-         2.f/fb->width, 2.f/fb->height, 1, 1,
+         0, 0, 1, 1,
          -1, -1, 0, 0
       };
       struct pipe_constant_buffer *cbuf = &ctx->vs_const_buffer;
 
       vg_set_viewport(ctx, VEGA_Y0_BOTTOM);
+
+      if (fb->cbufs[0]) {
+         vs_consts[0] = 2.f/fb->cbufs[0]->width;
+         vs_consts[1] = 2.f/fb->cbufs[0]->height;
+      }
 
       pipe_buffer_reference(&cbuf->buffer, NULL);
       cbuf->buffer = pipe_buffer_create(ctx->pipe->screen, 16,
@@ -531,13 +537,20 @@ void vg_set_viewport(struct vg_context *ctx, VegaOrientation orientation)
    struct pipe_viewport_state viewport;
    struct pipe_framebuffer_state *fb = &ctx->state.g3d.fb;
    VGfloat y_scale = (orientation == VEGA_Y0_BOTTOM) ? -2.f : 2.f;
+   unsigned width, height;
 
-   viewport.scale[0] =  fb->width / 2.f;
-   viewport.scale[1] =  fb->height / y_scale;
+   if (fb->cbufs[0] == NULL)
+      return;
+
+   width = fb->cbufs[0]->width;
+   height = fb->cbufs[0]->height;
+
+   viewport.scale[0] =  width / 2.f;
+   viewport.scale[1] =  height / y_scale;
    viewport.scale[2] =  1.0;
    viewport.scale[3] =  1.0;
-   viewport.translate[0] = fb->width / 2.f;
-   viewport.translate[1] = fb->height / 2.f;
+   viewport.translate[0] = width / 2.f;
+   viewport.translate[1] = height / 2.f;
    viewport.translate[2] = 0.0;
    viewport.translate[3] = 0.0;
 

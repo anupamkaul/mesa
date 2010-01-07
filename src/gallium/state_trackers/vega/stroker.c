@@ -52,7 +52,7 @@ static const VGfloat zero_coords[] = {0.f, 0.f};
 enum intersection_type {
    NoIntersections,
    BoundedIntersection,
-   UnboundedIntersection,
+   UnboundedIntersection
 };
 
 enum line_join_mode {

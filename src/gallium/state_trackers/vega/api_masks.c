@@ -216,9 +216,15 @@ void vgClear(VGint x, VGint y,
 #endif
 
    fb = &ctx->state.g3d.fb;
+   if (fb->cbufs[0] == NULL)
+      return;
+
    /* check for a whole surface clear */
    if (!ctx->state.vg.scissoring &&
-       (x == 0 && y == 0 && width == fb->width && height == fb->height)) {
+       x == 0 &&
+       y == 0 && 
+       width == fb->cbufs[0]->width &&
+       height == fb->cbufs[0]->height) {
       ctx->pipe->clear(ctx->pipe, PIPE_CLEAR_COLOR | PIPE_CLEAR_DEPTHSTENCIL,
                        ctx->state.vg.clear_color, 1., 0);
    } else {
