@@ -36,6 +36,7 @@
 #include "draw/draw_context.h"
 
 #include "util/u_format.h"
+#include "util/u_surface.h"
 
 
 /**
@@ -105,8 +106,9 @@ llvmpipe_set_framebuffer_state(struct pipe_context *pipe,
       }
    }
 
-   lp->framebuffer.width = fb->width;
-   lp->framebuffer.height = fb->height;
+   util_framebuffer_uniform_size( fb, 
+                                  &lp->framebuffer_width,
+                                  &lp->framebuffer_height );
 
    lp->dirty |= LP_NEW_FRAMEBUFFER;
 }

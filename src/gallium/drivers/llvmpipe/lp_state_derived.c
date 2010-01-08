@@ -166,8 +166,8 @@ compute_cliprect(struct llvmpipe_context *lp)
 {
    /* LP_NEW_FRAMEBUFFER
     */
-   uint surfWidth = lp->framebuffer.width;
-   uint surfHeight = lp->framebuffer.height;
+   uint surfWidth = lp->framebuffer_width;
+   uint surfHeight = lp->framebuffer_height;
 
    /* LP_NEW_RASTERIZER
     */
