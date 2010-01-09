@@ -57,6 +57,8 @@ struct i915_fp_compile {
    uint declarations[I915_PROGRAM_SIZE];
    uint program[I915_PROGRAM_SIZE];
 
+   struct tgsi_declaration_resource resources[PIPE_MAX_SHADER_RESOURCES];
+
    uint *csr;            /**< Cursor, points into program. */
 
    uint *decl;           /**< Cursor, points into declarations. */

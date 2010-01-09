@@ -116,6 +116,8 @@ struct pstip_transform_context {
    int maxInput;
    uint samplersUsed;  /**< bitfield of samplers used */
    int freeSampler;  /** an available sampler for the pstipple */
+   uint resourcesUsed;  /**< bitfield of resources used */
+   uint freeResource;   /**< an available resource for the pstipple */
    int texTemp;  /**< temp registers */
    int numImmed;
    boolean firstInstruction;
@@ -131,25 +133,29 @@ pstip_transform_decl(struct tgsi_transform_context *ctx,
                      struct tgsi_full_declaration *decl)
 {
    struct pstip_transform_context *pctx = (struct pstip_transform_context *) ctx;
+   uint i;
 
-   if (decl->Declaration.File == TGSI_FILE_SAMPLER) {
-      uint i;
-      for (i = decl->Range.First;
-           i <= decl->Range.Last; i++) {
+   switch (decl->Declaration.File) {
+   case TGSI_FILE_SAMPLER:
+      for (i = decl->Range.First; i <= decl->Range.Last; i++) {
          pctx->samplersUsed |= 1 << i;
       }
-   }
-   else if (decl->Declaration.File == TGSI_FILE_INPUT) {
+      break;
+   case TGSI_FILE_RESOURCE:
+      for (i = decl->Range.First; i <= decl->Range.Last; i++) {
+         pctx->resourcesUsed |= 1 << i;
+      }
+      break;
+   case TGSI_FILE_INPUT:
       pctx->maxInput = MAX2(pctx->maxInput, (int) decl->Range.Last);
       if (decl->Semantic.Name == TGSI_SEMANTIC_POSITION)
          pctx->wincoordInput = (int) decl->Range.First;
-   }
-   else if (decl->Declaration.File == TGSI_FILE_TEMPORARY) {
-      uint i;
-      for (i = decl->Range.First;
-           i <= decl->Range.Last; i++) {
+      break;
+   case TGSI_FILE_TEMPORARY:
+      for (i = decl->Range.First; i <= decl->Range.Last; i++) {
          pctx->tempsUsed |= (1 << i);
       }
+      break;
    }
 
    ctx->emit_declaration(ctx, decl);
@@ -204,6 +210,11 @@ pstip_transform_inst(struct tgsi_transform_context *ctx,
       if (pctx->freeSampler >= PIPE_MAX_SAMPLERS)
          pctx->freeSampler = PIPE_MAX_SAMPLERS - 1;
 
+      /* find free resource */
+      pctx->freeResource = free_bit(pctx->resourcesUsed);
+      if (pctx->freeResource >= PIPE_MAX_SHADER_RESOURCES)
+         pctx->freeResource = PIPE_MAX_SHADER_RESOURCES - 1;
+
       if (pctx->wincoordInput < 0)
          wincoordInput = pctx->maxInput + 1;
       else
@@ -239,6 +250,15 @@ pstip_transform_inst(struct tgsi_transform_context *ctx,
       decl.Declaration.File = TGSI_FILE_SAMPLER;
       decl.Range.First = 
       decl.Range.Last = pctx->freeSampler;
+      ctx->emit_declaration(ctx, &decl);
+
+      /* declare new resource */
+      decl = tgsi_default_full_declaration();
+      decl.Declaration.File = TGSI_FILE_RESOURCE;
+      decl.Declaration.Resource = 1;
+      decl.Resource.Texture = TGSI_TEXTURE_2D;
+      decl.Range.First = 
+      decl.Range.Last = pctx->freeResource;
       ctx->emit_declaration(ctx, &decl);
 
       /* declare new temp regs */
@@ -296,13 +316,13 @@ pstip_transform_inst(struct tgsi_transform_context *ctx,
       newInst.Instruction.NumDstRegs = 1;
       newInst.Dst[0].Register.File = TGSI_FILE_TEMPORARY;
       newInst.Dst[0].Register.Index = pctx->texTemp;
-      newInst.Instruction.NumSrcRegs = 2;
-      newInst.Instruction.Texture = TRUE;
-      newInst.Texture.Texture = TGSI_TEXTURE_2D;
-      newInst.Src[0].Register.File = TGSI_FILE_TEMPORARY;
-      newInst.Src[0].Register.Index = pctx->texTemp;
-      newInst.Src[1].Register.File = TGSI_FILE_SAMPLER;
-      newInst.Src[1].Register.Index = pctx->freeSampler;
+      newInst.Instruction.NumSrcRegs = 3;
+      newInst.Src[0].Register.File = TGSI_FILE_RESOURCE;
+      newInst.Src[0].Register.Index = pctx->freeResource;
+      newInst.Src[1].Register.File = TGSI_FILE_TEMPORARY;
+      newInst.Src[1].Register.Index = pctx->texTemp;
+      newInst.Src[2].Register.File = TGSI_FILE_SAMPLER;
+      newInst.Src[2].Register.Index = pctx->freeSampler;
       ctx->emit_instruction(ctx, &newInst);
 
       /* KIL -texTemp;   # if -texTemp < 0, KILL fragment */

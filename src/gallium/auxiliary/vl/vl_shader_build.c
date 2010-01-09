@@ -125,6 +125,19 @@ struct tgsi_full_declaration vl_decl_samplers(unsigned int first, unsigned int l
    return decl;
 }
 
+struct tgsi_full_declaration vl_decl_resource(unsigned int index, unsigned int target)
+{
+   struct tgsi_full_declaration decl = tgsi_default_full_declaration();
+
+   decl.Declaration.File = TGSI_FILE_RESOURCE;
+   decl.Declaration.Resource = 1;
+   decl.Range.First = index;
+   decl.Range.Last = index;
+   decl.Resource.Texture = target;
+
+   return decl;
+}
+
 struct tgsi_full_instruction vl_inst2
 (
    int opcode,
@@ -165,34 +178,6 @@ struct tgsi_full_instruction vl_inst3
    inst.Dst[0].Register.File = dst_file;
    inst.Dst[0].Register.Index = dst_index;
    inst.Instruction.NumSrcRegs = 2;
-   inst.Src[0].Register.File = src1_file;
-   inst.Src[0].Register.Index = src1_index;
-   inst.Src[1].Register.File = src2_file;
-   inst.Src[1].Register.Index = src2_index;
-
-   return inst;
-}
-
-struct tgsi_full_instruction vl_tex
-(
-   int tex,
-   enum tgsi_file_type dst_file,
-   unsigned int dst_index,
-   enum tgsi_file_type src1_file,
-   unsigned int src1_index,
-   enum tgsi_file_type src2_file,
-   unsigned int src2_index
-)
-{
-   struct tgsi_full_instruction inst = tgsi_default_full_instruction();
-
-   inst.Instruction.Opcode = TGSI_OPCODE_TEX;
-   inst.Instruction.NumDstRegs = 1;
-   inst.Dst[0].Register.File = dst_file;
-   inst.Dst[0].Register.Index = dst_index;
-   inst.Instruction.NumSrcRegs = 2;
-   inst.Instruction.Texture = 1;
-   inst.Texture.Texture = tex;
    inst.Src[0].Register.File = src1_file;
    inst.Src[0].Register.Index = src1_index;
    inst.Src[1].Register.File = src2_file;

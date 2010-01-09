@@ -199,8 +199,12 @@ create_frag_shader(struct vl_compositor *c)
    decl = vl_decl_samplers(0, 0);
    ti += tgsi_build_full_declaration(&decl, &tokens[ti], header, max_tokens - ti);
 
-   /* tex2d t0, i0, s0    ; Read src pixel */
-   inst = vl_tex(TGSI_TEXTURE_2D, TGSI_FILE_TEMPORARY, 0, TGSI_FILE_INPUT, 0, TGSI_FILE_SAMPLER, 0);
+   /* decl r0, 2D         ; Resource containing picture to display */
+   decl = vl_decl_resource(0, TGSI_TEXTURE_2D);
+   ti += tgsi_build_full_declaration(&decl, &tokens[ti], header, max_tokens - ti);
+
+   /* tex t0, r0, i0, s0  ; Read src pixel */
+   inst = vl_inst4(TGSI_OPCODE_TEX, TGSI_FILE_TEMPORARY, 0, TGSI_FILE_RESOURCE, 0, TGSI_FILE_INPUT, 0, TGSI_FILE_SAMPLER, 0);
    ti += tgsi_build_full_instruction(&inst, &tokens[ti], header, max_tokens - ti);
 
    /*

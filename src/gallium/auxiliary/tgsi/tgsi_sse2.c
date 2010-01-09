@@ -55,6 +55,11 @@
 #define FAST_MATH 1
 
 
+struct tgsi_sse_info {
+   struct tgsi_declaration_resource resources[PIPE_MAX_SHADER_RESOURCES];
+};
+
+
 #define FOR_EACH_CHANNEL( CHAN )\
    for (CHAN = 0; CHAN < NUM_CHANNELS; CHAN++)
 
@@ -1457,18 +1462,19 @@ fetch_texel( struct tgsi_sampler **sampler,
  */
 
 static void
-emit_tex( struct x86_function *func,
-          const struct tgsi_full_instruction *inst,
-          boolean lodbias,
-          boolean projected)
+emit_tex(struct tgsi_sse_info *info,
+         struct x86_function *func,
+         const struct tgsi_full_instruction *inst,
+         boolean lodbias,
+         boolean projected)
 {
-   const uint unit = inst->Src[1].Register.Index;
+   const uint image_unit = inst->Src[0].Register.Index;
+   const uint sampler_unit = inst->Src[2].Register.Index;
    struct x86_reg args[2];
    unsigned count;
    unsigned i;
 
-   assert(inst->Instruction.Texture);
-   switch (inst->Texture.Texture) {
+   switch (info->resources[image_unit].Texture) {
    case TGSI_TEXTURE_1D:
       count = 1;
       break;
@@ -1489,7 +1495,7 @@ emit_tex( struct x86_function *func,
    }
 
    if (lodbias) {
-      FETCH( func, *inst, 3, 0, 3 );
+      FETCH( func, *inst, 3, 1, 3 );
    }
    else {
       emit_tempf(
@@ -1509,13 +1515,13 @@ emit_tex( struct x86_function *func,
 
    
    if (projected) {
-      FETCH( func, *inst, 3, 0, 3 );
+      FETCH( func, *inst, 3, 1, 3 );
 
       emit_rcp( func, 3, 3 );
    }
 
    for (i = 0; i < count; i++) {
-      FETCH( func, *inst, i, 0, i );
+      FETCH( func, *inst, i, 1, i );
 
       if (projected) {
          sse_mulps(
@@ -1533,7 +1539,7 @@ emit_tex( struct x86_function *func,
    }
 
    args[0] = get_temp( TEMP_R0, 0 );
-   args[1] = get_sampler_ptr( unit );
+   args[1] = get_sampler_ptr( sampler_unit );
 
 
    emit_func_call( func,
@@ -1739,9 +1745,9 @@ indirect_temp_reference(const struct tgsi_full_instruction *inst)
 
 
 static int
-emit_instruction(
-   struct x86_function *func,
-   struct tgsi_full_instruction *inst )
+emit_instruction(struct tgsi_sse_info *info,
+                 struct x86_function *func,
+                 struct tgsi_full_instruction *inst)
 {
    unsigned chan_index;
 
@@ -2303,7 +2309,7 @@ emit_instruction(
       break;
 
    case TGSI_OPCODE_TEX:
-      emit_tex( func, inst, FALSE, FALSE );
+      emit_tex(info, func, inst, FALSE, FALSE);
       break;
 
    case TGSI_OPCODE_TXD:
@@ -2400,7 +2406,7 @@ emit_instruction(
       break;
 
    case TGSI_OPCODE_TXB:
-      emit_tex( func, inst, TRUE, FALSE );
+      emit_tex(info, func, inst, TRUE, FALSE);
       break;
 
    case TGSI_OPCODE_NRM:
@@ -2512,7 +2518,7 @@ emit_instruction(
       break;
 
    case TGSI_OPCODE_TXP:
-      emit_tex( func, inst, FALSE, TRUE );
+      emit_tex(info, func, inst, FALSE, TRUE);
       break;
       
    case TGSI_OPCODE_BRK:
@@ -2632,10 +2638,15 @@ emit_instruction(
 }
 
 static void
-emit_declaration(
-   struct x86_function *func,
-   struct tgsi_full_declaration *decl )
+emit_declaration(struct tgsi_sse_info *info,
+                 struct x86_function *func,
+                 struct tgsi_full_declaration *decl)
 {
+   if (decl->Declaration.File == TGSI_FILE_RESOURCE) {
+      info->resources[decl->Range.First] = decl->Resource;
+      return;
+   }
+
    if( decl->Declaration.File == TGSI_FILE_INPUT ||
        decl->Declaration.File == TGSI_FILE_SYSTEM_VALUE ) {
       unsigned first, last, mask;
@@ -2839,6 +2850,7 @@ tgsi_emit_sse2(
    boolean do_swizzles )
 {
    struct tgsi_parse_context parse;
+   struct tgsi_sse_info info;
    unsigned ok = 1;
    uint num_immediates = 0;
 
@@ -2891,6 +2903,7 @@ tgsi_emit_sse2(
       x86_make_disp( get_machine_base(),
                      Offset( struct tgsi_exec_machine, Samplers ) ) );
 
+   memset(&info, 0, sizeof(info));
 
    while( !tgsi_parse_end_of_tokens( &parse ) && ok ) {
       tgsi_parse_token( &parse );
@@ -2898,16 +2911,16 @@ tgsi_emit_sse2(
       switch( parse.FullToken.Token.Type ) {
       case TGSI_TOKEN_TYPE_DECLARATION:
          if (parse.FullHeader.Processor.Processor == TGSI_PROCESSOR_FRAGMENT) {
-            emit_declaration(
-               func,
-               &parse.FullToken.FullDeclaration );
+            emit_declaration(&info,
+                             func,
+                             &parse.FullToken.FullDeclaration);
          }
          break;
 
       case TGSI_TOKEN_TYPE_INSTRUCTION:
-         ok = emit_instruction(
-            func,
-            &parse.FullToken.FullInstruction );
+         ok = emit_instruction(&info,
+                               func,
+                               &parse.FullToken.FullInstruction );
 
 	 if (!ok) {
             uint opcode = parse.FullToken.FullInstruction.Instruction.Opcode;

@@ -215,24 +215,30 @@ create_intra_frag_shader(struct vl_mpeg12_mc_renderer *r)
 
    /*
     * decl s0                      ; Sampler for luma texture
+    * decl r0, 2D
     * decl s1                      ; Sampler for chroma Cb texture
+    * decl r1, 2D
     * decl s2                      ; Sampler for chroma Cr texture
+    * decl r2, 2D
     */
    for (i = 0; i < 3; ++i) {
       decl = vl_decl_samplers(i, i);
       ti += tgsi_build_full_declaration(&decl, &tokens[ti], header, max_tokens - ti);
+
+      decl = vl_decl_resource(i, TGSI_TEXTURE_2D);
+      ti += tgsi_build_full_declaration(&decl, &tokens[ti], header, max_tokens - ti);
    }
 
    /*
-    * tex2d t1, i0, s0             ; Read texel from luma texture
+    * tex t1, r0, i0, s0           ; Read texel from luma texture
     * mov t0.x, t1.x               ; Move luma sample into .x component
-    * tex2d t1, i1, s1             ; Read texel from chroma Cb texture
+    * tex t1, r1, i1, s1           ; Read texel from chroma Cb texture
     * mov t0.y, t1.x               ; Move Cb sample into .y component
-    * tex2d t1, i2, s2             ; Read texel from chroma Cr texture
+    * tex t1, r2, i2, s2           ; Read texel from chroma Cr texture
     * mov t0.z, t1.x               ; Move Cr sample into .z component
     */
    for (i = 0; i < 3; ++i) {
-      inst = vl_tex(TGSI_TEXTURE_2D, TGSI_FILE_TEMPORARY, 1, TGSI_FILE_INPUT, i, TGSI_FILE_SAMPLER, i);
+      inst = vl_inst4(TGSI_OPCODE_TEX, TGSI_FILE_TEMPORARY, 1, TGSI_FILE_RESOURCE, i, TGSI_FILE_INPUT, i, TGSI_FILE_SAMPLER, i);
       ti += tgsi_build_full_instruction(&inst, &tokens[ti], header, max_tokens - ti);
 
       inst = vl_inst2(TGSI_OPCODE_MOV, TGSI_FILE_TEMPORARY, 0, TGSI_FILE_TEMPORARY, 1);
@@ -392,25 +398,32 @@ create_frame_pred_frag_shader(struct vl_mpeg12_mc_renderer *r)
 
    /*
     * decl s0                      ; Sampler for luma texture
+    * decl r0, 2D
     * decl s1                      ; Sampler for chroma Cb texture
+    * decl r1, 2D
     * decl s2                      ; Sampler for chroma Cr texture
+    * decl r2, 2D
     * decl s3                      ; Sampler for ref surface texture
+    * decl r3, 2D
     */
    for (i = 0; i < 4; ++i) {
       decl = vl_decl_samplers(i, i);
       ti += tgsi_build_full_declaration(&decl, &tokens[ti], header, max_tokens - ti);
+
+      decl = vl_decl_resource(i, TGSI_TEXTURE_2D);
+      ti += tgsi_build_full_declaration(&decl, &tokens[ti], header, max_tokens - ti);
    }
 
    /*
-    * tex2d t1, i0, s0             ; Read texel from luma texture
+    * tex t1, r0, i0, s0           ; Read texel from luma texture
     * mov t0.x, t1.x               ; Move luma sample into .x component
-    * tex2d t1, i1, s1             ; Read texel from chroma Cb texture
+    * tex t1, r1, i1, s1           ; Read texel from chroma Cb texture
     * mov t0.y, t1.x               ; Move Cb sample into .y component
-    * tex2d t1, i2, s2             ; Read texel from chroma Cr texture
+    * tex t1, r2, i2, s2           ; Read texel from chroma Cr texture
     * mov t0.z, t1.x               ; Move Cr sample into .z component
     */
    for (i = 0; i < 3; ++i) {
-      inst = vl_tex(TGSI_TEXTURE_2D, TGSI_FILE_TEMPORARY, 1, TGSI_FILE_INPUT, i, TGSI_FILE_SAMPLER, i);
+      inst = vl_inst4(TGSI_OPCODE_TEX, TGSI_FILE_TEMPORARY, 1, TGSI_FILE_RESOURCE, i, TGSI_FILE_INPUT, i, TGSI_FILE_SAMPLER, i);
       ti += tgsi_build_full_instruction(&inst, &tokens[ti], header, max_tokens - ti);
 
       inst = vl_inst2(TGSI_OPCODE_MOV, TGSI_FILE_TEMPORARY, 0, TGSI_FILE_TEMPORARY, 1);
@@ -425,8 +438,8 @@ create_frame_pred_frag_shader(struct vl_mpeg12_mc_renderer *r)
    inst = vl_inst3(TGSI_OPCODE_MUL, TGSI_FILE_TEMPORARY, 0, TGSI_FILE_TEMPORARY, 0, TGSI_FILE_CONSTANT, 0);
    ti += tgsi_build_full_instruction(&inst, &tokens[ti], header, max_tokens - ti);
 
-   /* tex2d t1, i3, s3             ; Read texel from ref macroblock */
-   inst = vl_tex(TGSI_TEXTURE_2D, TGSI_FILE_TEMPORARY, 1, TGSI_FILE_INPUT, 3, TGSI_FILE_SAMPLER, 3);
+   /* tex t1, r3, i3, s3           ; Read texel from ref macroblock */
+   inst = vl_inst4(TGSI_OPCODE_TEX, TGSI_FILE_TEMPORARY, 1, TGSI_FILE_RESOURCE, 3, TGSI_FILE_INPUT, 3, TGSI_FILE_SAMPLER, 3);
    ti += tgsi_build_full_instruction(&inst, &tokens[ti], header, max_tokens - ti);
 
    /* add o0, t0, t1               ; Add ref and differential to form final output */
@@ -598,26 +611,34 @@ create_frame_bi_pred_frag_shader(struct vl_mpeg12_mc_renderer *r)
 
    /*
     * decl s0                      ; Sampler for luma texture
+    * decl r0, 2D
     * decl s1                      ; Sampler for chroma Cb texture
+    * decl r1, 2D
     * decl s2                      ; Sampler for chroma Cr texture
+    * decl r2, 2D
     * decl s3                      ; Sampler for first ref surface texture
+    * decl r3, 2D
     * decl s4                      ; Sampler for second ref surface texture
+    * decl r4, 2D
     */
    for (i = 0; i < 5; ++i) {
       decl = vl_decl_samplers(i, i);
       ti += tgsi_build_full_declaration(&decl, &tokens[ti], header, max_tokens - ti);
+
+      decl = vl_decl_resource(i, TGSI_TEXTURE_2D);
+      ti += tgsi_build_full_declaration(&decl, &tokens[ti], header, max_tokens - ti);
    }
 
    /*
-    * tex2d t1, i0, s0             ; Read texel from luma texture
+    * tex t1, r0, i0, s0           ; Read texel from luma texture
     * mov t0.x, t1.x               ; Move luma sample into .x component
-    * tex2d t1, i1, s1             ; Read texel from chroma Cb texture
+    * tex t1, r1, i1, s1           ; Read texel from chroma Cb texture
     * mov t0.y, t1.x               ; Move Cb sample into .y component
-    * tex2d t1, i2, s2             ; Read texel from chroma Cr texture
+    * tex t1, r2, i2, s2           ; Read texel from chroma Cr texture
     * mov t0.z, t1.x               ; Move Cr sample into .z component
     */
    for (i = 0; i < 3; ++i) {
-      inst = vl_tex(TGSI_TEXTURE_2D, TGSI_FILE_TEMPORARY, 1, TGSI_FILE_INPUT, i, TGSI_FILE_SAMPLER, i);
+      inst = vl_inst4(TGSI_OPCODE_TEX, TGSI_FILE_TEMPORARY, 1, TGSI_FILE_RESOURCE, i, TGSI_FILE_INPUT, i, TGSI_FILE_SAMPLER, i);
       ti += tgsi_build_full_instruction(&inst, &tokens[ti], header, max_tokens - ti);
 
       inst = vl_inst2(TGSI_OPCODE_MOV, TGSI_FILE_TEMPORARY, 0, TGSI_FILE_TEMPORARY, 1);
@@ -633,11 +654,11 @@ create_frame_bi_pred_frag_shader(struct vl_mpeg12_mc_renderer *r)
    ti += tgsi_build_full_instruction(&inst, &tokens[ti], header, max_tokens - ti);
 
    /*
-    * tex2d t1, i3, s3             ; Read texel from first ref macroblock
-    * tex2d t2, i4, s4             ; Read texel from second ref macroblock
+    * tex t1, r3, i3, s3           ; Read texel from first ref macroblock
+    * tex t2, r4, i4, s4           ; Read texel from second ref macroblock
     */
    for (i = 0; i < 2; ++i) {
-      inst = vl_tex(TGSI_TEXTURE_2D, TGSI_FILE_TEMPORARY, i + 1, TGSI_FILE_INPUT, i + 3, TGSI_FILE_SAMPLER, i + 3);
+      inst = vl_inst4(TGSI_OPCODE_TEX, TGSI_FILE_TEMPORARY, i + 1, TGSI_FILE_RESOURCE, i + 3, TGSI_FILE_INPUT, i + 3, TGSI_FILE_SAMPLER, i + 3);
       ti += tgsi_build_full_instruction(&inst, &tokens[ti], header, max_tokens - ti);
    }
 

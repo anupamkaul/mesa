@@ -2009,17 +2009,12 @@ nv50_tgsi_src_mask(const struct tgsi_full_instruction *insn, int c)
 	case TGSI_OPCODE_TXL:
 	case TGSI_OPCODE_TXP:
 	{
-		const struct tgsi_instruction_texture *tex;
-
-		assert(insn->Instruction.Texture);
-		tex = &insn->Texture;
-
 		mask = 0x7;
 		if (insn->Instruction.Opcode != TGSI_OPCODE_TEX &&
 		    insn->Instruction.Opcode != TGSI_OPCODE_TXD)
 			mask |= 0x8; /* bias, lod or proj */
 
-		switch (tex->Texture) {
+		switch (pc->resources[insn->Src[0].Register.Index].Texture) {
 		case TGSI_TEXTURE_1D:
 			mask &= 0x9;
 			break;
@@ -2307,7 +2302,7 @@ nv50_program_tx_insn(struct nv50_pc *pc,
 		     const struct tgsi_full_instruction *inst)
 {
 	struct nv50_reg *rdst[4], *dst[4], *brdc, *src[3][4], *temp;
-	unsigned mask, sat, unit;
+	unsigned mask, sat, image_unit, sampler_unit;
 	int i, c;
 
 	mask = inst->Dst[0].Register.WriteMask;
@@ -2331,8 +2326,10 @@ nv50_program_tx_insn(struct nv50_pc *pc,
 		src_mask = nv50_tgsi_src_mask(inst, i);
 		mod_supp = get_supported_mods(inst, i);
 
-		if (fs->Register.File == TGSI_FILE_SAMPLER)
-			unit = fs->Register.Index;
+		if (fs->Register.File == TGSI_FILE_RESOURCE)
+			image_unit = fs->Register.Index;
+		else if (fs->Register.File == TGSI_FILE_SAMPLER)
+			sampler_unit = fs->Register.Index;
 
 		for (c = 0; c < 4; c++)
 			if (src_mask & (1 << c))
@@ -2796,20 +2793,20 @@ nv50_program_tx_insn(struct nv50_pc *pc,
 		}
 		break;
 	case TGSI_OPCODE_TEX:
-		emit_tex(pc, dst, mask, src[0], unit,
-			 inst->Texture.Texture, FALSE, 0);
+		emit_tex(pc, dst, mask, src[1], sampler_unit,
+			 pc->resources[image_unit].Texture, FALSE, 0);
 		break;
 	case TGSI_OPCODE_TXB:
-		emit_tex(pc, dst, mask, src[0], unit,
-			 inst->Texture.Texture, FALSE, -1);
+		emit_tex(pc, dst, mask, src[1], sampler_unit,
+			 pc->resources[image_unit].Texture, FALSE, -1);
 		break;
 	case TGSI_OPCODE_TXL:
-		emit_tex(pc, dst, mask, src[0], unit,
-			 inst->Texture.Texture, FALSE, 1);
+		emit_tex(pc, dst, mask, src[1], sampler_unit,
+			 pc->resources[image_unit].Texture, FALSE, 1);
 		break;
 	case TGSI_OPCODE_TXP:
-		emit_tex(pc, dst, mask, src[0], unit,
-			 inst->Texture.Texture, TRUE, 0);
+		emit_tex(pc, dst, mask, src[1], sampler_unit,
+			 pc->resources[image_unit].Texture, TRUE, 0);
 		break;
 	case TGSI_OPCODE_TRUNC:
 		for (c = 0; c < 4; c++) {
@@ -3638,6 +3635,9 @@ nv50_program_tx(struct nv50_program *p)
 		tgsi_parse_token(&parse);
 
 		switch (tok->Token.Type) {
+		case TGSI_TOKEN_TYPE_DECLARATION:
+			pc->resources[parse.FullToken.FullDeclaration.Range.First] = parse.FullToken.FullDeclaration.Resource;
+			break;
 		case TGSI_TOKEN_TYPE_INSTRUCTION:
 			pc->insn_pos[pc->insn_cur] = pc->p->exec_size;
 			++pc->insn_cur;

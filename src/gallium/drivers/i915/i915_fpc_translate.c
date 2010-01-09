@@ -338,11 +338,11 @@ emit_tex(struct i915_fp_compile *p,
          const struct tgsi_full_instruction *inst,
          uint opcode)
 {
-   uint texture = inst->Texture.Texture;
-   uint unit = inst->Src[1].Register.Index;
-   uint tex = translate_tex_src_target( p, texture );
-   uint sampler = i915_emit_decl(p, REG_TYPE_S, unit, tex);
-   uint coord = src_vector( p, &inst->Src[0]);
+   uint image_unit = inst->Src[0].Register.Index;
+   uint sampler_unit = inst->Src[2].Register.Index;
+   uint tex = translate_tex_src_target(p, p->resources[image_unit].Texture);
+   uint sampler = i915_emit_decl(p, REG_TYPE_S, sampler_unit, tex);
+   uint coord = src_vector(p, &inst->Src[1]);
 
    i915_emit_texld( p,
                     get_result_vector( p, &inst->Dst[0] ),
@@ -946,6 +946,8 @@ i915_translate_instructions(struct i915_fp_compile *p,
                /* XXX just use shader->info->file_mask[TGSI_FILE_TEMPORARY] */
                p->temp_flag |= (1 << i); /* mark temp as used */
             }
+         } else if (parse.FullToken.FullDeclaration.Declaration.File == TGSI_FILE_RESOURCE) {
+            p->resources[parse.FullToken.FullDeclaration.Range.First] = parse.FullToken.FullDeclaration.Resource;
          }
          break;
 

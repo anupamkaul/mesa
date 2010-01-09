@@ -1169,8 +1169,8 @@ static boolean emit_tex2(struct svga_shader_emitter *emit,
                          SVGA3dShaderDestToken dst )
 {
    SVGA3dShaderInstToken inst;
-   struct src_register src0;
    struct src_register src1;
+   struct src_register src2;
 
    inst.value = 0;
    inst.op = SVGA3DOP_TEX;
@@ -1189,21 +1189,21 @@ static boolean emit_tex2(struct svga_shader_emitter *emit,
       return FALSE;
    }
 
-   src0 = translate_src_register( emit, &insn->Src[0] );
    src1 = translate_src_register( emit, &insn->Src[1] );
+   src2 = translate_src_register( emit, &insn->Src[2] );
 
-   if (emit->key.fkey.tex[src1.base.num].unnormalized) {
-      struct src_register wh = get_tex_dimensions( emit, src1.base.num );
+   if (emit->key.fkey.tex[src2.base.num].unnormalized) {
+      struct src_register wh = get_tex_dimensions( emit, src2.base.num );
       SVGA3dShaderDestToken tmp = get_temp( emit );
 
-      /* MUL  tmp, SRC0, WH */
+      /* MUL  tmp, SRC1, WH */
       if (!submit_op2( emit, inst_token( SVGA3DOP_MUL ),
-                       tmp, src0, wh ))
+                       tmp, src1, wh ))
          return FALSE;
-      src0 = src( tmp );
+      src1 = src( tmp );
    }
 
-   return submit_op2( emit, inst, dst, src0, src1 );
+   return submit_op2( emit, inst, dst, src1, src2 );
 }
 
 
@@ -1216,9 +1216,9 @@ static boolean emit_tex3(struct svga_shader_emitter *emit,
                          SVGA3dShaderDestToken dst )
 {
    SVGA3dShaderInstToken inst;
-   struct src_register src0;
    struct src_register src1;
    struct src_register src2;
+   struct src_register src3;
 
    inst.value = 0;
 
@@ -1231,11 +1231,11 @@ static boolean emit_tex3(struct svga_shader_emitter *emit,
       break;
    }
 
-   src0 = translate_src_register( emit, &insn->Src[0] );
    src1 = translate_src_register( emit, &insn->Src[1] );
    src2 = translate_src_register( emit, &insn->Src[2] );
+   src3 = translate_src_register( emit, &insn->Src[3] );
 
-   return submit_op3( emit, inst, dst, src0, src1, src2 );
+   return submit_op3( emit, inst, dst, src1, src2, src3 );
 }
 
 
@@ -1244,15 +1244,15 @@ static boolean emit_tex(struct svga_shader_emitter *emit,
 {
    SVGA3dShaderDestToken dst = 
       translate_dst_register( emit, insn, 0 );
-   struct src_register src0 =
-      translate_src_register( emit, &insn->Src[0] );
    struct src_register src1 =
       translate_src_register( emit, &insn->Src[1] );
+   struct src_register src2 =
+      translate_src_register( emit, &insn->Src[2] );
 
    SVGA3dShaderDestToken tex_result;
 
    /* check for shadow samplers */
-   boolean compare = (emit->key.fkey.tex[src1.base.num].compare_mode ==
+   boolean compare = (emit->key.fkey.tex[src2.base.num].compare_mode ==
                       PIPE_TEX_COMPARE_R_TO_TEXTURE);
 
 
@@ -1293,12 +1293,12 @@ static boolean emit_tex(struct svga_shader_emitter *emit,
       /* Divide texcoord R by Q */
       if (!submit_op1( emit, inst_token( SVGA3DOP_RCP ),
                        src0_zdivw,
-                       scalar(src0, TGSI_SWIZZLE_W) ))
+                       scalar(src1, TGSI_SWIZZLE_W) ))
          return FALSE;
 
       if (!submit_op2( emit, inst_token( SVGA3DOP_MUL ),
                        src0_zdivw,
-                       scalar(src0, TGSI_SWIZZLE_Z),
+                       scalar(src1, TGSI_SWIZZLE_Z),
                        src(src0_zdivw) ))
          return FALSE;
 

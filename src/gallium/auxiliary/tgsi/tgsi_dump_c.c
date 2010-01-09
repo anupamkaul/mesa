@@ -278,10 +278,6 @@ dump_instruction_verbose(
       TXT("\nLabel      : ");
       UID(inst->Instruction.Label);
    }
-   if (deflt || fi->Instruction.Texture != inst->Instruction.Texture) {
-      TXT("\nTexture    : ");
-      UID(inst->Instruction.Texture);
-   }
    if( ignored ) {
       TXT( "\nPadding    : " );
       UIX( inst->Instruction.Padding );
@@ -296,18 +292,6 @@ dump_instruction_verbose(
       if( ignored ) {
          TXT( "\nPadding : " );
          UIX(inst->Label.Padding);
-      }
-   }
-
-   if (deflt || inst->Instruction.Texture) {
-      EOL();
-      if (deflt || fi->Texture.Texture != inst->Texture.Texture) {
-         TXT( "\nTexture : " );
-         ENM(inst->Texture.Texture, TGSI_TEXTURES);
-      }
-      if( ignored ) {
-         TXT( "\nPadding : " );
-         UIX(inst->Texture.Padding);
       }
    }
 

@@ -122,8 +122,10 @@ struct aa_transform_context {
    struct tgsi_transform_context base;
    uint tempsUsed;  /**< bitmask */
    int colorOutput; /**< which output is the primary color */
-   uint samplersUsed;  /**< bitfield of samplers used */
-   int freeSampler;  /** an available sampler for the pstipple */
+   uint samplersUsed;   /**< bitfield of samplers used */
+   int freeSampler;     /**< an available sampler for the aaline */
+   uint resourcesUsed;  /**< bitfield of resource used */
+   uint freeResource;   /**< an available resource for the aaline */
    int maxInput, maxGeneric;  /**< max input index found */
    int colorTemp, texTemp;  /**< temp registers */
    boolean firstInstruction;
@@ -139,33 +141,38 @@ aa_transform_decl(struct tgsi_transform_context *ctx,
                   struct tgsi_full_declaration *decl)
 {
    struct aa_transform_context *aactx = (struct aa_transform_context *) ctx;
+   uint i;
 
-   if (decl->Declaration.File == TGSI_FILE_OUTPUT &&
-       decl->Semantic.Name == TGSI_SEMANTIC_COLOR &&
-       decl->Semantic.Index == 0) {
-      aactx->colorOutput = decl->Range.First;
-   }
-   else if (decl->Declaration.File == TGSI_FILE_SAMPLER) {
-      uint i;
-      for (i = decl->Range.First;
-           i <= decl->Range.Last; i++) {
+   switch (decl->Declaration.File) {
+   case TGSI_FILE_OUTPUT:
+      if (decl->Semantic.Name == TGSI_SEMANTIC_COLOR &&
+          decl->Semantic.Index == 0) {
+         aactx->colorOutput = decl->Range.First;
+      }
+      break;
+   case TGSI_FILE_SAMPLER:
+      for (i = decl->Range.First; i <= decl->Range.Last; i++) {
          aactx->samplersUsed |= 1 << i;
       }
-   }
-   else if (decl->Declaration.File == TGSI_FILE_INPUT) {
+      break;
+   case TGSI_FILE_RESOURCE:
+      for (i = decl->Range.First; i <= decl->Range.Last; i++) {
+         aactx->resourcesUsed |= 1 << i;
+      }
+      break;
+   case TGSI_FILE_INPUT:
       if ((int) decl->Range.Last > aactx->maxInput)
          aactx->maxInput = decl->Range.Last;
       if (decl->Semantic.Name == TGSI_SEMANTIC_GENERIC &&
            (int) decl->Semantic.Index > aactx->maxGeneric) {
          aactx->maxGeneric = decl->Semantic.Index;
       }
-   }
-   else if (decl->Declaration.File == TGSI_FILE_TEMPORARY) {
-      uint i;
-      for (i = decl->Range.First;
-           i <= decl->Range.Last; i++) {
+      break;
+   case TGSI_FILE_TEMPORARY:
+      for (i = decl->Range.First; i <= decl->Range.Last; i++) {
          aactx->tempsUsed |= (1 << i);
       }
+      break;
    }
 
    ctx->emit_declaration(ctx, decl);
@@ -209,6 +216,11 @@ aa_transform_inst(struct tgsi_transform_context *ctx,
       if (aactx->freeSampler >= PIPE_MAX_SAMPLERS)
          aactx->freeSampler = PIPE_MAX_SAMPLERS - 1;
 
+      /* find free resource */
+      aactx->freeResource = free_bit(aactx->resourcesUsed);
+      if (aactx->freeResource >= PIPE_MAX_SHADER_RESOURCES)
+         aactx->freeResource = PIPE_MAX_SHADER_RESOURCES - 1;
+
       /* find two free temp regs */
       for (i = 0; i < 32; i++) {
          if ((aactx->tempsUsed & (1 << i)) == 0) {
@@ -243,6 +255,15 @@ aa_transform_inst(struct tgsi_transform_context *ctx,
       decl.Range.Last = aactx->freeSampler;
       ctx->emit_declaration(ctx, &decl);
 
+      /* declare new resource */
+      decl = tgsi_default_full_declaration();
+      decl.Declaration.File = TGSI_FILE_RESOURCE;
+      decl.Declaration.Resource = 1;
+      decl.Resource.Texture = TGSI_TEXTURE_2D;
+      decl.Range.First = 
+      decl.Range.Last = aactx->freeResource;
+      ctx->emit_declaration(ctx, &decl);
+
       /* declare new temp regs */
       decl = tgsi_default_full_declaration();
       decl.Declaration.File = TGSI_FILE_TEMPORARY;
@@ -269,13 +290,13 @@ aa_transform_inst(struct tgsi_transform_context *ctx,
       newInst.Instruction.NumDstRegs = 1;
       newInst.Dst[0].Register.File = TGSI_FILE_TEMPORARY;
       newInst.Dst[0].Register.Index = aactx->texTemp;
-      newInst.Instruction.NumSrcRegs = 2;
-      newInst.Instruction.Texture = TRUE;
-      newInst.Texture.Texture = TGSI_TEXTURE_2D;
-      newInst.Src[0].Register.File = TGSI_FILE_INPUT;
-      newInst.Src[0].Register.Index = aactx->maxInput + 1;
-      newInst.Src[1].Register.File = TGSI_FILE_SAMPLER;
-      newInst.Src[1].Register.Index = aactx->freeSampler;
+      newInst.Instruction.NumSrcRegs = 3;
+      newInst.Src[0].Register.File = TGSI_FILE_RESOURCE;
+      newInst.Src[0].Register.Index = aactx->freeResource;
+      newInst.Src[1].Register.File = TGSI_FILE_INPUT;
+      newInst.Src[1].Register.Index = aactx->maxInput + 1;
+      newInst.Src[2].Register.File = TGSI_FILE_SAMPLER;
+      newInst.Src[2].Register.Index = aactx->freeSampler;
 
       ctx->emit_instruction(ctx, &newInst);
 

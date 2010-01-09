@@ -280,7 +280,8 @@ static const char *file_names[TGSI_FILE_COUNT] =
    "IMM",
    "LOOP",
    "PRED",
-   "SV"
+   "SV",
+   "RES"
 };
 
 static boolean
@@ -826,7 +827,7 @@ parse_instruction(
          else if (str_match_no_case( &cur, "_SAT" ))
             saturate = TGSI_SAT_ZERO_ONE;
 
-         if (info->num_dst + info->num_src + info->is_tex == 0) {
+         if (info->num_dst + info->num_src == 0) {
             if (!is_digit_alpha_underscore( cur )) {
                ctx->cur = cur;
                break;
@@ -854,7 +855,7 @@ parse_instruction(
 
    /* Parse instruction operands.
     */
-   for (i = 0; i < info->num_dst + info->num_src + info->is_tex; i++) {
+   for (i = 0; i < info->num_dst + info->num_src; i++) {
       if (i > 0) {
          eat_opt_white( &ctx->cur );
          if (*ctx->cur != ',') {
@@ -868,27 +869,9 @@ parse_instruction(
       if (i < info->num_dst) {
          if (!parse_dst_operand( ctx, &inst.Dst[i] ))
             return FALSE;
-      }
-      else if (i < info->num_dst + info->num_src) {
+      } else {
          if (!parse_src_operand( ctx, &inst.Src[i - info->num_dst] ))
             return FALSE;
-      }
-      else {
-         uint j;
-
-         for (j = 0; j < TGSI_TEXTURE_COUNT; j++) {
-            if (str_match_no_case( &ctx->cur, texture_names[j] )) {
-               if (!is_digit_alpha_underscore( ctx->cur )) {
-                  inst.Instruction.Texture = 1;
-                  inst.Texture.Texture = j;
-                  break;
-               }
-            }
-         }
-         if (j == TGSI_TEXTURE_COUNT) {
-            report_error( ctx, "Expected texture target" );
-            return FALSE;
-         }
       }
    }
 
@@ -978,39 +961,60 @@ static boolean parse_declaration( struct translate_ctx *ctx )
 
       cur++;
       eat_opt_white( &cur );
-      for (i = 0; i < TGSI_SEMANTIC_COUNT; i++) {
-         if (str_match_no_case( &cur, semantic_names[i] )) {
-            const char *cur2 = cur;
-            uint index;
-
-            if (is_digit_alpha_underscore( cur ))
-               continue;
-            eat_opt_white( &cur2 );
-            if (*cur2 == '[') {
-               cur2++;
-               eat_opt_white( &cur2 );
-               if (!parse_uint( &cur2, &index )) {
-                  report_error( ctx, "Expected literal integer" );
-                  return FALSE;
+      if (file == TGSI_FILE_RESOURCE) {
+         for (i = 0; i < TGSI_TEXTURE_COUNT; i++) {
+            if (str_match_no_case(&cur, texture_names[i])) {
+               if (!is_digit_alpha_underscore(cur)) {
+                  decl.Declaration.Resource = 1;
+                  decl.Resource.Texture = i;
+                  break;
                }
-               eat_opt_white( &cur2 );
-               if (*cur2 != ']') {
-                  report_error( ctx, "Expected `]'" );
-                  return FALSE;
-               }
-               cur2++;
-
-               decl.Semantic.Index = index;
-
-               cur = cur2;
             }
-
-            decl.Declaration.Semantic = 1;
-            decl.Semantic.Name = i;
-
-            ctx->cur = cur;
-            break;
          }
+         if (i == TGSI_TEXTURE_COUNT) {
+            report_error(ctx, "Expected texture target");
+            return FALSE;
+         }
+      } else {
+         for (i = 0; i < TGSI_SEMANTIC_COUNT; i++) {
+            if (str_match_no_case(&cur, semantic_names[i])) {
+               const char *cur2 = cur;
+               uint index;
+
+               if (is_digit_alpha_underscore(cur))
+                  continue;
+               eat_opt_white(&cur2);
+               if (*cur2 == '[') {
+                  cur2++;
+                  eat_opt_white(&cur2);
+                  if (!parse_uint(&cur2, &index)) {
+                     report_error(ctx, "Expected literal integer");
+                     return FALSE;
+                  }
+                  eat_opt_white(&cur2);
+                  if (*cur2 != ']') {
+                     report_error(ctx, "Expected `]'");
+                     return FALSE;
+                  }
+                  cur2++;
+
+                  decl.Semantic.Index = index;
+
+                  cur = cur2;
+               }
+
+               decl.Declaration.Semantic = 1;
+               decl.Semantic.Name = i;
+
+               ctx->cur = cur;
+               break;
+            }
+         }
+      }
+   } else {
+      if (file == TGSI_FILE_RESOURCE) {
+         report_error(ctx, "Expected `,'");
+         return FALSE;
       }
    }
 

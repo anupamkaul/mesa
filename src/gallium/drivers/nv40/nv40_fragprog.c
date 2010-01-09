@@ -422,7 +422,7 @@ nv40_fragprog_parse_instruction(struct nv40_fpc *fpc,
 		case TGSI_FILE_TEMPORARY:
 			/* handled above */
 			break;
-		case TGSI_FILE_SAMPLER:
+		case TGSI_FILE_RESOURCE:
 			unit = fsrc->Register.Index;
 			break;
 		case TGSI_FILE_OUTPUT:
@@ -629,13 +629,13 @@ nv40_fragprog_parse_instruction(struct nv40_fpc *fpc,
 		arith(fpc, sat, ADD, dst, mask, src[0], neg(src[1]), none);
 		break;
 	case TGSI_OPCODE_TEX:
-		tex(fpc, sat, TEX, unit, dst, mask, src[0], none, none);
+		tex(fpc, sat, TEX, unit, dst, mask, src[1], none, none);
 		break;
 	case TGSI_OPCODE_TXB:
-		tex(fpc, sat, TXB, unit, dst, mask, src[0], none, none);
+		tex(fpc, sat, TXB, unit, dst, mask, src[1], none, none);
 		break;
 	case TGSI_OPCODE_TXP:
-		tex(fpc, sat, TXP, unit, dst, mask, src[0], none, none);
+		tex(fpc, sat, TXP, unit, dst, mask, src[1], none, none);
 		break;
 	case TGSI_OPCODE_XPD:
 		tmp = temp(fpc);

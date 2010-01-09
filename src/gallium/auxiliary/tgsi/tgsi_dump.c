@@ -102,7 +102,8 @@ static const char *file_names[TGSI_FILE_COUNT] =
    "IMM",
    "LOOP",
    "PRED",
-   "SV"
+   "SV",
+   "RES"
 };
 
 static const char *interpolate_names[] =
@@ -317,6 +318,11 @@ iter_declaration(
          UID( decl->Semantic.Index );
          CHR( ']' );
       }
+   }
+
+   if (decl->Declaration.Resource) {
+      TXT(", ");
+      ENM(decl->Resource.Texture, texture_names);
    }
 
    if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT &&
@@ -535,11 +541,6 @@ iter_instruction(
          CHR( '|' );
 
       first_reg = FALSE;
-   }
-
-   if (inst->Instruction.Texture) {
-      TXT( ", " );
-      ENM( inst->Texture.Texture, texture_names );
    }
 
    switch (inst->Instruction.Opcode) {
