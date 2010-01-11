@@ -133,9 +133,13 @@ implementation-dependent, but will usually be Gourard for most hardware.
 bypass_vs_clip_and_viewport
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-When set, this implies that vertices are pre-transformed for the viewport, and
-will not be run through the vertex shader. Note that implementations may still
-clip away vertices that are not visible.
+When set, this implies that vertices are pre-transformed for the
+viewport, and will not be run through the vertex shader. Note that
+these vertices will fall outside the conventional unit-cube clip
+space.  Implementations are expected to discard pixels which fall
+outside the viewport (XXX: how is the viewport defined in this case),
+and may if desired choose to subject these vertices to clipping after
+appropriate transformation to the clipping cube.
 
 flatshade_first
 ^^^^^^^^^^^^^^^
