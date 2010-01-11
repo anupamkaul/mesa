@@ -175,7 +175,11 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 0, 1, 0, 0, 0, 0, "SWITCH", TGSI_OPCODE_SWITCH },
    { 0, 1, 0, 0, 0, 0, "CASE", TGSI_OPCODE_CASE },
    { 0, 0, 0, 0, 0, 0, "DEFAULT", TGSI_OPCODE_DEFAULT },
-   { 0, 0, 0, 0, 0, 0, "ENDSWITCH", TGSI_OPCODE_ENDSWITCH }
+   { 0, 0, 0, 0, 0, 0, "ENDSWITCH", TGSI_OPCODE_ENDSWITCH },
+   { 1, 1, 0, 0, 0, 0, "F2D", TGSI_OPCODE_F2D },
+   { 1, 1, 0, 0, 0, 0, "D2F", TGSI_OPCODE_D2F },
+   { 1, 1, 0, 0, 0, 0, "DMOV", TGSI_OPCODE_DMOV },
+   { 1, 2, 0, 0, 0, 0, "DADD", TGSI_OPCODE_DADD }
 };
 
 const struct tgsi_opcode_info *

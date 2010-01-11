@@ -319,7 +319,11 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_CASE                142
 #define TGSI_OPCODE_DEFAULT             143
 #define TGSI_OPCODE_ENDSWITCH           144
-#define TGSI_OPCODE_LAST                145
+#define TGSI_OPCODE_F2D                 145
+#define TGSI_OPCODE_D2F                 146
+#define TGSI_OPCODE_DMOV                147
+#define TGSI_OPCODE_DADD                148
+#define TGSI_OPCODE_LAST                149
 
 #define TGSI_SAT_NONE            0  /* do not saturate */
 #define TGSI_SAT_ZERO_ONE        1  /* clamp to [0,1] */
