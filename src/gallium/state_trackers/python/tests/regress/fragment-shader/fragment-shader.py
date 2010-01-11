@@ -184,10 +184,13 @@ def main():
     tests = [
         'abs',
         'add',
+        'dadd',
+        'dmov',
         'dp3',
         'dp4',
         'dst',
         'ex2',
+        'f2d',
         'flr',
         'frc',
         'lg2',
