@@ -150,4 +150,25 @@ sp_get_samples(struct tgsi_sampler *tgsi_sampler,
                float rgba[NUM_CHANNELS][QUAD_SIZE]);
 
 
+struct sp_resource {
+   struct tgsi_resource base;  /**< base class */
+
+   const struct pipe_texture *texture;
+   struct softpipe_tex_tile_cache *cache;
+};
+
+static INLINE struct sp_resource *
+sp_resource(const struct tgsi_resource *resource)
+{
+   return (struct sp_resource *)resource;
+}
+
+struct sp_resource *
+sp_create_resource(void);
+
+void
+sp_resource_bind_texture(struct sp_resource *resource,
+                         struct softpipe_tex_tile_cache *cache,
+                         const struct pipe_texture *texture);
+
 #endif /* SP_TEX_SAMPLE_H */

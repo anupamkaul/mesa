@@ -1956,3 +1956,57 @@ sp_create_sampler_varient( const struct pipe_sampler_state *sampler,
 
    return samp;
 }
+
+static void
+sp_fetch3D(struct tgsi_resource *resource,
+           const int i[QUAD_SIZE],
+           const int j[QUAD_SIZE],
+           const int k[QUAD_SIZE],
+           const int lod[QUAD_SIZE],
+           float rgba[NUM_CHANNELS][QUAD_SIZE])
+{
+   const struct sp_resource *res = sp_resource(resource);
+   union tex_tile_address addr;
+   uint q;
+
+   addr.value = 0;
+
+   for (q = 0; q < QUAD_SIZE; q++) {
+      const struct softpipe_tex_cached_tile *tile;
+      const float *texel;
+
+      addr.bits.level = lod[q];
+      addr.bits.x = i[q] / TILE_SIZE;
+      addr.bits.y = j[q] / TILE_SIZE;
+      addr.bits.z = k[q];
+
+      tile = sp_get_cached_tile_tex(res->cache, addr);
+      texel = &tile->data.color[j[q] % TILE_SIZE][i[q] % TILE_SIZE][0];
+
+      rgba[0][q] = texel[0];
+      rgba[1][q] = texel[1];
+      rgba[2][q] = texel[2];
+      rgba[3][q] = texel[3];
+   }
+}
+
+struct sp_resource *
+sp_create_resource(void)
+{
+   struct sp_resource *res = CALLOC_STRUCT(sp_resource);
+
+   if (res) {
+      res->base.fetch3D = sp_fetch3D;
+   }
+
+   return res;
+}
+
+void
+sp_resource_bind_texture(struct sp_resource *resource,
+                         struct softpipe_tex_tile_cache *cache,
+                         const struct pipe_texture *texture)
+{
+   resource->texture = texture;
+   resource->cache = cache;
+}

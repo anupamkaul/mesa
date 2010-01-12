@@ -132,6 +132,7 @@ struct softpipe_context {
    struct {
       struct sp_sampler_varient *vert_samplers_list[PIPE_MAX_VERTEX_SAMPLERS];
       struct sp_sampler_varient *frag_samplers_list[PIPE_MAX_SAMPLERS];
+      struct sp_resource *frag_res_list[PIPE_MAX_SHADER_RESOURCES];
    } tgsi;
 
    /** The primitive drawing context */

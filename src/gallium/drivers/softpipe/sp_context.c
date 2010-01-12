@@ -112,6 +112,10 @@ softpipe_destroy( struct pipe_context *pipe )
       pipe_texture_reference(&softpipe->vertex_textures[i], NULL);
    }
 
+   for (i = 0; i < PIPE_MAX_SHADER_RESOURCES; i++) {
+      FREE(softpipe->tgsi.frag_res_list[i]);
+   }
+
    for (i = 0; i < Elements(softpipe->constants); i++) {
       if (softpipe->constants[i].buffer) {
          pipe_buffer_reference(&softpipe->constants[i].buffer, NULL);
