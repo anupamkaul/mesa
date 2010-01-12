@@ -94,6 +94,15 @@ struct tgsi_sampler
                        float rgba[NUM_CHANNELS][QUAD_SIZE]);
 };
 
+struct tgsi_resource {
+   void (* fetch3D)(struct tgsi_resource *resource,
+                    const int i[QUAD_SIZE],
+                    const int j[QUAD_SIZE],
+                    const int k[QUAD_SIZE],
+                    const int lod[QUAD_SIZE],
+                    float rgba[NUM_CHANNELS][QUAD_SIZE]);
+};
+
 /**
  * For branching/calling subroutines.
  */
@@ -331,7 +340,8 @@ struct tgsi_exec_machine
 
    struct tgsi_exec_labels Labels;
 
-   struct tgsi_declaration_resource Resources[PIPE_MAX_SHADER_RESOURCES];
+   struct tgsi_declaration_resource ResourceDecls[PIPE_MAX_SHADER_RESOURCES];
+   struct tgsi_resource **Resources;
 };
 
 struct tgsi_exec_machine *
@@ -341,12 +351,13 @@ void
 tgsi_exec_machine_destroy(struct tgsi_exec_machine *mach);
 
 
-void 
-tgsi_exec_machine_bind_shader(
-   struct tgsi_exec_machine *mach,
-   const struct tgsi_token *tokens,
-   uint numSamplers,
-   struct tgsi_sampler **samplers);
+void
+tgsi_exec_machine_bind_shader(struct tgsi_exec_machine *mach,
+                              const struct tgsi_token *tokens,
+                              uint numSamplers,
+                              struct tgsi_sampler **samplers,
+                              uint numResources,
+                              struct tgsi_resource **resources);
 
 uint
 tgsi_exec_machine_run(
