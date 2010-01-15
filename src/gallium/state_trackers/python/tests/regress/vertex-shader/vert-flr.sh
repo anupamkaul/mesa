@@ -6,18 +6,12 @@ DCL OUT[1], COLOR
 
 DCL TEMP[0]
 
-DCL ADDR[0]
+IMM FLT32 { 2.7, 3.1, 4.5, 1.0 }
+IMM FLT32 { 5.0, 0.0, 0.0, 0.0 }
 
-IMM FLT32 { 3.0, 1.0, 1.0, 1.0 }
-IMM FLT32 { 1.0, 0.0, 0.0, 1.0 }
-IMM FLT32 { 0.0, 1.0, 0.0, 1.0 }
-IMM FLT32 { 0.0, 0.0, 1.0, 1.0 }
-IMM FLT32 { 1.0, 1.0, 0.0, 1.0 }
-IMM FLT32 { 0.0, 1.0, 1.0, 1.0 }
-
+MUL TEMP[0], IN[0].xyxw, IMM[0]
+FLR TEMP[0], TEMP[0]
 MOV OUT[0], IN[0]
-MUL TEMP[0], IN[0], IMM[0]
-FLR ADDR[0].x, TEMP[0]
-MOV OUT[1], IMM[ADDR[0].x + 3]
+MUL OUT[1], TEMP[0], IMM[1].xxxx
 
 END
