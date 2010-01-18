@@ -2351,6 +2351,30 @@ exec_double_binary(struct tgsi_exec_machine *mach,
 }
 
 static void
+exec_double_trinary(struct tgsi_exec_machine *mach,
+                    const struct tgsi_full_instruction *inst,
+                    micro_dop op)
+{
+   union tgsi_double_channel src[3];
+   union tgsi_double_channel dst;
+
+   if ((inst->Dst[0].Register.WriteMask & TGSI_WRITEMASK_XY) == TGSI_WRITEMASK_XY) {
+      fetch_double_channel(mach, &src[0], &inst->Src[0], CHAN_X, CHAN_Y);
+      fetch_double_channel(mach, &src[1], &inst->Src[1], CHAN_X, CHAN_Y);
+      fetch_double_channel(mach, &src[2], &inst->Src[2], CHAN_X, CHAN_Y);
+      op(&dst, src);
+      store_double_channel(mach, &dst, &inst->Dst[0], inst, CHAN_X, CHAN_Y);
+   }
+   if ((inst->Dst[0].Register.WriteMask & TGSI_WRITEMASK_ZW) == TGSI_WRITEMASK_ZW) {
+      fetch_double_channel(mach, &src[0], &inst->Src[0], CHAN_Z, CHAN_W);
+      fetch_double_channel(mach, &src[1], &inst->Src[1], CHAN_Z, CHAN_W);
+      fetch_double_channel(mach, &src[2], &inst->Src[2], CHAN_Z, CHAN_W);
+      op(&dst, src);
+      store_double_channel(mach, &dst, &inst->Dst[0], inst, CHAN_Z, CHAN_W);
+   }
+}
+
+static void
 exec_f2d(struct tgsi_exec_machine *mach,
          const struct tgsi_full_instruction *inst)
 {
