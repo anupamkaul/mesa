@@ -179,7 +179,16 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 1, 1, 0, 0, 0, 0, "F2D", TGSI_OPCODE_F2D },
    { 1, 1, 0, 0, 0, 0, "D2F", TGSI_OPCODE_D2F },
    { 1, 1, 0, 0, 0, 0, "DMOV", TGSI_OPCODE_DMOV },
-   { 1, 2, 0, 0, 0, 0, "DADD", TGSI_OPCODE_DADD }
+   { 1, 2, 0, 0, 0, 0, "DADD", TGSI_OPCODE_DADD },
+   { 1, 2, 0, 0, 0, 0, "DDIV", TGSI_OPCODE_DDIV },
+   { 1, 2, 0, 0, 0, 0, "DMUL", TGSI_OPCODE_DMUL },
+   { 1, 2, 0, 0, 0, 0, "DMAX", TGSI_OPCODE_DMAX },
+   { 1, 2, 0, 0, 0, 0, "DMIN", TGSI_OPCODE_DMIN },
+   { 1, 2, 0, 0, 0, 0, "DSLT", TGSI_OPCODE_DSLT },
+   { 1, 2, 0, 0, 0, 0, "DSGE", TGSI_OPCODE_DSGE },
+   { 1, 2, 0, 0, 0, 0, "DSEQ", TGSI_OPCODE_DSEQ },
+   { 1, 1, 0, 0, 0, 0, "DRCP", TGSI_OPCODE_DRCP },
+   { 1, 1, 0, 0 ,0, 0, "DSQRT", TGSI_OPCODE_DSQRT }
 };
 
 const struct tgsi_opcode_info *

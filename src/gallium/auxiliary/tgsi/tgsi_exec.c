@@ -180,6 +180,96 @@ micro_dmov(union tgsi_double_channel *dst,
 }
 
 static void
+micro_ddiv(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src[0].d[0] / src[1].d[0];
+   dst->d[1] = src[0].d[1] / src[1].d[1];
+   dst->d[2] = src[0].d[2] / src[1].d[2];
+   dst->d[3] = src[0].d[3] / src[1].d[3];
+}
+
+static void
+micro_dmul(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src[0].d[0] * src[1].d[0];
+   dst->d[1] = src[0].d[1] * src[1].d[1];
+   dst->d[2] = src[0].d[2] * src[1].d[2];
+   dst->d[3] = src[0].d[3] * src[1].d[3];
+}
+
+static void
+micro_dmax(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src[0].d[0] > src[1].d[0] ? src[0].d[0] : src[1].d[0];
+   dst->d[1] = src[0].d[1] > src[1].d[1] ? src[0].d[1] : src[1].d[1];
+   dst->d[2] = src[0].d[2] > src[1].d[2] ? src[0].d[2] : src[1].d[2];
+   dst->d[3] = src[0].d[3] > src[1].d[3] ? src[0].d[3] : src[1].d[3];
+}
+
+static void
+micro_dmin(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src[0].d[0] < src[1].d[0] ? src[0].d[0] : src[1].d[0];
+   dst->d[1] = src[0].d[1] < src[1].d[1] ? src[0].d[1] : src[1].d[1];
+   dst->d[2] = src[0].d[2] < src[1].d[2] ? src[0].d[2] : src[1].d[2];
+   dst->d[3] = src[0].d[3] < src[1].d[3] ? src[0].d[3] : src[1].d[3];
+}
+
+static void
+micro_dslt(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src[0].d[0] < src[1].d[0] ? 1.0 : 0.0;
+   dst->d[1] = src[0].d[1] < src[1].d[1] ? 1.0 : 0.0;
+   dst->d[2] = src[0].d[2] < src[1].d[2] ? 1.0 : 0.0;
+   dst->d[3] = src[0].d[3] < src[1].d[3] ? 1.0 : 0.0;
+}
+
+static void
+micro_dsge(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src[0].d[0] >= src[1].d[0] ? 1.0 : 0.0;
+   dst->d[1] = src[0].d[1] >= src[1].d[1] ? 1.0 : 0.0;
+   dst->d[2] = src[0].d[2] >= src[1].d[2] ? 1.0 : 0.0;
+   dst->d[3] = src[0].d[3] >= src[1].d[3] ? 1.0 : 0.0;
+}
+
+static void
+micro_dseq(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src[0].d[0] == src[1].d[0] ? 1.0 : 0.0;
+   dst->d[1] = src[0].d[1] == src[1].d[1] ? 1.0 : 0.0;
+   dst->d[2] = src[0].d[2] == src[1].d[2] ? 1.0 : 0.0;
+   dst->d[3] = src[0].d[3] == src[1].d[3] ? 1.0 : 0.0;
+}
+
+static void
+micro_drcp(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = 1.0 / src->d[0];
+   dst->d[1] = 1.0 / src->d[1];
+   dst->d[2] = 1.0 / src->d[2];
+   dst->d[3] = 1.0 / src->d[3];
+}
+
+static void
+micro_dsqrt(union tgsi_double_channel *dst,
+            const union tgsi_double_channel *src)
+{
+   dst->d[0] = sqrt(src->d[0]);
+   dst->d[1] = sqrt(src->d[1]);
+   dst->d[2] = sqrt(src->d[2]);
+   dst->d[3] = sqrt(src->d[3]);
+}
+
+static void
 micro_exp2(union tgsi_exec_channel *dst,
            const union tgsi_exec_channel *src)
 {
@@ -3729,7 +3819,44 @@ exec_instruction(
       exec_double_binary(mach, inst, micro_dadd);
       break;
 
+   case TGSI_OPCODE_DDIV:
+      exec_double_binary(mach, inst, micro_ddiv);
+      break;
+
+   case TGSI_OPCODE_DMUL:
+      exec_double_binary(mach, inst, micro_dmul);
+      break;
+
+   case TGSI_OPCODE_DMAX:
+      exec_double_binary(mach, inst, micro_dmax);
+      break;
+
+   case TGSI_OPCODE_DMIN:
+      exec_double_binary(mach, inst, micro_dmin);
+      break;
+
+   case TGSI_OPCODE_DSLT:
+      exec_double_binary(mach, inst, micro_dslt);
+      break;
+
+   case TGSI_OPCODE_DSGE:
+      exec_double_binary(mach, inst, micro_dsge);
+      break;
+
+   case TGSI_OPCODE_DSEQ:
+      exec_double_binary(mach, inst, micro_dseq);
+      break;
+
+   case TGSI_OPCODE_DRCP:
+      exec_double_unary(mach, inst, micro_drcp);
+      break;
+
+   case TGSI_OPCODE_DSQRT:
+      exec_double_unary(mach, inst, micro_dsqrt);
+      break;
+
    default:
+      printf("%d", inst->Instruction.Opcode);
       assert( 0 );
    }
 }
