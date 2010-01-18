@@ -270,6 +270,16 @@ micro_dsqrt(union tgsi_double_channel *dst,
 }
 
 static void
+micro_dmad(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src[0].d[0] * src[1].d[0] + src[2].d[0];
+   dst->d[1] = src[0].d[1] * src[1].d[1] + src[2].d[1];
+   dst->d[2] = src[0].d[2] * src[1].d[2] + src[2].d[2];
+   dst->d[3] = src[0].d[3] * src[1].d[3] + src[2].d[3];
+}
+
+static void
 micro_exp2(union tgsi_exec_channel *dst,
            const union tgsi_exec_channel *src)
 {
@@ -3877,6 +3887,10 @@ exec_instruction(
 
    case TGSI_OPCODE_DSQRT:
       exec_double_unary(mach, inst, micro_dsqrt);
+      break;
+
+   case TGSI_OPCODE_DMAD:
+      exec_double_trinary(mach, inst, micro_dmad);
       break;
 
    default:
