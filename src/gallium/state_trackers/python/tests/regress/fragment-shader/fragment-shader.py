@@ -193,6 +193,7 @@ def main():
         'dsge',
         'dslt',
         'dsqrt',
+        'dmad',
         'dp3',
         'dp4',
         'dst',
