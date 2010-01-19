@@ -140,6 +140,16 @@ micro_d2f(union tgsi_exec_channel *dst,
 }
 
 static void
+micro_dabs(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = src->d[0] >= 0.0 ? src->d[0] : -src->d[0];
+   dst->d[1] = src->d[1] >= 0.0 ? src->d[1] : -src->d[1];
+   dst->d[2] = src->d[2] >= 0.0 ? src->d[2] : -src->d[2];
+   dst->d[3] = src->d[3] >= 0.0 ? src->d[3] : -src->d[3];
+}
+
+static void
 micro_dadd(union tgsi_double_channel *dst,
           const union tgsi_double_channel *src)
 {
@@ -167,16 +177,6 @@ micro_ddy(union tgsi_exec_channel *dst,
    dst->f[1] =
    dst->f[2] =
    dst->f[3] = src->f[TILE_BOTTOM_LEFT] - src->f[TILE_TOP_LEFT];
-}
-
-static void
-micro_dmov(union tgsi_double_channel *dst,
-          const union tgsi_double_channel *src)
-{
-   dst->d[0] = src->d[0];
-   dst->d[1] = src->d[1];
-   dst->d[2] = src->d[2];
-   dst->d[3] = src->d[3];
 }
 
 static void
@@ -217,6 +217,16 @@ micro_dmin(union tgsi_double_channel *dst,
    dst->d[1] = src[0].d[1] < src[1].d[1] ? src[0].d[1] : src[1].d[1];
    dst->d[2] = src[0].d[2] < src[1].d[2] ? src[0].d[2] : src[1].d[2];
    dst->d[3] = src[0].d[3] < src[1].d[3] ? src[0].d[3] : src[1].d[3];
+}
+
+static void
+micro_dneg(union tgsi_double_channel *dst,
+           const union tgsi_double_channel *src)
+{
+   dst->d[0] = -src->d[0];
+   dst->d[1] = -src->d[1];
+   dst->d[2] = -src->d[2];
+   dst->d[3] = -src->d[3];
 }
 
 static void
@@ -3845,8 +3855,12 @@ exec_instruction(
       exec_d2f(mach, inst);
       break;
 
-   case TGSI_OPCODE_DMOV:
-      exec_double_unary(mach, inst, micro_dmov);
+   case TGSI_OPCODE_DABS:
+      exec_double_unary(mach, inst, micro_dabs);
+      break;
+
+   case TGSI_OPCODE_DNEG:
+      exec_double_unary(mach, inst, micro_dneg);
       break;
 
    case TGSI_OPCODE_DADD:
