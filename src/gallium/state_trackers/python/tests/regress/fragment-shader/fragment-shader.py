@@ -195,6 +195,7 @@ def main():
         'dslt',
         'dsqrt',
         'dmad',
+        'ldexp-frexp',
         'dp3',
         'dp4',
         'dst',
