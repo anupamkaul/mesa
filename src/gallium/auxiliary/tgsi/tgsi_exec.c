@@ -290,6 +290,26 @@ micro_dmad(union tgsi_double_channel *dst,
 }
 
 static void
+micro_dfrac(union tgsi_double_channel *dst,
+            const union tgsi_double_channel *src)
+{
+   dst->d[0] = src->d[0] - floor(src->d[0]);
+   dst->d[1] = src->d[1] - floor(src->d[1]);
+   dst->d[2] = src->d[2] - floor(src->d[2]);
+   dst->d[3] = src->d[3] - floor(src->d[3]);
+}
+
+static void
+micro_dldexp(union tgsi_double_channel *dst,
+             const union tgsi_double_channel *src)
+{
+   dst->d[0] = ldexp(src[0].d[0], src[1].d[0]);
+   dst->d[1] = ldexp(src[0].d[1], src[1].d[1]);
+   dst->d[2] = ldexp(src[0].d[2], src[1].d[2]);
+   dst->d[3] = ldexp(src[0].d[3], src[1].d[3]);
+}
+
+static void
 micro_exp2(union tgsi_exec_channel *dst,
            const union tgsi_exec_channel *src)
 {
@@ -3905,6 +3925,14 @@ exec_instruction(
 
    case TGSI_OPCODE_DMAD:
       exec_double_trinary(mach, inst, micro_dmad);
+      break;
+
+   case TGSI_OPCODE_DFRAC:
+      exec_double_unary(mach, inst, micro_dfrac);
+      break;
+
+   case TGSI_OPCODE_DLDEXP:
+      exec_double_binary(mach, inst, micro_dldexp);
       break;
 
    default:

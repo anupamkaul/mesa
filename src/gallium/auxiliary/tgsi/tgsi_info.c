@@ -190,7 +190,9 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 1, 2, 0, 0, 0, 0, "DSEQ", TGSI_OPCODE_DSEQ },
    { 1, 1, 0, 0, 0, 0, "DRCP", TGSI_OPCODE_DRCP },
    { 1, 1, 0, 0 ,0, 0, "DSQRT", TGSI_OPCODE_DSQRT },
-   { 1, 3, 0, 0 ,0, 0, "DMAD", TGSI_OPCODE_DMAD }
+   { 1, 3, 0, 0 ,0, 0, "DMAD", TGSI_OPCODE_DMAD },
+   { 1, 1, 0, 0, 0, 0, "DFRAC", TGSI_OPCODE_DFRAC},
+   { 1, 2, 0, 0, 0, 0, "DLDEXP", TGSI_OPCODE_DLDEXP}
 };
 
 const struct tgsi_opcode_info *
