@@ -1,0 +1,18 @@
+FRAG
+
+DCL IN[0], COLOR, LINEAR
+DCL OUT[0], COLOR
+DCL TEMP[0..3]
+
+F2D TEMP[0], -IN[0]
+F2D TEMP[1], -IN[0].zwzw
+DNEG TEMP[2].zw, TEMP[0]
+DNEG TEMP[3].xy, TEMP[1].zwzw
+D2F OUT[0].x, TEMP[0]
+D2F OUT[0].y, TEMP[2]
+D2F TEMP[0].x, TEMP[1]
+D2F TEMP[1].x, TEMP[3]
+MOV OUT[0].z, TEMP[0].xyxw
+MOV OUT[0].w, TEMP[1].xyzx
+
+END
