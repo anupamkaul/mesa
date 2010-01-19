@@ -321,18 +321,19 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_ENDSWITCH           144
 #define TGSI_OPCODE_F2D                 145
 #define TGSI_OPCODE_D2F                 146
-#define TGSI_OPCODE_DMOV                147
-#define TGSI_OPCODE_DADD                148
-#define TGSI_OPCODE_DDIV                149
-#define TGSI_OPCODE_DMUL                150
-#define TGSI_OPCODE_DMAX                151
-#define TGSI_OPCODE_DMIN                152
-#define TGSI_OPCODE_DSLT                153
-#define TGSI_OPCODE_DSGE                154
-#define TGSI_OPCODE_DSEQ                155
-#define TGSI_OPCODE_DRCP                156
-#define TGSI_OPCODE_DSQRT               157
-#define TGSI_OPCODE_LAST                158
+#define TGSI_OPCODE_DABS                147
+#define TGSI_OPCODE_DNEG                148
+#define TGSI_OPCODE_DADD                149
+#define TGSI_OPCODE_DDIV                150
+#define TGSI_OPCODE_DMUL                151
+#define TGSI_OPCODE_DMAX                152
+#define TGSI_OPCODE_DMIN                153
+#define TGSI_OPCODE_DSLT                154
+#define TGSI_OPCODE_DSGE                155
+#define TGSI_OPCODE_DSEQ                156
+#define TGSI_OPCODE_DRCP                157
+#define TGSI_OPCODE_DSQRT               158
+#define TGSI_OPCODE_LAST                159
 
 #define TGSI_SAT_NONE            0  /* do not saturate */
 #define TGSI_SAT_ZERO_ONE        1  /* clamp to [0,1] */
