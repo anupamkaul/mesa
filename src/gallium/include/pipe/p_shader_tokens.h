@@ -336,7 +336,8 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_DMAD                159
 #define TGSI_OPCODE_DFRAC               160
 #define TGSI_OPCODE_DLDEXP              161
-#define TGSI_OPCODE_LAST                162
+#define TGSI_OPCODE_DFRACEXP            162
+#define TGSI_OPCODE_LAST                163
 
 #define TGSI_SAT_NONE            0  /* do not saturate */
 #define TGSI_SAT_ZERO_ONE        1  /* clamp to [0,1] */
