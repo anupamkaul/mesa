@@ -196,6 +196,7 @@ def main():
         'dsqrt',
         'dmad',
         'ldexp-frexp',
+        'dfrac',
         'dp3',
         'dp4',
         'dst',
