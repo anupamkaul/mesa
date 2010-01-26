@@ -70,9 +70,7 @@ vs_exec_prepare( struct draw_vertex_shader *shader,
       tgsi_exec_machine_bind_shader(evs->machine,
                                     shader->state.tokens,
                                     draw->vs.num_samplers,
-                                    draw->vs.samplers,
-                                    0,
-                                    NULL);
+                                    draw->vs.samplers);
    }
 }
 

@@ -68,13 +68,11 @@ sp_sse_fragment_shader(const struct sp_fragment_shader *base)
 
 
 static void
-fs_sse_prepare(const struct sp_fragment_shader *base,
-               struct tgsi_exec_machine *machine,
-               struct tgsi_sampler **samplers,
-               struct tgsi_resource **resources)
+fs_sse_prepare( const struct sp_fragment_shader *base,
+		struct tgsi_exec_machine *machine,
+		struct tgsi_sampler **samplers )
 {
    machine->Samplers = samplers;
-   machine->Resources = resources;
 }
 
 

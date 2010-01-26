@@ -68,10 +68,9 @@ struct sp_fragment_shader {
 
    struct tgsi_shader_info info;
 
-   void (*prepare)(const struct sp_fragment_shader *shader,
-                   struct tgsi_exec_machine *machine,
-                   struct tgsi_sampler **samplers,
-                   struct tgsi_resource **resources);
+   void (*prepare)( const struct sp_fragment_shader *shader,
+		    struct tgsi_exec_machine *machine,
+		    struct tgsi_sampler **samplers);
 
    /* Run the shader - this interface will get cleaned up in the
     * future:

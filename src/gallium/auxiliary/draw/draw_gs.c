@@ -333,8 +333,6 @@ void draw_geometry_shader_prepare(struct draw_geometry_shader *shader,
        tgsi_exec_machine_bind_shader(shader->machine,
                                      shader->state.tokens,
                                      draw->gs.num_samplers,
-                                     draw->gs.samplers,
-                                     0,
-                                     NULL);
+                                     draw->gs.samplers);
     }
 }
