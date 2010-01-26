@@ -99,14 +99,6 @@ tgsi_build_declaration_semantic(
    struct tgsi_declaration *declaration,
    struct tgsi_header *header );
 
-struct tgsi_declaration_resource
-tgsi_default_declaration_resource(void);
-
-struct tgsi_declaration_resource
-tgsi_build_declaration_resource(unsigned texture,
-                                struct tgsi_declaration *declaration,
-                                struct tgsi_header *header);
-
 /*
  * immediate
  */
@@ -207,6 +199,16 @@ tgsi_default_instruction_label( void );
 struct tgsi_instruction_label
 tgsi_build_instruction_label(
    unsigned label,
+   struct tgsi_token *prev_token,
+   struct tgsi_instruction *instruction,
+   struct tgsi_header *header );
+
+struct tgsi_instruction_texture
+tgsi_default_instruction_texture( void );
+
+struct tgsi_instruction_texture
+tgsi_build_instruction_texture(
+   unsigned texture,
    struct tgsi_token *prev_token,
    struct tgsi_instruction *instruction,
    struct tgsi_header *header );

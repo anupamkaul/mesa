@@ -31,7 +31,6 @@
 
 #include "pipe/p_compiler.h"
 #include "pipe/p_state.h"
-#include "pipe/p_shader_tokens.h"
 
 #if defined __cplusplus
 extern "C" {
@@ -330,8 +329,6 @@ struct tgsi_exec_machine
    uint NumDeclarations;
 
    struct tgsi_exec_labels Labels;
-
-   struct tgsi_declaration_resource Resources[PIPE_MAX_SHADER_RESOURCES];
 };
 
 struct tgsi_exec_machine *

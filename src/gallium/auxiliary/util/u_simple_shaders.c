@@ -94,7 +94,6 @@ util_make_fragment_tex_shader_writemask(struct pipe_context *pipe,
 {
    struct ureg_program *ureg;
    struct ureg_src sampler;
-   struct ureg_src resource;
    struct ureg_src tex;
    struct ureg_dst out;
 
@@ -103,8 +102,6 @@ util_make_fragment_tex_shader_writemask(struct pipe_context *pipe,
       return NULL;
    
    sampler = ureg_DECL_sampler( ureg, 0 );
-
-   resource = ureg_DECL_resource( ureg, 0, tex_target );
 
    tex = ureg_DECL_fs_input( ureg, 
                              TGSI_SEMANTIC_GENERIC, 0, 
@@ -122,7 +119,7 @@ util_make_fragment_tex_shader_writemask(struct pipe_context *pipe,
 
    ureg_TEX( ureg, 
              ureg_writemask(out, writemask),
-             resource, tex, sampler );
+             tex_target, tex, sampler );
    ureg_END( ureg );
 
    return ureg_create_shader_and_destroy( ureg, pipe );
@@ -153,7 +150,6 @@ util_make_fragment_tex_shader_writedepth(struct pipe_context *pipe,
 {
    struct ureg_program *ureg;
    struct ureg_src sampler;
-   struct ureg_src resource;
    struct ureg_src tex;
    struct ureg_dst out, depth;
    struct ureg_src imm;
@@ -163,8 +159,6 @@ util_make_fragment_tex_shader_writedepth(struct pipe_context *pipe,
       return NULL;
 
    sampler = ureg_DECL_sampler( ureg, 0 );
-
-   resource = ureg_DECL_resource( ureg, 0, tex_target );
 
    tex = ureg_DECL_fs_input( ureg,
                              TGSI_SEMANTIC_GENERIC, 0,
@@ -184,7 +178,7 @@ util_make_fragment_tex_shader_writedepth(struct pipe_context *pipe,
 
    ureg_TEX( ureg,
              ureg_writemask(depth, TGSI_WRITEMASK_Z),
-             resource, tex, sampler );
+             tex_target, tex, sampler );
    ureg_END( ureg );
 
    return ureg_create_shader_and_destroy( ureg, pipe );

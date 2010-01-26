@@ -212,12 +212,10 @@ static void transform_srcreg(
     dst->Negate = src->Register.Negate ? RC_MASK_XYZW : 0;
 }
 
-static void transform_texture(struct tgsi_to_rc * ttr,
-                              struct rc_instruction * dst,
-                              uint32_t imageUnit,
+static void transform_texture(struct rc_instruction * dst, struct tgsi_instruction_texture src,
                               uint32_t *shadowSamplers)
 {
-    switch(ttr->resources[imageUnit].Texture) {
+    switch(src.Texture) {
         case TGSI_TEXTURE_1D:
             dst->U.I.TexSrcTarget = RC_TEXTURE_1D;
             break;
@@ -267,15 +265,16 @@ static void transform_instruction(struct tgsi_to_rc * ttr, struct tgsi_full_inst
         transform_dstreg(ttr, &dst->U.I.DstReg, &src->Dst[0]);
 
     for(i = 0; i < src->Instruction.NumSrcRegs; ++i) {
-        if (src->Src[i].Register.File == TGSI_FILE_RESOURCE) {
+        if (src->Src[i].Register.File == TGSI_FILE_SAMPLER)
             dst->U.I.TexSrcUnit = src->Src[i].Register.Index;
-            /* Texturing. */
-            transform_texture(ttr, dst, src->Src[i].Register.Index,
-                              &ttr->compiler->Program.ShadowSamplers);
-        } else {
+        else
             transform_srcreg(ttr, &dst->U.I.SrcReg[i], &src->Src[i]);
-        }
     }
+
+    /* Texturing. */
+    if (src->Instruction.Texture)
+        transform_texture(dst, src->Texture,
+                          &ttr->compiler->Program.ShadowSamplers);
 }
 
 static void handle_immediate(struct tgsi_to_rc * ttr, struct tgsi_full_immediate * imm)
@@ -288,13 +287,6 @@ static void handle_immediate(struct tgsi_to_rc * ttr, struct tgsi_full_immediate
     for(i = 0; i < 4; ++i)
         constant.u.Immediate[i] = imm->u[i].Float;
     rc_constants_add(&ttr->compiler->Program.Constants, &constant);
-}
-
-static void handle_declaration(struct tgsi_to_rc * ttr, struct tgsi_full_declaration * decl)
-{
-   if (decl->Declaration.File == TGSI_FILE_RESOURCE) {
-      ttr->resources[decl->Range.First] = decl->Resource;
-   }
 }
 
 void r300_tgsi_to_rc(struct tgsi_to_rc * ttr, const struct tgsi_token * tokens)
@@ -323,7 +315,6 @@ void r300_tgsi_to_rc(struct tgsi_to_rc * ttr, const struct tgsi_token * tokens)
 
         switch (parser.FullToken.Token.Type) {
             case TGSI_TOKEN_TYPE_DECLARATION:
-                handle_declaration(ttr, &parse.FullToken.FullDeclaration);
                 break;
             case TGSI_TOKEN_TYPE_IMMEDIATE:
                 handle_immediate(ttr, &parser.FullToken.FullImmediate);

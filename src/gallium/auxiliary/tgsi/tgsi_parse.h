@@ -1,7 +1,6 @@
 /**************************************************************************
  * 
  * Copyright 2007 Tungsten Graphics, Inc., Cedar Park, Texas.
- * Copyright 2009-2010 VMware, Inc.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -60,7 +59,6 @@ struct tgsi_full_declaration
    struct tgsi_declaration Declaration;
    struct tgsi_declaration_range Range;
    struct tgsi_declaration_semantic Semantic;
-   struct tgsi_declaration_resource Resource;
 };
 
 struct tgsi_full_immediate
@@ -76,13 +74,14 @@ struct tgsi_full_property
 };
 
 #define TGSI_FULL_MAX_DST_REGISTERS 2
-#define TGSI_FULL_MAX_SRC_REGISTERS 5 /* TXD has 5 */
+#define TGSI_FULL_MAX_SRC_REGISTERS 4 /* TXD has 4 */
 
 struct tgsi_full_instruction
 {
    struct tgsi_instruction             Instruction;
    struct tgsi_instruction_predicate   Predicate;
    struct tgsi_instruction_label       Label;
+   struct tgsi_instruction_texture     Texture;
    struct tgsi_full_dst_register       Dst[TGSI_FULL_MAX_DST_REGISTERS];
    struct tgsi_full_src_register       Src[TGSI_FULL_MAX_SRC_REGISTERS];
 };

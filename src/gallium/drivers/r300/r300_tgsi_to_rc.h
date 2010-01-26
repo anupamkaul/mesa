@@ -34,8 +34,6 @@ struct tgsi_to_rc {
     const struct tgsi_shader_info * info;
 
     int immediate_offset;
-
-    struct tgsi_declaration_resource resources[PIPE_MAX_SHADER_RESOURCES];
 };
 
 void r300_tgsi_to_rc(struct tgsi_to_rc * ttr, const struct tgsi_token * tokens);

@@ -113,10 +113,6 @@ tgsi_parse_token(
          next_token( ctx, &decl->Semantic );
       }
 
-      if (decl->Declaration.Resource) {
-         next_token(ctx, &decl->Resource);
-      }
-
       break;
    }
 
@@ -169,6 +165,10 @@ tgsi_parse_token(
 
       if (inst->Instruction.Label) {
          next_token( ctx, &inst->Label);
+      }
+
+      if (inst->Instruction.Texture) {
+         next_token( ctx, &inst->Texture);
       }
 
       assert( inst->Instruction.NumDstRegs <= TGSI_FULL_MAX_DST_REGISTERS );

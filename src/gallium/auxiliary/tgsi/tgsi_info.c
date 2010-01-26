@@ -2,7 +2,6 @@
  * 
  * Copyright 2008 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
- * Copyright 2009-2010 VMware, Inc.  All rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
@@ -84,9 +83,9 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 1, 2, 0, 0, 0, 0, "SLE", TGSI_OPCODE_SLE },
    { 1, 2, 0, 0, 0, 0, "SNE", TGSI_OPCODE_SNE },
    { 1, 2, 0, 0, 0, 0, "STR", TGSI_OPCODE_STR },
-   { 1, 3, 1, 0, 0, 0, "TEX", TGSI_OPCODE_TEX },
-   { 1, 5, 1, 0, 0, 0, "TXD", TGSI_OPCODE_TXD },
-   { 1, 3, 1, 0, 0, 0, "TXP", TGSI_OPCODE_TXP },
+   { 1, 2, 1, 0, 0, 0, "TEX", TGSI_OPCODE_TEX },
+   { 1, 4, 1, 0, 0, 0, "TXD", TGSI_OPCODE_TXD },
+   { 1, 2, 1, 0, 0, 0, "TXP", TGSI_OPCODE_TXP },
    { 1, 1, 0, 0, 0, 0, "UP2H", TGSI_OPCODE_UP2H },
    { 1, 1, 0, 0, 0, 0, "UP2US", TGSI_OPCODE_UP2US },
    { 1, 1, 0, 0, 0, 0, "UP4B", TGSI_OPCODE_UP4B },
@@ -100,11 +99,11 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 1, 1, 0, 0, 0, 0, "SSG", TGSI_OPCODE_SSG },
    { 1, 3, 0, 0, 0, 0, "CMP", TGSI_OPCODE_CMP },
    { 1, 1, 0, 0, 0, 0, "SCS", TGSI_OPCODE_SCS },
-   { 1, 3, 1, 0, 0, 0, "TXB", TGSI_OPCODE_TXB },
+   { 1, 2, 1, 0, 0, 0, "TXB", TGSI_OPCODE_TXB },
    { 1, 1, 0, 0, 0, 0, "NRM", TGSI_OPCODE_NRM },
    { 1, 2, 0, 0, 0, 0, "DIV", TGSI_OPCODE_DIV },
    { 1, 2, 0, 0, 0, 0, "DP2", TGSI_OPCODE_DP2 },
-   { 1, 3, 1, 0, 0, 0, "TXL", TGSI_OPCODE_TXL },
+   { 1, 2, 1, 0, 0, 0, "TXL", TGSI_OPCODE_TXL },
    { 0, 0, 0, 0, 0, 0, "BRK", TGSI_OPCODE_BRK },
    { 0, 1, 0, 1, 0, 1, "IF", TGSI_OPCODE_IF },
    { 1, 1, 0, 0, 0, 1, "BGNFOR", TGSI_OPCODE_BGNFOR },

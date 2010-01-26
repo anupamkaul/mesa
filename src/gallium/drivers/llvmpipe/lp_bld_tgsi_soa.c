@@ -95,8 +95,6 @@ struct lp_build_tgsi_soa_context
 
    struct lp_build_sampler_soa *sampler;
 
-   struct tgsi_declaration_resource resources[PIPE_MAX_SHADER_RESOURCES];
-
    LLVMValueRef immediates[LP_MAX_IMMEDIATES][NUM_CHANNELS];
    LLVMValueRef temps[LP_MAX_TEMPS][NUM_CHANNELS];
 
@@ -321,15 +319,14 @@ emit_tex( struct lp_build_tgsi_soa_context *bld,
           boolean projected,
           LLVMValueRef *texel)
 {
-   const uint image_unit = inst->Src[0].Register.Index;
-   const uint sampler_unit = inst->Src[2].Register.Index;
+   const uint unit = inst->Src[1].Register.Index;
    LLVMValueRef lodbias;
    LLVMValueRef oow = NULL;
    LLVMValueRef coords[3];
    unsigned num_coords;
    unsigned i;
 
-   switch (bld->resources[image_unit].Texture) {
+   switch (inst->Texture.Texture) {
    case TGSI_TEXTURE_1D:
       num_coords = 1;
       break;
@@ -350,17 +347,17 @@ emit_tex( struct lp_build_tgsi_soa_context *bld,
    }
 
    if(apply_lodbias)
-      lodbias = emit_fetch( bld, inst, 1, 3 );
+      lodbias = emit_fetch( bld, inst, 0, 3 );
    else
       lodbias = bld->base.zero;
 
    if (projected) {
-      oow = emit_fetch( bld, inst, 1, 3 );
+      oow = emit_fetch( bld, inst, 0, 3 );
       oow = lp_build_rcp(&bld->base, oow);
    }
 
    for (i = 0; i < num_coords; i++) {
-      coords[i] = emit_fetch( bld, inst, 1, i );
+      coords[i] = emit_fetch( bld, inst, 0, i );
       if (projected)
          coords[i] = lp_build_mul(&bld->base, coords[i], oow);
    }
@@ -371,7 +368,7 @@ emit_tex( struct lp_build_tgsi_soa_context *bld,
    bld->sampler->emit_fetch_texel(bld->sampler,
                                   bld->base.builder,
                                   bld->base.type,
-                                  sampler_unit, num_coords, coords, lodbias,
+                                  unit, num_coords, coords, lodbias,
                                   texel);
 }
 
@@ -1434,9 +1431,6 @@ lp_build_tgsi_soa(LLVMBuilderRef builder,
       switch( parse.FullToken.Token.Type ) {
       case TGSI_TOKEN_TYPE_DECLARATION:
          /* Inputs already interpolated */
-         if (parse.FullToken.FullDeclaration.Declaration.File == TGSI_FILE_RESOURCE) {
-            bld.resources[parse.FullToken.FullDeclaration.Range.First] = parse.FullToken.FullDeclaration.Resource;
-         }
          break;
 
       case TGSI_TOKEN_TYPE_INSTRUCTION:

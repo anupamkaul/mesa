@@ -106,7 +106,6 @@ tgsi_default_declaration( void )
    declaration.Semantic = 0;
    declaration.Centroid = 0;
    declaration.Invariant = 0;
-   declaration.Resource = 0;
    declaration.Padding = 0;
 
    return declaration;
@@ -134,7 +133,6 @@ tgsi_build_declaration(
    declaration.Semantic = semantic;
    declaration.Centroid = centroid;
    declaration.Invariant = invariant;
-   declaration.Resource = file == TGSI_FILE_RESOURCE;
 
    header_bodysize_grow( header );
 
@@ -161,7 +159,6 @@ tgsi_default_full_declaration( void )
    full_declaration.Declaration  = tgsi_default_declaration();
    full_declaration.Range = tgsi_default_declaration_range();
    full_declaration.Semantic = tgsi_default_declaration_semantic();
-   full_declaration.Resource = tgsi_default_declaration_resource();
 
    return full_declaration;
 }
@@ -215,20 +212,6 @@ tgsi_build_full_declaration(
          full_decl->Semantic.Index,
          declaration,
          header );
-   }
-
-   if (full_decl->Declaration.Resource) {
-      struct tgsi_declaration_resource *dr;
-
-      if (maxsize <= size) {
-         return  0;
-      }
-      dr = (struct tgsi_declaration_resource *)&tokens[size];
-      size++;
-
-      *dr = tgsi_build_declaration_resource(full_decl->Resource.Texture,
-                                            declaration,
-                                            header);
    }
 
    return size;
@@ -297,32 +280,6 @@ tgsi_build_declaration_semantic(
    declaration_grow( declaration, header );
 
    return ds;
-}
-
-struct tgsi_declaration_resource
-tgsi_default_declaration_resource(void)
-{
-   struct tgsi_declaration_resource declaration_resource;
-
-   declaration_resource.Texture = TGSI_TEXTURE_UNKNOWN;
-   declaration_resource.Padding = 0;
-
-   return declaration_resource;
-}
-
-struct tgsi_declaration_resource
-tgsi_build_declaration_resource(unsigned texture,
-                                struct tgsi_declaration *declaration,
-                                struct tgsi_header *header)
-{
-   struct tgsi_declaration_resource declaration_resource;
-
-   declaration_resource = tgsi_default_declaration_resource();
-   declaration_resource.Texture = texture;
-
-   declaration_grow(declaration, header);
-
-   return declaration_resource;
 }
 
 /*
@@ -449,6 +406,7 @@ tgsi_default_instruction( void )
    instruction.NumDstRegs = 1;
    instruction.NumSrcRegs = 1;
    instruction.Label = 0;
+   instruction.Texture = 0;
    instruction.Padding  = 0;
 
    return instruction;
@@ -502,6 +460,7 @@ tgsi_default_full_instruction( void )
    full_instruction.Instruction = tgsi_default_instruction();
    full_instruction.Predicate = tgsi_default_instruction_predicate();
    full_instruction.Label = tgsi_default_instruction_label();
+   full_instruction.Texture = tgsi_default_instruction_texture();
    for( i = 0;  i < TGSI_FULL_MAX_DST_REGISTERS; i++ ) {
       full_instruction.Dst[i] = tgsi_default_full_dst_register();
    }
@@ -572,6 +531,23 @@ tgsi_build_full_instruction(
          instruction,
          header );
       prev_token = (struct tgsi_token  *) instruction_label;
+   }
+
+   if (full_inst->Instruction.Texture) {
+      struct tgsi_instruction_texture *instruction_texture;
+
+      if( maxsize <= size )
+         return 0;
+      instruction_texture =
+         (struct  tgsi_instruction_texture *) &tokens[size];
+      size++;
+
+      *instruction_texture = tgsi_build_instruction_texture(
+         full_inst->Texture.Texture,
+         prev_token,
+         instruction,
+         header   );
+      prev_token = (struct tgsi_token  *) instruction_texture;
    }
 
    for( i = 0;  i <   full_inst->Instruction.NumDstRegs; i++ ) {
@@ -777,6 +753,35 @@ tgsi_build_instruction_label(
    instruction_grow( instruction, header );
 
    return instruction_label;
+}
+
+struct tgsi_instruction_texture
+tgsi_default_instruction_texture( void )
+{
+   struct tgsi_instruction_texture instruction_texture;
+
+   instruction_texture.Texture = TGSI_TEXTURE_UNKNOWN;
+   instruction_texture.Padding = 0;
+
+   return instruction_texture;
+}
+
+struct tgsi_instruction_texture
+tgsi_build_instruction_texture(
+   unsigned texture,
+   struct tgsi_token *prev_token,
+   struct tgsi_instruction *instruction,
+   struct tgsi_header *header )
+{
+   struct tgsi_instruction_texture instruction_texture;
+
+   instruction_texture = tgsi_default_instruction_texture();
+   instruction_texture.Texture = texture;
+   instruction->Texture = 1;
+
+   instruction_grow( instruction, header );
+
+   return instruction_texture;
 }
 
 struct tgsi_src_register

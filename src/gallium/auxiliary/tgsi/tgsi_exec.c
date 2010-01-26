@@ -52,6 +52,8 @@
  */
 
 #include "pipe/p_compiler.h"
+#include "pipe/p_state.h"
+#include "pipe/p_shader_tokens.h"
 #include "tgsi/tgsi_dump.h"
 #include "tgsi/tgsi_parse.h"
 #include "tgsi/tgsi_util.h"
@@ -1539,15 +1541,14 @@ exec_tex(struct tgsi_exec_machine *mach,
          const struct tgsi_full_instruction *inst,
          uint modifier)
 {
-   const uint image_unit = inst->Src[0].Register.Index;
-   const uint sampler_unit = inst->Src[2].Register.Index;
+   const uint unit = inst->Src[1].Register.Index;
    union tgsi_exec_channel r[4];
    const union tgsi_exec_channel *lod = &ZeroVec;
    enum tgsi_sampler_control control;
-   uint chan;
+   uint chan_index;
 
    if (modifier != TEX_MODIFIER_NONE) {
-      fetch_source(mach, &r[3], &inst->Src[1], CHAN_W, TGSI_EXEC_DATA_FLOAT);
+      FETCH(&r[3], 0, CHAN_W);
       if (modifier != TEX_MODIFIER_PROJECTED) {
          lod = &r[3];
       }
@@ -1559,16 +1560,16 @@ exec_tex(struct tgsi_exec_machine *mach,
       control = tgsi_sampler_lod_bias;
    }
 
-   switch (mach->Resources[image_unit].Texture) {
+   switch (inst->Texture.Texture) {
    case TGSI_TEXTURE_1D:
    case TGSI_TEXTURE_SHADOW1D:
-      fetch_source(mach, &r[0], &inst->Src[1], CHAN_X, TGSI_EXEC_DATA_FLOAT);
+      FETCH(&r[0], 0, CHAN_X);
 
       if (modifier == TEX_MODIFIER_PROJECTED) {
          micro_div(&r[0], &r[0], &r[3]);
       }
 
-      fetch_texel(mach->Samplers[sampler_unit],
+      fetch_texel(mach->Samplers[unit],
                   &r[0], &ZeroVec, &ZeroVec, lod,  /* S, T, P, LOD */
                   control,
                   &r[0], &r[1], &r[2], &r[3]);     /* R, G, B, A */
@@ -1578,9 +1579,9 @@ exec_tex(struct tgsi_exec_machine *mach,
    case TGSI_TEXTURE_RECT:
    case TGSI_TEXTURE_SHADOW2D:
    case TGSI_TEXTURE_SHADOWRECT:
-      fetch_source(mach, &r[0], &inst->Src[1], CHAN_X, TGSI_EXEC_DATA_FLOAT);
-      fetch_source(mach, &r[1], &inst->Src[1], CHAN_Y, TGSI_EXEC_DATA_FLOAT);
-      fetch_source(mach, &r[2], &inst->Src[1], CHAN_Z, TGSI_EXEC_DATA_FLOAT);
+      FETCH(&r[0], 0, CHAN_X);
+      FETCH(&r[1], 0, CHAN_Y);
+      FETCH(&r[2], 0, CHAN_Z);
 
       if (modifier == TEX_MODIFIER_PROJECTED) {
          micro_div(&r[0], &r[0], &r[3]);
@@ -1588,7 +1589,7 @@ exec_tex(struct tgsi_exec_machine *mach,
          micro_div(&r[2], &r[2], &r[3]);
       }
 
-      fetch_texel(mach->Samplers[sampler_unit],
+      fetch_texel(mach->Samplers[unit],
                   &r[0], &r[1], &r[2], lod,     /* S, T, P, LOD */
                   control,
                   &r[0], &r[1], &r[2], &r[3]);  /* outputs */
@@ -1596,9 +1597,9 @@ exec_tex(struct tgsi_exec_machine *mach,
 
    case TGSI_TEXTURE_3D:
    case TGSI_TEXTURE_CUBE:
-      fetch_source(mach, &r[0], &inst->Src[1], CHAN_X, TGSI_EXEC_DATA_FLOAT);
-      fetch_source(mach, &r[1], &inst->Src[1], CHAN_Y, TGSI_EXEC_DATA_FLOAT);
-      fetch_source(mach, &r[2], &inst->Src[1], CHAN_Z, TGSI_EXEC_DATA_FLOAT);
+      FETCH(&r[0], 0, CHAN_X);
+      FETCH(&r[1], 0, CHAN_Y);
+      FETCH(&r[2], 0, CHAN_Z);
 
       if (modifier == TEX_MODIFIER_PROJECTED) {
          micro_div(&r[0], &r[0], &r[3]);
@@ -1606,7 +1607,7 @@ exec_tex(struct tgsi_exec_machine *mach,
          micro_div(&r[2], &r[2], &r[3]);
       }
 
-      fetch_texel(mach->Samplers[sampler_unit],
+      fetch_texel(mach->Samplers[unit],
                   &r[0], &r[1], &r[2], lod,
                   control,
                   &r[0], &r[1], &r[2], &r[3]);
@@ -1616,10 +1617,8 @@ exec_tex(struct tgsi_exec_machine *mach,
       assert(0);
    }
 
-   for (chan = 0; chan < NUM_CHANNELS; chan++) {
-      if (inst->Dst[0].Register.WriteMask & (1 << chan)) {
-         store_dest(mach, &r[chan], &inst->Dst[0], inst, chan, TGSI_EXEC_DATA_FLOAT);
-      }
+   FOR_EACH_ENABLED_CHANNEL(*inst, chan_index) {
+      STORE(&r[chan_index], 0, chan_index);
    }
 }
 
@@ -1627,21 +1626,21 @@ static void
 exec_txd(struct tgsi_exec_machine *mach,
          const struct tgsi_full_instruction *inst)
 {
-   const uint image_unit = inst->Src[0].Register.Index;
-   const uint sampler_unit = inst->Src[2].Register.Index;
+   const uint unit = inst->Src[3].Register.Index;
    union tgsi_exec_channel r[4];
-   uint chan;
+   uint chan_index;
 
    /*
     * XXX: This is fake TXD -- the derivatives are not taken into account, yet.
     */
 
-   switch (mach->Resources[image_unit].Texture) {
+   switch (inst->Texture.Texture) {
    case TGSI_TEXTURE_1D:
    case TGSI_TEXTURE_SHADOW1D:
-      fetch_source(mach, &r[0], &inst->Src[1], CHAN_X, TGSI_EXEC_DATA_FLOAT);
 
-      fetch_texel(mach->Samplers[sampler_unit],
+      FETCH(&r[0], 0, CHAN_X);
+
+      fetch_texel(mach->Samplers[unit],
                   &r[0], &ZeroVec, &ZeroVec, &ZeroVec,   /* S, T, P, BIAS */
                   tgsi_sampler_lod_bias,
                   &r[0], &r[1], &r[2], &r[3]);           /* R, G, B, A */
@@ -1651,11 +1650,12 @@ exec_txd(struct tgsi_exec_machine *mach,
    case TGSI_TEXTURE_RECT:
    case TGSI_TEXTURE_SHADOW2D:
    case TGSI_TEXTURE_SHADOWRECT:
-      fetch_source(mach, &r[0], &inst->Src[1], CHAN_X, TGSI_EXEC_DATA_FLOAT);
-      fetch_source(mach, &r[1], &inst->Src[1], CHAN_Y, TGSI_EXEC_DATA_FLOAT);
-      fetch_source(mach, &r[2], &inst->Src[1], CHAN_Z, TGSI_EXEC_DATA_FLOAT);
 
-      fetch_texel(mach->Samplers[sampler_unit],
+      FETCH(&r[0], 0, CHAN_X);
+      FETCH(&r[1], 0, CHAN_Y);
+      FETCH(&r[2], 0, CHAN_Z);
+
+      fetch_texel(mach->Samplers[unit],
                   &r[0], &r[1], &r[2], &ZeroVec,   /* inputs */
                   tgsi_sampler_lod_bias,
                   &r[0], &r[1], &r[2], &r[3]);     /* outputs */
@@ -1663,11 +1663,12 @@ exec_txd(struct tgsi_exec_machine *mach,
 
    case TGSI_TEXTURE_3D:
    case TGSI_TEXTURE_CUBE:
-      fetch_source(mach, &r[0], &inst->Src[1], CHAN_X, TGSI_EXEC_DATA_FLOAT);
-      fetch_source(mach, &r[1], &inst->Src[1], CHAN_Y, TGSI_EXEC_DATA_FLOAT);
-      fetch_source(mach, &r[2], &inst->Src[1], CHAN_Z, TGSI_EXEC_DATA_FLOAT);
 
-      fetch_texel(mach->Samplers[sampler_unit],
+      FETCH(&r[0], 0, CHAN_X);
+      FETCH(&r[1], 0, CHAN_Y);
+      FETCH(&r[2], 0, CHAN_Z);
+
+      fetch_texel(mach->Samplers[unit],
                   &r[0], &r[1], &r[2], &ZeroVec,
                   tgsi_sampler_lod_bias,
                   &r[0], &r[1], &r[2], &r[3]);
@@ -1677,10 +1678,8 @@ exec_txd(struct tgsi_exec_machine *mach,
       assert(0);
    }
 
-   for (chan = 0; chan < NUM_CHANNELS; chan++) {
-      if (inst->Dst[0].Register.WriteMask & (1 << chan)) {
-         store_dest(mach, &r[chan], &inst->Dst[0], inst, chan, TGSI_EXEC_DATA_FLOAT);
-      }
+   FOR_EACH_ENABLED_CHANNEL(*inst, chan_index) {
+      STORE(&r[chan_index], 0, chan_index);
    }
 }
 
@@ -1756,11 +1755,6 @@ static void
 exec_declaration(struct tgsi_exec_machine *mach,
                  const struct tgsi_full_declaration *decl)
 {
-   if (decl->Declaration.File == TGSI_FILE_RESOURCE) {
-      mach->Resources[decl->Range.First] = decl->Resource;
-      return;
-   }
-
    if (mach->Processor == TGSI_PROCESSOR_FRAGMENT) {
       if (decl->Declaration.File == TGSI_FILE_INPUT ||
           decl->Declaration.File == TGSI_FILE_SYSTEM_VALUE) {
@@ -2846,43 +2840,38 @@ exec_instruction(
 
    case TGSI_OPCODE_TEX:
       /* simple texture lookup */
-      /* src[0] = resource */
-      /* src[1] = texcoord */
-      /* src[2] = sampler */
+      /* src[0] = texcoord */
+      /* src[1] = sampler unit */
       exec_tex(mach, inst, TEX_MODIFIER_NONE);
       break;
 
    case TGSI_OPCODE_TXB:
       /* Texture lookup with lod bias */
-      /* src[0] = resource */
-      /* src[1] = texcoord (src[1].w = LOD bias) */
-      /* src[2] = sampler */
+      /* src[0] = texcoord (src[0].w = LOD bias) */
+      /* src[1] = sampler unit */
       exec_tex(mach, inst, TEX_MODIFIER_LOD_BIAS);
       break;
 
    case TGSI_OPCODE_TXD:
       /* Texture lookup with explict partial derivatives */
-      /* src[0] = resource */
-      /* src[1] = texcoord */
-      /* src[2] = sampler */
-      /* src[3] = d[strq]/dx */
-      /* src[4] = d[strq]/dy */
+      /* src[0] = texcoord */
+      /* src[1] = d[strq]/dx */
+      /* src[2] = d[strq]/dy */
+      /* src[3] = sampler unit */
       exec_txd(mach, inst);
       break;
 
    case TGSI_OPCODE_TXL:
       /* Texture lookup with explit LOD */
-      /* src[0] = resource */
-      /* src[1] = texcoord (src[1].w = LOD) */
-      /* src[2] = sampler */
+      /* src[0] = texcoord (src[0].w = LOD) */
+      /* src[1] = sampler unit */
       exec_tex(mach, inst, TEX_MODIFIER_EXPLICIT_LOD);
       break;
 
    case TGSI_OPCODE_TXP:
       /* Texture lookup with projection */
-      /* src[0] = resource */
-      /* src[1] = texcoord (src[0].w = projection) */
-      /* src[2] = sampler */
+      /* src[0] = texcoord (src[0].w = projection) */
+      /* src[1] = sampler unit */
       exec_tex(mach, inst, TEX_MODIFIER_PROJECTED);
       break;
 

@@ -71,7 +71,6 @@ struct codegen
    int constants_reg;   /**< 3rd function parameter */
    int temp_regs[MAX_TEMPS][4]; /**< maps TGSI temps to SPE registers */
    int imm_regs[MAX_IMMED][4];  /**< maps TGSI immediates to SPE registers */
-   struct tgsi_declaration_resource resources[PIPE_MAX_SHADER_RESOURCES];
 
    int num_imm;  /**< number of immediates */
 
@@ -1352,15 +1351,13 @@ emit_function_call(struct codegen *gen,
 static boolean
 emit_TEX(struct codegen *gen, const struct tgsi_full_instruction *inst)
 {
-   const uint image_unit = inst->Src[0].Register.Index;
-   const uint sampler_unit = inst->Src[2].Register.Index;
+   const uint target = inst->Texture.Texture;
+   const uint unit = inst->Src[1].Register.Index;
    uint addr;
    int ch;
    int coord_regs[4], d_regs[4];
 
-   assert(inst->Src[0].Register.File == TGSI_FILE_RESOURCE);
-
-   switch (gen->resources[image_unit].Texture) {
+   switch (target) {
    case TGSI_TEXTURE_1D:
    case TGSI_TEXTURE_2D:
       addr = lookup_function(gen->cell, "spu_tex_2d");
@@ -1376,13 +1373,13 @@ emit_TEX(struct codegen *gen, const struct tgsi_full_instruction *inst)
       return FALSE;
    }
 
-   assert(inst->Src[2].Register.File == TGSI_FILE_SAMPLER);
+   assert(inst->Src[1].Register.File == TGSI_FILE_SAMPLER);
 
    spe_comment(gen->f, -4, "CALL tex:");
 
    /* get src/dst reg info */
    for (ch = 0; ch < 4; ch++) {
-      coord_regs[ch] = get_src_reg(gen, ch, &inst->Src[1]);
+      coord_regs[ch] = get_src_reg(gen, ch, &inst->Src[0]);
       d_regs[ch] = get_dst_reg(gen, ch, &inst->Dst[0]);
    }
 
@@ -1934,9 +1931,6 @@ emit_declaration(struct cell_context *cell,
             spe_comment(gen->f, 0, buf);
          }
       }
-      break;
-   case TGSI_FILE_RESOURCE:
-      gen->resources[decl->Range.First] = decl->Resource;
       break;
    default:
       ; /* ignore */

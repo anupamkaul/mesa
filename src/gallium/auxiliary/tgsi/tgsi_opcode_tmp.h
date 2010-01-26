@@ -2,7 +2,6 @@
  * 
  * Copyright 2008 Tungsten Graphics, Inc., Cedar Park, Texas.
  * All Rights Reserved.
- * Copyright 2009-2010 VMware, Inc.  All rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the
@@ -25,6 +24,13 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  **************************************************************************/
+#ifndef OP12_TEX
+#define OP12_TEX(a) OP12(a)
+#endif
+
+#ifndef OP14_TEX
+#define OP14_TEX(a) OP14(a)
+#endif
 
 #ifndef OP00_LBL
 #define OP00_LBL(a) OP00(a)
@@ -82,9 +88,9 @@ OP11(SIN)
 OP12(SLE)
 OP12(SNE)
 OP12(STR)
-OP13(TEX)
-OP15(TXD)
-OP13(TXP)
+OP12_TEX(TEX)
+OP14_TEX(TXD)
+OP12_TEX(TXP)
 OP11(UP2H)
 OP11(UP2US)
 OP11(UP4B)
@@ -98,11 +104,11 @@ OP00(RET)
 OP11(SSG)
 OP13(CMP)
 OP11(SCS)
-OP13(TXB)
+OP12_TEX(TXB)
 OP11(NRM)
 OP12(DIV)
 OP12(DP2)
-OP13(TXL)
+OP12_TEX(TXL)
 OP00(BRK)
 OP01_LBL(IF)
 OP11(BGNFOR)
@@ -123,8 +129,8 @@ OP12(OR)
 OP12(MOD)
 OP12(XOR)
 OP13(SAD)
-OP12(TXF)
-OP13(TXQ)
+OP12_TEX(TXF)
+OP12_TEX(TXQ)
 OP00(CONT)
 OP00(EMIT)
 OP00(ENDPRIM)
@@ -169,7 +175,14 @@ OP12(USNE)
 #undef OP11
 #undef OP12
 #undef OP13
-#undef OP15
+
+#ifdef OP14
+#undef OP14
+#endif
 
 #undef OP00_LBL
 #undef OP01_LBL
+
+#undef OP12_TEX
+#undef OP14_TEX
+

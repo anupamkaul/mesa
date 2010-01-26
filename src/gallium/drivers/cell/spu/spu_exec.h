@@ -152,8 +152,6 @@ struct spu_exec_machine
 
    struct tgsi_full_declaration *Declarations;
    uint NumDeclarations;
-
-   struct tgsi_declaration_resource Resources[PIPE_MAX_SHADER_RESOURCES];
 };
 
 

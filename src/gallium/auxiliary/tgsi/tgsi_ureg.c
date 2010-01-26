@@ -1,6 +1,6 @@
 /**************************************************************************
  * 
- * Copyright 2009-2010 VMware, Inc.
+ * Copyright 2009 VMware, Inc.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -43,12 +43,12 @@ union tgsi_any_token {
    struct tgsi_declaration decl;
    struct tgsi_declaration_range decl_range;
    struct tgsi_declaration_semantic decl_semantic;
-   struct tgsi_declaration_resource decl_resource;
    struct tgsi_immediate imm;
    union  tgsi_immediate_data imm_data;
    struct tgsi_instruction insn;
    struct tgsi_instruction_predicate insn_predicate;
    struct tgsi_instruction_label insn_label;
+   struct tgsi_instruction_texture insn_texture;
    struct tgsi_src_register src;
    struct tgsi_dimension dim;
    struct tgsi_dst_register dst;
@@ -113,12 +113,6 @@ struct ureg_program
 
    struct ureg_src sampler[PIPE_MAX_SAMPLERS];
    unsigned nr_samplers;
-
-   struct {
-      unsigned index;
-      unsigned target;
-   } resource[PIPE_MAX_SHADER_RESOURCES];
-   unsigned nr_resources;
 
    unsigned temps_active[UREG_MAX_TEMP / 32];
    unsigned nr_temps;
@@ -496,33 +490,6 @@ struct ureg_src ureg_DECL_sampler( struct ureg_program *ureg,
    return ureg->sampler[0];
 }
 
-/* Allocate a new shader resource.
- */
-struct ureg_src
-ureg_DECL_resource(struct ureg_program *ureg,
-                   unsigned index,
-                   unsigned target)
-{
-   struct ureg_src reg = ureg_src_register(TGSI_FILE_RESOURCE, index);
-   uint i;
-
-   for (i = 0; i < ureg->nr_resources; i++) {
-      if (ureg->resource[i].index == index) {
-         return reg;
-      }
-   }
-
-   if (i < PIPE_MAX_SHADER_RESOURCES) {
-      ureg->resource[i].index = index;
-      ureg->resource[i].target = target;
-      ureg->nr_resources++;
-      return reg;
-   }
-
-   assert(0);
-   return reg;
-}
-
 
 static int
 match_or_expand_immediate( const unsigned *v,
@@ -711,7 +678,6 @@ ureg_emit_dst( struct ureg_program *ureg,
    assert(dst.File != TGSI_FILE_CONSTANT);
    assert(dst.File != TGSI_FILE_INPUT);
    assert(dst.File != TGSI_FILE_SAMPLER);
-   assert(dst.File != TGSI_FILE_RESOURCE);
    assert(dst.File != TGSI_FILE_IMMEDIATE);
    assert(dst.File < TGSI_FILE_COUNT);
    
@@ -839,6 +805,23 @@ ureg_fixup_label(struct ureg_program *ureg,
 
 
 void
+ureg_emit_texture(struct ureg_program *ureg,
+                  unsigned extended_token,
+                  unsigned target )
+{
+   union tgsi_any_token *out, *insn;
+
+   out = get_tokens( ureg, DOMAIN_INSN, 1 );
+   insn = retrieve_token( ureg, DOMAIN_INSN, extended_token );
+
+   insn->insn.Texture = 1;
+
+   out[0].value = 0;
+   out[0].insn_texture.Texture = target;
+}
+
+
+void
 ureg_fixup_insn_size(struct ureg_program *ureg,
                      unsigned insn )
 {
@@ -885,6 +868,55 @@ ureg_insn(struct ureg_program *ureg,
                          swizzle[3],
                          nr_dst,
                          nr_src);
+
+   for (i = 0; i < nr_dst; i++)
+      ureg_emit_dst( ureg, dst[i] );
+
+   for (i = 0; i < nr_src; i++)
+      ureg_emit_src( ureg, src[i] );
+
+   ureg_fixup_insn_size( ureg, insn.insn_token );
+}
+
+void
+ureg_tex_insn(struct ureg_program *ureg,
+              unsigned opcode,
+              const struct ureg_dst *dst,
+              unsigned nr_dst,
+              unsigned target,
+              const struct ureg_src *src,
+              unsigned nr_src )
+{
+   struct ureg_emit_insn_result insn;
+   unsigned i;
+   boolean saturate;
+   boolean predicate;
+   boolean negate = FALSE;
+   unsigned swizzle[4] = { 0 };
+
+   saturate = nr_dst ? dst[0].Saturate : FALSE;
+   predicate = nr_dst ? dst[0].Predicate : FALSE;
+   if (predicate) {
+      negate = dst[0].PredNegate;
+      swizzle[0] = dst[0].PredSwizzleX;
+      swizzle[1] = dst[0].PredSwizzleY;
+      swizzle[2] = dst[0].PredSwizzleZ;
+      swizzle[3] = dst[0].PredSwizzleW;
+   }
+
+   insn = ureg_emit_insn(ureg,
+                         opcode,
+                         saturate,
+                         predicate,
+                         negate,
+                         swizzle[0],
+                         swizzle[1],
+                         swizzle[2],
+                         swizzle[3],
+                         nr_dst,
+                         nr_src);
+
+   ureg_emit_texture( ureg, insn.extended_token, target );
 
    for (i = 0; i < nr_dst; i++)
       ureg_emit_dst( ureg, dst[i] );
@@ -977,29 +1009,6 @@ static void emit_decl_range( struct ureg_program *ureg,
 }
 
 static void
-emit_decl_resource(struct ureg_program *ureg,
-                   unsigned index,
-                   unsigned target)
-{
-   union tgsi_any_token *out = get_tokens(ureg, DOMAIN_DECL, 3);
-
-   out[0].value = 0;
-   out[0].decl.Type = TGSI_TOKEN_TYPE_DECLARATION;
-   out[0].decl.NrTokens = 3;
-   out[0].decl.File = TGSI_FILE_RESOURCE;
-   out[0].decl.UsageMask = 0xf;
-   out[0].decl.Interpolate = TGSI_INTERPOLATE_CONSTANT;
-   out[0].decl.Resource = 1;
-
-   out[1].value = 0;
-   out[1].decl_range.First = index;
-   out[1].decl_range.Last = index;
-
-   out[2].value = 0;
-   out[2].decl_resource.Texture = target;
-}
-
-static void
 emit_immediate( struct ureg_program *ureg,
                 const unsigned *v,
                 unsigned type )
@@ -1062,12 +1071,6 @@ static void emit_decls( struct ureg_program *ureg )
       emit_decl_range( ureg, 
                        TGSI_FILE_SAMPLER,
                        ureg->sampler[i].Index, 1 );
-   }
-
-   for (i = 0; i < ureg->nr_resources; i++) {
-      emit_decl_resource(ureg,
-                         ureg->resource[i].index,
-                         ureg->resource[i].target);
    }
 
    if (ureg->nr_constant_ranges) {

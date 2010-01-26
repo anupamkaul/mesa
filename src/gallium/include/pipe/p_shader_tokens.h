@@ -1,7 +1,7 @@
 /**************************************************************************
  * 
  * Copyright 2008 Tungsten Graphics, Inc., Cedar Park, Texas.
- * Copyright 2009-2010 VMware, Inc.
+ * Copyright 2009 VMware, Inc.
  * All Rights Reserved.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -76,7 +76,6 @@ enum tgsi_file_type {
    TGSI_FILE_LOOP         =8,
    TGSI_FILE_PREDICATE    =9,
    TGSI_FILE_SYSTEM_VALUE =10,
-   TGSI_FILE_RESOURCE     =11,
    TGSI_FILE_COUNT      /**< how many TGSI_FILE_ types */
 };
 
@@ -113,8 +112,7 @@ struct tgsi_declaration
    unsigned Semantic    : 1;  /**< BOOL, any semantic info? */
    unsigned Centroid    : 1;  /**< centroid sampling? */
    unsigned Invariant   : 1;  /**< invariant optimization? */
-   unsigned Resource:1;       /**< BOOL, any resource info? */
-   unsigned Padding:4;
+   unsigned Padding     : 5;
 };
 
 struct tgsi_declaration_range
@@ -140,22 +138,6 @@ struct tgsi_declaration_semantic
    unsigned Name           : 8;  /**< one of TGSI_SEMANTIC_x */
    unsigned Index          : 16; /**< UINT */
    unsigned Padding        : 8;
-};
-
-#define TGSI_TEXTURE_UNKNOWN        0
-#define TGSI_TEXTURE_1D             1
-#define TGSI_TEXTURE_2D             2
-#define TGSI_TEXTURE_3D             3
-#define TGSI_TEXTURE_CUBE           4
-#define TGSI_TEXTURE_RECT           5
-#define TGSI_TEXTURE_SHADOW1D       6
-#define TGSI_TEXTURE_SHADOW2D       7
-#define TGSI_TEXTURE_SHADOWRECT     8
-#define TGSI_TEXTURE_COUNT          9
-
-struct tgsi_declaration_resource {
-   unsigned Texture:5;     /* TGSI_TEXTURE_ */
-   unsigned Padding:24;
 };
 
 #define TGSI_IMM_FLOAT32   0
@@ -367,12 +349,15 @@ struct tgsi_instruction
    unsigned NumSrcRegs : 4;  /* UINT */
    unsigned Predicate  : 1;  /* BOOL */
    unsigned Label      : 1;
-   unsigned Padding    : 2;
+   unsigned Texture    : 1;
+   unsigned Padding    : 1;
 };
 
 /*
  * If tgsi_instruction::Label is TRUE, tgsi_instruction_label follows.
  *
+ * If tgsi_instruction::Texture is TRUE, tgsi_instruction_texture follows.
+ * 
  * Then, tgsi_instruction::NumDstRegs of tgsi_dst_register follow.
  * 
  * Then, tgsi_instruction::NumSrcRegs of tgsi_src_register follow.
@@ -390,6 +375,23 @@ struct tgsi_instruction_label
 {
    unsigned Label    : 24;   /* UINT */
    unsigned Padding  : 8;
+};
+
+#define TGSI_TEXTURE_UNKNOWN        0
+#define TGSI_TEXTURE_1D             1
+#define TGSI_TEXTURE_2D             2
+#define TGSI_TEXTURE_3D             3
+#define TGSI_TEXTURE_CUBE           4
+#define TGSI_TEXTURE_RECT           5
+#define TGSI_TEXTURE_SHADOW1D       6
+#define TGSI_TEXTURE_SHADOW2D       7
+#define TGSI_TEXTURE_SHADOWRECT     8
+#define TGSI_TEXTURE_COUNT          9
+
+struct tgsi_instruction_texture
+{
+   unsigned Texture  : 8;    /* TGSI_TEXTURE_ */
+   unsigned Padding  : 24;
 };
 
 /*
