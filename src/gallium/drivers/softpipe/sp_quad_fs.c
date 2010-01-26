@@ -145,7 +145,7 @@ shade_begin(struct quad_stage *qs)
    softpipe->fs->prepare(softpipe->fs,
                          qss->machine,
                          (struct tgsi_sampler **)softpipe->tgsi.frag_samplers_list,
-                         (struct tgsi_resource **)softpipe->tgsi.frag_res_list);
+                         NULL);
 
    qs->next->begin(qs->next);
 }

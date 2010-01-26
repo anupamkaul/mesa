@@ -232,6 +232,8 @@ get_sampler_varient( unsigned unit,
 }
 
 
+
+
 void
 softpipe_reset_sampler_varients(struct softpipe_context *softpipe)
 {
@@ -266,20 +268,6 @@ softpipe_reset_sampler_varients(struct softpipe_context *softpipe)
          sp_sampler_varient_bind_texture( softpipe->tgsi.frag_samplers_list[i], 
                                           softpipe->tex_cache[i],
                                           softpipe->texture[i] );
-      }
-   }
-
-   for (i = 0; i <= softpipe->fs->info.file_max[TGSI_FILE_RESOURCE]; i++) {
-      /* XXX: Separate samplers from textures.
-       */
-      if (softpipe->sampler[i]) {
-         if (!softpipe->tgsi.frag_res_list[i]) {
-            softpipe->tgsi.frag_res_list[i] = sp_create_resource();
-         }
-
-         sp_resource_bind_texture(softpipe->tgsi.frag_res_list[i],
-                                  softpipe->tex_cache[i],
-                                  softpipe->texture[i]);
       }
    }
 }
