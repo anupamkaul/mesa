@@ -162,7 +162,9 @@ twiddle_tile(const uint *tileIn, uint *tileOut)
  * pixels for a TILE_SIZExTILE_SIZE block are contiguous in memory.
  */
 static void
-xlib_cell_display_surface(struct xmesa_buffer *b, struct pipe_surface *surf)
+xlib_cell_display_surface(struct xm_driver *driver,
+                          struct xmesa_buffer *b,
+                          struct pipe_surface *surf)
 {
    XImage *ximage;
    struct xm_buffer *xm_buf = xm_buffer(
@@ -212,19 +214,6 @@ xlib_cell_display_surface(struct xmesa_buffer *b, struct pipe_surface *surf)
 
 
 
-static void
-xm_flush_frontbuffer(struct pipe_winsys *pws,
-                     struct pipe_surface *surf,
-                     void *context_private)
-{
-   /*
-    * The front color buffer is actually just another XImage buffer.
-    * This function copies that XImage to the actual X Window.
-    */
-   XMesaContext xmctx = (XMesaContext) context_private;
-   if (xmctx)
-      xlib_cell_display_surface(xmctx->xm_buffer, surf);
-}
 
 
 
@@ -351,7 +340,7 @@ xlib_create_cell_winsys( void )
       ws->base.fence_signalled = xm_fence_signalled;
       ws->base.fence_finish = xm_fence_finish;
 
-      ws->base.flush_frontbuffer = xm_flush_frontbuffer;
+      ws->base.flush_frontbuffer = NULL;
       ws->base.get_name = xm_get_name;
    }
 
@@ -360,7 +349,7 @@ xlib_create_cell_winsys( void )
 
 
 static struct pipe_screen *
-xlib_create_cell_screen( void )
+xlib_create_cell_screen( struct xm_driver *driver )
 {
    struct pipe_winsys *winsys;
    struct pipe_screen *screen;
@@ -386,7 +375,7 @@ fail:
 
 struct xm_driver xlib_cell_driver = 
 {
-   .create_pipe_screen = xlib_create_cell_screen,
+   .create_screen = xlib_create_cell_screen,
    .display_surface = xlib_cell_display_surface,
 };
 
@@ -394,7 +383,7 @@ struct xm_driver xlib_cell_driver =
 
 struct xm_driver xlib_cell_driver = 
 {
-   .create_pipe_screen = NULL,
+   .create_screen = NULL,
    .display_surface = NULL,
 };
 

@@ -12,6 +12,7 @@ C_SOURCES = \
 	tr_state.c \
 	tr_rbug.c \
 	tr_drm.c \
+	tr_x11.c \
 	tr_texture.c
 
 include ../../Makefile.template

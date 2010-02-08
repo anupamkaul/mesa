@@ -32,64 +32,36 @@
  */
 
 #include "xlib.h"
-#include "xm_winsys.h"
+#include "trace/tr_x11.h"
 
 #include <stdlib.h>
 #include <assert.h>
 
-/* Todo, replace all this with callback-structs provided by the
- * individual implementations.
- */
-
-enum mode {
-   MODE_CELL,
-   MODE_LLVMPIPE,
-   MODE_SOFTPIPE
-};
 
 /* advertise OpenGL support */
 PUBLIC const int st_api_OpenGL = 1;
 
-static enum mode get_mode()
-{
-#ifdef GALLIUM_CELL
-   if (!getenv("GALLIUM_NOCELL")) 
-      return MODE_CELL;
-#endif
-
-#if defined(GALLIUM_LLVMPIPE)
-   return MODE_LLVMPIPE;
-#else
-   return MODE_SOFTPIPE;
-#endif
-}
-
 static void _init( void ) __attribute__((constructor));
-
 static void _init( void )
 {
-   enum mode xlib_mode = get_mode();
+   struct xm_driver *driver = NULL;
 
-   switch (xlib_mode) {
-   case MODE_CELL:
 #if defined(GALLIUM_CELL)
-      xmesa_set_driver( &xlib_cell_driver );
+   if (driver == NULL && !getenv("GALLIUM_NOCELL")) 
+      driver = &xlib_cell_driver;
 #endif
-      break;
-   case MODE_LLVMPIPE:
+
 #if defined(GALLIUM_LLVMPIPE)
-      xmesa_set_driver( &xlib_llvmpipe_driver );
+   if (driver == NULL)
+      driver = &xlib_llvmpipe_driver;
 #endif
-      break;
-   case MODE_SOFTPIPE:
+
 #if defined(GALLIUM_SOFTPIPE)
-      xmesa_set_driver( &xlib_softpipe_driver );
+   if (driver == NULL)
+      driver = &xlib_softpipe_driver;
 #endif
-      break;
-   default:
-      assert(0);
-      break;
-   }
+
+   xmesa_set_driver( trace_xm_create( driver ) );
 }
 
 

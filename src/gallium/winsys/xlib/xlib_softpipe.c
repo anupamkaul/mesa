@@ -249,7 +249,8 @@ xm_buffer_destroy(struct pipe_buffer *buf)
  * by the XMesaBuffer.
  */
 static void
-xlib_softpipe_display_surface(struct xmesa_buffer *b,
+xlib_softpipe_display_surface(struct xm_driver *driver,
+                              struct xmesa_buffer *b,
                               struct pipe_surface *surf)
 {
    XImage *ximage;
@@ -304,21 +305,6 @@ xlib_softpipe_display_surface(struct xmesa_buffer *b,
       XPutImage(b->xm_visual->display, b->drawable, b->gc,
                 ximage, 0, 0, 0, 0, surf->width, surf->height);
    }
-}
-
-
-static void
-xm_flush_frontbuffer(struct pipe_winsys *pws,
-                     struct pipe_surface *surf,
-                     void *context_private)
-{
-   /*
-    * The front color buffer is actually just another XImage buffer.
-    * This function copies that XImage to the actual X Window.
-    */
-   XMesaContext xmctx = (XMesaContext) context_private;
-   xlib_softpipe_display_surface(xmctx->xm_buffer, surf);
-   xmesa_check_and_update_buffer_size(xmctx, xmctx->xm_buffer);
 }
 
 
@@ -466,7 +452,7 @@ xlib_create_softpipe_winsys( void )
       ws->base.fence_signalled = xm_fence_signalled;
       ws->base.fence_finish = xm_fence_finish;
 
-      ws->base.flush_frontbuffer = xm_flush_frontbuffer;
+      ws->base.flush_frontbuffer = NULL;
       ws->base.get_name = xm_get_name;
    }
 
@@ -475,7 +461,7 @@ xlib_create_softpipe_winsys( void )
 
 
 static struct pipe_screen *
-xlib_create_softpipe_screen( void )
+xlib_create_softpipe_screen( struct xm_driver *driver )
 {
    struct pipe_winsys *winsys;
    struct pipe_screen *screen;
@@ -500,7 +486,7 @@ fail:
 
 struct xm_driver xlib_softpipe_driver = 
 {
-   .create_pipe_screen = xlib_create_softpipe_screen,
+   .create_screen = xlib_create_softpipe_screen,
    .display_surface = xlib_softpipe_display_surface
 };
 

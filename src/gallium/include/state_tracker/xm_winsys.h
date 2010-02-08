@@ -32,21 +32,32 @@
 struct pipe_context;
 struct pipe_screen;
 struct pipe_surface;
+
+
+/* XXX: remove the xmesa_buffer concept from this interface
+ */
 struct xmesa_buffer;
 
 
 struct xm_driver {
 
-   struct pipe_screen *(*create_pipe_screen)( void );
+   struct pipe_screen *(*create_screen)( struct xm_driver *driver );
 
-   void (*display_surface)( struct xmesa_buffer *, 
+   void (*display_surface)( struct xm_driver *driver,
+                            struct xmesa_buffer *, /* XXX: remove me! */
                             struct pipe_surface * );
+
+   void (*destroy)( struct xm_driver *driver );
 
 };
 
 
+/* Currently called by the driver/winsys to register an xm_driver.
+ * Note that this is the opposite usage to drm_api.h/drm_api_create(),
+ * which is called by the state tracker.
+ */
 extern void
-xmesa_set_driver( const struct xm_driver *driver );
+xmesa_set_driver( struct xm_driver *driver );
 
 
 #endif

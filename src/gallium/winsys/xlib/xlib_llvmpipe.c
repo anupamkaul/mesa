@@ -396,7 +396,7 @@ xlib_create_llvmpipe_winsys( void )
 
 
 static struct pipe_screen *
-xlib_create_llvmpipe_screen( void )
+xlib_create_llvmpipe_screen( struct xm_driver *driver )
 {
    struct llvmpipe_winsys *winsys;
    struct pipe_screen *screen;
@@ -420,7 +420,8 @@ fail:
 
 
 static void
-xlib_llvmpipe_display_surface(struct xmesa_buffer *xm_buffer,
+xlib_llvmpipe_display_surface(struct xm_driver *driver,
+                              struct xmesa_buffer *xm_buffer,
                               struct pipe_surface *surf)
 {
    struct llvmpipe_texture *texture = llvmpipe_texture(surf->texture);
@@ -433,7 +434,7 @@ xlib_llvmpipe_display_surface(struct xmesa_buffer *xm_buffer,
 
 struct xm_driver xlib_llvmpipe_driver = 
 {
-   .create_pipe_screen = xlib_create_llvmpipe_screen,
+   .create_screen = xlib_create_llvmpipe_screen,
    .display_surface = xlib_llvmpipe_display_surface
 };
 

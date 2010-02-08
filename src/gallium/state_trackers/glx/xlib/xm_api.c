@@ -67,11 +67,7 @@
 #include "pipe/p_screen.h"
 #include "pipe/p_context.h"
 
-#include "trace/tr_screen.h"
-#include "trace/tr_context.h"
-#include "trace/tr_texture.h"
-
-#include "xm_winsys.h"
+#include "state_tracker/xm_winsys.h"
 #include <GL/glx.h>
 
 
@@ -79,11 +75,11 @@
  * _init().  These are global in the same way that function names are
  * global.
  */
-static struct xm_driver driver;
+static struct xm_driver *driver = NULL;
 
-void xmesa_set_driver( const struct xm_driver *templ )
+void xmesa_set_driver( struct xm_driver *_driver )
 {
-   driver = *templ;
+   driver = _driver;
 }
 
 /**
@@ -91,7 +87,6 @@ void xmesa_set_driver( const struct xm_driver *templ )
  */
 pipe_mutex _xmesa_lock;
 
-static struct pipe_screen *_screen = NULL;
 static struct pipe_screen *screen = NULL;
 
 
@@ -748,6 +743,21 @@ void XMesaDestroyVisual( XMesaVisual v )
 }
 
 
+static void
+xm_flush_frontbuffer(struct pipe_screen *screen,
+                     struct pipe_surface *surf,
+                     void *context_private)
+{
+   /*
+    * The front color buffer is actually just another XImage buffer.
+    * This function copies that XImage to the actual X Window.
+    */
+   XMesaContext xmctx = (XMesaContext) context_private;
+   xlib_softpipe_display_surface(driver, xmctx->xm_buffer, surf);
+   xmesa_check_and_update_buffer_size(xmctx, xmctx->xm_buffer);
+}
+
+
 
 /**
  * Create a new XMesaContext.
@@ -767,8 +777,12 @@ XMesaContext XMesaCreateContext( XMesaVisual v, XMesaContext share_list )
 
    if (firstTime) {
       pipe_mutex_init(_xmesa_lock);
-      _screen = driver.create_pipe_screen();
-      screen = trace_screen_create( _screen );
+      screen = driver->create_screen( driver );
+
+      /* Provide our own flush_frontbuffer:
+       */
+      screen->flush_frontbuffer = xm_flush_frontbuffer;
+
       firstTime = GL_FALSE;
    }
 
@@ -821,13 +835,6 @@ PUBLIC
 void XMesaDestroyContext( XMesaContext c )
 {
    st_destroy_context(c->st);
-
-   /* FIXME: We should destroy the screen here, but if we do so, surfaces may 
-    * outlive it, causing segfaults
-   struct pipe_screen *screen = c->st->pipe->screen; 
-   screen->destroy(screen);
-   */
-
    _mesa_free(c);
 }
 
@@ -1119,13 +1126,7 @@ void XMesaSwapBuffers( XMesaBuffer b )
    st_swapbuffers(b->stfb, &frontLeftSurf, NULL);
 
    if (frontLeftSurf) {
-      if (_screen != screen) {
-         struct trace_surface *tr_surf = trace_surface( frontLeftSurf );
-         struct pipe_surface *surf = tr_surf->surface;
-         frontLeftSurf = surf;
-      }
-
-      driver.display_surface(b, frontLeftSurf);
+      driver->display_surface(driver, b, frontLeftSurf);
    }
 
    xmesa_check_and_update_buffer_size(NULL, b);
