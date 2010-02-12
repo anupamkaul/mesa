@@ -162,6 +162,9 @@ enum pipe_format {
    PIPE_FORMAT_DXT3_SRGBA            = 108,
    PIPE_FORMAT_DXT5_SRGBA            = 109,
 
+   PIPE_FORMAT_R32_1111_FLOAT        = 110,
+   PIPE_FORMAT_R32G32_1111_FLOAT     = 111,
+
    PIPE_FORMAT_COUNT
 };
 
