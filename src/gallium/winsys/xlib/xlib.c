@@ -32,7 +32,7 @@
  */
 
 #include "xlib.h"
-#include "trace/tr_x11.h"
+#include "trace/tr_xm.h"
 
 #include <stdlib.h>
 #include <assert.h>
