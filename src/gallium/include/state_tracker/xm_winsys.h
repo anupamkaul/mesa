@@ -34,30 +34,106 @@ struct pipe_screen;
 struct pipe_surface;
 
 
+/* One unusual thing about the way the dri2 driver api works is that
+ * textures for scanout are not created through the normal
+ * pipe_screen::create_texture() method, but rather by converting
+ * existing DRM buffer handles into pipe_textures by a backdoor in the
+ * driver, exposed through the winsys and drm_api callbacks.
+ *
+ * In the software drivers, we would also like the co-state tracker to
+ * be involved in creating the backing for scanout textures.  This
+ * allows the knowledge of eg. XShm to be collapsed down to a single
+ * location, and permits a null or at least tiny software rasterizer
+ * winsys.
+ *
+ * The main question is whether to follow the approach of the DRI2
+ * state tracker and ask the driver to turn some pre-existing storage
+ * into a texture, or to stay closer to the lp_winsys approach and
+ * have the provide the driver with a set of callbacks allowing it to
+ * request such storage be created - effectively lifting the provision
+ * of an lp_winsys into the co-state tracker's responsibilities.
+ *
+ * In either case, we still want to have an "sw_driver" abstraction,
+ * permitting multiple software rasterizers to be handled by generic
+ * code in the state tracker, and removing the need for separate
+ * handling of softpipe, llvmpipe and perhaps also cell.
+ */
 
-struct sw_displaytarget {
-   void *(*map)( struct sw_displaytarget * );
-   void (*unmap)( struct sw_displaytarget * );
-   void (*release)( struct sw_displaytarget * );
+/**
+ * Opaque pointer.
+ */
+struct sw_displaytarget;
 
-   enum pipe_format format;
-   unsigned stride;
-   unsigned width;
-   unsigned height;
+
+/**
+ * This is the interface that sw expects any window system
+ * hosting it to implement.
+ * 
+ * sw is for the most part a self sufficient driver. The only thing it
+ * does not know is how to display a surface.
+ */
+struct sw_callbacks
+{
+   void 
+   (*destroy)( struct sw_callbacks *ws );
+
+   /* No need to query what formats are supported.  As the
+    * implementation of this interface is provided by the state
+    * tracker, it will already know what formats it supports and will
+    * not try to created scanout textures in other formats.  The
+    * co-state tracker may still need to query what formats the driver
+    * can render to, but that does not require a callback in this
+    * struct.
+    */
+   
+   /**
+    * Allocate storage for a render target.
+    * 
+    * Often surfaces which are meant to be blitted to the front screen (i.e.,
+    * display targets) must be allocated with special characteristics, memory 
+    * pools, or obtained directly from the windowing system.
+    *  
+    * This callback is invoked by the pipe_screen when creating a texture marked
+    * with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET flag to get the underlying 
+    * storage.
+    */
+   struct sw_displaytarget *
+   (*displaytarget_create)( struct sw_callbacks *ws,
+                            enum pipe_format format,
+                            unsigned width, unsigned height,
+                            unsigned alignment,
+                            unsigned *stride );
+
+   void *
+   (*displaytarget_map)( struct sw_callbacks *ws, 
+                         struct sw_displaytarget *dt,
+                         unsigned flags );
+
+   void
+   (*displaytarget_unmap)( struct sw_callbacks *ws,
+                           struct sw_displaytarget *dt );
+
+   void 
+   (*displaytarget_destroy)( struct sw_callbacks *ws, 
+                             struct sw_displaytarget *dt );
+
+
+   /* No displaytarget_display callback -- the co state trackers now
+    * universally override pipe_screen::flush_frontbuffer() with their
+    * own code, and that call will at some point be turned to a direct
+    * state-tracker to co-state-tracker interface.
+    */
 };
 
 
 struct sw_driver {
 
-   struct pipe_screen *(*create_screen)( struct sw_driver *driver );
+   struct pipe_screen *(*create_screen)( struct sw_driver *driver,
+					 struct sw_callbacks *callbacks );
 
-   /* The co-state-tracker will typically use this to wrap memory
-    * allocated from eg. XShm.  The software rasterizer needs to unmap
-    * the display target when flush() is called.
+   /* No call to wrap a display target and create a texture.  Hope
+    * that the callback mechanism is sufficient for now.
     */
-   struct pipe_texture *(*texture_from_sw_target)( struct sw_driver *driver,
-						   struct pipe_screen *screen,
-						   struct sw_displaytarget *dt );
 
    void (*destroy)( struct sw_driver *driver );
 
