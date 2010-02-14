@@ -26,38 +26,50 @@
  * 
  **************************************************************************/
 
-#ifndef XM_WINSYS_H
-#define XM_WINSYS_H
+#ifndef SW_WINSYS_H
+#define SW_WINSYS_H
 
 struct pipe_context;
 struct pipe_screen;
 struct pipe_surface;
 
 
-/* XXX: remove the xmesa_buffer concept from this interface
- */
-struct xmesa_buffer;
+
+struct sw_displaytarget {
+   void *(*map)( struct sw_displaytarget * );
+   void (*unmap)( struct sw_displaytarget * );
+   void (*release)( struct sw_displaytarget * );
+
+   enum pipe_format format;
+   unsigned stride;
+   unsigned width;
+   unsigned height;
+};
 
 
-struct xm_driver {
+struct sw_driver {
 
-   struct pipe_screen *(*create_screen)( struct xm_driver *driver );
+   struct pipe_screen *(*create_screen)( struct sw_driver *driver );
 
-   void (*display_surface)( struct xm_driver *driver,
-                            struct xmesa_buffer *, /* XXX: remove me! */
-                            struct pipe_surface * );
+   /* The co-state-tracker will typically use this to wrap memory
+    * allocated from eg. XShm.  The software rasterizer needs to unmap
+    * the display target when flush() is called.
+    */
+   struct pipe_texture *(*texture_from_sw_target)( struct sw_driver *driver,
+						   struct pipe_screen *screen,
+						   struct sw_displaytarget *dt );
 
-   void (*destroy)( struct xm_driver *driver );
+   void (*destroy)( struct sw_driver *driver );
 
 };
 
 
-/* Currently called by the driver/winsys to register an xm_driver.
+/* Currently called by the driver/winsys to register an sw_driver.
  * Note that this is the opposite usage to drm_api.h/drm_api_create(),
  * which is called by the state tracker.
  */
 extern void
-xmesa_set_driver( struct xm_driver *driver );
+st_register_sw_driver( struct sw_driver *driver );
 
 
 #endif

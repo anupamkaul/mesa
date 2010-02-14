@@ -49,21 +49,17 @@ struct pipe_buffer;
 
 
 /**
- * Create a softpipe screen that uses the
- * given winsys for allocating buffers.
+ * Create a softpipe screen.
  */
-struct pipe_screen *softpipe_create_screen( struct pipe_winsys * );
+struct pipe_screen *softpipe_create_screen( NULL );
 
-/**
- * Create a softpipe screen that uses
- * regular malloc to create all its buffers.
+
+/* Back door for the winsys to wrap a sw_display_target in a
+ * pipe_texture.
  */
-struct pipe_screen *softpipe_create_screen_malloc(void);
-
-boolean
-softpipe_get_texture_buffer( struct pipe_texture *texture,
-                             struct pipe_buffer **buf,
-                             unsigned *stride );
+struct pipe_texture *
+softpipe_get_wrap_display_target( struct pipe_screen *screen,
+				  struct sw_display_target *dt );
 
 
 #ifdef __cplusplus

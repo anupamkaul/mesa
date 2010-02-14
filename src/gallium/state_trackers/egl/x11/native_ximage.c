@@ -669,8 +669,7 @@ x11_create_ximage_display(EGLNativeDisplayType dpy, boolean use_xshm)
    xdpy->use_xshm =
       (use_xshm && x11_screen_support(xdpy->xscr, X11_SCREEN_EXTENSION_XSHM));
 
-   xdpy->winsys = create_sw_winsys();
-   xdpy->base.screen = softpipe_create_screen(xdpy->winsys);
+   xdpy->base.screen = softpipe_create_screen();
 
    xdpy->base.destroy = ximage_display_destroy;
 

@@ -27,8 +27,6 @@
 
 
 #include "util/u_memory.h"
-#include "util/u_simple_screen.h"
-#include "util/u_simple_screen.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_screen.h"
 
@@ -171,14 +169,36 @@ softpipe_is_format_supported( struct pipe_screen *screen,
 }
 
 
+
+static void
+softpipe_fence_reference(struct pipe_screen *screen, 
+			 struct pipe_fence_handle **ptr,
+			 struct pipe_fence_handle *fence)
+{
+}
+
+
+static int
+softpipe_fence_signalled(struct pipe_screen *screen, 
+			 struct pipe_fence_handle *fence,
+			 unsigned flag)
+{
+   return 0;
+}
+
+
+static int
+softpipe_fence_finish(struct pipe_screen *screen, 
+		      struct pipe_fence_handle *fence,
+		      unsigned flag)
+{
+   return 0;
+}
+
+
 static void
 softpipe_destroy_screen( struct pipe_screen *screen )
 {
-   struct pipe_winsys *winsys = screen->winsys;
-
-   if(winsys->destroy)
-      winsys->destroy(winsys);
-
    FREE(screen);
 }
 
@@ -186,18 +206,16 @@ softpipe_destroy_screen( struct pipe_screen *screen )
 
 /**
  * Create a new pipe_screen object
- * Note: we're not presently subclassing pipe_screen (no softpipe_screen).
  */
 struct pipe_screen *
-softpipe_create_screen(struct pipe_winsys *winsys)
+softpipe_create_screen( void )
 {
    struct softpipe_screen *screen = CALLOC_STRUCT(softpipe_screen);
 
    if (!screen)
       return NULL;
 
-   screen->base.winsys = winsys;
-
+   screen->base.winsys = NULL;
    screen->base.destroy = softpipe_destroy_screen;
 
    screen->base.get_name = softpipe_get_name;
@@ -207,8 +225,14 @@ softpipe_create_screen(struct pipe_winsys *winsys)
    screen->base.is_format_supported = softpipe_is_format_supported;
    screen->base.context_create = softpipe_create_context;
 
+   screen->base.fence_reference = softpipe_fence_reference;
+   screen->base.fence_signalled = softpipe_fence_signalled;
+   screen->base.fence_finish = softpipe_fence_finish;
+
+   screen->base.flush_frontbuffer = NULL; /* always overriden by co-state tracker */
+
    softpipe_init_screen_texture_funcs(&screen->base);
-   u_simple_screen_init(&screen->base);
+   softpipe_init_screen_buffer_funcs(&screen->base);
 
    return &screen->base;
 }

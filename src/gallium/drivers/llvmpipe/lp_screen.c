@@ -258,6 +258,7 @@ llvmpipe_flush_frontbuffer(struct pipe_screen *_screen,
                            struct pipe_surface *surface,
                            void *context_private)
 {
+#if 0
    struct llvmpipe_screen *screen = llvmpipe_screen(_screen);
    struct llvmpipe_winsys *winsys = screen->winsys;
    struct llvmpipe_texture *texture = llvmpipe_texture(surface->texture);
@@ -265,6 +266,12 @@ llvmpipe_flush_frontbuffer(struct pipe_screen *_screen,
    assert(texture->dt);
    if (texture->dt)
       winsys->displaytarget_display(winsys, texture->dt, context_private);
+#else
+   /* This interface should always be overriden by the
+    * co-state-tracker (egl, glx, etc).
+    */
+   assert(0);
+#endif
 }
 
 

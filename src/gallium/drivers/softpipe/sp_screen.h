@@ -46,6 +46,25 @@ struct softpipe_screen {
 };
 
 
+struct softpipe_buffer
+{
+   struct pipe_buffer base;
+   boolean userBuffer;  /** Is this a user-space buffer? */
+   void *data;
+};
+
+
+void
+softpipe_init_screen_buffer_funcs(struct pipe_screen *screen);
+
+
+
+/** Cast wrapper */
+static INLINE struct softpipe_buffer *
+softpipe_buffer( struct pipe_buffer *buf )
+{
+   return (struct softpipe_buffer *)buf;
+}
 
 
 static INLINE struct softpipe_screen *
