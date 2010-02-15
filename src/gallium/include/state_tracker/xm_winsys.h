@@ -34,19 +34,31 @@ struct pipe_screen;
 struct pipe_surface;
 
 
-/* One unusual thing about the way the dri2 driver api works is that
- * textures for scanout are not created through the normal
- * pipe_screen::create_texture() method, but rather by converting
- * existing DRM buffer handles into pipe_textures by a backdoor in the
- * driver, exposed through the winsys and drm_api callbacks.
+/* The drm driver stack have two different users st/dri and st/xorg.
  *
+ * st/xorg produces both scanouts (primary) and shared (displaytarget)
+ * textures via the normal pipe_screen::create_texture() callback,
+ * this follows how the lp_winsys works. However the lp_winsys
+ * does not deal with the difference between scanouts and displaytargets
+ * something that needs to be added. st/xorg then uses the drm_api to
+ * access the handles to textures.
+ *
+ * st/dri creates texture via the drm api.
+ *
+ *
+ * With all of the above requirements the drm API needs to be aware that
+ * a software rasterizer has been layered ontop of it. However this code
+ * can be completely generic and reused for all drm winsys.
+ */
+
+/*
  * In the software drivers, we would also like the co-state tracker to
  * be involved in creating the backing for scanout textures.  This
  * allows the knowledge of eg. XShm to be collapsed down to a single
  * location, and permits a null or at least tiny software rasterizer
  * winsys.
  *
- * The main question is whether to follow the approach of the DRI2
+ * The main question is whether to follow the approach of the st/dri
  * state tracker and ask the driver to turn some pre-existing storage
  * into a texture, or to stay closer to the lp_winsys approach and
  * have the provide the driver with a set of callbacks allowing it to
