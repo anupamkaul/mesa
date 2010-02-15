@@ -131,6 +131,14 @@ struct sw_driver {
    struct pipe_screen *(*create_screen)( struct sw_driver *driver,
 					 struct sw_callbacks *callbacks );
 
+   struct pipe_texture *(*wrap_displaytarget)( struct sw_driver *driver,
+                                               struct pipe_screen *screen,
+                                               struct pipe_texture *templ,
+                                               struct sw_displaytarget *dt );
+
+   struct sw_displaytarget *(*get_displaytarget)( struct sw_driver *driver,
+                                                  struct pipe_texture *tex );
+
    /* No call to wrap a display target and create a texture.  Hope
     * that the callback mechanism is sufficient for now.
     */
