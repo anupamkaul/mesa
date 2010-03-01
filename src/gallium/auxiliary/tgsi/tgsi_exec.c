@@ -2913,22 +2913,6 @@ exec_instruction(
       exec_tex(mach, inst, TEX_MODIFIER_PROJECTED);
       break;
 
-   case TGSI_OPCODE_UP2H:
-      assert (0);
-      break;
-
-   case TGSI_OPCODE_UP2US:
-      assert (0);
-      break;
-
-   case TGSI_OPCODE_UP4B:
-      assert (0);
-      break;
-
-   case TGSI_OPCODE_UP4UB:
-      assert (0);
-      break;
-
    case TGSI_OPCODE_X2D:
       FETCH(&r[0], 1, CHAN_X);
       FETCH(&r[1], 1, CHAN_Y);

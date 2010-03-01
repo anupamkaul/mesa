@@ -546,38 +546,6 @@ This instruction replicates its result.
   TBD
 
 
-.. opcode:: UP2H - Unpack Two 16-Bit Floats
-
-  TBD
-
-.. note::
-
-   Considered for removal.
-
-.. opcode:: UP2US - Unpack Two Unsigned 16-Bit Scalars
-
-  TBD
-
-.. note::
-
-   Considered for removal.
-
-.. opcode:: UP4B - Unpack Four Signed 8-Bit Values
-
-  TBD
-
-.. note::
-
-   Considered for removal.
-
-.. opcode:: UP4UB - Unpack Four Unsigned 8-Bit Scalars
-
-  TBD
-
-.. note::
-
-   Considered for removal.
-
 .. opcode:: X2D - 2D Coordinate Transformation
 
 .. math::

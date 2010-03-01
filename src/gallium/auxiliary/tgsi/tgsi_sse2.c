@@ -2296,22 +2296,6 @@ emit_instruction(
       return 0;
       break;
 
-   case TGSI_OPCODE_UP2H:
-      return 0;
-      break;
-
-   case TGSI_OPCODE_UP2US:
-      return 0;
-      break;
-
-   case TGSI_OPCODE_UP4B:
-      return 0;
-      break;
-
-   case TGSI_OPCODE_UP4UB:
-      return 0;
-      break;
-
    case TGSI_OPCODE_X2D:
       return 0;
       break;

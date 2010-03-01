@@ -1408,22 +1408,6 @@ exec_instruction(
       exec_tex(mach, inst, TRUE, TRUE);
       break;
 
-   case TGSI_OPCODE_UP2H:
-      ASSERT (0);
-      break;
-
-   case TGSI_OPCODE_UP2US:
-      ASSERT (0);
-      break;
-
-   case TGSI_OPCODE_UP4B:
-      ASSERT (0);
-      break;
-
-   case TGSI_OPCODE_UP4UB:
-      ASSERT (0);
-      break;
-
    case TGSI_OPCODE_X2D:
       ASSERT (0);
       break;

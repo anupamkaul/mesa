@@ -459,26 +459,6 @@ TGSI Instruction Specification
   TBD
 
 
-1.5.26  UP2H - Unpack Two 16-Bit Floats
-
-  TBD
-
-
-1.5.27  UP2US - Unpack Two Unsigned 16-Bit Scalars
-
-  TBD
-
-
-1.5.28  UP4B - Unpack Four Signed 8-Bit Values
-
-  TBD
-
-
-1.5.29  UP4UB - Unpack Four Unsigned 8-Bit Scalars
-
-  TBD
-
-
 1.5.30  X2D - 2D Coordinate Transformation
 
   dst.x = src0.x + src1.x * src2.x + src1.y * src2.y

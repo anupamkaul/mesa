@@ -1023,30 +1023,6 @@ emit_instruction(
       return 0;
       break;
 
-   case TGSI_OPCODE_UP2H:
-      /* deprecated */
-      assert (0);
-      return 0;
-      break;
-
-   case TGSI_OPCODE_UP2US:
-      /* deprecated */
-      assert(0);
-      return 0;
-      break;
-
-   case TGSI_OPCODE_UP4B:
-      /* deprecated */
-      assert(0);
-      return 0;
-      break;
-
-   case TGSI_OPCODE_UP4UB:
-      /* deprecated */
-      assert(0);
-      return 0;
-      break;
-
    case TGSI_OPCODE_X2D:
       /* deprecated? */
       assert(0);
