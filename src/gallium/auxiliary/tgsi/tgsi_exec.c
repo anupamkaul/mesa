@@ -2860,12 +2860,6 @@ exec_instruction(
       exec_vector_binary(mach, inst, micro_seq, TGSI_EXEC_DATA_FLOAT, TGSI_EXEC_DATA_FLOAT);
       break;
 
-   case TGSI_OPCODE_SFL:
-      FOR_EACH_ENABLED_CHANNEL(*inst, chan_index) {
-         STORE(&mach->Temps[TEMP_0_I].xyzw[TEMP_0_C], 0, chan_index);
-      }
-      break;
-
    case TGSI_OPCODE_SGT:
       exec_vector_binary(mach, inst, micro_sgt, TGSI_EXEC_DATA_FLOAT, TGSI_EXEC_DATA_FLOAT);
       break;
@@ -2880,12 +2874,6 @@ exec_instruction(
 
    case TGSI_OPCODE_SNE:
       exec_vector_binary(mach, inst, micro_sne, TGSI_EXEC_DATA_FLOAT, TGSI_EXEC_DATA_FLOAT);
-      break;
-
-   case TGSI_OPCODE_STR:
-      FOR_EACH_ENABLED_CHANNEL(*inst, chan_index) {
-         STORE(&mach->Temps[TEMP_1_I].xyzw[TEMP_1_C], 0, chan_index);
-      }
       break;
 
    case TGSI_OPCODE_TEX:

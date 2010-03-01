@@ -979,12 +979,6 @@ emit_instruction(
       }
       break;
 
-   case TGSI_OPCODE_SFL:
-      FOR_EACH_DST0_ENABLED_CHANNEL( inst, chan_index ) {
-         dst0[chan_index] = bld->base.zero;
-      }
-      break;
-
    case TGSI_OPCODE_SGT:
       FOR_EACH_DST0_ENABLED_CHANNEL( inst, chan_index ) {
          src0 = emit_fetch( bld, inst, 0, chan_index );
@@ -1017,12 +1011,6 @@ emit_instruction(
          src1 = emit_fetch( bld, inst, 1, chan_index );
          tmp0 = lp_build_cmp( &bld->base, PIPE_FUNC_NOTEQUAL, src0, src1 );
          dst0[chan_index] = lp_build_select( &bld->base, tmp0, bld->base.one, bld->base.zero );
-      }
-      break;
-
-   case TGSI_OPCODE_STR:
-      FOR_EACH_DST0_ENABLED_CHANNEL( inst, chan_index ) {
-         dst0[chan_index] = bld->base.one;
       }
       break;
 

@@ -601,9 +601,6 @@ nv40_fragprog_parse_instruction(struct nv40_fpc *fpc,
 	case TGSI_OPCODE_SEQ:
 		arith(fpc, sat, SEQ, dst, mask, src[0], src[1], none);
 		break;
-	case TGSI_OPCODE_SFL:
-		arith(fpc, sat, SFL, dst, mask, src[0], src[1], none);
-		break;
 	case TGSI_OPCODE_SGE:
 		arith(fpc, sat, SGE, dst, mask, src[0], src[1], none);
 		break;
@@ -621,9 +618,6 @@ nv40_fragprog_parse_instruction(struct nv40_fpc *fpc,
 		break;
 	case TGSI_OPCODE_SNE:
 		arith(fpc, sat, SNE, dst, mask, src[0], src[1], none);
-		break;
-	case TGSI_OPCODE_STR:
-		arith(fpc, sat, STR, dst, mask, src[0], src[1], none);
 		break;
 	case TGSI_OPCODE_SUB:
 		arith(fpc, sat, ADD, dst, mask, src[0], neg(src[1]), none);

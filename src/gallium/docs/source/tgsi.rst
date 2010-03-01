@@ -483,19 +483,6 @@ This instruction replicates its result.
   dst.w = (src0.w == src1.w) ? 1 : 0
 
 
-.. opcode:: SFL - Set On False
-
-This instruction replicates its result.
-
-.. math::
-
-  dst = 0
-
-.. note::
-
-   Considered for removal.
-
-
 .. opcode:: SGT - Set On Greater Than
 
 .. math::
@@ -542,15 +529,6 @@ This instruction replicates its result.
   dst.z = (src0.z != src1.z) ? 1 : 0
 
   dst.w = (src0.w != src1.w) ? 1 : 0
-
-
-.. opcode:: STR - Set On True
-
-This instruction replicates its result.
-
-.. math::
-
-  dst = 1
 
 
 .. opcode:: TEX - Texture Lookup

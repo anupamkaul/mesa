@@ -244,12 +244,12 @@ struct tgsi_property_data {
                                 /* gap */
 #define TGSI_OPCODE_RFL                 44
 #define TGSI_OPCODE_SEQ                 45
-#define TGSI_OPCODE_SFL                 46
+                                /* gap */
 #define TGSI_OPCODE_SGT                 47
 #define TGSI_OPCODE_SIN                 48
 #define TGSI_OPCODE_SLE                 49
 #define TGSI_OPCODE_SNE                 50
-#define TGSI_OPCODE_STR                 51
+                                /* gap */
 #define TGSI_OPCODE_TEX                 52
 #define TGSI_OPCODE_TXD                 53
 #define TGSI_OPCODE_TXP                 54

@@ -1330,10 +1330,6 @@ exec_instruction(
       }
       break;
 
-   case TGSI_OPCODE_SFL:
-      ASSERT (0);
-      break;
-
    case TGSI_OPCODE_SGT:
       FOR_EACH_ENABLED_CHANNEL( *inst, chan_index ) {
          FETCH( &r[0], 0, chan_index );
@@ -1373,10 +1369,6 @@ exec_instruction(
 
          STORE( &r[0], 0, chan_index );
       }
-      break;
-
-   case TGSI_OPCODE_STR:
-      ASSERT (0);
       break;
 
    case TGSI_OPCODE_TEX:

@@ -412,14 +412,6 @@ TGSI Instruction Specification
   dst.w = (src0.w == src1.w) ? 1.0 : 0.0
 
 
-1.5.17  SFL - Set On False
-
-  dst.x = 0.0
-  dst.y = 0.0
-  dst.z = 0.0
-  dst.w = 0.0
-
-
 1.5.18  SGT - Set On Greater Than
 
   dst.x = (src0.x > src1.x) ? 1.0 : 0.0
@@ -450,14 +442,6 @@ TGSI Instruction Specification
   dst.y = (src0.y != src1.y) ? 1.0 : 0.0
   dst.z = (src0.z != src1.z) ? 1.0 : 0.0
   dst.w = (src0.w != src1.w) ? 1.0 : 0.0
-
-
-1.5.22  STR - Set On True
-
-  dst.x = 1.0
-  dst.y = 1.0
-  dst.z = 1.0
-  dst.w = 1.0
 
 
 1.5.23  TEX - Texture Lookup

@@ -2268,10 +2268,6 @@ emit_instruction(
       emit_setcc( func, inst, cc_Equal );
       break;
 
-   case TGSI_OPCODE_SFL:
-      return 0;
-      break;
-
    case TGSI_OPCODE_SGT:
       emit_setcc( func, inst, cc_NotLessThanEqual );
       break;
@@ -2290,10 +2286,6 @@ emit_instruction(
 
    case TGSI_OPCODE_SNE:
       emit_setcc( func, inst, cc_NotEqual );
-      break;
-
-   case TGSI_OPCODE_STR:
-      return 0;
       break;
 
    case TGSI_OPCODE_TEX:
