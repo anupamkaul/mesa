@@ -241,10 +241,7 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_DDX                 37
 #define TGSI_OPCODE_DDY                 38
 #define TGSI_OPCODE_KILP                39  /* predicated kill */
-#define TGSI_OPCODE_PK2H                40
-#define TGSI_OPCODE_PK2US               41
-#define TGSI_OPCODE_PK4B                42
-#define TGSI_OPCODE_PK4UB               43
+                                /* gap */
 #define TGSI_OPCODE_RFL                 44
 #define TGSI_OPCODE_SEQ                 45
 #define TGSI_OPCODE_SFL                 46

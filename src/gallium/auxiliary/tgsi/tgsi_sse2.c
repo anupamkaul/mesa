@@ -2260,22 +2260,6 @@ emit_instruction(
       emit_kil( func, &inst->Src[0] );
       break;
 
-   case TGSI_OPCODE_PK2H:
-      return 0;
-      break;
-
-   case TGSI_OPCODE_PK2US:
-      return 0;
-      break;
-
-   case TGSI_OPCODE_PK4B:
-      return 0;
-      break;
-
-   case TGSI_OPCODE_PK4UB:
-      return 0;
-      break;
-
    case TGSI_OPCODE_RFL:
       return 0;
       break;

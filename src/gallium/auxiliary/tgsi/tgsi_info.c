@@ -71,10 +71,10 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 1, 1, 0, 0, 0, 0, "DDX", TGSI_OPCODE_DDX },
    { 1, 1, 0, 0, 0, 0, "DDY", TGSI_OPCODE_DDY },
    { 0, 0, 0, 0, 0, 0, "KILP", TGSI_OPCODE_KILP },
-   { 1, 1, 0, 0, 0, 0, "PK2H", TGSI_OPCODE_PK2H },
-   { 1, 1, 0, 0, 0, 0, "PK2US", TGSI_OPCODE_PK2US },
-   { 1, 1, 0, 0, 0, 0, "PK4B", TGSI_OPCODE_PK4B },
-   { 1, 1, 0, 0, 0, 0, "PK4UB", TGSI_OPCODE_PK4UB },
+   { 0, 0, 0, 0, 0, 0, "", 40 },      /* removed */
+   { 0, 0, 0, 0, 0, 0, "", 41 },      /* removed */
+   { 0, 0, 0, 0, 0, 0, "", 42 },      /* removed */
+   { 0, 0, 0, 0, 0, 0, "", 43 },      /* removed */
    { 1, 2, 0, 0, 0, 0, "RFL", TGSI_OPCODE_RFL },
    { 1, 2, 0, 0, 0, 0, "SEQ", TGSI_OPCODE_SEQ },
    { 1, 2, 0, 0, 0, 0, "SFL", TGSI_OPCODE_SFL },

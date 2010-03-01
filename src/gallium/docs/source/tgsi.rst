@@ -453,26 +453,6 @@ This instruction replicates its result.
   discard
 
 
-.. opcode:: PK2H - Pack Two 16-bit Floats
-
-  TBD
-
-
-.. opcode:: PK2US - Pack Two Unsigned 16-bit Scalars
-
-  TBD
-
-
-.. opcode:: PK4B - Pack Four Signed 8-bit Scalars
-
-  TBD
-
-
-.. opcode:: PK4UB - Pack Four Unsigned 8-bit Scalars
-
-  TBD
-
-
 .. opcode:: RFL - Reflection Vector
 
 .. math::

@@ -2807,22 +2807,6 @@ exec_instruction(
       exec_kil (mach, inst);
       break;
 
-   case TGSI_OPCODE_PK2H:
-      assert (0);
-      break;
-
-   case TGSI_OPCODE_PK2US:
-      assert (0);
-      break;
-
-   case TGSI_OPCODE_PK4B:
-      assert (0);
-      break;
-
-   case TGSI_OPCODE_PK4UB:
-      assert (0);
-      break;
-
    case TGSI_OPCODE_RFL:
       if (IS_CHANNEL_ENABLED(*inst, CHAN_X) ||
           IS_CHANNEL_ENABLED(*inst, CHAN_Y) ||

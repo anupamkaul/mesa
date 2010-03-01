@@ -1315,22 +1315,6 @@ exec_instruction(
       exec_kil (mach, inst);
       break;
 
-   case TGSI_OPCODE_PK2H:
-      ASSERT (0);
-      break;
-
-   case TGSI_OPCODE_PK2US:
-      ASSERT (0);
-      break;
-
-   case TGSI_OPCODE_PK4B:
-      ASSERT (0);
-      break;
-
-   case TGSI_OPCODE_PK4UB:
-      ASSERT (0);
-      break;
-
    case TGSI_OPCODE_RFL:
       ASSERT (0);
       break;

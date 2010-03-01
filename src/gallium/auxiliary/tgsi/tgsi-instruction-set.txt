@@ -391,26 +391,6 @@ TGSI Instruction Specification
   Alias for LERP.
 
 
-1.5.10  PK2H - Pack Two 16-bit Floats
-
-  TBD
-
-
-1.5.11  PK2US - Pack Two Unsigned 16-bit Scalars
-
-  TBD
-
-
-1.5.12  PK4B - Pack Four Signed 8-bit Scalars
-
-  TBD
-
-
-1.5.13  PK4UB - Pack Four Unsigned 8-bit Scalars
-
-  TBD
-
-
 1.5.14  POW - Power
 
   Alias for POWER.
