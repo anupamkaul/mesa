@@ -2807,55 +2807,6 @@ exec_instruction(
       exec_kil (mach, inst);
       break;
 
-   case TGSI_OPCODE_RFL:
-      if (IS_CHANNEL_ENABLED(*inst, CHAN_X) ||
-          IS_CHANNEL_ENABLED(*inst, CHAN_Y) ||
-          IS_CHANNEL_ENABLED(*inst, CHAN_Z)) {
-         /* r0 = dp3(src0, src0) */
-         FETCH(&r[2], 0, CHAN_X);
-         micro_mul(&r[0], &r[2], &r[2]);
-         FETCH(&r[4], 0, CHAN_Y);
-         micro_mul(&r[8], &r[4], &r[4]);
-         micro_add(&r[0], &r[0], &r[8]);
-         FETCH(&r[6], 0, CHAN_Z);
-         micro_mul(&r[8], &r[6], &r[6]);
-         micro_add(&r[0], &r[0], &r[8]);
-
-         /* r1 = dp3(src0, src1) */
-         FETCH(&r[3], 1, CHAN_X);
-         micro_mul(&r[1], &r[2], &r[3]);
-         FETCH(&r[5], 1, CHAN_Y);
-         micro_mul(&r[8], &r[4], &r[5]);
-         micro_add(&r[1], &r[1], &r[8]);
-         FETCH(&r[7], 1, CHAN_Z);
-         micro_mul(&r[8], &r[6], &r[7]);
-         micro_add(&r[1], &r[1], &r[8]);
-
-         /* r1 = 2 * r1 / r0 */
-         micro_add(&r[1], &r[1], &r[1]);
-         micro_div(&r[1], &r[1], &r[0]);
-
-         if (IS_CHANNEL_ENABLED(*inst, CHAN_X)) {
-            micro_mul(&r[2], &r[2], &r[1]);
-            micro_sub(&r[2], &r[2], &r[3]);
-            STORE(&r[2], 0, CHAN_X);
-         }
-         if (IS_CHANNEL_ENABLED(*inst, CHAN_Y)) {
-            micro_mul(&r[4], &r[4], &r[1]);
-            micro_sub(&r[4], &r[4], &r[5]);
-            STORE(&r[4], 0, CHAN_Y);
-         }
-         if (IS_CHANNEL_ENABLED(*inst, CHAN_Z)) {
-            micro_mul(&r[6], &r[6], &r[1]);
-            micro_sub(&r[6], &r[6], &r[7]);
-            STORE(&r[6], 0, CHAN_Z);
-         }
-      }
-      if (IS_CHANNEL_ENABLED(*inst, CHAN_W)) {
-         STORE(&mach->Temps[TEMP_1_I].xyzw[TEMP_1_C], 0, CHAN_W);
-      }
-      break;
-
    case TGSI_OPCODE_SEQ:
       exec_vector_binary(mach, inst, micro_seq, TGSI_EXEC_DATA_FLOAT, TGSI_EXEC_DATA_FLOAT);
       break;

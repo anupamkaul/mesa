@@ -557,15 +557,6 @@ nv40_fragprog_parse_instruction(struct nv40_fpc *fpc,
 	case TGSI_OPCODE_RET:
 		assert(0);
 		break;
-	case TGSI_OPCODE_RFL:
-		tmp = temp(fpc);
-		arith(fpc, 0, DP3, tmp, MASK_X, src[0], src[0], none);
-		arith(fpc, 0, DP3, tmp, MASK_Y, src[0], src[1], none);
-		arith(fpc, 0, DIV, scale(tmp, 2X), MASK_Z,
-		      swz(tmp, Y, Y, Y, Y), swz(tmp, X, X, X, X), none);
-		arith(fpc, sat, MAD, dst, mask,
-		      swz(tmp, Z, Z, Z, Z), src[0], neg(src[1]));
-		break;
 	case TGSI_OPCODE_RSQ:
 		tmp = temp(fpc);
 		arith(fpc, 0, LG2, scale(tmp, INV_2X), MASK_X,

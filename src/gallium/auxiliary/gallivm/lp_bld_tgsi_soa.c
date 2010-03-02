@@ -966,10 +966,6 @@ emit_instruction(
       emit_kil( bld, inst );
       break;
 
-   case TGSI_OPCODE_RFL:
-      return 0;
-      break;
-
    case TGSI_OPCODE_SEQ:
       FOR_EACH_DST0_ENABLED_CHANNEL( inst, chan_index ) {
          src0 = emit_fetch( bld, inst, 0, chan_index );

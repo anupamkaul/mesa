@@ -511,9 +511,6 @@ nv30_fragprog_parse_instruction(struct nv30_fpc *fpc,
 	case TGSI_OPCODE_RET:
 		assert(0);
 		break;
-	case TGSI_OPCODE_RFL:
-		arith(fpc, 0, RFL, dst, mask, src[0], src[1], none);
-		break;
 	case TGSI_OPCODE_RSQ:
 		arith(fpc, sat, RSQ, dst, mask, abs(swz(src[0], X, X, X, X)), none, none);
 		break;

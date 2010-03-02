@@ -396,14 +396,6 @@ TGSI Instruction Specification
   Alias for POWER.
 
 
-1.5.15  RFL - Reflection Vector
-
-  dst.x = 2.0 * (src0.x * src1.x + src0.y * src1.y + src0.z * src1.z) / (src0.x * src0.x + src0.y * src0.y + src0.z * src0.z) * src0.x - src1.x
-  dst.y = 2.0 * (src0.x * src1.x + src0.y * src1.y + src0.z * src1.z) / (src0.x * src0.x + src0.y * src0.y + src0.z * src0.z) * src0.y - src1.y
-  dst.z = 2.0 * (src0.x * src1.x + src0.y * src1.y + src0.z * src1.z) / (src0.x * src0.x + src0.y * src0.y + src0.z * src0.z) * src0.z - src1.z
-  dst.w = 1.0
-
-
 1.5.16  SEQ - Set On Equal
 
   dst.x = (src0.x == src1.x) ? 1.0 : 0.0

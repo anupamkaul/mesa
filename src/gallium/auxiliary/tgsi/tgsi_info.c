@@ -75,7 +75,7 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 0, 0, 0, 0, 0, 0, "", 41 },      /* removed */
    { 0, 0, 0, 0, 0, 0, "", 42 },      /* removed */
    { 0, 0, 0, 0, 0, 0, "", 43 },      /* removed */
-   { 1, 2, 0, 0, 0, 0, "RFL", TGSI_OPCODE_RFL },
+   { 0, 0, 0, 0, 0, 0, "", 44 },      /* removed */
    { 1, 2, 0, 0, 0, 0, "SEQ", TGSI_OPCODE_SEQ },
    { 0, 0, 0, 0, 0, 0, "", 46 },      /* removed */
    { 1, 2, 0, 0, 0, 0, "SGT", TGSI_OPCODE_SGT },

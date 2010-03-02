@@ -1315,10 +1315,6 @@ exec_instruction(
       exec_kil (mach, inst);
       break;
 
-   case TGSI_OPCODE_RFL:
-      ASSERT (0);
-      break;
-
    case TGSI_OPCODE_SEQ:
       FOR_EACH_ENABLED_CHANNEL( *inst, chan_index ) {
          FETCH( &r[0], 0, chan_index );

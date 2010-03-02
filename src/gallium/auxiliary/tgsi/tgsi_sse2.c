@@ -2260,10 +2260,6 @@ emit_instruction(
       emit_kil( func, &inst->Src[0] );
       break;
 
-   case TGSI_OPCODE_RFL:
-      return 0;
-      break;
-
    case TGSI_OPCODE_SEQ:
       emit_setcc( func, inst, cc_Equal );
       break;
