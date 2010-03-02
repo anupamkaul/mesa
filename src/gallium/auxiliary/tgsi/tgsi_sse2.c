@@ -2288,10 +2288,6 @@ emit_instruction(
       return 0;
       break;
 
-   case TGSI_OPCODE_X2D:
-      return 0;
-      break;
-
    case TGSI_OPCODE_ARA:
       return 0;
       break;

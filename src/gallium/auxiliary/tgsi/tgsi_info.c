@@ -90,7 +90,7 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 0, 0, 0, 0, 0, 0, "", 56 },      /* removed */
    { 0, 0, 0, 0, 0, 0, "", 57 },      /* removed */
    { 0, 0, 0, 0, 0, 0, "", 58 },      /* removed */
-   { 1, 3, 0, 0, 0, 0, "X2D", TGSI_OPCODE_X2D },
+   { 0, 0, 0, 0, 0, 0, "", 59 },      /* removed */
    { 1, 1, 0, 0, 0, 0, "ARA", TGSI_OPCODE_ARA },
    { 1, 1, 0, 0, 0, 0, "ARR", TGSI_OPCODE_ARR },
    { 0, 1, 0, 0, 0, 0, "BRA", TGSI_OPCODE_BRA },

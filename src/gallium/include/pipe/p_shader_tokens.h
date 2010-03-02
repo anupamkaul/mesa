@@ -253,7 +253,6 @@ struct tgsi_property_data {
 #define TGSI_OPCODE_TXD                 53
 #define TGSI_OPCODE_TXP                 54
                                 /* gap */
-#define TGSI_OPCODE_X2D                 59
 #define TGSI_OPCODE_ARA                 60
 #define TGSI_OPCODE_ARR                 61
 #define TGSI_OPCODE_BRA                 62

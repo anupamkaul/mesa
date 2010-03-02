@@ -443,14 +443,6 @@ TGSI Instruction Specification
   TBD
 
 
-1.5.30  X2D - 2D Coordinate Transformation
-
-  dst.x = src0.x + src1.x * src2.x + src1.y * src2.y
-  dst.y = src0.y + src1.x * src2.z + src1.y * src2.w
-  dst.z = src0.x + src1.x * src2.x + src1.y * src2.y
-  dst.w = src0.y + src1.x * src2.z + src1.y * src2.w
-
-
 1.6  GL_NV_vertex_program2
 --------------------------
 

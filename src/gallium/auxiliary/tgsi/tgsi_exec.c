@@ -2829,45 +2829,6 @@ exec_instruction(
       exec_tex(mach, inst, TEX_MODIFIER_PROJECTED);
       break;
 
-   case TGSI_OPCODE_X2D:
-      FETCH(&r[0], 1, CHAN_X);
-      FETCH(&r[1], 1, CHAN_Y);
-      if (IS_CHANNEL_ENABLED(*inst, CHAN_X) ||
-          IS_CHANNEL_ENABLED(*inst, CHAN_Z)) {
-         FETCH(&r[2], 2, CHAN_X);
-         micro_mul(&r[2], &r[2], &r[0]);
-         FETCH(&r[3], 2, CHAN_Y);
-         micro_mul(&r[3], &r[3], &r[1]);
-         micro_add(&r[2], &r[2], &r[3]);
-         FETCH(&r[3], 0, CHAN_X);
-         micro_add(&d[CHAN_X], &r[2], &r[3]);
-         
-      }
-      if (IS_CHANNEL_ENABLED(*inst, CHAN_Y) ||
-          IS_CHANNEL_ENABLED(*inst, CHAN_W)) {
-         FETCH(&r[2], 2, CHAN_Z);
-         micro_mul(&r[2], &r[2], &r[0]);
-         FETCH(&r[3], 2, CHAN_W);
-         micro_mul(&r[3], &r[3], &r[1]);
-         micro_add(&r[2], &r[2], &r[3]);
-         FETCH(&r[3], 0, CHAN_Y);
-         micro_add(&d[CHAN_Y], &r[2], &r[3]);
-         
-      }
-      if (IS_CHANNEL_ENABLED(*inst, CHAN_X)) {
-         STORE(&d[CHAN_X], 0, CHAN_X);
-      }
-      if (IS_CHANNEL_ENABLED(*inst, CHAN_Y)) {
-         STORE(&d[CHAN_Y], 0, CHAN_Y);
-      }
-      if (IS_CHANNEL_ENABLED(*inst, CHAN_Z)) {
-         STORE(&d[CHAN_X], 0, CHAN_Z);
-      }
-      if (IS_CHANNEL_ENABLED(*inst, CHAN_W)) {
-         STORE(&d[CHAN_Y], 0, CHAN_W);
-      }
-      break;
-
    case TGSI_OPCODE_ARA:
       assert (0);
       break;

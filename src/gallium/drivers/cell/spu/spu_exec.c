@@ -1400,10 +1400,6 @@ exec_instruction(
       exec_tex(mach, inst, TRUE, TRUE);
       break;
 
-   case TGSI_OPCODE_X2D:
-      ASSERT (0);
-      break;
-
    case TGSI_OPCODE_ARA:
       ASSERT (0);
       break;

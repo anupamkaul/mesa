@@ -80,7 +80,6 @@ static unsigned translate_opcode(unsigned opcode)
         case TGSI_OPCODE_TEX: return RC_OPCODE_TEX;
         case TGSI_OPCODE_TXD: return RC_OPCODE_TXD;
         case TGSI_OPCODE_TXP: return RC_OPCODE_TXP;
-     /* case TGSI_OPCODE_X2D: return RC_OPCODE_X2D; */
      /* case TGSI_OPCODE_ARA: return RC_OPCODE_ARA; */
      /* case TGSI_OPCODE_ARR: return RC_OPCODE_ARR; */
      /* case TGSI_OPCODE_BRA: return RC_OPCODE_BRA; */
