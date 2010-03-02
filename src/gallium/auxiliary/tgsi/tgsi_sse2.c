@@ -2210,10 +2210,6 @@ emit_instruction(
       }
       break;
 
-   case TGSI_OPCODE_RCC:
-      return 0;
-      break;
-
    case TGSI_OPCODE_DPH:
       FETCH( func, *inst, 0, 0, CHAN_X );
       FETCH( func, *inst, 1, 1, CHAN_X );

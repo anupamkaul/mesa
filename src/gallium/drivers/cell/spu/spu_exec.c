@@ -1252,10 +1252,6 @@ exec_instruction(
        }
        break;
 
-   case TGSI_OPCODE_RCC:
-      ASSERT (0);
-      break;
-
    case TGSI_OPCODE_DPH:
       FETCH(&r[0], 0, CHAN_X);
       FETCH(&r[1], 1, CHAN_X);

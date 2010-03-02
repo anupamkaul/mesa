@@ -65,7 +65,7 @@ static const struct tgsi_opcode_info opcode_info[TGSI_OPCODE_LAST] =
    { 1, 2, 0, 0, 0, 0, "XPD", TGSI_OPCODE_XPD },
    { 0, 0, 0, 0, 0, 0, "", 32 },      /* removed */
    { 1, 1, 0, 0, 0, 0, "ABS", TGSI_OPCODE_ABS },
-   { 1, 1, 0, 0, 0, 0, "RCC", TGSI_OPCODE_RCC },
+   { 0, 0, 0, 0, 0, 0, "", 34 },      /* removed */
    { 1, 2, 0, 0, 0, 0, "DPH", TGSI_OPCODE_DPH },
    { 1, 1, 0, 0, 0, 0, "COS", TGSI_OPCODE_COS },
    { 1, 1, 0, 0, 0, 0, "DDX", TGSI_OPCODE_DDX },

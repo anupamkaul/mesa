@@ -911,11 +911,6 @@ emit_instruction(
       }
       break;
 
-   case TGSI_OPCODE_RCC:
-      /* deprecated? */
-      assert(0);
-      return 0;
-
    case TGSI_OPCODE_DPH:
       tmp0 = emit_fetch( bld, inst, 0, CHAN_X );
       tmp1 = emit_fetch( bld, inst, 1, CHAN_X );
