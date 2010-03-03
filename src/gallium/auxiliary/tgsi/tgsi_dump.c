@@ -120,7 +120,7 @@ static const char *semantic_names[] =
    "FOG",
    "PSIZE",
    "GENERIC",
-   "NORMAL",
+   "",
    "FACE",
    "EDGEFLAG",
    "PRIM_ID",

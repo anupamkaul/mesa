@@ -1397,12 +1397,6 @@ These attributes are called "generic" because they may be used for anything
 else, including parameters, texture generation information, or anything that
 can be stored inside a four-component vector.
 
-TGSI_SEMANTIC_NORMAL
-""""""""""""""""""""
-
-Vertex normal; could be used to implement per-pixel lighting for legacy APIs
-that allow mixing fixed-function and programmable stages.
-
 TGSI_SEMANTIC_FACE
 """"""""""""""""""
 

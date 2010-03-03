@@ -139,7 +139,7 @@ struct tgsi_declaration_dimension
 #define TGSI_SEMANTIC_FOG        3
 #define TGSI_SEMANTIC_PSIZE      4
 #define TGSI_SEMANTIC_GENERIC    5
-#define TGSI_SEMANTIC_NORMAL     6
+                        /* gap */
 #define TGSI_SEMANTIC_FACE       7
 #define TGSI_SEMANTIC_EDGEFLAG   8
 #define TGSI_SEMANTIC_PRIMID     9

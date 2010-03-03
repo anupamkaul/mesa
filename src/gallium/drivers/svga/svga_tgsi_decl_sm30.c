@@ -61,10 +61,6 @@ static boolean translate_vs_ps_semantic( struct tgsi_declaration_semantic semant
       *idx = semantic.Index + 1; /* texcoord[0] is reserved for fog */
       *usage = SVGA3D_DECLUSAGE_TEXCOORD;
       break;
-   case TGSI_SEMANTIC_NORMAL:    
-      *idx = semantic.Index;
-      *usage = SVGA3D_DECLUSAGE_NORMAL;
-      break;
    default:
       assert(0);
       *usage = SVGA3D_DECLUSAGE_TEXCOORD;
