@@ -141,38 +141,6 @@ softpipe_texture_create(struct pipe_screen *screen,
 }
 
 
-/**
- * Create a new pipe_texture which wraps an existing buffer.
- */
-static struct pipe_texture *
-softpipe_texture_blanket(struct pipe_screen * screen,
-                         const struct pipe_texture *base,
-                         const unsigned *stride,
-                         struct pipe_buffer *buffer)
-{
-   struct softpipe_texture *spt;
-   assert(screen);
-
-   /* Only supports one type */
-   if (base->target != PIPE_TEXTURE_2D ||
-       base->last_level != 0 ||
-       base->depth0 != 1) {
-      return NULL;
-   }
-
-   spt = CALLOC_STRUCT(softpipe_texture);
-   if (!spt)
-      return NULL;
-
-   spt->base = *base;
-   pipe_reference_init(&spt->base.reference, 1);
-   spt->base.screen = screen;
-   spt->stride[0] = stride[0];
-
-   pipe_buffer_reference(&spt->buffer, buffer);
-
-   return &spt->base;
-}
 
 
 static void
@@ -459,7 +427,6 @@ void
 softpipe_init_screen_texture_funcs(struct pipe_screen *screen)
 {
    screen->texture_create = softpipe_texture_create;
-   screen->texture_blanket = softpipe_texture_blanket;
    screen->texture_destroy = softpipe_texture_destroy;
 
    screen->get_tex_surface = softpipe_get_tex_surface;
