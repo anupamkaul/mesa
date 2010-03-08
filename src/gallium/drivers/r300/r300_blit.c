@@ -34,6 +34,8 @@ static void r300_blitter_save_states(struct r300_context* r300)
     util_blitter_save_rasterizer(r300->blitter, r300->rs_state.state);
     util_blitter_save_fragment_shader(r300->blitter, r300->fs);
     util_blitter_save_vertex_shader(r300->blitter, r300->vs_state.state);
+    util_blitter_save_viewport(r300->blitter, &r300->viewport);
+    util_blitter_save_clip(r300->blitter, &r300->clip);
 }
 
 /* Clear currently bound buffers. */
@@ -141,10 +143,10 @@ void r300_surface_copy(struct pipe_context* pipe,
                 new_format = PIPE_FORMAT_I8_UNORM;
                 break;
             case 2:
-                new_format = PIPE_FORMAT_A4R4G4B4_UNORM;
+                new_format = PIPE_FORMAT_B4G4R4A4_UNORM;
                 break;
             case 4:
-                new_format = PIPE_FORMAT_A8R8G8B8_UNORM;
+                new_format = PIPE_FORMAT_B8G8R8A8_UNORM;
                 break;
             default:
                 debug_printf("r300: surface_copy: Unhandled format: %s. Falling back to software.\n"

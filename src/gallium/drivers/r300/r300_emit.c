@@ -175,23 +175,15 @@ static const float * get_shader_constant(
                     break;
 
                 case RC_STATE_R300_VIEWPORT_SCALE:
-                    if (r300->tcl_bypass) {
-                        vec[0] = 1;
-                        vec[1] = 1;
-                        vec[2] = 1;
-                    } else {
-                        vec[0] = viewport->xscale;
-                        vec[1] = viewport->yscale;
-                        vec[2] = viewport->zscale;
-                    }
+                    vec[0] = viewport->xscale;
+                    vec[1] = viewport->yscale;
+                    vec[2] = viewport->zscale;
                     break;
 
                 case RC_STATE_R300_VIEWPORT_OFFSET:
-                    if (!r300->tcl_bypass) {
-                        vec[0] = viewport->xoffset;
-                        vec[1] = viewport->yoffset;
-                        vec[2] = viewport->zoffset;
-                    }
+                    vec[0] = viewport->xoffset;
+                    vec[1] = viewport->yoffset;
+                    vec[2] = viewport->zoffset;
                     break;
 
                 default:
@@ -683,7 +675,7 @@ void r300_emit_scissor_state(struct r300_context* r300,
     maxx = fb->width;
     maxy = fb->height;
 
-    if (((struct r300_rs_state*)r300->rs_state.state)->rs.scissor) {
+    if (r300->scissor_enabled) {
         minx = MAX2(minx, scissor->minx);
         miny = MAX2(miny, scissor->miny);
         maxx = MIN2(maxx, scissor->maxx);
@@ -802,6 +794,30 @@ void r300_emit_aos(struct r300_context* r300, unsigned offset)
     END_CS;
 }
 
+void r300_emit_vertex_buffer(struct r300_context* r300)
+{
+    CS_LOCALS(r300);
+
+    DBG(r300, DBG_DRAW, "r300: Preparing vertex buffer %p for render, "
+            "vertex size %d\n", r300->vbo,
+            r300->vertex_info.size);
+    /* Set the pointer to our vertex buffer. The emitted values are this:
+     * PACKET3 [3D_LOAD_VBPNTR]
+     * COUNT   [1]
+     * FORMAT  [size | stride << 8]
+     * OFFSET  [offset into BO]
+     * VBPNTR  [relocated BO]
+     */
+    BEGIN_CS(7);
+    OUT_CS_PKT3(R300_PACKET3_3D_LOAD_VBPNTR, 3);
+    OUT_CS(1);
+    OUT_CS(r300->vertex_info.size |
+            (r300->vertex_info.size << 8));
+    OUT_CS(r300->vbo_offset);
+    OUT_CS_RELOC(r300->vbo, 0, RADEON_GEM_DOMAIN_GTT, 0, 0);
+    END_CS;
+}
+
 void r300_emit_vertex_stream_state(struct r300_context* r300,
                                    unsigned size, void* state)
 {
@@ -876,7 +892,7 @@ void r300_emit_vs_state(struct r300_context* r300, unsigned size, void* state)
     CS_LOCALS(r300);
 
     if (!r300screen->caps->has_tcl) {
-        debug_printf("r300: Implementation error: emit_vertex_shader called,"
+        debug_printf("r300: Implementation error: emit_vs_state called,"
                 " but has_tcl is FALSE!\n");
         return;
     }
@@ -915,7 +931,7 @@ void r300_emit_vs_constant_buffer(struct r300_context* r300,
     CS_LOCALS(r300);
 
     if (!r300screen->caps->has_tcl) {
-        debug_printf("r300: Implementation error: emit_vertex_shader called,"
+        debug_printf("r300: Implementation error: emit_vs_constant_buffer called,"
         " but has_tcl is FALSE!\n");
         return;
     }
@@ -946,22 +962,16 @@ void r300_emit_viewport_state(struct r300_context* r300,
     struct r300_viewport_state* viewport = (struct r300_viewport_state*)state;
     CS_LOCALS(r300);
 
-    if (r300->tcl_bypass) {
-        BEGIN_CS(2); /* XXX tcl_bypass will be removed in gallium anyway */
-        OUT_CS_REG(R300_VAP_VTE_CNTL, 0);
-        END_CS;
-    } else {
-        BEGIN_CS(size);
-        OUT_CS_REG_SEQ(R300_SE_VPORT_XSCALE, 6);
-        OUT_CS_32F(viewport->xscale);
-        OUT_CS_32F(viewport->xoffset);
-        OUT_CS_32F(viewport->yscale);
-        OUT_CS_32F(viewport->yoffset);
-        OUT_CS_32F(viewport->zscale);
-        OUT_CS_32F(viewport->zoffset);
-        OUT_CS_REG(R300_VAP_VTE_CNTL, viewport->vte_control);
-        END_CS;
-    }
+     BEGIN_CS(size);
+     OUT_CS_REG_SEQ(R300_SE_VPORT_XSCALE, 6);
+     OUT_CS_32F(viewport->xscale);
+     OUT_CS_32F(viewport->xoffset);
+     OUT_CS_32F(viewport->yscale);
+     OUT_CS_32F(viewport->yoffset);
+     OUT_CS_32F(viewport->zscale);
+     OUT_CS_32F(viewport->zoffset);
+     OUT_CS_REG(R300_VAP_VTE_CNTL, viewport->vte_control);
+     END_CS;
 }
 
 void r300_emit_ztop_state(struct r300_context* r300,
@@ -1149,8 +1159,10 @@ void r300_emit_dirty_state(struct r300_context* r300)
     assert(r300->dirty_state == 0);
     */
 
-    /* Finally, emit the VBO. */
-    /* r300_emit_vertex_buffer(r300); */
+    /* Emit the VBO for SWTCL. */
+    if (!r300screen->caps->has_tcl) {
+        r300_emit_vertex_buffer(r300);
+    }
 
     r300->dirty_hw++;
 }

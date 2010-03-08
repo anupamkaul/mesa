@@ -30,173 +30,12 @@
 #include <stdio.h>
 
 #include "util/u_format.h"
+#include "util/u_format_tests.h"
 #include "util/u_format_pack.h"
 
 
-#define MAX_PACKED_BYTES 4
-
-
-/**
- * A (packed, unpacked) color pair.
- */
-struct util_format_test_case
-{
-   enum pipe_format format;
-
-   /**
-    * Mask of the bits that actually meaningful data. Used to mask out the
-    * "X" channels.
-    */
-   uint8_t mask[MAX_PACKED_BYTES];
-
-   uint8_t packed[MAX_PACKED_BYTES];
-
-   /**
-    * RGBA.
-    */
-   double unpacked[4];
-};
-
-
-/*
- * Helper macros to create the packed bytes for longer words.
- */
-
-#define PACKED_1x8(x) {x, 0, 0, 0}
-#define PACKED_4x8(x, y, z, w) {x, y, z, w}
-#define PACKED_1x32(x) {(x) & 0xff, ((x) >> 8) & 0xff, ((x) >> 16) & 0xff, ((x) >> 24) & 0xff}
-#define PACKED_1x16(x) {(x) & 0xff, ((x) >> 8) & 0xff, 0, 0}
-
-
-/**
- * Test cases.
- *
- * These were manually entered. We could generate these
- *
- * To keep this to a we cover only the corner cases, which should produce
- * good enough coverage since that pixel format transformations are afine for
- * non SRGB formats.
- */
-static const struct util_format_test_case
-test_cases[] =
-{
-   {PIPE_FORMAT_R5G6B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x0000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_R5G6B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x001f), {0.0, 0.0, 1.0, 1.0}},
-   {PIPE_FORMAT_R5G6B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x07e0), {0.0, 1.0, 0.0, 1.0}},
-   {PIPE_FORMAT_R5G6B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0xf800), {1.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_R5G6B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0xffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_A1R5G5B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x0000), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A1R5G5B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x001f), {0.0, 0.0, 1.0, 0.0}},
-   {PIPE_FORMAT_A1R5G5B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x03e0), {0.0, 1.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A1R5G5B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x7c00), {1.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A1R5G5B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x8000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_A1R5G5B5_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0xffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_A4R4G4B4_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x0000), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A4R4G4B4_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x000f), {0.0, 0.0, 1.0, 0.0}},
-   {PIPE_FORMAT_A4R4G4B4_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x00f0), {0.0, 1.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A4R4G4B4_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x0f00), {1.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A4R4G4B4_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0xf000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_A4R4G4B4_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0xffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_A2B10G10R10_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00000000), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A2B10G10R10_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x000003ff), {1.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A2B10G10R10_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x000ffc00), {0.0, 1.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A2B10G10R10_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x3ff00000), {0.0, 0.0, 1.0, 0.0}},
-   {PIPE_FORMAT_A2B10G10R10_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xc0000000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_A2B10G10R10_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xffffffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_A8R8G8B8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00000000), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A8R8G8B8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x000000ff), {0.0, 0.0, 1.0, 0.0}},
-   {PIPE_FORMAT_A8R8G8B8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x0000ff00), {0.0, 1.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A8R8G8B8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00ff0000), {1.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A8R8G8B8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xff000000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_A8R8G8B8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xffffffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_X8R8G8B8_UNORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x00000000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8R8G8B8_UNORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x000000ff), {0.0, 0.0, 1.0, 1.0}},
-   {PIPE_FORMAT_X8R8G8B8_UNORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x0000ff00), {0.0, 1.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8R8G8B8_UNORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x00ff0000), {1.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8R8G8B8_UNORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0xff000000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8R8G8B8_UNORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0xffffffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00000000), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x000000ff), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x0000ff00), {1.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00ff0000), {0.0, 1.0, 0.0, 0.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xff000000), {0.0, 0.0, 1.0, 0.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xffffffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_B8G8R8X8_UNORM, PACKED_1x32(0xffffff00), PACKED_1x32(0x00000000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B8G8R8X8_UNORM, PACKED_1x32(0xffffff00), PACKED_1x32(0x000000ff), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B8G8R8X8_UNORM, PACKED_1x32(0xffffff00), PACKED_1x32(0x0000ff00), {1.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B8G8R8X8_UNORM, PACKED_1x32(0xffffff00), PACKED_1x32(0x00ff0000), {0.0, 1.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B8G8R8X8_UNORM, PACKED_1x32(0xffffff00), PACKED_1x32(0xff000000), {0.0, 0.0, 1.0, 1.0}},
-   {PIPE_FORMAT_B8G8R8X8_UNORM, PACKED_1x32(0xffffff00), PACKED_1x32(0xffffffff), {1.0, 1.0, 1.0, 1.0}},
-
-#if 0
-   {PIPE_FORMAT_R8G8B8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00000000), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_R8G8B8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x000000ff), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_R8G8B8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x0000ff00), {0.0, 0.0, 1.0, 0.0}},
-   {PIPE_FORMAT_R8G8B8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00ff0000), {0.0, 1.0, 0.0, 0.0}},
-   {PIPE_FORMAT_R8G8B8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xff000000), {1.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_R8G8B8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xffffffff), {1.0, 1.0, 1.0, 1.0}},
-#endif
-
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00000000), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x000000ff), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x0000ff00), {1.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00ff0000), {0.0, 1.0, 0.0, 0.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xff000000), {0.0, 0.0, 1.0, 0.0}},
-   {PIPE_FORMAT_B8G8R8A8_UNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0xffffffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_L8_UNORM, PACKED_1x8(0xff), PACKED_1x8(0x00), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_L8_UNORM, PACKED_1x8(0xff), PACKED_1x8(0xff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_A8_UNORM, PACKED_1x8(0xff), PACKED_1x8(0x00), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A8_UNORM, PACKED_1x8(0xff), PACKED_1x8(0xff), {0.0, 0.0, 0.0, 1.0}},
-
-   {PIPE_FORMAT_I8_UNORM, PACKED_1x8(0xff), PACKED_1x8(0x00), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_I8_UNORM, PACKED_1x8(0xff), PACKED_1x8(0xff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_A8L8_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x0000), {0.0, 0.0, 0.0, 0.0}},
-   {PIPE_FORMAT_A8L8_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x00ff), {1.0, 1.0, 1.0, 0.0}},
-   {PIPE_FORMAT_A8L8_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0xff00), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_A8L8_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0xffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_L16_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0x0000), {0.0, 0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_L16_UNORM, PACKED_1x16(0xffff), PACKED_1x16(0xffff), {1.0, 1.0, 1.0, 1.0}},
-
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00000000), { 0.0,  0.0,  0.0,  0.0}},
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x0000007f), { 1.0,  0.0,  0.0,  0.0}},
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00000081), {-1.0,  0.0,  0.0,  0.0}},
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00007f00), { 0.0,  1.0,  0.0,  0.0}},
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00008100), { 0.0, -1.0,  0.0,  0.0}},
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x007f0000), { 0.0,  0.0,  1.0,  0.0}},
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x00810000), { 0.0,  0.0, -1.0,  0.0}},
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x7f000000), { 0.0,  0.0,  0.0,  1.0}},
-   {PIPE_FORMAT_A8B8G8R8_SNORM, PACKED_1x32(0xffffffff), PACKED_1x32(0x81000000), { 0.0,  0.0,  0.0, -1.0}},
-
-   {PIPE_FORMAT_X8UB8UG8SR8S_NORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x00000000), { 0.0,  0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8UB8UG8SR8S_NORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x0000007f), { 1.0,  0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8UB8UG8SR8S_NORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x00000081), {-1.0,  0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8UB8UG8SR8S_NORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x00007f00), { 0.0,  1.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8UB8UG8SR8S_NORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x00008100), { 0.0, -1.0, 0.0, 1.0}},
-   {PIPE_FORMAT_X8UB8UG8SR8S_NORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0x00ff0000), { 0.0,  0.0, 1.0, 1.0}},
-   {PIPE_FORMAT_X8UB8UG8SR8S_NORM, PACKED_1x32(0x00ffffff), PACKED_1x32(0xff000000), { 0.0,  0.0, 0.0, 1.0}},
-
-   {PIPE_FORMAT_B6UG5SR5S_NORM, PACKED_1x16(0xffff), PACKED_1x16(0x0000), { 0.0,  0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B6UG5SR5S_NORM, PACKED_1x16(0xffff), PACKED_1x16(0x000f), { 1.0,  0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B6UG5SR5S_NORM, PACKED_1x16(0xffff), PACKED_1x16(0x0011), {-1.0,  0.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B6UG5SR5S_NORM, PACKED_1x16(0xffff), PACKED_1x16(0x01e0), { 0.0,  1.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B6UG5SR5S_NORM, PACKED_1x16(0xffff), PACKED_1x16(0x0220), { 0.0, -1.0, 0.0, 1.0}},
-   {PIPE_FORMAT_B6UG5SR5S_NORM, PACKED_1x16(0xffff), PACKED_1x16(0xfc00), { 0.0,  0.0, 1.0, 1.0}},
-};
-
-
 static boolean
-test_format_unpack(const struct util_format_test_case *test)
+test_format_unpack_4f(const struct util_format_test_case *test)
 {
    float unpacked[4];
    unsigned i;
@@ -219,9 +58,9 @@ test_format_unpack(const struct util_format_test_case *test)
 
 
 static boolean
-test_format_pack(const struct util_format_test_case *test)
+test_format_pack_4f(const struct util_format_test_case *test)
 {
-   uint8_t packed[MAX_PACKED_BYTES];
+   uint8_t packed[UTIL_FORMAT_MAX_PACKED_BYTES];
    unsigned i;
    boolean success;
 
@@ -230,13 +69,142 @@ test_format_pack(const struct util_format_test_case *test)
    util_format_pack_4f(test->format, packed, test->unpacked[0], test->unpacked[1], test->unpacked[2], test->unpacked[3]);
 
    success = TRUE;
-   for (i = 0; i < MAX_PACKED_BYTES; ++i)
+   for (i = 0; i < UTIL_FORMAT_MAX_PACKED_BYTES; ++i)
       if ((test->packed[i] & test->mask[i]) != (packed[i] & test->mask[i]))
          success = FALSE;
 
    if (!success) {
-      printf("FAILED: (%02x %02x %02x %02x) obtained\n", packed[0], packed[1], packed[2], packed[3]);
-      printf("        (%02x %02x %02x %02x) expected\n", test->packed[0], test->packed[1], test->packed[2], test->packed[3]);
+      /* TODO: print more than 4 bytes */
+      printf("FAILED: (%02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x) obtained\n",
+             packed[0], packed[1], packed[2], packed[3],
+             packed[4], packed[5], packed[6], packed[7],
+             packed[8], packed[9], packed[10], packed[11],
+             packed[12], packed[13], packed[14], packed[15]);
+      printf("        (%02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x) expected\n",
+             test->packed[0], test->packed[1], test->packed[2], test->packed[3],
+             test->packed[4], test->packed[5], test->packed[6], test->packed[7],
+             test->packed[8], test->packed[9], test->packed[10], test->packed[11],
+             test->packed[12], test->packed[13], test->packed[14], test->packed[15]);
+   }
+
+   return success;
+}
+
+
+static boolean
+convert_4f_to_4ub(uint8_t *dst, const double *src)
+{
+   unsigned i;
+   boolean accurate = TRUE;
+
+   for (i = 0; i < 4; ++i) {
+      if (src[i] < 0.0) {
+         accurate = FALSE;
+         dst[i] = 0;
+      }
+      else if (src[i] > 1.0) {
+         accurate = FALSE;
+         dst[i] = 255;
+      }
+      else {
+         dst[i] = src[i] * 255.0;
+      }
+   }
+
+   return accurate;
+}
+
+
+static boolean
+test_format_unpack_4ub(const struct util_format_test_case *test)
+{
+   uint8_t unpacked[4];
+   uint8_t expected[4];
+   unsigned i;
+   boolean success;
+
+   util_format_unpack_4ub(test->format, unpacked, test->packed);
+
+   convert_4f_to_4ub(expected, test->unpacked);
+
+   success = TRUE;
+   for (i = 0; i < 4; ++i)
+      if (expected[i] != unpacked[i])
+         success = FALSE;
+
+   if (!success) {
+      printf("FAILED: (0x%02x 0x%02x 0x%02x 0x%02x) obtained\n", unpacked[0], unpacked[1], unpacked[2], unpacked[3]);
+      printf("        (0x%02x 0x%02x 0x%02x 0x%02x) expected\n", expected[0], expected[1], expected[2], expected[3]);
+   }
+
+   return success;
+}
+
+
+static boolean
+test_format_pack_4ub(const struct util_format_test_case *test)
+{
+   uint8_t unpacked[4];
+   uint8_t packed[UTIL_FORMAT_MAX_PACKED_BYTES];
+   unsigned i;
+   boolean success;
+
+   if (!convert_4f_to_4ub(unpacked, test->unpacked)) {
+      /*
+       * Skip test cases which cannot be represented by four unorm bytes.
+       */
+      return TRUE;
+   }
+
+   memset(packed, 0, sizeof packed);
+
+   util_format_pack_4ub(test->format, packed, unpacked[0], unpacked[1], unpacked[2], unpacked[3]);
+
+   success = TRUE;
+   for (i = 0; i < UTIL_FORMAT_MAX_PACKED_BYTES; ++i)
+      if ((test->packed[i] & test->mask[i]) != (packed[i] & test->mask[i]))
+         success = FALSE;
+
+   if (!success) {
+      /* TODO: print more than 4 bytes */
+      printf("FAILED: (%02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x) obtained\n",
+             packed[0], packed[1], packed[2], packed[3],
+             packed[4], packed[5], packed[6], packed[7],
+             packed[8], packed[9], packed[10], packed[11],
+             packed[12], packed[13], packed[14], packed[15]);
+      printf("        (%02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x  %02x %02x %02x %02x) expected\n",
+             test->packed[0], test->packed[1], test->packed[2], test->packed[3],
+             test->packed[4], test->packed[5], test->packed[6], test->packed[7],
+             test->packed[8], test->packed[9], test->packed[10], test->packed[11],
+             test->packed[12], test->packed[13], test->packed[14], test->packed[15]);
+   }
+
+   return success;
+}
+
+
+typedef boolean
+(*test_func_t)(const struct util_format_test_case *test);
+
+
+static boolean
+test_one(test_func_t func, const char *suffix)
+{
+   enum pipe_format last_format = PIPE_FORMAT_NONE;
+   unsigned i;
+   bool success = TRUE;
+
+   for (i = 0; i < util_format_nr_test_cases; ++i) {
+      const struct util_format_test_case *test = &util_format_test_cases[i];
+      if (test->format != last_format) {
+         const struct util_format_description *format_desc;
+         format_desc = util_format_description(test->format);
+         printf("Testing util_format_%s_%s ...\n", format_desc->short_name, suffix);
+         last_format = test->format;
+      }
+
+      if (!func(&util_format_test_cases[i]))
+        success = FALSE;
    }
 
    return success;
@@ -246,24 +214,19 @@ test_format_pack(const struct util_format_test_case *test)
 static boolean
 test_all(void)
 {
-   enum pipe_format last_format = PIPE_FORMAT_NONE;
-   unsigned i;
    bool success = TRUE;
 
-   for (i = 0; i < sizeof(test_cases)/sizeof(test_cases[0]); ++i) {
-      if (test_cases[i].format != last_format) {
-         const struct util_format_description *format_desc;
-         format_desc = util_format_description(test_cases[i].format);
-         fprintf(stderr, "Testing %s ...\n", format_desc->name);
-         last_format = test_cases[i].format;
-      }
+   if (!test_one(&test_format_pack_4f, "pack_4f"))
+     success = FALSE;
 
-      if (!test_format_pack(&test_cases[i]))
-        success = FALSE;
+   if (!test_one(&test_format_unpack_4f, "unpack_4f"))
+     success = FALSE;
 
-      if (!test_format_unpack(&test_cases[i]))
-        success = FALSE;
-   }
+   if (!test_one(&test_format_pack_4ub, "pack_4ub"))
+     success = FALSE;
+
+   if (!test_one(&test_format_unpack_4ub, "unpack_4ub"))
+     success = FALSE;
 
    return success;
 }

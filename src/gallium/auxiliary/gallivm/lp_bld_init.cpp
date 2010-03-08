@@ -26,31 +26,44 @@
  **************************************************************************/
 
 
-#ifndef LP_BLD_MISC_H
-#define LP_BLD_MISC_H
+#include <llvm/Config/config.h>
+#include <llvm/Target/TargetSelect.h>
+#include <llvm/Target/TargetOptions.h>
+
+#include "pipe/p_config.h"
+
+#include "lp_bld_init.h"
 
 
-#include "llvm/Config/config.h"
+extern "C" void LLVMLinkInJIT();
 
-#ifdef __cplusplus
-extern "C" {
+
+extern "C" void
+lp_build_init(void)
+{
+#if defined(PIPE_OS_WINDOWS) && defined(PIPE_ARCH_X86)
+   /*
+    * This is mis-detected on some hardware / software combinations.
+    */
+   llvm::StackAlignment = 4;
+   llvm::RealignStack = true;
 #endif
 
+   /* Same as LLVMInitializeNativeTarget(); */
+   llvm::InitializeNativeTarget();
 
-#ifndef LLVM_NATIVE_ARCH
-
-void
-LLVMLinkInJIT(void);
-
-int
-LLVMInitializeNativeTarget(void);
-
-#endif /* !LLVM_NATIVE_ARCH */
-
-
-#ifdef __cplusplus
+   LLVMLinkInJIT();
 }
+
+
+/* 
+ * Hack to allow the linking of release LLVM static libraries on a debug build.
+ *
+ * See also:
+ * - http://social.msdn.microsoft.com/Forums/en-US/vclanguage/thread/7234ea2b-0042-42ed-b4e2-5d8644dfb57d
+ */
+#if defined(_MSC_VER) && defined(_DEBUG)
+#include <crtdefs.h>
+extern "C" _CRTIMP void __cdecl
+_invalid_parameter_noinfo(void) {}
 #endif
-
-
-#endif /* !LP_BLD_MISC_H */

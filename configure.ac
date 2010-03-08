@@ -46,6 +46,28 @@ solaris*)
     ;;
 esac
 
+dnl If we're using GCC, make sure that it is at least version 3.3.0.  Older
+dnl versions are explictly not supported.
+if test "x$GCC" = xyes; then
+    AC_MSG_CHECKING([whether gcc version is sufficient])
+    major=0
+    minor=0
+
+    GCC_VERSION=`$CC -dumpversion`
+    if test $? -eq 0; then
+        major=`echo $GCC_VERSION | cut -d. -f1`
+        minor=`echo $GCC_VERSION | cut -d. -f1`
+    fi
+
+    if test $major -lt 3 -o $major -eq 3 -a $minor -lt 3 ; then
+        AC_MSG_RESULT([no])
+        AC_MSG_ERROR([If using GCC, version 3.3.0 or later is required.])
+    else
+        AC_MSG_RESULT([yes])
+    fi
+fi
+
+
 MKDEP_OPTIONS=-fdepend
 dnl Ask gcc where it's keeping its secret headers
 if test "x$GCC" = xyes; then
@@ -435,7 +457,6 @@ CORE_DIRS="glsl mesa"
 
 SRC_DIRS="glew"
 GLU_DIRS="sgi"
-WINDOW_SYSTEM=""
 GALLIUM_DIRS="auxiliary drivers state_trackers"
 GALLIUM_WINSYS_DIRS=""
 GALLIUM_WINSYS_DRM_DIRS=""
@@ -450,7 +471,6 @@ xlib)
 dri)
     SRC_DIRS="$SRC_DIRS glx"
     DRIVER_DIRS="dri"
-    WINDOW_SYSTEM="dri"
     GALLIUM_WINSYS_DIRS="$GALLIUM_WINSYS_DIRS drm"
     ;;
 osmesa)
@@ -460,7 +480,6 @@ esac
 AC_SUBST([SRC_DIRS])
 AC_SUBST([GLU_DIRS])
 AC_SUBST([DRIVER_DIRS])
-AC_SUBST([WINDOW_SYSTEM])
 AC_SUBST([GALLIUM_DIRS])
 AC_SUBST([GALLIUM_WINSYS_DIRS])
 AC_SUBST([GALLIUM_WINSYS_DRM_DIRS])
@@ -804,7 +823,7 @@ AC_SUBST([DRI_LIB_DEPS])
 
 case $DRI_DIRS in
 *i915*|*i965*)
-    PKG_CHECK_MODULES([INTEL], [libdrm_intel])
+    PKG_CHECK_MODULES([INTEL], [libdrm_intel >= 2.4.19])
     ;;
 esac
 

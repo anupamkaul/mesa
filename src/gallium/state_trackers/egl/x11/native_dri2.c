@@ -48,6 +48,8 @@ struct dri2_display {
    Display *dpy;
    boolean own_dpy;
 
+   struct native_event_handler *event_handler;
+
    struct drm_api *api;
    struct x11_screen *xscr;
    int xscr_number;
@@ -327,8 +329,11 @@ dri2_surface_flush_frontbuffer(struct native_surface *nsurf)
             DRI2BufferFakeFrontLeft, DRI2BufferFrontLeft);
 
    /* force buffers to be updated in next validation call */
-   if (!dri2_surface_receive_events(&dri2surf->base))
+   if (!dri2_surface_receive_events(&dri2surf->base)) {
       dri2surf->server_stamp++;
+      dri2dpy->event_handler->invalid_surface(&dri2dpy->base,
+            &dri2surf->base, dri2surf->server_stamp);
+   }
 
    return TRUE;
 }
@@ -356,8 +361,11 @@ dri2_surface_swap_buffers(struct native_surface *nsurf)
             DRI2BufferFrontLeft, DRI2BufferFakeFrontLeft);
 
    /* force buffers to be updated in next validation call */
-   if (!dri2_surface_receive_events(&dri2surf->base))
+   if (!dri2_surface_receive_events(&dri2surf->base)) {
       dri2surf->server_stamp++;
+      dri2dpy->event_handler->invalid_surface(&dri2dpy->base,
+            &dri2surf->base, dri2surf->server_stamp);
+   }
 
    return TRUE;
 }
@@ -519,17 +527,17 @@ choose_color_format(const __GLcontextModes *mode, enum pipe_format formats[32])
 
    switch (mode->rgbBits) {
    case 32:
-      formats[count++] = PIPE_FORMAT_A8R8G8B8_UNORM;
       formats[count++] = PIPE_FORMAT_B8G8R8A8_UNORM;
+      formats[count++] = PIPE_FORMAT_A8R8G8B8_UNORM;
       break;
    case 24:
-      formats[count++] = PIPE_FORMAT_X8R8G8B8_UNORM;
       formats[count++] = PIPE_FORMAT_B8G8R8X8_UNORM;
-      formats[count++] = PIPE_FORMAT_A8R8G8B8_UNORM;
+      formats[count++] = PIPE_FORMAT_X8R8G8B8_UNORM;
       formats[count++] = PIPE_FORMAT_B8G8R8A8_UNORM;
+      formats[count++] = PIPE_FORMAT_A8R8G8B8_UNORM;
       break;
    case 16:
-      formats[count++] = PIPE_FORMAT_R5G6B5_UNORM;
+      formats[count++] = PIPE_FORMAT_B5G6R5_UNORM;
       break;
    default:
       break;
@@ -550,12 +558,12 @@ choose_depth_stencil_format(const __GLcontextModes *mode,
       break;
    case 24:
       if (mode->stencilBits) {
-         formats[count++] = PIPE_FORMAT_S8Z24_UNORM;
          formats[count++] = PIPE_FORMAT_Z24S8_UNORM;
+         formats[count++] = PIPE_FORMAT_S8Z24_UNORM;
       }
       else {
-         formats[count++] = PIPE_FORMAT_X8Z24_UNORM;
          formats[count++] = PIPE_FORMAT_Z24X8_UNORM;
+         formats[count++] = PIPE_FORMAT_X8Z24_UNORM;
       }
       break;
    case 16:
@@ -702,6 +710,25 @@ dri2_display_is_pixmap_supported(struct native_display *ndpy,
    return (depth == nconf_depth || (depth == 24 && depth + 8 == nconf_depth));
 }
 
+static int
+dri2_display_get_param(struct native_display *ndpy,
+                       enum native_param_type param)
+{
+   int val;
+
+   switch (param) {
+   case NATIVE_PARAM_USE_NATIVE_BUFFER:
+      /* DRI2GetBuffers use the native buffers */
+      val = TRUE;
+      break;
+   default:
+      val = 0;
+      break;
+   }
+
+   return val;
+}
+
 static void
 dri2_display_destroy(struct native_display *ndpy)
 {
@@ -740,7 +767,10 @@ dri2_display_invalidate_buffers(struct x11_screen *xscr, Drawable drawable,
       return;
 
    dri2surf = dri2_surface(nsurf);
+
    dri2surf->server_stamp++;
+   dri2dpy->event_handler->invalid_surface(&dri2dpy->base,
+         &dri2surf->base, dri2surf->server_stamp);
 }
 
 /**
@@ -799,7 +829,9 @@ dri2_display_hash_table_compare(void *key1, void *key2)
 }
 
 struct native_display *
-x11_create_dri2_display(EGLNativeDisplayType dpy, struct drm_api *api)
+x11_create_dri2_display(EGLNativeDisplayType dpy,
+                        struct native_event_handler *event_handler,
+                        struct drm_api *api)
 {
    struct dri2_display *dri2dpy;
 
@@ -807,6 +839,7 @@ x11_create_dri2_display(EGLNativeDisplayType dpy, struct drm_api *api)
    if (!dri2dpy)
       return NULL;
 
+   dri2dpy->event_handler = event_handler;
    dri2dpy->api = api;
 
    dri2dpy->dpy = dpy;
@@ -839,6 +872,7 @@ x11_create_dri2_display(EGLNativeDisplayType dpy, struct drm_api *api)
    }
 
    dri2dpy->base.destroy = dri2_display_destroy;
+   dri2dpy->base.get_param = dri2_display_get_param;
    dri2dpy->base.get_configs = dri2_display_get_configs;
    dri2dpy->base.is_pixmap_supported = dri2_display_is_pixmap_supported;
    dri2dpy->base.create_window_surface = dri2_display_create_window_surface;

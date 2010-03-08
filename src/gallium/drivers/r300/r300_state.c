@@ -43,6 +43,12 @@
 /* r300_state: Functions used to intialize state context by translating
  * Gallium state objects into semi-native r300 state objects. */
 
+#define UPDATE_STATE(cso, atom) \
+    if (cso != atom.state) { \
+        atom.state = cso;    \
+        atom.dirty = TRUE;   \
+    }
+
 static boolean blend_discard_if_src_alpha_0(unsigned srcRGB, unsigned srcA,
                                             unsigned dstRGB, unsigned dstA)
 {
@@ -328,8 +334,7 @@ static void r300_bind_blend_state(struct pipe_context* pipe,
 {
     struct r300_context* r300 = r300_context(pipe);
 
-    r300->blend_state.state = state;
-    r300->blend_state.dirty = TRUE;
+    UPDATE_STATE(state, r300->blend_state);
 }
 
 /* Free blend state. */
@@ -356,7 +361,7 @@ static void r300_set_blend_color(struct pipe_context* pipe,
         (struct r300_blend_color_state*)r300->blend_color_state.state;
     union util_color uc;
 
-    util_pack_color(color->color, PIPE_FORMAT_A8R8G8B8_UNORM, &uc);
+    util_pack_color(color->color, PIPE_FORMAT_B8G8R8A8_UNORM, &uc);
     state->blend_color = uc.ui;
 
     /* XXX if FP16 blending is enabled, we should use the FP16 format */
@@ -375,6 +380,8 @@ static void r300_set_clip_state(struct pipe_context* pipe,
                                 const struct pipe_clip_state* state)
 {
     struct r300_context* r300 = r300_context(pipe);
+
+    r300->clip = *state;
 
     if (r300_screen(pipe->screen)->caps->has_tcl) {
         memcpy(r300->clip_state.state, state, sizeof(struct pipe_clip_state));
@@ -476,11 +483,8 @@ static void r300_bind_dsa_state(struct pipe_context* pipe,
                                 void* state)
 {
     struct r300_context* r300 = r300_context(pipe);
-    struct r300_screen* r300screen = r300_screen(pipe->screen);
 
-    r300->dsa_state.state = state;
-    r300->dsa_state.size = r300screen->caps->is_r500 ? 8 : 6;
-    r300->dsa_state.dirty = TRUE;
+    UPDATE_STATE(state, r300->dsa_state);
 }
 
 /* Free DSA state. */
@@ -567,6 +571,7 @@ static void
 {
     struct r300_context* r300 = r300_context(pipe);
     struct r300_screen* r300screen = r300_screen(pipe->screen);
+    struct pipe_framebuffer_state *old_state = r300->fb_state.state;
     unsigned max_width, max_height;
     uint32_t zbuffer_bpp = 0;
 
@@ -591,23 +596,30 @@ static void
         return;
     }
 
-
     if (r300->draw) {
         draw_flush(r300->draw);
     }
+
+    r300->fb_state.dirty = TRUE;
+
+    /* If nr_cbufs is changed from zero to non-zero or vice versa... */
+    if (!!old_state->nr_cbufs != !!state->nr_cbufs) {
+        r300->blend_state.dirty = TRUE;
+    }
+    /* If zsbuf is set from NULL to non-NULL or vice versa.. */
+    if (!!old_state->zsbuf != !!state->zsbuf) {
+        r300->dsa_state.dirty = TRUE;
+    }
+    if (!r300->scissor_enabled) {
+        r300->scissor_state.dirty = TRUE;
+    }
+
+    r300_fb_update_tiling_flags(r300, r300->fb_state.state, state);
 
     memcpy(r300->fb_state.state, state, sizeof(struct pipe_framebuffer_state));
 
     r300->fb_state.size = (10 * state->nr_cbufs) + (2 * (4 - state->nr_cbufs)) +
                           (state->zsbuf ? 10 : 0) + 8;
-
-    r300_fb_update_tiling_flags(r300, r300->fb_state.state, state);
-
-    /* XXX wait what */
-    r300->blend_state.dirty = TRUE;
-    r300->dsa_state.dirty = TRUE;
-    r300->fb_state.dirty = TRUE;
-    r300->scissor_state.dirty = TRUE;
 
     /* Polygon offset depends on the zbuffer bit depth. */
     if (state->zsbuf && r300->polygon_offset_enabled) {
@@ -712,10 +724,8 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
     rs->vap_control_status = R300_VC_32BIT_SWAP;
 #endif
 
-    /* If bypassing TCL, or if no TCL engine is present, turn off the HW TCL.
-     * Else, enable HW TCL and force Draw's TCL off. */
-    if (state->bypass_vs_clip_and_viewport ||
-            !r300screen->caps->has_tcl) {
+    /* If no TCL engine is present, turn off the HW TCL. */
+    if (!r300screen->caps->has_tcl) {
         rs->vap_control_status |= R300_VAP_TCL_BYPASS;
     }
 
@@ -804,6 +814,7 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
 {
     struct r300_context* r300 = r300_context(pipe);
     struct r300_rs_state* rs = (struct r300_rs_state*)state;
+    boolean scissor_was_enabled = r300->scissor_enabled;
 
     if (r300->draw) {
         draw_flush(r300->draw);
@@ -811,23 +822,18 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     }
 
     if (rs) {
-        r300->tcl_bypass = rs->rs.bypass_vs_clip_and_viewport;
         r300->polygon_offset_enabled = rs->rs.offset_cw || rs->rs.offset_ccw;
-        r300->rs_state.dirty = TRUE;
+        r300->scissor_enabled = rs->rs.scissor;
     } else {
-        r300->tcl_bypass = FALSE;
         r300->polygon_offset_enabled = FALSE;
+        r300->scissor_enabled = FALSE;
     }
 
-    r300->rs_state.state = rs;
+    UPDATE_STATE(state, r300->rs_state);
     r300->rs_state.size = 17 + (r300->polygon_offset_enabled ? 5 : 0);
-    /* XXX Why is this still needed, dammit!? */
-    r300->scissor_state.dirty = TRUE;
-    r300->viewport_state.dirty = TRUE;
 
-    /* XXX Clean these up when we move to atom emits */
-    if (r300->fs && r300->fs->inputs.wpos != ATTR_UNUSED) {
-        r300->dirty_state |= R300_NEW_FRAGMENT_SHADER_CONSTANTS;
+    if (scissor_was_enabled != r300->scissor_enabled) {
+        r300->scissor_state.dirty = TRUE;
     }
 }
 
@@ -869,7 +875,7 @@ static void*
 
     sampler->filter1 |= r300_anisotropy(state->max_anisotropy);
 
-    util_pack_color(state->border_color, PIPE_FORMAT_A8R8G8B8_UNORM, &uc);
+    util_pack_color(state->border_color, PIPE_FORMAT_B8G8R8A8_UNORM, &uc);
     sampler->border_color = uc.ui;
 
     /* R500-specific fixups and optimizations */
@@ -972,7 +978,9 @@ static void r300_set_scissor_state(struct pipe_context* pipe,
     memcpy(r300->scissor_state.state, state,
         sizeof(struct pipe_scissor_state));
 
-    r300->scissor_state.dirty = TRUE;
+    if (r300->scissor_enabled) {
+        r300->scissor_state.dirty = TRUE;
+    }
 }
 
 static void r300_set_viewport_state(struct pipe_context* pipe,
@@ -981,6 +989,8 @@ static void r300_set_viewport_state(struct pipe_context* pipe,
     struct r300_context* r300 = r300_context(pipe);
     struct r300_viewport_state* viewport =
         (struct r300_viewport_state*)r300->viewport_state.state;
+
+    r300->viewport = *state;
 
     /* Do the transform in HW. */
     viewport->vte_control = R300_VTX_W0_FMT;
@@ -1085,69 +1095,71 @@ static void* r300_create_vs_state(struct pipe_context* pipe,
 {
     struct r300_context* r300 = r300_context(pipe);
 
+    struct r300_vertex_shader* vs = CALLOC_STRUCT(r300_vertex_shader);
+    r300_vertex_shader_common_init(vs, shader);
+
     if (r300_screen(pipe->screen)->caps->has_tcl) {
-        struct r300_vertex_shader* vs = CALLOC_STRUCT(r300_vertex_shader);
-        /* Copy state directly into shader. */
-        vs->state = *shader;
-        vs->state.tokens = tgsi_dup_tokens(shader->tokens);
-
-        tgsi_scan_shader(shader->tokens, &vs->info);
-
-        return (void*)vs;
+        r300_translate_vertex_shader(r300, vs);
     } else {
-        return draw_create_vertex_shader(r300->draw, shader);
+        vs->draw_vs = draw_create_vertex_shader(r300->draw, shader);
     }
+
+    return vs;
 }
 
 static void r300_bind_vs_state(struct pipe_context* pipe, void* shader)
 {
     struct r300_context* r300 = r300_context(pipe);
+    struct r300_vertex_shader* vs = (struct r300_vertex_shader*)shader;
+
+    if (vs == NULL) {
+        r300->vs_state.state = NULL;
+        return;
+    }
+    if (vs == r300->vs_state.state) {
+        return;
+    }
+    r300->vs_state.state = vs;
+
+    // VS output mapping for HWTCL or stream mapping for SWTCL to the RS block
+    if (r300->fs) {
+        r300_vertex_shader_setup_wpos(r300);
+    }
+    memcpy(r300->vap_output_state.state, &vs->vap_out,
+           sizeof(struct r300_vap_output_state));
+    r300->vap_output_state.dirty = TRUE;
+
+    /* The majority of the RS block bits is dependent on the vertex shader. */
+    r300->rs_block_state.dirty = TRUE; /* Will be updated before the emission. */
 
     if (r300_screen(pipe->screen)->caps->has_tcl) {
-        struct r300_vertex_shader* vs = (struct r300_vertex_shader*)shader;
-
-        if (vs == NULL) {
-            r300->vs_state.state = NULL;
-            return;
-        } else if (!vs->translated) {
-            r300_translate_vertex_shader(r300, vs);
-        }
-
-        r300->vs_state.state = vs;
-        r300->vs_state.size = vs->code.length + 9;
         r300->vs_state.dirty = TRUE;
+        r300->vs_state.size = vs->code.length + 9;
 
-        r300->rs_block_state.dirty = TRUE; /* Will be updated before the emission. */
-        r300->vap_output_state.dirty = TRUE;
-        r300->vertex_stream_state.dirty = TRUE; /* XXX needed for TCL bypass */
         r300->pvs_flush.dirty = TRUE;
-
-        if (r300->fs) {
-            r300_vertex_shader_setup_wpos(r300);
-        }
 
         r300->dirty_state |= R300_NEW_VERTEX_SHADER_CONSTANTS;
     } else {
         draw_flush(r300->draw);
         draw_bind_vertex_shader(r300->draw,
-                (struct draw_vertex_shader*)shader);
+                (struct draw_vertex_shader*)vs->draw_vs);
     }
 }
 
 static void r300_delete_vs_state(struct pipe_context* pipe, void* shader)
 {
     struct r300_context* r300 = r300_context(pipe);
+    struct r300_vertex_shader* vs = (struct r300_vertex_shader*)shader;
 
     if (r300_screen(pipe->screen)->caps->has_tcl) {
-        struct r300_vertex_shader* vs = (struct r300_vertex_shader*)shader;
-
         rc_constants_destroy(&vs->code.constants);
-        FREE((void*)vs->state.tokens);
-        FREE(shader);
     } else {
         draw_delete_vertex_shader(r300->draw,
-                (struct draw_vertex_shader*)shader);
+                (struct draw_vertex_shader*)vs->draw_vs);
     }
+
+    FREE((void*)vs->state.tokens);
+    FREE(shader);
 }
 
 static void r300_set_constant_buffer(struct pipe_context *pipe,
@@ -1199,8 +1211,10 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
     pipe_buffer_unmap(pipe->screen, buf);
 
     if (shader == PIPE_SHADER_VERTEX) {
-        r300->dirty_state |= R300_NEW_VERTEX_SHADER_CONSTANTS;
-        r300->pvs_flush.dirty = TRUE;
+        if (r300screen->caps->has_tcl) {
+            r300->dirty_state |= R300_NEW_VERTEX_SHADER_CONSTANTS;
+            r300->pvs_flush.dirty = TRUE;
+        }
     }
     else if (shader == PIPE_SHADER_FRAGMENT)
         r300->dirty_state |= R300_NEW_FRAGMENT_SHADER_CONSTANTS;

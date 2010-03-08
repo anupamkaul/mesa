@@ -36,6 +36,7 @@
 
 #include "native.h"
 #include "egl_g3d.h"
+#include "egl_g3d_image.h"
 #include "egl_st.h"
 
 /**
@@ -531,6 +532,24 @@ egl_g3d_update_buffer(struct pipe_screen *screen, void *context_private)
    egl_g3d_validate_context(gctx->base.Resource.Display, &gctx->base);
 }
 
+static void
+egl_g3d_invalid_surface(struct native_display *ndpy,
+                        struct native_surface *nsurf,
+                        unsigned int seq_num)
+{
+   /* XXX not thread safe? */
+   struct egl_g3d_surface *gsurf = egl_g3d_surface(nsurf->user_data);
+   struct egl_g3d_context *gctx = egl_g3d_context(gsurf->base.CurrentContext);
+
+   /* set force_validate to skip an unnecessary check */
+   if (gctx)
+      gctx->force_validate = TRUE;
+}
+
+static struct native_event_handler egl_g3d_native_event_handler = {
+   .invalid_surface = egl_g3d_invalid_surface
+};
+
 static EGLBoolean
 egl_g3d_terminate(_EGLDriver *drv, _EGLDisplay *dpy)
 {
@@ -575,12 +594,14 @@ egl_g3d_initialize(_EGLDriver *drv, _EGLDisplay *dpy,
    }
    dpy->DriverData = gdpy;
 
-   gdpy->native = native_create_display(dpy->NativeDisplay);
+   gdpy->native = native_create_display(dpy->NativeDisplay,
+         &egl_g3d_native_event_handler);
    if (!gdpy->native) {
       _eglError(EGL_NOT_INITIALIZED, "eglInitialize(no usable display)");
       goto fail;
    }
 
+   gdpy->native->user_data = (void *) dpy;
    gdpy->native->screen->flush_frontbuffer = egl_g3d_flush_frontbuffer;
    gdpy->native->screen->update_buffer = egl_g3d_update_buffer;
 
@@ -594,6 +615,10 @@ egl_g3d_initialize(_EGLDriver *drv, _EGLDisplay *dpy,
       egl_g3d_add_screens(drv, dpy);
    }
 #endif
+
+   dpy->Extensions.KHR_image_base = EGL_TRUE;
+   if (gdpy->native->get_param(gdpy->native, NATIVE_PARAM_USE_NATIVE_BUFFER))
+      dpy->Extensions.KHR_image_pixmap = EGL_TRUE;
 
    if (egl_g3d_add_configs(drv, dpy, 1) == 1) {
       _eglError(EGL_NOT_INITIALIZED, "eglInitialize(unable to add configs)");
@@ -776,6 +801,7 @@ egl_g3d_create_surface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLConfig *conf,
       return NULL;
    }
 
+   nsurf->user_data = &gsurf->base;
    gsurf->native = nsurf;
 
    gsurf->render_att = (gsurf->base.RenderBuffer == EGL_SINGLE_BUFFER) ?
@@ -937,8 +963,8 @@ egl_g3d_swap_buffers(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf)
 /**
  * Find a config that supports the pixmap.
  */
-static _EGLConfig *
-find_pixmap_config(_EGLDisplay *dpy, EGLNativePixmapType pix)
+_EGLConfig *
+egl_g3d_find_pixmap_config(_EGLDisplay *dpy, EGLNativePixmapType pix)
 {
    struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
    struct egl_g3d_config *gconf;
@@ -990,7 +1016,7 @@ egl_g3d_copy_buffers(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf,
    if (!gsurf->render_surface)
       return EGL_TRUE;
 
-   gconf = egl_g3d_config(find_pixmap_config(dpy, target));
+   gconf = egl_g3d_config(egl_g3d_find_pixmap_config(dpy, target));
    if (!gconf)
       return _eglError(EGL_BAD_NATIVE_PIXMAP, "eglCopyBuffers");
 
@@ -1097,7 +1123,7 @@ egl_g3d_bind_tex_image(_EGLDriver *drv, _EGLDisplay *dpy,
       target_format = PIPE_FORMAT_R8G8B8_UNORM;
       break;
    case EGL_TEXTURE_RGBA:
-      target_format = PIPE_FORMAT_A8R8G8B8_UNORM;
+      target_format = PIPE_FORMAT_B8G8R8A8_UNORM;
       break;
    default:
       return _eglError(EGL_BAD_MATCH, "eglBindTexImage");
@@ -1300,6 +1326,9 @@ _eglMain(const char *args)
 
    gdrv->base.API.BindTexImage = egl_g3d_bind_tex_image;
    gdrv->base.API.ReleaseTexImage = egl_g3d_release_tex_image;
+
+   gdrv->base.API.CreateImageKHR = egl_g3d_create_image;
+   gdrv->base.API.DestroyImageKHR = egl_g3d_destroy_image;
 
 #ifdef EGL_MESA_screen_surface
    gdrv->base.API.CreateScreenSurfaceMESA = egl_g3d_create_screen_surface;

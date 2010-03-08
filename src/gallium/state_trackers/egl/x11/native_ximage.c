@@ -56,6 +56,8 @@ struct ximage_display {
    struct x11_screen *xscr;
    int xscr_number;
 
+   struct native_event_handler *event_handler;
+
    boolean use_xshm;
 
    struct pipe_winsys *winsys;
@@ -228,6 +230,16 @@ ximage_surface_update_geometry(struct native_surface *nsurf)
    return updated;
 }
 
+static void
+ximage_surface_notify_invalid(struct native_surface *nsurf)
+{
+   struct ximage_surface *xsurf = ximage_surface(nsurf);
+   struct ximage_display *xdpy = xsurf->xdpy;
+
+   xdpy->event_handler->invalid_surface(&xdpy->base,
+         &xsurf->base, xsurf->server_stamp);
+}
+
 /**
  * Update the buffers of the surface.  It is a slow function due to the
  * round-trip to the server.
@@ -339,6 +351,7 @@ ximage_surface_flush_frontbuffer(struct native_surface *nsurf)
          NATIVE_ATTACHMENT_FRONT_LEFT);
    /* force buffers to be updated in next validation call */
    xsurf->server_stamp++;
+   ximage_surface_notify_invalid(&xsurf->base);
 
    return ret;
 }
@@ -354,6 +367,7 @@ ximage_surface_swap_buffers(struct native_surface *nsurf)
    ret = ximage_surface_draw_buffer(nsurf, NATIVE_ATTACHMENT_BACK_LEFT);
    /* force buffers to be updated in next validation call */
    xsurf->server_stamp++;
+   ximage_surface_notify_invalid(&xsurf->base);
 
    xfront = &xsurf->buffers[NATIVE_ATTACHMENT_FRONT_LEFT];
    xback = &xsurf->buffers[NATIVE_ATTACHMENT_BACK_LEFT];
@@ -561,13 +575,13 @@ choose_format(const XVisualInfo *vinfo)
    /* TODO elaborate the formats */
    switch (vinfo->depth) {
    case 32:
-      fmt = PIPE_FORMAT_A8R8G8B8_UNORM;
+      fmt = PIPE_FORMAT_B8G8R8A8_UNORM;
       break;
    case 24:
-      fmt = PIPE_FORMAT_X8R8G8B8_UNORM;
+      fmt = PIPE_FORMAT_B8G8R8X8_UNORM;
       break;
    case 16:
-      fmt = PIPE_FORMAT_R5G6B5_UNORM;
+      fmt = PIPE_FORMAT_B5G6R5_UNORM;
       break;
    default:
       fmt = PIPE_FORMAT_NONE;
@@ -620,8 +634,8 @@ ximage_display_get_configs(struct native_display *ndpy, int *num_configs)
             xconf->base.stencil_format = PIPE_FORMAT_NONE;
             /* create the second config with depth/stencil buffer */
             if (j == 1) {
-               xconf->base.depth_format = PIPE_FORMAT_S8Z24_UNORM;
-               xconf->base.stencil_format = PIPE_FORMAT_S8Z24_UNORM;
+               xconf->base.depth_format = PIPE_FORMAT_Z24S8_UNORM;
+               xconf->base.stencil_format = PIPE_FORMAT_Z24S8_UNORM;
                mode->depthBits = 24;
                mode->stencilBits = 8;
                mode->haveDepthBuffer = TRUE;
@@ -669,13 +683,13 @@ ximage_display_is_pixmap_supported(struct native_display *ndpy,
    depth = x11_drawable_get_depth(xdpy->xscr, (Drawable) pix);
    switch (depth) {
    case 32:
-      fmt = PIPE_FORMAT_A8R8G8B8_UNORM;
+      fmt = PIPE_FORMAT_B8G8R8A8_UNORM;
       break;
    case 24:
-      fmt = PIPE_FORMAT_X8R8G8B8_UNORM;
+      fmt = PIPE_FORMAT_B8G8R8X8_UNORM;
       break;
    case 16:
-      fmt = PIPE_FORMAT_R5G6B5_UNORM;
+      fmt = PIPE_FORMAT_B5G6R5_UNORM;
       break;
    default:
       fmt = PIPE_FORMAT_NONE;
@@ -683,6 +697,25 @@ ximage_display_is_pixmap_supported(struct native_display *ndpy,
    }
 
    return (fmt == nconf->color_format);
+}
+
+static int
+ximage_display_get_param(struct native_display *ndpy,
+                         enum native_param_type param)
+{
+   int val;
+
+   switch (param) {
+   case NATIVE_PARAM_USE_NATIVE_BUFFER:
+      /* private buffers are allocated */
+      val = FALSE;
+      break;
+   default:
+      val = 0;
+      break;
+   }
+
+   return val;
 }
 
 static void
@@ -703,7 +736,9 @@ ximage_display_destroy(struct native_display *ndpy)
 }
 
 struct native_display *
-x11_create_ximage_display(EGLNativeDisplayType dpy, boolean use_xshm)
+x11_create_ximage_display(EGLNativeDisplayType dpy,
+                          struct native_event_handler *event_handler,
+                          boolean use_xshm)
 {
    struct ximage_display *xdpy;
 
@@ -728,6 +763,8 @@ x11_create_ximage_display(EGLNativeDisplayType dpy, boolean use_xshm)
       return NULL;
    }
 
+   xdpy->event_handler = event_handler;
+
    xdpy->use_xshm =
       (use_xshm && x11_screen_support(xdpy->xscr, X11_SCREEN_EXTENSION_XSHM));
 
@@ -735,6 +772,7 @@ x11_create_ximage_display(EGLNativeDisplayType dpy, boolean use_xshm)
    xdpy->base.screen = softpipe_create_screen(xdpy->winsys);
 
    xdpy->base.destroy = ximage_display_destroy;
+   xdpy->base.get_param = ximage_display_get_param;
 
    xdpy->base.get_configs = ximage_display_get_configs;
    xdpy->base.is_pixmap_supported = ximage_display_is_pixmap_supported;

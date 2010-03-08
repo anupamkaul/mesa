@@ -70,9 +70,6 @@ intel_delete_renderbuffer(struct gl_renderbuffer *rb)
 
    ASSERT(irb);
 
-   if (irb->span_cache != NULL)
-      free(irb->span_cache);
-
    if (intel && irb->region) {
       intel_region_release(&irb->region);
    }
@@ -222,6 +219,7 @@ intel_image_target_renderbuffer_storage(GLcontext *ctx,
       intel_region_release(&irb->region);
    intel_region_reference(&irb->region, image->region);
 
+   rb->InternalFormat = image->internal_format;
    rb->Width = image->region->width;
    rb->Height = image->region->height;
    rb->Format = image->format;

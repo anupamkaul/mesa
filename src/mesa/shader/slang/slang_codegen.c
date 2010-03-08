@@ -1754,7 +1754,7 @@ swizzle_to_writemask(slang_assemble_ctx *A, GLuint swizzle,
          /* end */
          break;
       }
-      assert(swz >= 0 && swz <= 3);
+      assert(swz <= 3);
 
       if (swizzle != SWIZZLE_XXXX &&
           swizzle != SWIZZLE_YYYY &&
@@ -1894,6 +1894,7 @@ _slang_gen_asm(slang_assemble_ctx *A, slang_operation *oper,
       _mesa_problem(NULL, "undefined __asm function %s\n",
                     (char *) oper->a_id);
       assert(info);
+      return NULL;
    }
    assert(info->NumParams <= 3);
 
@@ -4207,7 +4208,7 @@ swizzle_size(GLuint swizzle)
    GLuint size = 0, i;
    for (i = 0; i < 4; i++) {
       GLuint swz = GET_SWZ(swizzle, i);
-      size += (swz >= 0 && swz <= 3);
+      size += (swz <= 3);
    }
    return size;
 }
