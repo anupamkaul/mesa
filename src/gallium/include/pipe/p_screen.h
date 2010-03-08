@@ -196,23 +196,6 @@ struct pipe_screen {
                                              void *ptr,
                                              unsigned bytes);
 
-   /**
-    * Allocate storage for a display target surface.
-    *
-    * Often surfaces which are meant to be blitted to the front screen (i.e.,
-    * display targets) must be allocated with special characteristics, memory
-    * pools, or obtained directly from the windowing system.
-    *
-    * This callback is invoked by the pipe_screenwhen creating a texture marked
-    * with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET flag  to get the underlying
-    * buffer storage.
-    */
-   struct pipe_buffer *(*surface_buffer_create)(struct pipe_screen *screen,
-						unsigned width, unsigned height,
-						enum pipe_format format,
-						unsigned usage,
-						unsigned tex_usage,
-						unsigned *stride);
 
 
    /**

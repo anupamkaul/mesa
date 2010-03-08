@@ -36,6 +36,7 @@
 #include "util/u_format.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+#include "util/u_simple_screen.h"
 
 #include "sp_context.h"
 #include "sp_texture.h"
@@ -91,13 +92,13 @@ softpipe_displaytarget_layout(struct pipe_screen *screen,
                      PIPE_BUFFER_USAGE_GPU_READ_WRITE);
    unsigned tex_usage = spt->base.tex_usage;
 
-   spt->buffer = screen->surface_buffer_create( screen, 
-                                                spt->base.width0, 
-                                                spt->base.height0,
-                                                spt->base.format,
-                                                usage,
-                                                tex_usage,
-                                                &spt->stride[0]);
+   spt->buffer = screen->winsys->surface_buffer_create( screen->winsys, 
+                                                        spt->base.width0, 
+                                                        spt->base.height0,
+                                                        spt->base.format,
+                                                        usage,
+                                                        tex_usage,
+                                                        &spt->stride[0]);
 
    return spt->buffer != NULL;
 }

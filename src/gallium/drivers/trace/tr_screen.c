@@ -486,45 +486,7 @@ trace_screen_transfer_unmap(struct pipe_screen *_screen,
  */
 
 
-static struct pipe_buffer *
-trace_screen_surface_buffer_create(struct pipe_screen *_screen,
-                                   unsigned width, unsigned height,
-                                   enum pipe_format format,
-                                   unsigned usage,
-                                   unsigned tex_usage,
-                                   unsigned *pstride)
-{
-   struct trace_screen *tr_scr = trace_screen(_screen);
-   struct pipe_screen *screen = tr_scr->screen;
-   unsigned stride;
-   struct pipe_buffer *result;
 
-   trace_dump_call_begin("pipe_screen", "surface_buffer_create");
-
-   trace_dump_arg(ptr, screen);
-   trace_dump_arg(uint, width);
-   trace_dump_arg(uint, height);
-   trace_dump_arg(format, format);
-   trace_dump_arg(uint, usage);
-   trace_dump_arg(uint, tex_usage);
-
-   result = screen->surface_buffer_create(screen,
-                                          width, height,
-                                          format,
-                                          usage,
-                                          tex_usage,
-                                          pstride);
-
-   stride = *pstride;
-
-   trace_dump_arg(uint, stride);
-
-   trace_dump_ret(ptr, result);
-
-   trace_dump_call_end();
-
-   return trace_buffer_create(tr_scr, result);
-}
 
 
 static struct pipe_buffer *
@@ -944,7 +906,6 @@ trace_screen_create(struct pipe_screen *screen)
    tr_scr->base.transfer_unmap = trace_screen_transfer_unmap;
    tr_scr->base.buffer_create = trace_screen_buffer_create;
    tr_scr->base.user_buffer_create = trace_screen_user_buffer_create;
-   tr_scr->base.surface_buffer_create = trace_screen_surface_buffer_create;
    if (screen->buffer_map)
       tr_scr->base.buffer_map = trace_screen_buffer_map;
    if (screen->buffer_map_range)

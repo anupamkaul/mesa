@@ -311,31 +311,6 @@ identity_screen_user_buffer_create(struct pipe_screen *_screen,
    return NULL;
 }
 
-static struct pipe_buffer *
-identity_screen_surface_buffer_create(struct pipe_screen *_screen,
-                                      unsigned width,
-                                      unsigned height,
-                                      enum pipe_format format,
-                                      unsigned usage,
-                                      unsigned tex_usage,
-                                      unsigned *stride)
-{
-   struct identity_screen *id_screen = identity_screen(_screen);
-   struct pipe_screen *screen = id_screen->screen;
-   struct pipe_buffer *result;
-
-   result = screen->surface_buffer_create(screen,
-                                          width,
-                                          height,
-                                          format,
-                                          usage,
-                                          tex_usage,
-                                          stride);
-
-   if (result)
-      return identity_buffer_create(id_screen, result);
-   return NULL;
-}
 
 static void *
 identity_screen_buffer_map(struct pipe_screen *_screen,
@@ -519,7 +494,6 @@ identity_screen_create(struct pipe_screen *screen)
    id_screen->base.transfer_unmap = identity_screen_transfer_unmap;
    id_screen->base.buffer_create = identity_screen_buffer_create;
    id_screen->base.user_buffer_create = identity_screen_user_buffer_create;
-   id_screen->base.surface_buffer_create = identity_screen_surface_buffer_create;
    if (screen->buffer_map)
       id_screen->base.buffer_map = identity_screen_buffer_map;
    if (screen->buffer_map_range)
