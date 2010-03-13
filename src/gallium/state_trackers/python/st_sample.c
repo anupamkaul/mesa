@@ -533,7 +533,7 @@ st_sample_surface(struct st_surface *surface, float *rgba)
    struct pipe_transfer *transfer;
    void *raw;
 
-   transfer = screen->get_tex_transfer(screen,
+   transfer = screen->get_transfer(screen,
                                        surface->texture,
                                        surface->face,
                                        surface->level,

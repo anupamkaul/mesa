@@ -110,7 +110,7 @@ static void failover_draw_arrays( struct pipe_context *pipe,
 
 static unsigned int
 failover_is_texture_referenced( struct pipe_context *_pipe,
-				struct pipe_texture *texture,
+				struct pipe_resource *texture,
 				unsigned face, unsigned level)
 {
    struct failover_context *failover = failover_context( _pipe );

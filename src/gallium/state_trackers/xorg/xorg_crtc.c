@@ -220,7 +220,7 @@ crtc_load_cursor_argb_ga3d(xf86CrtcPtr crtc, CARD32 * image)
 	crtcp->cursor_handle = whandle.handle;
     }
 
-    transfer = ms->ctx->get_tex_transfer(ms->ctx, crtcp->cursor_tex,
+    transfer = ms->ctx->get_transfer(ms->ctx, crtcp->cursor_tex,
                                          0, 0, 0,
                                          PIPE_TRANSFER_WRITE,
                                          0, 0, 64, 64);

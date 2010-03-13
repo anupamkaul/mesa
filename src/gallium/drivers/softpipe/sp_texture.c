@@ -256,11 +256,11 @@ softpipe_tex_surface_destroy(struct pipe_surface *surf)
  * \param height  height of region to read/write
  */
 static struct pipe_transfer *
-softpipe_get_tex_transfer(struct pipe_context *pipe,
-                          struct pipe_texture *texture,
-                          unsigned face, unsigned level, unsigned zslice,
+softpipe_get_transfer(struct pipe_context *pipe,
+                          struct pipe_resource *resource,
+                          struct pipe_subresource subresource,
                           enum pipe_transfer_usage usage,
-                          unsigned x, unsigned y, unsigned w, unsigned h)
+			  const struct pipe_box *box)
 {
    struct softpipe_texture *sptex = softpipe_texture(texture);
    struct softpipe_transfer *spt;
@@ -275,8 +275,9 @@ softpipe_get_tex_transfer(struct pipe_context *pipe,
    spt = CALLOC_STRUCT(softpipe_transfer);
    if (spt) {
       struct pipe_transfer *pt = &spt->base;
-      int nblocksy = util_format_get_nblocksy(texture->format, u_minify(texture->height0, level));
-      pipe_texture_reference(&pt->texture, texture);
+      int nblocksy = util_format_get_nblocksy(texture->format, 
+					      u_minify(texture->height0, level));
+      pipe_texture_reference(&resource, texture);
       pt->x = x;
       pt->y = y;
       pt->width = w;
@@ -307,10 +308,10 @@ softpipe_get_tex_transfer(struct pipe_context *pipe,
 
 /**
  * Free a pipe_transfer object which was created with
- * softpipe_get_tex_transfer().
+ * softpipe_get_transfer().
  */
 static void 
-softpipe_tex_transfer_destroy(struct pipe_context *pipe,
+softpipe_transfer_destroy(struct pipe_context *pipe,
                               struct pipe_transfer *transfer)
 {
    /* Effectively do the texture_update work here - if texture images
@@ -451,8 +452,8 @@ softpipe_video_surface_destroy(struct pipe_video_surface *vsfc)
 void
 softpipe_init_texture_funcs(struct pipe_context *pipe)
 {
-   pipe->get_tex_transfer = softpipe_get_tex_transfer;
-   pipe->tex_transfer_destroy = softpipe_tex_transfer_destroy;
+   pipe->get_transfer = softpipe_get_transfer;
+   pipe->transfer_destroy = softpipe_transfer_destroy;
    pipe->transfer_map = softpipe_transfer_map;
    pipe->transfer_unmap = softpipe_transfer_unmap;
 }

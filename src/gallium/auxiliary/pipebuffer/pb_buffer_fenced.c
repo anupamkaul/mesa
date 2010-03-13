@@ -210,7 +210,7 @@ fenced_manager_dump_locked(struct fenced_manager *fenced_mgr)
       assert(!fenced_buf->fence);
       debug_printf("%10p %7u %8u %7s\n",
                    (void *) fenced_buf,
-                   fenced_buf->base.base.size,
+                   fenced_buf->base.base.width0,
                    p_atomic_read(&fenced_buf->base.base.reference.count),
                    fenced_buf->buffer ? "gpu" : (fenced_buf->data ? "cpu" : "none"));
       curr = next;
@@ -226,7 +226,7 @@ fenced_manager_dump_locked(struct fenced_manager *fenced_mgr)
       signaled = ops->fence_signalled(ops, fenced_buf->fence, 0);
       debug_printf("%10p %7u %8u %7s %10p %s\n",
                    (void *) fenced_buf,
-                   fenced_buf->base.base.size,
+                   fenced_buf->base.base.width0,
                    p_atomic_read(&fenced_buf->base.base.reference.count),
                    "gpu",
                    (void *) fenced_buf->fence,

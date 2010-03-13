@@ -1127,11 +1127,11 @@ make_1d_mipmap(struct gen_mipmap_state *ctx,
       struct pipe_transfer *srcTrans, *dstTrans;
       void *srcMap, *dstMap;
       
-      srcTrans = pipe->get_tex_transfer(pipe, pt, face, srcLevel, zslice,
+      srcTrans = pipe->get_transfer(pipe, pt, face, srcLevel, zslice,
                                           PIPE_TRANSFER_READ, 0, 0,
                                           u_minify(pt->width0, srcLevel),
                                           u_minify(pt->height0, srcLevel));
-      dstTrans = pipe->get_tex_transfer(pipe, pt, face, dstLevel, zslice,
+      dstTrans = pipe->get_transfer(pipe, pt, face, dstLevel, zslice,
                                           PIPE_TRANSFER_WRITE, 0, 0,
                                           u_minify(pt->width0, dstLevel),
                                           u_minify(pt->height0, dstLevel));
@@ -1169,11 +1169,11 @@ make_2d_mipmap(struct gen_mipmap_state *ctx,
       struct pipe_transfer *srcTrans, *dstTrans;
       ubyte *srcMap, *dstMap;
       
-      srcTrans = pipe->get_tex_transfer(pipe, pt, face, srcLevel, zslice,
+      srcTrans = pipe->get_transfer(pipe, pt, face, srcLevel, zslice,
                                           PIPE_TRANSFER_READ, 0, 0,
                                           u_minify(pt->width0, srcLevel),
                                           u_minify(pt->height0, srcLevel));
-      dstTrans = pipe->get_tex_transfer(pipe, pt, face, dstLevel, zslice,
+      dstTrans = pipe->get_transfer(pipe, pt, face, dstLevel, zslice,
                                           PIPE_TRANSFER_WRITE, 0, 0,
                                           u_minify(pt->width0, dstLevel),
                                           u_minify(pt->height0, dstLevel));
@@ -1214,11 +1214,11 @@ make_3d_mipmap(struct gen_mipmap_state *ctx,
       struct pipe_transfer *srcTrans, *dstTrans;
       ubyte *srcMap, *dstMap;
       
-      srcTrans = pipe->get_tex_transfer(pipe, pt, face, srcLevel, zslice,
+      srcTrans = pipe->get_transfer(pipe, pt, face, srcLevel, zslice,
                                           PIPE_TRANSFER_READ, 0, 0,
                                           u_minify(pt->width0, srcLevel),
                                           u_minify(pt->height0, srcLevel));
-      dstTrans = pipe->get_tex_transfer(pipe, pt, face, dstLevel, zslice,
+      dstTrans = pipe->get_transfer(pipe, pt, face, dstLevel, zslice,
                                           PIPE_TRANSFER_WRITE, 0, 0,
                                           u_minify(pt->width0, dstLevel),
                                           u_minify(pt->height0, dstLevel));

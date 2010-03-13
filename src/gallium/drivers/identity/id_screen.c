@@ -208,25 +208,6 @@ identity_screen_tex_surface_destroy(struct pipe_surface *_surface)
 }
 
 
-static struct pipe_buffer *
-identity_screen_buffer_create(struct pipe_screen *_screen,
-                              unsigned alignment,
-                              unsigned usage,
-                              unsigned size)
-{
-   struct identity_screen *id_screen = identity_screen(_screen);
-   struct pipe_screen *screen = id_screen->screen;
-   struct pipe_buffer *result;
-
-   result = screen->buffer_create(screen,
-                                  alignment,
-                                  usage,
-                                  size);
-
-   if (result)
-      return identity_buffer_create(id_screen, result);
-   return NULL;
-}
 
 static struct pipe_buffer *
 identity_screen_user_buffer_create(struct pipe_screen *_screen,
@@ -247,75 +228,6 @@ identity_screen_user_buffer_create(struct pipe_screen *_screen,
 }
 
 
-static void *
-identity_screen_buffer_map(struct pipe_screen *_screen,
-                           struct pipe_buffer *_buffer,
-                           unsigned usage)
-{
-   struct identity_screen *id_screen = identity_screen(_screen);
-   struct identity_buffer *id_buffer = identity_buffer(_buffer);
-   struct pipe_screen *screen = id_screen->screen;
-   struct pipe_buffer *buffer = id_buffer->buffer;
-
-   return screen->buffer_map(screen,
-                             buffer,
-                             usage);
-}
-
-static void *
-identity_screen_buffer_map_range(struct pipe_screen *_screen,
-                                 struct pipe_buffer *_buffer,
-                                 unsigned offset,
-                                 unsigned length,
-                                 unsigned usage)
-{
-   struct identity_screen *id_screen = identity_screen(_screen);
-   struct identity_buffer *id_buffer = identity_buffer(_buffer);
-   struct pipe_screen *screen = id_screen->screen;
-   struct pipe_buffer *buffer = id_buffer->buffer;
-
-   return screen->buffer_map_range(screen,
-                                   buffer,
-                                   offset,
-                                   length,
-                                   usage);
-}
-
-static void
-identity_screen_buffer_flush_mapped_range(struct pipe_screen *_screen,
-                                          struct pipe_buffer *_buffer,
-                                          unsigned offset,
-                                          unsigned length)
-{
-   struct identity_screen *id_screen = identity_screen(_screen);
-   struct identity_buffer *id_buffer = identity_buffer(_buffer);
-   struct pipe_screen *screen = id_screen->screen;
-   struct pipe_buffer *buffer = id_buffer->buffer;
-
-   screen->buffer_flush_mapped_range(screen,
-                                     buffer,
-                                     offset,
-                                     length);
-}
-
-static void
-identity_screen_buffer_unmap(struct pipe_screen *_screen,
-                             struct pipe_buffer *_buffer)
-{
-   struct identity_screen *id_screen = identity_screen(_screen);
-   struct identity_buffer *id_buffer = identity_buffer(_buffer);
-   struct pipe_screen *screen = id_screen->screen;
-   struct pipe_buffer *buffer = id_buffer->buffer;
-
-   screen->buffer_unmap(screen,
-                        buffer);
-}
-
-static void
-identity_screen_buffer_destroy(struct pipe_buffer *_buffer)
-{
-   identity_buffer_destroy(identity_buffer(_buffer));
-}
 
 static struct pipe_video_surface *
 identity_screen_video_surface_create(struct pipe_screen *_screen,

@@ -38,7 +38,7 @@
  */
 void 
 util_draw_vertex_buffer(struct pipe_context *pipe,
-                        struct pipe_buffer *vbuf,
+                        struct pipe_resource *vbuf,
                         uint offset,
                         uint prim_type,
                         uint num_verts,
@@ -73,7 +73,7 @@ void
 util_draw_texquad(struct pipe_context *pipe,
                   float x0, float y0, float x1, float y1, float z)
 {
-   struct pipe_buffer *vbuf;
+   struct pipe_resource *vbuf;
    uint numAttribs = 2, vertexBytes, i, j;
 
    vertexBytes = 4 * (4 * numAttribs * sizeof(float));

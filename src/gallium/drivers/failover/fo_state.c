@@ -449,7 +449,7 @@ failover_delete_sampler_state(struct pipe_context *pipe, void *sampler)
 
 static struct pipe_sampler_view *
 failover_create_sampler_view(struct pipe_context *pipe,
-                             struct pipe_texture *texture,
+                             struct pipe_resource *texture,
                              const struct pipe_sampler_view *templ)
 {
    struct fo_sampler_view *view = malloc(sizeof(struct fo_sampler_view));

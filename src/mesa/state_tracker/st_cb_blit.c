@@ -123,7 +123,7 @@ st_BlitFramebuffer(GLcontext *ctx,
             return;
 
          srcSurf = screen->get_tex_surface(screen,
-                                           &srcObj->pt->base,
+                                           srcObj->pt,
                                            srcAtt->CubeMapFace,
                                            srcAtt->TextureLevel,
                                            srcAtt->Zoffset,

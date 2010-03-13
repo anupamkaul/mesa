@@ -170,7 +170,7 @@ softpipe_set_constant_buffer(struct pipe_context *pipe,
                              struct pipe_buffer *constants)
 {
    struct softpipe_context *softpipe = softpipe_context(pipe);
-   unsigned size = constants ? constants->size : 0;
+   unsigned size = constants ? constants->width0 : 0;
    const void *data = constants ? softpipe_buffer(constants)->data : NULL;
 
    assert(shader < PIPE_SHADER_TYPES);

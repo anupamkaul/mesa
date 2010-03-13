@@ -60,7 +60,7 @@ struct brw_transfer
 
 struct brw_buffer
 {
-   struct pipe_buffer base;
+   struct pipe_resource base;
 
    /* One of either bo or user_buffer will be non-null, depending on
     * whether this is a hardware or user buffer.
@@ -106,7 +106,7 @@ struct brw_surface
 
 struct brw_texture
 {
-   struct pipe_texture base;
+   struct pipe_resource base;
    struct brw_winsys_buffer *bo;
    struct brw_surface_state ss;
 
@@ -154,8 +154,9 @@ brw_buffer(struct pipe_buffer *buffer)
 }
 
 static INLINE struct brw_texture *
-brw_texture(struct pipe_texture *texture)
+brw_texture(struct pipe_resource *texture)
 {
+   assert(texture->target != PIPE_BUFFER);
    return (struct brw_texture *)texture;
 }
 

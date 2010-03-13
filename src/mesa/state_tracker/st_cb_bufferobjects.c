@@ -238,10 +238,10 @@ st_bufferobj_map(GLcontext *ctx, GLenum target, GLenum access,
       break;      
    }
 
-   u_box_1d( 0, st_obj->buffer->base.width0, &box );
+   u_box_1d( 0, st_obj->buffer->width0, &box );
 
    st_obj->transfer = pipe->get_transfer( pipe,
-					  &st_obj->buffer->base,
+					  st_obj->buffer,
 					  u_subresource(0, 0),
 					  flags,
 					  &box);
@@ -311,7 +311,7 @@ st_bufferobj_map_range(GLcontext *ctx, GLenum target,
    u_box_1d( offset, length, &box );
 
    st_obj->transfer = pipe->get_transfer(pipe,
-					 &st_obj->buffer->base,
+					 st_obj->buffer,
 					 u_subresource(0,0),
 					 flags,
 					 &box);

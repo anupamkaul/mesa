@@ -121,7 +121,7 @@ sp_destroy_tile_cache(struct softpipe_tile_cache *tc)
       /*assert(tc->entries[pos].x < 0);*/
    }
    if (tc->transfer) {
-      tc->pipe->tex_transfer_destroy(tc->pipe, tc->transfer);
+      tc->pipe->transfer_destroy(tc->pipe, tc->transfer);
    }
 
    FREE( tc );
@@ -146,17 +146,17 @@ sp_tile_cache_set_surface(struct softpipe_tile_cache *tc,
          tc->transfer_map = NULL;
       }
 
-      pipe->tex_transfer_destroy(pipe, tc->transfer);
+      pipe->transfer_destroy(pipe, tc->transfer);
       tc->transfer = NULL;
    }
 
    tc->surface = ps;
 
    if (ps) {
-      tc->transfer = pipe->get_tex_transfer(pipe, ps->texture, ps->face,
-                                              ps->level, ps->zslice,
-                                              PIPE_TRANSFER_READ_WRITE,
-                                              0, 0, ps->width, ps->height);
+      tc->transfer = pipe_get_transfer(pipe, ps->texture, ps->face,
+					   ps->level, ps->zslice,
+					   PIPE_TRANSFER_READ_WRITE,
+					   0, 0, ps->width, ps->height);
 
       tc->depth_stencil = (ps->format == PIPE_FORMAT_Z24S8_UNORM ||
                            ps->format == PIPE_FORMAT_Z24X8_UNORM ||

@@ -105,7 +105,7 @@ st_no_flush_get_tex_transfer(struct st_context *st,
 
 static INLINE void
 st_cond_flush_pipe_buffer_write(struct st_context *st,
-				struct pipe_buffer *buf,
+				struct pipe_resource *buf,
 				unsigned int offset,
 				unsigned int size,
 				const void * data)
@@ -117,7 +117,7 @@ st_cond_flush_pipe_buffer_write(struct st_context *st,
 
 static INLINE void
 st_no_flush_pipe_buffer_write(struct st_context *st,
-			      struct pipe_buffer *buf,
+			      struct pipe_resource *buf,
 			      unsigned int offset,
 			      unsigned int size,
 			      const void * data)
@@ -127,7 +127,7 @@ st_no_flush_pipe_buffer_write(struct st_context *st,
 
 static INLINE void
 st_no_flush_pipe_buffer_write_nooverlap(struct st_context *st,
-                                        struct pipe_buffer *buf,
+                                        struct pipe_resource *buf,
                                         unsigned int offset,
                                         unsigned int size,
                                         const void * data)
@@ -137,14 +137,14 @@ st_no_flush_pipe_buffer_write_nooverlap(struct st_context *st,
 
 static INLINE void
 st_cond_flush_pipe_buffer_read(struct st_context *st,
-			       struct pipe_buffer *buf,
+			       struct pipe_resource *buf,
 			       unsigned int offset,
 			       unsigned int size,
 			       void * data)
 {
    struct pipe_context *pipe = st->pipe;
 
-   if (pipe->is_resource_referenced(pipe, &buf->base, 0, 0) & PIPE_REFERENCED_FOR_WRITE)
+   if (pipe->is_resource_referenced(pipe, buf, 0, 0) & PIPE_REFERENCED_FOR_WRITE)
       st_flush(st, PIPE_FLUSH_RENDER_CACHE, NULL);
 
    pipe_buffer_read(pipe, buf, offset, size, data);
@@ -152,7 +152,7 @@ st_cond_flush_pipe_buffer_read(struct st_context *st,
 
 static INLINE void
 st_no_flush_pipe_buffer_read(struct st_context *st,
-			     struct pipe_buffer *buf,
+			     struct pipe_resource *buf,
 			     unsigned int offset,
 			     unsigned int size,
 			     void * data)

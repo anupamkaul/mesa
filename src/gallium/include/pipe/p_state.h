@@ -272,7 +272,7 @@ struct pipe_sampler_state
 struct pipe_surface
 {
    struct pipe_reference reference;
-   struct pipe_resource *resource; /**< resource into which this is a view  */
+   struct pipe_resource *texture; /**< resource into which this is a view  */
    enum pipe_format format;
 
    unsigned width;               /**< logical width in pixels */
@@ -298,7 +298,7 @@ struct pipe_sampler_view
 {
    struct pipe_reference reference;
    enum pipe_format format;      /**< typed PIPE_FORMAT_x */
-   struct pipe_texture *texture; /**< texture into which this is a view  */
+   struct pipe_resource *texture; /**< texture into which this is a view  */
    struct pipe_context *context; /**< context this view belongs to */
    unsigned first_level:8;       /**< first mipmap level */
    unsigned last_level:8;        /**< last mipmap level */
@@ -314,7 +314,7 @@ struct pipe_sampler_view
  */
 struct pipe_transfer
 {
-   struct pipe_resource *texture; /**< resource to transfer to/from  */
+   struct pipe_resource *resource; /**< resource to transfer to/from  */
    unsigned stride;
    unsigned slice_stride;
    void *data;
@@ -342,16 +342,8 @@ struct pipe_resource
    unsigned tex_usage;       /**< bitmask of PIPE_TEXTURE_USAGE_* */
 };
 
-/* Transition helpers:
- */
-struct pipe_buffer {
-   struct pipe_resource base;
-};
-
-struct pipe_texture {
-   struct pipe_resource base;
-};
-
+#define pipe_texture pipe_resource
+#define pipe_buffer pipe_resource
 
 struct pipe_subresource
 {

@@ -334,7 +334,7 @@ setup_bitmap_vertex_data(struct st_context *st,
    GLuint i;
 
    if (st->bitmap.vbuf_slot >= max_slots) {
-      pipe_buffer_reference(&st->bitmap.vbuf, NULL);
+      pipe_resource_reference(&st->bitmap.vbuf, NULL);
       st->bitmap.vbuf_slot = 0;
    }
 

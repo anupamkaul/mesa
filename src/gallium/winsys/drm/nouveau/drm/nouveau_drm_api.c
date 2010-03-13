@@ -19,8 +19,8 @@ dri_surface_from_handle(struct drm_api *api, struct pipe_screen *pscreen,
                         unsigned width, unsigned height, unsigned pitch)
 {
 	struct pipe_surface *ps = NULL;
-	struct pipe_texture *pt = NULL;
-	struct pipe_texture tmpl;
+	struct pipe_resource *pt = NULL;
+	struct pipe_resource tmpl;
 	struct winsys_handle whandle;
 
 	memset(&tmpl, 0, sizeof(tmpl));

@@ -185,8 +185,8 @@ static GLuint translate_tex_format( enum pipe_format pf )
 
 
 
-static struct pipe_texture *brw_texture_create( struct pipe_screen *screen,
-						const struct pipe_texture *templ )
+static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
+						 const struct pipe_resource *templ )
 
 {  
    struct brw_screen *bscreen = brw_screen(screen);
@@ -305,9 +305,19 @@ fail:
    return NULL;
 }
 
-static struct pipe_texture * 
+static struct pipe_resource *brw_resource_create( struct pipe_screen *screen,
+						  const struct pipe_texture *templ )
+{
+   if (templ.target == PIPE_BUFFER)
+      return brw_buffer_create( screen, templ );
+   else
+      return brw_texture_create( screen, templ );
+}
+
+
+static struct pipe_resource * 
 brw_texture_from_handle(struct pipe_screen *screen,
-                        const struct pipe_texture *templ,
+                        const struct pipe_resource *templ,
                         struct winsys_handle *whandle)
 {
    struct brw_screen *bscreen = brw_screen(screen);
@@ -406,7 +416,7 @@ fail:
 
 static boolean
 brw_texture_get_handle(struct pipe_screen *screen,
-                       struct pipe_texture *texture,
+                       struct pipe_resource *texture,
                        struct winsys_handle *whandle)
 {
    struct brw_screen *bscreen = brw_screen(screen);
@@ -420,7 +430,7 @@ brw_texture_get_handle(struct pipe_screen *screen,
 
 
 
-static void brw_texture_destroy(struct pipe_texture *pt)
+static void brw_texture_destroy(struct pipe_resource *pt)
 {
    struct brw_texture *tex = brw_texture(pt);
    bo_reference(&tex->bo, NULL);
@@ -439,7 +449,7 @@ static boolean brw_is_format_supported( struct pipe_screen *screen,
 
 
 boolean brw_is_texture_referenced_by_bo( struct brw_screen *brw_screen,
-                                      struct pipe_texture *texture,
+                                      struct pipe_resource *texture,
                                       unsigned face, 
                                       unsigned level,
                                       struct brw_winsys_buffer *bo )
@@ -481,8 +491,8 @@ boolean brw_is_texture_referenced_by_bo( struct brw_screen *brw_screen,
  */
 
 static struct pipe_transfer*
-brw_get_tex_transfer(struct pipe_context *pipe,
-                     struct pipe_texture *texture,
+brw_get_transfer(struct pipe_context *pipe,
+                     struct pipe_resource *texture,
                      unsigned face, unsigned level, unsigned zslice,
                      enum pipe_transfer_usage usage, unsigned x, unsigned y,
                      unsigned w, unsigned h)
@@ -553,7 +563,7 @@ brw_transfer_unmap(struct pipe_context *pipe,
 }
 
 static void
-brw_tex_transfer_destroy(struct pipe_context *pipe,
+brw_transfer_destroy(struct pipe_context *pipe,
                          struct pipe_transfer *trans)
 {
    pipe_texture_reference(&trans->texture, NULL);
@@ -563,10 +573,10 @@ brw_tex_transfer_destroy(struct pipe_context *pipe,
 
 void brw_tex_init( struct brw_context *brw )
 {
-   brw->base.get_tex_transfer = brw_get_tex_transfer;
+   brw->base.tex_transfer = brw_get_transfer;
    brw->base.transfer_map = brw_transfer_map;
    brw->base.transfer_unmap = brw_transfer_unmap;
-   brw->base.tex_transfer_destroy = brw_tex_transfer_destroy;
+   brw->base.transfer_destroy = brw_transfer_destroy;
 }
 
 void brw_screen_tex_init( struct brw_screen *brw_screen )

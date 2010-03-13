@@ -412,7 +412,7 @@ void image_sub_data(struct vg_image *image,
    }
 
    { /* upload color_data */
-      struct pipe_transfer *transfer = pipe->get_tex_transfer(
+      struct pipe_transfer *transfer = pipe->get_transfer(
          pipe, texture, 0, 0, 0,
          PIPE_TRANSFER_WRITE, 0, 0, texture->width0, texture->height0);
       src += (dataStride * yoffset);
@@ -443,7 +443,7 @@ void image_get_sub_data(struct vg_image * image,
 
    {
       struct pipe_transfer *transfer =
-         pipe->get_tex_transfer(pipe,
+         pipe->get_transfer(pipe,
                                   image->texture,  0, 0, 0,
                                   PIPE_TRANSFER_READ,
                                   0, 0,

@@ -618,7 +618,7 @@ st_draw_vbo(GLcontext *ctx,
    if (ib) {
       /* indexed primitive */
       struct gl_buffer_object *bufobj = ib->obj;
-      struct pipe_buffer *indexBuf = NULL;
+      struct pipe_resource *indexBuf = NULL;
       unsigned indexSize, indexOffset, i;
       unsigned prim;
 

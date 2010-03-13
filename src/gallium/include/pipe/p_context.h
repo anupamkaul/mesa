@@ -65,7 +65,7 @@ struct pipe_context {
                         unsigned mode, unsigned start, unsigned count);
 
    void (*draw_elements)( struct pipe_context *pipe,
-                          struct pipe_buffer *indexBuffer,
+                          struct pipe_resource *indexBuffer,
                           unsigned indexSize,
                           unsigned mode, unsigned start, unsigned count);
 
@@ -77,7 +77,7 @@ struct pipe_context {
                                  unsigned instanceCount);
 
    void (*draw_elements_instanced)(struct pipe_context *pipe,
-                                   struct pipe_buffer *indexBuffer,
+                                   struct pipe_resource *indexBuffer,
                                    unsigned indexSize,
                                    unsigned mode,
                                    unsigned start,
@@ -91,7 +91,7 @@ struct pipe_context {
     * module.
     */
    void (*draw_range_elements)( struct pipe_context *pipe,
-                                struct pipe_buffer *indexBuffer,
+                                struct pipe_resource *indexBuffer,
                                 unsigned indexSize,
                                 unsigned minIndex,
                                 unsigned maxIndex,
@@ -200,7 +200,7 @@ struct pipe_context {
 
    void (*set_constant_buffer)( struct pipe_context *,
                                 uint shader, uint index,
-                                struct pipe_buffer *buf );
+                                struct pipe_resource *buf );
 
    void (*set_framebuffer_state)( struct pipe_context *,
                                   const struct pipe_framebuffer_state * );
@@ -299,7 +299,7 @@ struct pipe_context {
     * Create a view on a texture to be used by a shader stage.
     */
    struct pipe_sampler_view * (*create_sampler_view)(struct pipe_context *ctx,
-                                                     struct pipe_texture *texture,
+                                                     struct pipe_resource *texture,
                                                      const struct pipe_sampler_view *templat);
 
    void (*sampler_view_destroy)(struct pipe_context *ctx,

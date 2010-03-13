@@ -787,7 +787,7 @@ svga_surface_needs_propagation(struct pipe_surface *surf)
  * can now modify it to queue transfers on the context.
  */
 static struct pipe_transfer *
-svga_get_tex_transfer(struct pipe_context *pipe,
+svga_get_transfer(struct pipe_context *pipe,
 		      struct pipe_texture *texture,
 		      unsigned face, unsigned level, unsigned zslice,
 		      enum pipe_transfer_usage usage, unsigned x, unsigned y,
@@ -899,8 +899,8 @@ svga_transfer_unmap(struct pipe_context *pipe,
 
 
 static void
-svga_tex_transfer_destroy(struct pipe_context *pipe,
-                          struct pipe_transfer *transfer)
+svga_transfer_destroy(struct pipe_context *pipe,
+		      struct pipe_transfer *transfer)
 {
    struct svga_texture *tex = svga_texture(transfer->texture);
    struct svga_screen *ss = svga_screen(pipe->screen);
@@ -924,10 +924,10 @@ svga_tex_transfer_destroy(struct pipe_context *pipe,
 void
 svga_init_texture_functions(struct pipe_context *pipe)
 {
-   pipe->get_tex_transfer = svga_get_tex_transfer;
+   pipe->tex_transfer = svga_get_transfer;
    pipe->transfer_map = svga_transfer_map;
    pipe->transfer_unmap = svga_transfer_unmap;
-   pipe->tex_transfer_destroy = svga_tex_transfer_destroy;
+   pipe->transfer_destroy = svga_transfer_destroy;
 }
 
 

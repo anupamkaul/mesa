@@ -35,7 +35,6 @@ extern "C" {
 #include <pipe/p_video_state.h>
 
 struct pipe_screen;
-struct pipe_buffer;
 struct pipe_surface;
 struct pipe_video_surface;
 struct pipe_macroblock;

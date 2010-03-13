@@ -83,7 +83,7 @@ typedef unsigned pb_size;
  */
 struct pb_buffer 
 {
-   struct pipe_buffer base;
+   struct pipe_resource base;
 
    /**
     * Pointer to the virtual function table.
@@ -196,7 +196,7 @@ pb_get_base_buffer( struct pb_buffer *buf,
    assert(buf->vtbl->get_base_buffer);
    buf->vtbl->get_base_buffer(buf, base_buf, offset);
    assert(*base_buf);
-   assert(*offset < (*base_buf)->base.size);
+   assert(*offset < (*base_buf)->base.width0);
 }
 
 

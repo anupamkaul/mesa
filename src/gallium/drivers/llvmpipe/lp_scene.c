@@ -409,7 +409,7 @@ lp_scene_map_buffers( struct lp_scene *scene )
    for (i = 0; i < scene->fb.nr_cbufs; i++) {
       cbuf = scene->fb.cbufs[i];
       if (cbuf) {
-	 scene->cbuf_transfer[i] = pipe->get_tex_transfer(pipe,
+	 scene->cbuf_transfer[i] = pipe_get_transfer(pipe,
                                                           cbuf->texture,
                                                           cbuf->face,
                                                           cbuf->level,
@@ -432,7 +432,7 @@ lp_scene_map_buffers( struct lp_scene *scene )
     */
    zsbuf = scene->fb.zsbuf;
    if (zsbuf) {
-      scene->zsbuf_transfer = pipe->get_tex_transfer(pipe,
+      scene->zsbuf_transfer = pipe_get_transfer(pipe,
                                                        zsbuf->texture,
                                                        zsbuf->face,
                                                        zsbuf->level,
@@ -477,7 +477,7 @@ lp_scene_unmap_buffers( struct lp_scene *scene )
 	 pipe->transfer_unmap(pipe, scene->cbuf_transfer[i]);
 
       if (scene->cbuf_transfer[i])
-	 pipe->tex_transfer_destroy(pipe, scene->cbuf_transfer[i]);
+	 pipe->transfer_destroy(pipe, scene->cbuf_transfer[i]);
 
       scene->cbuf_transfer[i] = NULL;
       scene->cbuf_map[i] = NULL;
@@ -487,7 +487,7 @@ lp_scene_unmap_buffers( struct lp_scene *scene )
       pipe->transfer_unmap(pipe, scene->zsbuf_transfer);
 
    if (scene->zsbuf_transfer)
-      pipe->tex_transfer_destroy(pipe, scene->zsbuf_transfer);
+      pipe->transfer_destroy(pipe, scene->zsbuf_transfer);
 
    scene->zsbuf_transfer = NULL;
    scene->zsbuf_map = NULL;

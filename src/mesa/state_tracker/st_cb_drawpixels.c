@@ -504,7 +504,7 @@ draw_quad(GLcontext *ctx, GLfloat x0, GLfloat y0, GLfloat z,
    }
 
    {
-      struct pipe_buffer *buf;
+      struct pipe_resource *buf;
 
       /* allocate/load buffer object with vertex data */
       buf = pipe_buffer_create(pipe->screen, 32, PIPE_BUFFER_USAGE_VERTEX,
@@ -735,7 +735,7 @@ draw_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
             }
 
             /* now pack the stencil (and Z) values in the dest format */
-            switch (pt->texture->format) {
+            switch (pt->resource->format) {
             case PIPE_FORMAT_S8_UNORM:
                {
                   ubyte *dest = stmap + spanY * pt->stride + spanX;
@@ -891,8 +891,8 @@ copy_stencil_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
 					   usage, dstx, dsty,
 					   width, height);
 
-   assert(util_format_get_blockwidth(ptDraw->texture->format) == 1);
-   assert(util_format_get_blockheight(ptDraw->texture->format) == 1);
+   assert(util_format_get_blockwidth(ptDraw->resource->format) == 1);
+   assert(util_format_get_blockheight(ptDraw->resource->format) == 1);
 
    /* map the stencil buffer */
    drawMap = pipe_transfer_map(pipe, ptDraw);
@@ -913,7 +913,7 @@ copy_stencil_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
       dst = drawMap + y * ptDraw->stride;
       src = buffer + i * width;
 
-      switch (ptDraw->texture->format) {
+      switch (ptDraw->resource->format) {
       case PIPE_FORMAT_Z24S8_UNORM:
          {
             uint *dst4 = (uint *) dst;
@@ -1021,7 +1021,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
       driver_vp = make_passthrough_vertex_shader(st, GL_TRUE);
    }
 
-   srcFormat = rbRead->texture->base.format;
+   srcFormat = rbRead->texture->format;
 
    if (screen->is_format_supported(screen, srcFormat, PIPE_TEXTURE_2D, 
                                    PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
@@ -1064,7 +1064,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
 
    sv = st_sampler_view_from_texture(st->pipe, pt);
    if (!sv) {
-      pipe_texture_reference(&pt, NULL);
+      pipe_resource_reference(&pt, NULL);
       return;
    }
 
@@ -1113,7 +1113,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
       if (ST_DEBUG & DEBUG_FALLBACK)
          debug_printf("%s: fallback processing\n", __FUNCTION__);
 
-      if (type == GL_DEPTH && util_format_is_depth_and_stencil(pt->base.format))
+      if (type == GL_DEPTH && util_format_is_depth_and_stencil(pt->format))
          transfer_usage = PIPE_TRANSFER_READ_WRITE;
       else
          transfer_usage = PIPE_TRANSFER_WRITE;

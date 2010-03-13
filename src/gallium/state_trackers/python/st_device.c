@@ -245,7 +245,7 @@ st_context_create(struct st_device *st_dev)
    
       st_ctx->default_texture = screen->texture_create( screen, &templat );
       if(st_ctx->default_texture) {
-         transfer = screen->get_tex_transfer(screen,
+         transfer = screen->get_transfer(screen,
                                              st_ctx->default_texture,
                                              0, 0, 0,
                                              PIPE_TRANSFER_WRITE,

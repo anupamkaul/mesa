@@ -37,19 +37,12 @@
 
 struct identity_context;
 
-struct identity_buffer
+
+struct identity_resource
 {
-   struct pipe_buffer base;
+   struct pipe_resource base;
 
-   struct pipe_buffer *buffer;
-};
-
-
-struct identity_texture
-{
-   struct pipe_texture base;
-
-   struct pipe_texture *texture;
+   struct pipe_resource *resource;
 };
 
 
@@ -86,22 +79,14 @@ struct identity_video_surface
 };
 
 
-static INLINE struct identity_buffer *
-identity_buffer(struct pipe_buffer *_buffer)
-{
-   if(!_buffer)
-      return NULL;
-   (void)identity_screen(_buffer->screen);
-   return (struct identity_buffer *)_buffer;
-}
 
-static INLINE struct identity_texture *
-identity_texture(struct pipe_texture *_texture)
+static INLINE struct identity_resource *
+identity_resource(struct pipe_resource *_resource)
 {
-   if(!_texture)
+   if(!_resource)
       return NULL;
-   (void)identity_screen(_texture->screen);
-   return (struct identity_texture *)_texture;
+   (void)identity_screen(_resource->screen);
+   return (struct identity_resource *)_resource;
 }
 
 static INLINE struct identity_sampler_view *
@@ -118,7 +103,7 @@ identity_surface(struct pipe_surface *_surface)
 {
    if(!_surface)
       return NULL;
-   (void)identity_texture(_surface->texture);
+   (void)identity_resource(_surface->resource);
    return (struct identity_surface *)_surface;
 }
 
@@ -127,7 +112,7 @@ identity_transfer(struct pipe_transfer *_transfer)
 {
    if(!_transfer)
       return NULL;
-   (void)identity_texture(_transfer->texture);
+   (void)identity_resource(_transfer->resource);
    return (struct identity_transfer *)_transfer;
 }
 
@@ -141,20 +126,12 @@ identity_video_surface(struct pipe_video_surface *_video_surface)
    return (struct identity_video_surface *)_video_surface;
 }
 
-static INLINE struct pipe_buffer *
-identity_buffer_unwrap(struct pipe_buffer *_buffer)
+static INLINE struct pipe_resource *
+identity_resource_unwrap(struct pipe_resource *_resource)
 {
-   if(!_buffer)
+   if(!_resource)
       return NULL;
-   return identity_buffer(_buffer)->buffer;
-}
-
-static INLINE struct pipe_texture *
-identity_texture_unwrap(struct pipe_texture *_texture)
-{
-   if(!_texture)
-      return NULL;
-   return identity_texture(_texture)->texture;
+   return identity_resource(_resource)->resource;
 }
 
 static INLINE struct pipe_sampler_view *
@@ -183,22 +160,15 @@ identity_transfer_unwrap(struct pipe_transfer *_transfer)
 }
 
 
-struct pipe_buffer *
-identity_buffer_create(struct identity_screen *id_screen,
-                       struct pipe_buffer *buffer);
+struct pipe_resource *
+identity_resource_create(struct identity_screen *id_screen,
+                        struct pipe_resource *resource);
 
 void
-identity_buffer_destroy(struct identity_buffer *id_buffer);
-
-struct pipe_texture *
-identity_texture_create(struct identity_screen *id_screen,
-                        struct pipe_texture *texture);
-
-void
-identity_texture_destroy(struct identity_texture *id_texture);
+identity_resource_destroy(struct identity_resource *id_resource);
 
 struct pipe_surface *
-identity_surface_create(struct identity_texture *id_texture,
+identity_surface_create(struct identity_resource *id_resource,
                         struct pipe_surface *surface);
 
 void
@@ -206,7 +176,7 @@ identity_surface_destroy(struct identity_surface *id_surface);
 
 struct pipe_transfer *
 identity_transfer_create(struct identity_context *id_context,
-			 struct identity_texture *id_texture,
+			 struct identity_resource *id_resource,
                          struct pipe_transfer *transfer);
 
 void

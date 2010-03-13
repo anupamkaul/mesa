@@ -154,7 +154,7 @@ trace_transfer_create(struct trace_context *tr_ctx,
    return &tr_trans->base;
 
 error:
-   tr_ctx->pipe->tex_transfer_destroy(tr_ctx->pipe, transfer);
+   tr_ctx->pipe->transfer_destroy(tr_ctx->pipe, transfer);
    return NULL;
 }
 
@@ -170,7 +170,7 @@ trace_transfer_destroy(struct trace_context *tr_context,
    trace_screen_remove_from_list(tr_scr, transfers, tr_trans);
 
    pipe_texture_reference(&tr_trans->base.texture, NULL);
-   context->tex_transfer_destroy(context, transfer);
+   context->transfer_destroy(context, transfer);
    FREE(tr_trans);
 }
 

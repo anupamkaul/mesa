@@ -174,8 +174,8 @@ nv40_transfer_unmap(struct pipe_context *pcontext, struct pipe_transfer *ptx)
 void
 nv40_init_transfer_functions(struct nv40_context *nv40)
 {
-	nv40->pipe.get_tex_transfer = nv40_transfer_new;
-	nv40->pipe.tex_transfer_destroy = nv40_transfer_del;
+	nv40->pipe.get_transfer = nv40_transfer_new;
+	nv40->pipe.transfer_destroy = nv40_transfer_del;
 	nv40->pipe.transfer_map = nv40_transfer_map;
 	nv40->pipe.transfer_unmap = nv40_transfer_unmap;
 }

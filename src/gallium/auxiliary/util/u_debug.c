@@ -440,7 +440,7 @@ void debug_dump_surface(struct pipe_context *pipe,
     */
    texture = surface->texture;
 
-   transfer = pipe->get_tex_transfer(pipe, texture, surface->face,
+   transfer = pipe->get_transfer(pipe, texture, surface->face,
 				     surface->level, surface->zslice,
 				     PIPE_TRANSFER_READ, 0, 0, surface->width,
 				     surface->height);
@@ -525,7 +525,7 @@ debug_dump_surface_bmp(struct pipe_context *pipe,
    struct pipe_transfer *transfer;
    struct pipe_texture *texture = surface->texture;
 
-   transfer = pipe->get_tex_transfer(pipe, texture, surface->face,
+   transfer = pipe->get_transfer(pipe, texture, surface->face,
 				     surface->level, surface->zslice,
 				     PIPE_TRANSFER_READ, 0, 0, surface->width,
 				     surface->height);

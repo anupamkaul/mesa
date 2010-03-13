@@ -441,7 +441,7 @@ void vgReadPixels(void * data, VGint dataStride,
    {
       struct pipe_transfer *transfer;
 
-      transfer = pipe->get_tex_transfer(pipe, strb->texture,  0, 0, 0,
+      transfer = pipe->get_transfer(pipe, strb->texture,  0, 0, 0,
                                           PIPE_TRANSFER_READ,
                                           0, 0, width, height);
 

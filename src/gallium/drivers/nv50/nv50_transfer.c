@@ -247,8 +247,8 @@ nv50_transfer_unmap(struct pipe_context *pcontext, struct pipe_transfer *ptx)
 void
 nv50_init_transfer_functions(struct nv50_context *nv50)
 {
-	nv50->pipe.get_tex_transfer = nv50_transfer_new;
-	nv50->pipe.tex_transfer_destroy = nv50_transfer_del;
+	nv50->pipe.get_transfer = nv50_transfer_new;
+	nv50->pipe.transfer_destroy = nv50_transfer_del;
 	nv50->pipe.transfer_map = nv50_transfer_map;
 	nv50->pipe.transfer_unmap = nv50_transfer_unmap;
 }

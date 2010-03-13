@@ -144,8 +144,8 @@ fallback_generate_mipmap(GLcontext *ctx, GLenum target,
       srcData = (ubyte *) pipe_transfer_map(pipe, srcTrans);
       dstData = (ubyte *) pipe_transfer_map(pipe, dstTrans);
 
-      srcStride = srcTrans->stride / util_format_get_blocksize(srcTrans->texture->format);
-      dstStride = dstTrans->stride / util_format_get_blocksize(dstTrans->texture->format);
+      srcStride = srcTrans->stride / util_format_get_blocksize(srcTrans->resource->format);
+      dstStride = dstTrans->stride / util_format_get_blocksize(dstTrans->resource->format);
 
       _mesa_generate_mipmap_level(target, datatype, comps,
                                   0 /*border*/,

@@ -355,7 +355,7 @@ cell_tex_surface_destroy(struct pipe_surface *surf)
  * back out for glGetTexImage).
  */
 static struct pipe_transfer *
-cell_get_tex_transfer(struct pipe_context *ctx,
+cell_get_transfer(struct pipe_context *ctx,
                       struct pipe_texture *texture,
                       unsigned face, unsigned level, unsigned zslice,
                       enum pipe_transfer_usage usage,
@@ -402,7 +402,7 @@ cell_get_tex_transfer(struct pipe_context *ctx,
 
 
 static void 
-cell_tex_transfer_destroy(struct pipe_context *ctx, struct pipe_transfer *t)
+cell_transfer_destroy(struct pipe_context *ctx, struct pipe_transfer *t)
 {
    struct cell_transfer *transfer = cell_transfer(t);
    /* Effectively do the texture_update work here - if texture images
@@ -566,8 +566,8 @@ cell_init_screen_texture_funcs(struct pipe_screen *screen)
 void
 cell_init_texture_transfer_funcs(struct cell_context *cell)
 {
-   cell->pipe.get_tex_transfer = cell_get_tex_transfer;
-   cell->pipe.tex_transfer_destroy = cell_tex_transfer_destroy;
+   cell->pipe.get_transfer = cell_get_transfer;
+   cell->pipe.transfer_destroy = cell_transfer_destroy;
    cell->pipe.transfer_map = cell_transfer_map;
    cell->pipe.transfer_unmap = cell_transfer_unmap;
 }

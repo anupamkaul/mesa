@@ -188,7 +188,7 @@ ExaDownloadFromScreen(PixmapPtr pPix, int x,  int y, int w,  int h, char *dst,
     if (!priv || !priv->tex)
 	return FALSE;
 
-    transfer = exa->pipe->get_tex_transfer(exa->pipe, priv->tex, 0, 0, 0,
+    transfer = exa->pipe->get_transfer(exa->pipe, priv->tex, 0, 0, 0,
 					   PIPE_TRANSFER_READ, x, y, w, h);
     if (!transfer)
 	return FALSE;
@@ -222,7 +222,7 @@ ExaUploadToScreen(PixmapPtr pPix, int x, int y, int w, int h, char *src,
     if (!priv || !priv->tex)
 	return FALSE;
 
-    transfer = exa->pipe->get_tex_transfer(exa->pipe, priv->tex, 0, 0, 0,
+    transfer = exa->pipe->get_transfer(exa->pipe, priv->tex, 0, 0, 0,
 					   PIPE_TRANSFER_WRITE, x, y, w, h);
     if (!transfer)
 	return FALSE;

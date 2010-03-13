@@ -239,7 +239,7 @@ trace_rbug_texture_read(struct trace_rbug *tr_rbug, struct rbug_header *header, 
    }
 
    tex = tr_tex->texture;
-   t = context->get_tex_transfer(context, tex,
+   t = pipe_get_transfer(context, tex,
 				 gptr->face, gptr->level, gptr->zslice,
 				 PIPE_TRANSFER_READ,
 				 gptr->x, gptr->y, gptr->w, gptr->h);
@@ -257,7 +257,7 @@ trace_rbug_texture_read(struct trace_rbug *tr_rbug, struct rbug_header *header, 
                                 NULL);
 
    context->transfer_unmap(context, t);
-   context->tex_transfer_destroy(context, t);
+   context->transfer_destroy(context, t);
 
    pipe_mutex_unlock(tr_scr->list_mutex);
 

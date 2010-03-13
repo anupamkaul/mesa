@@ -243,7 +243,7 @@ llvmpipe_tex_surface_destroy(struct pipe_surface *surf)
 
 
 static struct pipe_transfer *
-llvmpipe_get_tex_transfer(struct pipe_context *pipe,
+llvmpipe_get_transfer(struct pipe_context *pipe,
                           struct pipe_texture *texture,
                           unsigned face, unsigned level, unsigned zslice,
                           enum pipe_transfer_usage usage,
@@ -294,7 +294,7 @@ llvmpipe_get_tex_transfer(struct pipe_context *pipe,
 
 
 static void 
-llvmpipe_tex_transfer_destroy(struct pipe_context *pipe,
+llvmpipe_transfer_destroy(struct pipe_context *pipe,
                               struct pipe_transfer *transfer)
 {
    /* Effectively do the texture_update work here - if texture images
@@ -383,8 +383,8 @@ llvmpipe_init_screen_texture_funcs(struct pipe_screen *screen)
 void
 llvmpipe_init_context_texture_funcs(struct pipe_context *pipe)
 {
-   pipe->get_tex_transfer = llvmpipe_get_tex_transfer;
-   pipe->tex_transfer_destroy = llvmpipe_tex_transfer_destroy;
+   pipe->get_transfer = llvmpipe_get_transfer;
+   pipe->transfer_destroy = llvmpipe_transfer_destroy;
    pipe->transfer_map = llvmpipe_transfer_map;
    pipe->transfer_unmap = llvmpipe_transfer_unmap;
 }

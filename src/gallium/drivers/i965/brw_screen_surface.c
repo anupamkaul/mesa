@@ -198,7 +198,7 @@ static struct brw_surface *create_in_place_view( struct brw_screen *brw_screen,
 /* Get a surface which is view into a texture 
  */
 static struct pipe_surface *brw_get_tex_surface(struct pipe_screen *screen,
-						struct pipe_texture *pt,
+						struct pipe_resource *pt,
 						unsigned face, unsigned level,
 						unsigned zslice,
 						unsigned usage )

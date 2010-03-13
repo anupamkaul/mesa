@@ -76,7 +76,7 @@ target_to_target(GLenum target)
  */
 struct pipe_resource *
 st_texture_create(struct st_context *st,
-                  enum pipe_resource_target target,
+                  enum pipe_texture_target target,
 		  enum pipe_format format,
 		  GLuint last_level,
 		  GLuint width0,
@@ -106,7 +106,7 @@ st_texture_create(struct st_context *st,
    pt.depth0 = depth0;
    pt.tex_usage = usage;
 
-   newtex = screen->texture_create(screen, &pt);
+   newtex = screen->resource_create(screen, &pt);
 
    assert(!newtex || pipe_is_referenced(&newtex->reference));
 
@@ -239,9 +239,9 @@ st_surface_data(struct pipe_context *pipe,
 {
    void *map = pipe_transfer_map(pipe, dst);
 
-   assert(dst->texture);
+   assert(dst->resource);
    util_copy_rect(map,
-                  dst->texture->format,
+                  dst->resource->format,
                   dst->stride,
                   dstx, dsty, 
                   width, height, 
@@ -583,7 +583,7 @@ st_teximage_flush_before_map(struct st_context *st,
 {
    struct pipe_context *pipe = st->pipe;
    unsigned referenced =
-      pipe->is_texture_referenced(pipe, pt, face, level);
+      pipe->is_resource_referenced(pipe, pt, face, level);
 
    if (referenced && ((referenced & PIPE_REFERENCED_FOR_WRITE) ||
 		      (usage & PIPE_TRANSFER_WRITE)))

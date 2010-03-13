@@ -396,7 +396,7 @@ aaline_create_texture(struct aaline_stage *aaline)
 {
    struct pipe_context *pipe = aaline->pipe;
    struct pipe_screen *screen = pipe->screen;
-   struct pipe_texture texTemp;
+   struct pipe_resource texTemp;
    struct pipe_sampler_view viewTempl;
    uint level;
 
@@ -408,7 +408,7 @@ aaline_create_texture(struct aaline_stage *aaline)
    texTemp.height0 = 1 << MAX_TEXTURE_LEVEL;
    texTemp.depth0 = 1;
 
-   aaline->texture = screen->texture_create(screen, &texTemp);
+   aaline->texture = screen->resource_create(screen, &texTemp);
    if (!aaline->texture)
       return FALSE;
 
@@ -428,16 +428,23 @@ aaline_create_texture(struct aaline_stage *aaline)
     */
    for (level = 0; level <= MAX_TEXTURE_LEVEL; level++) {
       struct pipe_transfer *transfer;
+      struct pipe_box box;
       const uint size = u_minify(aaline->texture->width0, level);
       ubyte *data;
       uint i, j;
 
       assert(aaline->texture->width0 == aaline->texture->height0);
 
+      u_box_orgin_2d( size, size, &box );
+
       /* This texture is new, no need to flush. 
        */
-      transfer = pipe->get_tex_transfer(pipe, aaline->texture, 0, level, 0,
-                                         PIPE_TRANSFER_WRITE, 0, 0, size, size);
+      transfer = pipe->get_transfer(pipe,
+				    aaline->texture,
+				    u_subresource(0, level), 
+				    PIPE_TRANSFER_WRITE,
+				    &box);
+
       data = pipe->transfer_map(pipe, transfer);
       if (data == NULL)
          return FALSE;
@@ -463,7 +470,7 @@ aaline_create_texture(struct aaline_stage *aaline)
 
       /* unmap */
       pipe->transfer_unmap(pipe, transfer);
-      pipe->tex_transfer_destroy(pipe, transfer);
+      pipe->transfer_destroy(pipe, transfer);
    }
    return TRUE;
 }

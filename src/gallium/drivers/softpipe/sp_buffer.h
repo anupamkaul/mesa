@@ -34,10 +34,16 @@
 
 struct softpipe_buffer
 {
-   struct pipe_buffer base;
+   struct pipe_resource base;
    boolean userBuffer;  /** Is this a user-space buffer? */
    void *data;
 };
+
+struct pipe_resource *
+softpipe_buffer_create(struct pipe_screen *screen,
+                       unsigned alignment,
+                       unsigned usage,
+                       unsigned size);
 
 
 /** Cast wrapper */

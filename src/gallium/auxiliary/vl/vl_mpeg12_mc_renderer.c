@@ -680,7 +680,7 @@ xfer_buffers_map(struct vl_mpeg12_mc_renderer *r)
    assert(r);
 
    for (i = 0; i < 3; ++i) {
-      r->tex_transfer[i] = r->pipe->get_tex_transfer
+      r->tex_transfer[i] = r->pipe->get_transfer
       (
          r->pipe, r->textures.all[i],
          0, 0, 0, PIPE_TRANSFER_WRITE, 0, 0,

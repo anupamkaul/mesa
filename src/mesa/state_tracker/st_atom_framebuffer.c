@@ -59,7 +59,7 @@ update_renderbuffer_surface(struct st_context *st,
    int rtt_height = strb->Base.Height;
 
    if (!strb->surface ||
-       strb->surface->resource != resource ||
+       strb->surface->texture != resource ||
        strb->surface->width != rtt_width ||
        strb->surface->height != rtt_height) {
       GLuint level;

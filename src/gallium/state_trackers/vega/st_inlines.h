@@ -42,7 +42,7 @@
 #include "pipe/p_state.h"
 
 static INLINE struct pipe_transfer *
-st_cond_flush_get_tex_transfer(struct vg_context *st,
+st_cond_flush_get_transfer(struct vg_context *st,
 			       struct pipe_texture *pt,
 			       unsigned int face,
 			       unsigned int level,
@@ -59,12 +59,12 @@ st_cond_flush_get_tex_transfer(struct vg_context *st,
 		      (usage & PIPE_TRANSFER_WRITE)))
       vgFlush();
 
-   return pipe->get_tex_transfer(pipe, pt, face, level, zslice, usage,
+   return pipe->get_transfer(pipe, pt, face, level, zslice, usage,
 				   x, y, w, h);
 }
 
 static INLINE struct pipe_transfer *
-st_no_flush_get_tex_transfer(struct vg_context *st,
+st_no_flush_get_transfer(struct vg_context *st,
 			     struct pipe_texture *pt,
 			     unsigned int face,
 			     unsigned int level,
@@ -75,7 +75,7 @@ st_no_flush_get_tex_transfer(struct vg_context *st,
 {
    struct pipe_context *pipe = st->pipe;
 
-   return pipe->get_tex_transfer(pipe, pt, face, level,
+   return pipe->get_transfer(pipe, pt, face, level,
 				 zslice, usage, x, y, w, h);
 }
 

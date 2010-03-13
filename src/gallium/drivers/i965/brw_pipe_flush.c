@@ -58,7 +58,7 @@ static unsigned brw_is_buffer_referenced(struct pipe_context *pipe,
 }
 
 static unsigned brw_is_texture_referenced(struct pipe_context *pipe,
-                                   struct pipe_texture *texture,
+                                   struct pipe_resource *texture,
                                    unsigned face,
                                    unsigned level)
 {

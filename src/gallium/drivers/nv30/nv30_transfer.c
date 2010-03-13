@@ -175,8 +175,8 @@ nv30_transfer_unmap(struct pipe_context *pcontext, struct pipe_transfer *ptx)
 void
 nv30_init_transfer_functions(struct nv30_context *nv30)
 {
-	nv30->pipe.get_tex_transfer = nv30_transfer_new;
-	nv30->pipe.tex_transfer_destroy = nv30_transfer_del;
+	nv30->pipe.get_transfer = nv30_transfer_new;
+	nv30->pipe.transfer_destroy = nv30_transfer_del;
 	nv30->pipe.transfer_map = nv30_transfer_map;
 	nv30->pipe.transfer_unmap = nv30_transfer_unmap;
 }

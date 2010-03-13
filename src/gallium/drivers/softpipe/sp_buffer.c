@@ -34,36 +34,8 @@
 #include "sp_buffer.h"
 
 
-static void *
-softpipe_buffer_map(struct pipe_screen *screen,
-                    struct pipe_buffer *buf,
-                    unsigned flags)
-{
-   struct softpipe_buffer *softpipe_buf = softpipe_buffer(buf);
-   return softpipe_buf->data;
-}
 
-
-static void
-softpipe_buffer_unmap(struct pipe_screen *screen,
-                      struct pipe_buffer *buf)
-{
-}
-
-
-static void
-softpipe_buffer_destroy(struct pipe_buffer *buf)
-{
-   struct softpipe_buffer *sbuf = softpipe_buffer(buf);
-
-   if (!sbuf->userBuffer)
-      align_free(sbuf->data);
-      
-   FREE(sbuf);
-}
-
-
-static struct pipe_buffer *
+struct pipe_resource *
 softpipe_buffer_create(struct pipe_screen *screen,
                        unsigned alignment,
                        unsigned usage,
@@ -73,9 +45,10 @@ softpipe_buffer_create(struct pipe_screen *screen,
 
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
-   buffer->base.alignment = MAX2(alignment, 16);
    buffer->base.usage = usage;
-   buffer->base.size = size;
+   buffer->base.width0 = size;
+   buffer->base.height0 = 1;
+   buffer->base.depth0 = 1;
 
    buffer->data = align_malloc(size, alignment);
 
@@ -99,7 +72,10 @@ softpipe_user_buffer_create(struct pipe_screen *screen,
 
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
-   buffer->base.size = bytes;
+   buffer->base.usage = PIPE_BUFFER_USAGE_CPU_READ;
+   buffer->base.width0 = bytes;
+   buffer->base.height0 = 1;
+   buffer->base.depth0 = 1;
    buffer->userBuffer = TRUE;
    buffer->data = ptr;
 
@@ -110,9 +86,5 @@ softpipe_user_buffer_create(struct pipe_screen *screen,
 void
 softpipe_init_screen_buffer_funcs(struct pipe_screen *screen)
 {
-   screen->buffer_create = softpipe_buffer_create;
    screen->user_buffer_create = softpipe_user_buffer_create;
-   screen->buffer_map = softpipe_buffer_map;
-   screen->buffer_unmap = softpipe_buffer_unmap;
-   screen->buffer_destroy = softpipe_buffer_destroy;
 }

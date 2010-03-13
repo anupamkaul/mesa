@@ -800,7 +800,7 @@ i915_tex_surface_destroy(struct pipe_surface *surf)
 
 
 static struct pipe_transfer *
-i915_get_tex_transfer(struct pipe_context *pipe,
+i915_get_transfer(struct pipe_context *pipe,
                       struct pipe_texture *texture,
                       unsigned face, unsigned level, unsigned zslice,
                       enum pipe_transfer_usage usage, unsigned x, unsigned y,
@@ -868,7 +868,7 @@ i915_transfer_unmap(struct pipe_context *pipe,
 }
 
 static void
-i915_tex_transfer_destroy(struct pipe_context *pipe,
+i915_transfer_destroy(struct pipe_context *pipe,
                           struct pipe_transfer *trans)
 {
    pipe_texture_reference(&trans->texture, NULL);
@@ -883,10 +883,10 @@ i915_tex_transfer_destroy(struct pipe_context *pipe,
 void
 i915_init_texture_functions(struct i915_context *i915 )
 {
-   i915->base.get_tex_transfer = i915_get_tex_transfer;
+   i915->base.get_transfer = i915_get_transfer;
    i915->base.transfer_map = i915_transfer_map;
    i915->base.transfer_unmap = i915_transfer_unmap;
-   i915->base.tex_transfer_destroy = i915_tex_transfer_destroy;
+   i915->base.transfer_destroy = i915_transfer_destroy;
 }
 
 void

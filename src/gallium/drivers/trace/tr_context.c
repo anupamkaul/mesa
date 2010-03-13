@@ -1349,7 +1349,7 @@ trace_is_buffer_referenced( struct pipe_context *_pipe,
 
 
 static struct pipe_transfer *
-trace_context_get_tex_transfer(struct pipe_context *_context,
+trace_context_get_transfer(struct pipe_context *_context,
                               struct pipe_texture *_texture,
                               unsigned face, unsigned level,
                               unsigned zslice,
@@ -1364,7 +1364,7 @@ trace_context_get_tex_transfer(struct pipe_context *_context,
 
    assert(texture->screen == context->screen);
 
-   trace_dump_call_begin("pipe_context", "get_tex_transfer");
+   trace_dump_call_begin("pipe_context", "get_transfer");
 
    trace_dump_arg(ptr, context);
    trace_dump_arg(ptr, texture);
@@ -1378,7 +1378,7 @@ trace_context_get_tex_transfer(struct pipe_context *_context,
    trace_dump_arg(uint, w);
    trace_dump_arg(uint, h);
 
-   result = context->get_tex_transfer(context, texture, face, level, zslice, usage,
+   result = pipe_get_transfer(context, texture, face, level, zslice, usage,
 				      x, y, w, h);
 
    trace_dump_ret(ptr, result);
@@ -1393,7 +1393,7 @@ trace_context_get_tex_transfer(struct pipe_context *_context,
 
 
 static void
-trace_context_tex_transfer_destroy(struct pipe_context *_context,
+trace_context_transfer_destroy(struct pipe_context *_context,
                                    struct pipe_transfer *_transfer)
 {
    struct trace_context *tr_context = trace_context(_context);
@@ -1401,7 +1401,7 @@ trace_context_tex_transfer_destroy(struct pipe_context *_context,
    struct pipe_context *context = tr_context->pipe;
    struct pipe_transfer *transfer = tr_trans->transfer;
 
-   trace_dump_call_begin("pipe_context", "tex_transfer_destroy");
+   trace_dump_call_begin("pipe_context", "transfer_destroy");
 
    trace_dump_arg(ptr, context);
    trace_dump_arg(ptr, transfer);
@@ -1558,8 +1558,8 @@ trace_context_create(struct trace_screen *tr_scr,
    tr_ctx->base.is_texture_referenced = trace_is_texture_referenced;
    tr_ctx->base.is_buffer_referenced = trace_is_buffer_referenced;
 
-   tr_ctx->base.get_tex_transfer = trace_context_get_tex_transfer;
-   tr_ctx->base.tex_transfer_destroy = trace_context_tex_transfer_destroy;
+   tr_ctx->base.get_transfer = trace_context_get_transfer;
+   tr_ctx->base.transfer_destroy = trace_context_transfer_destroy;
    tr_ctx->base.transfer_map = trace_context_transfer_map;
    tr_ctx->base.transfer_unmap = trace_context_transfer_unmap;
 

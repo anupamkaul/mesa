@@ -36,7 +36,7 @@ struct r300_transfer {
     /* Pipe context. */
     struct pipe_context *ctx;
 
-    /* Parameters of get_tex_transfer. */
+    /* Parameters of get_transfer. */
     unsigned x, y, level, zslice, face;
 
     /* Offset from start of buffer. */
@@ -118,7 +118,7 @@ static void r300_copy_into_tiled_texture(struct pipe_context *ctx,
 }
 
 static struct pipe_transfer*
-r300_get_tex_transfer(struct pipe_context *ctx,
+r300_get_transfer(struct pipe_context *ctx,
                       struct pipe_texture *texture,
                       unsigned face, unsigned level, unsigned zslice,
                       enum pipe_transfer_usage usage, unsigned x, unsigned y,
@@ -205,7 +205,7 @@ r300_get_tex_transfer(struct pipe_context *ctx,
     return &trans->transfer;
 }
 
-static void r300_tex_transfer_destroy(struct pipe_context *ctx,
+static void r300_transfer_destroy(struct pipe_context *ctx,
                                       struct pipe_transfer *trans)
 {
     struct r300_transfer *r300transfer = r300_transfer(trans);
@@ -269,8 +269,8 @@ void r300_init_transfer_functions( struct r300_context *r300ctx )
 {
    struct pipe_context *ctx = &r300ctx->context;
 
-   ctx->get_tex_transfer = r300_get_tex_transfer;
-   ctx->tex_transfer_destroy = r300_tex_transfer_destroy;
+   ctx->get_transfer = r300_get_transfer;
+   ctx->transfer_destroy = r300_transfer_destroy;
    ctx->transfer_map = r300_transfer_map;
    ctx->transfer_unmap = r300_transfer_unmap;
 }

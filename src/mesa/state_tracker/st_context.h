@@ -92,7 +92,7 @@ struct st_context
       struct pipe_sampler_state             samplers[PIPE_MAX_SAMPLERS];
       struct pipe_sampler_state             *sampler_list[PIPE_MAX_SAMPLERS];
       struct pipe_clip_state clip;
-      struct pipe_buffer *constants[2];
+      struct pipe_resource *constants[2];
       struct pipe_framebuffer_state framebuffer;
       struct pipe_sampler_view *sampler_views[PIPE_MAX_SAMPLERS];
       struct pipe_scissor_state scissor;
@@ -152,7 +152,7 @@ struct st_context
       enum pipe_format tex_format;
       void *vs;
       float vertices[4][3][4];  /**< vertex pos + color + texcoord */
-      struct pipe_buffer *vbuf;
+      struct pipe_resource *vbuf;
       unsigned vbuf_slot;       /* next free slot in vbuf */
       struct bitmap_cache *cache;
    } bitmap;
@@ -171,7 +171,7 @@ struct st_context
       void *vs;
       void *fs;
       float vertices[4][2][4];  /**< vertex pos + color */
-      struct pipe_buffer *vbuf;
+      struct pipe_resource *vbuf;
       unsigned vbuf_slot;
    } clear;
 

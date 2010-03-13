@@ -281,15 +281,15 @@ copy_packed_data(ScrnInfoPtr pScrn,
    int yidx, uidx, vidx;
    int y_array_size = w * h;
 
-   ytrans = pipe->get_tex_transfer(pipe, dst[0],
+   ytrans = pipe->get_transfer(pipe, dst[0],
                                    0, 0, 0,
                                    PIPE_TRANSFER_WRITE,
                                    left, top, w, h);
-   utrans = pipe->get_tex_transfer(pipe, dst[1],
+   utrans = pipe->get_transfer(pipe, dst[1],
                                    0, 0, 0,
                                    PIPE_TRANSFER_WRITE,
                                    left, top, w, h);
-   vtrans = pipe->get_tex_transfer(pipe, dst[2],
+   vtrans = pipe->get_transfer(pipe, dst[2],
                                    0, 0, 0,
                                    PIPE_TRANSFER_WRITE,
                                    left, top, w, h);

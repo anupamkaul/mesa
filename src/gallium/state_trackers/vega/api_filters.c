@@ -78,7 +78,7 @@ static INLINE struct pipe_texture *create_texture_1d(struct vg_context *ctx,
 
    { /* upload color_data */
       struct pipe_transfer *transfer =
-         pipe->get_tex_transfer(pipe, tex,
+         pipe->get_transfer(pipe, tex,
 				0, 0, 0,
 				PIPE_TRANSFER_READ_WRITE ,
 				0, 0, tex->width0, tex->height0);

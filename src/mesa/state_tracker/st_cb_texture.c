@@ -415,7 +415,7 @@ compress_with_blit(GLcontext * ctx,
    templ.depth0 = 1;
    templ.last_level = 0;
    templ.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
-   src_tex = screen->texture_create(screen, &templ);
+   src_tex = screen->resource_create(screen, &templ);
 
    if (!src_tex)
       return GL_FALSE;

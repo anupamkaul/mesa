@@ -117,7 +117,7 @@ st_get_stobj_texture(struct st_texture_object *stObj)
 
 static INLINE struct pipe_sampler_view *
 st_sampler_view_from_texture(struct pipe_context *pipe,
-                             struct pipe_texture *texture)
+                             struct pipe_resource *texture)
 {
    struct pipe_sampler_view templ;
 

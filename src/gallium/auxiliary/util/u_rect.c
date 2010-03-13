@@ -181,7 +181,7 @@ util_surface_copy(struct pipe_context *pipe,
    src_format = src->texture->format;
    dst_format = dst->texture->format;
 
-   src_trans = pipe->get_tex_transfer(pipe,
+   src_trans = pipe->get_transfer(pipe,
                                         src->texture,
                                         src->face,
                                         src->level,
@@ -189,7 +189,7 @@ util_surface_copy(struct pipe_context *pipe,
                                         PIPE_TRANSFER_READ,
                                         src_x, src_y, w, h);
 
-   dst_trans = pipe->get_tex_transfer(pipe,
+   dst_trans = pipe->get_transfer(pipe,
                                         dst->texture,
                                         dst->face,
                                         dst->level,
@@ -248,7 +248,7 @@ util_surface_fill(struct pipe_context *pipe,
    assert(dst->texture);
    if (!dst->texture)
       return;
-   dst_trans = pipe->get_tex_transfer(pipe,
+   dst_trans = pipe->get_transfer(pipe,
                                         dst->texture,
                                         dst->face,
                                         dst->level,
