@@ -46,7 +46,7 @@
 
 /**
  * When doing GL render to texture, we have to be sure that finalize_texture()
- * didn't yank out the pipe_texture that we earlier created a surface for.
+ * didn't yank out the pipe_resource that we earlier created a surface for.
  * Check for that here and create a new surface if needed.
  */
 static void
@@ -54,29 +54,29 @@ update_renderbuffer_surface(struct st_context *st,
                             struct st_renderbuffer *strb)
 {
    struct pipe_screen *screen = st->pipe->screen;
-   struct pipe_texture *texture = strb->rtt->pt;
+   struct pipe_resource *resource = strb->rtt->pt;
    int rtt_width = strb->Base.Width;
    int rtt_height = strb->Base.Height;
 
    if (!strb->surface ||
-       strb->surface->texture != texture ||
+       strb->surface->resource != resource ||
        strb->surface->width != rtt_width ||
        strb->surface->height != rtt_height) {
       GLuint level;
       /* find matching mipmap level size */
-      for (level = 0; level <= texture->last_level; level++) {
-         if (u_minify(texture->width0, level) == rtt_width &&
-             u_minify(texture->height0, level) == rtt_height) {
+      for (level = 0; level <= resource->last_level; level++) {
+         if (u_minify(resource->width0, level) == rtt_width &&
+             u_minify(resource->height0, level) == rtt_height) {
 
             pipe_surface_reference(&strb->surface, NULL);
 
             strb->surface = screen->get_tex_surface(screen,
-                                              texture,
-                                              strb->rtt_face,
-                                              level,
-                                              strb->rtt_slice,
-                                              PIPE_BUFFER_USAGE_GPU_READ |
-                                              PIPE_BUFFER_USAGE_GPU_WRITE);
+						    resource,
+						    strb->rtt_face,
+						    level,
+						    strb->rtt_slice,
+						    PIPE_BUFFER_USAGE_GPU_READ |
+						    PIPE_BUFFER_USAGE_GPU_WRITE);
 #if 0
             printf("-- alloc new surface %d x %d into tex %p\n",
                    strb->surface->width, strb->surface->height,

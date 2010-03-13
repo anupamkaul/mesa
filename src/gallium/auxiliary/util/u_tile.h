@@ -32,7 +32,7 @@
 
 struct pipe_transfer;
 
-
+#if 0
 /**
  * Clip tile against transfer dims.
  * \return TRUE if tile is totally clipped, FALSE otherwise
@@ -50,6 +50,7 @@ pipe_clip_tile(uint x, uint y, uint *w, uint *h, const struct pipe_transfer *pt)
       *h = pt->height - y;
    return FALSE;
 }
+#endif
 
 #ifdef __cplusplus
 extern "C" {

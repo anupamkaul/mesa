@@ -92,7 +92,7 @@ struct bitmap_cache
    /** Bitmap's Z position */
    GLfloat zpos;
 
-   struct pipe_texture *texture;
+   struct pipe_resource *texture;
    struct pipe_transfer *trans;
 
    GLboolean empty;
@@ -253,7 +253,7 @@ unpack_bitmap(struct st_context *st,
 /**
  * Create a texture which represents a bitmap image.
  */
-static struct pipe_texture *
+static struct pipe_resource *
 make_bitmap_texture(GLcontext *ctx, GLsizei width, GLsizei height,
                     const struct gl_pixelstore_attrib *unpack,
                     const GLubyte *bitmap)
@@ -261,7 +261,7 @@ make_bitmap_texture(GLcontext *ctx, GLsizei width, GLsizei height,
    struct pipe_context *pipe = ctx->st->pipe;
    struct pipe_transfer *transfer;
    ubyte *dest;
-   struct pipe_texture *pt;
+   struct pipe_resource *pt;
 
    /* PBO source... */
    bitmap = _mesa_map_pbo_source(ctx, unpack, bitmap);
@@ -284,7 +284,7 @@ make_bitmap_texture(GLcontext *ctx, GLsizei width, GLsizei height,
 					   PIPE_TRANSFER_WRITE,
 					   0, 0, width, height);
 
-   dest = pipe->transfer_map(pipe, transfer);
+   dest = pipe_transfer_map(pipe, transfer);
 
    /* Put image into texture transfer */
    memset(dest, 0xff, height * transfer->stride);
@@ -294,8 +294,8 @@ make_bitmap_texture(GLcontext *ctx, GLsizei width, GLsizei height,
    _mesa_unmap_pbo_source(ctx, unpack);
 
    /* Release transfer */
-   pipe->transfer_unmap(pipe, transfer);
-   pipe->tex_transfer_destroy(pipe, transfer);
+   pipe_transfer_unmap(pipe, transfer);
+   pipe->transfer_destroy(pipe, transfer);
 
    return pt;
 }
@@ -397,7 +397,7 @@ setup_bitmap_vertex_data(struct st_context *st,
 static void
 draw_bitmap_quad(GLcontext *ctx, GLint x, GLint y, GLfloat z,
                  GLsizei width, GLsizei height,
-                 struct pipe_texture *pt,
+                 struct pipe_resource *pt,
                  const GLfloat *color)
 {
    struct st_context *st = ctx->st;
@@ -465,7 +465,7 @@ draw_bitmap_quad(GLcontext *ctx, GLint x, GLint y, GLfloat z,
 
    /* user textures, plus the bitmap texture */
    {
-      struct pipe_texture *textures[PIPE_MAX_SAMPLERS];
+      struct pipe_resource *textures[PIPE_MAX_SAMPLERS];
       uint num = MAX2(stfp->bitmap_sampler + 1, st->state.num_textures);
       memcpy(textures, st->state.sampler_texture, sizeof(textures));
       textures[stfp->bitmap_sampler] = pt;
@@ -530,7 +530,7 @@ reset_cache(struct st_context *st)
    cache->ymax = -1000000;
 
    if (cache->trans) {
-      pipe->tex_transfer_destroy(pipe, cache->trans);
+      pipe->transfer_destroy(pipe, cache->trans);
       cache->trans = NULL;
    }
 
@@ -580,7 +580,7 @@ create_cache_trans(struct st_context *st)
 					       PIPE_TRANSFER_WRITE, 0, 0,
 					       BITMAP_CACHE_WIDTH,
 					       BITMAP_CACHE_HEIGHT);
-   cache->buffer = pipe->transfer_map(pipe, cache->trans);
+   cache->buffer = pipe_transfer_map(pipe, cache->trans);
 
    /* init image to all 0xff */
    memset(cache->buffer, 0xff, cache->trans->stride * BITMAP_CACHE_HEIGHT);
@@ -613,10 +613,10 @@ st_flush_bitmap_cache(struct st_context *st)
          if (cache->trans) {
             if (0)
                print_cache(cache);
-            pipe->transfer_unmap(pipe, cache->trans);
+            pipe_transfer_unmap(pipe, cache->trans);
             cache->buffer = NULL;
 
-            pipe->tex_transfer_destroy(pipe, cache->trans);
+            pipe->transfer_destroy(pipe, cache->trans);
             cache->trans = NULL;
          }
 
@@ -630,7 +630,7 @@ st_flush_bitmap_cache(struct st_context *st)
       }
 
       /* release/free the texture */
-      pipe_texture_reference(&cache->texture, NULL);
+      pipe_resource_reference(&cache->texture, NULL);
 
       reset_cache(st);
    }
@@ -726,7 +726,7 @@ st_Bitmap(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
           const struct gl_pixelstore_attrib *unpack, const GLubyte *bitmap )
 {
    struct st_context *st = ctx->st;
-   struct pipe_texture *pt;
+   struct pipe_resource *pt;
 
    if (width == 0 || height == 0)
       return;
@@ -749,12 +749,12 @@ st_Bitmap(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
 
    pt = make_bitmap_texture(ctx, width, height, unpack, bitmap);
    if (pt) {
-      assert(pt->target == PIPE_TEXTURE_2D);
+      assert(pt->base.target == PIPE_TEXTURE_2D);
       draw_bitmap_quad(ctx, x, y, ctx->Current.RasterPos[2],
                        width, height, pt,
                        st->ctx->Current.RasterColor);
       /* release/free the texture */
-      pipe_texture_reference(&pt, NULL);
+      pipe_resource_reference(&pt, NULL);
    }
 }
 
@@ -835,10 +835,10 @@ st_destroy_bitmap(struct st_context *st)
 
    if (cache) {
       if (cache->trans) {
-         pipe->transfer_unmap(pipe, cache->trans);
-         pipe->tex_transfer_destroy(pipe, cache->trans);
+         pipe_transfer_unmap(pipe, cache->trans);
+         pipe->transfer_destroy(pipe, cache->trans);
       }
-      pipe_texture_reference(&st->bitmap.cache->texture, NULL);
+      pipe_resource_reference(&st->bitmap.cache->texture, NULL);
       free(st->bitmap.cache);
       st->bitmap.cache = NULL;
    }

@@ -71,19 +71,6 @@ struct pipe_reference
 };
 
 
-/**
- * The driver will certainly subclass this to include actual memory
- * management information.
- */
-struct pipe_buffer
-{
-   struct pipe_reference  reference;
-   unsigned               size;
-   struct pipe_screen    *screen;
-   unsigned               alignment;
-   unsigned               usage;
-};
-
 
 /**
  * Primitive (point/line/tri) rasterization info
@@ -285,18 +272,23 @@ struct pipe_sampler_state
 struct pipe_surface
 {
    struct pipe_reference reference;
+   struct pipe_resource *resource; /**< resource into which this is a view  */
    enum pipe_format format;
+
    unsigned width;               /**< logical width in pixels */
    unsigned height;              /**< logical height in pixels */
+
    unsigned layout;              /**< PIPE_SURFACE_LAYOUT_x */
    unsigned offset;              /**< offset from start of buffer, in bytes */
    unsigned usage;               /**< bitmask of PIPE_BUFFER_USAGE_x */
 
    unsigned zslice;
-   struct pipe_texture *texture; /**< texture into which this is a view  */
    unsigned face;
    unsigned level;
 };
+
+
+
 
 
 /**
@@ -304,42 +296,61 @@ struct pipe_surface
  */
 struct pipe_transfer
 {
-   unsigned x;                   /**< x offset from start of texture image */
-   unsigned y;                   /**< y offset from start of texture image */
-   unsigned width;               /**< logical width in pixels */
-   unsigned height;              /**< logical height in pixels */
-   unsigned stride;              /**< stride in bytes between rows of blocks */
-   enum pipe_transfer_usage usage; /**< PIPE_TRANSFER_*  */
-
-   struct pipe_texture *texture; /**< texture to transfer to/from  */
-   unsigned face;
-   unsigned level;
-   unsigned zslice;
+   struct pipe_resource *texture; /**< resource to transfer to/from  */
+   unsigned stride;
+   unsigned slice_stride;
+   void *data;
 };
 
 
-/**
- * Texture object.
- */
-struct pipe_texture
-{ 
-   struct pipe_reference reference;
+#define PIPE_RESOURCE_BUFFER 1
+#define PIPE_RESOURCE_TEXTURE 2
+/* etc */
 
+struct pipe_resource
+{
+   struct pipe_reference reference;
+   struct pipe_screen *screen; /**< screen that this texture belongs to */
    enum pipe_texture_target target; /**< PIPE_TEXTURE_x */
    enum pipe_format format;         /**< PIPE_FORMAT_x */
 
    unsigned width0;
    unsigned height0;
    unsigned depth0;
-
    unsigned last_level:8;    /**< Index of last mipmap level present/defined */
-
    unsigned nr_samples:8;    /**< for multisampled surfaces, nr of samples */
 
+   unsigned usage;	       /* xxx: unify with tex_usage */
    unsigned tex_usage;       /**< bitmask of PIPE_TEXTURE_USAGE_* */
-
-   struct pipe_screen *screen; /**< screen that this texture belongs to */
 };
+
+/* Transition helpers:
+ */
+struct pipe_buffer {
+   struct pipe_resource base;
+};
+
+struct pipe_texture {
+   struct pipe_resource base;
+};
+
+
+struct pipe_subresource
+{
+   unsigned face:16;
+   unsigned level:16;
+};
+
+struct pipe_box
+{
+   unsigned x;
+   unsigned y;
+   unsigned z;
+   unsigned w;
+   unsigned h;
+   unsigned d;
+};
+
 
 
 /**
@@ -352,7 +363,7 @@ struct pipe_vertex_buffer
    unsigned stride;    /**< stride to same attrib in next vertex, in bytes */
    unsigned max_index;   /**< number of vertices in this buffer */
    unsigned buffer_offset;  /**< offset to start of data in buffer, in bytes */
-   struct pipe_buffer *buffer;  /**< the actual buffer */
+   struct pipe_resource *buffer;  /**< the actual buffer */
 };
 
 

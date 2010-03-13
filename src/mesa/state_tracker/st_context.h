@@ -94,7 +94,7 @@ struct st_context
       struct pipe_clip_state clip;
       struct pipe_buffer *constants[2];
       struct pipe_framebuffer_state framebuffer;
-      struct pipe_texture *sampler_texture[PIPE_MAX_SAMPLERS];
+      struct pipe_resource *sampler_texture[PIPE_MAX_SAMPLERS];
       struct pipe_scissor_state scissor;
       struct pipe_viewport_state viewport;
 
@@ -140,7 +140,7 @@ struct st_context
       GLuint user_prog_sn;  /**< user fragment program serial no. */
       struct st_fragment_program *combined_prog;
       GLuint combined_prog_sn;
-      struct pipe_texture *pixelmap_texture;
+      struct pipe_resource *pixelmap_texture;
       boolean pixelmap_enabled;  /**< use the pixelmap texture? */
    } pixel_xfer;
 

@@ -69,14 +69,14 @@ target_to_target(GLenum target)
 
 
 /**
- * Allocate a new pipe_texture object
+ * Allocate a new pipe_resource object
  * width0, height0, depth0 are the dimensions of the level 0 image
  * (the highest resolution).  last_level indicates how many mipmap levels
  * to allocate storage for.  For non-mipmapped textures, this will be zero.
  */
-struct pipe_texture *
+struct pipe_resource *
 st_texture_create(struct st_context *st,
-                  enum pipe_texture_target target,
+                  enum pipe_resource_target target,
 		  enum pipe_format format,
 		  GLuint last_level,
 		  GLuint width0,
@@ -84,7 +84,7 @@ st_texture_create(struct st_context *st,
 		  GLuint depth0,
                   GLuint usage )
 {
-   struct pipe_texture pt, *newtex;
+   struct pipe_resource pt, *newtex;
    struct pipe_screen *screen = st->pipe->screen;
 
    assert(target <= PIPE_TEXTURE_CUBE);
@@ -118,7 +118,7 @@ st_texture_create(struct st_context *st,
  * Check if a texture image can be pulled into a unified mipmap texture.
  */
 GLboolean
-st_texture_match_image(const struct pipe_texture *pt,
+st_texture_match_image(const struct pipe_resource *pt,
                        const struct gl_texture_image *image,
                        GLuint face, GLuint level)
 {
@@ -152,7 +152,7 @@ st_texture_match_image(const struct pipe_texture *pt,
  * These functions present that view to mesa:
  */
 const GLuint *
-st_texture_depth_offsets(struct pipe_texture *pt, GLuint level)
+st_texture_depth_offsets(struct pipe_resource *pt, GLuint level)
 {
    static const GLuint zero = 0;
 
@@ -168,7 +168,7 @@ st_texture_depth_offsets(struct pipe_texture *pt, GLuint level)
  * texture memory buffer, in bytes.
  */
 GLuint
-st_texture_image_offset(const struct pipe_texture * pt,
+st_texture_image_offset(const struct pipe_resource * pt,
                         GLuint face, GLuint level)
 {
    if (pt->target == PIPE_TEXTURE_CUBE)
@@ -192,7 +192,7 @@ st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
                      GLuint x, GLuint y, GLuint w, GLuint h)
 {
    struct pipe_context *pipe = st->pipe;
-   struct pipe_texture *pt = stImage->pt;
+   struct pipe_resource *pt = stImage->pt;
 
    DBG("%s \n", __FUNCTION__);
 
@@ -201,7 +201,7 @@ st_texture_image_map(struct st_context *st, struct st_texture_image *stImage,
 						    usage, x, y, w, h);
 
    if (stImage->transfer)
-      return pipe->transfer_map(pipe, stImage->transfer);
+      return pipe_transfer_map(pipe, stImage->transfer);
    else
       return NULL;
 }
@@ -215,9 +215,9 @@ st_texture_image_unmap(struct st_context *st,
 
    DBG("%s\n", __FUNCTION__);
 
-   pipe->transfer_unmap(pipe, stImage->transfer);
+   pipe_transfer_unmap(pipe, stImage->transfer);
 
-   pipe->tex_transfer_destroy(pipe, stImage->transfer);
+   pipe->transfer_destroy(pipe, stImage->transfer);
 }
 
 
@@ -237,7 +237,7 @@ st_surface_data(struct pipe_context *pipe,
 		const void *src, unsigned src_stride,
 		unsigned srcx, unsigned srcy, unsigned width, unsigned height)
 {
-   void *map = pipe->transfer_map(pipe, dst);
+   void *map = pipe_transfer_map(pipe, dst);
 
    assert(dst->texture);
    util_copy_rect(map,
@@ -248,7 +248,7 @@ st_surface_data(struct pipe_context *pipe,
                   src, src_stride, 
                   srcx, srcy);
 
-   pipe->transfer_unmap(pipe, dst);
+   pipe_transfer_unmap(pipe, dst);
 }
 
 
@@ -256,7 +256,7 @@ st_surface_data(struct pipe_context *pipe,
  */
 void
 st_texture_image_data(struct st_context *st,
-                      struct pipe_texture *dst,
+                      struct pipe_resource *dst,
                       GLuint face,
                       GLuint level,
                       void *src,
@@ -284,7 +284,7 @@ st_texture_image_data(struct st_context *st,
 		      u_minify(dst->width0, level),
                       u_minify(dst->height0, level));      /* width, height */
 
-      pipe->tex_transfer_destroy(pipe, dst_transfer);
+      pipe->transfer_destroy(pipe, dst_transfer);
 
       srcUB += src_image_stride;
    }
@@ -295,8 +295,8 @@ st_texture_image_data(struct st_context *st,
  */
 void
 st_texture_image_copy(struct pipe_context *pipe,
-                      struct pipe_texture *dst, GLuint dstLevel,
-                      struct pipe_texture *src,
+                      struct pipe_resource *dst, GLuint dstLevel,
+                      struct pipe_resource *src,
                       GLuint face)
 {
    struct pipe_screen *screen = pipe->screen;
@@ -425,7 +425,7 @@ st_bind_texture_surface(struct pipe_surface *ps, int target, int level,
    texImage->TexFormat = st_ChooseTextureFormat(ctx, internalFormat,
                                                 GL_RGBA, GL_UNSIGNED_BYTE);
    _mesa_set_fetch_functions(texImage, 2);
-   pipe_texture_reference(&stImage->pt, ps->texture);
+   pipe_resource_reference(&stImage->pt, ps->texture);
 
    _mesa_dirty_texobj(ctx, texObj, GL_TRUE);
    _mesa_unlock_texture(ctx, texObj);
@@ -475,7 +475,7 @@ st_unbind_texture_surface(struct pipe_surface *ps, int target, int level)
    /* Make sure the pipe surface is still bound.  The texture object is still
     * considered surface based even if this is the last bound surface. */
    if (stImage->pt == ps->texture) {
-      pipe_texture_reference(&stImage->pt, NULL);
+      pipe_resource_reference(&stImage->pt, NULL);
       _mesa_clear_texture_image(ctx, texImage);
 
       _mesa_dirty_texobj(ctx, texObj, GL_TRUE);
@@ -526,11 +526,11 @@ st_bind_teximage(struct st_framebuffer *stfb, uint surfIndex,
    st_flush(ctx->st, PIPE_FLUSH_RENDER_CACHE, NULL);
 
    /* save the renderbuffer's surface/texture info */
-   pipe_texture_reference(&strb->texture_save, strb->texture);
+   pipe_resource_reference(&strb->texture_save, strb->texture);
    pipe_surface_reference(&strb->surface_save, strb->surface);
 
    /* plug in new surface/texture info */
-   pipe_texture_reference(&strb->texture, stImage->pt);
+   pipe_resource_reference(&strb->texture, stImage->pt);
    strb->surface = screen->get_tex_surface(screen, strb->texture,
                                            face, level, slice,
                                            (PIPE_BUFFER_USAGE_GPU_READ |
@@ -564,10 +564,10 @@ st_release_teximage(struct st_framebuffer *stfb, uint surfIndex,
 
    /* free tex surface, restore original */
    pipe_surface_reference(&strb->surface, strb->surface_save);
-   pipe_texture_reference(&strb->texture, strb->texture_save);
+   pipe_resource_reference(&strb->texture, strb->texture_save);
 
    pipe_surface_reference(&strb->surface_save, NULL);
-   pipe_texture_reference(&strb->texture_save, NULL);
+   pipe_resource_reference(&strb->texture_save, NULL);
 
    st->dirty.st |= ST_NEW_FRAMEBUFFER;
 
@@ -576,7 +576,7 @@ st_release_teximage(struct st_framebuffer *stfb, uint surfIndex,
 
 void
 st_teximage_flush_before_map(struct st_context *st,
-			     struct pipe_texture *pt,
+			     struct pipe_resource *pt,
 			     unsigned int face,
 			     unsigned int level,
 			     enum pipe_transfer_usage usage)

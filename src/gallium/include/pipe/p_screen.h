@@ -56,6 +56,7 @@ struct pipe_fence_handle;
 struct pipe_winsys;
 struct pipe_buffer;
 struct pipe_texture;
+struct pipe_resource;
 struct pipe_surface;
 struct pipe_video_surface;
 struct pipe_transfer;
@@ -106,35 +107,35 @@ struct pipe_screen {
    /**
     * Create a new texture object, using the given template info.
     */
-   struct pipe_texture * (*texture_create)(struct pipe_screen *,
-                                           const struct pipe_texture *templat);
+   struct pipe_resource * (*resource_create)(struct pipe_screen *,
+					     const struct pipe_resource *template);
 
    /**
     * Create a texture from a winsys_handle. The handle is often created in
     * another process by first creating a pipe texture and then calling
     * texture_get_handle.
     */
-   struct pipe_texture * (*texture_from_handle)(struct pipe_screen *,
-                                                const struct pipe_texture *templat,
-                                                struct winsys_handle *handle);
+   struct pipe_resource * (*resource_from_handle)(struct pipe_screen *,
+						  const struct pipe_resource *template,
+						  struct winsys_handle *handle);
 
    /**
     * Get a winsys_handle from a texture. Some platforms/winsys requires
     * that the texture is created with a special usage flag like
     * DISPLAYTARGET or PRIMARY.
     */
-   boolean (*texture_get_handle)(struct pipe_screen *,
-                                 struct pipe_texture *tex,
-                                 struct winsys_handle *handle);
+   boolean (*resource_get_handle)(struct pipe_screen *,
+				  struct pipe_resource *tex,
+				  struct winsys_handle *handle);
 
 
-   void (*texture_destroy)(struct pipe_texture *pt);
+   void (*resource_destroy)(struct pipe_resource *pt);
 
    /** Get a 2D surface which is a "view" into a texture
     * \param usage  bitmaks of PIPE_BUFFER_USAGE_* read/write flags
     */
    struct pipe_surface *(*get_tex_surface)(struct pipe_screen *,
-                                           struct pipe_texture *texture,
+                                           struct pipe_resource *resource,
                                            unsigned face, unsigned level,
                                            unsigned zslice,
                                            unsigned usage );
@@ -142,98 +143,6 @@ struct pipe_screen {
    void (*tex_surface_destroy)(struct pipe_surface *);
    
 
-
-   /**
-    * Create a new buffer.
-    * \param alignment  buffer start address alignment in bytes
-    * \param usage  bitmask of PIPE_BUFFER_USAGE_x
-    * \param size  size in bytes
-    */
-   struct pipe_buffer *(*buffer_create)( struct pipe_screen *screen,
-                                         unsigned alignment,
-                                         unsigned usage,
-                                         unsigned size );
-
-   /**
-    * Create a buffer that wraps user-space data.
-    *
-    * Effectively this schedules a delayed call to buffer_create
-    * followed by an upload of the data at *some point in the future*,
-    * or perhaps never.  Basically the allocate/upload is delayed
-    * until the buffer is actually passed to hardware.
-    *
-    * The intention is to provide a quick way to turn regular data
-    * into a buffer, and secondly to avoid a copy operation if that
-    * data subsequently turns out to be only accessed by the CPU.
-    *
-    * Common example is OpenGL vertex buffers that are subsequently
-    * processed either by software TNL in the driver or by passing to
-    * hardware.
-    *
-    * XXX: What happens if the delayed call to buffer_create() fails?
-    *
-    * Note that ptr may be accessed at any time upto the time when the
-    * buffer is destroyed, so the data must not be freed before then.
-    */
-   struct pipe_buffer *(*user_buffer_create)(struct pipe_screen *screen,
-                                             void *ptr,
-                                             unsigned bytes);
-
-
-
-   /**
-    * Map the entire data store of a buffer object into the client's address.
-    * flags is bitmask of PIPE_BUFFER_USAGE_CPU_READ/WRITE flags.
-    */
-   void *(*buffer_map)( struct pipe_screen *screen,
-			struct pipe_buffer *buf,
-			unsigned usage );
-   /**
-    * Map a subrange of the buffer data store into the client's address space.
-    *
-    * The returned pointer is always relative to buffer start, regardless of 
-    * the specified range. This is different from the ARB_map_buffer_range
-    * semantics because we don't forbid multiple mappings of the same buffer
-    * (yet).
-    */
-   void *(*buffer_map_range)( struct pipe_screen *screen,
-                              struct pipe_buffer *buf,
-                              unsigned offset,
-                              unsigned length,
-                              unsigned usage);
-
-   /**
-    * Notify a range that was actually written into.
-    * 
-    * Can only be used if the buffer was mapped with the 
-    * PIPE_BUFFER_USAGE_CPU_WRITE and PIPE_BUFFER_USAGE_FLUSH_EXPLICIT flags 
-    * set.
-    * 
-    * The range is relative to the buffer start, regardless of the range 
-    * specified to buffer_map_range. This is different from the 
-    * ARB_map_buffer_range semantics because we don't forbid multiple mappings 
-    * of the same buffer (yet).
-    * 
-    */
-   void (*buffer_flush_mapped_range)( struct pipe_screen *screen,
-                                      struct pipe_buffer *buf,
-                                      unsigned offset,
-                                      unsigned length);
-
-   /**
-    * Unmap buffer.
-    * 
-    * If the buffer was mapped with PIPE_BUFFER_USAGE_CPU_WRITE flag but not
-    * PIPE_BUFFER_USAGE_FLUSH_EXPLICIT then the pipe driver will
-    * assume that the whole buffer was written. This is mostly for backward 
-    * compatibility purposes and may affect performance -- the state tracker 
-    * should always specify exactly what got written while the buffer was 
-    * mapped.
-    */
-   void (*buffer_unmap)( struct pipe_screen *screen,
-                         struct pipe_buffer *buf );
-
-   void (*buffer_destroy)( struct pipe_buffer *buf );
 
    /**
     * Create a video surface suitable for use as a decoding target by the

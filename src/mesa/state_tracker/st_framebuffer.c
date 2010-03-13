@@ -196,7 +196,7 @@ st_set_framebuffer_surface(struct st_framebuffer *stfb,
 
    /* replace the renderbuffer's surface/texture pointers */
    pipe_surface_reference( &strb->surface, surf );
-   pipe_texture_reference( &strb->texture, surf->texture );
+   pipe_resource_reference( &strb->texture, surf->texture );
 
    if (ctx) {
       /* If ctx isn't set, we've likely not made current yet.
@@ -242,7 +242,7 @@ st_get_framebuffer_surface(struct st_framebuffer *stfb, uint surfIndex, struct p
 }
 
 int
-st_get_framebuffer_texture(struct st_framebuffer *stfb, uint surfIndex, struct pipe_texture **texture)
+st_get_framebuffer_texture(struct st_framebuffer *stfb, uint surfIndex, struct pipe_resource **texture)
 {
    struct st_renderbuffer *strb;
 

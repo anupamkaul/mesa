@@ -216,7 +216,7 @@ static void st_destroy_context_priv( struct st_context *st )
 #endif
 
    for (i = 0; i < Elements(st->state.sampler_texture); i++) {
-      pipe_texture_reference(&st->state.sampler_texture[i], NULL);
+      pipe_resource_reference(&st->state.sampler_texture[i], NULL);
    }
 
    for (i = 0; i < Elements(st->state.constants); i++) {

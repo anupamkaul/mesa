@@ -81,7 +81,7 @@ st_read_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
 				       width, height);
 
    /* map the stencil buffer */
-   stmap = pipe->transfer_map(pipe, pt);
+   stmap = pipe_transfer_map(pipe, pt);
 
    /* width should never be > MAX_WIDTH since we did clipping earlier */
    ASSERT(width <= MAX_WIDTH);
@@ -161,8 +161,8 @@ st_read_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
    }
 
    /* unmap the stencil buffer */
-   pipe->transfer_unmap(pipe, pt);
-   pipe->tex_transfer_destroy(pipe, pt);
+   pipe_transfer_unmap(pipe, pt);
+   pipe->transfer_destroy(pipe, pt);
 }
 
 
@@ -252,9 +252,9 @@ st_fast_readpixels(GLcontext *ctx, struct st_renderbuffer *strb,
          return GL_FALSE;
       }
 
-      map = pipe->transfer_map(pipe, trans);
+      map = pipe_transfer_map(pipe, trans);
       if (!map) {
-         pipe->tex_transfer_destroy(pipe, trans);
+         pipe->transfer_destroy(pipe, trans);
          return GL_FALSE;
       }
 
@@ -316,8 +316,8 @@ st_fast_readpixels(GLcontext *ctx, struct st_renderbuffer *strb,
          ; /* nothing */
       }
 
-      pipe->transfer_unmap(pipe, trans);
-      pipe->tex_transfer_destroy(pipe, trans);
+      pipe_transfer_unmap(pipe, trans);
+      pipe->transfer_destroy(pipe, trans);
    }
 
    return GL_TRUE;
@@ -539,7 +539,7 @@ st_readpixels(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
       }
    }
 
-   pipe->tex_transfer_destroy(pipe, trans);
+   pipe->transfer_destroy(pipe, trans);
 
    _mesa_unmap_pbo_dest(ctx, &clippedPacking);
 }

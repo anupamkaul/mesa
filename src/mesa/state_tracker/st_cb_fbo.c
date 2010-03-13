@@ -96,13 +96,13 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
       return strb->data != NULL;
    }
    else {
-      struct pipe_texture template;
+      struct pipe_resource template;
       unsigned surface_usage;
     
       /* Free the old surface and texture
        */
       pipe_surface_reference( &strb->surface, NULL );
-      pipe_texture_reference( &strb->texture, NULL );
+      pipe_resource_reference( &strb->texture, NULL );
 
       /* Setup new texture template.
        */
@@ -131,7 +131,7 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
                        PIPE_BUFFER_USAGE_CPU_WRITE);
 #endif
 
-      strb->texture = screen->texture_create(screen, &template);
+      strb->texture = screen->resource_create(screen, &template);
 
       if (!strb->texture) 
          return FALSE;
@@ -161,7 +161,7 @@ st_renderbuffer_delete(struct gl_renderbuffer *rb)
    struct st_renderbuffer *strb = st_renderbuffer(rb);
    ASSERT(strb);
    pipe_surface_reference(&strb->surface, NULL);
-   pipe_texture_reference(&strb->texture, NULL);
+   pipe_resource_reference(&strb->texture, NULL);
    free(strb->data);
    free(strb);
 }
@@ -321,7 +321,7 @@ st_render_texture(GLcontext *ctx,
    struct pipe_screen *screen = ctx->st->pipe->screen;
    struct st_renderbuffer *strb;
    struct gl_renderbuffer *rb;
-   struct pipe_texture *pt = st_get_texobj_texture(att->Texture);
+   struct pipe_resource *pt = st_get_texobj_texture(att->Texture);
    struct st_texture_object *stObj;
    const struct gl_texture_image *texImage;
    GLint pt_level;
@@ -364,7 +364,7 @@ st_render_texture(GLcontext *ctx,
 
    /*printf("***** pipe texture %d x %d\n", pt->width0, pt->height0);*/
 
-   pipe_texture_reference( &strb->texture, pt );
+   pipe_resource_reference( &strb->texture, pt );
 
    pipe_surface_reference(&strb->surface, NULL);
 

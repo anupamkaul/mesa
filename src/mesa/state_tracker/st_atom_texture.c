@@ -56,7 +56,7 @@ update_textures(struct st_context *st)
 
    /* loop over sampler units (aka tex image units) */
    for (su = 0; su < st->ctx->Const.MaxTextureImageUnits; su++) {
-      struct pipe_texture *pt = NULL;
+      struct pipe_resource *pt = NULL;
 
       if (samplersUsed & (1 << su)) {
          struct gl_texture_object *texObj;
@@ -96,7 +96,7 @@ update_textures(struct st_context *st)
       }
       */
 
-      pipe_texture_reference(&st->state.sampler_texture[su], pt);
+      pipe_resource_reference(&st->state.sampler_texture[su], pt);
    }
 
    cso_set_sampler_textures(st->cso_context,

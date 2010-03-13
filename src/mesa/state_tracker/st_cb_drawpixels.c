@@ -297,13 +297,13 @@ base_format(GLenum format)
  * If width, height are not POT and the driver only handles POT textures,
  * allocate the next larger size of texture that is POT.
  */
-static struct pipe_texture *
+static struct pipe_resource *
 alloc_texture(struct st_context *st, GLsizei width, GLsizei height,
               enum pipe_format texFormat)
 {
    struct pipe_context *pipe = st->pipe;
    struct pipe_screen *screen = pipe->screen;
-   struct pipe_texture *pt;
+   struct pipe_resource *pt;
    int ptw, pth;
 
    ptw = width;
@@ -341,7 +341,7 @@ alloc_texture(struct st_context *st, GLsizei width, GLsizei height,
  * Make texture containing an image for glDrawPixels image.
  * If 'pixels' is NULL, leave the texture image data undefined.
  */
-static struct pipe_texture *
+static struct pipe_resource *
 make_texture(struct st_context *st,
 	     GLsizei width, GLsizei height, GLenum format, GLenum type,
 	     const struct gl_pixelstore_attrib *unpack,
@@ -350,7 +350,7 @@ make_texture(struct st_context *st,
    GLcontext *ctx = st->ctx;
    struct pipe_context *pipe = st->pipe;
    gl_format mformat;
-   struct pipe_texture *pt;
+   struct pipe_resource *pt;
    enum pipe_format pipeFormat;
    GLuint cpp;
    GLenum baseFormat;
@@ -390,7 +390,7 @@ make_texture(struct st_context *st,
 					      width, height);
 
       /* map texture transfer */
-      dest = pipe->transfer_map(pipe, transfer);
+      dest = pipe_transfer_map(pipe, transfer);
 
 
       /* Put image into texture transfer.
@@ -410,8 +410,8 @@ make_texture(struct st_context *st,
                                unpack);
 
       /* unmap */
-      pipe->transfer_unmap(pipe, transfer);
-      pipe->tex_transfer_destroy(pipe, transfer);
+      pipe_transfer_unmap(pipe, transfer);
+      pipe->transfer_destroy(pipe, transfer);
 
       assert(success);
 
@@ -525,7 +525,7 @@ static void
 draw_textured_quad(GLcontext *ctx, GLint x, GLint y, GLfloat z,
                    GLsizei width, GLsizei height,
                    GLfloat zoomX, GLfloat zoomY,
-                   struct pipe_texture *pt,
+                   struct pipe_resource *pt,
                    void *driver_vp,
                    void *driver_fp,
                    const GLfloat *color,
@@ -608,7 +608,7 @@ draw_textured_quad(GLcontext *ctx, GLint x, GLint y, GLfloat z,
 
    /* texture state: */
    if (st->pixel_xfer.pixelmap_enabled) {
-      struct pipe_texture *textures[2];
+      struct pipe_resource *textures[2];
       textures[0] = pt;
       textures[1] = st->pixel_xfer.pixelmap_texture;
       pipe->set_fragment_sampler_textures(pipe, 2, textures);
@@ -690,7 +690,7 @@ draw_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
 				       usage, x, y,
 				       width, height);
 
-   stmap = pipe->transfer_map(pipe, pt);
+   stmap = pipe_transfer_map(pipe, pt);
 
    pixels = _mesa_map_pbo_source(ctx, &clippedUnpack, pixels);
    assert(pixels);
@@ -790,8 +790,8 @@ draw_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
    _mesa_unmap_pbo_source(ctx, &clippedUnpack);
 
    /* unmap the stencil buffer */
-   pipe->transfer_unmap(pipe, pt);
-   pipe->tex_transfer_destroy(pipe, pt);
+   pipe_transfer_unmap(pipe, pt);
+   pipe->transfer_destroy(pipe, pt);
 }
 
 
@@ -832,7 +832,7 @@ st_DrawPixels(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
 
    /* draw with textured quad */
    {
-      struct pipe_texture *pt
+      struct pipe_resource *pt
          = make_texture(st, width, height, format, type, unpack, pixels);
       if (pt) {
          draw_textured_quad(ctx, x, y, ctx->Current.RasterPos[2],
@@ -841,7 +841,7 @@ st_DrawPixels(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
                             driver_vp, 
                             driver_fp,
                             color, GL_FALSE);
-         pipe_texture_reference(&pt, NULL);
+         pipe_resource_reference(&pt, NULL);
       }
    }
 }
@@ -890,7 +890,7 @@ copy_stencil_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
    assert(util_format_get_blockheight(ptDraw->texture->format) == 1);
 
    /* map the stencil buffer */
-   drawMap = pipe->transfer_map(pipe, ptDraw);
+   drawMap = pipe_transfer_map(pipe, ptDraw);
 
    /* draw */
    /* XXX PixelZoom not handled yet */
@@ -943,8 +943,8 @@ copy_stencil_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
    free(buffer);
 
    /* unmap the stencil buffer */
-   pipe->transfer_unmap(pipe, ptDraw);
-   pipe->tex_transfer_destroy(pipe, ptDraw);
+   pipe_transfer_unmap(pipe, ptDraw);
+   pipe->transfer_destroy(pipe, ptDraw);
 }
 
 
@@ -958,7 +958,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
    struct pipe_screen *screen = pipe->screen;
    struct st_renderbuffer *rbRead;
    void *driver_vp, *driver_fp;
-   struct pipe_texture *pt;
+   struct pipe_resource *pt;
    GLfloat *color;
    enum pipe_format srcFormat, texFormat;
    GLboolean invertTex = GL_FALSE;
@@ -1015,7 +1015,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
       driver_vp = make_passthrough_vertex_shader(st, GL_TRUE);
    }
 
-   srcFormat = rbRead->texture->format;
+   srcFormat = rbRead->texture->base.format;
 
    if (screen->is_format_supported(screen, srcFormat, PIPE_TEXTURE_2D, 
                                    PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
@@ -1101,7 +1101,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
       if (ST_DEBUG & DEBUG_FALLBACK)
          debug_printf("%s: fallback processing\n", __FUNCTION__);
 
-      if (type == GL_DEPTH && util_format_is_depth_and_stencil(pt->format))
+      if (type == GL_DEPTH && util_format_is_depth_and_stencil(pt->base.format))
          transfer_usage = PIPE_TRANSFER_READ_WRITE;
       else
          transfer_usage = PIPE_TRANSFER_WRITE;
@@ -1126,8 +1126,8 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
          free(buf);
       }
 
-      pipe->tex_transfer_destroy(pipe, ptRead);
-      pipe->tex_transfer_destroy(pipe, ptTex);
+      pipe->transfer_destroy(pipe, ptRead);
+      pipe->transfer_destroy(pipe, ptTex);
    }
 
    /* draw textured quad */
@@ -1138,7 +1138,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
                       driver_fp,
                       color, invertTex);
 
-   pipe_texture_reference(&pt, NULL);
+   pipe_resource_reference(&pt, NULL);
 }
 
 

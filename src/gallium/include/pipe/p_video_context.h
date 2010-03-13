@@ -63,7 +63,7 @@ struct pipe_video_context
    /*@{*/
    void (*decode_bitstream)(struct pipe_video_context *vpipe,
                             unsigned num_bufs,
-                            struct pipe_buffer **bitstream_buf);
+                            struct pipe_resource **bitstream_buf);
 
    void (*decode_macroblocks)(struct pipe_video_context *vpipe,
                               struct pipe_video_surface *past,

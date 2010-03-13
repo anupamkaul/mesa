@@ -264,15 +264,20 @@ ExaPrepareAccess(PixmapPtr pPix, int index)
         assert(pPix->drawable.width <= priv->tex->width0);
         assert(pPix->drawable.height <= priv->tex->height0);
 
+	u_box_wh(&box, 
+		 pPix->drawable.width,
+		 pPix->drawable.height);
+
 	priv->map_transfer =
-	    exa->pipe->get_tex_transfer(exa->pipe, priv->tex, 0, 0, 0,
+	    exa->pipe->get_transfer(exa->pipe,
+				    priv->tex,
+				    u_subresource(0, 0),
 #ifdef EXA_MIXED_PIXMAPS
-					PIPE_TRANSFER_MAP_DIRECTLY |
+				    PIPE_TRANSFER_MAP_DIRECTLY |
 #endif
-					PIPE_TRANSFER_READ_WRITE,
-					0, 0, 
-                                        pPix->drawable.width,
-                                        pPix->drawable.height );
+				    PIPE_TRANSFER_READ_WRITE,
+
+				    &box );
 	if (!priv->map_transfer)
 #ifdef EXA_MIXED_PIXMAPS
 	    return FALSE;

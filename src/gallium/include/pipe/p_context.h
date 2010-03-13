@@ -291,22 +291,9 @@ struct pipe_context {
     * \param level  mipmap level.
     * \return mask of PIPE_REFERENCED_FOR_READ/WRITE or PIPE_UNREFERENCED
     */
-   unsigned int (*is_texture_referenced)(struct pipe_context *pipe,
-					 struct pipe_texture *texture,
-					 unsigned face, unsigned level);
-
-   /**
-    * Check whether a buffer is referenced by an unflushed hw command.
-    * The state-tracker uses this function to avoid unnecessary flushes.
-    * It is safe (but wasteful) to always return
-    * PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE.
-    * \param pipe  context whose unflushed hw commands will be checked.
-    * \param buf  buffer to check.
-    * \return mask of PIPE_REFERENCED_FOR_READ/WRITE or PIPE_UNREFERENCED
-    */
-   unsigned int (*is_buffer_referenced)(struct pipe_context *pipe,
-					struct pipe_buffer *buf);
-
+   unsigned int (*is_resource_referenced)(struct pipe_context *pipe,
+					  struct pipe_resource *texture,
+					  unsigned face, unsigned level);
 
 
    /**
@@ -315,23 +302,49 @@ struct pipe_context {
     * Transfers are (by default) context-private and allow uploads to be
     * interleaved with
     */
-   struct pipe_transfer *(*get_tex_transfer)(struct pipe_context *,
-                                             struct pipe_texture *texture,
-                                             unsigned face, unsigned level,
-                                             unsigned zslice,
-                                             enum pipe_transfer_usage usage,
-                                             unsigned x, unsigned y,
-                                             unsigned w, unsigned h);
+   struct pipe_transfer *(*get_transfer)(struct pipe_context *,
+					 struct pipe_resource *resource,
+					 struct pipe_subresource,
+					 enum pipe_transfer_usage,
+					 const struct pipe_box *);
 
-   void (*tex_transfer_destroy)(struct pipe_context *,
+   void (*transfer_destroy)(struct pipe_context *,
                                 struct pipe_transfer *);
    
    void *(*transfer_map)( struct pipe_context *,
                           struct pipe_transfer *transfer );
 
+   /* If transfer was created with WRITE|FLUSH_EXPLICIT, only the
+    * regions specified with this call are guaranteed to be written to
+    * the resource.
+    */
+   void (*transfer_flush_region)( struct pipe_context *,
+				  struct pipe_transfer *transfer,
+				  const struct pipe_box *);
+
    void (*transfer_unmap)( struct pipe_context *,
                            struct pipe_transfer *transfer );
 
+
+   /* One-shot transfer operation with data supplied in a user
+    * pointer.  XXX: strides??
+    */
+   void (*transfer_inline_write)( struct pipe_context *,
+				  struct pipe_resource *,
+				  struct pipe_subresource,
+				  enum pipe_transfer_usage,
+				  const struct pipe_box *,
+				  const void *data );
+
+   /* One-shot read transfer operation with data returned in a user
+    * pointer.  XXX: strides??
+    */
+   void (*transfer_inline_read)( struct pipe_context *,
+				 struct pipe_resource *,
+				 struct pipe_subresource,
+				 enum pipe_transfer_usage,
+				 const struct pipe_box *,
+				 void *data );
 
 };
 

@@ -171,10 +171,10 @@ struct pipe_mpeg12_picture_desc
    unsigned alternate_scan;
    unsigned full_pel_forward_vector;
    unsigned full_pel_backward_vector;
-   struct pipe_buffer *intra_quantizer_matrix;
-   struct pipe_buffer *non_intra_quantizer_matrix;
-   struct pipe_buffer *chroma_intra_quantizer_matrix;
-   struct pipe_buffer *chroma_non_intra_quantizer_matrix;
+   struct pipe_resource *intra_quantizer_matrix;
+   struct pipe_resource *non_intra_quantizer_matrix;
+   struct pipe_resource *chroma_intra_quantizer_matrix;
+   struct pipe_resource *chroma_non_intra_quantizer_matrix;
 };
 #endif
 
