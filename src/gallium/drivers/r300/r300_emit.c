@@ -163,7 +163,7 @@ static const float * get_shader_constant(
                 /* Factor for converting rectangle coords to
                  * normalized coords. Should only show up on non-r500. */
                 case RC_STATE_R300_TEXRECT_FACTOR:
-                    tex = &texstate->textures[constant->u.State[1]]->tex;
+                    tex = r300->fragment_sampler_views[constant->u.State[1]]->texture;
                     vec[0] = 1.0 / tex->width0;
                     vec[1] = 1.0 / tex->height0;
                     break;
@@ -1034,10 +1034,10 @@ validate:
         }
     }
     /* ...textures... */
-    for (i = 0; i < texstate->count; i++) {
-        tex = texstate->textures[i];
-        if (!tex || !texstate->sampler_states[i])
+    for (i = 0; i < r300->fragment_sampler_view_count; i++) {
+        if (!r300->fragment_sampler_views[i])
             continue;
+        tex = (struct r300_texture *)r300->fragment_sampler_views[i]->texture;
         if (!r300->winsys->add_buffer(r300->winsys, tex->buffer,
                     RADEON_GEM_DOMAIN_GTT | RADEON_GEM_DOMAIN_VRAM, 0)) {
             r300->context.flush(&r300->context, 0, NULL);

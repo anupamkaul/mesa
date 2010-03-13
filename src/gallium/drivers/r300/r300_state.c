@@ -923,13 +923,11 @@ static void r300_delete_sampler_state(struct pipe_context* pipe, void* state)
     FREE(state);
 }
 
-static void r300_set_sampler_textures(struct pipe_context* pipe,
-                                      unsigned count,
-                                      struct pipe_texture** texture)
+static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
+                                            unsigned count,
+                                            struct pipe_sampler_view** views)
 {
     struct r300_context* r300 = r300_context(pipe);
-    struct r300_textures_state* state =
-        (struct r300_textures_state*)r300->textures_state.state;
     unsigned i;
     boolean is_r500 = r300_screen(r300->context.screen)->caps->is_r500;
     boolean dirty_tex = FALSE;
@@ -940,13 +938,17 @@ static void r300_set_sampler_textures(struct pipe_context* pipe,
     }
 
     for (i = 0; i < count; i++) {
-        if (state->textures[i] != (struct r300_texture*)texture[i]) {
-            pipe_texture_reference((struct pipe_texture**)&state->textures[i],
-                                   texture[i]);
+        if (r300->fragment_sampler_views[i] != views[i]) {
+            struct r300_texture *texture;
+
+            pipe_sampler_view_reference(&r300->fragment_sampler_views[i],
+                views[i]);
             dirty_tex = TRUE;
 
-            /* R300-specific - set the texrect factor in the fragment shader */
-            if (!is_r500 && state->textures[i]->is_npot) {
+            texture = (struct r300_texture *)views[i]->texture;
+
+            /* R300-specific - set the texrect factor in a fragment shader */
+            if (!is_r500 && texture->is_npot) {
                 /* XXX It would be nice to re-emit just 1 constant,
                  * XXX not all of them */
                 r300->dirty_state |= R300_NEW_FRAGMENT_SHADER_CONSTANTS;
@@ -955,19 +957,47 @@ static void r300_set_sampler_textures(struct pipe_context* pipe,
     }
 
     for (i = count; i < 8; i++) {
-        if (state->textures[i]) {
-            pipe_texture_reference((struct pipe_texture**)&state->textures[i],
+        if (r300->fragment_sampler_views[i]) {
+            pipe_sampler_view_reference(&r300->fragment_sampler_views[i],
                 NULL);
         }
     }
 
-    state->texture_count = count;
+    r300->fragment_sampler_view_count = count;
 
     r300->textures_state.dirty = TRUE;
 
     if (dirty_tex) {
         r300->texture_cache_inval.dirty = TRUE;
     }
+}
+
+static struct pipe_sampler_view *
+r300_create_sampler_view(struct pipe_context *pipe,
+                         struct pipe_texture *texture,
+                         const struct pipe_sampler_view *templ)
+{
+   struct r300_context *r300 = r300_context(pipe);
+   struct pipe_sampler_view *view = CALLOC_STRUCT(pipe_sampler_view);
+
+   if (view) {
+      *view = *templ;
+      view->reference.count = 1;
+      view->texture = NULL;
+      pipe_texture_reference(&view->texture, texture);
+      view->context = pipe;
+   }
+
+   return view;
+}
+
+
+static void
+r300_sampler_view_destroy(struct pipe_context *pipe,
+                          struct pipe_sampler_view *view)
+{
+   pipe_texture_reference(&view->texture, NULL);
+   FREE(view);
 }
 
 static void r300_set_scissor_state(struct pipe_context* pipe,
@@ -1450,7 +1480,9 @@ void r300_init_state_functions(struct r300_context* r300)
     r300->context.bind_vertex_sampler_states = r300_lacks_vertex_textures;
     r300->context.delete_sampler_state = r300_delete_sampler_state;
 
-    r300->context.set_fragment_sampler_textures = r300_set_sampler_textures;
+    r300->context.set_fragment_sampler_views = r300_set_fragment_sampler_views;
+    r300->context.create_sampler_view = r300_create_sampler_view;
+    r300->context.sampler_view_destroy = r300_sampler_view_destroy;
 
     r300->context.set_scissor_state = r300_set_scissor_state;
 

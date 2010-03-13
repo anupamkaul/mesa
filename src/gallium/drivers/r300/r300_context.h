@@ -342,8 +342,9 @@ struct r300_context {
     struct r300_atom rs_block_state;
     /* Scissor state. */
     struct r300_atom scissor_state;
-    /* Textures state. */
-    struct r300_atom textures_state;
+    /* Sampler view states. */
+    struct pipe_sampler_view* fragment_sampler_views[8];
+    int fragment_sampler_view_count;
     /* Vertex stream formatting state. */
     struct r300_atom vertex_stream_state;
     /* VAP (vertex shader) output mapping state. */

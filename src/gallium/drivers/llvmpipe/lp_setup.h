@@ -121,8 +121,9 @@ lp_setup_set_scissor( struct lp_setup_context *setup,
                       const struct pipe_scissor_state *scissor );
 
 void
-lp_setup_set_sampler_textures( struct lp_setup_context *setup,
-                               unsigned num, struct pipe_texture **texture);
+lp_setup_set_fragment_sampler_views(struct lp_setup_context *setup,
+                                    unsigned num,
+                                    struct pipe_sampler_view **views);
 
 unsigned
 lp_setup_is_texture_referenced( const struct lp_setup_context *setup,
