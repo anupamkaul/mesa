@@ -222,16 +222,12 @@ pipe_buffer_write(struct pipe_context *pipe,
                   const void *data)
 {
    struct pipe_box box;
-   struct pipe_subresource subresource;
-
-   subresource.face = 0;
-   subresource.level = 0;
 
    u_box_1d(offset, size, &box);
 
    pipe->transfer_inline_write( pipe,
 				buf,
-				subresource,
+				u_subresource(0,0),
 				PIPE_TRANSFER_WRITE,
 				&box,
 				data);
@@ -250,16 +246,12 @@ pipe_buffer_write_nooverlap(struct pipe_context *pipe,
                             const void *data)
 {
    struct pipe_box box;
-   struct pipe_subresource subresource;
-
-   subresource.face = 0;
-   subresource.level = 0;
 
    u_box_1d(offset, size, &box);
 
    pipe->transfer_inline_write(pipe, 
 			       buf,
-			       subresource,
+			       u_subresource(0,0),
 			       (PIPE_TRANSFER_WRITE |
 				PIPE_TRANSFER_NOOVERWRITE),
 			       &box,
@@ -273,16 +265,12 @@ pipe_buffer_read(struct pipe_context *pipe,
                  void *data)
 {
    struct pipe_box box;
-   struct pipe_subresource subresource;
-
-   subresource.face = 0;
-   subresource.level = 0;
 
    u_box_1d(offset, size, &box);
 
    pipe->transfer_inline_read( pipe,
 			       buf,
-			       subresource,
+			       u_subresource(0,0),
 			       PIPE_TRANSFER_READ,
 			       &box,
 			       data);

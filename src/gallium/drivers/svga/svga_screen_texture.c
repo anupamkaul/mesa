@@ -786,8 +786,8 @@ svga_surface_needs_propagation(struct pipe_surface *surf)
 /* XXX: Still implementing this as if it was a screen function, but
  * can now modify it to queue transfers on the context.
  */
-static struct pipe_transfer *
-svga_get_transfer(struct pipe_context *pipe,
+static struct pipe_tex_transfer *
+svga_get_tex_transfer(struct pipe_context *pipe,
 		      struct pipe_texture *texture,
 		      unsigned face, unsigned level, unsigned zslice,
 		      enum pipe_transfer_usage usage, unsigned x, unsigned y,
@@ -866,7 +866,7 @@ no_hwbuf:
  */
 static void *
 svga_transfer_map( struct pipe_context *pipe,
-                   struct pipe_transfer *transfer )
+                   struct pipe_tex_transfer *transfer )
 {
    struct svga_screen *ss = svga_screen(pipe->screen);
    struct svga_winsys_screen *sws = ss->sws;
@@ -887,7 +887,7 @@ svga_transfer_map( struct pipe_context *pipe,
  */
 static void
 svga_transfer_unmap(struct pipe_context *pipe,
-                    struct pipe_transfer *transfer)
+                    struct pipe_tex_transfer *transfer)
 {
    struct svga_screen *ss = svga_screen(pipe->screen);
    struct svga_winsys_screen *sws = ss->sws;
@@ -900,7 +900,7 @@ svga_transfer_unmap(struct pipe_context *pipe,
 
 static void
 svga_transfer_destroy(struct pipe_context *pipe,
-		      struct pipe_transfer *transfer)
+		      struct pipe_tex_transfer *transfer)
 {
    struct svga_texture *tex = svga_texture(transfer->texture);
    struct svga_screen *ss = svga_screen(pipe->screen);

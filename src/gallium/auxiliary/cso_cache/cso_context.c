@@ -642,11 +642,11 @@ enum pipe_error cso_set_sampler_textures( struct cso_context *ctx,
                                             textures[i],
                                             &templ);
 
-      pipe_texture_reference(&ctx->textures[i], textures[i]);
+      pipe_resource_reference(&ctx->textures[i], textures[i]);
       pipe_sampler_view_reference(&ctx->fragment_sampler_views[i], view);
    }
    for ( ; i < PIPE_MAX_SAMPLERS; i++) {
-      pipe_texture_reference(&ctx->textures[i], NULL);
+      pipe_resource_reference(&ctx->textures[i], NULL);
       pipe_sampler_view_reference(&ctx->fragment_sampler_views[i], NULL);
    }
 
@@ -666,7 +666,7 @@ void cso_save_sampler_textures( struct cso_context *ctx )
       assert(!ctx->textures_saved[i]);
       assert(!ctx->fragment_sampler_views_saved[i]);
 
-      pipe_texture_reference(&ctx->textures_saved[i], ctx->textures[i]);
+      pipe_resource_reference(&ctx->textures_saved[i], ctx->textures[i]);
       pipe_sampler_view_reference(&ctx->fragment_sampler_views_saved[i],
                                   ctx->fragment_sampler_views[i]);
    }
@@ -679,7 +679,7 @@ void cso_restore_sampler_textures( struct cso_context *ctx )
    ctx->nr_textures = ctx->nr_textures_saved;
 
    for (i = 0; i < ctx->nr_textures; i++) {
-      pipe_texture_reference(&ctx->textures[i], NULL);
+      pipe_resource_reference(&ctx->textures[i], NULL);
       ctx->textures[i] = ctx->textures_saved[i];
       ctx->textures_saved[i] = NULL;
 
@@ -688,7 +688,7 @@ void cso_restore_sampler_textures( struct cso_context *ctx )
       ctx->fragment_sampler_views_saved[i] = NULL;
    }
    for ( ; i < PIPE_MAX_SAMPLERS; i++) {
-      pipe_texture_reference(&ctx->textures[i], NULL);
+      pipe_resource_reference(&ctx->textures[i], NULL);
       pipe_sampler_view_reference(&ctx->fragment_sampler_views[i], NULL);
    }
 
