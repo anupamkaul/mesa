@@ -106,12 +106,10 @@ pipe_resource_reference(struct pipe_resource **ptr, struct pipe_resource *tex)
    struct pipe_resource *old_tex = *ptr;
 
    if (pipe_reference(&(*ptr)->reference, &tex->reference))
-      old_tex->screen->resource_destroy(old_tex);
+      old_tex->screen->resource_destroy(old_tex->screen, old_tex);
    *ptr = tex;
 }
 
-#define pipe_buffer_reference pipe_resource_reference
-#define pipe_texture_reference pipe_resource_reference
 
 static INLINE void
 pipe_sampler_view_reference(struct pipe_sampler_view **ptr, struct pipe_sampler_view *view)
@@ -145,7 +143,8 @@ pipe_buffer_create( struct pipe_screen *screen,
 
 
 static INLINE struct pipe_resource *
-pipe_user_buffer_create( struct pipe_screen *screen, void *ptr, unsigned size )
+pipe_user_buffer_create( struct pipe_screen *screen, void *ptr, unsigned size,
+			 unsigned usage )
 {
    return screen->user_buffer_create(screen, ptr, size);
 }
@@ -228,12 +227,7 @@ pipe_buffer_write(struct pipe_context *pipe,
    subresource.face = 0;
    subresource.level = 0;
 
-   box.x = offset;
-   box.y = 0;
-   box.z = 0;
-   box.w = size;
-   box.h = 1;
-   box.d = 1;
+   u_box_1d(offset, size, &box);
 
    pipe->transfer_inline_write( pipe,
 				buf,
@@ -261,12 +255,7 @@ pipe_buffer_write_nooverlap(struct pipe_context *pipe,
    subresource.face = 0;
    subresource.level = 0;
 
-   box.x = offset;
-   box.y = 0;
-   box.z = 0;
-   box.w = size;
-   box.h = 1;
-   box.d = 1;
+   u_box_1d(offset, size, &box);
 
    pipe->transfer_inline_write(pipe, 
 			       buf,
@@ -289,12 +278,7 @@ pipe_buffer_read(struct pipe_context *pipe,
    subresource.face = 0;
    subresource.level = 0;
 
-   box.x = offset;
-   box.y = 0;
-   box.z = 0;
-   box.w = size;
-   box.h = 1;
-   box.d = 1;
+   u_box_1d(offset, size, &box);
 
    pipe->transfer_inline_read( pipe,
 			       buf,

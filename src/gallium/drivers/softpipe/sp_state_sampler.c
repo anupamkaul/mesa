@@ -123,7 +123,7 @@ softpipe_bind_vertex_sampler_states(struct pipe_context *pipe,
 
 struct pipe_sampler_view *
 softpipe_create_sampler_view(struct pipe_context *pipe,
-                             struct pipe_texture *texture,
+                             struct pipe_resource *resource,
                              const struct pipe_sampler_view *templ)
 {
    struct pipe_sampler_view *view = CALLOC_STRUCT(pipe_sampler_view);
@@ -132,7 +132,7 @@ softpipe_create_sampler_view(struct pipe_context *pipe,
       *view = *templ;
       view->reference.count = 1;
       view->texture = NULL;
-      pipe_texture_reference(&view->texture, texture);
+      pipe_resource_reference(&view->resource, resource);
       view->context = pipe;
    }
 
@@ -223,10 +223,10 @@ softpipe_set_vertex_sampler_views(struct pipe_context *pipe,
 static struct sp_sampler_varient *
 get_sampler_varient( unsigned unit,
                      struct sp_sampler *sampler,
-                     struct pipe_texture *texture,
+                     struct pipe_resource *resource,
                      unsigned processor )
 {
-   struct softpipe_texture *sp_texture = softpipe_texture(texture);
+   struct softpipe_texture *sp_texture = softpipe_resource(resource);
    struct sp_sampler_varient *v = NULL;
    union sp_sampler_key key;
 
@@ -274,7 +274,7 @@ softpipe_reset_sampler_varients(struct softpipe_context *softpipe)
     */
    for (i = 0; i <= softpipe->vs->max_sampler; i++) {
       if (softpipe->vertex_samplers[i]) {
-         struct pipe_texture *texture = NULL;
+         struct pipe_resource *texture = NULL;
 
          if (softpipe->vertex_sampler_views[i]) {
             texture = softpipe->vertex_sampler_views[i]->texture;

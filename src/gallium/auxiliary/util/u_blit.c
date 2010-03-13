@@ -68,7 +68,7 @@ struct blit_state
    void *vs;
    void *fs[TGSI_WRITEMASK_XYZW + 1];
 
-   struct pipe_buffer *vbuf;  /**< quad vertices */
+   struct pipe_resource *vbuf;  /**< quad vertices */
    unsigned vbuf_slot;
 
    float vertices[4][2][4];   /**< vertex/texcoords for quad */
@@ -166,7 +166,7 @@ util_destroy_blit(struct blit_state *ctx)
       if (ctx->fs[i])
          pipe->delete_fs_state(pipe, ctx->fs[i]);
 
-   pipe_buffer_reference(&ctx->vbuf, NULL);
+   pipe_resource_reference(&ctx->vbuf, NULL);
 
    FREE(ctx);
 }
@@ -235,7 +235,7 @@ setup_vertex_data_tex(struct blit_state *ctx,
 
    offset = get_next_slot( ctx );
 
-   pipe_buffer_write_nooverlap(ctx->pipe->screen, ctx->vbuf,
+   pipe_buffer_write_nooverlap(ctx->pipe, ctx->vbuf,
                                offset, sizeof(ctx->vertices), ctx->vertices);
 
    return offset;
@@ -290,7 +290,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
 {
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
-   struct pipe_texture *tex = NULL;
+   struct pipe_resource *tex = NULL;
    struct pipe_framebuffer_state fb;
    const int srcW = abs(srcX1 - srcX0);
    const int srcH = abs(srcY1 - srcY0);
@@ -344,7 +344,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
        src->texture->target != PIPE_TEXTURE_2D ||
        src->texture->last_level != 0)
    {
-      struct pipe_texture texTemp;
+      struct pipe_resource texTemp;
       struct pipe_surface *texSurf;
       const int srcLeft = MIN2(srcX0, srcX1);
       const int srcTop = MIN2(srcY0, srcY1);
@@ -372,7 +372,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
       texTemp.height0 = srcH;
       texTemp.depth0 = 1;
 
-      tex = screen->texture_create(screen, &texTemp);
+      tex = screen->resource_create(screen, &texTemp);
       if (!tex)
          return;
 
@@ -401,7 +401,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
       t1 = 1.0f;
    }
    else {
-      pipe_texture_reference(&tex, src->texture);
+      pipe_resource_reference(&tex, src->texture);
       s0 = srcX0 / (float)tex->width0;
       s1 = srcX1 / (float)tex->width0;
       t0 = srcY0 / (float)tex->height0;
@@ -494,7 +494,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
    cso_restore_clip(ctx->cso);
    cso_restore_vertex_elements(ctx->cso);
 
-   pipe_texture_reference(&tex, NULL);
+   pipe_resource_reference(&tex, NULL);
 }
 
 
@@ -524,7 +524,7 @@ util_blit_pixels(struct blit_state *ctx,
  */
 void util_blit_flush( struct blit_state *ctx )
 {
-   pipe_buffer_reference(&ctx->vbuf, NULL);
+   pipe_resource_reference(&ctx->vbuf, NULL);
    ctx->vbuf_slot = 0;
 } 
 
@@ -539,7 +539,7 @@ void util_blit_flush( struct blit_state *ctx )
  */
 void
 util_blit_pixels_tex(struct blit_state *ctx,
-                 struct pipe_texture *tex,
+                 struct pipe_resource *tex,
                  int srcX0, int srcY0,
                  int srcX1, int srcY1,
                  struct pipe_surface *dst,

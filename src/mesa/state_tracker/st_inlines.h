@@ -61,12 +61,7 @@ st_cond_flush_get_tex_transfer(struct st_context *st,
    subresource.face = face;
    subresource.level = level;
 
-   box.x = x;
-   box.y = y;
-   box.z = zslice;
-   box.w = w;
-   box.h = h;
-   box.d = 1;
+   u_box_2d_zslice(x, y, zslice, w, h, &box);
 
    st_teximage_flush_before_map(st, pt, face, level, usage);
 

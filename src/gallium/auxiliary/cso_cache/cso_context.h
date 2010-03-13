@@ -106,7 +106,7 @@ cso_single_vertex_sampler_done(struct cso_context *cso);
 
 enum pipe_error cso_set_sampler_textures( struct cso_context *cso,
                                           uint count,
-                                          struct pipe_texture **textures );
+                                          struct pipe_resource **textures );
 void cso_save_sampler_textures( struct cso_context *cso );
 void cso_restore_sampler_textures( struct cso_context *cso );
 

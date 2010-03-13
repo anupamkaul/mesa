@@ -71,7 +71,7 @@ struct cso_context {
    unsigned nr_vertex_samplers_saved;
    void *vertex_samplers_saved[PIPE_MAX_VERTEX_SAMPLERS];
 
-   struct pipe_texture *textures[PIPE_MAX_SAMPLERS];
+   struct pipe_resource *textures[PIPE_MAX_SAMPLERS];
    uint nr_fragment_sampler_views;
    struct pipe_sampler_view *fragment_sampler_views[PIPE_MAX_SAMPLERS];
    uint nr_textures;
@@ -80,7 +80,7 @@ struct cso_context {
    struct pipe_sampler_view *vertex_sampler_views[PIPE_MAX_VERTEX_SAMPLERS];
 
    uint nr_textures_saved;
-   struct pipe_texture *textures_saved[PIPE_MAX_SAMPLERS];
+   struct pipe_resource *textures_saved[PIPE_MAX_SAMPLERS];
    uint nr_fragment_sampler_views_saved;
    struct pipe_sampler_view *fragment_sampler_views_saved[PIPE_MAX_SAMPLERS];
 
@@ -299,8 +299,8 @@ void cso_release_all( struct cso_context *ctx )
    }
 
    for (i = 0; i < PIPE_MAX_SAMPLERS; i++) {
-      pipe_texture_reference(&ctx->textures[i], NULL);
-      pipe_texture_reference(&ctx->textures_saved[i], NULL);
+      pipe_resource_reference(&ctx->textures[i], NULL);
+      pipe_resource_reference(&ctx->textures_saved[i], NULL);
       pipe_sampler_view_reference(&ctx->fragment_sampler_views[i], NULL);
       pipe_sampler_view_reference(&ctx->fragment_sampler_views_saved[i], NULL);
    }
@@ -626,7 +626,7 @@ cso_restore_vertex_samplers(struct cso_context *ctx)
 
 enum pipe_error cso_set_sampler_textures( struct cso_context *ctx,
                                           uint count,
-                                          struct pipe_texture **textures )
+                                          struct pipe_resource **textures )
 {
    uint i;
 

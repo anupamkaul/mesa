@@ -79,7 +79,7 @@ st_bufferobj_free(GLcontext *ctx, struct gl_buffer_object *obj)
    assert(st_obj->transfer == NULL);
 
    if (st_obj->buffer) 
-      pipe_buffer_reference(&st_obj->buffer, NULL);
+      pipe_resource_reference(&st_obj->buffer, NULL);
 
    free(st_obj);
 }
@@ -193,7 +193,7 @@ st_bufferobj_data(GLcontext *ctx,
       buffer_usage = 0;
    }
 
-   pipe_buffer_reference( &st_obj->buffer, NULL );
+   pipe_resource_reference( &st_obj->buffer, NULL );
 
    if (size != 0) {
       st_obj->buffer = pipe_buffer_create(pipe->screen, 32, buffer_usage, size);

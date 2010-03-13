@@ -652,7 +652,7 @@ st_flush_bitmap( struct st_context *st )
    /* Release vertex buffer to avoid synchronous rendering if we were
     * to map it in the next frame.
     */
-   pipe_buffer_reference(&st->bitmap.vbuf, NULL);
+   pipe_resource_reference(&st->bitmap.vbuf, NULL);
    st->bitmap.vbuf_slot = 0;
 }
 
@@ -843,7 +843,7 @@ st_destroy_bitmap(struct st_context *st)
    }
 
    if (st->bitmap.vbuf) {
-      pipe_buffer_reference(&st->bitmap.vbuf, NULL);
+      pipe_resource_reference(&st->bitmap.vbuf, NULL);
       st->bitmap.vbuf = NULL;
    }
 

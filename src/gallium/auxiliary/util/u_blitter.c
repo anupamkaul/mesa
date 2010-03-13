@@ -56,7 +56,7 @@ struct blitter_context_priv
    struct blitter_context blitter;
 
    struct pipe_context *pipe; /**< pipe context */
-   struct pipe_buffer *vbuf;  /**< quad */
+   struct pipe_resource *vbuf;  /**< quad */
 
    float vertices[4][2][4];   /**< {pos, color} or {pos, texcoord} */
 
@@ -259,7 +259,7 @@ void util_blitter_destroy(struct blitter_context *blitter)
       pipe_sampler_view_reference(&ctx->sampler_view, NULL);
    }
 
-   pipe_buffer_reference(&ctx->vbuf, NULL);
+   pipe_resource_reference(&ctx->vbuf, NULL);
    FREE(ctx);
 }
 
@@ -451,7 +451,7 @@ static void blitter_draw_quad(struct blitter_context_priv *ctx)
    struct pipe_context *pipe = ctx->pipe;
 
    /* write vertices and draw them */
-   pipe_buffer_write(pipe->screen, ctx->vbuf,
+   pipe_buffer_write(pipe, ctx->vbuf,
                      0, sizeof(ctx->vertices), ctx->vertices);
 
    util_draw_vertex_buffer(pipe, ctx->vbuf, 0, PIPE_PRIM_TRIANGLE_FAN,
@@ -714,8 +714,8 @@ static void util_blitter_overlap_copy(struct blitter_context *blitter,
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
 
-   struct pipe_texture texTemp;
-   struct pipe_texture *texture;
+   struct pipe_resource texTemp;
+   struct pipe_resource *texture;
    struct pipe_surface *tex_surf;
 
    /* check whether the states are properly saved */
@@ -729,7 +729,7 @@ static void util_blitter_overlap_copy(struct blitter_context *blitter,
    texTemp.height0 = height;
    texTemp.depth0 = 1;
 
-   texture = screen->texture_create(screen, &texTemp);
+   texture = screen->resource_create(screen, &texTemp);
    if (!texture)
       return;
 
@@ -747,7 +747,7 @@ static void util_blitter_overlap_copy(struct blitter_context *blitter,
 			width, height,
 			FALSE);
    pipe_surface_reference(&tex_surf, NULL);
-   pipe_texture_reference(&texture, NULL);
+   pipe_resource_reference(&texture, NULL);
    blitter_restore_CSOs(ctx);
 }
 

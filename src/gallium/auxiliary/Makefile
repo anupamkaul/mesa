@@ -54,16 +54,16 @@ C_SOURCES = \
 	os/os_stream_str.c \
 	os/os_stream_null.c \
 	os/os_time.c \
-#	pipebuffer/pb_buffer_fenced.c \
-#	pipebuffer/pb_buffer_malloc.c \
-#	pipebuffer/pb_bufmgr_alt.c \
-#	pipebuffer/pb_bufmgr_cache.c \
-#	pipebuffer/pb_bufmgr_debug.c \
-#	pipebuffer/pb_bufmgr_mm.c \
-#	pipebuffer/pb_bufmgr_ondemand.c \
-#	pipebuffer/pb_bufmgr_pool.c \
-#	pipebuffer/pb_bufmgr_slab.c \
-#	pipebuffer/pb_validate.c \
+	pipebuffer/pb_buffer_fenced.c \
+	pipebuffer/pb_buffer_malloc.c \
+	pipebuffer/pb_bufmgr_alt.c \
+	pipebuffer/pb_bufmgr_cache.c \
+	pipebuffer/pb_bufmgr_debug.c \
+	pipebuffer/pb_bufmgr_mm.c \
+	pipebuffer/pb_bufmgr_ondemand.c \
+	pipebuffer/pb_bufmgr_pool.c \
+	pipebuffer/pb_bufmgr_slab.c \
+	pipebuffer/pb_validate.c \
 	rbug/rbug_connection.c \
 	rbug/rbug_core.c \
 	rbug/rbug_texture.c \
@@ -125,9 +125,7 @@ C_SOURCES = \
 	util/u_surface.c \
 	util/u_texture.c \
 	util/u_tile.c \
-	util/u_timed_winsys.c \
 	util/u_upload_mgr.c \
-	util/u_simple_screen.c
 	# Disabling until pipe-video branch gets merged in
 	#vl/vl_bitstream_parser.c \
 	#vl/vl_mpeg12_mc_renderer.c \

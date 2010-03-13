@@ -136,9 +136,8 @@ pb_malloc_buffer_create(pb_size size,
 
    pipe_reference_init(&buf->base.base.reference, 1);
    buf->base.base.usage = desc->usage;
-   buf->base.base.width0 = size;
-   buf->base.base.height0 = 1;
-   buf->base.base.depth0 = 1;
+   buf->base.base.size = size;
+   buf->base.base.alignment = desc->alignment;
    buf->base.vtbl = &malloc_buffer_vtbl;
 
    buf->data = align_malloc(size, desc->alignment < sizeof(void*) ? sizeof(void*) : desc->alignment);

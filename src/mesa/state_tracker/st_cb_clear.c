@@ -94,7 +94,7 @@ st_destroy_clear(struct st_context *st)
       st->clear.vs = NULL;
    }
    if (st->clear.vbuf) {
-      pipe_buffer_reference(&st->clear.vbuf, NULL);
+      pipe_resource_reference(&st->clear.vbuf, NULL);
       st->clear.vbuf = NULL;
    }
 }
@@ -126,7 +126,7 @@ draw_quad(GLcontext *ctx,
    GLuint i;
 
    if (st->clear.vbuf_slot >= max_slots) {
-      pipe_buffer_reference(&st->clear.vbuf, NULL);
+      pipe_resource_reference(&st->clear.vbuf, NULL);
       st->clear.vbuf_slot = 0;
    }
 
@@ -422,7 +422,7 @@ void st_flush_clear( struct st_context *st )
    /* Release vertex buffer to avoid synchronous rendering if we were
     * to map it in the next frame.
     */
-   pipe_buffer_reference(&st->clear.vbuf, NULL);
+   pipe_resource_reference(&st->clear.vbuf, NULL);
    st->clear.vbuf_slot = 0;
 }
  

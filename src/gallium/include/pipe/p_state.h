@@ -309,12 +309,25 @@ struct pipe_sampler_view
 };
 
 
+struct pipe_box
+{
+   unsigned x;
+   unsigned y;
+   unsigned z;
+   unsigned width;
+   unsigned height;
+   unsigned depth;
+};
+
+
+
 /**
  * Transfer object.  For data transfer to/from a texture.
  */
 struct pipe_transfer
 {
    struct pipe_resource *resource; /**< resource to transfer to/from  */
+   struct pipe_box box;
    unsigned stride;
    unsigned slice_stride;
    void *data;
@@ -342,25 +355,14 @@ struct pipe_resource
    unsigned tex_usage;       /**< bitmask of PIPE_TEXTURE_USAGE_* */
 };
 
-#define pipe_texture pipe_resource
-#define pipe_buffer pipe_resource
+//#define pipe_texture pipe_resource
+//#define pipe_buffer pipe_resource
 
 struct pipe_subresource
 {
    unsigned face:16;
    unsigned level:16;
 };
-
-struct pipe_box
-{
-   unsigned x;
-   unsigned y;
-   unsigned z;
-   unsigned w;
-   unsigned h;
-   unsigned d;
-};
-
 
 
 /**

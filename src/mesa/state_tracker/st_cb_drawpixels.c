@@ -515,7 +515,7 @@ draw_quad(GLcontext *ctx, GLfloat x0, GLfloat y0, GLfloat z,
                               PIPE_PRIM_QUADS,
                               4,  /* verts */
                               3); /* attribs/vert */
-      pipe_buffer_reference(&buf, NULL);
+      pipe_resource_reference(&buf, NULL);
    }
 }
 

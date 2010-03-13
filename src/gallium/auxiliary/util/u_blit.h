@@ -37,7 +37,7 @@ extern "C" {
    
 struct pipe_context;
 struct pipe_surface;
-struct pipe_texture;
+struct pipe_resource;
 struct cso_context;
 
 
@@ -73,7 +73,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
 
 extern void
 util_blit_pixels_tex(struct blit_state *ctx,
-                     struct pipe_texture *tex,
+                     struct pipe_resource *tex,
                      int srcX0, int srcY0,
                      int srcX1, int srcY1,
                      struct pipe_surface *dst,

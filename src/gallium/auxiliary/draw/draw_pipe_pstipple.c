@@ -75,7 +75,7 @@ struct pstip_stage
    struct draw_stage stage;
 
    void *sampler_cso;
-   struct pipe_texture *texture;
+   struct pipe_resource *texture;
    struct pipe_sampler_view *sampler_view;
    uint num_samplers;
    uint num_sampler_views;
@@ -426,7 +426,7 @@ pstip_create_texture(struct pstip_stage *pstip)
 {
    struct pipe_context *pipe = pstip->pipe;
    struct pipe_screen *screen = pipe->screen;
-   struct pipe_texture texTemp;
+   struct pipe_resource texTemp;
    struct pipe_sampler_view viewTempl;
 
    memset(&texTemp, 0, sizeof(texTemp));
@@ -591,7 +591,7 @@ pstip_destroy(struct draw_stage *stage)
 
    pstip->pipe->delete_sampler_state(pstip->pipe, pstip->sampler_cso);
 
-   pipe_texture_reference(&pstip->texture, NULL);
+   pipe_resource_reference(&pstip->texture, NULL);
 
    if (pstip->sampler_view) {
       pipe_sampler_view_reference(&pstip->sampler_view, NULL);

@@ -257,49 +257,52 @@ softpipe_tex_surface_destroy(struct pipe_surface *surf)
  */
 static struct pipe_transfer *
 softpipe_get_transfer(struct pipe_context *pipe,
-                          struct pipe_resource *resource,
-                          struct pipe_subresource subresource,
-                          enum pipe_transfer_usage usage,
-			  const struct pipe_box *box)
+		      struct pipe_resource *resource,
+		      struct pipe_subresource sr,
+		      enum pipe_transfer_usage usage,
+		      const struct pipe_box *box)
 {
-   struct softpipe_texture *sptex = softpipe_texture(texture);
+   struct softpipe_texture *sptex = softpipe_texture(resource);
    struct softpipe_transfer *spt;
 
-   assert(texture);
-   assert(level <= texture->last_level);
+   assert(resource);
+   assert(sr.level <= resource->last_level);
 
    /* make sure the requested region is in the image bounds */
-   assert(x + w <= u_minify(texture->width0, level));
-   assert(y + h <= u_minify(texture->height0, level));
+   assert(box->x + box->width <= u_minify(resource->width0, sr.level));
+   assert(box->y + box->height <= u_minify(resource->height0, sr.level));
+   assert(box->z + box->depth <= u_minify(resource->depth0, sr.level));
 
    spt = CALLOC_STRUCT(softpipe_transfer);
    if (spt) {
       struct pipe_transfer *pt = &spt->base;
-      int nblocksy = util_format_get_nblocksy(texture->format, 
-					      u_minify(texture->height0, level));
-      pipe_texture_reference(&resource, texture);
-      pt->x = x;
-      pt->y = y;
-      pt->width = w;
-      pt->height = h;
-      pt->stride = sptex->stride[level];
-      pt->usage = usage;
-      pt->face = face;
-      pt->level = level;
-      pt->zslice = zslice;
+      enum pipe_format format = resource->format;
+      int nblocksy = util_format_get_nblocksy(resource->format, 
+					      u_minify(resource->height0, sr.level));
+      pipe_resource_reference(&resource, resource);
+      pt->box = *box;
+      pt->stride = sptex->stride[sr.level];
+      //pt->usage = usage;
+      //pt->face = face;
+      //pt->level = level;
 
-      spt->offset = sptex->level_offset[level];
+      spt->offset = sptex->level_offset[sr.level];
 
-      if (texture->target == PIPE_TEXTURE_CUBE) {
-         spt->offset += face * nblocksy * pt->stride;
+      if (resource->target == PIPE_TEXTURE_CUBE) {
+         spt->offset += sr.face * nblocksy * pt->stride;
       }
-      else if (texture->target == PIPE_TEXTURE_3D) {
-         spt->offset += zslice * nblocksy * pt->stride;
+      else if (resource->target == PIPE_TEXTURE_3D) {
+         spt->offset += box->z * nblocksy * pt->stride;
       }
       else {
-         assert(face == 0);
-         assert(zslice == 0);
+         assert(sr.face == 0);
+         assert(box->z == 0);
       }
+      
+      spt->offset += 
+	 box->y / util_format_get_blockheight(format) * spt->base.stride +
+	 box->x / util_format_get_blockwidth(format) * util_format_get_blocksize(format);
+
       return pt;
    }
    return NULL;
@@ -318,8 +321,8 @@ softpipe_transfer_destroy(struct pipe_context *pipe,
     * needed post-processing to put them into hardware layout, this is
     * where it would happen.  For softpipe, nothing to do.
     */
-   assert (transfer->texture);
-   pipe_texture_reference(&transfer->texture, NULL);
+   assert (transfer->resource);
+   pipe_resource_reference(&transfer->resource, NULL);
    FREE(transfer);
 }
 
@@ -333,11 +336,9 @@ softpipe_transfer_map( struct pipe_context *pipe,
 {
    ubyte *map, *xfer_map;
    struct softpipe_texture *spt;
-   enum pipe_format format;
 
-   assert(transfer->texture);
-   spt = softpipe_texture(transfer->texture);
-   format = transfer->texture->format;
+   assert(transfer->resource);
+   spt = softpipe_texture(transfer->resource);
 
    if (spt->dt) {
       /* display target */
@@ -357,16 +358,14 @@ softpipe_transfer_map( struct pipe_context *pipe,
    /* May want to different things here depending on read/write nature
     * of the map:
     */
-   if (transfer->texture && (transfer->usage & PIPE_TRANSFER_WRITE)) {
+   if (transfer->resource && (transfer->usage & PIPE_TRANSFER_WRITE)) {
       /* Do something to notify sharing contexts of a texture change.
        * In softpipe, that would mean flushing the texture cache.
        */
       softpipe_screen(pipe->screen)->timestamp++;
    }
 
-   xfer_map = map + softpipe_transfer(transfer)->offset +
-      transfer->y / util_format_get_blockheight(format) * transfer->stride +
-      transfer->x / util_format_get_blockwidth(format) * util_format_get_blocksize(format);
+   xfer_map = map + softpipe_transfer(transfer)->offset;
    /*printf("map = %p  xfer map = %p\n", map, xfer_map);*/
    return xfer_map;
 }
@@ -381,8 +380,8 @@ softpipe_transfer_unmap(struct pipe_context *pipe,
 {
    struct softpipe_texture *spt;
 
-   assert(transfer->texture);
-   spt = softpipe_texture(transfer->texture);
+   assert(transfer->resource);
+   spt = softpipe_texture(transfer->resource);
 
    if (spt->dt) {
       /* display target */
@@ -397,56 +396,6 @@ softpipe_transfer_unmap(struct pipe_context *pipe,
 }
 
 
-static struct pipe_video_surface*
-softpipe_video_surface_create(struct pipe_screen *screen,
-                              enum pipe_video_chroma_format chroma_format,
-                              unsigned width, unsigned height)
-{
-   struct softpipe_video_surface *sp_vsfc;
-   struct pipe_texture template;
-
-   assert(screen);
-   assert(width && height);
-
-   sp_vsfc = CALLOC_STRUCT(softpipe_video_surface);
-   if (!sp_vsfc)
-      return NULL;
-
-   pipe_reference_init(&sp_vsfc->base.reference, 1);
-   sp_vsfc->base.screen = screen;
-   sp_vsfc->base.chroma_format = chroma_format;
-   /*sp_vsfc->base.surface_format = PIPE_VIDEO_SURFACE_FORMAT_VUYA;*/
-   sp_vsfc->base.width = width;
-   sp_vsfc->base.height = height;
-
-   memset(&template, 0, sizeof(struct pipe_texture));
-   template.target = PIPE_TEXTURE_2D;
-   template.format = PIPE_FORMAT_B8G8R8X8_UNORM;
-   template.last_level = 0;
-   /* vl_mpeg12_mc_renderer expects this when it's initialized with pot_buffers=true */
-   template.width0 = util_next_power_of_two(width);
-   template.height0 = util_next_power_of_two(height);
-   template.depth0 = 1;
-   template.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER | PIPE_TEXTURE_USAGE_RENDER_TARGET;
-
-   sp_vsfc->tex = screen->texture_create(screen, &template);
-   if (!sp_vsfc->tex) {
-      FREE(sp_vsfc);
-      return NULL;
-   }
-
-   return &sp_vsfc->base;
-}
-
-
-static void
-softpipe_video_surface_destroy(struct pipe_video_surface *vsfc)
-{
-   struct softpipe_video_surface *sp_vsfc = softpipe_video_surface(vsfc);
-
-   pipe_texture_reference(&sp_vsfc->tex, NULL);
-   FREE(sp_vsfc);
-}
 
 
 void
@@ -461,14 +410,11 @@ softpipe_init_texture_funcs(struct pipe_context *pipe)
 void
 softpipe_init_screen_texture_funcs(struct pipe_screen *screen)
 {
-   screen->texture_create = softpipe_texture_create;
-   screen->texture_destroy = softpipe_texture_destroy;
+   screen->resource_create = softpipe_texture_create;
+   screen->resource_destroy = softpipe_texture_destroy;
 
    screen->get_tex_surface = softpipe_get_tex_surface;
    screen->tex_surface_destroy = softpipe_tex_surface_destroy;
-
-   screen->video_surface_create = softpipe_video_surface_create;
-   screen->video_surface_destroy = softpipe_video_surface_destroy;
 }
 
 

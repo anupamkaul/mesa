@@ -44,7 +44,7 @@ struct softpipe_context;
 
 struct softpipe_texture
 {
-   struct pipe_texture base;
+   struct pipe_resource base;
 
    unsigned long level_offset[SP_MAX_TEXTURE_2D_LEVELS];
    unsigned stride[SP_MAX_TEXTURE_2D_LEVELS];
@@ -85,10 +85,10 @@ struct softpipe_video_surface
 
 
 /** cast wrappers */
-static INLINE struct softpipe_texture *
-softpipe_texture(struct pipe_texture *pt)
+static INLINE struct softpipe_resource *
+softpipe_resource(struct pipe_resource *pt)
 {
-   return (struct softpipe_texture *) pt;
+   return (struct softpipe_resource *) pt;
 }
 
 static INLINE struct softpipe_transfer *

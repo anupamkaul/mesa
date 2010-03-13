@@ -179,7 +179,7 @@ softpipe_set_constant_buffer(struct pipe_context *pipe,
    draw_flush(softpipe->draw);
 
    /* note: reference counting */
-   pipe_buffer_reference(&softpipe->constants[shader][index], constants);
+   pipe_resource_reference(&softpipe->constants[shader][index], constants);
 
    if(shader == PIPE_SHADER_VERTEX) {
       draw_set_mapped_constant_buffer(softpipe->draw, PIPE_SHADER_VERTEX, index,

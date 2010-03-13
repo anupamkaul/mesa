@@ -128,7 +128,8 @@ struct pipe_screen {
 				  struct winsys_handle *handle);
 
 
-   void (*resource_destroy)(struct pipe_resource *pt);
+   void (*resource_destroy)(struct pipe_screen *,
+			    struct pipe_resource *pt);
 
    /** Get a 2D surface which is a "view" into a texture
     * \param usage  bitmaks of PIPE_BUFFER_USAGE_* read/write flags

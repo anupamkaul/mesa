@@ -206,7 +206,7 @@ softpipe_flush_frontbuffer(struct pipe_screen *_screen,
 {
    struct softpipe_screen *screen = softpipe_screen(_screen);
    struct sw_winsys *winsys = screen->winsys;
-   struct softpipe_texture *texture = softpipe_texture(surface->texture);
+   struct softpipe_resource *texture = softpipe_resource(surface->texture);
 
    assert(texture->dt);
    if (texture->dt)

@@ -255,7 +255,7 @@ util_dump_enum_func(struct os_stream *stream, unsigned value)
 
 
 void
-util_dump_template(struct os_stream *stream, const struct pipe_texture *templat)
+util_dump_template(struct os_stream *stream, const struct pipe_resource *templat)
 {
    if(!templat) {
       util_dump_null(stream);
@@ -653,16 +653,13 @@ util_dump_transfer(struct os_stream *stream, const struct pipe_transfer *state)
 
    util_dump_struct_begin(stream, "pipe_transfer");
 
-   util_dump_member(stream, uint, state, width);
-   util_dump_member(stream, uint, state, height);
+   util_dump_member(stream, ptr, state, resource);
+//   util_dump_member(stream, uint, state, box);
 
    util_dump_member(stream, uint, state, stride);
-   util_dump_member(stream, uint, state, usage);
+   util_dump_member(stream, uint, state, slice_stride);
 
-   util_dump_member(stream, ptr, state, texture);
-   util_dump_member(stream, uint, state, face);
-   util_dump_member(stream, uint, state, level);
-   util_dump_member(stream, uint, state, zslice);
+//   util_dump_member(stream, ptr, state, data);
 
    util_dump_struct_end(stream);
 }

@@ -88,7 +88,7 @@ struct aaline_stage
    uint pos_slot;
 
    void *sampler_cso;
-   struct pipe_texture *texture;
+   struct pipe_resource *texture;
    struct pipe_sampler_view *sampler_view;
    uint num_samplers;
    uint num_sampler_views;
@@ -753,7 +753,7 @@ aaline_destroy(struct draw_stage *stage)
       aaline->pipe->delete_sampler_state(aaline->pipe, aaline->sampler_cso);
 
    if (aaline->texture)
-      pipe_texture_reference(&aaline->texture, NULL);
+      pipe_resource_reference(&aaline->texture, NULL);
 
    if (aaline->sampler_view) {
       pipe_sampler_view_reference(&aaline->sampler_view, NULL);
