@@ -298,6 +298,9 @@ enum pipe_transfer_usage {
 #define PIPE_BUFFER_USAGE_VERTEX    (1 << 5)
 #define PIPE_BUFFER_USAGE_INDEX     (1 << 6)
 #define PIPE_BUFFER_USAGE_CONSTANT  (1 << 7)
+
+#define PIPE_BUFFER_USAGE_CUSTOM    (1 << 16)
+
 /* Convenient shortcuts */
 #define PIPE_BUFFER_USAGE_CPU_READ_WRITE \
    ( PIPE_BUFFER_USAGE_CPU_READ | PIPE_BUFFER_USAGE_CPU_WRITE )
