@@ -337,10 +337,10 @@ st_texture_image_copy(struct pipe_context *pipe,
 #endif
 
       dst_surface = screen->get_tex_surface(screen, dst, face, dstLevel, i,
-                                            PIPE_BUFFER_USAGE_GPU_WRITE);
+                                            PIPE_BUFFER_USAGE_BLIT_DESTINATION);
 
       src_surface = screen->get_tex_surface(screen, src, face, srcLevel, i,
-                                            PIPE_BUFFER_USAGE_GPU_READ);
+                                            PIPE_BUFFER_USAGE_BLIT_SOURCE);
 
       if (pipe->surface_copy) {
          pipe->surface_copy(pipe,
@@ -533,8 +533,9 @@ st_bind_teximage(struct st_framebuffer *stfb, uint surfIndex,
    pipe_resource_reference(&strb->texture, stImage->pt);
    strb->surface = screen->get_tex_surface(screen, strb->texture,
                                            face, level, slice,
-                                           (PIPE_BUFFER_USAGE_GPU_READ |
-                                            PIPE_BUFFER_USAGE_GPU_WRITE));
+                                           (PIPE_BUFFER_USAGE_RENDER_TARGET |
+                                            PIPE_BUFFER_USAGE_BLIT_SOURCE |
+					    PIPE_BUFFER_USAGE_BLIT_DESTINATION));
 
    st->dirty.st |= ST_NEW_FRAMEBUFFER;
 

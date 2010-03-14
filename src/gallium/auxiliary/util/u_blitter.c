@@ -734,8 +734,8 @@ static void util_blitter_overlap_copy(struct blitter_context *blitter,
       return;
 
    tex_surf = screen->get_tex_surface(screen, texture, 0, 0, 0,
-				      PIPE_BUFFER_USAGE_GPU_READ | 
-				      PIPE_BUFFER_USAGE_GPU_WRITE);
+				      PIPE_BUFFER_USAGE_BLIT_SOURCE | 
+				      PIPE_BUFFER_USAGE_BLIT_DESTINATION);
 
    /* blit from the src to the temp */
    util_blitter_do_copy(blitter, tex_surf, 0, 0,

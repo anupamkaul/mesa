@@ -91,7 +91,12 @@ util_create_rgba_surface(struct pipe_screen *screen,
       return FALSE;
 
    /* create surface / view into texture */
-   *surfaceOut = screen->get_tex_surface(screen, *textureOut, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_WRITE);
+   *surfaceOut = screen->get_tex_surface(screen, 
+					 *textureOut,
+					 0, 0, 0,
+					 (PIPE_BUFFER_USAGE_RENDER_TARGET |
+					  PIPE_BUFFER_USAGE_BLIT_SOURCE |
+					  PIPE_BUFFER_USAGE_BLIT_DESTINATION));
    if (!*surfaceOut) {
       pipe_resource_reference(textureOut, NULL);
       return FALSE;

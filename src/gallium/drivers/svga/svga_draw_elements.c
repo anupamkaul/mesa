@@ -55,18 +55,16 @@ translate_indices( struct svga_hwtnl *hwtnl,
    void *dst_map = NULL;
 
    dst = pipe_buffer_create( pipe->screen, 32, 
-			     PIPE_BUFFER_USAGE_INDEX |
-			     PIPE_BUFFER_USAGE_CPU_WRITE |
-			     PIPE_BUFFER_USAGE_GPU_READ, 
+			     PIPE_BUFFER_USAGE_INDEX, 
 			     size );
    if (dst == NULL)
       goto fail;
 
-   src_map = pipe_buffer_map( pipe, src, PIPE_BUFFER_USAGE_CPU_READ, &src_transfer );
+   src_map = pipe_buffer_map( pipe, src, PIPE_TRANSFER_READ, &src_transfer );
    if (src_map == NULL)
       goto fail;
 
-   dst_map = pipe_buffer_map( pipe, dst, PIPE_BUFFER_USAGE_CPU_WRITE, &dst_transfer );
+   dst_map = pipe_buffer_map( pipe, dst, PIPE_TRANSFER_WRITE, &dst_transfer );
    if (dst_map == NULL)
       goto fail;
 

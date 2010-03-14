@@ -336,7 +336,7 @@ svga_user_buffer_create(struct pipe_screen *screen,
    sbuf->b.vtbl = &svga_buffer_vtbl;
    sbuf->b.b.screen = screen;
    sbuf->b.b.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   sbuf->b.b.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
+   sbuf->b.b.usage = usage;
    sbuf->b.b.width0 = bytes;
    sbuf->b.b.height0 = 1;
    sbuf->b.b.depth0 = 1;

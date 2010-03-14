@@ -95,7 +95,7 @@ static int emit_consts( struct svga_context *svga,
 
    data = (const float (*)[4])pipe_buffer_map(&svga->pipe,
                                               svga->curr.cb[unit],
-                                              PIPE_BUFFER_USAGE_CPU_READ,
+                                              PIPE_TRANSFER_READ,
 					      &transfer);
    if (data == NULL) {
       ret = PIPE_ERROR_OUT_OF_MEMORY;

@@ -58,6 +58,11 @@ struct winsys_handle;
 #define SVGA_BUFFER_USAGE_WRAPPED (PIPE_BUFFER_USAGE_CUSTOM << 1)
 
 
+#define SVGA_RELOC_WRITE 0x1
+#define SVGA_RELOC_READ  0x2
+
+
+
 /** Opaque surface handle */
 struct svga_winsys_surface;
 

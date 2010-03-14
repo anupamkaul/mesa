@@ -398,10 +398,14 @@ static boolean
 lp_scene_map_buffers( struct lp_scene *scene )
 {
    struct pipe_surface *cbuf, *zsbuf;
+   unsigned usage;
    int i;
 
    LP_DBG(DEBUG_RAST, "%s\n", __FUNCTION__);
 
+   /* XXX: try to improve on this:
+    */
+   usage = PIPE_TRANSFER_READ_WRITE;
 
    /* Map all color buffers 
     */
@@ -409,9 +413,10 @@ lp_scene_map_buffers( struct lp_scene *scene )
       cbuf = scene->fb.cbufs[i];
       if (cbuf) {
 	 scene->cbuf_map[i] = llvmpipe_resource_map(cbuf->texture,
-	                                           cbuf->face,
-                                                   cbuf->level,
-                                                   cbuf->zslice);
+						    usage,
+						    cbuf->face,
+						    cbuf->level,
+						    cbuf->zslice);
 	 if (!scene->cbuf_map[i])
 	    goto fail;
       }
@@ -422,9 +427,10 @@ lp_scene_map_buffers( struct lp_scene *scene )
    zsbuf = scene->fb.zsbuf;
    if (zsbuf) {
       scene->zsbuf_map = llvmpipe_resource_map(zsbuf->texture,
-                                              zsbuf->face,
-                                              zsbuf->level,
-                                              zsbuf->zslice);
+					       usage,
+					       zsbuf->face,
+					       zsbuf->level,
+					       zsbuf->zslice);
       if (!scene->zsbuf_map)
 	 goto fail;
    }

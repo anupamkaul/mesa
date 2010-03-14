@@ -182,12 +182,12 @@ svga_buffer_upload_command(struct svga_context *svga,
    struct pipe_resource *dummy;
 
    if(transfer == SVGA3D_WRITE_HOST_VRAM) {
-      region_flags = PIPE_BUFFER_USAGE_GPU_READ;
-      surface_flags = PIPE_BUFFER_USAGE_GPU_WRITE;
+      region_flags = SVGA_RELOC_READ;
+      surface_flags = SVGA_RELOC_WRITE;
    }
    else if(transfer == SVGA3D_READ_HOST_VRAM) {
-      region_flags = PIPE_BUFFER_USAGE_GPU_WRITE;
-      surface_flags = PIPE_BUFFER_USAGE_GPU_READ;
+      region_flags = SVGA_RELOC_WRITE;
+      surface_flags = SVGA_RELOC_READ;
    }
    else {
       assert(0);
@@ -415,7 +415,7 @@ svga_buffer_update_hw(struct svga_screen *ss, struct svga_buffer *sbuf)
          return ret;
 
       pipe_mutex_lock(ss->swc_mutex);
-      map = ss->sws->buffer_map(ss->sws, sbuf->hwbuf, PIPE_BUFFER_USAGE_CPU_WRITE);
+      map = ss->sws->buffer_map(ss->sws, sbuf->hwbuf, PIPE_TRANSFER_WRITE);
       assert(map);
       if(!map) {
 	 pipe_mutex_unlock(ss->swc_mutex);

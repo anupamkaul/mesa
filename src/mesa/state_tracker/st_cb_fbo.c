@@ -124,12 +124,7 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
 
       /* Probably need dedicated flags for surface usage too: 
        */
-      surface_usage = (PIPE_BUFFER_USAGE_GPU_READ |
-                       PIPE_BUFFER_USAGE_GPU_WRITE);
-#if 0
-                       PIPE_BUFFER_USAGE_CPU_READ |
-                       PIPE_BUFFER_USAGE_CPU_WRITE);
-#endif
+      surface_usage = template.tex_usage;
 
       strb->texture = screen->resource_create(screen, &template);
 
@@ -376,8 +371,7 @@ st_render_texture(GLcontext *ctx,
                                            strb->rtt_face,
                                            strb->rtt_level,
                                            strb->rtt_slice,
-                                           PIPE_BUFFER_USAGE_GPU_READ |
-                                           PIPE_BUFFER_USAGE_GPU_WRITE);
+                                           PIPE_BUFFER_USAGE_RENDER_TARGET);
 
    strb->format = pt->format;
 

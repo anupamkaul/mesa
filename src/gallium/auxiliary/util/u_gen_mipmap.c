@@ -1539,7 +1539,7 @@ util_gen_mipmap(struct gen_mipmap_state *ctx,
 
       struct pipe_surface *surf = 
          screen->get_tex_surface(screen, pt, face, dstLevel, zslice,
-                                 PIPE_BUFFER_USAGE_GPU_WRITE);
+                                 PIPE_BUFFER_USAGE_RENDER_TARGET);
 
       /*
        * Setup framebuffer / dest surface

@@ -224,7 +224,7 @@ static int update_zero_stride( struct svga_context *svga,
                                                vbuffer->buffer,
                                                vel->src_offset,
                                                util_format_get_blocksize(vel->src_format),
-                                               PIPE_BUFFER_USAGE_CPU_READ,
+                                               PIPE_TRANSFER_READ,
 					       &transfer);
 
          translate->set_buffer(translate, vel->vertex_buffer_index,

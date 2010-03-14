@@ -111,9 +111,10 @@ llvmpipe_resource_stride(struct pipe_resource *texture,
 
 void *
 llvmpipe_resource_map(struct pipe_resource *texture,
-                     unsigned face,
-                     unsigned level,
-                     unsigned zslice);
+		      unsigned usage,
+		      unsigned face,
+		      unsigned level,
+		      unsigned zslice);
 
 void
 llvmpipe_resource_unmap(struct pipe_resource *texture,

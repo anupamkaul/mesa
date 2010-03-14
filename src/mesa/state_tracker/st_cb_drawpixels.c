@@ -1075,9 +1075,10 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
       /* copy source framebuffer surface into mipmap/texture */
       struct pipe_surface *psRead = screen->get_tex_surface(screen,
                                        rbRead->texture, 0, 0, 0,
-                                       PIPE_BUFFER_USAGE_GPU_READ);
+                                       PIPE_BUFFER_USAGE_BLIT_SOURCE);
       struct pipe_surface *psTex = screen->get_tex_surface(screen, pt, 0, 0, 0, 
-                                      PIPE_BUFFER_USAGE_GPU_WRITE );
+				       PIPE_BUFFER_USAGE_RENDER_TARGET |
+				       PIPE_BUFFER_USAGE_BLIT_DESTINATION);
       if (pipe->surface_copy) {
          pipe->surface_copy(pipe,
                             psTex, /* dest */

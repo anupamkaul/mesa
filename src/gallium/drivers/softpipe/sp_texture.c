@@ -189,26 +189,6 @@ softpipe_get_tex_surface(struct pipe_screen *screen,
       ps->offset = spt->level_offset[level];
       ps->usage = usage;
 
-      /* Because we are softpipe, anything that the state tracker
-       * thought was going to be done with the GPU will actually get
-       * done with the CPU.  Let's adjust the flags to take that into
-       * account.
-       */
-      if (ps->usage & PIPE_BUFFER_USAGE_GPU_WRITE) {
-         /* GPU_WRITE means "render" and that can involve reads (blending) */
-         ps->usage |= PIPE_BUFFER_USAGE_CPU_WRITE | PIPE_BUFFER_USAGE_CPU_READ;
-      }
-
-      if (ps->usage & PIPE_BUFFER_USAGE_GPU_READ)
-         ps->usage |= PIPE_BUFFER_USAGE_CPU_READ;
-
-      if (ps->usage & (PIPE_BUFFER_USAGE_CPU_WRITE |
-                       PIPE_BUFFER_USAGE_GPU_WRITE)) {
-         /* Mark the surface as dirty.  The tile cache will look for this. */
-         spt->timestamp++;
-         softpipe_screen(screen)->timestamp++;
-      }
-
       ps->face = face;
       ps->level = level;
       ps->zslice = zslice;
@@ -397,7 +377,7 @@ softpipe_user_buffer_create(struct pipe_screen *screen,
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
    buffer->base.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   buffer->base.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
+   buffer->base.usage = usage;
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
    buffer->base.depth0 = 1;

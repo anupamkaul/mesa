@@ -198,7 +198,7 @@ svga_hwtnl_flush( struct svga_hwtnl *hwtnl )
          swc->surface_relocation(swc,
                                  &vdecl[i].array.surfaceId,
                                  vb_handle[i],
-                                 PIPE_BUFFER_USAGE_GPU_READ);
+                                 SVGA_RELOC_READ);
       }
 
       memcpy( prim,
@@ -209,7 +209,7 @@ svga_hwtnl_flush( struct svga_hwtnl *hwtnl )
          swc->surface_relocation(swc,
                                  &prim[i].indexArray.surfaceId,
                                  ib_handle[i],
-                                 PIPE_BUFFER_USAGE_GPU_READ);
+                                 SVGA_RELOC_READ);
          pipe_resource_reference(&hwtnl->cmd.prim_ib[i], NULL);
       }
       

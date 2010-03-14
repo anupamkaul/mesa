@@ -150,7 +150,7 @@ u_upload_alloc_buffer( struct u_upload_mgr *upload,
 
    upload->buffer = pipe_buffer_create( upload->pipe->screen,
                                         upload->alignment,
-                                        upload->usage | PIPE_BUFFER_USAGE_CPU_WRITE,
+                                        upload->usage,
                                         size );
    if (upload->buffer == NULL) 
       goto fail;

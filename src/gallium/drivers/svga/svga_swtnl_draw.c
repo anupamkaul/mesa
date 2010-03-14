@@ -69,7 +69,7 @@ svga_swtnl_draw_range_elements(struct svga_context *svga,
    for (i = 0; i < svga->curr.num_vertex_buffers; i++) {
       map = pipe_buffer_map(&svga->pipe,
                             svga->curr.vb[i].buffer,
-                            PIPE_BUFFER_USAGE_CPU_READ,
+                            PIPE_TRANSFER_READ,
 			    &vb_transfer[i]);
 
       draw_set_mapped_vertex_buffer(draw, i, map);
@@ -78,7 +78,7 @@ svga_swtnl_draw_range_elements(struct svga_context *svga,
    /* Map index buffer, if present */
    if (indexBuffer) {
       map = pipe_buffer_map(&svga->pipe, indexBuffer,
-                            PIPE_BUFFER_USAGE_CPU_READ,
+                            PIPE_TRANSFER_READ,
 			    &ib_transfer);
 
       draw_set_mapped_element_buffer_range(draw, 
@@ -91,7 +91,7 @@ svga_swtnl_draw_range_elements(struct svga_context *svga,
    if (svga->curr.cb[PIPE_SHADER_VERTEX]) {
       map = pipe_buffer_map(&svga->pipe,
                             svga->curr.cb[PIPE_SHADER_VERTEX],
-                            PIPE_BUFFER_USAGE_CPU_READ,
+                            PIPE_TRANSFER_READ,
 			    &cb_transfer);
       assert(map);
       draw_set_mapped_constant_buffer(

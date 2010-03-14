@@ -418,7 +418,7 @@ static void mask_using_texture(struct pipe_resource *texture,
 {
    struct vg_context *ctx = vg_current_context();
    struct pipe_surface *surface =
-      alpha_mask_surface(ctx, PIPE_BUFFER_USAGE_GPU_WRITE);
+      alpha_mask_surface(ctx, PIPE_BUFFER_USAGE_RENDER_TARGET);
    VGint offsets[4], loc[4];
 
    if (!surface)
@@ -654,7 +654,7 @@ void mask_fill(VGint x, VGint y, VGint width, VGint height,
    struct vg_context *ctx = vg_current_context();
    VGfloat alpha_color[4] = {.0f, .0f, .0f, value};
    struct pipe_surface *surf = alpha_mask_surface(
-      ctx, PIPE_BUFFER_USAGE_GPU_WRITE);
+      ctx, PIPE_BUFFER_USAGE_RENDER_TARGET);
 
 #if DEBUG_MASKS
    debug_printf("mask_fill(%d, %d, %d, %d) with  rgba(%f, %f, %f, %f)\n",

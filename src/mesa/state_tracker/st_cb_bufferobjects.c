@@ -194,7 +194,9 @@ st_bufferobj_data(GLcontext *ctx,
    switch(target) {
    case GL_PIXEL_PACK_BUFFER_ARB:
    case GL_PIXEL_UNPACK_BUFFER_ARB:
-      buffer_usage = PIPE_BUFFER_USAGE_PIXEL;
+      buffer_usage = (PIPE_BUFFER_USAGE_RENDER_TARGET |
+		      PIPE_BUFFER_USAGE_BLIT_SOURCE |
+		      PIPE_BUFFER_USAGE_BLIT_DESTINATION);
       break;
    case GL_ARRAY_BUFFER_ARB:
       buffer_usage = PIPE_BUFFER_USAGE_VERTEX;
@@ -239,15 +241,14 @@ st_bufferobj_map(GLcontext *ctx, GLenum target, GLenum access,
 
    switch (access) {
    case GL_WRITE_ONLY:
-      flags = PIPE_BUFFER_USAGE_CPU_WRITE;
+      flags = PIPE_TRANSFER_WRITE;
       break;
    case GL_READ_ONLY:
-      flags = PIPE_BUFFER_USAGE_CPU_READ;
+      flags = PIPE_TRANSFER_READ;
       break;
    case GL_READ_WRITE:
-      /* fall-through */
    default:
-      flags = PIPE_BUFFER_USAGE_CPU_READ | PIPE_BUFFER_USAGE_CPU_WRITE;
+      flags = PIPE_TRANSFER_READ_WRITE;
       break;      
    }
 

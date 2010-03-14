@@ -392,7 +392,7 @@ compress_with_blit(GLcontext * ctx,
    /* get destination surface (in the compressed texture) */
    dst_surface = screen->get_tex_surface(screen, stImage->pt,
                                          stImage->face, stImage->level, 0,
-                                         PIPE_BUFFER_USAGE_GPU_WRITE);
+                                         PIPE_BUFFER_USAGE_BLIT_DESTINATION);
    if (!dst_surface) {
       /* can't render into this format (or other problem) */
       return GL_FALSE;
@@ -1554,7 +1554,7 @@ st_copy_texsubimage(GLcontext *ctx,
          dest_surface = screen->get_tex_surface(screen, stImage->pt,
                                                 stImage->face, stImage->level,
                                                 destZ,
-                                                PIPE_BUFFER_USAGE_GPU_WRITE);
+                                                PIPE_BUFFER_USAGE_BLIT_DESTINATION);
 
          /* for surface_copy(), y=0=top, always */
          pipe->surface_copy(pipe,
@@ -1585,7 +1585,7 @@ st_copy_texsubimage(GLcontext *ctx,
          dest_surface = screen->get_tex_surface(screen, stImage->pt,
                                                 stImage->face, stImage->level,
                                                 destZ,
-                                                PIPE_BUFFER_USAGE_GPU_WRITE);
+                                                PIPE_BUFFER_USAGE_BLIT_DESTINATION);
 
          if (do_flip) {
             srcY1 = strb->Base.Height - srcY - height;

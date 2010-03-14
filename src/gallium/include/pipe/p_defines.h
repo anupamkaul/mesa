@@ -287,19 +287,22 @@ enum pipe_transfer_usage {
 
 
 /*
- * Buffer usage flags
+ * Resource usage flags -- state tracker must specify in advance all
+ * the ways a resource might be used.  
+ *
+ * XXX: add a method to extend the flags?
  */
 
-#define PIPE_BUFFER_USAGE_CPU_READ  (1 << 0)
-#define PIPE_BUFFER_USAGE_CPU_WRITE (1 << 1)
-#define PIPE_BUFFER_USAGE_GPU_READ  (1 << 2)
-#define PIPE_BUFFER_USAGE_GPU_WRITE (1 << 3)
-#define PIPE_BUFFER_USAGE_PIXEL     (1 << 4)
-#define PIPE_BUFFER_USAGE_VERTEX    (1 << 5)
-#define PIPE_BUFFER_USAGE_INDEX     (1 << 6)
-#define PIPE_BUFFER_USAGE_CONSTANT  (1 << 7)
+#define PIPE_BUFFER_USAGE_DEPTH_STENCIL (1 << 0)
+#define PIPE_BUFFER_USAGE_RENDER_TARGET (1 << 1)
+#define PIPE_BUFFER_USAGE_SAMPLER       (1 << 2)
+#define PIPE_BUFFER_USAGE_VERTEX        (1 << 3)
+#define PIPE_BUFFER_USAGE_INDEX         (1 << 4)
+#define PIPE_BUFFER_USAGE_CONSTANT      (1 << 5)
+#define PIPE_BUFFER_USAGE_BLIT_SOURCE    (1 << 6) /* will go away */
+#define PIPE_BUFFER_USAGE_BLIT_DESTINATION (1 << 7) /* will go away */
 
-#define PIPE_BUFFER_USAGE_CUSTOM    (1 << 16)
+#define PIPE_BUFFER_USAGE_CUSTOM        (1 << 16)
 
 /* Convenient shortcuts */
 #define PIPE_BUFFER_USAGE_CPU_READ_WRITE \

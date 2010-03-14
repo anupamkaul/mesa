@@ -263,7 +263,7 @@ svga_transfer_dma(struct svga_transfer *st,
                sws->fence_reference(sws, &fence, NULL);
             }
 
-            hw = sws->buffer_map(sws, st->hwbuf, PIPE_BUFFER_USAGE_CPU_WRITE);
+            hw = sws->buffer_map(sws, st->hwbuf, PIPE_TRANSFER_WRITE);
             assert(hw);
             if(hw) {
                memcpy(hw, sw, length);
@@ -277,7 +277,7 @@ svga_transfer_dma(struct svga_transfer *st,
             svga_screen_flush(screen, &fence);
             sws->fence_finish(sws, fence, 0);
 
-            hw = sws->buffer_map(sws, st->hwbuf, PIPE_BUFFER_USAGE_CPU_READ);
+            hw = sws->buffer_map(sws, st->hwbuf, PIPE_TRANSFER_READ);
             assert(hw);
             if(hw) {
                memcpy(sw, hw, length);

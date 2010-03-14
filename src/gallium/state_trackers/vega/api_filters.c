@@ -98,7 +98,7 @@ static INLINE struct pipe_surface * setup_framebuffer(struct vg_image *dst)
    struct pipe_framebuffer_state fb;
    struct pipe_surface *dst_surf = pipe->screen->get_tex_surface(
       pipe->screen, dst->texture, 0, 0, 0,
-      PIPE_BUFFER_USAGE_GPU_WRITE);
+      PIPE_BUFFER_USAGE_RENDER_TARGET);
 
    /* drawing dest */
    memset(&fb, 0, sizeof(fb));

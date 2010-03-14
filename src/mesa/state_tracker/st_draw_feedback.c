@@ -196,7 +196,7 @@ st_feedback_draw_vbo(GLcontext *ctx,
 
       /* map the attrib buffer */
       map = pipe_buffer_map(pipe, vbuffers[attr].buffer,
-                            PIPE_BUFFER_USAGE_CPU_READ,
+                            PIPE_TRANSFER_READ,
 			    &vb_transfer[attr]);
       draw_set_mapped_vertex_buffer(draw, attr, map);
    }
@@ -227,7 +227,7 @@ st_feedback_draw_vbo(GLcontext *ctx,
          index_buffer_handle = stobj->buffer;
 
          map = pipe_buffer_map(pipe, index_buffer_handle,
-                               PIPE_BUFFER_USAGE_CPU_READ, &ib_transfer);
+                               PIPE_TRANSFER_READ, &ib_transfer);
 
          draw_set_mapped_element_buffer(draw, indexSize, map);
       }
@@ -245,7 +245,7 @@ st_feedback_draw_vbo(GLcontext *ctx,
    /* map constant buffers */
    mapped_constants = pipe_buffer_map(pipe,
                                       st->state.constants[PIPE_SHADER_VERTEX],
-                                      PIPE_BUFFER_USAGE_CPU_READ,
+                                      PIPE_TRANSFER_READ,
 				      &cb_transfer);
    draw_set_mapped_constant_buffer(st->draw, PIPE_SHADER_VERTEX, 0,
                                    mapped_constants,

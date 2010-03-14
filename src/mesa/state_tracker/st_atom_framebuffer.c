@@ -75,8 +75,9 @@ update_renderbuffer_surface(struct st_context *st,
 						    strb->rtt_face,
 						    level,
 						    strb->rtt_slice,
-						    PIPE_BUFFER_USAGE_GPU_READ |
-						    PIPE_BUFFER_USAGE_GPU_WRITE);
+						    PIPE_BUFFER_USAGE_RENDER_TARGET |
+						    PIPE_BUFFER_USAGE_BLIT_SOURCE |
+						    PIPE_BUFFER_USAGE_BLIT_DESTINATION );
 #if 0
             printf("-- alloc new surface %d x %d into tex %p\n",
                    strb->surface->width, strb->surface->height,

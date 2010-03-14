@@ -567,7 +567,7 @@ void image_set_pixels(VGint dx, VGint dy,
    pipe->flush(pipe, PIPE_FLUSH_RENDER_CACHE, NULL);
 
    surf = screen->get_tex_surface(screen, image_texture(src),  0, 0, 0,
-                                  PIPE_BUFFER_USAGE_GPU_READ);
+                                  PIPE_BUFFER_USAGE_BLIT_SOURCE);
 
    vg_copy_surface(ctx, strb->surface, dx, dy,
                    surf, sx+src->x, sy+src->y, width, height);
@@ -592,8 +592,8 @@ void image_get_pixels(struct vg_image *dst, VGint dx, VGint dy,
    pipe->flush(pipe, PIPE_FLUSH_RENDER_CACHE, NULL);
 
    surf = screen->get_tex_surface(screen, image_texture(dst),  0, 0, 0,
-                                  PIPE_BUFFER_USAGE_GPU_WRITE |
-                                  PIPE_BUFFER_USAGE_GPU_READ);
+                                  PIPE_BUFFER_USAGE_BLIT_SOURCE);
+
    vg_copy_surface(ctx, surf, dst->x + dx, dst->y + dy,
                    strb->surface, sx, sy, width, height);
 

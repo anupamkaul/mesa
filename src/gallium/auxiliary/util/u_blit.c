@@ -377,7 +377,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
          return;
 
       texSurf = screen->get_tex_surface(screen, tex, 0, 0, 0, 
-                                        PIPE_BUFFER_USAGE_GPU_WRITE);
+                                        PIPE_BUFFER_USAGE_BLIT_DESTINATION);
 
       /* load temp texture */
       if (pipe->surface_copy) {

@@ -112,8 +112,9 @@ st_renderbuffer_alloc_storage(struct vg_context * ctx,
 
    /* Probably need dedicated flags for surface usage too:
     */
-   surface_usage = (PIPE_BUFFER_USAGE_GPU_READ  |
-                    PIPE_BUFFER_USAGE_GPU_WRITE);
+   surface_usage = (PIPE_BUFFER_USAGE_RENDER_TARGET  |
+                    PIPE_BUFFER_USAGE_BLIT_SOURCE |
+		    PIPE_BUFFER_USAGE_BLIT_DESTINATION);
 
    strb->texture = create_texture(pipe, strb->format,
                                   width, height);
@@ -233,12 +234,13 @@ static void setup_new_alpha_mask(struct vg_context *ctx,
          pipe->screen,
          stfb->alpha_mask,
          0, 0, 0,
-         PIPE_BUFFER_USAGE_GPU_WRITE);
+         PIPE_BUFFER_USAGE_RENDER_TARGET |
+	 PIPE_BUFFER_USAGE_BLIT_DESTINATION);
       struct pipe_surface *old_surface = pipe->screen->get_tex_surface(
          pipe->screen,
          old_texture,
          0, 0, 0,
-         PIPE_BUFFER_USAGE_GPU_READ);
+         PIPE_BUFFER_USAGE_BLIT_SOURCE);
       if (pipe->surface_copy) {
          pipe->surface_copy(pipe,
                             surface,

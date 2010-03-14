@@ -278,7 +278,7 @@ void renderer_copy_texture(struct renderer *ctx,
    struct pipe_resource *buf;
    struct pipe_surface *dst_surf = screen->get_tex_surface(
       screen, dst, 0, 0, 0,
-      PIPE_BUFFER_USAGE_GPU_WRITE);
+      PIPE_BUFFER_USAGE_RENDER_TARGET);
    struct pipe_framebuffer_state fb;
    float s0, t0, s1, t1;
 
@@ -461,7 +461,7 @@ void renderer_copy_surface(struct renderer *ctx,
       return;
 
    texSurf = screen->get_tex_surface(screen, tex, 0, 0, 0,
-                                     PIPE_BUFFER_USAGE_GPU_WRITE);
+                                     PIPE_BUFFER_USAGE_RENDER_TARGET);
 
    /* load temp texture */
    if (pipe->surface_copy) {
