@@ -662,7 +662,6 @@ i915_texture_transfer_map(struct pipe_context *pipe,
    enum pipe_format format = resource->format;
    unsigned offset;
    char *map;
-   boolean write = FALSE;
 
    if (resource->target == PIPE_TEXTURE_CUBE) {
       offset = tex->image_offset[sr.level][sr.face];
@@ -676,10 +675,9 @@ i915_texture_transfer_map(struct pipe_context *pipe,
       assert(box->z == 0);
    }
 
-   if (transfer->usage & PIPE_TRANSFER_WRITE)
-      write = TRUE;
-
-   map = iws->buffer_map(iws, tex->buffer, write);
+   map = iws->buffer_map(iws,
+			 tex->buffer,
+			 (transfer->usage & PIPE_TRANSFER_WRITE) ? TRUE : FALSE);
    if (map == NULL)
       return NULL;
 
