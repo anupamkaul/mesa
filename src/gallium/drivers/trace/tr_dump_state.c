@@ -44,7 +44,7 @@ void trace_dump_format(enum pipe_format format)
 }
 
 
-void trace_dump_template(const struct pipe_texture *templat)
+void trace_dump_template(const struct pipe_resource *templat)
 {
    if (!trace_dumping_enabled_locked())
       return;
@@ -428,16 +428,16 @@ void trace_dump_transfer(const struct pipe_transfer *state)
 
    trace_dump_struct_begin("pipe_transfer");
 
-   trace_dump_member(uint, state, width);
-   trace_dump_member(uint, state, height);
+   trace_dump_member(uint, state, box.width);
+   trace_dump_member(uint, state, box.height);
 
    trace_dump_member(uint, state, stride);
    trace_dump_member(uint, state, usage);
 
-   trace_dump_member(ptr, state, texture);
-   trace_dump_member(uint, state, face);
-   trace_dump_member(uint, state, level);
-   trace_dump_member(uint, state, zslice);
+   trace_dump_member(ptr, state, resource);
+   trace_dump_member(uint, state, sr.face);
+   trace_dump_member(uint, state, sr.level);
+   trace_dump_member(uint, state, box.z);
 
    trace_dump_struct_end();
 }
@@ -458,7 +458,7 @@ void trace_dump_vertex_buffer(const struct pipe_vertex_buffer *state)
    trace_dump_member(uint, state, stride);
    trace_dump_member(uint, state, max_index);
    trace_dump_member(uint, state, buffer_offset);
-   trace_dump_member(buffer_ptr, state, buffer);
+   trace_dump_member(resource_ptr, state, buffer);
 
    trace_dump_struct_end();
 }

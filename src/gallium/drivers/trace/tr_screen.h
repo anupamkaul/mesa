@@ -102,7 +102,7 @@ trace_screen(struct pipe_screen *screen);
 
 void
 trace_screen_user_buffer_update(struct pipe_screen *screen,
-                                struct pipe_buffer *buffer);
+                                struct pipe_resource *buffer);
 
 #define trace_screen_add_to_list(tr_scr, name, obj) \
    do {                                             \
