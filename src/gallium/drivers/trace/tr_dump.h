@@ -36,11 +36,11 @@
 
 #include "pipe/p_compiler.h"
 
-
 struct pipe_buffer;
 struct pipe_texture;
 struct pipe_surface;
 struct pipe_transfer;
+struct pipe_box;
 
 /*
  * Call before use.
@@ -92,6 +92,11 @@ void trace_dump_int(long long int value);
 void trace_dump_uint(long long unsigned value);
 void trace_dump_float(double value);
 void trace_dump_bytes(const void *data, size_t size);
+void trace_dump_box_bytes(const void *data,
+			  unsigned format,
+			  const struct pipe_box *box,
+			  unsigned stride,
+			  unsigned slice_stride);
 void trace_dump_string(const char *str);
 void trace_dump_enum(const char *value);
 void trace_dump_array_begin(void);

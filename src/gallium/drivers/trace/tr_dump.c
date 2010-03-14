@@ -470,6 +470,16 @@ void trace_dump_bytes(const void *data,
    trace_dump_writes("</bytes>");
 }
 
+void trace_dump_box_bytes(const void *data,
+			  unsigned format,
+			  const struct pipe_box *box,
+			  unsigned stride,
+			  unsigned slice_stride)
+{
+   //size_t size = util_format_get_nblocksy(transfer->resource->format, transfer->box.height) * transfer->stride;
+
+}
+
 void trace_dump_string(const char *str)
 {
    if (!dumping)

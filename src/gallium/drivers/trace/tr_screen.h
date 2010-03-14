@@ -100,10 +100,6 @@ trace_enabled(void);
 struct trace_screen *
 trace_screen(struct pipe_screen *screen);
 
-void
-trace_screen_user_buffer_update(struct pipe_screen *screen,
-                                struct pipe_resource *buffer);
-
 #define trace_screen_add_to_list(tr_scr, name, obj) \
    do {                                             \
       pipe_mutex_lock(tr_scr->list_mutex);          \

@@ -121,7 +121,8 @@ trace_resource_create(struct trace_screen *tr_scr,
                      struct pipe_resource *texture);
 
 void
-trace_resource_destroy(struct trace_resource *tr_tex);
+trace_resource_destroy(struct trace_screen *tr_scr,
+		       struct trace_resource *tr_tex);
 
 struct pipe_surface *
 trace_surface_create(struct trace_resource *tr_tex,

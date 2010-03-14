@@ -272,9 +272,10 @@ trace_screen_resource_get_handle(struct pipe_screen *_screen,
 
 
 static void
-trace_screen_resource_destroy(struct pipe_resource *_texture)
+trace_screen_resource_destroy(struct pipe_screen *_screen,
+			      struct pipe_resource *_texture)
 {
-   struct trace_screen *tr_scr = trace_screen(_texture->screen);
+   struct trace_screen *tr_scr = trace_screen(_screen);
    struct trace_resource *tr_tex = trace_resource(_texture);
    struct pipe_screen *screen = tr_scr->screen;
    struct pipe_resource *texture = tr_tex->resource;
@@ -288,7 +289,7 @@ trace_screen_resource_destroy(struct pipe_resource *_texture)
 
    trace_dump_call_end();
 
-   trace_resource_destroy(tr_tex);
+   trace_resource_destroy(tr_scr, tr_tex);
 }
 
 

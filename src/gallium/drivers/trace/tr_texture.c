@@ -67,10 +67,9 @@ error:
 
 
 void
-trace_resource_destroy(struct trace_resource *tr_tex)
+trace_resource_destroy(struct trace_screen *tr_scr,
+		       struct trace_resource *tr_tex)
 {
-   struct trace_screen *tr_scr = trace_screen(tr_tex->base.screen);
-
    trace_screen_remove_from_list(tr_scr, textures, tr_tex);
 
    pipe_resource_reference(&tr_tex->resource, NULL);
