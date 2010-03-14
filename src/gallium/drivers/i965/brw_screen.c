@@ -35,6 +35,7 @@
 #include "brw_screen.h"
 #include "brw_winsys.h"
 #include "brw_debug.h"
+#include "brw_resource.h"
 
 #ifdef DEBUG
 static const struct debug_named_value debug_names[] = {
@@ -406,9 +407,8 @@ brw_create_screen(struct brw_winsys_screen *sws, uint pci_id)
    bscreen->base.fence_signalled = brw_fence_signalled;
    bscreen->base.fence_finish = brw_fence_finish;
 
-   brw_screen_tex_init(bscreen);
+   brw_init_screen_resource_functions(bscreen);
    brw_screen_tex_surface_init(bscreen);
-   brw_screen_buffer_init(bscreen);
 
    bscreen->no_tiling = debug_get_option("BRW_NO_TILING", FALSE) != NULL;
    

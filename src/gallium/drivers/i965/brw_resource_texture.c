@@ -37,9 +37,26 @@
 #include "brw_defines.h"
 #include "brw_structs.h"
 #include "brw_winsys.h"
+#include "brw_batchbuffer.h"
 #include "brw_context.h"
+#include "brw_resource.h"
 
 
+/**
+ * Subclass of pipe_transfer
+ */
+struct brw_transfer
+{
+   struct pipe_transfer base;
+
+   unsigned offset;
+};
+
+static INLINE struct brw_transfer *
+brw_transfer(struct pipe_transfer *transfer)
+{
+   return (struct brw_transfer *)transfer;
+}
 
 
 static GLuint translate_tex_target( unsigned target )
@@ -182,12 +199,153 @@ static GLuint translate_tex_format( enum pipe_format pf )
 }
 
 
+static boolean
+brw_texture_get_handle(struct pipe_screen *screen,
+                       struct pipe_resource *texture,
+                       struct winsys_handle *whandle)
+{
+   struct brw_screen *bscreen = brw_screen(screen);
+   struct brw_texture *tex = brw_texture(texture);
+   unsigned stride;
+
+   stride = tex->pitch * tex->cpp;
+
+   return bscreen->sws->bo_get_handle(tex->bo, whandle, stride);
+}
 
 
 
-static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
-						 const struct pipe_resource *templ )
+static void brw_texture_destroy(struct pipe_screen *screen,
+				struct pipe_resource *pt)
+{
+   struct brw_texture *tex = brw_texture(pt);
+   bo_reference(&tex->bo, NULL);
+   FREE(pt);
+}
 
+
+
+
+static unsigned brw_texture_is_referenced( struct pipe_context *pipe,
+					   struct pipe_resource *texture,
+					   unsigned face, 
+					   unsigned level )
+{
+   struct brw_context *brw = brw_context(pipe);
+   struct brw_screen *bscreen = brw_screen(pipe->screen);
+   struct brw_winsys_buffer *batch_bo = brw->batch->buf;
+   struct brw_texture *tex = brw_texture(texture);
+   struct brw_surface *surf;
+   int i;
+
+   /* XXX: this is subject to false positives if the underlying
+    * texture BO is referenced, we can't tell whether the sub-region
+    * we care about participates in that.
+    */
+   if (bscreen->sws->bo_references( batch_bo, tex->bo ))
+      return PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE;
+
+   /* Find any view on this texture for this face/level and see if it
+    * is referenced:
+    */
+   for (i = 0; i < 2; i++) {
+      foreach (surf, &tex->views[i]) {
+         if (surf->bo == tex->bo)
+            continue;
+
+         if (surf->id.bits.face != face ||
+             surf->id.bits.level != level)
+            continue;
+         
+         if (bscreen->sws->bo_references( batch_bo, surf->bo))
+            return PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE;
+      }
+   }
+
+   return PIPE_UNREFERENCED;
+}
+
+
+/*
+ * Transfer functions
+ */
+
+static void *
+brw_texture_transfer_map(struct pipe_context *pipe,
+                 struct pipe_transfer *transfer)
+{
+   struct pipe_resource *resource = transfer->resource;
+   struct brw_texture *tex = brw_texture(transfer->resource);
+   struct brw_winsys_screen *sws = brw_screen(pipe->screen)->sws;
+   struct pipe_subresource sr = transfer->sr;
+   struct pipe_box *box = &transfer->box;
+   enum pipe_format format = resource->format;
+   unsigned usage = transfer->usage;
+   unsigned offset;
+   char *map;
+
+   if (resource->target == PIPE_TEXTURE_CUBE) {
+      offset = tex->image_offset[sr.level][sr.face];
+   }
+   else if (resource->target == PIPE_TEXTURE_3D) {
+      offset = tex->image_offset[sr.level][box->z];
+   }
+   else {
+      offset = tex->image_offset[sr.level][0];
+      assert(sr.face == 0);
+      assert(box->z == 0);
+   }
+
+   map = sws->bo_map(tex->bo, 
+                     BRW_DATA_OTHER,
+                     0,
+                     tex->bo->size,
+                     (usage & PIPE_TRANSFER_WRITE) ? TRUE : FALSE,
+                     (usage & 0) ? TRUE : FALSE,
+                     (usage & 0) ? TRUE : FALSE);
+
+   if (!map)
+      return NULL;
+
+   return map + offset +
+      box->y / util_format_get_blockheight(format) * transfer->stride +
+      box->x / util_format_get_blockwidth(format) * util_format_get_blocksize(format);
+}
+
+static void
+brw_texture_transfer_unmap(struct pipe_context *pipe,
+                   struct pipe_transfer *transfer)
+{
+   struct brw_texture *tex = brw_texture(transfer->resource);
+   struct brw_winsys_screen *sws = brw_screen(pipe->screen)->sws;
+
+   sws->bo_unmap(tex->bo);
+}
+
+
+
+
+
+struct u_resource_vtbl brw_texture_vtbl = 
+{
+   brw_texture_get_handle,	      /* get_handle */
+   brw_texture_destroy,	      /* resource_destroy */
+   brw_texture_is_referenced,	      /* is_resource_referenced */
+   u_default_get_transfer,	      /* get_transfer */
+   u_default_transfer_destroy,	      /* transfer_destroy */
+   brw_texture_transfer_map,	      /* transfer_map */
+   u_default_transfer_flush_region,   /* transfer_flush_region */
+   brw_texture_transfer_unmap,	      /* transfer_unmap */
+   u_default_transfer_inline_write    /* transfer_inline_write */
+};
+
+
+
+
+
+struct pipe_resource *
+brw_texture_create( struct pipe_screen *screen,
+		    const struct pipe_resource *template )
 {  
    struct brw_screen *bscreen = brw_screen(screen);
    struct brw_texture *tex;
@@ -199,14 +357,15 @@ static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
    if (tex == NULL)
       return NULL;
 
-   memcpy(&tex->base, templ, sizeof *templ);
-   pipe_reference_init(&tex->base.reference, 1);
-   tex->base.screen = screen;
+   tex->b.b = *template;
+   tex->b.vtbl = &brw_texture_vtbl;
+   pipe_reference_init(&tex->b.b.reference, 1);
+   tex->b.b.screen = screen;
 
    /* XXX: compressed textures need special treatment here
     */
-   tex->cpp = util_format_get_blocksize(tex->base.format);
-   tex->compressed = util_format_is_compressed(tex->base.format);
+   tex->cpp = util_format_get_blocksize(tex->b.b.format);
+   tex->compressed = util_format_is_compressed(tex->b.b.format);
 
    make_empty_list(&tex->views[0]);
    make_empty_list(&tex->views[1]);
@@ -217,7 +376,7 @@ static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
        !bscreen->no_tiling) 
    {
       if (bscreen->chipset.is_965 &&
-	  util_format_is_depth_or_stencil(templ->format))
+	  util_format_is_depth_or_stencil(template->format))
 	 tex->tiling = BRW_TILING_Y;
       else
 	 tex->tiling = BRW_TILING_X;
@@ -227,13 +386,11 @@ static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
    }
 
 
-
-
    if (!brw_texture_layout( bscreen, tex ))
       goto fail;
 
    
-   if (templ->tex_usage & (PIPE_TEXTURE_USAGE_SCANOUT |
+   if (template->tex_usage & (PIPE_TEXTURE_USAGE_SCANOUT |
                            PIPE_TEXTURE_USAGE_SHARED)) {
       buffer_type = BRW_BUFFER_TYPE_SCANOUT;
    }
@@ -250,9 +407,9 @@ static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
       goto fail;
 
    tex->ss.ss0.mipmap_layout_mode = BRW_SURFACE_MIPMAPLAYOUT_BELOW;
-   tex->ss.ss0.surface_type = translate_tex_target(tex->base.target);
+   tex->ss.ss0.surface_type = translate_tex_target(tex->b.b.target);
 
-   format = translate_tex_format(tex->base.format);
+   format = translate_tex_format(tex->b.b.format);
    assert(format != BRW_SURFACEFORMAT_INVALID);
    tex->ss.ss0.surface_format = format;
 
@@ -264,9 +421,9 @@ static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
    /* XXX: what happens when tex->bo->offset changes???
     */
    tex->ss.ss1.base_addr = 0; /* reloc */
-   tex->ss.ss2.mip_count = tex->base.last_level;
-   tex->ss.ss2.width = tex->base.width0 - 1;
-   tex->ss.ss2.height = tex->base.height0 - 1;
+   tex->ss.ss2.mip_count = tex->b.b.last_level;
+   tex->ss.ss2.width = tex->b.b.width0 - 1;
+   tex->ss.ss2.height = tex->b.b.height0 - 1;
 
    switch (tex->tiling) {
    case BRW_TILING_NONE:
@@ -284,11 +441,11 @@ static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
    }
 
    tex->ss.ss3.pitch = (tex->pitch * tex->cpp) - 1;
-   tex->ss.ss3.depth = tex->base.depth0 - 1;
+   tex->ss.ss3.depth = tex->b.b.depth0 - 1;
 
    tex->ss.ss4.min_lod = 0;
  
-   if (tex->base.target == PIPE_TEXTURE_CUBE) {
+   if (tex->b.b.target == PIPE_TEXTURE_CUBE) {
       tex->ss.ss0.cube_pos_x = 1;
       tex->ss.ss0.cube_pos_y = 1;
       tex->ss.ss0.cube_pos_z = 1;
@@ -297,7 +454,7 @@ static struct pipe_resource *brw_texture_create( struct pipe_screen *screen,
       tex->ss.ss0.cube_neg_z = 1;
    }
 
-   return &tex->base;
+   return &tex->b.b;
 
 fail:
    bo_reference(&tex->bo, NULL);
@@ -305,19 +462,10 @@ fail:
    return NULL;
 }
 
-static struct pipe_resource *brw_resource_create( struct pipe_screen *screen,
-						  const struct pipe_texture *templ )
-{
-   if (templ.target == PIPE_BUFFER)
-      return brw_buffer_create( screen, templ );
-   else
-      return brw_texture_create( screen, templ );
-}
 
-
-static struct pipe_resource * 
+struct pipe_resource * 
 brw_texture_from_handle(struct pipe_screen *screen,
-                        const struct pipe_resource *templ,
+                        const struct pipe_resource *template,
                         struct winsys_handle *whandle)
 {
    struct brw_screen *bscreen = brw_screen(screen);
@@ -326,12 +474,12 @@ brw_texture_from_handle(struct pipe_screen *screen,
    unsigned tiling;
    unsigned pitch;
 
-   if (templ->target != PIPE_TEXTURE_2D ||
-       templ->last_level != 0 ||
-       templ->depth0 != 1)
+   if (template->target != PIPE_TEXTURE_2D ||
+       template->last_level != 0 ||
+       template->depth0 != 1)
       return NULL;
 
-   if (util_format_is_compressed(templ->format))
+   if (util_format_is_compressed(template->format))
       return NULL;
 
    tex = CALLOC_STRUCT(brw_texture);
@@ -341,13 +489,14 @@ brw_texture_from_handle(struct pipe_screen *screen,
    if (bscreen->sws->bo_from_handle(bscreen->sws, whandle, &pitch, &tiling, &buffer) != PIPE_OK)
       goto fail;
 
-   memcpy(&tex->base, templ, sizeof *templ);
-   pipe_reference_init(&tex->base.reference, 1);
-   tex->base.screen = screen;
+   tex->b.b = *template;
+   tex->b.vtbl = &brw_texture_vtbl;
+   pipe_reference_init(&tex->b.b.reference, 1);
+   tex->b.b.screen = screen;
 
    /* XXX: cpp vs. blocksize
     */
-   tex->cpp = util_format_get_blocksize(tex->base.format);
+   tex->cpp = util_format_get_blocksize(tex->b.b.format);
    tex->tiling = tiling;
 
    make_empty_list(&tex->views[0]);
@@ -371,8 +520,8 @@ brw_texture_from_handle(struct pipe_screen *screen,
 #endif
 
    tex->ss.ss0.mipmap_layout_mode = BRW_SURFACE_MIPMAPLAYOUT_BELOW;
-   tex->ss.ss0.surface_type = translate_tex_target(tex->base.target);
-   tex->ss.ss0.surface_format = translate_tex_format(tex->base.format);
+   tex->ss.ss0.surface_type = translate_tex_target(tex->b.b.target);
+   tex->ss.ss0.surface_format = translate_tex_format(tex->b.b.format);
    assert(tex->ss.ss0.surface_format != BRW_SURFACEFORMAT_INVALID);
 
    /* This is ok for all textures with channel width 8bit or less:
@@ -383,9 +532,9 @@ brw_texture_from_handle(struct pipe_screen *screen,
    /* XXX: what happens when tex->bo->offset changes???
     */
    tex->ss.ss1.base_addr = 0; /* reloc */
-   tex->ss.ss2.mip_count = tex->base.last_level;
-   tex->ss.ss2.width = tex->base.width0 - 1;
-   tex->ss.ss2.height = tex->base.height0 - 1;
+   tex->ss.ss2.mip_count = tex->b.b.last_level;
+   tex->ss.ss2.width = tex->b.b.width0 - 1;
+   tex->ss.ss2.height = tex->b.b.height0 - 1;
 
    switch (tex->tiling) {
    case BRW_TILING_NONE:
@@ -403,187 +552,25 @@ brw_texture_from_handle(struct pipe_screen *screen,
    }
 
    tex->ss.ss3.pitch = (tex->pitch * tex->cpp) - 1;
-   tex->ss.ss3.depth = tex->base.depth0 - 1;
+   tex->ss.ss3.depth = tex->b.b.depth0 - 1;
 
    tex->ss.ss4.min_lod = 0;
 
-   return &tex->base;
+   return &tex->b.b;
 
 fail:
    FREE(tex);
    return NULL;
 }
 
-static boolean
-brw_texture_get_handle(struct pipe_screen *screen,
-                       struct pipe_resource *texture,
-                       struct winsys_handle *whandle)
-{
-   struct brw_screen *bscreen = brw_screen(screen);
-   struct brw_texture *tex = brw_texture(texture);
-   unsigned stride;
 
-   stride = tex->pitch * tex->cpp;
-
-   return bscreen->sws->bo_get_handle(tex->bo, whandle, stride);
-}
-
-
-
-static void brw_texture_destroy(struct pipe_resource *pt)
-{
-   struct brw_texture *tex = brw_texture(pt);
-   bo_reference(&tex->bo, NULL);
-   FREE(pt);
-}
-
-
-static boolean brw_is_format_supported( struct pipe_screen *screen,
-					enum pipe_format format,
-					enum pipe_texture_target target,
-					unsigned tex_usage, 
-					unsigned geom_flags )
+#if 0
+boolean brw_is_format_supported( struct pipe_screen *screen,
+				 enum pipe_format format,
+				 enum pipe_texture_target target,
+				 unsigned tex_usage, 
+				 unsigned geom_flags )
 {
    return translate_tex_format(format) != BRW_SURFACEFORMAT_INVALID;
 }
-
-
-boolean brw_is_texture_referenced_by_bo( struct brw_screen *brw_screen,
-                                      struct pipe_resource *texture,
-                                      unsigned face, 
-                                      unsigned level,
-                                      struct brw_winsys_buffer *bo )
-{
-   struct brw_texture *tex = brw_texture(texture);
-   struct brw_surface *surf;
-   int i;
-
-   /* XXX: this is subject to false positives if the underlying
-    * texture BO is referenced, we can't tell whether the sub-region
-    * we care about participates in that.
-    */
-   if (brw_screen->sws->bo_references( bo, tex->bo ))
-      return TRUE;
-
-   /* Find any view on this texture for this face/level and see if it
-    * is referenced:
-    */
-   for (i = 0; i < 2; i++) {
-      foreach (surf, &tex->views[i]) {
-         if (surf->bo == tex->bo)
-            continue;
-
-         if (surf->id.bits.face != face ||
-             surf->id.bits.level != level)
-            continue;
-         
-         if (brw_screen->sws->bo_references( bo, surf->bo))
-            return TRUE;
-      }
-   }
-
-   return FALSE;
-}
-
-
-/*
- * Transfer functions
- */
-
-static struct pipe_transfer*
-brw_get_transfer(struct pipe_context *pipe,
-                     struct pipe_resource *texture,
-                     unsigned face, unsigned level, unsigned zslice,
-                     enum pipe_transfer_usage usage, unsigned x, unsigned y,
-                     unsigned w, unsigned h)
-{
-   struct brw_texture *tex = brw_texture(texture);
-   struct brw_transfer *trans;
-   unsigned offset;  /* in bytes */
-
-   if (texture->target == PIPE_TEXTURE_CUBE) {
-      offset = tex->image_offset[level][face];
-   } else if (texture->target == PIPE_TEXTURE_3D) {
-      offset = tex->image_offset[level][zslice];
-   } else {
-      offset = tex->image_offset[level][0];
-      assert(face == 0);
-      assert(zslice == 0);
-   }
-
-   trans = CALLOC_STRUCT(brw_transfer);
-   if (trans) {
-      pipe_texture_reference(&trans->base.texture, texture);
-      trans->base.x = x;
-      trans->base.y = y;
-      trans->base.width = w;
-      trans->base.height = h;
-      trans->base.stride = tex->pitch * tex->cpp;
-      trans->offset = offset;
-      trans->base.usage = usage;
-   }
-   return &trans->base;
-}
-
-static void *
-brw_transfer_map(struct pipe_context *pipe,
-                 struct pipe_transfer *transfer)
-{
-   struct brw_texture *tex = brw_texture(transfer->texture);
-   struct brw_winsys_screen *sws = brw_screen(pipe->screen)->sws;
-   char *map;
-   unsigned usage = transfer->usage;
-
-   map = sws->bo_map(tex->bo, 
-                     BRW_DATA_OTHER,
-                     0,
-                     tex->bo->size,
-                     (usage & PIPE_TRANSFER_WRITE) ? TRUE : FALSE,
-                     (usage & 0) ? TRUE : FALSE,
-                     (usage & 0) ? TRUE : FALSE);
-
-   if (!map)
-      return NULL;
-
-   /* XXX: blocksize and compressed textures
-    */
-   return map + brw_transfer(transfer)->offset +
-      transfer->y /* / transfer->block.height */ * transfer->stride +
-      transfer->x /* / transfer->block.width */ * brw_texture(transfer->texture)->cpp;
-}
-
-static void
-brw_transfer_unmap(struct pipe_context *pipe,
-                   struct pipe_transfer *transfer)
-{
-   struct brw_texture *tex = brw_texture(transfer->texture);
-   struct brw_winsys_screen *sws = brw_screen(pipe->screen)->sws;
-
-   sws->bo_unmap(tex->bo);
-}
-
-static void
-brw_transfer_destroy(struct pipe_context *pipe,
-                         struct pipe_transfer *trans)
-{
-   pipe_texture_reference(&trans->texture, NULL);
-   FREE(trans);
-}
-
-
-void brw_tex_init( struct brw_context *brw )
-{
-   brw->base.tex_transfer = brw_get_transfer;
-   brw->base.transfer_map = brw_transfer_map;
-   brw->base.transfer_unmap = brw_transfer_unmap;
-   brw->base.transfer_destroy = brw_transfer_destroy;
-}
-
-void brw_screen_tex_init( struct brw_screen *brw_screen )
-{
-   brw_screen->base.is_format_supported = brw_is_format_supported;
-   brw_screen->base.texture_create = brw_texture_create;
-   brw_screen->base.texture_from_handle = brw_texture_from_handle;
-   brw_screen->base.texture_get_handle = brw_texture_get_handle;
-   brw_screen->base.texture_destroy = brw_texture_destroy;
-}
+#endif

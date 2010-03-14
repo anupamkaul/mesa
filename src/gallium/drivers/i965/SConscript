@@ -53,7 +53,6 @@ i965 = env.ConvenienceLibrary(
 		'brw_state_upload.c',
 		'brw_swtnl.c',
 		'brw_urb.c',
-		'brw_util.c',
 		'brw_vs.c',
 		'brw_vs_emit.c',
 		'brw_vs_state.c',

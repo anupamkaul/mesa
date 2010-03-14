@@ -30,7 +30,7 @@
 #include "util/u_math.h"
 #include "util/u_memory.h"
 
-#include "brw_screen.h"
+#include "brw_resource.h"
 #include "brw_debug.h"
 #include "brw_winsys.h"
 
@@ -143,14 +143,14 @@ static void brw_layout_2d( struct brw_texture *tex )
    GLuint level;
    GLuint x = 0;
    GLuint y = 0;
-   GLuint width = tex->base.width0;
-   GLuint height = tex->base.height0;
+   GLuint width = tex->b.b.width0;
+   GLuint height = tex->b.b.height0;
 
-   tex->pitch = tex->base.width0;
-   brw_tex_alignment_unit(tex->base.format, &align_w, &align_h);
+   tex->pitch = tex->b.b.width0;
+   brw_tex_alignment_unit(tex->b.b.format, &align_w, &align_h);
 
    if (tex->compressed) {
-       tex->pitch = align(tex->base.width0, align_w);
+       tex->pitch = align(tex->b.b.width0, align_w);
    }
 
    /* May need to adjust pitch to accomodate the placement of
@@ -158,15 +158,15 @@ static void brw_layout_2d( struct brw_texture *tex )
     * constraints of mipmap placement push the right edge of the
     * 2nd mipmap out past the width of its parent.
     */
-   if (tex->base.last_level > 0) {
+   if (tex->b.b.last_level > 0) {
        GLuint mip1_width;
 
        if (tex->compressed) {
-          mip1_width = (align(u_minify(tex->base.width0, 1), align_w) + 
-                        align(u_minify(tex->base.width0, 2), align_w));
+          mip1_width = (align(u_minify(tex->b.b.width0, 1), align_w) + 
+                        align(u_minify(tex->b.b.width0, 2), align_w));
        } else {
-          mip1_width = (align(u_minify(tex->base.width0, 1), align_w) + 
-                        u_minify(tex->base.width0, 2));
+          mip1_width = (align(u_minify(tex->b.b.width0, 1), align_w) + 
+                        u_minify(tex->b.b.width0, 2));
        }
 
        if (mip1_width > tex->pitch) {
@@ -180,7 +180,7 @@ static void brw_layout_2d( struct brw_texture *tex )
    tex->pitch = brw_tex_pitch_align (tex, tex->pitch);
    tex->total_height = 0;
 
-   for ( level = 0 ; level <= tex->base.last_level ; level++ ) {
+   for ( level = 0 ; level <= tex->b.b.last_level ; level++ ) {
       GLuint img_height;
 
       brw_tex_set_level_info(tex, level, 1, x, y, width, height, 1);
@@ -218,28 +218,28 @@ brw_layout_cubemap_idgng( struct brw_texture *tex )
    GLuint level;
    GLuint x = 0;
    GLuint y = 0;
-   GLuint width = tex->base.width0;
-   GLuint height = tex->base.height0;
+   GLuint width = tex->b.b.width0;
+   GLuint height = tex->b.b.height0;
    GLuint qpitch = 0;
    GLuint y_pitch = 0;
 
-   tex->pitch = tex->base.width0;
-   brw_tex_alignment_unit(tex->base.format, &align_w, &align_h);
+   tex->pitch = tex->b.b.width0;
+   brw_tex_alignment_unit(tex->b.b.format, &align_w, &align_h);
    y_pitch = align(height, align_h);
 
    if (tex->compressed) {
-      tex->pitch = align(tex->base.width0, align_w);
+      tex->pitch = align(tex->b.b.width0, align_w);
    }
 
-   if (tex->base.last_level != 0) {
+   if (tex->b.b.last_level != 0) {
       GLuint mip1_width;
 
       if (tex->compressed) {
-	 mip1_width = (align(u_minify(tex->base.width0, 1), align_w) +
-		       align(u_minify(tex->base.width0, 2), align_w));
+	 mip1_width = (align(u_minify(tex->b.b.width0, 1), align_w) +
+		       align(u_minify(tex->b.b.width0, 2), align_w));
       } else {
-	 mip1_width = (align(u_minify(tex->base.width0, 1), align_w) +
-		       u_minify(tex->base.width0, 2));
+	 mip1_width = (align(u_minify(tex->b.b.width0, 1), align_w) +
+		       u_minify(tex->b.b.width0, 2));
       }
 
       if (mip1_width > tex->pitch) {
@@ -267,7 +267,7 @@ brw_layout_cubemap_idgng( struct brw_texture *tex )
 			   11 * align_h) * 6;
    }
 
-   for (level = 0; level <= tex->base.last_level; level++) {
+   for (level = 0; level <= tex->b.b.last_level; level++) {
       GLuint img_height;
       GLuint nr_images = 6;
       GLuint q = 0;
@@ -300,9 +300,9 @@ brw_layout_cubemap_idgng( struct brw_texture *tex )
 static boolean
 brw_layout_3d_cube( struct brw_texture *tex )
 {
-   GLuint width  = tex->base.width0;
-   GLuint height = tex->base.height0;
-   GLuint depth = tex->base.depth0;
+   GLuint width  = tex->b.b.width0;
+   GLuint height = tex->b.b.height0;
+   GLuint depth = tex->b.b.depth0;
    GLuint pack_x_pitch, pack_x_nr;
    GLuint pack_y_pitch;
    GLuint level;
@@ -310,21 +310,21 @@ brw_layout_3d_cube( struct brw_texture *tex )
    GLuint align_w = 4;
 
    tex->total_height = 0;
-   brw_tex_alignment_unit(tex->base.format, &align_w, &align_h);
+   brw_tex_alignment_unit(tex->b.b.format, &align_w, &align_h);
 
    if (tex->compressed) {
       tex->pitch = align(width, align_w);
       pack_y_pitch = (height + 3) / 4;
    } else {
-      tex->pitch = brw_tex_pitch_align(tex, tex->base.width0);
-      pack_y_pitch = align(tex->base.height0, align_h);
+      tex->pitch = brw_tex_pitch_align(tex, tex->b.b.width0);
+      pack_y_pitch = align(tex->b.b.height0, align_h);
    }
 
    pack_x_pitch = width;
    pack_x_nr = 1;
 
-   for (level = 0 ; level <= tex->base.last_level ; level++) {
-      GLuint nr_images = tex->base.target == PIPE_TEXTURE_3D ? depth : 6;
+   for (level = 0 ; level <= tex->b.b.last_level ; level++) {
+      GLuint nr_images = tex->b.b.target == PIPE_TEXTURE_3D ? depth : 6;
       GLint x = 0;
       GLint y = 0;
       GLint q, j;
@@ -375,7 +375,7 @@ brw_layout_3d_cube( struct brw_texture *tex )
     * memory.  As a result, the docs say in Surface Padding Requirements:
     * Sampling Engine Surfaces that two extra rows of padding are required.
     */
-   if (tex->base.target == PIPE_TEXTURE_CUBE)
+   if (tex->b.b.target == PIPE_TEXTURE_CUBE)
       tex->total_height += 2;
 
    return TRUE;
@@ -386,7 +386,7 @@ brw_layout_3d_cube( struct brw_texture *tex )
 GLboolean brw_texture_layout(struct brw_screen *brw_screen,
 			     struct brw_texture *tex )
 {
-   switch (tex->base.target) {
+   switch (tex->b.b.target) {
    case PIPE_TEXTURE_CUBE:
       if (brw_screen->chipset.is_igdng)
 	 brw_layout_cubemap_idgng( tex );

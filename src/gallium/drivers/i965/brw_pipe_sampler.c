@@ -235,7 +235,7 @@ static void
 brw_sampler_view_destroy(struct pipe_context *pipe,
                          struct pipe_sampler_view *view)
 {
-   pipe_texture_reference(&view->texture, NULL);
+   pipe_resource_reference(&view->texture, NULL);
    FREE(view);
 }
 
