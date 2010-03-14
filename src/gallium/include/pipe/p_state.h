@@ -321,20 +321,6 @@ struct pipe_box
 
 
 
-/**
- * Transfer object.  For data transfer to/from a texture.
- */
-struct pipe_transfer
-{
-   struct pipe_resource *resource; /**< resource to transfer to/from  */
-   struct pipe_box box;
-   enum pipe_transfer_usage usage;
-   unsigned stride;
-   unsigned slice_stride;
-   void *data;
-};
-
-
 struct pipe_resource
 {
    struct pipe_reference reference;
@@ -358,6 +344,22 @@ struct pipe_subresource
    unsigned face:16;
    unsigned level:16;
 };
+
+
+/**
+ * Transfer object.  For data transfer to/from a texture.
+ */
+struct pipe_transfer
+{
+   struct pipe_resource *resource; /**< resource to transfer to/from  */
+   struct pipe_subresource sr;
+   enum pipe_transfer_usage usage;
+   struct pipe_box box;
+   unsigned stride;
+   unsigned slice_stride;
+   void *data;
+};
+
 
 
 /**
