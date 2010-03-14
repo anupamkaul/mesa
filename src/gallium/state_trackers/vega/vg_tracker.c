@@ -39,11 +39,11 @@
 /* advertise OpenVG support */
 PUBLIC const int st_api_OpenVG = 1;
 
-static struct pipe_texture *
+static struct pipe_resource *
 create_texture(struct pipe_context *pipe, enum pipe_format format,
                VGint width, VGint height)
 {
-   struct pipe_texture templ;
+   struct pipe_resource templ;
 
    memset(&templ, 0, sizeof(templ));
 
@@ -68,7 +68,7 @@ create_texture(struct pipe_context *pipe, enum pipe_format format,
                          PIPE_TEXTURE_USAGE_SAMPLER);
    }
 
-   return pipe->screen->texture_create(pipe->screen, &templ);
+   return pipe->screen->resource_create(pipe->screen, &templ);
 }
 
 /**
@@ -107,7 +107,7 @@ st_renderbuffer_alloc_storage(struct vg_context * ctx,
    /* Free the old surface and texture
     */
    pipe_surface_reference(&strb->surface, NULL);
-   pipe_texture_reference(&strb->texture, NULL);
+   pipe_resource_reference(&strb->texture, NULL);
 
 
    /* Probably need dedicated flags for surface usage too:
@@ -206,7 +206,7 @@ static void setup_new_alpha_mask(struct vg_context *ctx,
                                  uint width, uint height)
 {
    struct pipe_context *pipe = ctx->pipe;
-   struct pipe_texture *old_texture = stfb->alpha_mask;
+   struct pipe_resource *old_texture = stfb->alpha_mask;
 
    /*
      we use PIPE_FORMAT_B8G8R8A8_UNORM because we want to render to
@@ -218,7 +218,7 @@ static void setup_new_alpha_mask(struct vg_context *ctx,
 
    if (!stfb->alpha_mask) {
       if (old_texture)
-         pipe_texture_reference(&old_texture, NULL);
+         pipe_resource_reference(&old_texture, NULL);
       return;
    }
 
@@ -265,7 +265,7 @@ static void setup_new_alpha_mask(struct vg_context *ctx,
    /* Free the old texture
     */
    if (old_texture)
-      pipe_texture_reference(&old_texture, NULL);
+      pipe_resource_reference(&old_texture, NULL);
 }
 
 void st_resize_framebuffer(struct st_framebuffer *stfb,
@@ -326,7 +326,7 @@ void st_resize_framebuffer(struct st_framebuffer *stfb,
 
    setup_new_alpha_mask(ctx, stfb, width, height);
 
-   pipe_texture_reference( &stfb->blend_texture, NULL );
+   pipe_resource_reference( &stfb->blend_texture, NULL );
    stfb->blend_texture = create_texture(ctx->pipe, PIPE_FORMAT_B8G8R8A8_UNORM,
                                         width, height);
 }
@@ -338,11 +338,11 @@ void st_set_framebuffer_surface(struct st_framebuffer *stfb,
 
    /* unreference existing surfaces */
    pipe_surface_reference( &rb->surface, NULL );
-   pipe_texture_reference( &rb->texture, NULL );
+   pipe_resource_reference( &rb->texture, NULL );
 
    /* reference new ones */
    pipe_surface_reference( &rb->surface, surf );
-   pipe_texture_reference( &rb->texture, surf->texture );
+   pipe_resource_reference( &rb->texture, surf->texture );
 
    rb->width  = surf->width;
    rb->height = surf->height;
@@ -357,7 +357,7 @@ int st_get_framebuffer_surface(struct st_framebuffer *stfb,
 }
 
 int st_get_framebuffer_texture(struct st_framebuffer *stfb,
-                               uint surfIndex, struct pipe_texture **tex)
+                               uint surfIndex, struct pipe_resource **tex)
 {
    struct st_renderbuffer *rb = stfb->strb;
    *tex = rb->texture;

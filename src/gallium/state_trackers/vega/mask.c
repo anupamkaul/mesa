@@ -45,7 +45,7 @@ struct vg_mask_layer {
    VGint width;
    VGint height;
 
-   struct pipe_texture *texture;
+   struct pipe_resource *texture;
 };
 
 static INLINE struct pipe_surface *
@@ -217,7 +217,7 @@ static void setup_mask_framebuffer(struct pipe_surface *surf,
 static void setup_mask_operation(VGMaskOperation operation)
 {
    struct vg_context *ctx = vg_current_context();
-   struct pipe_buffer **cbuf = &ctx->mask.cbuf;
+   struct pipe_resource **cbuf = &ctx->mask.cbuf;
    const VGint param_bytes = 4 * sizeof(VGfloat);
    const VGfloat ones[4] = {1.f, 1.f, 1.f, 1.f};
    void *shader = 0;
@@ -225,7 +225,7 @@ static void setup_mask_operation(VGMaskOperation operation)
    /* We always need to get a new buffer, to keep the drivers simple and
     * avoid gratuitous rendering synchronization.
     */
-   pipe_buffer_reference(cbuf, NULL);
+   pipe_resource_reference(cbuf, NULL);
 
    *cbuf = pipe_buffer_create(ctx->pipe->screen, 1,
                               PIPE_BUFFER_USAGE_CONSTANT,
@@ -284,13 +284,13 @@ static void setup_mask_operation(VGMaskOperation operation)
    cso_set_fragment_shader_handle(ctx->cso_context, shader);
 }
 
-static void setup_mask_samplers(struct pipe_texture *umask)
+static void setup_mask_samplers(struct pipe_resource *umask)
 {
    struct vg_context *ctx = vg_current_context();
    struct pipe_sampler_state *samplers[PIPE_MAX_SAMPLERS];
-   struct pipe_texture *textures[PIPE_MAX_SAMPLERS];
+   struct pipe_resource *textures[PIPE_MAX_SAMPLERS];
    struct st_framebuffer *fb_buffers = ctx->draw_buffer;
-   struct pipe_texture *uprev = NULL;
+   struct pipe_resource *uprev = NULL;
    struct pipe_sampler_state sampler;
 
    uprev = fb_buffers->blend_texture;
@@ -320,13 +320,13 @@ static void setup_mask_samplers(struct pipe_texture *umask)
 static void setup_mask_fill(const VGfloat color[4])
 {
    struct vg_context *ctx = vg_current_context();
-   struct pipe_buffer **cbuf = &ctx->mask.cbuf;
+   struct pipe_resource **cbuf = &ctx->mask.cbuf;
    const VGint param_bytes = 4 * sizeof(VGfloat);
 
    /* We always need to get a new buffer, to keep the drivers simple and
     * avoid gratuitous rendering synchronization.
     */
-   pipe_buffer_reference(cbuf, NULL);
+   pipe_resource_reference(cbuf, NULL);
 
    *cbuf = pipe_buffer_create(ctx->pipe->screen, 1,
                               PIPE_BUFFER_USAGE_CONSTANT,
@@ -411,7 +411,7 @@ static void surface_fill(struct pipe_surface *surf,
 }
 
 
-static void mask_using_texture(struct pipe_texture *texture,
+static void mask_using_texture(struct pipe_resource *texture,
                                VGMaskOperation operation,
                                VGint x, VGint y,
                                VGint width, VGint height)
@@ -483,7 +483,7 @@ struct vg_mask_layer * mask_layer_create(VGint width, VGint height)
    mask->height = height;
 
    {
-      struct pipe_texture pt;
+      struct pipe_resource pt;
       struct pipe_screen *screen = ctx->pipe->screen;
 
       memset(&pt, 0, sizeof(pt));
@@ -496,7 +496,7 @@ struct vg_mask_layer * mask_layer_create(VGint width, VGint height)
       pt.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
       pt.compressed = 0;
 
-      mask->texture = screen->texture_create(screen, &pt);
+      mask->texture = screen->resource_create(screen, &pt);
    }
 
    vg_context_add_object(ctx, VG_OBJECT_MASK, mask);
@@ -509,7 +509,7 @@ void mask_layer_destroy(struct vg_mask_layer *layer)
    struct vg_context *ctx = vg_current_context();
 
    vg_context_remove_object(ctx, VG_OBJECT_MASK, layer);
-   pipe_texture_release(&layer->texture);
+   pipe_resource_release(&layer->texture);
    free(layer);
 }
 
@@ -672,7 +672,7 @@ void mask_fill(VGint x, VGint y, VGint width, VGint height,
 }
 
 VGint mask_bind_samplers(struct pipe_sampler_state **samplers,
-                         struct pipe_texture **textures)
+                         struct pipe_resource **textures)
 {
    struct vg_context *ctx = vg_current_context();
 

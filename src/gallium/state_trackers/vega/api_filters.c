@@ -53,17 +53,17 @@ struct filter_info {
    const void *const_buffer;
    VGint const_buffer_len;
    VGTilingMode tiling_mode;
-   struct pipe_texture *extra_texture;
+   struct pipe_resource *extra_texture;
 };
 
-static INLINE struct pipe_texture *create_texture_1d(struct vg_context *ctx,
+static INLINE struct pipe_resource *create_texture_1d(struct vg_context *ctx,
                                                      const VGuint *color_data,
                                                      const VGint color_data_len)
 {
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
-   struct pipe_texture *tex = 0;
-   struct pipe_texture templ;
+   struct pipe_resource *tex = 0;
+   struct pipe_resource templ;
 
    memset(&templ, 0, sizeof(templ));
    templ.target = PIPE_TEXTURE_1D;
@@ -74,18 +74,18 @@ static INLINE struct pipe_texture *create_texture_1d(struct vg_context *ctx,
    templ.depth0 = 1;
    templ.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
 
-   tex = screen->texture_create(screen, &templ);
+   tex = screen->resource_create(screen, &templ);
 
    { /* upload color_data */
       struct pipe_transfer *transfer =
-         pipe->get_transfer(pipe, tex,
+         pipe_get_transfer(pipe, tex,
 				0, 0, 0,
 				PIPE_TRANSFER_READ_WRITE ,
 				0, 0, tex->width0, tex->height0);
       void *map = pipe->transfer_map(pipe, transfer);
       memcpy(map, color_data, sizeof(VGint)*color_data_len);
       pipe->transfer_unmap(pipe, transfer);
-      pipe->tex_transfer_destroy(pipe, transfer);
+      pipe->transfer_destroy(pipe, transfer);
    }
 
    return tex;
@@ -147,11 +147,11 @@ static void setup_constant_buffer(struct vg_context *ctx, const void *buffer,
                                   VGint param_bytes)
 {
    struct pipe_context *pipe = ctx->pipe;
-   struct pipe_buffer **cbuf = &ctx->filter.buffer;
+   struct pipe_resource **cbuf = &ctx->filter.buffer;
 
    /* We always need to get a new buffer, to keep the drivers simple and
     * avoid gratuitous rendering synchronization. */
-   pipe_buffer_reference(cbuf, NULL);
+   pipe_resource_reference(cbuf, NULL);
 
    *cbuf = pipe_buffer_create(pipe->screen, 16,
                               PIPE_BUFFER_USAGE_CONSTANT,
@@ -168,7 +168,7 @@ static void setup_constant_buffer(struct vg_context *ctx, const void *buffer,
 static void setup_samplers(struct vg_context *ctx, struct filter_info *info)
 {
    struct pipe_sampler_state *samplers[PIPE_MAX_SAMPLERS];
-   struct pipe_texture *textures[PIPE_MAX_SAMPLERS];
+   struct pipe_resource *textures[PIPE_MAX_SAMPLERS];
    struct pipe_sampler_state sampler[3];
    int num_samplers = 0;
    int num_textures = 0;
@@ -688,7 +688,7 @@ void vgLookup(VGImage dst, VGImage src,
    struct vg_image *d, *s;
    VGuint color_data[256];
    VGint i;
-   struct pipe_texture *lut_texture;
+   struct pipe_resource *lut_texture;
    VGfloat buffer[4];
    struct filter_info info;
 
@@ -732,7 +732,7 @@ void vgLookup(VGImage dst, VGImage src,
 
    execute_filter(ctx, &info);
 
-   pipe_texture_reference(&lut_texture, NULL);
+   pipe_resource_reference(&lut_texture, NULL);
 }
 
 void vgLookupSingle(VGImage dst, VGImage src,
@@ -743,7 +743,7 @@ void vgLookupSingle(VGImage dst, VGImage src,
 {
    struct vg_context *ctx = vg_current_context();
    struct vg_image *d, *s;
-   struct pipe_texture *lut_texture;
+   struct pipe_resource *lut_texture;
    VGfloat buffer[4];
    struct filter_info info;
    VGuint color_data[256];
@@ -801,5 +801,5 @@ void vgLookupSingle(VGImage dst, VGImage src,
 
    execute_filter(ctx, &info);
 
-   pipe_texture_reference(&lut_texture, NULL);
+   pipe_resource_reference(&lut_texture, NULL);
 }

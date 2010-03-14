@@ -61,7 +61,7 @@ struct vg_paint {
          VGfloat vals[5];
          VGint valsi[5];
       } radial;
-      struct pipe_texture *texture;
+      struct pipe_resource *texture;
       struct pipe_sampler_state sampler;
 
       VGfloat *ramp_stops;
@@ -72,13 +72,13 @@ struct vg_paint {
    } gradient;
 
    struct {
-      struct pipe_texture *texture;
+      struct pipe_resource *texture;
       VGTilingMode tiling_mode;
       struct pipe_sampler_state sampler;
    } pattern;
 
    /* XXX next 3 all unneded? */
-   struct pipe_buffer *cbuf;
+   struct pipe_resource *cbuf;
    struct pipe_shader_state fs_state;
    void *fs;
 };
@@ -142,12 +142,12 @@ static INLINE void create_gradient_data(const VGfloat *ramp_stops,
    data[size-1] = last_color;
 }
 
-static INLINE struct pipe_texture *create_gradient_texture(struct vg_paint *p)
+static INLINE struct pipe_resource *create_gradient_texture(struct vg_paint *p)
 {
    struct pipe_context *pipe = p->base.ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
-   struct pipe_texture *tex = 0;
-   struct pipe_texture templ;
+   struct pipe_resource *tex = 0;
+   struct pipe_resource templ;
 
    memset(&templ, 0, sizeof(templ));
    templ.target = PIPE_TEXTURE_1D;
@@ -158,7 +158,7 @@ static INLINE struct pipe_texture *create_gradient_texture(struct vg_paint *p)
    templ.depth0 = 1;
    templ.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
 
-   tex = screen->texture_create(screen, &templ);
+   tex = screen->resource_create(screen, &templ);
 
    { /* upload color_data */
       struct pipe_transfer *transfer =
@@ -167,7 +167,7 @@ static INLINE struct pipe_texture *create_gradient_texture(struct vg_paint *p)
       void *map = pipe->transfer_map(pipe, transfer);
       memcpy(map, p->gradient.color_data, sizeof(VGint)*1024);
       pipe->transfer_unmap(pipe, transfer);
-      pipe->tex_transfer_destroy(pipe, transfer);
+      pipe->transfer_destroy(pipe, transfer);
    }
 
    return tex;
@@ -208,7 +208,7 @@ void paint_destroy(struct vg_paint *paint)
 {
    struct vg_context *ctx = paint->base.ctx;
    if (paint->pattern.texture)
-      pipe_texture_reference(&paint->pattern.texture, NULL);
+      pipe_resource_reference(&paint->pattern.texture, NULL);
    if (ctx)
       vg_context_remove_object(ctx, VG_OBJECT_PAINT, paint);
 
@@ -395,7 +395,7 @@ void paint_set_ramp_stops(struct vg_paint *paint, const VGfloat *stops,
                         1024);
 
    if (paint->gradient.texture) {
-      pipe_texture_reference(&paint->gradient.texture, NULL);
+      pipe_resource_reference(&paint->gradient.texture, NULL);
       paint->gradient.texture = 0;
    }
 
@@ -460,10 +460,10 @@ void paint_set_pattern(struct vg_paint *paint,
                        struct vg_image *img)
 {
    if (paint->pattern.texture)
-      pipe_texture_reference(&paint->pattern.texture, NULL);
+      pipe_resource_reference(&paint->pattern.texture, NULL);
 
    paint->pattern.texture = 0;
-   pipe_texture_reference(&paint->pattern.texture,
+   pipe_resource_reference(&paint->pattern.texture,
                           img->texture);
 }
 
@@ -611,7 +611,7 @@ VGTilingMode paint_pattern_tiling(struct vg_paint *paint)
 }
 
 VGint paint_bind_samplers(struct vg_paint *paint, struct pipe_sampler_state **samplers,
-                          struct pipe_texture **textures)
+                          struct pipe_resource **textures)
 {
    struct vg_context *ctx = vg_current_context();
 

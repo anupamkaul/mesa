@@ -80,8 +80,8 @@ static INLINE void vg_sync_size(VGfloat *src_loc, VGfloat *dst_loc)
 
 
 static void vg_copy_texture(struct vg_context *ctx,
-                            struct pipe_texture *dst, VGint dx, VGint dy,
-                            struct pipe_texture *src, VGint sx, VGint sy,
+                            struct pipe_resource *dst, VGint dx, VGint dy,
+                            struct pipe_resource *src, VGint sx, VGint sy,
                             VGint width, VGint height)
 {
    VGfloat dst_loc[4], src_loc[4];
@@ -216,9 +216,9 @@ void vg_copy_surface(struct vg_context *ctx,
 
 }
 
-static struct pipe_texture *image_texture(struct vg_image *img)
+static struct pipe_resource *image_texture(struct vg_image *img)
 {
-   struct pipe_texture *tex = img->texture;
+   struct pipe_resource *tex = img->texture;
    return tex;
 }
 
@@ -249,7 +249,7 @@ struct vg_image * image_create(VGImageFormat format,
    struct vg_context *ctx = vg_current_context();
    struct vg_image *image = CALLOC_STRUCT(vg_image);
    enum pipe_format pformat = vg_format_to_pipe(format);
-   struct pipe_texture pt, *newtex;
+   struct pipe_resource pt, *newtex;
    struct pipe_screen *screen = ctx->pipe->screen;
 
    vg_init_object(&image->base, ctx, VG_OBJECT_IMAGE);
@@ -277,7 +277,7 @@ struct vg_image * image_create(VGImageFormat format,
    pt.depth0 = 1;
    pt.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
 
-   newtex = screen->texture_create(screen, &pt);
+   newtex = screen->resource_create(screen, &pt);
 
    debug_assert(newtex);
 
@@ -345,7 +345,7 @@ void image_destroy(struct vg_image *img)
       array_destroy(img->children_array);
    }
 
-   pipe_texture_reference(&img->texture, NULL);
+   pipe_resource_reference(&img->texture, NULL);
    free(img);
 }
 
@@ -379,7 +379,7 @@ void image_sub_data(struct vg_image *image,
    VGint i;
    struct vg_context *ctx = vg_current_context();
    struct pipe_context *pipe = ctx->pipe;
-   struct pipe_texture *texture = image_texture(image);
+   struct pipe_resource *texture = image_texture(image);
    VGint xoffset = 0, yoffset = 0;
 
    if (x < 0) {
@@ -412,7 +412,7 @@ void image_sub_data(struct vg_image *image,
    }
 
    { /* upload color_data */
-      struct pipe_transfer *transfer = pipe->get_transfer(
+      struct pipe_transfer *transfer = pipe_get_transfer(
          pipe, texture, 0, 0, 0,
          PIPE_TRANSFER_WRITE, 0, 0, texture->width0, texture->height0);
       src += (dataStride * yoffset);
@@ -422,7 +422,7 @@ void image_sub_data(struct vg_image *image,
          y += yStep;
          src += dataStride;
       }
-      pipe->tex_transfer_destroy(pipe, transfer);
+      pipe->transfer_destroy(pipe, transfer);
    }
 }
 
@@ -443,7 +443,7 @@ void image_get_sub_data(struct vg_image * image,
 
    {
       struct pipe_transfer *transfer =
-         pipe->get_transfer(pipe,
+         pipe_get_transfer(pipe,
                                   image->texture,  0, 0, 0,
                                   PIPE_TRANSFER_READ,
                                   0, 0,
@@ -460,7 +460,7 @@ void image_get_sub_data(struct vg_image * image,
          dst += dataStride;
       }
 
-      pipe->tex_transfer_destroy(pipe, transfer);
+      pipe->transfer_destroy(pipe, transfer);
    }
 }
 
@@ -479,7 +479,7 @@ struct vg_image * image_child_image(struct vg_image *parent,
    image->height = height;
    image->parent = parent;
    image->texture = 0;
-   pipe_texture_reference(&image->texture,
+   pipe_resource_reference(&image->texture,
                           parent->texture);
 
    image->sampler.wrap_s = PIPE_TEX_WRAP_CLAMP_TO_EDGE;
@@ -624,7 +624,7 @@ VGboolean vg_image_overlaps(struct vg_image *dst,
 }
 
 VGint image_bind_samplers(struct vg_image *img, struct pipe_sampler_state **samplers,
-                          struct pipe_texture **textures)
+                          struct pipe_resource **textures)
 {
    img->sampler.min_img_filter = image_sampler_filter(img->base.ctx);
    img->sampler.mag_img_filter = image_sampler_filter(img->base.ctx);

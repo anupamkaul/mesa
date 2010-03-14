@@ -51,7 +51,7 @@ struct shader {
    VGImageMode image_mode;
 
    float constants[MAX_CONSTANTS];
-   struct pipe_buffer *cbuf;
+   struct pipe_resource *cbuf;
    struct pipe_shader_state fs_state;
    void *fs;
 };
@@ -96,7 +96,7 @@ static void setup_constant_buffer(struct shader *shader)
 {
    struct vg_context *ctx = shader->context;
    struct pipe_context *pipe = shader->context->pipe;
-   struct pipe_buffer **cbuf = &shader->cbuf;
+   struct pipe_resource **cbuf = &shader->cbuf;
    VGint param_bytes = paint_constant_buffer_size(shader->paint);
    float temp_buf[MAX_CONSTANTS];
 
@@ -106,12 +106,13 @@ static void setup_constant_buffer(struct shader *shader)
    if (*cbuf == NULL ||
        memcmp(temp_buf, shader->constants, param_bytes) != 0)
    {
-      pipe_buffer_reference(cbuf, NULL);
+      pipe_resource_reference(cbuf, NULL);
 
       memcpy(shader->constants, temp_buf, param_bytes);
       *cbuf = pipe_user_buffer_create(pipe->screen,
                                       &shader->constants,
-                                      sizeof(shader->constants));
+                                      sizeof(shader->constants),
+				      PIPE_BUFFER_USAGE_VERTEX);
    }
 
    ctx->pipe->set_constant_buffer(ctx->pipe, PIPE_SHADER_FRAGMENT, 0, *cbuf);
@@ -119,7 +120,7 @@ static void setup_constant_buffer(struct shader *shader)
 
 static VGint blend_bind_samplers(struct vg_context *ctx,
                                  struct pipe_sampler_state **samplers,
-                                 struct pipe_texture **textures)
+                                 struct pipe_resource **textures)
 {
    VGBlendMode bmode = ctx->state.vg.blend_mode;
 
@@ -151,7 +152,7 @@ static VGint blend_bind_samplers(struct vg_context *ctx,
 static void setup_samplers(struct shader *shader)
 {
    struct pipe_sampler_state *samplers[PIPE_MAX_SAMPLERS];
-   struct pipe_texture *textures[PIPE_MAX_SAMPLERS];
+   struct pipe_resource *textures[PIPE_MAX_SAMPLERS];
    struct vg_context *ctx = shader->context;
    /* a little wonky: we use the num as a boolean that just says
     * whether any sampler/textures have been set. the actual numbering
