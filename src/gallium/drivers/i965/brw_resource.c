@@ -24,7 +24,7 @@ brw_resource_from_handle(struct pipe_screen * screen,
    if (template->target == PIPE_BUFFER)
       return NULL;
    else
-      return brw_resource_from_handle(screen, template, whandle);
+      return brw_texture_from_handle(screen, template, whandle);
 }
 
 
