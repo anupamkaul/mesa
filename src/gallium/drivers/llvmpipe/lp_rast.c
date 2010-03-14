@@ -63,9 +63,9 @@ lp_rast_begin( struct lp_rasterizer *rast,
    
    for (i = 0; i < rast->state.nr_cbufs; i++) {
       rast->cbuf[i].map = scene->cbuf_map[i];
-      rast->cbuf[i].format = scene->cbuf_transfer[i]->texture->format;
-      rast->cbuf[i].width = scene->cbuf_transfer[i]->width;
-      rast->cbuf[i].height = scene->cbuf_transfer[i]->height;
+      rast->cbuf[i].format = scene->cbuf_transfer[i]->resource->format;
+      rast->cbuf[i].width = scene->cbuf_transfer[i]->box.width;
+      rast->cbuf[i].height = scene->cbuf_transfer[i]->box.height;
       rast->cbuf[i].stride = scene->cbuf_transfer[i]->stride;
    }
 
@@ -73,7 +73,7 @@ lp_rast_begin( struct lp_rasterizer *rast,
       rast->zsbuf.map = scene->zsbuf_map;
       rast->zsbuf.stride = scene->zsbuf_transfer->stride;
       rast->zsbuf.blocksize = 
-         util_format_get_blocksize(scene->zsbuf_transfer->texture->format);
+         util_format_get_blocksize(scene->zsbuf_transfer->resource->format);
    }
 
    lp_scene_bin_iter_begin( scene );

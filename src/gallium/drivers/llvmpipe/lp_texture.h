@@ -43,9 +43,9 @@ struct llvmpipe_context;
 struct sw_displaytarget;
 
 
-struct llvmpipe_texture
+struct llvmpipe_resource
 {
-   struct pipe_texture base;
+   struct pipe_resource base;
 
    unsigned long level_offset[LP_MAX_TEXTURE_2D_LEVELS];
    unsigned stride[LP_MAX_TEXTURE_2D_LEVELS];
@@ -61,6 +61,7 @@ struct llvmpipe_texture
     */
    void *data;
 
+   boolean userBuffer;  /** Is this a user-space buffer? */
    unsigned timestamp;
 };
 
@@ -74,17 +75,17 @@ struct llvmpipe_transfer
 
 
 /** cast wrappers */
-static INLINE struct llvmpipe_texture *
-llvmpipe_texture(struct pipe_texture *pt)
+static INLINE struct llvmpipe_resource *
+llvmpipe_resource(struct pipe_resource *pt)
 {
-   return (struct llvmpipe_texture *) pt;
+   return (struct llvmpipe_resource *) pt;
 }
 
 
-static INLINE const struct llvmpipe_texture *
-llvmpipe_texture_const(const struct pipe_texture *pt)
+static INLINE const struct llvmpipe_resource *
+llvmpipe_resource_const(const struct pipe_resource *pt)
 {
-   return (const struct llvmpipe_texture *) pt;
+   return (const struct llvmpipe_resource *) pt;
 }
 
 
@@ -95,10 +96,7 @@ llvmpipe_transfer(struct pipe_transfer *pt)
 }
 
 
-extern void
-llvmpipe_init_screen_texture_funcs(struct pipe_screen *screen);
-
-extern void
-llvmpipe_init_context_texture_funcs(struct pipe_context *pipe);
+void llvmpipe_init_screen_resource_funcs(struct pipe_screen *screen);
+void llvmpipe_init_context_resource_funcs(struct pipe_context *pipe);
 
 #endif /* LP_TEXTURE_H */

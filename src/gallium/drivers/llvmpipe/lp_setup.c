@@ -39,7 +39,6 @@
 #include "util/u_surface.h"
 #include "lp_scene.h"
 #include "lp_scene_queue.h"
-#include "lp_buffer.h"
 #include "lp_texture.h"
 #include "lp_debug.h"
 #include "lp_fence.h"
@@ -379,11 +378,11 @@ lp_setup_set_fs_functions( struct lp_setup_context *setup,
 
 void
 lp_setup_set_fs_constants(struct lp_setup_context *setup,
-                          struct pipe_buffer *buffer)
+                          struct pipe_resource *buffer)
 {
    LP_DBG(DEBUG_SETUP, "%s %p\n", __FUNCTION__, (void *) buffer);
 
-   pipe_buffer_reference(&setup->constants.current, buffer);
+   pipe_resource_reference(&setup->constants.current, buffer);
 
    setup->dirty |= LP_SETUP_NEW_CONSTANTS;
 }
@@ -467,8 +466,8 @@ lp_setup_set_fragment_sampler_views(struct lp_setup_context *setup,
       struct pipe_sampler_view *view = i < num ? views[i] : NULL;
 
       if(view) {
-         struct pipe_texture *tex = view->texture;
-         struct llvmpipe_texture *lp_tex = llvmpipe_texture(tex);
+         struct pipe_resource *tex = view->texture;
+         struct llvmpipe_resource *lp_tex = llvmpipe_resource(tex);
          struct lp_jit_texture *jit_tex;
          jit_tex = &setup->fs.current.jit_context.textures[i];
          jit_tex->width = tex->width0;
@@ -516,8 +515,8 @@ lp_setup_set_fragment_sampler_views(struct lp_setup_context *setup,
  * being rendered and the current scene being built.
  */
 unsigned
-lp_setup_is_texture_referenced( const struct lp_setup_context *setup,
-                                const struct pipe_texture *texture )
+lp_setup_is_resource_referenced( const struct lp_setup_context *setup,
+                                const struct pipe_resource *texture )
 {
    unsigned i;
 
@@ -532,7 +531,7 @@ lp_setup_is_texture_referenced( const struct lp_setup_context *setup,
 
    /* check textures referenced by the scene */
    for (i = 0; i < Elements(setup->scenes); i++) {
-      if (lp_scene_is_texture_referenced(setup->scenes[i], texture)) {
+      if (lp_scene_is_resource_referenced(setup->scenes[i], texture)) {
          return PIPE_REFERENCED_FOR_READ;
       }
    }
@@ -593,11 +592,11 @@ lp_setup_update_state( struct lp_setup_context *setup )
    }
 
    if(setup->dirty & LP_SETUP_NEW_CONSTANTS) {
-      struct pipe_buffer *buffer = setup->constants.current;
+      struct pipe_resource *buffer = setup->constants.current;
 
       if(buffer) {
-         unsigned current_size = buffer->size;
-         const void *current_data = llvmpipe_buffer(buffer)->data;
+         unsigned current_size = buffer->width0;
+         const void *current_data = llvmpipe_resource(buffer)->data;
 
          /* TODO: copy only the actually used constants? */
 
@@ -667,7 +666,7 @@ lp_setup_destroy( struct lp_setup_context *setup )
 {
    reset_context( setup );
 
-   pipe_buffer_reference(&setup->constants.current, NULL);
+   pipe_resource_reference(&setup->constants.current, NULL);
 
    /* free the scenes in the 'empty' queue */
    while (1) {
