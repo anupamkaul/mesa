@@ -184,7 +184,7 @@ pipe_buffer_map(struct pipe_context *pipe,
                 unsigned usage,
 		struct pipe_transfer **transfer)
 {
-   return pipe_buffer_map_range(pipe, buffer, usage, 0, buffer->width0, transfer);
+   return pipe_buffer_map_range(pipe, buffer, 0, buffer->width0, usage, transfer);
 }
 
 
