@@ -96,3 +96,11 @@ out:
       pipe_transfer_destroy(pipe, transfer);
 }
 
+
+void u_transfer_flush_region_noop( struct pipe_context *pipe,
+				   struct pipe_transfer *transfer,
+				   const struct pipe_box *box)
+{
+   /* This is a no-op implementation, nothing to do.
+    */
+}

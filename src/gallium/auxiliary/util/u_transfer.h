@@ -22,4 +22,8 @@ void u_transfer_inline_read( struct pipe_context *pipe,
 			      enum pipe_transfer_usage usage,
 			      const struct pipe_box *box,
 			     void *data );
+
+void u_transfer_flush_region_noop( struct pipe_context *pipe,
+				   struct pipe_transfer *transfer,
+				   const struct pipe_box *box);
 #endif
