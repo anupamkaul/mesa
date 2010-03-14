@@ -36,6 +36,7 @@
 #include "util/u_format.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+#include "util/u_transfer.h"
 
 #include "sp_context.h"
 #include "sp_texture.h"
@@ -279,10 +280,10 @@ softpipe_get_transfer(struct pipe_context *pipe,
       enum pipe_format format = resource->format;
       int nblocksy = util_format_get_nblocksy(resource->format, 
 					      u_minify(resource->height0, sr.level));
-      pipe_resource_reference(&resource, resource);
+      pipe_resource_reference(&pt->resource, resource);
       pt->box = *box;
       pt->stride = sptex->stride[sr.level];
-      //pt->usage = usage;
+      pt->usage = usage;
       //pt->face = face;
       //pt->level = level;
 
@@ -413,6 +414,9 @@ softpipe_init_texture_funcs(struct pipe_context *pipe)
    pipe->transfer_destroy = softpipe_transfer_destroy;
    pipe->transfer_map = softpipe_transfer_map;
    pipe->transfer_unmap = softpipe_transfer_unmap;
+
+   pipe->transfer_inline_write = u_transfer_inline_write;
+   pipe->transfer_inline_read = u_transfer_inline_read;
 }
 
 void
