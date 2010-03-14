@@ -29,8 +29,8 @@
 
 #include "pipe/p_compiler.h"
 #include "pipe/p_state.h"
-#include "piperesource/rm_public.h"
 #include "util/u_inlines.h"
+#include "util/u_transfer.h"
 #include "svga_screen_cache.h"
 
 struct pipe_context;
@@ -43,41 +43,12 @@ enum SVGA3dSurfaceFormat;
 #define SVGA_MAX_TEXTURE_LEVELS 16
 
 
-/**
- * A sampler's view into a texture
- *
- * We currently cache one sampler view on
- * the texture and in there by holding a reference
- * from the texture to the sampler view.
- *
- * Because of this we can not hold a refernce to the
- * texture from the sampler view. So the user
- * of the sampler views must make sure that the
- * texture has a reference take for as long as
- * the sampler view is refrenced.
- *
- * Just unreferencing the sampler_view before the
- * texture is enough.
- */
-struct svga_sampler_view
-{
-   struct pipe_reference reference;
-
-   struct pipe_texture *texture;
-
-   int min_lod;
-   int max_lod;
-
-   unsigned age;
-
-   struct svga_host_surface_cache_key key;
-   struct svga_winsys_surface *handle;
-};
+extern struct u_resource_vtbl svga_texture_vtbl;
 
 
 struct svga_texture 
 {
-   struct pipe_texture base;
+   struct u_resource b;
 
    boolean defined[6][SVGA_MAX_TEXTURE_LEVELS];
    
@@ -107,21 +78,9 @@ struct svga_texture
 };
 
 
-struct svga_surface
-{
-   struct pipe_surface base;
 
-   struct svga_host_surface_cache_key key;
-   struct svga_winsys_surface *handle;
-
-   unsigned real_face;
-   unsigned real_level;
-   unsigned real_zslice;
-
-   boolean dirty;
-};
-
-
+/* Note this is only used for texture (not buffer) transfers:
+ */
 struct svga_transfer
 {
    struct pipe_transfer base;
@@ -137,18 +96,13 @@ struct svga_transfer
 };
 
 
-static INLINE struct svga_texture *
-svga_texture(struct pipe_texture *texture)
+static INLINE struct svga_texture *svga_texture( struct pipe_resource *resource )
 {
-   return (struct svga_texture *)texture;
+   struct svga_texture *tex = (struct svga_texture *)resource;
+   assert(tex == NULL || tex->b.vtbl == &svga_texture_vtbl);
+   return tex;
 }
 
-static INLINE struct svga_surface *
-svga_surface(struct pipe_surface *surface)
-{
-   assert(surface);
-   return (struct svga_surface *)surface;
-}
 
 static INLINE struct svga_transfer *
 svga_transfer(struct pipe_transfer *transfer)
@@ -157,38 +111,18 @@ svga_transfer(struct pipe_transfer *transfer)
    return (struct svga_transfer *)transfer;
 }
 
-extern struct svga_sampler_view *
-svga_get_tex_sampler_view(struct pipe_context *pipe,
-                          struct pipe_texture *pt,
-                          unsigned min_lod, unsigned max_lod);
 
-void
-svga_validate_sampler_view(struct svga_context *svga, struct svga_sampler_view *v);
 
-void
-svga_destroy_sampler_view_priv(struct svga_sampler_view *v);
+struct pipe_resource *
+svga_texture_create(struct pipe_screen *screen,
+                    const struct pipe_resource *template);
 
-static INLINE void
-svga_sampler_view_reference(struct svga_sampler_view **ptr, struct svga_sampler_view *v)
-{
-   struct svga_sampler_view *old = *ptr;
+struct pipe_resource *
+svga_texture_from_handle(struct pipe_screen * screen,
+			const struct pipe_resource *template,
+			struct winsys_handle *whandle);
 
-   if (pipe_reference(&(*ptr)->reference, &v->reference))
-      svga_destroy_sampler_view_priv(old);
-   *ptr = v;
-}
 
-extern void
-svga_propagate_surface(struct pipe_context *pipe, struct pipe_surface *surf);
-
-extern boolean
-svga_surface_needs_propagation(struct pipe_surface *surf);
-
-extern void
-svga_screen_init_texture_functions(struct pipe_screen *screen);
-
-void
-svga_init_texture_functions(struct pipe_context *pipe);
 
 enum SVGA3dSurfaceFormat
 svga_translate_format(enum pipe_format format);

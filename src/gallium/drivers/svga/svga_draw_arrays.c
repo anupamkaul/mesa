@@ -98,7 +98,7 @@ static enum pipe_error retrieve_or_generate_indices( struct svga_hwtnl *hwtnl,
                                                      unsigned gen_nr,
                                                      unsigned gen_size,
                                                      u_generate_func generate,
-                                                     struct pipe_buffer **out_buf )
+                                                     struct pipe_resource **out_buf )
 {
    enum pipe_error ret = PIPE_OK;
    int i;
@@ -119,7 +119,7 @@ static enum pipe_error retrieve_or_generate_indices( struct svga_hwtnl *hwtnl,
          }
          else if (gen_type == U_GENERATE_REUSABLE) 
          {
-            pipe_buffer_reference( &hwtnl->index_cache[prim][i].buffer,
+            pipe_resource_reference( &hwtnl->index_cache[prim][i].buffer,
                                    NULL );
 
             if (DBG) 
@@ -151,7 +151,7 @@ static enum pipe_error retrieve_or_generate_indices( struct svga_hwtnl *hwtnl,
 
       assert (smallest != IDX_CACHE_MAX);
 
-      pipe_buffer_reference( &hwtnl->index_cache[prim][smallest].buffer,
+      pipe_resource_reference( &hwtnl->index_cache[prim][smallest].buffer,
                              NULL );
 
       if (DBG)
@@ -173,7 +173,7 @@ static enum pipe_error retrieve_or_generate_indices( struct svga_hwtnl *hwtnl,
 
    hwtnl->index_cache[prim][i].generate = generate;
    hwtnl->index_cache[prim][i].gen_nr = gen_nr;
-   pipe_buffer_reference( &hwtnl->index_cache[prim][i].buffer,
+   pipe_resource_reference( &hwtnl->index_cache[prim][i].buffer,
                           *out_buf );
 
    if (DBG)
@@ -261,7 +261,7 @@ svga_hwtnl_draw_arrays( struct svga_hwtnl *hwtnl,
       return simple_draw_arrays( hwtnl, gen_prim, start, count );
    }
    else {
-      struct pipe_buffer *gen_buf = NULL;
+      struct pipe_resource *gen_buf = NULL;
 
       /* Need to draw as indexed primitive. 
        * Potentially need to run the gen func to build an index buffer.
@@ -290,7 +290,7 @@ svga_hwtnl_draw_arrays( struct svga_hwtnl *hwtnl,
 
    done:
       if (gen_buf)
-         pipe_buffer_reference( &gen_buf, NULL );
+         pipe_resource_reference( &gen_buf, NULL );
 
       return ret;
    }

@@ -189,7 +189,7 @@ struct svga_winsys_screen
 
    /**
     * Creates a surface from a winsys handle.
-    * Used to implement pipe_screen::texture_from_handle.
+    * Used to implement pipe_screen::resource_from_handle.
     */
    struct svga_winsys_surface *
    (*surface_from_handle)(struct svga_winsys_screen *sws,
@@ -198,7 +198,7 @@ struct svga_winsys_screen
 
    /**
     * Get a winsys_handle from a surface.
-    * Used to implement pipe_screen::texture_get_handle.
+    * Used to implement pipe_screen::resource_get_handle.
     */
    boolean
    (*surface_get_handle)(struct svga_winsys_screen *sws,
@@ -294,12 +294,12 @@ svga_screen_create(struct svga_winsys_screen *sws);
 struct svga_winsys_screen *
 svga_winsys_screen(struct pipe_screen *screen);
 
-struct pipe_buffer *
+struct pipe_resource *
 svga_screen_buffer_wrap_surface(struct pipe_screen *screen,
 				enum SVGA3dSurfaceFormat format,
 				struct svga_winsys_surface *srf);
 
 struct svga_winsys_surface *
-svga_screen_buffer_get_winsys_surface(struct pipe_buffer *buffer);
+svga_screen_buffer_get_winsys_surface(struct pipe_resource *buffer);
 
 #endif /* SVGA_WINSYS_H_ */

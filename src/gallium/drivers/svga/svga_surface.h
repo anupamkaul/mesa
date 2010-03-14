@@ -23,30 +23,63 @@
  *
  **********************************************************/
 
-#ifndef SVGA_SWTNL_H
-#define SVGA_SWTNL_H
+#ifndef SVGA_SURFACE_H
+#define SVGA_SURFACE_H
+
 
 #include "pipe/p_compiler.h"
+#include "pipe/p_state.h"
+#include "util/u_inlines.h"
+#include "svga_screen_cache.h"
 
-struct svga_context;
 struct pipe_context;
-struct pipe_buffer;
-struct vbuf_render;
+struct pipe_screen;
+struct svga_context;
+struct svga_texture;
+struct svga_winsys_surface;
+enum SVGA3dSurfaceFormat;
 
 
-boolean svga_init_swtnl( struct svga_context *svga );
-void svga_destroy_swtnl( struct svga_context *svga );
+struct svga_surface
+{
+   struct pipe_surface base;
+
+   struct svga_host_surface_cache_key key;
+   struct svga_winsys_surface *handle;
+
+   unsigned real_face;
+   unsigned real_level;
+   unsigned real_zslice;
+
+   boolean dirty;
+};
 
 
-enum pipe_error
-svga_swtnl_draw_range_elements(struct svga_context *svga,
-                               struct pipe_resource *indexBuffer,
-                               unsigned indexSize,
-                               unsigned min_index,
-                               unsigned max_index,
-                               unsigned prim, 
-                               unsigned start, 
-                               unsigned count);
+extern void
+svga_propagate_surface(struct pipe_context *pipe, struct pipe_surface *surf);
 
+extern boolean
+svga_surface_needs_propagation(struct pipe_surface *surf);
+
+struct svga_winsys_surface *
+svga_texture_view_surface(struct pipe_context *pipe,
+                          struct svga_texture *tex,
+                          SVGA3dSurfaceFormat format,
+                          unsigned start_mip,
+                          unsigned num_mip,
+                          int face_pick,
+                          int zslice_pick,
+                          struct svga_host_surface_cache_key *key); /* OUT */
+
+
+static INLINE struct svga_surface *
+svga_surface(struct pipe_surface *surface)
+{
+   assert(surface);
+   return (struct svga_surface *)surface;
+}
+
+void
+svga_screen_init_surface_functions(struct pipe_screen *screen);
 
 #endif

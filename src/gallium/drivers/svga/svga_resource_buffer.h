@@ -29,14 +29,12 @@
 
 #include "pipe/p_compiler.h"
 #include "pipe/p_state.h"
-#include "piperesource/rm_public.h"
+#include "util/u_transfer.h"
 
 #include "util/u_double_list.h"
 
 #include "svga_screen_cache.h"
 
-
-#define SVGA_BUFFER_MAGIC 0x344f9005
 
 /**
  * Maximum number of discontiguous ranges
@@ -50,6 +48,8 @@ struct svga_winsys_buffer;
 struct svga_winsys_surface;
 
 
+extern struct u_resource_vtbl svga_buffer_vtbl;
+
 struct svga_buffer_range
 {
    unsigned start;
@@ -62,12 +62,7 @@ struct svga_buffer_range
  */
 struct svga_buffer 
 {
-   struct pipe_buffer base;
-
-   /** 
-    * Marker to detect bad casts in runtime.
-    */ 
-   uint32_t magic;
+   struct u_resource b;
 
    /**
     * Regular (non DMA'able) memory.
@@ -139,7 +134,7 @@ struct svga_buffer
     * Information about uploaded version of user buffers.
     */
    struct {
-      struct pipe_buffer *buffer;
+      struct pipe_resource *buffer;
 
       /**
        * We combine multiple user buffers into the same hardware buffer. This
@@ -191,10 +186,10 @@ struct svga_buffer
 
 
 static INLINE struct svga_buffer *
-svga_buffer(struct pipe_buffer *buffer)
+svga_buffer(struct pipe_resource *buffer)
 {
    if (buffer) {
-      assert(((struct svga_buffer *)buffer)->magic == SVGA_BUFFER_MAGIC);
+      assert(((struct svga_buffer *)buffer)->b.vtbl == &svga_buffer_vtbl);
       return (struct svga_buffer *)buffer;
    }
    return NULL;
@@ -206,14 +201,24 @@ svga_buffer(struct pipe_buffer *buffer)
  * decide to use an alternate upload path for these buffers.
  */
 static INLINE boolean 
-svga_buffer_is_user_buffer( struct pipe_buffer *buffer )
+svga_buffer_is_user_buffer( struct pipe_resource *buffer )
 {
    return svga_buffer(buffer)->user;
 }
 
 
-void
-svga_screen_init_buffer_functions(struct pipe_screen *screen);
+
+
+struct pipe_resource *
+svga_user_buffer_create(struct pipe_screen *screen,
+                        void *ptr,
+                        unsigned bytes,
+			unsigned usage);
+
+struct pipe_resource *
+svga_buffer_create(struct pipe_screen *screen,
+		   const struct pipe_resource *template);
+
 
 
 /**

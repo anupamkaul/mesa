@@ -31,8 +31,9 @@
  */
 
 #include "svga_winsys.h"
-#include "svga_screen_buffer.h"
-#include "svga_screen_texture.h"
+#include "svga_resource_buffer.h"
+#include "svga_resource_texture.h"
+#include "svga_surface.h"
 #include "svga_cmd.h"
 
 /*
@@ -423,7 +424,7 @@ SVGA3D_SurfaceDMA(struct svga_winsys_context *swc,
                   const SVGA3dCopyBox *boxes,       // IN
                   uint32 numBoxes)                  // IN
 {
-   struct svga_resource *resource = svga_texture(st->base.resource); 
+   struct svga_texture *texture = svga_texture(st->base.resource); 
    SVGA3dCmdSurfaceDMA *cmd;
    SVGA3dCmdSurfaceDMASuffix *pSuffix;
    uint32 boxesSize = sizeof *boxes * numBoxes;
@@ -454,8 +455,8 @@ SVGA3D_SurfaceDMA(struct svga_winsys_context *swc,
    cmd->guest.pitch = st->base.stride;
 
    swc->surface_relocation(swc, &cmd->host.sid, texture->handle, surface_flags);
-   cmd->host.face = st->base.face; /* PIPE_TEX_FACE_* and SVGA3D_CUBEFACE_* match */
-   cmd->host.mipmap = st->base.level;
+   cmd->host.face = st->base.sr.face; /* PIPE_TEX_FACE_* and SVGA3D_CUBEFACE_* match */
+   cmd->host.mipmap = st->base.sr.level;
 
    cmd->transfer = transfer;
 

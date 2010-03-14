@@ -23,30 +23,32 @@
  *
  **********************************************************/
 
-#ifndef SVGA_SWTNL_H
-#define SVGA_SWTNL_H
-
-#include "pipe/p_compiler.h"
-
-struct svga_context;
-struct pipe_context;
-struct pipe_buffer;
-struct vbuf_render;
+#ifndef SVGA_BUFFER_UPLOAD_H
+#define SVGA_BUFFER_UPLOAD_H
 
 
-boolean svga_init_swtnl( struct svga_context *svga );
-void svga_destroy_swtnl( struct svga_context *svga );
-
+void
+svga_buffer_add_range(struct svga_buffer *sbuf,
+                      unsigned start,
+                      unsigned end);
 
 enum pipe_error
-svga_swtnl_draw_range_elements(struct svga_context *svga,
-                               struct pipe_resource *indexBuffer,
-                               unsigned indexSize,
-                               unsigned min_index,
-                               unsigned max_index,
-                               unsigned prim, 
-                               unsigned start, 
-                               unsigned count);
+svga_buffer_create_hw_storage(struct svga_screen *ss,
+                              struct svga_buffer *sbuf);
+
+void
+svga_buffer_destroy_hw_storage(struct svga_screen *ss,
+			       struct svga_buffer *sbuf);
+
+enum pipe_error
+svga_buffer_create_host_surface(struct svga_screen *ss,
+                                struct svga_buffer *sbuf);
+
+void
+svga_buffer_destroy_host_surface(struct svga_screen *ss,
+                                 struct svga_buffer *sbuf);
 
 
-#endif
+
+
+#endif /* SVGA_BUFFER_H */

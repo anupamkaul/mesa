@@ -31,8 +31,9 @@
 #include "svga_winsys.h"
 #include "svga_context.h"
 #include "svga_screen.h"
-#include "svga_screen_texture.h"
-#include "svga_screen_buffer.h"
+#include "svga_resource_texture.h"
+#include "svga_resource_buffer.h"
+#include "svga_resource.h"
 #include "svga_debug.h"
 
 #include "svga3d_shaderdefs.h"
@@ -397,8 +398,7 @@ svga_screen_create(struct svga_winsys_screen *sws)
    screen->fence_finish = svga_fence_finish;
    svgascreen->sws = sws;
 
-   svga_screen_init_texture_functions(screen);
-   svga_screen_init_buffer_functions(screen);
+   svga_init_screen_resource_functions(svgascreen);
 
    svgascreen->use_ps30 =
       sws->get_cap(sws, SVGA3D_DEVCAP_FRAGMENT_SHADER_VERSION, &result) &&

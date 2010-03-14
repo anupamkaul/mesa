@@ -254,7 +254,7 @@ struct svga_hw_clear_state
 
 struct svga_hw_view_state
 {
-   struct pipe_texture *texture;
+   struct pipe_resource *texture;
    struct svga_sampler_view *v;
    unsigned min_lod;
    unsigned max_lod;
