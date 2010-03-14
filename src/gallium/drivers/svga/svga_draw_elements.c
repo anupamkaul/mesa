@@ -46,25 +46,27 @@ translate_indices( struct svga_hwtnl *hwtnl,
                    u_translate_func translate,
                    struct pipe_buffer **out_buf )
 {
-   struct pipe_screen *screen = hwtnl->svga->pipe.screen;
+   struct pipe_context *pipe = &hwtnl->svga->pipe;
+   struct pipe_transfer *src_transfer = NULL;
+   struct pipe_transfer *dst_transfer = NULL;
    unsigned size = index_size * nr;
    const void *src_map = NULL;
    struct pipe_buffer *dst = NULL;
    void *dst_map = NULL;
 
-   dst = screen->buffer_create( screen, 32, 
-                                PIPE_BUFFER_USAGE_INDEX |
-                                PIPE_BUFFER_USAGE_CPU_WRITE |
-                                PIPE_BUFFER_USAGE_GPU_READ, 
-                                size );
+   dst = pipe_buffer_create( screen, 32, 
+			     PIPE_BUFFER_USAGE_INDEX |
+			     PIPE_BUFFER_USAGE_CPU_WRITE |
+			     PIPE_BUFFER_USAGE_GPU_READ, 
+			     size );
    if (dst == NULL)
       goto fail;
 
-   src_map = pipe_buffer_map( screen, src, PIPE_BUFFER_USAGE_CPU_READ );
+   src_map = pipe_buffer_map( pipe, src, PIPE_BUFFER_USAGE_CPU_READ, &src_transfer );
    if (src_map == NULL)
       goto fail;
 
-   dst_map = pipe_buffer_map( screen, dst, PIPE_BUFFER_USAGE_CPU_WRITE );
+   dst_map = pipe_buffer_map( pipe, dst, PIPE_BUFFER_USAGE_CPU_WRITE, &dst_transfer );
    if (dst_map == NULL)
       goto fail;
 
@@ -72,21 +74,21 @@ translate_indices( struct svga_hwtnl *hwtnl,
               nr,
               dst_map );
 
-   pipe_buffer_unmap( screen, src );
-   pipe_buffer_unmap( screen, dst );
+   pipe_buffer_unmap( pipe, src, src_transfer );
+   pipe_buffer_unmap( pipe, dst, dst_transfer );
 
    *out_buf = dst;
    return PIPE_OK;
 
 fail:
    if (src_map)
-      screen->buffer_unmap( screen, src );
+      pipe_buffer_unmap( pipe, src, src_transfer );
 
    if (dst_map)
-      screen->buffer_unmap( screen, dst );
+      pipe_buffer_unmap( pipe, dst, dst_transfer );
 
    if (dst)
-      screen->buffer_destroy( dst );
+      pipe->screen->resource_destroy( pipe->screen, dst );
 
    return PIPE_ERROR_OUT_OF_MEMORY;
 }

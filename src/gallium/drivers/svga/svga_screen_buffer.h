@@ -29,6 +29,7 @@
 
 #include "pipe/p_compiler.h"
 #include "pipe/p_state.h"
+#include "piperesource/rm_public.h"
 
 #include "util/u_double_list.h"
 
@@ -226,7 +227,7 @@ svga_screen_init_buffer_functions(struct pipe_screen *screen);
  */
 struct svga_winsys_surface *
 svga_buffer_handle(struct svga_context *svga,
-                   struct pipe_buffer *buf);
+                   struct pipe_resource *buf);
 
 void
 svga_context_flush_buffers(struct svga_context *svga);

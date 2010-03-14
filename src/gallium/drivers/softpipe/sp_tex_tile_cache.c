@@ -122,13 +122,13 @@ void
 sp_tex_tile_cache_set_sampler_view(struct softpipe_tex_tile_cache *tc,
                                    struct pipe_sampler_view *view)
 {
-   struct pipe_texture *texture = view ? view->texture : NULL;
+   struct pipe_resource *texture = view ? view->texture : NULL;
    uint i;
 
    assert(!tc->transfer);
 
    if (tc->texture != texture) {
-      pipe_texture_reference(&tc->texture, texture);
+      pipe_resource_reference(&tc->texture, texture);
 
       if (tc->tex_trans) {
          if (tc->tex_trans_map) {

@@ -42,7 +42,7 @@ struct pipe_screen;
 struct softpipe_context;
 
 
-struct softpipe_texture
+struct softpipe_resource
 {
    struct pipe_resource base;
 
@@ -50,19 +50,20 @@ struct softpipe_texture
    unsigned stride[SP_MAX_TEXTURE_2D_LEVELS];
 
    /**
-    * Display target, for textures with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET
-    * usage.
+    * Display target, only valid for PIPE_TEXTURE_2D with the
+    * PIPE_TEXTURE_USAGE_DISPLAY_TARGET usage.
     */
    struct sw_displaytarget *dt;
 
    /**
-    * Malloc'ed data for regular textures, or a mapping to dt above.
+    * Malloc'ed data for regular buffers and textures, or a mapping to dt above.
     */
    void *data;
 
    /* True if texture images are power-of-two in all dimensions:
     */
    boolean pot;
+   boolean userBuffer;
 
    unsigned timestamp;
 };
@@ -80,7 +81,7 @@ struct softpipe_video_surface
 
    /* The data is held here:
     */
-   struct pipe_texture *tex;
+   struct pipe_resource *tex;
 };
 
 

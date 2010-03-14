@@ -132,7 +132,7 @@ pipe_buffer_create( struct pipe_screen *screen,
 {
    struct pipe_resource buffer;
    memset(&buffer, 0, sizeof buffer);
-   buffer.target = PIPE_RESOURCE_BUFFER;
+   buffer.target = PIPE_BUFFER;
    buffer.format = PIPE_FORMAT_R8_UNORM; /* want TYPELESS or similar */
    buffer.usage = usage;
    buffer.width0 = size;

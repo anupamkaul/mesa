@@ -225,10 +225,6 @@ struct svga_winsys_screen
    /**
     * Buffer management. Buffer attributes are mostly fixed over its lifetime.
     *
-    * Remember that gallium gets to choose the interface it needs, and the
-    * window systems must then implement that interface (rather than the
-    * other way around...).
-    *
     * usage is a bitmask of PIPE_BUFFER_USAGE_PIXEL/VERTEX/INDEX/CONSTANT. This
     * usage argument is only an optimization hint, not a guarantee, therefore 
     * proper behavior must be observed in all circumstances.

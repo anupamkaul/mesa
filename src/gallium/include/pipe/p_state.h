@@ -328,15 +328,12 @@ struct pipe_transfer
 {
    struct pipe_resource *resource; /**< resource to transfer to/from  */
    struct pipe_box box;
+   enum pipe_transfer_usage usage;
    unsigned stride;
    unsigned slice_stride;
    void *data;
 };
 
-
-#define PIPE_RESOURCE_BUFFER 1
-#define PIPE_RESOURCE_TEXTURE 2
-/* etc */
 
 struct pipe_resource
 {
@@ -355,8 +352,6 @@ struct pipe_resource
    unsigned tex_usage;       /**< bitmask of PIPE_TEXTURE_USAGE_* */
 };
 
-//#define pipe_texture pipe_resource
-//#define pipe_buffer pipe_resource
 
 struct pipe_subresource
 {

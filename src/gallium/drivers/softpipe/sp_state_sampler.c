@@ -132,7 +132,7 @@ softpipe_create_sampler_view(struct pipe_context *pipe,
       *view = *templ;
       view->reference.count = 1;
       view->texture = NULL;
-      pipe_resource_reference(&view->resource, resource);
+      pipe_resource_reference(&view->texture, resource);
       view->context = pipe;
    }
 
@@ -144,7 +144,7 @@ void
 softpipe_sampler_view_destroy(struct pipe_context *pipe,
                               struct pipe_sampler_view *view)
 {
-   pipe_texture_reference(&view->texture, NULL);
+   pipe_resource_reference(&view->texture, NULL);
    FREE(view);
 }
 
@@ -226,7 +226,7 @@ get_sampler_varient( unsigned unit,
                      struct pipe_resource *resource,
                      unsigned processor )
 {
-   struct softpipe_texture *sp_texture = softpipe_resource(resource);
+   struct softpipe_resource *sp_texture = softpipe_resource(resource);
    struct sp_sampler_varient *v = NULL;
    union sp_sampler_key key;
 
@@ -294,7 +294,7 @@ softpipe_reset_sampler_varients(struct softpipe_context *softpipe)
 
    for (i = 0; i <= softpipe->fs->info.file_max[TGSI_FILE_SAMPLER]; i++) {
       if (softpipe->sampler[i]) {
-         struct pipe_texture *texture = NULL;
+         struct pipe_resource *texture = NULL;
 
          if (softpipe->sampler_views[i]) {
             texture = softpipe->sampler_views[i]->texture;

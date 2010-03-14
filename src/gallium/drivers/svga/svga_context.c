@@ -66,7 +66,7 @@ static void svga_destroy( struct pipe_context *pipe )
    util_bitmask_destroy( svga->fs_bm );
 
    for(shader = 0; shader < PIPE_SHADER_TYPES; ++shader)
-      pipe_buffer_reference( &svga->curr.cb[shader], NULL );
+      pipe_resource_reference( &svga->curr.cb[shader], NULL );
 
    FREE( svga );
 }
@@ -143,12 +143,17 @@ struct pipe_context *svga_context_create( struct pipe_screen *screen,
    svga->pipe.destroy = svga_destroy;
    svga->pipe.clear = svga_clear;
 
-   svga->pipe.is_texture_referenced = svga_is_texture_referenced;
-   svga->pipe.is_buffer_referenced = svga_is_buffer_referenced;
-
    svga->swc = svgascreen->sws->context_create(svgascreen->sws);
    if(!svga->swc)
       goto no_swc;
+
+   /*
+     svga->rm_context = rm_create_context( &svga->base,
+					 svgascreen->rm_screen,
+					 &svga_rm_context_callbacks );
+   svga_init_resource_functions(svga);
+   */
+   svga_init_texture_functions(&svga->pipe);
 
    svga_init_blend_functions(svga);
    svga_init_blit_functions(svga);
@@ -164,7 +169,6 @@ struct pipe_context *svga_context_create( struct pipe_screen *screen,
    svga_init_constbuffer_functions(svga);
    svga_init_query_functions(svga);
 
-   svga_init_texture_functions(&svga->pipe);
 
    /* debug */
    svga->debug.no_swtnl = debug_get_bool_option("SVGA_NO_SWTNL", FALSE);

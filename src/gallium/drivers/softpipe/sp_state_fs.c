@@ -28,7 +28,7 @@
 #include "sp_context.h"
 #include "sp_state.h"
 #include "sp_fs.h"
-#include "sp_buffer.h"
+#include "sp_texture.h"
 
 #include "pipe/p_defines.h"
 #include "util/u_memory.h"
@@ -167,11 +167,11 @@ softpipe_delete_vs_state(struct pipe_context *pipe, void *vs)
 void
 softpipe_set_constant_buffer(struct pipe_context *pipe,
                              uint shader, uint index,
-                             struct pipe_buffer *constants)
+                             struct pipe_resource *constants)
 {
    struct softpipe_context *softpipe = softpipe_context(pipe);
    unsigned size = constants ? constants->width0 : 0;
-   const void *data = constants ? softpipe_buffer(constants)->data : NULL;
+   const void *data = constants ? softpipe_resource(constants)->data : NULL;
 
    assert(shader < PIPE_SHADER_TYPES);
    assert(index == 0);

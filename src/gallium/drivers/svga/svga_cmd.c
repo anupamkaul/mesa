@@ -423,7 +423,7 @@ SVGA3D_SurfaceDMA(struct svga_winsys_context *swc,
                   const SVGA3dCopyBox *boxes,       // IN
                   uint32 numBoxes)                  // IN
 {
-   struct svga_texture *texture = svga_texture(st->base.texture); 
+   struct svga_resource *resource = svga_texture(st->base.resource); 
    SVGA3dCmdSurfaceDMA *cmd;
    SVGA3dCmdSurfaceDMASuffix *pSuffix;
    uint32 boxesSize = sizeof *boxes * numBoxes;

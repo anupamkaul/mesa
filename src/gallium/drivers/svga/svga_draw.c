@@ -65,16 +65,16 @@ void svga_hwtnl_destroy( struct svga_hwtnl *hwtnl )
 
    for (i = 0; i < PIPE_PRIM_MAX; i++) {
       for (j = 0; j < IDX_CACHE_MAX; j++) {
-         pipe_buffer_reference( &hwtnl->index_cache[i][j].buffer,
+         pipe_resource_reference( &hwtnl->index_cache[i][j].buffer,
                                 NULL );
       }
    }
 
    for (i = 0; i < hwtnl->cmd.vdecl_count; i++)
-      pipe_buffer_reference(&hwtnl->cmd.vdecl_vb[i], NULL);
+      pipe_resource_reference(&hwtnl->cmd.vdecl_vb[i], NULL);
 
    for (i = 0; i < hwtnl->cmd.prim_count; i++)
-      pipe_buffer_reference(&hwtnl->cmd.prim_ib[i], NULL);
+      pipe_resource_reference(&hwtnl->cmd.prim_ib[i], NULL);
       
 
    FREE(hwtnl);
@@ -112,9 +112,9 @@ void svga_hwtnl_reset_vdecl( struct svga_hwtnl *hwtnl,
 
 
 void svga_hwtnl_vdecl( struct svga_hwtnl *hwtnl,
-                          unsigned i,
-                          const SVGA3dVertexDecl *decl,
-                          struct pipe_buffer *vb)
+		       unsigned i,
+		       const SVGA3dVertexDecl *decl,
+		       struct pipe_resource *vb)
 {
    assert(hwtnl->cmd.prim_count == 0);
 
@@ -122,8 +122,7 @@ void svga_hwtnl_vdecl( struct svga_hwtnl *hwtnl,
 
    hwtnl->cmd.vdecl[i] = *decl;
 
-   pipe_buffer_reference(&hwtnl->cmd.vdecl_vb[i],
-                         vb);   
+   pipe_resource_reference(&hwtnl->cmd.vdecl_vb[i], vb);   
 }
 
 
@@ -232,7 +231,7 @@ enum pipe_error svga_hwtnl_prim( struct svga_hwtnl *hwtnl,
                                  const SVGA3dPrimitiveRange *range,
                                  unsigned min_index,
                                  unsigned max_index,
-                                 struct pipe_buffer *ib )
+                                 struct pipe_resource *ib )
 {
    int ret = PIPE_OK;
 
@@ -240,7 +239,7 @@ enum pipe_error svga_hwtnl_prim( struct svga_hwtnl *hwtnl,
    {
       unsigned i;
       for (i = 0; i < hwtnl->cmd.vdecl_count; i++) {
-         struct pipe_buffer *vb = hwtnl->cmd.vdecl_vb[i];
+         struct pipe_resource *vb = hwtnl->cmd.vdecl_vb[i];
          unsigned size = vb ? vb->size : 0;
          unsigned offset = hwtnl->cmd.vdecl[i].array.offset;
          unsigned stride = hwtnl->cmd.vdecl[i].array.stride;
