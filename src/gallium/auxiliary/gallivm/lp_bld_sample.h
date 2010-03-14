@@ -38,7 +38,7 @@
 
 #include "os/os_llvm.h"
 
-struct pipe_texture;
+struct pipe_resource;
 struct pipe_sampler_state;
 struct util_format_description;
 struct lp_type;
