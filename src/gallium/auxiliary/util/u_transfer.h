@@ -9,6 +9,9 @@
 
 struct pipe_context;
 
+boolean u_default_resource_get_handle(struct pipe_screen *screen,
+				      struct pipe_resource *resource,
+				      struct winsys_handle *handle);
 
 void u_default_transfer_inline_write( struct pipe_context *pipe,
 			      struct pipe_resource *resource,
