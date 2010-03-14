@@ -230,7 +230,9 @@ pipe_buffer_write(struct pipe_context *pipe,
 				u_subresource(0,0),
 				PIPE_TRANSFER_WRITE,
 				&box,
-				data);
+				data,
+				size,
+				0);
 }
 
 /**
@@ -255,7 +257,8 @@ pipe_buffer_write_nooverlap(struct pipe_context *pipe,
 			       (PIPE_TRANSFER_WRITE |
 				PIPE_TRANSFER_NOOVERWRITE),
 			       &box,
-			       data);
+			       data,
+			       0, 0);
 }
 
 static INLINE void
@@ -264,16 +267,19 @@ pipe_buffer_read(struct pipe_context *pipe,
                  unsigned offset, unsigned size,
                  void *data)
 {
-   struct pipe_box box;
+   struct pipe_transfer *src_transfer;
+   ubyte *map;
 
-   u_box_1d(offset, size, &box);
+   map = (ubyte *) pipe_buffer_map_range(pipe,
+					 buf,
+					 offset, size,
+					 PIPE_TRANSFER_READ,
+					 &src_transfer);
 
-   pipe->transfer_inline_read( pipe,
-			       buf,
-			       u_subresource(0,0),
-			       PIPE_TRANSFER_READ,
-			       &box,
-			       data);
+   if (map)
+      memcpy(data, map, size);
+
+   pipe_buffer_unmap(pipe, buf, src_transfer);
 }
 
 static INLINE struct pipe_transfer *

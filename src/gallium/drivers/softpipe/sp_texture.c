@@ -421,7 +421,6 @@ softpipe_init_texture_funcs(struct pipe_context *pipe)
 
    pipe->transfer_flush_region = u_transfer_flush_region_noop;
    pipe->transfer_inline_write = u_transfer_inline_write;
-   pipe->transfer_inline_read = u_transfer_inline_read;
 }
 
 void

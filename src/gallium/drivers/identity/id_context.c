@@ -817,7 +817,9 @@ identity_context_transfer_inline_write( struct pipe_context *_context,
 					struct pipe_subresource sr,
 					enum pipe_transfer_usage usage,
 					const struct pipe_box *box,
-					const void *data )
+					const void *data,
+					unsigned stride,
+					unsigned slice_stride)
 {
    struct identity_context *id_context = identity_context(_context);
    struct identity_resource *id_resource = identity_resource(_resource);
@@ -829,29 +831,11 @@ identity_context_transfer_inline_write( struct pipe_context *_context,
 				  sr,
 				  usage,
 				  box,
-				  data);
+				  data,
+				  stride,
+				  slice_stride);
 }
 
-static void 
-identity_context_transfer_inline_read( struct pipe_context *_context,
-				       struct pipe_resource *_resource,
-				       struct pipe_subresource sr,
-				       enum pipe_transfer_usage usage,
-				       const struct pipe_box *box,
-				       void *data )
-{
-   struct identity_context *id_context = identity_context(_context);
-   struct identity_resource *id_resource = identity_resource(_resource);
-   struct pipe_context *context = id_context->pipe;
-   struct pipe_resource *texture = id_resource->resource;
-
-   context->transfer_inline_read(context,
-				 texture,
-				 sr,
-				 usage,
-				 box,
-				 data);
-}
 
 struct pipe_context *
 identity_context_create(struct pipe_screen *_screen, struct pipe_context *pipe)
@@ -925,7 +909,6 @@ identity_context_create(struct pipe_screen *_screen, struct pipe_context *pipe)
    id_pipe->base.transfer_unmap = identity_context_transfer_unmap;
    id_pipe->base.transfer_flush_region = identity_context_transfer_flush_region;
    id_pipe->base.transfer_inline_write = identity_context_transfer_inline_write;
-   id_pipe->base.transfer_inline_read = identity_context_transfer_inline_read;
 
    id_pipe->pipe = pipe;
 

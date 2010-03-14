@@ -139,19 +139,32 @@ st_bufferobj_get_subdata(GLcontext *ctx,
                          GLsizeiptrARB size,
                          GLvoid * data, struct gl_buffer_object *obj)
 {
+   struct pipe_context *pipe = st_context(ctx)->pipe;
    struct st_buffer_object *st_obj = st_buffer_object(obj);
+   struct pipe_transfer *src_transfer;
+   ubyte *srcPtr;
+
+   if(!size)
+      return;
 
    /* we may be called from VBO code, so double-check params here */
    ASSERT(offset >= 0);
    ASSERT(size >= 0);
    ASSERT(offset + size <= obj->Size);
 
-   if (!size)
-      return;
+   /* buffer should not already be mapped */
+   assert(!obj->Pointer);
 
-   st_cond_flush_pipe_buffer_read(st_context(ctx),
-				  st_obj->buffer,
-				  offset, size, data);
+   srcPtr = (ubyte *) pipe_buffer_map_range(pipe,
+                                            st_obj->buffer,
+                                            offset, size,
+                                            PIPE_TRANSFER_READ,
+					    &src_transfer);
+
+   if (srcPtr)
+      memcpy(data, srcPtr, size);
+
+   pipe_buffer_unmap(pipe, st_obj->buffer, src_transfer);
 }
 
 
@@ -426,7 +439,7 @@ st_copy_buffer_subdata(GLcontext *ctx,
 					    &dst_transfer);
 
    if (srcPtr && dstPtr)
-      memcpy(dstPtr + writeOffset, srcPtr + readOffset, size);
+      memcpy(dstPtr, srcPtr, size);
 
    pipe_buffer_unmap(pipe, srcObj->buffer, src_transfer);
    pipe_buffer_unmap(pipe, dstObj->buffer, dst_transfer);
