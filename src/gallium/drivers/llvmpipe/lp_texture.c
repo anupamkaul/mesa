@@ -158,7 +158,7 @@ llvmpipe_resource_destroy(struct pipe_screen *pscreen,
       struct sw_winsys *winsys = screen->winsys;
       winsys->displaytarget_destroy(winsys, lpt->dt);
    }
-   else {
+   else if (!lpt->userBuffer) {
       /* regular texture */
       align_free(lpt->data);
    }
