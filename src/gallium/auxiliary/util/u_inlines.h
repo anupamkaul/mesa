@@ -264,7 +264,8 @@ pipe_buffer_write_nooverlap(struct pipe_context *pipe,
 static INLINE void
 pipe_buffer_read(struct pipe_context *pipe,
                  struct pipe_resource *buf,
-                 unsigned offset, unsigned size,
+                 unsigned offset,
+		 unsigned size,
                  void *data)
 {
    struct pipe_transfer *src_transfer;

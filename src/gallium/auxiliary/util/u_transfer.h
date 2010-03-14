@@ -23,6 +23,10 @@ void u_default_transfer_flush_region( struct pipe_context *pipe,
 				      struct pipe_transfer *transfer,
 				      const struct pipe_box *box);
 
+unsigned u_default_is_resource_referenced( struct pipe_context *pipe,
+					   struct pipe_resource *resource,
+					   unsigned face, unsigned level);
+
 struct pipe_transfer * u_default_get_transfer(struct pipe_context *context,
 					      struct pipe_resource *resource,
 					      struct pipe_subresource sr,
@@ -48,6 +52,10 @@ struct u_resource_vtbl {
 
    void (*resource_destroy)(struct pipe_screen *,
 			    struct pipe_resource *pt);
+
+   unsigned (*is_resource_referenced)(struct pipe_context *pipe,
+				      struct pipe_resource *texture,
+				      unsigned face, unsigned level);
 
    struct pipe_transfer *(*get_transfer)(struct pipe_context *,
 					 struct pipe_resource *resource,
@@ -91,6 +99,10 @@ boolean u_resource_get_handle_vtbl(struct pipe_screen *screen,
 
 void u_resource_destroy_vtbl(struct pipe_screen *screen,
 			struct pipe_resource *resource);
+
+unsigned u_is_resource_referenced_vtbl( struct pipe_context *pipe,
+					struct pipe_resource *resource,
+					unsigned face, unsigned level);
 
 struct pipe_transfer *u_get_transfer_vtbl(struct pipe_context *context,
 				     struct pipe_resource *resource,

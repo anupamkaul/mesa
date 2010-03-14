@@ -63,6 +63,13 @@ void u_default_transfer_flush_region( struct pipe_context *pipe,
     */
 }
 
+unsigned u_default_is_resource_referenced( struct pipe_context *pipe,
+					   struct pipe_resource *resource,
+					unsigned face, unsigned level)
+{
+   return 0;
+}
+
 struct pipe_transfer * u_default_get_transfer(struct pipe_context *context,
 					      struct pipe_resource *resource,
 					      struct pipe_subresource sr,
