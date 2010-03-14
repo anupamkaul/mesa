@@ -146,7 +146,7 @@ static INLINE struct pipe_resource *
 pipe_user_buffer_create( struct pipe_screen *screen, void *ptr, unsigned size,
 			 unsigned usage )
 {
-   return screen->user_buffer_create(screen, ptr, size);
+   return screen->user_buffer_create(screen, ptr, size, usage);
 }
 
 static INLINE void *

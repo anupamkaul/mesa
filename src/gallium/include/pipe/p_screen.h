@@ -167,7 +167,8 @@ struct pipe_screen {
     */
    struct pipe_resource *(*user_buffer_create)(struct pipe_screen *screen,
 					       void *ptr,
-					       unsigned bytes);
+					       unsigned bytes,
+					       unsigned usage);
 
    /**
     * Create a video surface suitable for use as a decoding target by the

@@ -55,7 +55,7 @@ pipe_get_tile_raw(struct pipe_context *pipe,
    if (dst_stride == 0)
       dst_stride = util_format_get_stride(pt->resource->format, w);
 
-   if (pipe_clip_tile(x, y, &w, &h, pt))
+   if (u_clip_tile(x, y, &w, &h, &pt->box))
       return;
 
    src = pipe->transfer_map(pipe, pt);
@@ -84,7 +84,7 @@ pipe_put_tile_raw(struct pipe_context *pipe,
    if (src_stride == 0)
       src_stride = util_format_get_stride(format, w);
 
-   if (pipe_clip_tile(x, y, &w, &h, pt))
+   if (u_clip_tile(x, y, &w, &h, &pt->box))
       return;
 
    dst = pipe->transfer_map(pipe, pt);
@@ -1255,7 +1255,7 @@ pipe_get_tile_rgba(struct pipe_context *pipe,
    void *packed;
    enum pipe_format format = pt->resource->format;
 
-   if (pipe_clip_tile(x, y, &w, &h, pt))
+   if (u_clip_tile(x, y, &w, &h, &pt->box))
       return;
 
    packed = MALLOC(util_format_get_nblocks(format, w, h) * util_format_get_blocksize(format));
@@ -1293,7 +1293,7 @@ pipe_get_tile_swizzle(struct pipe_context *pipe,
    uint i;
    float rgba01[6];
 
-   if (pipe_clip_tile(x, y, &w, &h, pt)) {
+   if (u_clip_tile(x, y, &w, &h, &pt->box)) {
       return;
    }
 
@@ -1347,7 +1347,7 @@ pipe_put_tile_rgba(struct pipe_context *pipe,
    void *packed;
    enum pipe_format format = pt->resource->format;
 
-   if (pipe_clip_tile(x, y, &w, &h, pt))
+   if (u_clip_tile(x, y, &w, &h, &pt->box))
       return;
 
    packed = MALLOC(util_format_get_nblocks(format, w, h) * util_format_get_blocksize(format));
@@ -1449,7 +1449,7 @@ pipe_get_tile_z(struct pipe_context *pipe,
    uint i, j;
    enum pipe_format format = pt->resource->format;
 
-   if (pipe_clip_tile(x, y, &w, &h, pt))
+   if (u_clip_tile(x, y, &w, &h, &pt->box))
       return;
 
    map = (ubyte *)pipe->transfer_map(pipe, pt);
@@ -1534,7 +1534,7 @@ pipe_put_tile_z(struct pipe_context *pipe,
    uint i, j;
    enum pipe_format format = pt->resource->format;
 
-   if (pipe_clip_tile(x, y, &w, &h, pt))
+   if (u_clip_tile(x, y, &w, &h, &pt->box))
       return;
 
    map = (ubyte *)pipe->transfer_map(pipe, pt);

@@ -383,7 +383,8 @@ softpipe_transfer_unmap(struct pipe_context *pipe,
 static struct pipe_resource *
 softpipe_user_buffer_create(struct pipe_screen *screen,
                             void *ptr,
-                            unsigned bytes)
+                            unsigned bytes,
+			    unsigned usage)
 {
    struct softpipe_resource *buffer;
 
@@ -393,7 +394,7 @@ softpipe_user_buffer_create(struct pipe_screen *screen,
 
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
-   buffer->base.usage = PIPE_BUFFER_USAGE_CPU_READ;
+   buffer->base.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
    buffer->base.depth0 = 1;
