@@ -99,4 +99,27 @@ llvmpipe_transfer(struct pipe_transfer *pt)
 void llvmpipe_init_screen_resource_funcs(struct pipe_screen *screen);
 void llvmpipe_init_context_resource_funcs(struct pipe_context *pipe);
 
+static INLINE unsigned
+llvmpipe_resource_stride(struct pipe_resource *texture,
+                        unsigned level)
+{
+   struct llvmpipe_resource *lpt = llvmpipe_resource(texture);
+   assert(level < LP_MAX_TEXTURE_2D_LEVELS);
+   return lpt->stride[level];
+}
+
+
+void *
+llvmpipe_resource_map(struct pipe_resource *texture,
+                     unsigned face,
+                     unsigned level,
+                     unsigned zslice);
+
+void
+llvmpipe_resource_unmap(struct pipe_resource *texture,
+                       unsigned face,
+                       unsigned level,
+                       unsigned zslice);
+
+
 #endif /* LP_TEXTURE_H */
