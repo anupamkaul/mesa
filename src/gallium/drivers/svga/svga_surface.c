@@ -43,7 +43,7 @@
 #include <util/u_string.h>
 
 
-static void
+void
 svga_texture_copy_handle(struct svga_context *svga,
                          struct svga_screen *ss,
                          struct svga_winsys_surface *src_handle,

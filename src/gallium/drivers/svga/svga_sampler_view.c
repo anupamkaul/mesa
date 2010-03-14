@@ -39,6 +39,7 @@
 #include "svga_sampler_view.h"
 #include "svga_winsys.h"
 #include "svga_debug.h"
+#include "svga_surface.h"
 
 #include <util/u_string.h>
 

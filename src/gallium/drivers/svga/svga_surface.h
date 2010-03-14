@@ -72,6 +72,18 @@ svga_texture_view_surface(struct pipe_context *pipe,
                           struct svga_host_surface_cache_key *key); /* OUT */
 
 
+void
+svga_texture_copy_handle(struct svga_context *svga,
+                         struct svga_screen *ss,
+                         struct svga_winsys_surface *src_handle,
+                         unsigned src_x, unsigned src_y, unsigned src_z,
+                         unsigned src_level, unsigned src_face,
+                         struct svga_winsys_surface *dst_handle,
+                         unsigned dst_x, unsigned dst_y, unsigned dst_z,
+                         unsigned dst_level, unsigned dst_face,
+                         unsigned width, unsigned height, unsigned depth);
+
+
 static INLINE struct svga_surface *
 svga_surface(struct pipe_surface *surface)
 {

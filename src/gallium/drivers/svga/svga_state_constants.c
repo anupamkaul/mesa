@@ -83,7 +83,6 @@ static int emit_consts( struct svga_context *svga,
                         int unit )
 {
    struct pipe_transfer *transfer = NULL;
-   struct pipe_screen *screen = svga->pipe.screen;
    unsigned count;
    const float (*data)[4] = NULL;
    unsigned i;
