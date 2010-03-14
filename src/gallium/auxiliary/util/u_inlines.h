@@ -286,7 +286,7 @@ pipe_get_transfer( struct pipe_context *context,
 		       unsigned w, unsigned h)
 {
    struct pipe_box box;
-   u_box_2d_zslice( x, y, w, h, zslice, &box );
+   u_box_2d_zslice( x, y, zslice, w, h, &box );
    return context->get_transfer( context,
 				 resource,
 				 u_subresource(face, level),
