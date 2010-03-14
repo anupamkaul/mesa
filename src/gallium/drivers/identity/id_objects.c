@@ -79,7 +79,7 @@ identity_surface_create(struct identity_resource *id_resource,
    if(!surface)
       goto error;
 
-   assert(surface->resource == id_resource->resource);
+   assert(surface->texture == id_resource->resource);
 
    id_surface = CALLOC_STRUCT(identity_surface);
    if(!id_surface)
@@ -88,8 +88,8 @@ identity_surface_create(struct identity_resource *id_resource,
    memcpy(&id_surface->base, surface, sizeof(struct pipe_surface));
 
    pipe_reference_init(&id_surface->base.reference, 1);
-   id_surface->base.resource = NULL;
-   pipe_resource_reference(&id_surface->base.resource, &id_resource->base);
+   id_surface->base.texture = NULL;
+   pipe_resource_reference(&id_surface->base.texture, &id_resource->base);
    id_surface->surface = surface;
 
    return &id_surface->base;
@@ -102,7 +102,7 @@ error:
 void
 identity_surface_destroy(struct identity_surface *id_surface)
 {
-   pipe_resource_reference(&id_surface->base.resource, NULL);
+   pipe_resource_reference(&id_surface->base.texture, NULL);
    pipe_surface_reference(&id_surface->surface, NULL);
    FREE(id_surface);
 }

@@ -103,7 +103,7 @@ identity_surface(struct pipe_surface *_surface)
 {
    if(!_surface)
       return NULL;
-   (void)identity_resource(_surface->resource);
+   (void)identity_resource(_surface->texture);
    return (struct identity_surface *)_surface;
 }
 
