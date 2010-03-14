@@ -344,17 +344,9 @@ struct pipe_context {
 				  struct pipe_subresource,
 				  enum pipe_transfer_usage,
 				  const struct pipe_box *,
-				  const void *data );
-
-   /* One-shot read transfer operation with data returned in a user
-    * pointer.  XXX: strides??
-    */
-   void (*transfer_inline_read)( struct pipe_context *,
-				 struct pipe_resource *,
-				 struct pipe_subresource,
-				 enum pipe_transfer_usage,
-				 const struct pipe_box *,
-				 void *data );
+				  const void *data,
+				  unsigned stride,
+				  unsigned slice_stride);
 
 };
 
