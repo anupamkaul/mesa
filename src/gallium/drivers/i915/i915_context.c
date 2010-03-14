@@ -123,27 +123,6 @@ i915_draw_arrays(struct pipe_context *pipe,
 }
 
 
-/*
- * Is referenced functions
- */
-
-
-static unsigned int
-i915_is_resource_referenced(struct pipe_context *pipe,
-                           struct pipe_resource *texture,
-                           unsigned face, unsigned level)
-{
-   /**
-    * FIXME: Return the corrent result. We can't alays return referenced
-    *        since it causes a double flush within the vbo module.
-    */
-#if 0
-   return PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE;
-#else
-   return 0;
-#endif
-}
-
 
 
 /*
@@ -191,8 +170,6 @@ i915_create_context(struct pipe_screen *screen, void *priv)
    i915->base.draw_arrays = i915_draw_arrays;
    i915->base.draw_elements = i915_draw_elements;
    i915->base.draw_range_elements = i915_draw_range_elements;
-
-   i915->base.is_resource_referenced = i915_is_resource_referenced;
 
    /*
     * Create drawing context and plug our rendering stage into it.

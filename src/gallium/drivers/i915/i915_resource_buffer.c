@@ -93,6 +93,7 @@ struct u_resource_vtbl i915_buffer_vtbl =
 {
    i915_buffer_get_handle,	     /* get_handle */
    i915_buffer_destroy,		     /* resource_destroy */
+   NULL,			     /* is_resource_referenced */
    u_default_get_transfer,	     /* get_transfer */
    u_default_transfer_destroy,	     /* transfer_destroy */
    i915_buffer_transfer_map,	     /* transfer_map */
