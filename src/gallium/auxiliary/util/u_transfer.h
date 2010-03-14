@@ -10,7 +10,7 @@
 struct pipe_context;
 
 
-void u_transfer_inline_write( struct pipe_context *pipe,
+void u_default_transfer_inline_write( struct pipe_context *pipe,
 			      struct pipe_resource *resource,
 			      struct pipe_subresource sr,
 			      enum pipe_transfer_usage usage,
@@ -19,7 +19,112 @@ void u_transfer_inline_write( struct pipe_context *pipe,
 			      unsigned stride,
 			      unsigned slice_stride);
 
-void u_transfer_flush_region_noop( struct pipe_context *pipe,
-				   struct pipe_transfer *transfer,
-				   const struct pipe_box *box);
+void u_default_transfer_flush_region( struct pipe_context *pipe,
+				      struct pipe_transfer *transfer,
+				      const struct pipe_box *box);
+
+struct pipe_transfer * u_default_get_transfer(struct pipe_context *context,
+					      struct pipe_resource *resource,
+					      struct pipe_subresource sr,
+					      enum pipe_transfer_usage usage,
+					      const struct pipe_box *box);
+
+void u_default_transfer_unmap( struct pipe_context *pipe,
+			       struct pipe_transfer *transfer );
+
+void u_default_transfer_destroy(struct pipe_context *pipe,
+				struct pipe_transfer *transfer);
+
+
+
+/* Useful helper to allow >1 implementation of resource functionality
+ * to exist in a single driver.  This is intended to be transitionary!
+ */
+struct u_resource_vtbl {
+
+   boolean (*resource_get_handle)(struct pipe_screen *,
+				  struct pipe_resource *tex,
+				  struct winsys_handle *handle);
+
+   void (*resource_destroy)(struct pipe_screen *,
+			    struct pipe_resource *pt);
+
+   struct pipe_transfer *(*get_transfer)(struct pipe_context *,
+					 struct pipe_resource *resource,
+					 struct pipe_subresource,
+					 enum pipe_transfer_usage,
+					 const struct pipe_box *);
+
+   void (*transfer_destroy)(struct pipe_context *,
+			    struct pipe_transfer *);
+
+   void *(*transfer_map)( struct pipe_context *,
+			  struct pipe_transfer *transfer );
+
+   void (*transfer_flush_region)( struct pipe_context *,
+				  struct pipe_transfer *transfer,
+				  const struct pipe_box *);
+
+   void (*transfer_unmap)( struct pipe_context *,
+			   struct pipe_transfer *transfer );
+
+   void (*transfer_inline_write)( struct pipe_context *pipe,
+				  struct pipe_resource *resource,
+				  struct pipe_subresource sr,
+				  enum pipe_transfer_usage usage,
+				  const struct pipe_box *box,
+				  const void *data,
+				  unsigned stride,
+				  unsigned slice_stride);
+};
+
+
+struct u_resource {
+   struct pipe_resource b;
+   struct u_resource_vtbl *vtbl;
+};
+
+
+boolean u_resource_get_handle_vtbl(struct pipe_screen *screen,
+			      struct pipe_resource *resource,
+			      struct winsys_handle *handle);
+
+void u_resource_destroy_vtbl(struct pipe_screen *screen,
+			struct pipe_resource *resource);
+
+struct pipe_transfer *u_get_transfer_vtbl(struct pipe_context *context,
+				     struct pipe_resource *resource,
+				     struct pipe_subresource sr,
+				     enum pipe_transfer_usage usage,
+				     const struct pipe_box *box);
+
+void u_transfer_destroy_vtbl(struct pipe_context *pipe,
+			struct pipe_transfer *transfer);
+
+void *u_transfer_map_vtbl( struct pipe_context *pipe,
+		      struct pipe_transfer *transfer );
+
+void u_transfer_flush_region_vtbl( struct pipe_context *pipe,
+			      struct pipe_transfer *transfer,
+			      const struct pipe_box *box);
+
+void u_transfer_unmap_vtbl( struct pipe_context *rm_ctx,
+		       struct pipe_transfer *transfer );
+
+void u_transfer_inline_write_vtbl( struct pipe_context *rm_ctx,
+				   struct pipe_resource *resource,
+				   struct pipe_subresource sr,
+				   enum pipe_transfer_usage usage,
+				   const struct pipe_box *box,
+				   const void *data,
+				   unsigned stride,
+				   unsigned slice_stride);
+
+
+
+
+
+
+
+
 #endif

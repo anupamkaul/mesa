@@ -33,8 +33,8 @@
 #include "i915_reg.h"
 #include "i915_context.h"
 #include "i915_screen.h"
-#include "i915_buffer.h"
-#include "i915_texture.h"
+#include "i915_surface.h"
+#include "i915_resource.h"
 #include "intel_winsys.h"
 
 
@@ -304,8 +304,7 @@ i915_create_screen(struct intel_winsys *iws, uint pci_id)
    is->base.fence_signalled = i915_fence_signalled;
    is->base.fence_finish = i915_fence_finish;
 
-   i915_init_screen_texture_functions(is);
-   i915_init_screen_buffer_functions(is);
+   i915_init_screen_resource_functions(is);
 
    return &is->base;
 }

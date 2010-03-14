@@ -131,7 +131,7 @@ struct intel_winsys {
 
    /**
     * Creates a buffer from a handle.
-    * Used to implement pipe_screen::texture_from_handle.
+    * Used to implement pipe_screen::resource_from_handle.
     * Also provides the stride information needed for the
     * texture via the stride argument.
     */
@@ -140,7 +140,7 @@ struct intel_winsys {
                                               unsigned *stride);
 
    /**
-    * Used to implement pipe_screen::texture_get_handle.
+    * Used to implement pipe_screen::resource_get_handle.
     * The winsys might need the stride information.
     */
    boolean (*buffer_get_handle)(struct intel_winsys *iws,

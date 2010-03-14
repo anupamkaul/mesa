@@ -128,6 +128,7 @@ C_SOURCES = \
 	util/u_texture.c \
 	util/u_tile.c \
 	util/u_transfer.c \
+	util/u_resource.c \
 	util/u_upload_mgr.c \
 	target-helpers/wrap_screen.c
 	# Disabling until pipe-video branch gets merged in

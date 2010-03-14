@@ -25,12 +25,14 @@
  * 
  **************************************************************************/
 
-#ifndef I915_TEXTURE_H
-#define I915_TEXTURE_H
+#ifndef I915_SURFACE_H
+#define I915_SURFACE_H
 
+struct i915_context;
 struct i915_screen;
 
-extern void
-i915_init_screen_texture_functions(struct i915_screen *is);
+void i915_init_surface_functions( struct i915_context *i915 );
+void i915_init_screen_surface_functions( struct i915_screen *is );
 
-#endif /* I915_TEXTURE_H */
+
+#endif /* I915_SCREEN_H */
