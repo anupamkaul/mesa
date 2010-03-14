@@ -679,12 +679,12 @@ identity_flush(struct pipe_context *_pipe,
 
 static unsigned int
 identity_is_resource_referenced(struct pipe_context *_pipe,
-                               struct pipe_resource *_texture,
+                               struct pipe_resource *_resource,
                                unsigned face,
                                unsigned level)
 {
    struct identity_context *id_pipe = identity_context(_pipe);
-   struct identity_resource *id_resource = identity_resource(_texture);
+   struct identity_resource *id_resource = identity_resource(_resource);
    struct pipe_context *pipe = id_pipe->pipe;
    struct pipe_resource *texture = id_resource->resource;
 
@@ -736,13 +736,13 @@ identity_sampler_view_destroy(struct pipe_context *pipe,
 
 static struct pipe_transfer *
 identity_context_get_transfer(struct pipe_context *_context,
-			      struct pipe_resource *_texture,
+			      struct pipe_resource *_resource,
 			      struct pipe_subresource sr,
 			      enum pipe_transfer_usage usage,
 			      const struct pipe_box *box)
 {
    struct identity_context *id_context = identity_context(_context);
-   struct identity_resource *id_resource = identity_resource(_texture);
+   struct identity_resource *id_resource = identity_resource(_resource);
    struct pipe_context *context = id_context->pipe;
    struct pipe_resource *texture = id_resource->resource;
    struct pipe_transfer *result;
@@ -779,6 +779,24 @@ identity_context_transfer_map(struct pipe_context *_context,
 				transfer);
 }
 
+
+
+static void
+identity_context_transfer_flush_region( struct pipe_context *_context,
+					struct pipe_transfer *_transfer,
+					const struct pipe_box *box)
+{
+   struct identity_context *id_context = identity_context(_context);
+   struct identity_transfer *id_transfer = identity_transfer(_transfer);
+   struct pipe_context *context = id_context->pipe;
+   struct pipe_transfer *transfer = id_transfer->transfer;
+
+   context->transfer_flush_region(context,
+				  transfer,
+				  box);
+}
+
+
 static void
 identity_context_transfer_unmap(struct pipe_context *_context,
                                struct pipe_transfer *_transfer)
@@ -790,6 +808,49 @@ identity_context_transfer_unmap(struct pipe_context *_context,
 
    context->transfer_unmap(context,
                           transfer);
+}
+
+
+static void 
+identity_context_transfer_inline_write( struct pipe_context *_context,
+					struct pipe_resource *_resource,
+					struct pipe_subresource sr,
+					enum pipe_transfer_usage usage,
+					const struct pipe_box *box,
+					const void *data )
+{
+   struct identity_context *id_context = identity_context(_context);
+   struct identity_resource *id_resource = identity_resource(_resource);
+   struct pipe_context *context = id_context->pipe;
+   struct pipe_resource *texture = id_resource->resource;
+
+   context->transfer_inline_write(context,
+				  texture,
+				  sr,
+				  usage,
+				  box,
+				  data);
+}
+
+static void 
+identity_context_transfer_inline_read( struct pipe_context *_context,
+				       struct pipe_resource *_resource,
+				       struct pipe_subresource sr,
+				       enum pipe_transfer_usage usage,
+				       const struct pipe_box *box,
+				       void *data )
+{
+   struct identity_context *id_context = identity_context(_context);
+   struct identity_resource *id_resource = identity_resource(_resource);
+   struct pipe_context *context = id_context->pipe;
+   struct pipe_resource *texture = id_resource->resource;
+
+   context->transfer_inline_read(context,
+				 texture,
+				 sr,
+				 usage,
+				 box,
+				 data);
 }
 
 struct pipe_context *
@@ -862,6 +923,9 @@ identity_context_create(struct pipe_screen *_screen, struct pipe_context *pipe)
    id_pipe->base.transfer_destroy = identity_context_transfer_destroy;
    id_pipe->base.transfer_map = identity_context_transfer_map;
    id_pipe->base.transfer_unmap = identity_context_transfer_unmap;
+   id_pipe->base.transfer_flush_region = identity_context_transfer_flush_region;
+   id_pipe->base.transfer_inline_write = identity_context_transfer_inline_write;
+   id_pipe->base.transfer_inline_read = identity_context_transfer_inline_read;
 
    id_pipe->pipe = pipe;
 
