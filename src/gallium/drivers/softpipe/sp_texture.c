@@ -113,6 +113,8 @@ softpipe_resource_create(struct pipe_screen *screen,
    if (!spt)
       return NULL;
 
+   assert(template->format != PIPE_FORMAT_NONE);
+
    spt->base = *template;
    pipe_reference_init(&spt->base.reference, 1);
    spt->base.screen = screen;
@@ -394,6 +396,7 @@ softpipe_user_buffer_create(struct pipe_screen *screen,
 
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
+   buffer->base.format = PIPE_FORMAT_R8_UNORM; /* ?? */
    buffer->base.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
