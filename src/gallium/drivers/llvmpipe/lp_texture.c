@@ -105,6 +105,7 @@ llvmpipe_displaytarget_layout(struct llvmpipe_screen *screen,
    unsigned height = align(lpt->base.height0, TILE_SIZE);
 
    lpt->dt = winsys->displaytarget_create(winsys,
+                                          lpt->base.tex_usage,
                                           lpt->base.format,
                                           width, height,
                                           16,
@@ -250,6 +251,51 @@ llvmpipe_resource_unmap(struct pipe_resource *texture,
 
       winsys->displaytarget_unmap(winsys, lpt->dt);
    }
+}
+
+
+static struct pipe_texture *
+llvmpipe_texture_from_handle(struct pipe_screen *screen,
+                             const struct pipe_texture *template,
+                             struct winsys_handle *whandle)
+{
+   struct sw_winsys *winsys = llvmpipe_screen(screen)->winsys;
+   struct llvmpipe_texture *lpt = CALLOC_STRUCT(llvmpipe_texture);
+   if (!lpt)
+      return NULL;
+
+   lpt->base = *template;
+   pipe_reference_init(&lpt->base.reference, 1);
+   lpt->base.screen = screen;
+
+   lpt->dt = winsys->displaytarget_from_handle(winsys,
+                                               template,
+                                               whandle,
+                                               &lpt->stride[0]);
+   if (!lpt->dt)
+      goto fail;
+
+   return &lpt->base;
+
+ fail:
+   FREE(lpt);
+   return NULL;
+}
+
+
+static boolean
+llvmpipe_resource_get_handle(struct pipe_screen *screen,
+                            struct pipe_resource *pt,
+                            struct winsys_handle *whandle)
+{
+   struct sw_winsys *winsys = llvmpipe_screen(screen)->winsys;
+   struct llvmpipe_resource *lpt = llvmpipe_resource(pt);
+
+   assert(lpt->dt);
+   if (!lpt->dt)
+      return FALSE;
+
+   return winsys->displaytarget_get_handle(winsys, lpt->dt, whandle);
 }
 
 
@@ -464,6 +510,7 @@ llvmpipe_init_screen_resource_funcs(struct pipe_screen *screen)
 {
    screen->resource_create = llvmpipe_resource_create;
    screen->resource_destroy = llvmpipe_resource_destroy;
+   screen->resource_get_handle = llvmpipe_resource_get_handle;
    screen->user_buffer_create = llvmpipe_user_buffer_create;
 
    screen->get_tex_surface = llvmpipe_get_tex_surface;

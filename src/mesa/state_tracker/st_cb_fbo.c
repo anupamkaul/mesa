@@ -48,6 +48,7 @@
 #include "st_format.h"
 #include "st_public.h"
 #include "st_texture.h"
+#include "st_manager.h"
 
 #include "util/u_format.h"
 #include "util/u_rect.h"
@@ -103,6 +104,7 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
        */
       pipe_surface_reference( &strb->surface, NULL );
       pipe_resource_reference( &strb->texture, NULL );
+      pipe_sampler_view_reference(&strb->sampler_view, NULL);
 
       /* Setup new texture template.
        */
@@ -162,6 +164,7 @@ st_renderbuffer_delete(struct gl_renderbuffer *rb)
    ASSERT(strb);
    pipe_surface_reference(&strb->surface, NULL);
    pipe_resource_reference(&strb->texture, NULL);
+   pipe_sampler_view_reference(&strb->sampler_view, NULL);
    free(strb->data);
    free(strb);
 }
@@ -367,6 +370,8 @@ st_render_texture(GLcontext *ctx,
    pipe_resource_reference( &strb->texture, pt );
 
    pipe_surface_reference(&strb->surface, NULL);
+
+   pipe_sampler_view_reference(&strb->sampler_view, st_get_stobj_sampler_view(stObj));
 
    assert(strb->rtt_level <= strb->texture->last_level);
 
@@ -614,8 +619,18 @@ check_create_front_buffers(GLcontext *ctx, struct gl_framebuffer *fb)
 static void
 st_DrawBuffers(GLcontext *ctx, GLsizei count, const GLenum *buffers)
 {
+   GLframebuffer *fb = ctx->DrawBuffer;
+   GLuint i;
+
    (void) count;
    (void) buffers;
+
+   /* add the renderbuffers on demand */
+   for (i = 0; i < fb->_NumColorDrawBuffers; i++) {
+      gl_buffer_index idx = fb->_ColorDrawBufferIndexes[i];
+      st_manager_add_color_renderbuffer(ctx->st, fb, idx);
+   }
+
    check_create_front_buffers(ctx, ctx->DrawBuffer);
 }
 
@@ -626,8 +641,13 @@ st_DrawBuffers(GLcontext *ctx, GLsizei count, const GLenum *buffers)
 static void
 st_ReadBuffer(GLcontext *ctx, GLenum buffer)
 {
+   GLframebuffer *fb = ctx->ReadBuffer;
+
    (void) buffer;
-   check_create_front_buffers(ctx, ctx->ReadBuffer);
+
+   /* add the renderbuffer on demand */
+   st_manager_add_color_renderbuffer(ctx->st, fb, fb->_ColorReadBufferIndex);
+   check_create_front_buffers(ctx, fb);
 }
 
 
@@ -646,4 +666,15 @@ void st_init_fbo_functions(struct dd_function_table *functions)
 
    functions->DrawBuffers = st_DrawBuffers;
    functions->ReadBuffer = st_ReadBuffer;
+}
+
+struct pipe_sampler_view *
+st_renderbuffer_get_sampler_view(struct st_renderbuffer *rb,
+                                 struct pipe_context *pipe)
+{
+   if (!rb->sampler_view) {
+      rb->sampler_view = st_sampler_view_from_texture(pipe, rb->texture);
+   }
+
+   return rb->sampler_view;
 }
