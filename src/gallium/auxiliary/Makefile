@@ -131,6 +131,7 @@ C_SOURCES = \
 	util/u_resource.c \
 	util/u_upload_mgr.c \
 	target-helpers/wrap_screen.c
+
 	# Disabling until pipe-video branch gets merged in
 	#vl/vl_bitstream_parser.c \
 	#vl/vl_mpeg12_mc_renderer.c \
