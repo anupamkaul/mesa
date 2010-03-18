@@ -262,7 +262,7 @@ util_dump_template(struct os_stream *stream, const struct pipe_resource *templat
       return;
    }
 
-   util_dump_struct_begin(stream, "pipe_texture");
+   util_dump_struct_begin(stream, "pipe_resource");
 
    util_dump_member(stream, int, templat, target);
    util_dump_member(stream, format, templat, format);

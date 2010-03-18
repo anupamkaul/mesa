@@ -384,7 +384,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
 
       sampler_view = ctx->pipe->create_sampler_view(ctx->pipe, tex, &sv_templ);
       if (!sampler_view) {
-         pipe_texture_reference(&tex, NULL);
+         pipe_resource_reference(&tex, NULL);
          return;
       }
 
@@ -412,7 +412,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
       t0 = 0.0f;
       t1 = 1.0f;
 
-      pipe_texture_reference(&tex, NULL);
+      pipe_resource_reference(&tex, NULL);
    }
    else {
       pipe_sampler_view_reference(&sampler_view, src_sampler_view);
@@ -566,7 +566,7 @@ util_blit_pixels_tex(struct blit_state *ctx,
    struct pipe_framebuffer_state fb;
    float s0, t0, s1, t1;
    unsigned offset;
-   struct pipe_texture *tex = src_sampler_view->texture;
+   struct pipe_resource *tex = src_sampler_view->texture;
 
    assert(filter == PIPE_TEX_MIPFILTER_NEAREST ||
           filter == PIPE_TEX_MIPFILTER_LINEAR);

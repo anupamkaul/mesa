@@ -1475,7 +1475,7 @@ util_gen_mipmap(struct gen_mipmap_state *ctx,
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
    struct pipe_framebuffer_state fb;
-   struct pipe_texture *pt = psv->texture;
+   struct pipe_resource *pt = psv->texture;
    void *fs = (pt->target == PIPE_TEXTURE_CUBE) ? ctx->fsCube : ctx->fs2d;
    uint dstLevel;
    uint zslice = 0;
