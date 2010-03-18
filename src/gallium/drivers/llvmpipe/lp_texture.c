@@ -254,13 +254,13 @@ llvmpipe_resource_unmap(struct pipe_resource *texture,
 }
 
 
-static struct pipe_texture *
-llvmpipe_texture_from_handle(struct pipe_screen *screen,
-                             const struct pipe_texture *template,
-                             struct winsys_handle *whandle)
+static struct pipe_resource *
+llvmpipe_resource_from_handle(struct pipe_screen *screen,
+			      const struct pipe_resource *template,
+			      struct winsys_handle *whandle)
 {
    struct sw_winsys *winsys = llvmpipe_screen(screen)->winsys;
-   struct llvmpipe_texture *lpt = CALLOC_STRUCT(llvmpipe_texture);
+   struct llvmpipe_resource *lpt = CALLOC_STRUCT(llvmpipe_resource);
    if (!lpt)
       return NULL;
 
@@ -509,6 +509,7 @@ void
 llvmpipe_init_screen_resource_funcs(struct pipe_screen *screen)
 {
    screen->resource_create = llvmpipe_resource_create;
+   screen->resource_from_handle = llvmpipe_resource_from_handle;
    screen->resource_destroy = llvmpipe_resource_destroy;
    screen->resource_get_handle = llvmpipe_resource_get_handle;
    screen->user_buffer_create = llvmpipe_user_buffer_create;
