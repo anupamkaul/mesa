@@ -847,7 +847,7 @@ decompress_with_blit(GLcontext * ctx, GLenum target, GLint level,
 
    /* blit/render/decompress */
    util_blit_pixels_tex(ctx->st->blit,
-                        src_view,      /* pipe_texture (src) */
+                        src_view,      /* pipe_resource (src) */
                         0, 0,             /* src x0, y0 */
                         width, height,    /* src x1, y1 */
                         dst_surface,      /* pipe_surface (dst) */
@@ -900,7 +900,7 @@ decompress_with_blit(GLcontext * ctx, GLenum target, GLint level,
 
    _mesa_unmap_pbo_dest(ctx, &ctx->Pack);
 
-   pipe->tex_transfer_destroy(pipe, tex_xfer);
+   pipe->transfer_destroy(pipe, tex_xfer);
 
    /* destroy the temp / dest surface */
    util_destroy_rgba_surface(dst_texture, dst_surface);

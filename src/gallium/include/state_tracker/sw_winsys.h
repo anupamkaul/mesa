@@ -47,7 +47,7 @@ extern "C" {
 struct winsys_handle;
 struct pipe_screen;
 struct pipe_context;
-struct pipe_texture;
+struct pipe_resource;
 
 
 /**
@@ -97,7 +97,7 @@ struct sw_winsys
     */
    struct sw_displaytarget *
    (*displaytarget_from_handle)( struct sw_winsys *ws,
-                                 const struct pipe_texture *templat,
+                                 const struct pipe_resource *template,
                                  struct winsys_handle *whandle,
                                  unsigned *stride );
 
