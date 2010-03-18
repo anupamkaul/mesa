@@ -77,7 +77,7 @@ vg_manager_validate_framebuffer(struct vg_context *ctx)
    struct pipe_screen *screen = ctx->pipe->screen;
    struct st_framebuffer *stfb = ctx->draw_buffer;
    struct st_renderbuffer *rb;
-   struct pipe_texture *pt;
+   struct pipe_resource *pt;
 
    /* no binding surface */
    if (!stfb)
@@ -100,13 +100,13 @@ vg_manager_validate_framebuffer(struct vg_context *ctx)
 
    rb = stfb->strb;
    if (rb->texture == pt) {
-      pipe_texture_reference(&pt, NULL);
+      pipe_resource_reference(&pt, NULL);
       return;
    }
 
    /* unreference existing ones */
    pipe_surface_reference(&rb->surface, NULL);
-   pipe_texture_reference(&rb->texture, NULL);
+   pipe_resource_reference(&rb->texture, NULL);
 
    rb->texture = pt;
    rb->surface = screen->get_tex_surface(screen, rb->texture, 0, 0, 0,
@@ -194,7 +194,7 @@ static void
 destroy_renderbuffer(struct st_renderbuffer *strb)
 {
    pipe_surface_reference(&strb->surface, NULL);
-   pipe_texture_reference(&strb->texture, NULL);
+   pipe_resource_reference(&strb->texture, NULL);
    free(strb);
 }
 
