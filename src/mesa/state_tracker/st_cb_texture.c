@@ -900,6 +900,8 @@ decompress_with_blit(GLcontext * ctx, GLenum target, GLint level,
 
    _mesa_unmap_pbo_dest(ctx, &ctx->Pack);
 
+   pipe->tex_transfer_destroy(pipe, tex_xfer);
+
    /* destroy the temp / dest surface */
    util_destroy_rgba_surface(dst_texture, dst_surface);
 }
@@ -1558,8 +1560,7 @@ st_copy_texsubimage(GLcontext *ctx,
 
    if (ctx->_ImageTransferState == 0x0) {
 
-      if (pipe->surface_copy &&
-          matching_base_formats &&
+      if (matching_base_formats &&
           src_format == dest_format &&
           !do_flip) 
       {
