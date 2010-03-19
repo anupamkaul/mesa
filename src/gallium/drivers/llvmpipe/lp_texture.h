@@ -36,6 +36,11 @@
 #define LP_MAX_TEXTURE_3D_LEVELS 10  /* 512 x 512 x 512 for now */
 
 
+#define LP_TEXTURE_READ       1
+#define LP_TEXTURE_WRITE      2
+#define LP_TEXTURE_READ_WRITE 3
+
+
 struct pipe_context;
 struct pipe_screen;
 struct llvmpipe_context;
@@ -43,11 +48,34 @@ struct llvmpipe_context;
 struct sw_displaytarget;
 
 
+/**
+ * We keep one or two copies of the texture image data:  one in a simple
+ * linear layout (for texture sampling) and another in a tiled layout (for
+ * render targets).
+ * But we only keep both images when necessary.
+ *
+ * When both image layouts are present we can determine which might be
+ * newer by examining the timestap fields.  If they're equal the images
+ * are identical (except for layour).  If they're not equal we must
+ * update the older one before using it.
+ */
+
+
+/** A 1D/2D/3D image, one mipmap level */
+struct llvmpipe_texture_image
+{
+   void *data;
+   unsigned timestamp;
+};
+
+
 struct llvmpipe_texture
 {
    struct pipe_texture base;
 
+#if 0
    unsigned long level_offset[LP_MAX_TEXTURE_2D_LEVELS];
+#endif
    unsigned stride[LP_MAX_TEXTURE_2D_LEVELS];
 
    /**
@@ -59,7 +87,12 @@ struct llvmpipe_texture
    /**
     * Malloc'ed data for regular textures, or a mapping to dt above.
     */
+#if 0
    void *data;
+#else
+   struct llvmpipe_texture_image tiled[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_2D_LEVELS];
+   struct llvmpipe_texture_image linear[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_2D_LEVELS];
+#endif
 
    unsigned timestamp;
 };
@@ -116,6 +149,18 @@ llvmpipe_texture_unmap(struct pipe_texture *texture,
                        unsigned face,
                        unsigned level,
                        unsigned zslice);
+
+void *
+llvmpipe_get_linear_texture_image(struct llvmpipe_texture *texture,
+                                  unsigned face, unsigned level,
+                                  unsigned usage);
+
+
+void *
+llvmpipe_get_tiled_texture_image(struct llvmpipe_texture *texture,
+                                 unsigned face, unsigned level,
+                                 unsigned usage);
+
 
 extern void
 llvmpipe_init_screen_texture_funcs(struct pipe_screen *screen);

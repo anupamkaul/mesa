@@ -30,25 +30,29 @@
   *   Michel Dänzer <michel@tungstengraphics.com>
   */
 
+#include <stdio.h>
+
 #include "pipe/p_context.h"
 #include "pipe/p_defines.h"
-#include "util/u_inlines.h"
 
+#include "util/u_inlines.h"
 #include "util/u_format.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 
 #include "lp_context.h"
-#include "lp_screen.h"
 #include "lp_flush.h"
+#include "lp_screen.h"
+#include "lp_swizzle.h"
 #include "lp_texture.h"
 #include "lp_tile_size.h"
+
 #include "state_tracker/sw_winsys.h"
 
 
 /**
  * Conventional allocation path for non-display textures:
- * Simple, maximally packed layout.
+ * Just compute row strides here.  Storage is allocated on demand later.
  */
 static boolean
 llvmpipe_texture_layout(struct llvmpipe_screen *screen,
@@ -57,35 +61,23 @@ llvmpipe_texture_layout(struct llvmpipe_screen *screen,
    struct pipe_texture *pt = &lpt->base;
    unsigned level;
    unsigned width = pt->width0;
-   unsigned height = pt->height0;
-   unsigned depth = pt->depth0;
-   unsigned buffer_size = 0;
 
    for (level = 0; level <= pt->last_level; level++) {
-      unsigned nblocksx, nblocksy;
+      unsigned nblocksx;
 
       /* Allocate storage for whole quads. This is particularly important
        * for depth surfaces, which are currently stored in a swizzled format.
        */
       nblocksx = util_format_get_nblocksx(pt->format, align(width, TILE_SIZE));
-      nblocksy = util_format_get_nblocksy(pt->format, align(height, TILE_SIZE));
 
-      lpt->stride[level] = align(nblocksx * util_format_get_blocksize(pt->format), 16);
-
-      lpt->level_offset[level] = buffer_size;
-
-      buffer_size += (nblocksy *
-                      ((pt->target == PIPE_TEXTURE_CUBE) ? 6 : depth) *
-                      lpt->stride[level]);
+      lpt->stride[level] =
+         align(nblocksx * util_format_get_blocksize(pt->format), 16);
 
       width = u_minify(width, 1);
-      height = u_minify(height, 1);
-      depth = u_minify(depth, 1);
    }
 
-   lpt->data = align_malloc(buffer_size, 16);
-
-   return lpt->data != NULL;
+   /* allocate storage later */
+   return TRUE;
 }
 
 
@@ -158,7 +150,25 @@ llvmpipe_texture_destroy(struct pipe_texture *pt)
    }
    else {
       /* regular texture */
-      align_free(lpt->data);
+      uint face, level;
+
+      for (face = 0; face < Elements(lpt->linear); face++) {
+         for (level = 0; level < Elements(lpt->linear[0]); level++) {
+            if (lpt->linear[face][level].data) {
+               align_free(lpt->linear[face][level].data);
+               lpt->linear[face][level].data = NULL;
+            }
+         }
+      }
+
+      for (face = 0; face < Elements(lpt->tiled); face++) {
+         for (level = 0; level < Elements(lpt->tiled[0]); level++) {
+            if (lpt->tiled[face][level].data) {
+               align_free(lpt->tiled[face][level].data);
+               lpt->tiled[face][level].data = NULL;
+            }
+         }
+      }
    }
 
    FREE(lpt);
@@ -166,7 +176,7 @@ llvmpipe_texture_destroy(struct pipe_texture *pt)
 
 
 /**
- * Map a texture. Without any synchronization.
+ * Map a texture for read/write (rendering).  Without any synchronization.
  */
 void *
 llvmpipe_texture_map(struct pipe_texture *texture,
@@ -192,33 +202,28 @@ llvmpipe_texture_map(struct pipe_texture *texture,
    }
    else {
       /* regular texture */
+      unsigned tex_height = u_minify(texture->height0, level);
+      const unsigned nblocksy =
+         util_format_get_nblocksy(texture->format, tex_height);
+      const unsigned usage = LP_TEXTURE_READ_WRITE;
+      const unsigned stride = lpt->stride[level];
       unsigned offset;
-      unsigned stride;
 
-      map = lpt->data;
-
-      assert(level < LP_MAX_TEXTURE_2D_LEVELS);
-
-      offset = lpt->level_offset[level];
-      stride = lpt->stride[level];
-
-      /* XXX shouldn't that rather be
-         tex_height = align(u_minify(texture->height0, level), 2)
-         to account for alignment done in llvmpipe_texture_layout ?
-      */
       if (texture->target == PIPE_TEXTURE_CUBE) {
-         unsigned tex_height = u_minify(texture->height0, level);
-         offset += face *  util_format_get_nblocksy(texture->format, tex_height) * stride;
+         /* XXX incorrect
+         offset = face * nblocksy * stride;
+         */
       }
       else if (texture->target == PIPE_TEXTURE_3D) {
-         unsigned tex_height = u_minify(texture->height0, level);
-         offset += zslice * util_format_get_nblocksy(texture->format, tex_height) * stride;
+         offset = zslice * nblocksy * stride;
       }
       else {
          assert(face == 0);
          assert(zslice == 0);
+         offset = 0;
       }
 
+      map = llvmpipe_get_linear_texture_image(lpt, face, level, usage);
       map += offset;
    }
 
@@ -428,10 +433,11 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
                           TRUE, /* cpu_access */
                           FALSE); /* do_not_flush */
 
-   map = llvmpipe_texture_map(transfer->texture,
-                              transfer->face, transfer->level, transfer->zslice);
+   /* XXX pass read/write flags */
+   map = llvmpipe_texture_map(transfer->texture, transfer->face,
+                              transfer->level, transfer->zslice);
 
-   /* May want to different things here depending on read/write nature
+   /* May want to do different things here depending on read/write nature
     * of the map:
     */
    if (transfer->usage & PIPE_TRANSFER_WRITE) {
@@ -456,6 +462,115 @@ llvmpipe_transfer_unmap(struct pipe_context *pipe,
 
    llvmpipe_texture_unmap(transfer->texture,
                           transfer->face, transfer->level, transfer->zslice);
+}
+
+
+/**
+ * Compute size (in bytes) need to store a texture image / mipmap level.
+ */
+static unsigned
+tex_image_size(const struct llvmpipe_texture *lpt, unsigned level)
+{
+   /*const unsigned width = u_minify(lpt->base.width0, level);*/
+   const unsigned height = u_minify(lpt->base.height0, level);
+   const unsigned depth = u_minify(lpt->base.depth0, level);
+   const unsigned nblocksy =
+      util_format_get_nblocksy(lpt->base.format, align(height, TILE_SIZE));
+   const unsigned buffer_size =
+      nblocksy * lpt->stride[level] *
+      (lpt->base.target == PIPE_TEXTURE_3D ? depth : 1);
+
+   return buffer_size;
+}
+
+
+/**
+ * Comon/helper code used by llvmpipe_get_linear_texture_image() and
+ * llvmpipe_get_tiled_texture_image().  Basically, return a pointer
+ * to either linear or tiled texture data.  Allocate memory when needed
+ * and convert from the other image format when its data is newer
+ * \param usage  one of LP_TEXTURE_READ/WRITE/READ_WRITE
+ */
+static void *
+get_texture_image_data(struct llvmpipe_texture *lpt,
+                       unsigned level,
+                       struct llvmpipe_texture_image *target_img,
+                       struct llvmpipe_texture_image *other_img,
+                       boolean getting_linear,
+                       unsigned usage)
+{
+   void *target_data = target_img->data;
+   void *other_data = other_img->data;
+
+   if (!target_data) {
+      /* allocate memory for the target image */
+      unsigned buffer_size = tex_image_size(lpt, level);
+      target_img->data = align_malloc(buffer_size, 16);
+      target_data = target_img->data;
+   }
+
+   if (other_data &&
+       other_img->timestamp > target_img->timestamp &&
+       usage != LP_TEXTURE_WRITE) {
+      /* The other image is newer than the target image -> need to
+       * update target image.
+       */
+      const unsigned width = u_minify(lpt->base.width0, level);
+      const unsigned height = u_minify(lpt->base.height0, level);
+
+      if (getting_linear) 
+         lp_tiled_to_linear(width, height, lpt->base.format,
+                            lpt->stride[level], other_data, target_data);
+      else
+         lp_linear_to_tiled(width, height, lpt->base.format,
+                            lpt->stride[level], other_data, target_data);
+
+      /* target image is now equal to the other image */
+      target_img->timestamp = other_img->timestamp;
+   }
+
+   if (usage != LP_TEXTURE_READ) {
+      /* We're changing the target image so it'll be newer than the other
+       * image.  Update its timestamp.
+       */
+      target_img->timestamp = other_img->timestamp + 1;
+   }
+
+   assert(target_data);
+
+   return target_data;
+}
+
+
+/**
+ * Return pointer to texture image data in linear layout.
+ * \param usage  one of LP_TEXTURE_READ/WRITE/READ_WRITE
+ */
+void *
+llvmpipe_get_linear_texture_image(struct llvmpipe_texture *lpt,
+                                  unsigned face, unsigned level,
+                                  unsigned usage)
+{
+   struct llvmpipe_texture_image *linear_img = &lpt->linear[face][level];
+   struct llvmpipe_texture_image *tiled_img = &lpt->tiled[face][level];
+   return get_texture_image_data(lpt, level, linear_img, tiled_img,
+                                 TRUE, usage);
+}
+
+
+/**
+ * Return pointer to texture image data in tiled layout.
+ * \param usage  one of LP_TEXTURE_READ/WRITE/READ_WRITE
+ */
+void *
+llvmpipe_get_tiled_texture_image(struct llvmpipe_texture *lpt,
+                                 unsigned face, unsigned level,
+                                 unsigned usage)
+{
+   struct llvmpipe_texture_image *tiled_img = &lpt->tiled[face][level];
+   struct llvmpipe_texture_image *linear_img = &lpt->linear[face][level];
+   return get_texture_image_data(lpt, level, tiled_img, linear_img,
+                                 FALSE, usage);
 }
 
 
