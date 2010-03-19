@@ -182,10 +182,14 @@ void *
 llvmpipe_texture_map(struct pipe_texture *texture,
                      unsigned face,
                      unsigned level,
-                     unsigned zslice)
+                     unsigned zslice,
+                     unsigned layout)
 {
    struct llvmpipe_texture *lpt = llvmpipe_texture(texture);
    uint8_t *map;
+
+   assert(layout == LP_TEXTURE_TILED ||
+          layout == LP_TEXTURE_LINEAR);
 
    if (lpt->dt) {
       /* display target */
@@ -435,7 +439,8 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
 
    /* XXX pass read/write flags */
    map = llvmpipe_texture_map(transfer->texture, transfer->face,
-                              transfer->level, transfer->zslice);
+                              transfer->level, transfer->zslice,
+                              LP_TEXTURE_LINEAR);
 
    /* May want to do different things here depending on read/write nature
     * of the map:

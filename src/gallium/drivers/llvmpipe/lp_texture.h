@@ -40,6 +40,9 @@
 #define LP_TEXTURE_WRITE      2
 #define LP_TEXTURE_READ_WRITE 3
 
+#define LP_TEXTURE_TILED      1
+#define LP_TEXTURE_LINEAR     2
+
 
 struct pipe_context;
 struct pipe_screen;
@@ -142,7 +145,8 @@ void *
 llvmpipe_texture_map(struct pipe_texture *texture,
                      unsigned face,
                      unsigned level,
-                     unsigned zslice);
+                     unsigned zslice,
+                     unsigned layout);
 
 void
 llvmpipe_texture_unmap(struct pipe_texture *texture,

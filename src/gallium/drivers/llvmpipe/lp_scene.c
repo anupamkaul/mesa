@@ -411,7 +411,8 @@ lp_scene_map_buffers( struct lp_scene *scene )
 	 scene->cbuf_map[i] = llvmpipe_texture_map(cbuf->texture,
 	                                           cbuf->face,
                                                    cbuf->level,
-                                                   cbuf->zslice);
+                                                   cbuf->zslice,
+                                                   LP_TEXTURE_TILED);
 	 if (!scene->cbuf_map[i])
 	    goto fail;
       }
@@ -424,7 +425,8 @@ lp_scene_map_buffers( struct lp_scene *scene )
       scene->zsbuf_map = llvmpipe_texture_map(zsbuf->texture,
                                               zsbuf->face,
                                               zsbuf->level,
-                                              zsbuf->zslice);
+                                              zsbuf->zslice,
+                                              LP_TEXTURE_TILED);
       if (!scene->zsbuf_map)
 	 goto fail;
    }
