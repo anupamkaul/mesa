@@ -86,6 +86,7 @@ struct llvmpipe_texture
     * usage.
     */
    struct sw_displaytarget *dt;
+   void *dt_map;
 
    /**
     * Malloc'ed data for regular textures, or a mapping to dt above.

@@ -43,7 +43,7 @@
 #include "lp_context.h"
 #include "lp_flush.h"
 #include "lp_screen.h"
-#include "lp_swizzle.h"
+#include "lp_tile_image.h"
 #include "lp_texture.h"
 #include "lp_tile_size.h"
 
@@ -175,6 +175,19 @@ llvmpipe_texture_destroy(struct pipe_texture *pt)
 }
 
 
+static unsigned
+tiled_stride(unsigned width, unsigned height)
+{
+   /* size in tiles */
+   unsigned wt = (width + TILE_SIZE - 1) / TILE_SIZE;
+   /*unsigned ht = (height + TILE_SIZE - 1) / TILE_SIZE;*/
+
+   unsigned tiled_stride = wt * TILE_SIZE * TILE_SIZE * 4;
+
+   return tiled_stride;
+}
+
+
 /**
  * Map a texture for read/write (rendering).  Without any synchronization.
  */
@@ -203,6 +216,23 @@ llvmpipe_texture_map(struct pipe_texture *texture,
 
       /* FIXME: keep map count? */
       map = winsys->displaytarget_map(winsys, lpt->dt, usage);
+
+      /* convert from linear to tiled layout? */
+      if (1111)
+      {
+         void *tiled = llvmpipe_get_tiled_texture_image(lpt, 0, 0,
+                                                   LP_TEXTURE_READ_WRITE);
+         lp_linear_to_tiled(map, tiled,
+                            lpt->base.width0, lpt->base.height0,
+                            lpt->base.format,
+                            lpt->stride[0], 
+                            tiled_stride(lpt->base.width0, lpt->base.height0));
+
+         lpt->dt_map = map;
+
+         map = tiled;
+      }
+
    }
    else {
       /* regular texture */
@@ -227,7 +257,10 @@ llvmpipe_texture_map(struct pipe_texture *texture,
          offset = 0;
       }
 
-      map = llvmpipe_get_linear_texture_image(lpt, face, level, usage);
+      if (layout == LP_TEXTURE_LINEAR)
+         map = llvmpipe_get_linear_texture_image(lpt, face, level, usage);
+      else
+         map = llvmpipe_get_tiled_texture_image(lpt, face, level, usage);
       map += offset;
    }
 
@@ -254,6 +287,18 @@ llvmpipe_texture_unmap(struct pipe_texture *texture,
       assert(face == 0);
       assert(level == 0);
       assert(zslice == 0);
+
+      /* convert from tiled to linear layout */
+      if (1111)
+      {
+         void *tiled = llvmpipe_get_tiled_texture_image(lpt, 0, 0,
+                                                   LP_TEXTURE_READ);
+         lp_tiled_to_linear(tiled, lpt->dt_map,
+                            lpt->base.width0, lpt->base.height0,
+                            lpt->base.format,
+                            tiled_stride(lpt->base.width0, lpt->base.height0),
+                            lpt->stride[0]);
+      }
 
       winsys->displaytarget_unmap(winsys, lpt->dt);
    }
@@ -524,11 +569,15 @@ get_texture_image_data(struct llvmpipe_texture *lpt,
       const unsigned height = u_minify(lpt->base.height0, level);
 
       if (getting_linear) 
-         lp_tiled_to_linear(width, height, lpt->base.format,
-                            lpt->stride[level], other_data, target_data);
+         lp_tiled_to_linear(other_data, target_data,
+                            width, height, lpt->base.format,
+                            tiled_stride(width, height),
+                            lpt->stride[level]);
       else
-         lp_linear_to_tiled(width, height, lpt->base.format,
-                            lpt->stride[level], other_data, target_data);
+         lp_linear_to_tiled(other_data, target_data,
+                            width, height, lpt->base.format,
+                            lpt->stride[level], 
+                            tiled_stride(width, height));
 
       /* target image is now equal to the other image */
       target_img->timestamp = other_img->timestamp;

@@ -65,9 +65,9 @@ lp_rast_begin( struct lp_rasterizer *rast,
       struct pipe_surface *cbuf = scene->fb.cbufs[i];
       rast->cbuf[i].map = scene->cbuf_map[i];
       rast->cbuf[i].format = cbuf->texture->format;
-      rast->cbuf[i].width = cbuf->width;
-      rast->cbuf[i].height = cbuf->height;
-      rast->cbuf[i].stride = llvmpipe_texture_stride(cbuf->texture, cbuf->level);
+      rast->cbuf[i].tiles_per_row = align(cbuf->width, TILE_SIZE) / TILE_SIZE;
+      rast->cbuf[i].blocksize = 
+         util_format_get_blocksize(cbuf->texture->format);
    }
 
    if (write_zstencil) {
@@ -124,7 +124,7 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
 {
    struct lp_rasterizer *rast = task->rast;
    const uint8_t *clear_color = arg.clear_color;
-   uint8_t **color_tile = task->tile.color;
+
    unsigned i;
 
    LP_DBG(DEBUG_RAST, "%s 0x%x,0x%x,0x%x,0x%x\n", __FUNCTION__, 
@@ -138,7 +138,8 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
        clear_color[2] == clear_color[3]) {
       /* clear to grayscale value {x, x, x, x} */
       for (i = 0; i < rast->state.nr_cbufs; i++) {
-	 memset(color_tile[i], clear_color[0], TILE_SIZE * TILE_SIZE * 4);
+         void *ptr = lp_rast_color_pointer(rast, i, task->x, task->y);
+	 memset(ptr, clear_color[0], TILE_SIZE * TILE_SIZE * 4);
       }
    }
    else {
@@ -149,7 +150,7 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
        */
       const unsigned chunk = TILE_SIZE / 4;
       for (i = 0; i < rast->state.nr_cbufs; i++) {
-         uint8_t *c = color_tile[i];
+         uint8_t *c = lp_rast_color_pointer(rast, i, task->x, task->y);
          unsigned j;
          for (j = 0; j < 4 * TILE_SIZE; j++) {
             memset(c, clear_color[0], chunk);
@@ -161,7 +162,6 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
             memset(c, clear_color[3], chunk);
             c += chunk;
          }
-         assert(c - color_tile[i] == TILE_SIZE * TILE_SIZE * 4);
       }
    }
 
@@ -240,6 +240,7 @@ void
 lp_rast_load_color(struct lp_rasterizer_task *task,
                    const union lp_rast_cmd_arg arg)
 {
+#if 00
    struct lp_rasterizer *rast = task->rast;
    const unsigned x = task->x, y = task->y;
    unsigned i;
@@ -250,15 +251,18 @@ lp_rast_load_color(struct lp_rasterizer_task *task,
       if (x >= rast->cbuf[i].width || y >= rast->cbuf[i].height)
 	 continue;
 
+#if 00
       lp_tile_read_4ub(rast->cbuf[i].format,
 		       task->tile.color[i],
 		       rast->cbuf[i].map, 
 		       rast->cbuf[i].stride,
 		       x, y,
 		       TILE_SIZE, TILE_SIZE);
+#endif
 
       LP_COUNT(nr_color_tile_load);
    }
+#endif
 }
 
 
@@ -287,7 +291,6 @@ lp_rast_shade_tile(struct lp_rasterizer_task *task,
 {
    struct lp_rasterizer *rast = task->rast;
    const struct lp_rast_state *state = task->current_state;
-   struct lp_rast_tile *tile = &task->tile;
    const struct lp_rast_shader_inputs *inputs = arg.shade_tile;
    const unsigned tile_x = task->x, tile_y = task->y;
    unsigned x, y;
@@ -306,12 +309,12 @@ lp_rast_shade_tile(struct lp_rasterizer_task *task,
 
          /* color buffer */
          for (i = 0; i < rast->state.nr_cbufs; i++)
-            color[i] = tile->color[i] + 4 * block_offset;
+            color[i] = lp_rast_color_pointer(rast, i, tile_x + x, tile_y + y);
 
          /* depth buffer */
          depth = lp_rast_depth_pointer(rast, tile_x + x, tile_y + y);
 
-         /* run shader */
+         /* run shader on 4x4 block */
          state->jit_function[RAST_WHOLE]( &state->jit_context,
                                           tile_x + x, tile_y + y,
                                           inputs->facing,
@@ -330,6 +333,8 @@ lp_rast_shade_tile(struct lp_rasterizer_task *task,
 /**
  * Compute shading for a 4x4 block of pixels.
  * This is a bin command called during bin processing.
+ * \param x  X position of quad in window coords
+ * \param y  Y position of quad in window coords
  */
 void lp_rast_shade_quads( struct lp_rasterizer_task *task,
                           const struct lp_rast_shader_inputs *inputs,
@@ -338,7 +343,6 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
 {
    const struct lp_rast_state *state = task->current_state;
    struct lp_rasterizer *rast = task->rast;
-   struct lp_rast_tile *tile = &task->tile;
    uint8_t *color[PIPE_MAX_COLOR_BUFS];
    void *depth;
    unsigned i;
@@ -361,21 +365,22 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
    block_offset = ((iy / 4) * (16 * 16) + (ix / 4) * 16);
 
    /* color buffer */
-   for (i = 0; i < rast->state.nr_cbufs; i++)
-      color[i] = tile->color[i] + 4 * block_offset;
+   for (i = 0; i < rast->state.nr_cbufs; i++) {
+      color[i] = lp_rast_color_pointer(rast, i, x, y);
+      assert(lp_check_alignment(color[i], 16));
+   }
 
    /* depth buffer */
    depth = lp_rast_depth_pointer(rast, x, y);
 
 
-   assert(lp_check_alignment(tile->color[0], 16));
    assert(lp_check_alignment(state->jit_context.blend_color, 16));
 
    assert(lp_check_alignment(inputs->step[0], 16));
    assert(lp_check_alignment(inputs->step[1], 16));
    assert(lp_check_alignment(inputs->step[2], 16));
 
-   /* run shader */
+   /* run shader on 4x4 block */
    state->jit_function[RAST_EDGE_TEST]( &state->jit_context,
                                         x, y,
                                         inputs->facing,
@@ -451,9 +456,10 @@ static void
 lp_rast_store_color(struct lp_rasterizer_task *task)
 {
    struct lp_rasterizer *rast = task->rast;
-   const unsigned x = task->x, y = task->y;
    unsigned i;
 
+#if 00
+   const unsigned x = task->x, y = task->y;
    for (i = 0; i < rast->state.nr_cbufs; i++) {
       if (x >= rast->cbuf[i].width)
 	 continue;
@@ -469,15 +475,28 @@ lp_rast_store_color(struct lp_rasterizer_task *task)
       else if (LP_DEBUG & DEBUG_SHOW_TILES)
          outline_tile(task->tile.color[i]);
 
+#if 00
       lp_tile_write_4ub(rast->cbuf[i].format,
 			task->tile.color[i],
 			rast->cbuf[i].map, 
 			rast->cbuf[i].stride,
 			x, y,
 			TILE_SIZE, TILE_SIZE);
+#endif
 
       LP_COUNT(nr_color_tile_store);
    }
+
+#else
+   for (i = 0; i < rast->state.nr_cbufs; i++) {
+      uint8_t *color = lp_rast_color_pointer(rast, i, task->x, task->y);
+
+      if (LP_DEBUG & DEBUG_SHOW_SUBTILES)
+         outline_subtiles(color);
+      else if (LP_DEBUG & DEBUG_SHOW_TILES)
+         outline_tile(color);
+   }
+#endif
 }
 
 
@@ -805,7 +824,7 @@ struct lp_rasterizer *
 lp_rast_create( void )
 {
    struct lp_rasterizer *rast;
-   unsigned i, cbuf;
+   unsigned i;
 
    rast = CALLOC_STRUCT(lp_rasterizer);
    if(!rast)
@@ -816,8 +835,10 @@ lp_rast_create( void )
    for (i = 0; i < Elements(rast->tasks); i++) {
       struct lp_rasterizer_task *task = &rast->tasks[i];
 
+#if 0
       for (cbuf = 0; cbuf < PIPE_MAX_COLOR_BUFS; cbuf++ )
 	 task->tile.color[cbuf] = align_malloc(TILE_SIZE * TILE_SIZE * 4, 16);
+#endif
 
       task->rast = rast;
       task->thread_index = i;
@@ -836,12 +857,14 @@ lp_rast_create( void )
  */
 void lp_rast_destroy( struct lp_rasterizer *rast )
 {
-   unsigned i, cbuf;
+   unsigned i;
 
+#if 0
    for (i = 0; i < Elements(rast->tasks); i++) {
       for (cbuf = 0; cbuf < PIPE_MAX_COLOR_BUFS; cbuf++ )
 	 align_free(rast->tasks[i].tile.color[cbuf]);
    }
+#endif
 
    /* Set exit_flag and signal each thread's work_ready semaphore.
     * Each thread will be woken up, notice that the exit_flag is set and
