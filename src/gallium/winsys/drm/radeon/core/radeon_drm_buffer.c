@@ -3,7 +3,6 @@
 #include "radeon_drm.h"
 #include "radeon_bo_gem.h"
 #include "radeon_cs_gem.h"
-#include "radeon_buffer.h"
 
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
@@ -88,7 +87,7 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
         buf->mgr->rws->flush_cb(buf->mgr->rws->flush_data);
     }
 
-    if (flags & PIPE_BUFFER_USAGE_CPU_WRITE) {
+    if (flags & PIPE_TRANSFER_WRITE) {
         write = 1;
     }
 
