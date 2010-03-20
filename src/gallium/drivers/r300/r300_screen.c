@@ -292,9 +292,8 @@ struct pipe_screen* r300_create_screen(struct r300_winsys_screen *rws)
     r300screen->screen.is_format_supported = r300_is_format_supported;
     r300screen->screen.context_create = r300_create_context;
 
-    r300_init_screen_texture_functions(&r300screen->screen);
+    r300_init_screen_resource_functions(r300screen);
 
-    r300_screen_init_buffer_functions(r300screen);
     return &r300screen->screen;
 }
 

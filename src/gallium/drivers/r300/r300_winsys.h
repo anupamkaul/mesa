@@ -38,11 +38,6 @@ struct pipe_screen* r300_create_screen(struct r300_winsys_screen *rws);
 struct r300_winsys_buffer;
 
 
-boolean r300_get_texture_buffer(struct pipe_screen* screen,
-                                struct pipe_texture* texture,
-                                struct r300_winsys_buffer** buffer,
-                                unsigned *stride);
-
 enum r300_value_id {
     R300_VID_PCI_ID,
     R300_VID_GB_PIPES,
@@ -99,7 +94,7 @@ struct r300_winsys_screen {
 			       unsigned offset,
 			       unsigned length);
 
-    /* Add a pipe_buffer to the list of buffer objects to validate. */
+    /* Add a pipe_resource to the list of buffer objects to validate. */
     boolean (*add_buffer)(struct r300_winsys_screen *winsys,
                           struct r300_winsys_buffer *buf,
                           uint32_t rd,
@@ -163,7 +158,7 @@ struct r300_winsys_screen {
 				 unsigned stride,
 				 struct winsys_handle *whandle);
 
-    boolean (*is_buffer_referenced)(struct r300_winsys_screen *winsys,
+    boolean (*is_resource_referenced)(struct r300_winsys_screen *winsys,
                                     struct r300_winsys_buffer *buffer);
 
   
