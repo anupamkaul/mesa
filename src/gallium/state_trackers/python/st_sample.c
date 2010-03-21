@@ -525,7 +525,7 @@ st_sample_pixel_block(enum pipe_format format,
 void
 st_sample_surface(struct st_surface *surface, float *rgba) 
 {
-   struct pipe_texture *texture = surface->texture;
+   struct pipe_resource *texture = surface->texture;
    struct pipe_screen *screen = texture->screen;
    unsigned width = u_minify(texture->width0, surface->level);
    unsigned height = u_minify(texture->height0, surface->level);
@@ -570,5 +570,5 @@ st_sample_surface(struct st_surface *surface, float *rgba)
       screen->transfer_unmap(screen, transfer);
    }
    
-   screen->tex_transfer_destroy(transfer);
+   screen->transfer_destroy(transfer);
 }
