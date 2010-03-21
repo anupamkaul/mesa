@@ -415,7 +415,7 @@ static void mask_using_texture(struct pipe_sampler_view *sampler_view,
                                VGint width, VGint height)
 {
    struct vg_context *ctx = vg_current_context();
-   struct pipe_texture *texture = sampler_view->texture;
+   struct pipe_resource *texture = sampler_view->texture;
    struct pipe_surface *surface =
       alpha_mask_surface(ctx, PIPE_BUFFER_USAGE_GPU_WRITE);
    VGint offsets[4], loc[4];

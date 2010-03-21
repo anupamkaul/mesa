@@ -97,7 +97,7 @@ static INLINE struct pipe_sampler_view *create_texture_1d_view(struct vg_context
                                                                const VGint color_data_len)
 {
    struct pipe_context *pipe = ctx->pipe;
-   struct pipe_texture *texture;
+   struct pipe_resource *texture;
    struct pipe_sampler_view view_templ;
    struct pipe_sampler_view *view;
 
@@ -109,7 +109,7 @@ static INLINE struct pipe_sampler_view *create_texture_1d_view(struct vg_context
    u_sampler_view_default_template(&view_templ, texture, texture->format);
    view = pipe->create_sampler_view(pipe, texture, &view_templ);
    /* want the texture to go away if the view is freed */
-   pipe_texture_reference(&texture, NULL);
+   pipe_resource_reference(&texture, NULL);
 
    return view;
 }

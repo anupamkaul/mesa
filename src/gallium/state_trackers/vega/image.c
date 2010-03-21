@@ -288,7 +288,7 @@ struct vg_image * image_create(VGImageFormat format,
    u_sampler_view_default_template(&view_templ, newtex, newtex->format);
    view = pipe->create_sampler_view(pipe, newtex, &view_templ);
    /* want the texture to go away if the view is freed */
-   pipe_texture_reference(&newtex, NULL);
+   pipe_resource_reference(&newtex, NULL);
 
    image->sampler_view = view;
 
