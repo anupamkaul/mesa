@@ -656,7 +656,7 @@ destroy_surface(_EGLDisplay *dpy, _EGLSurface *surf)
    if (!dpy->Initialized)
       _eglLog(_EGL_FATAL, "destroy a surface with an unitialized display");
 
-   pipe_texture_reference(&gsurf->render_texture, NULL);
+   pipe_resource_reference(&gsurf->render_texture, NULL);
    egl_g3d_destroy_st_framebuffer(gsurf->stfbi);
    gsurf->native->destroy(gsurf->native);
    free(gsurf);
@@ -777,7 +777,7 @@ static struct pipe_surface *
 get_pipe_surface(struct native_display *ndpy, struct native_surface *nsurf,
                  enum native_attachment natt)
 {
-   struct pipe_texture *textures[NUM_NATIVE_ATTACHMENTS];
+   struct pipe_resource *textures[NUM_NATIVE_ATTACHMENTS];
    struct pipe_surface *psurf;
 
    textures[natt] = NULL;
@@ -787,7 +787,7 @@ get_pipe_surface(struct native_display *ndpy, struct native_surface *nsurf,
 
    psurf = ndpy->screen->get_tex_surface(ndpy->screen, textures[natt],
          0, 0, 0, PIPE_BUFFER_USAGE_GPU_WRITE);
-   pipe_texture_reference(&textures[natt], NULL);
+   pipe_resource_reference(&textures[natt], NULL);
 
    return psurf;
 }
