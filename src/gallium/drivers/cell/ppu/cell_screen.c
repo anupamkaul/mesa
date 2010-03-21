@@ -35,7 +35,6 @@
 #include "cell_context.h"
 #include "cell_screen.h"
 #include "cell_texture.h"
-#include "cell_buffer.h"
 #include "cell_public.h"
 
 #include "state_tracker/sw_winsys.h"
@@ -195,7 +194,6 @@ cell_create_screen(struct sw_winsys *winsys)
    screen->base.context_create = cell_create_context;
 
    cell_init_screen_texture_funcs(&screen->base);
-   cell_init_screen_buffer_funcs(&screen->base);
 
    return &screen->base;
 }

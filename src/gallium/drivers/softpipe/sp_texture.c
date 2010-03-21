@@ -331,11 +331,10 @@ softpipe_get_transfer(struct pipe_context *pipe,
       int nblocksy = util_format_get_nblocksy(resource->format, 
 					      u_minify(resource->height0, sr.level));
       pipe_resource_reference(&pt->resource, resource);
+      pt->sr = sr;
+      pt->usage = usage;
       pt->box = *box;
       pt->stride = sptex->stride[sr.level];
-      pt->usage = usage;
-      //pt->face = face;
-      //pt->level = level;
 
       spt->offset = sptex->level_offset[sr.level];
 

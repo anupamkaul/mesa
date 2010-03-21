@@ -37,9 +37,9 @@ struct pipe_texture;
 /**
  * Subclass of pipe_texture
  */
-struct cell_texture
+struct cell_resource
 {
-   struct pipe_texture base;
+   struct pipe_resource base;
 
    unsigned long level_offset[CELL_MAX_TEXTURE_LEVELS];
    unsigned long stride[CELL_MAX_TEXTURE_LEVELS];
@@ -55,6 +55,7 @@ struct cell_texture
     * Malloc'ed data for regular textures, or a mapping to dt above.
     */
    void *data;
+   boolean userBuffer;
 
    /* Size of the linear buffer??
     */
@@ -77,10 +78,10 @@ struct cell_transfer
 
 
 /** cast wrapper */
-static INLINE struct cell_texture *
-cell_texture(struct pipe_texture *pt)
+static INLINE struct cell_resource *
+cell_resource(struct pipe_resource *pt)
 {
-   return (struct cell_texture *) pt;
+   return (struct cell_resource *) pt;
 }
 
 
