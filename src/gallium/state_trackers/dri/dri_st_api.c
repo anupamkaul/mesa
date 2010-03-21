@@ -79,7 +79,7 @@ dri_drawable_process_buffers(struct dri_drawable *drawable,
 {
    struct dri_screen *screen = dri_screen(drawable->sPriv);
    __DRIdrawable *dri_drawable = drawable->dPriv;
-   struct pipe_texture templ;
+   struct pipe_resource templ;
    struct winsys_handle whandle;
    boolean have_depth = FALSE;
    unsigned i;
@@ -91,7 +91,7 @@ dri_drawable_process_buffers(struct dri_drawable *drawable,
       return;
 
    for (i = 0; i < ST_ATTACHMENT_COUNT; i++)
-      pipe_texture_reference(&drawable->textures[i], NULL);
+      pipe_resource_reference(&drawable->textures[i], NULL);
 
    memset(&templ, 0, sizeof(templ));
    templ.tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET;
@@ -145,7 +145,7 @@ dri_drawable_process_buffers(struct dri_drawable *drawable,
       whandle.stride = buf->pitch;
    
       drawable->textures[statt] =
-         screen->pipe_screen->texture_from_handle(screen->pipe_screen,
+         screen->pipe_screen->resource_from_handle(screen->pipe_screen,
                &templ, &whandle);
    }
 
@@ -254,7 +254,7 @@ static boolean
 dri_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
                             const enum st_attachment_type *statts,
                             unsigned count,
-                            struct pipe_texture **out)
+                            struct pipe_resource **out)
 {
    struct dri_drawable *drawable =
       (struct dri_drawable *) stfbi->st_manager_private;
@@ -294,7 +294,7 @@ dri_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
 
    for (i = 0; i < count; i++) {
       out[i] = NULL;
-      pipe_texture_reference(&out[i], drawable->textures[statts[i]]);
+      pipe_resource_reference(&out[i], drawable->textures[statts[i]]);
    }
 
    return TRUE;
@@ -310,7 +310,7 @@ dri_st_framebuffer_flush_front(struct st_framebuffer_iface *stfbi,
       drawable->sPriv->dri2.loader;
 
    if (__dri1_api_hooks) {
-      struct pipe_texture *ptex = drawable->textures[statt];
+      struct pipe_resource *ptex = drawable->textures[statt];
       if (ptex)
          dri1_flush_frontbuffer(drawable, ptex);
       return TRUE;
@@ -356,7 +356,7 @@ dri_destroy_st_framebuffer(struct st_framebuffer_iface *stfbi)
  * Return the texture at an attachment.  Allocate the texture if it does not
  * exist.
  */
-struct pipe_texture *
+struct pipe_resource *
 dri_get_st_framebuffer_texture(struct st_framebuffer_iface *stfbi,
                                enum st_attachment_type statt)
 {

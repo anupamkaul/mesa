@@ -45,7 +45,7 @@ dri1_init_screen(__DRIscreen * sPriv);
 
 void
 dri1_flush_frontbuffer(struct dri_drawable *drawable,
-                       struct pipe_texture *ptex);
+                       struct pipe_resource *ptex);
 
 void
 dri1_allocate_textures(struct dri_drawable *drawable,

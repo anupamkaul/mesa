@@ -214,7 +214,7 @@ dri1_swap_copy(struct pipe_context *pipe,
 }
 
 static struct pipe_surface *
-dri1_get_pipe_surface(struct dri_drawable *drawable, struct pipe_texture *ptex)
+dri1_get_pipe_surface(struct dri_drawable *drawable, struct pipe_resource *ptex)
 {
    struct pipe_screen *pipe_screen = dri_screen(drawable->sPriv)->pipe_screen;
    struct pipe_surface *psurf = drawable->dri1_surface;
@@ -248,7 +248,7 @@ dri1_get_pipe_context(struct dri_drawable *drawable)
 
 static void
 dri1_present_texture_locked(__DRIdrawable * dPriv,
-                            struct pipe_texture *ptex,
+                            struct pipe_resource *ptex,
                             const struct drm_clip_rect *sub_box,
                             struct pipe_fence_handle **fence)
 {
@@ -291,7 +291,7 @@ dri1_present_texture_locked(__DRIdrawable * dPriv,
 
 static void
 dri1_copy_to_front(struct dri_context *ctx,
-		   struct pipe_texture *ptex,
+		   struct pipe_resource *ptex,
 		   __DRIdrawable * dPriv,
 		   const struct drm_clip_rect *sub_box,
 		   struct pipe_fence_handle **fence)
@@ -319,7 +319,7 @@ dri1_copy_to_front(struct dri_context *ctx,
 
 void
 dri1_flush_frontbuffer(struct dri_drawable *drawable,
-                       struct pipe_texture *ptex)
+                       struct pipe_resource *ptex)
 {
    struct st_api *stapi = dri_get_st_api();
    struct dri_screen *screen = dri_screen(drawable->sPriv);
@@ -349,7 +349,7 @@ dri1_swap_buffers(__DRIdrawable * dPriv)
    struct dri_screen *screen = dri_screen(draw->sPriv);
    struct pipe_screen *pipe_screen = screen->pipe_screen;
    struct pipe_fence_handle *fence;
-   struct pipe_texture *ptex;
+   struct pipe_resource *ptex;
 
    assert(__dri1_api_hooks != NULL);
 
@@ -379,7 +379,7 @@ dri1_copy_sub_buffer(__DRIdrawable * dPriv, int x, int y, int w, int h)
    struct drm_clip_rect sub_bbox;
    struct dri_drawable *draw = dri_drawable(dPriv);
    struct pipe_fence_handle *dummy_fence;
-   struct pipe_texture *ptex;
+   struct pipe_resource *ptex;
 
    assert(__dri1_api_hooks != NULL);
 
@@ -405,13 +405,13 @@ dri1_allocate_textures(struct dri_drawable *drawable,
                        unsigned mask)
 {
    struct dri_screen *screen = dri_screen(drawable->sPriv);
-   struct pipe_texture templ;
+   struct pipe_resource templ;
    int i;
 
    /* remove outdated textures */
    if (drawable->old_w != width || drawable->old_h != height) {
       for (i = 0; i < ST_ATTACHMENT_COUNT; i++)
-         pipe_texture_reference(&drawable->textures[i], NULL);
+         pipe_resource_reference(&drawable->textures[i], NULL);
    }
 
    memset(&templ, 0, sizeof(templ));
@@ -456,7 +456,7 @@ dri1_allocate_textures(struct dri_drawable *drawable,
          templ.tex_usage = tex_usage;
 
          drawable->textures[i] =
-            screen->pipe_screen->texture_create(screen->pipe_screen, &templ);
+            screen->pipe_screen->resource_create(screen->pipe_screen, &templ);
       }
    }
 

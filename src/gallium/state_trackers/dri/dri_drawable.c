@@ -48,7 +48,7 @@ void dri2_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
 {
    struct dri_context *ctx = dri_context(pDRICtx);
    struct dri_drawable *drawable = dri_drawable(dPriv);
-   struct pipe_texture *pt =
+   struct pipe_resource *pt =
       dri_get_st_framebuffer_texture(drawable->stfb, ST_ATTACHMENT_FRONT_LEFT);
 
    if (pt) {
@@ -109,7 +109,7 @@ dri_destroy_buffer(__DRIdrawable * dPriv)
 
    pipe_surface_reference(&drawable->dri1_surface, NULL);
    for (i = 0; i < ST_ATTACHMENT_COUNT; i++)
-      pipe_texture_reference(&drawable->textures[i], NULL);
+      pipe_resource_reference(&drawable->textures[i], NULL);
 
    dri_destroy_st_framebuffer(drawable->stfb);
 
