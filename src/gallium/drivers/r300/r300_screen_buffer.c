@@ -163,7 +163,6 @@ r300_buffer_map_range(struct pipe_screen *screen,
 	return rbuf->user_buffer;
 
     if (rbuf->b.b.usage & PIPE_BUFFER_USAGE_CONSTANT) {
-        usage |= R300_USAGE_FLAG_DONT_SYNC;
 	goto just_map;
     }
 
@@ -189,20 +188,6 @@ r300_buffer_map_range(struct pipe_screen *screen,
 	    }
 	}
     }
-
-    /* XXX: Some sort of discrepancy here - ordinary map() didn't add
-     * this flag, but map_buffer_range always did.
-     *
-     * But
-     *     map_buffer_range(0,size,flags)
-     * should be the same operation as old-style
-     *     map(flags).
-     *
-     * Try to replicate the old behaviour for now...
-     */
-    if (offset != 0 || length != rbuf->b.b.width0)
-        usage |= R300_USAGE_FLAG_DONT_SYNC;
-
 just_map:
     map = rws->buffer_map(rws, rbuf->buf, usage);
    
