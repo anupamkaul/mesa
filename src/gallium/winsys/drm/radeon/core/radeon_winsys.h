@@ -38,6 +38,8 @@ struct radeon_libdrm_winsys {
 
     struct pb_manager *kman;
 
+    struct pb_manager *cman;
+
     struct pb_manager *mman;
 
     /* PCI ID */
@@ -54,6 +56,9 @@ struct radeon_libdrm_winsys {
 
     /* VRAM size. */
     uint32_t vram_size;
+
+    /* Square tiling support. */
+    boolean squaretiling;
 
     /* DRM FD */
     int fd;

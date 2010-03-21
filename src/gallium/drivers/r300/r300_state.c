@@ -38,8 +38,7 @@
 #include "r300_state_inlines.h"
 #include "r300_fs.h"
 #include "r300_vs.h"
-
-#include "radeon_winsys.h"
+#include "r300_winsys.h"
 
 /* r300_state: Functions used to intialize state context by translating
  * Gallium state objects into semi-native r300 state objects. */
@@ -528,8 +527,8 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
         if (tex) {
             r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                             tex->pitch[0],
-                                            tex->microtile != 0,
-                                            tex->macrotile != 0);
+                                            tex->microtile,
+                                            tex->macrotile);
         }
     }
     if (old_state->zsbuf &&
@@ -540,8 +539,8 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
         if (tex) {
             r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                             tex->pitch[0],
-                                            tex->microtile != 0,
-                                            tex->macrotile != 0);
+                                            tex->microtile,
+                                            tex->macrotile);
         }
     }
 
@@ -552,8 +551,8 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
 
         r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                         tex->pitch[level],
-                                        tex->microtile != 0,
-                                        tex->mip_macrotile[level] != 0);
+                                        tex->microtile,
+                                        tex->mip_macrotile[level]);
     }
     if (new_state->zsbuf) {
         tex = (struct r300_texture*)new_state->zsbuf->texture;
@@ -561,8 +560,8 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
 
         r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                         tex->pitch[level],
-                                        tex->microtile != 0,
-                                        tex->mip_macrotile[level] != 0);
+                                        tex->microtile,
+                                        tex->mip_macrotile[level]);
     }
 }
 

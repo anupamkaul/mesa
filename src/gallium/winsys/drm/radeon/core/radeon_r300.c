@@ -43,6 +43,9 @@ radeon_r300_winsys_buffer_create(struct r300_winsys_screen *rws,
 
     if (usage & PIPE_BUFFER_USAGE_CONSTANT)
         provider = ws->mman;
+    else if ((usage & PIPE_BUFFER_USAGE_VERTEX) ||
+	     (usage & PIPE_BUFFER_USAGE_INDEX))
+	provider = ws->cman;
     else
         provider = ws->kman;
     buffer = provider->create_buffer(provider, size, &desc);
@@ -61,8 +64,8 @@ static void radeon_r300_winsys_buffer_destroy(struct r300_winsys_buffer *buf)
 static void radeon_r300_winsys_buffer_set_tiling(struct r300_winsys_screen *rws,
 						  struct r300_winsys_buffer *buf,
 						  uint32_t pitch,
-						  boolean microtiled,
-						  boolean macrotiled)
+						  enum r300_buffer_tiling microtiled,
+						  enum r300_buffer_tiling macrotiled)
 {
     struct pb_buffer *_buf = radeon_pb_buffer(buf);
     radeon_drm_bufmgr_set_tiling(_buf, microtiled, macrotiled, pitch);
@@ -249,6 +252,8 @@ static uint32_t radeon_get_value(struct r300_winsys_screen *rws,
 	return ws->gb_pipes;
     case R300_VID_Z_PIPES:
 	return ws->z_pipes;
+    case R300_VID_SQUARE_TILING_SUPPORT:
+        return ws->squaretiling;
     }
     return 0;
 }
@@ -259,6 +264,7 @@ radeon_winsys_destroy(struct r300_winsys_screen *rws)
     struct radeon_libdrm_winsys *ws = (struct radeon_libdrm_winsys *)rws;
     radeon_cs_destroy(ws->cs);
 
+    ws->cman->destroy(ws->cman);
     ws->kman->destroy(ws->kman);
     ws->mman->destroy(ws->mman);
 
@@ -278,6 +284,10 @@ radeon_setup_winsys(int fd, struct radeon_libdrm_winsys* ws)
 	goto fail;
     ws->kman = radeon_drm_bufmgr_create(ws);
     if (!ws->kman)
+	goto fail;
+
+    ws->cman = pb_cache_manager_create(ws->kman, 100000);
+    if (!ws->cman)
 	goto fail;
 
     ws->mman = pb_malloc_bufmgr_create();
@@ -324,7 +334,8 @@ fail:
     if (ws->bom)
 	radeon_bo_manager_gem_dtor(ws->bom);
 
-
+    if (ws->cman)
+	ws->cman->destroy(ws->cman);
     if (ws->kman)
 	ws->kman->destroy(ws->kman);
     if (ws->mman)

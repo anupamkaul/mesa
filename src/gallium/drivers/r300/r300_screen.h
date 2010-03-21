@@ -28,10 +28,6 @@
 
 #include "r300_chipset.h"
 
-#define R300_TEXTURE_USAGE_TRANSFER PIPE_TEXTURE_USAGE_CUSTOM
-
-struct radeon_winsys;
-
 struct r300_screen {
     /* Parent class */
     struct pipe_screen screen;

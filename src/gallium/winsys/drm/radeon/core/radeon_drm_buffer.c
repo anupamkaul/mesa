@@ -71,16 +71,21 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
     struct radeon_drm_buffer *buf = radeon_drm_buffer(_buf);
     int write;
 
+    if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
+	if ((_buf->base.usage & PIPE_BUFFER_USAGE_VERTEX) ||
+	    (_buf->base.usage & PIPE_BUFFER_USAGE_INDEX))
+	    if (radeon_bo_is_referenced_by_cs(buf->bo, buf->mgr->rws->cs))
+		return NULL;
+    }
+
     if (buf->bo->ptr != NULL)
 	return buf->bo->ptr;
-    
+
     if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
         uint32_t domain;
-
         if (radeon_bo_is_busy(buf->bo, &domain))
             return NULL;
     }
-
 
     if (radeon_bo_is_referenced_by_cs(buf->bo, buf->mgr->rws->cs)) {
         buf->mgr->rws->flush_cb(buf->mgr->rws->flush_data);
@@ -300,14 +305,19 @@ boolean radeon_drm_bufmgr_get_handle(struct pb_buffer *_buf,
 }
 					   
 
-void radeon_drm_bufmgr_set_tiling(struct pb_buffer *_buf, boolean microtiled, boolean macrotiled, uint32_t pitch)
+void radeon_drm_bufmgr_set_tiling(struct pb_buffer *_buf,
+                                  enum r300_buffer_tiling microtiled,
+                                  enum r300_buffer_tiling macrotiled,
+                                  uint32_t pitch)
 {
     struct radeon_drm_buffer *buf = get_drm_buffer(_buf);
     uint32_t flags = 0, old_flags, old_pitch;
-    if (microtiled)
-	flags |= RADEON_BO_FLAGS_MICRO_TILE;
-    if (macrotiled)
-	flags |= RADEON_BO_FLAGS_MACRO_TILE;
+    if (microtiled == R300_BUFFER_TILED)
+        flags |= RADEON_BO_FLAGS_MICRO_TILE;
+    else if (microtiled == R300_BUFFER_SQUARETILED)
+        flags |= RADEON_BO_FLAGS_MICRO_TILE_SQUARE;
+    if (macrotiled == R300_BUFFER_TILED)
+        flags |= RADEON_BO_FLAGS_MACRO_TILE;
 
     radeon_bo_get_tiling(buf->bo, &old_flags, &old_pitch);
 
