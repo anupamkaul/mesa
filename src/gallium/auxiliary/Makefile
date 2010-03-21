@@ -64,8 +64,6 @@ C_SOURCES = \
 	pipebuffer/pb_bufmgr_pool.c \
 	pipebuffer/pb_bufmgr_slab.c \
 	pipebuffer/pb_validate.c \
-	piperesource/rm_context.c \
-	piperesource/rm_screen.c \
 	rbug/rbug_connection.c \
 	rbug/rbug_core.c \
 	rbug/rbug_texture.c \
