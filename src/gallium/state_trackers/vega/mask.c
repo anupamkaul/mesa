@@ -487,7 +487,7 @@ struct vg_mask_layer * mask_layer_create(VGint width, VGint height)
       struct pipe_screen *screen = ctx->pipe->screen;
       struct pipe_sampler_view view_templ;
       struct pipe_sampler_view *view = NULL;
-      struct pipe_texture *texture;
+      struct pipe_resource *texture;
 
       memset(&pt, 0, sizeof(pt));
       pt.target = PIPE_TEXTURE_2D;
