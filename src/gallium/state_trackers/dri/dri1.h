@@ -1,6 +1,6 @@
 /**************************************************************************
  *
- * Copyright 2009 VMware, Inc.
+ * Copyright 2009, VMware, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -24,43 +24,40 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  **************************************************************************/
-
-
-/**
- * Depth/stencil testing to LLVM IR translation.
- *
- * @author Jose Fonseca <jfonseca@vmware.com>
+/*
+ * Author: Keith Whitwell <keithw@vmware.com>
+ * Author: Jakob Bornecrantz <wallbraker@gmail.com>
  */
 
-#ifndef LP_BLD_DEPTH_H
-#define LP_BLD_DEPTH_H
+#ifndef DRI1_H
+#define DRI1_H
 
+#include "dri_context.h"
+#include "dri_drawable.h"
 
-#include "gallivm/lp_bld.h"
+#include "state_tracker/st_api.h"
+#include "dri_util.h"
 
- 
-struct pipe_depth_state;
-struct util_format_description;
-struct lp_type;
-struct lp_build_mask_context;
+extern struct dri1_api *__dri1_api_hooks;
 
-
-struct lp_type
-lp_depth_type(const struct util_format_description *format_desc,
-              unsigned length);
-
+const __DRIconfig **
+dri1_init_screen(__DRIscreen * sPriv);
 
 void
-lp_build_depth_stencil_test(LLVMBuilderRef builder,
-                            const struct pipe_depth_state *depth,
-                            const struct pipe_stencil_state stencil[2],
-                            struct lp_type type,
-                            const struct util_format_description *format_desc,
-                            struct lp_build_mask_context *mask,
-                            LLVMValueRef stencil_refs[2],
-                            LLVMValueRef zs_src,
-                            LLVMValueRef zs_dst_ptr,
-                            LLVMValueRef facing);
+dri1_flush_frontbuffer(struct dri_drawable *drawable,
+                       struct pipe_texture *ptex);
 
+void
+dri1_allocate_textures(struct dri_drawable *drawable,
+                       unsigned width, unsigned height,
+                       unsigned mask);
 
-#endif /* !LP_BLD_DEPTH_H */
+void dri1_swap_buffers(__DRIdrawable * dPriv);
+
+void
+dri1_copy_sub_buffer(__DRIdrawable * dPriv, int x, int y, int w, int h);
+
+void
+dri1_swap_fences_clear(struct dri_drawable *drawable);
+
+#endif /* DRI1_H */

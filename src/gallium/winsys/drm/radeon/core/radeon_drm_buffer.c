@@ -22,7 +22,6 @@ struct radeon_drm_buffer {
     boolean flinked;
     uint32_t flink;
 
-    boolean mapped;
     struct radeon_drm_buffer *next, *prev;
 };
 
@@ -55,10 +54,10 @@ radeon_drm_buffer_destroy(struct pb_buffer *_buf)
 {
     struct radeon_drm_buffer *buf = radeon_drm_buffer(_buf);
 
-    if (buf->mapped) {
+    if (buf->bo->ptr != NULL) {
 	remove_from_list(buf);
 	radeon_bo_unmap(buf->bo);
-	buf->mapped = false;
+	buf->bo->ptr = NULL;
     }
     radeon_bo_unref(buf->bo);
 
@@ -72,7 +71,7 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
     struct radeon_drm_buffer *buf = radeon_drm_buffer(_buf);
     int write;
 
-    if (buf->mapped)
+    if (buf->bo->ptr != NULL)
 	return buf->bo->ptr;
     
     if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
@@ -94,7 +93,6 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
     if (radeon_bo_map(buf->bo, write)) {
         return NULL;
     }
-    buf->mapped = true;
     insert_at_tail(&buf->mgr->buffer_map_list, buf);
     return buf->bo->ptr;
 }
@@ -288,7 +286,7 @@ boolean radeon_drm_bufmgr_get_handle(struct pb_buffer *_buf,
 
 	    retval = ioctl(fd, DRM_IOCTL_GEM_FLINK, &flink);
 	    if (retval) {
-		return false;
+		return FALSE;
 	    }
 
 	    buf->flinked = TRUE;
@@ -305,13 +303,21 @@ boolean radeon_drm_bufmgr_get_handle(struct pb_buffer *_buf,
 void radeon_drm_bufmgr_set_tiling(struct pb_buffer *_buf, boolean microtiled, boolean macrotiled, uint32_t pitch)
 {
     struct radeon_drm_buffer *buf = get_drm_buffer(_buf);
-    uint32_t flags = 0;
-
+    uint32_t flags = 0, old_flags, old_pitch;
     if (microtiled)
 	flags |= RADEON_BO_FLAGS_MICRO_TILE;
     if (macrotiled)
 	flags |= RADEON_BO_FLAGS_MACRO_TILE;
 
+    radeon_bo_get_tiling(buf->bo, &old_flags, &old_pitch);
+
+    if (flags != old_flags || pitch != old_pitch) {
+        /* Tiling determines how DRM treats the buffer data.
+         * We must flush CS when changing it if the buffer is referenced. */
+        if (radeon_bo_is_referenced_by_cs(buf->bo,  buf->mgr->rws->cs)) {
+	    buf->mgr->rws->flush_cb(buf->mgr->rws->flush_data);
+        }
+    }
     radeon_bo_set_tiling(buf->bo, flags, pitch);
 
 }
@@ -322,7 +328,7 @@ boolean radeon_drm_bufmgr_add_buffer(struct pb_buffer *_buf,
     struct radeon_drm_buffer *buf = get_drm_buffer(_buf);
     radeon_cs_space_add_persistent_bo(buf->mgr->rws->cs, buf->bo,
 					  rd, wd);
-    return true;
+    return TRUE;
 }
 
 void radeon_drm_bufmgr_write_reloc(struct pb_buffer *_buf,
@@ -356,12 +362,10 @@ void radeon_drm_bufmgr_flush_maps(struct pb_manager *_mgr)
     struct radeon_drm_buffer *rpb, *t_rpb;
 
     foreach_s(rpb, t_rpb, &mgr->buffer_map_list) {
-	rpb->mapped = 0;
 	radeon_bo_unmap(rpb->bo);
+	rpb->bo->ptr = NULL;
 	remove_from_list(rpb);
     }
 
     make_empty_list(&mgr->buffer_map_list);
-
-    
 }

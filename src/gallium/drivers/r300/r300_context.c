@@ -71,20 +71,6 @@ static void r300_destroy_context(struct pipe_context* context)
 }
 
 
-static unsigned int
-r300_is_resource_referenced(struct pipe_context *pipe,
-			    struct pipe_resource *buf,
-			    unsigned face, unsigned level)
-{
-    /* This only checks to see whether actual hardware buffers are
-     * referenced. Since we use managed BOs and transfers, it's actually not
-     * possible for pipe_buffers to ever reference the actual hardware, so
-     * buffers are never referenced. 
-     */
-
-    return 0;
-}
-
 static void r300_flush_cb(void *data)
 {
     struct r300_context* const cs_context_copy = data;
@@ -185,9 +171,9 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
         draw_set_viewport_state(r300->draw, &r300_viewport_identity);
     }
 
-    r300->context.is_resource_referenced = r300_is_resource_referenced;
-
     r300_setup_atoms(r300);
+
+    r300->sprite_coord_index = -1;
 
     /* Open up the OQ BO. */
     r300->oqbo = pipe_buffer_create(screen, 4096,

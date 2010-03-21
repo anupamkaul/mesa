@@ -80,6 +80,7 @@ r300_init_resource_functions(struct r300_context *r300)
    r300->context.transfer_unmap = u_transfer_unmap_vtbl;
    r300->context.transfer_destroy = u_transfer_destroy_vtbl;
    r300->context.transfer_inline_write = u_transfer_inline_write_vtbl;
+   r300->context.is_resource_referenced = u_is_resource_referenced_vtbl;
 }
 
 void

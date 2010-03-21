@@ -141,7 +141,7 @@ static boolean immd_is_good_idea(struct r300_context *r300,
     unsigned vertex_element_count = r300->velems->count;
     unsigned i, vbi;
 
-    if (count > 4) {
+    if (count > 10) {
         return FALSE;
     }
 
@@ -307,10 +307,9 @@ static void r300_emit_draw_elements(struct r300_context *r300,
 #endif
     CS_LOCALS(r300);
 
-    assert((start * indexSize) % 4 == 0);
     assert(count < (1 << 24));
 
-    maxIndex = MIN3(maxIndex, r300->vertex_buffer_max_index, count - minIndex);
+    maxIndex = MIN2(maxIndex, r300->vertex_buffer_max_index);
 
     DBG(r300, DBG_DRAW, "r300: Indexbuf of %u indices, min %u max %u\n",
         count, minIndex, maxIndex);
@@ -357,6 +356,7 @@ static void r300_emit_draw_elements(struct r300_context *r300,
 
 static void r300_shorten_ubyte_elts(struct r300_context* r300,
                                     struct pipe_resource** elts,
+                                    unsigned start,
                                     unsigned count)
 {
     struct pipe_context* context = &r300->context;
@@ -376,6 +376,8 @@ static void r300_shorten_ubyte_elts(struct r300_context* r300,
     in_map = pipe_buffer_map(context, *elts, PIPE_BUFFER_USAGE_CPU_READ, &src_transfer);
     out_map = pipe_buffer_map(context, new_elts, PIPE_BUFFER_USAGE_CPU_WRITE, &dst_transfer);
 
+    in_map += start;
+
     for (i = 0; i < count; i++) {
         *out_map = (unsigned short)*in_map;
         in_map++;
@@ -384,6 +386,32 @@ static void r300_shorten_ubyte_elts(struct r300_context* r300,
 
     pipe_buffer_unmap(context, *elts, src_transfer);
     pipe_buffer_unmap(context, new_elts, dst_transfer);
+
+    *elts = new_elts;
+}
+
+static void r300_align_ushort_elts(struct r300_context *r300,
+                                   struct pipe_resource **elts,
+                                   unsigned start, unsigned count)
+{
+    struct pipe_screen* screen = r300->context.screen;
+    struct pipe_resource* new_elts;
+    unsigned short *in_map;
+    unsigned short *out_map;
+
+    new_elts = pipe_buffer_create(screen, 32,
+				  PIPE_BUFFER_USAGE_INDEX |
+				  PIPE_BUFFER_USAGE_CPU_WRITE |
+				  PIPE_BUFFER_USAGE_GPU_READ,
+				  2 * count);
+
+    in_map = pipe_buffer_map(screen, *elts, PIPE_BUFFER_USAGE_CPU_READ);
+    out_map = pipe_buffer_map(screen, new_elts, PIPE_BUFFER_USAGE_CPU_WRITE);
+
+    memcpy(out_map, in_map+start, 2 * count);
+
+    pipe_buffer_unmap(screen, *elts);
+    pipe_buffer_unmap(screen, new_elts);
 
     *elts = new_elts;
 }
@@ -413,8 +441,12 @@ void r300_draw_range_elements(struct pipe_context* pipe,
     }
 
     if (indexSize == 1) {
-        r300_shorten_ubyte_elts(r300, &indexBuffer, count);
+        r300_shorten_ubyte_elts(r300, &indexBuffer, start, count);
         indexSize = 2;
+        start = 0;
+    } else if (indexSize == 2 && start % 2 != 0) {
+        r300_align_ushort_elts(r300, &indexBuffer, start, count);
+        start = 0;
     }
 
     r300_update_derived_state(r300);
