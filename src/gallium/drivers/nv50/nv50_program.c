@@ -30,6 +30,7 @@
 #include "tgsi/tgsi_util.h"
 
 #include "nv50_context.h"
+#include "nv50_transfer.h"
 
 #define NV50_SU_MAX_TEMP 127
 #define NV50_SU_MAX_ADDR 4
