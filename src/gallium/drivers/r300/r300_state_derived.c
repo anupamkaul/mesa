@@ -352,7 +352,7 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
             tex = (struct r300_texture *)view->texture;
             sampler = state->sampler_states[i];
 
-            assert(view->format == tex->tex.format);
+            assert(view->format == tex->b.b.format);
 
             texstate = &state->regs[i];
             memcpy(texstate->format, &tex->state, sizeof(uint32_t)*3);

@@ -1151,7 +1151,7 @@ static void r300_set_vertex_buffers(struct pipe_context* pipe,
         if (vbo->max_index == ~0) {
             /* Bogus value from broken state tracker; hax it. */
             vbo->max_index =
-                (vbo->buffer->size - vbo->buffer_offset) / vbo->stride;
+                (vbo->buffer->width0 - vbo->buffer_offset) / vbo->stride;
         }
 
         max_index = MIN2(vbo->max_index, max_index);

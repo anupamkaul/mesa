@@ -394,24 +394,28 @@ static void r300_align_ushort_elts(struct r300_context *r300,
                                    struct pipe_resource **elts,
                                    unsigned start, unsigned count)
 {
-    struct pipe_screen* screen = r300->context.screen;
+    struct pipe_context* context = &r300->context;
+    struct pipe_transfer *in_transfer = NULL;
+    struct pipe_transfer *out_transfer = NULL;
     struct pipe_resource* new_elts;
     unsigned short *in_map;
     unsigned short *out_map;
 
-    new_elts = pipe_buffer_create(screen, 32,
+    new_elts = pipe_buffer_create(context->screen, 32,
 				  PIPE_BUFFER_USAGE_INDEX |
 				  PIPE_BUFFER_USAGE_CPU_WRITE |
 				  PIPE_BUFFER_USAGE_GPU_READ,
 				  2 * count);
 
-    in_map = pipe_buffer_map(screen, *elts, PIPE_BUFFER_USAGE_CPU_READ);
-    out_map = pipe_buffer_map(screen, new_elts, PIPE_BUFFER_USAGE_CPU_WRITE);
+    in_map = pipe_buffer_map(context, *elts,
+			     PIPE_BUFFER_USAGE_CPU_READ, &in_transfer);
+    out_map = pipe_buffer_map(context, new_elts,
+			      PIPE_BUFFER_USAGE_CPU_WRITE, &out_transfer);
 
     memcpy(out_map, in_map+start, 2 * count);
 
-    pipe_buffer_unmap(screen, *elts);
-    pipe_buffer_unmap(screen, new_elts);
+    pipe_buffer_unmap(context, *elts, in_transfer);
+    pipe_buffer_unmap(context, new_elts, out_transfer);
 
     *elts = new_elts;
 }
