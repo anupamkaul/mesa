@@ -45,7 +45,7 @@ dri_surface_from_handle(struct drm_api *api, struct pipe_screen *pscreen,
 				      PIPE_BUFFER_USAGE_GPU_WRITE);
 
 	/* we don't need the texture from this point on */
-	pipe_texture_reference(&pt, NULL);
+	pipe_resource_reference(&pt, NULL);
 	return ps;
 }
 
