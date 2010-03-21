@@ -1,5 +1,6 @@
 #include "pipe/p_screen.h"
 #include "pipe/p_state.h"
+#include "util/u_simple_screen.h"
 
 #include "nouveau/nouveau_screen.h"
 
@@ -17,7 +18,7 @@
 * with same number of bits everywhere.
 */
 struct nouveau_winsys {
-	//struct pipe_winsys base;
+	struct pipe_winsys base;
 
 	struct pipe_screen *pscreen;
 
