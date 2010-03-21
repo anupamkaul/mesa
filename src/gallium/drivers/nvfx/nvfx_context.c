@@ -65,9 +65,6 @@ nvfx_create(struct pipe_screen *pscreen, void *priv)
 	nvfx->pipe.clear = nvfx_clear;
 	nvfx->pipe.flush = nvfx_flush;
 
-	nvfx->pipe.is_texture_referenced = nouveau_is_texture_referenced;
-	nvfx->pipe.is_buffer_referenced = nouveau_is_buffer_referenced;
-
 	screen->base.channel->user_private = nvfx;
 	screen->base.channel->flush_notify = nvfx_state_flush_notify;
 

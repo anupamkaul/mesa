@@ -8,6 +8,8 @@
 #include "nvfx_context.h"
 #include "nvfx_screen.h"
 #include "nvfx_state.h"
+#include "nvfx_resource.h"
+#include "nvfx_transfer.h"
 
 struct nvfx_transfer {
 	struct pipe_transfer base;
@@ -16,10 +18,10 @@ struct nvfx_transfer {
 };
 
 static void
-nvfx_compatible_transfer_tex(struct pipe_texture *pt, unsigned width, unsigned height,
-                             struct pipe_texture *template)
+nvfx_compatible_transfer_tex(struct pipe_resource *pt, unsigned width, unsigned height,
+                             struct pipe_resource *template)
 {
-	memset(template, 0, sizeof(struct pipe_texture));
+	memset(template, 0, sizeof(struct pipe_resource));
 	template->target = pt->target;
 	template->format = pt->format;
 	template->width0 = width;
@@ -32,49 +34,57 @@ nvfx_compatible_transfer_tex(struct pipe_texture *pt, unsigned width, unsigned h
 	                      NOUVEAU_TEXTURE_USAGE_LINEAR;
 }
 
-static struct pipe_transfer *
-nvfx_transfer_new(struct pipe_context *pcontext, struct pipe_texture *pt,
-		  unsigned face, unsigned level, unsigned zslice,
-		  enum pipe_transfer_usage usage,
-		  unsigned x, unsigned y, unsigned w, unsigned h)
+struct pipe_transfer *
+nvfx_miptree_transfer_new(struct pipe_context *pcontext,
+			  struct pipe_resource *pt,
+			  struct pipe_subresource sr,
+			  enum pipe_transfer_usage usage,
+			  const struct pipe_box *box)
 {
         struct pipe_screen *pscreen = pcontext->screen;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)pt;
 	struct nvfx_transfer *tx;
-	struct pipe_texture tx_tex_template, *tx_tex;
+	struct pipe_resource tx_tex_template, *tx_tex;
+	static boolean firsttime = TRUE;
+	static boolean no_transfer = FALSE;
+
+	if (firsttime) {
+	   no_transfer = debug_get_bool_option("NOUVEAU_NO_TRANSFER",
+					       TRUE/*XXX:FALSE*/);
+	   firsttime = FALSE;
+	}
 
 	tx = CALLOC_STRUCT(nvfx_transfer);
 	if (!tx)
 		return NULL;
 
-	pipe_texture_reference(&tx->base.texture, pt);
-	tx->base.x = x;
-	tx->base.y = y;
-	tx->base.width = w;
-	tx->base.height = h;
-	tx->base.stride = mt->level[level].pitch;
+	/* Don't handle 3D transfers yet.
+	 */
+	assert(box->depth == 1);
+
+	pipe_resource_reference(&tx->base.resource, pt);
+	tx->base.sr = sr;
 	tx->base.usage = usage;
-	tx->base.face = face;
-	tx->base.level = level;
-	tx->base.zslice = zslice;
+	tx->base.box = *box;
+	tx->base.stride = mt->level[sr.level].pitch;
 
 	/* Direct access to texture */
-	if ((pt->tex_usage & PIPE_TEXTURE_USAGE_DYNAMIC ||
-	     debug_get_bool_option("NOUVEAU_NO_TRANSFER", TRUE/*XXX:FALSE*/)) &&
+	if ((pt->tex_usage & PIPE_TEXTURE_USAGE_DYNAMIC || no_transfer) &&
 	    pt->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR)
 	{
 		tx->direct = true;
 		tx->surface = pscreen->get_tex_surface(pscreen, pt,
-	                                               face, level, zslice,
+	                                               sr.face, sr.level,
+						       box->z,
 	                                               pipe_transfer_buffer_flags(&tx->base));
 		return &tx->base;
 	}
 
 	tx->direct = false;
 
-	nvfx_compatible_transfer_tex(pt, w, h, &tx_tex_template);
+	nvfx_compatible_transfer_tex(pt, box->width, box->height, &tx_tex_template);
 
-	tx_tex = pscreen->texture_create(pscreen, &tx_tex_template);
+	tx_tex = pscreen->resource_create(pscreen, &tx_tex_template);
 	if (!tx_tex)
 	{
 		FREE(tx);
@@ -87,7 +97,7 @@ nvfx_transfer_new(struct pipe_context *pcontext, struct pipe_texture *pt,
 	                                       0, 0, 0,
 	                                       pipe_transfer_buffer_flags(&tx->base));
 
-	pipe_texture_reference(&tx_tex, NULL);
+	pipe_resource_reference(&tx_tex, NULL);
 
 	if (!tx->surface)
 	{
@@ -101,15 +111,16 @@ nvfx_transfer_new(struct pipe_context *pcontext, struct pipe_texture *pt,
 		struct pipe_surface *src;
 
 		src = pscreen->get_tex_surface(pscreen, pt,
-	                                       face, level, zslice,
+	                                       sr.face, sr.level, box->z,
 	                                       PIPE_BUFFER_USAGE_GPU_READ);
 
 		/* TODO: Check if SIFM can deal with x,y,w,h when swizzling */
 		/* TODO: Check if SIFM can un-swizzle */
 		nvscreen->eng2d->copy(nvscreen->eng2d,
 		                      tx->surface, 0, 0,
-		                      src, x, y,
-		                      w, h);
+		                      src,
+				      box->x, box->y,
+		                      box->width, box->height);
 
 		pipe_surface_reference(&src, NULL);
 	}
@@ -117,9 +128,9 @@ nvfx_transfer_new(struct pipe_context *pcontext, struct pipe_texture *pt,
 	return &tx->base;
 }
 
-static void
-nvfx_transfer_del(struct pipe_context *pcontext,
-                  struct pipe_transfer *ptx)
+void
+nvfx_miptree_transfer_del(struct pipe_context *pcontext,
+			  struct pipe_transfer *ptx)
 {
 	struct nvfx_transfer *tx = (struct nvfx_transfer *)ptx;
 
@@ -128,62 +139,51 @@ nvfx_transfer_del(struct pipe_context *pcontext,
 		struct nvfx_screen *nvscreen = nvfx_screen(pscreen);
 		struct pipe_surface *dst;
 
-		dst = pscreen->get_tex_surface(pscreen, ptx->texture,
-	                                       ptx->face, ptx->level, ptx->zslice,
+		dst = pscreen->get_tex_surface(pscreen,
+					       ptx->resource,
+	                                       ptx->sr.face,
+					       ptx->sr.level,
+					       ptx->box.z,
 	                                       PIPE_BUFFER_USAGE_GPU_WRITE | NOUVEAU_BUFFER_USAGE_NO_RENDER);
 
 		/* TODO: Check if SIFM can deal with x,y,w,h when swizzling */
 		nvscreen->eng2d->copy(nvscreen->eng2d,
-		                      dst, tx->base.x, tx->base.y,
+		                      dst, ptx->box.x, ptx->box.y,
 		                      tx->surface, 0, 0,
-		                      tx->base.width, tx->base.height);
+		                      ptx->box.width, ptx->box.height);
 
 		pipe_surface_reference(&dst, NULL);
 	}
 
 	pipe_surface_reference(&tx->surface, NULL);
-	pipe_texture_reference(&ptx->texture, NULL);
+	pipe_resource_reference(&ptx->resource, NULL);
 	FREE(ptx);
 }
 
-static void *
-nvfx_transfer_map(struct pipe_context *pcontext, struct pipe_transfer *ptx)
+void *
+nvfx_miptree_transfer_map(struct pipe_context *pcontext, struct pipe_transfer *ptx)
 {
         struct pipe_screen *pscreen = pcontext->screen;
 	struct nvfx_transfer *tx = (struct nvfx_transfer *)ptx;
 	struct nv04_surface *ns = (struct nv04_surface *)tx->surface;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)tx->surface->texture;
-	void *map = pipe_buffer_map(pscreen, mt->buffer,
-	                            pipe_transfer_buffer_flags(ptx));
+	uint8_t *map = nouveau_screen_bo_map(pscreen, mt->base.bo,
+					  pipe_transfer_buffer_flags(ptx));
 
 	if(!tx->direct)
 		return map + ns->base.offset;
 	else
-		return map + ns->base.offset + ptx->y * ns->pitch + ptx->x * util_format_get_blocksize(ptx->texture->format);
+		return (map + ns->base.offset + 
+			ptx->box.y * ns->pitch + 
+			ptx->box.x * util_format_get_blocksize(ptx->resource->format));
 }
 
-static void
-nvfx_transfer_unmap(struct pipe_context *pcontext, struct pipe_transfer *ptx)
+void
+nvfx_miptree_transfer_unmap(struct pipe_context *pcontext, struct pipe_transfer *ptx)
 {
 	struct pipe_screen *pscreen = pcontext->screen;
 	struct nvfx_transfer *tx = (struct nvfx_transfer *)ptx;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)tx->surface->texture;
 
-	pipe_buffer_unmap(pscreen, mt->buffer);
-}
-
-void
-nvfx_init_transfer_functions(struct nvfx_context *nvfx)
-{
-<<<<<<< HEAD:src/gallium/drivers/nv30/nv30_transfer.c
-	nv30->pipe.get_transfer = nv30_transfer_new;
-	nv30->pipe.transfer_destroy = nv30_transfer_del;
-	nv30->pipe.transfer_map = nv30_transfer_map;
-	nv30->pipe.transfer_unmap = nv30_transfer_unmap;
-=======
-	nvfx->pipe.get_tex_transfer = nvfx_transfer_new;
-	nvfx->pipe.tex_transfer_destroy = nvfx_transfer_del;
-	nvfx->pipe.transfer_map = nvfx_transfer_map;
-	nvfx->pipe.transfer_unmap = nvfx_transfer_unmap;
->>>>>>> origin/gallium-sampler-view:src/gallium/drivers/nvfx/nvfx_transfer.c
+	nouveau_screen_bo_unmap(pscreen, mt->base.bo);
 }

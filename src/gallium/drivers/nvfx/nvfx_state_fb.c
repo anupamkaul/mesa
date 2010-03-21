@@ -1,14 +1,8 @@
 #include "nvfx_context.h"
+#include "nvfx_resource.h"
 #include "nouveau/nouveau_util.h"
 
-static struct pipe_buffer *
-nvfx_do_surface_buffer(struct pipe_surface *surface)
-{
-	struct nvfx_miptree *mt = (struct nvfx_miptree *)surface->texture;
-	return mt->buffer;
-}
 
-#define nvfx_surface_buffer(ps) nouveau_bo(nvfx_do_surface_buffer(ps))
 
 static boolean
 nvfx_state_framebuffer_validate(struct nvfx_context *nvfx)

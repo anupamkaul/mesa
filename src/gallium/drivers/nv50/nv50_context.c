@@ -89,9 +89,6 @@ nv50_create(struct pipe_screen *pscreen, void *priv)
 
 	nv50->pipe.flush = nv50_flush;
 
-	nv50->pipe.is_texture_referenced = nouveau_is_texture_referenced;
-	nv50->pipe.is_buffer_referenced = nouveau_is_buffer_referenced;
-
 	screen->base.channel->user_private = nv50;
 
 	nv50_init_surface_functions(nv50);

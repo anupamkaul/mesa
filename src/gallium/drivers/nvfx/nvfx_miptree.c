@@ -5,14 +5,22 @@
 #include "util/u_math.h"
 
 #include "nvfx_context.h"
+#include "nvfx_resource.h"
+#include "nvfx_transfer.h"
 #include "nv04_surface_2d.h"
 
+#include "nouveau/nouveau_util.h"
 
+/* Currently using separate implementations for buffers and textures,
+ * even though gallium has a unified abstraction of these objects.
+ * Eventually these should be combined, and mechanisms like transfers
+ * be adapted to work for both buffer and texture uploads.
+ */
 
 static void
 nvfx_miptree_layout(struct nvfx_miptree *mt)
 {
-	struct pipe_texture *pt = &mt->base;
+	struct pipe_resource *pt = &mt->base.base;
 	uint width = pt->width0;
 	uint offset = 0;
 	int nr_faces, l, f;
@@ -61,32 +69,84 @@ nvfx_miptree_layout(struct nvfx_miptree *mt)
 	mt->total_size = offset;
 }
 
-static struct pipe_texture *
-nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_texture *pt)
+static boolean
+nvfx_miptree_get_handle(struct pipe_screen *pscreen,
+			struct pipe_resource *ptexture,
+			struct winsys_handle *whandle)
+{
+	struct nvfx_miptree* mt = (struct nvfx_miptree*)ptexture;
+
+	if (!mt || !mt->base.bo)
+		return FALSE;
+
+	return nouveau_screen_bo_get_handle(pscreen,
+					    mt->base.bo,
+					    mt->level[0].pitch,
+					    whandle);
+}
+
+
+static void
+nvfx_miptree_destroy(struct pipe_screen *screen, struct pipe_resource *pt)
+{
+	struct nvfx_miptree *mt = (struct nvfx_miptree *)pt;
+	int l;
+
+	nouveau_screen_bo_release(screen, mt->base.bo);
+
+	for (l = 0; l <= pt->last_level; l++) {
+		if (mt->level[l].image_offset)
+			FREE(mt->level[l].image_offset);
+	}
+
+	FREE(mt);
+}
+
+
+
+
+struct u_resource_vtbl nvfx_miptree_vtbl = 
+{
+   nvfx_miptree_get_handle,	      /* get_handle */
+   nvfx_miptree_destroy,	      /* resource_destroy */
+   NULL,			      /* is_resource_referenced */
+   nvfx_miptree_transfer_new,	      /* get_transfer */
+   nvfx_miptree_transfer_del,     /* transfer_destroy */
+   nvfx_miptree_transfer_map,	      /* transfer_map */
+   u_default_transfer_flush_region,   /* transfer_flush_region */
+   nvfx_miptree_transfer_unmap,	      /* transfer_unmap */
+   u_default_transfer_inline_write    /* transfer_inline_write */
+};
+
+
+
+struct pipe_resource *
+nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *pt)
 {
 	struct nvfx_miptree *mt;
 	unsigned buf_usage = PIPE_BUFFER_USAGE_PIXEL |
 	                     NOUVEAU_BUFFER_USAGE_TEXTURE;
 
-	mt = MALLOC(sizeof(struct nvfx_miptree));
+	mt = CALLOC_STRUCT(nvfx_miptree);
 	if (!mt)
 		return NULL;
-	mt->base = *pt;
-	pipe_reference_init(&mt->base.reference, 1);
-	mt->base.screen = pscreen;
+
+	mt->base.base = *pt;
+	pipe_reference_init(&mt->base.base.reference, 1);
+	mt->base.base.screen = pscreen;
 
 	/* Swizzled textures must be POT */
 	if (pt->width0 & (pt->width0 - 1) ||
 	    pt->height0 & (pt->height0 - 1))
-		mt->base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
+		mt->base.base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
 	else
 	if (pt->tex_usage & (PIPE_TEXTURE_USAGE_SCANOUT |
 	                     PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
 	                     PIPE_TEXTURE_USAGE_DEPTH_STENCIL))
-		mt->base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
+		mt->base.base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
 	else
 	if (pt->tex_usage & PIPE_TEXTURE_USAGE_DYNAMIC)
-		mt->base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
+		mt->base.base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
 	else {
 		switch (pt->format) {
 		case PIPE_FORMAT_B5G6R5_UNORM:
@@ -98,7 +158,7 @@ nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_texture *pt)
 				are just preserving the pre-unification behavior.
 				The whole 2D code is going to be rewritten anyway. */
 			if(nvfx_screen(pscreen)->is_nv4x) {
-				mt->base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
+				mt->base.base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
 				break;
 			}
 		/* TODO: Figure out which formats can be swizzled */
@@ -107,11 +167,11 @@ nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_texture *pt)
 		case PIPE_FORMAT_R16_SNORM:
 		{
 			if (debug_get_bool_option("NOUVEAU_NO_SWIZZLE", FALSE))
-				mt->base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
+				mt->base.base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
 			break;
 		}
 		default:
-			mt->base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
+			mt->base.base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
 		}
 	}
 
@@ -122,65 +182,68 @@ nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_texture *pt)
 	 * If the user did not ask for a render target, they can still render to it, but it will cost them an extra copy.
 	 * This also happens for small mipmaps of large textures. */
 	if (pt->tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET && util_format_get_stride(pt->format, pt->width0) < 64)
-		mt->base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
+		mt->base.base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
 
 	nvfx_miptree_layout(mt);
 
-	mt->buffer = pscreen->buffer_create(pscreen, 256, buf_usage, mt->total_size);
-	if (!mt->buffer) {
+	mt->base.bo = nouveau_screen_bo_new(pscreen, 256, buf_usage, mt->total_size);
+	if (!mt->base.bo) {
 		FREE(mt);
 		return NULL;
 	}
-	mt->bo = nouveau_bo(mt->buffer);
-	return &mt->base;
+	return &mt->base.base;
 }
 
-static struct pipe_texture *
-nvfx_miptree_blanket(struct pipe_screen *pscreen, const struct pipe_texture *pt,
-		     const unsigned *stride, struct pipe_buffer *pb)
+
+
+
+struct pipe_resource *
+nvfx_miptree_from_handle(struct pipe_screen *pscreen,
+			 const struct pipe_resource *template,
+			 struct winsys_handle *whandle)
 {
 	struct nvfx_miptree *mt;
+	unsigned stride;
 
 	/* Only supports 2D, non-mipmapped textures for the moment */
-	if (pt->target != PIPE_TEXTURE_2D || pt->last_level != 0 ||
-	    pt->depth0 != 1)
+	if (template->target != PIPE_TEXTURE_2D ||
+	    template->last_level != 0 ||
+	    template->depth0 != 1)
 		return NULL;
 
 	mt = CALLOC_STRUCT(nvfx_miptree);
 	if (!mt)
 		return NULL;
 
-	mt->base = *pt;
-	pipe_reference_init(&mt->base.reference, 1);
-	mt->base.screen = pscreen;
-	mt->level[0].pitch = stride[0];
+	mt->base.bo = nouveau_screen_bo_from_handle(pscreen, whandle, &stride);
+	if (mt->base.bo == NULL) {
+		FREE(mt);
+		return NULL;
+	}
+
+	mt->base.base = *template;
+	pipe_reference_init(&mt->base.base.reference, 1);
+	mt->base.base.screen = pscreen;
+	mt->level[0].pitch = stride;
 	mt->level[0].image_offset = CALLOC(1, sizeof(unsigned));
 
 	/* Assume whoever created this buffer expects it to be linear for now */
-	mt->base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
+	mt->base.base.tex_usage |= NOUVEAU_TEXTURE_USAGE_LINEAR;
 
-	pipe_buffer_reference(&mt->buffer, pb);
-	mt->bo = nouveau_bo(mt->buffer);
-	return &mt->base;
+	/* XXX: Need to adjust bo refcount??
+	 */
+	/* nouveau_bo_ref(bo, &mt->base.bo); */
+	return &mt->base.base;
 }
 
-static void
-nvfx_miptree_destroy(struct pipe_texture *pt)
-{
-	struct nvfx_miptree *mt = (struct nvfx_miptree *)pt;
-	int l;
 
-	pipe_buffer_reference(&mt->buffer, NULL);
-	for (l = 0; l <= pt->last_level; l++) {
-		if (mt->level[l].image_offset)
-			FREE(mt->level[l].image_offset);
-	}
 
-	FREE(mt);
-}
 
-static struct pipe_surface *
-nvfx_miptree_surface_new(struct pipe_screen *pscreen, struct pipe_texture *pt,
+
+/* Surface helpers, not strictly required to implement the resource vtbl:
+ */
+struct pipe_surface *
+nvfx_miptree_surface_new(struct pipe_screen *pscreen, struct pipe_resource *pt,
 			 unsigned face, unsigned level, unsigned zslice,
 			 unsigned flags)
 {
@@ -190,7 +253,7 @@ nvfx_miptree_surface_new(struct pipe_screen *pscreen, struct pipe_texture *pt,
 	ns = CALLOC_STRUCT(nv04_surface);
 	if (!ns)
 		return NULL;
-	pipe_texture_reference(&ns->base.texture, pt);
+	pipe_resource_reference(&ns->base.texture, pt);
 	ns->base.format = pt->format;
 	ns->base.width = u_minify(pt->width0, level);
 	ns->base.height = u_minify(pt->height0, level);
@@ -219,7 +282,7 @@ nvfx_miptree_surface_new(struct pipe_screen *pscreen, struct pipe_texture *pt,
 	return &ns->base;
 }
 
-static void
+void
 nvfx_miptree_surface_del(struct pipe_surface *ps)
 {
 	struct nv04_surface* ns = (struct nv04_surface*)ps;
@@ -231,17 +294,6 @@ nvfx_miptree_surface_del(struct pipe_surface *ps)
 		nvfx_miptree_surface_del(&ns->backing->base);
 	}
 
-	pipe_texture_reference(&ps->texture, NULL);
+	pipe_resource_reference(&ps->texture, NULL);
 	FREE(ps);
-}
-
-void
-nvfx_screen_init_miptree_functions(struct pipe_screen *pscreen)
-{
-	pscreen->texture_create = nvfx_miptree_create;
-	pscreen->texture_destroy = nvfx_miptree_destroy;
-	pscreen->get_tex_surface = nvfx_miptree_surface_new;
-	pscreen->tex_surface_destroy = nvfx_miptree_surface_del;
-
-	nouveau_screen(pscreen)->texture_blanket = nvfx_miptree_blanket;
 }

@@ -5,6 +5,7 @@
 
 #include "nvfx_context.h"
 #include "nvfx_screen.h"
+#include "nvfx_resource.h"
 
 #define NV30TCL_CHIPSET_3X_MASK 0x00000003
 #define NV34TCL_CHIPSET_3X_MASK 0x00000010
@@ -16,7 +17,7 @@
 * with same number of bits everywhere.
 */
 struct nouveau_winsys {
-	struct pipe_winsys base;
+	//struct pipe_winsys base;
 
 	struct pipe_screen *pscreen;
 
@@ -174,13 +175,6 @@ nvfx_screen_surface_format_supported(struct pipe_screen *pscreen,
 	return FALSE;
 }
 
-static struct pipe_buffer *
-nvfx_surface_buffer(struct pipe_surface *surf)
-{
-	struct nvfx_miptree *mt = (struct nvfx_miptree *)surf->texture;
-
-	return mt->buffer;
-}
 
 static void
 nvfx_screen_destroy(struct pipe_screen *pscreen)
@@ -352,7 +346,7 @@ nvfx_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 		return NULL;
 	}
 
-	nvfx_screen_init_miptree_functions(pscreen);
+	nvfx_screen_init_resource_functions(pscreen);
 
 	ret = nouveau_grobj_alloc(chan, 0xbeef3097, eng3d_class, &screen->eng3d);
 	if (ret) {

@@ -16,7 +16,7 @@ struct nv04_surface_2d {
 	struct nouveau_grobj *blit;
 	struct nouveau_grobj *sifm;
 
-	struct pipe_buffer *(*buf)(struct pipe_surface *);
+	struct nouveau_bo *(*buf)(struct pipe_surface *);
 
 	void (*copy)(struct nv04_surface_2d *, struct pipe_surface *dst,
 		     int dx, int dy, struct pipe_surface *src, int sx, int sy,
