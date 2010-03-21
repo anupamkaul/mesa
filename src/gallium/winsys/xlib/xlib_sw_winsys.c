@@ -49,7 +49,7 @@
 #include <X11/extensions/XShm.h>
 
 /**
- * Subclass of pipe_buffer for Xlib winsys.
+ * Display target for Xlib winsys.
  * Low-level OS/window system memory buffer
  */
 struct xm_displaytarget
