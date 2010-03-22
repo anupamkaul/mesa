@@ -360,7 +360,7 @@ static struct pipe_transfer *
 cell_get_transfer(struct pipe_context *ctx,
 		  struct pipe_resource *resource,
 		  struct pipe_subresource sr,
-		  enum pipe_transfer_usage usage,
+		  unsigned usage,
 		  const struct pipe_box *box)
 {
    struct cell_resource *ct = cell_resource(resource);

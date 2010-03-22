@@ -126,7 +126,7 @@ struct pipe_transfer *
 nv50_miptree_transfer_new(struct pipe_context *pcontext,
 			  struct pipe_resource *pt,
 			  struct pipe_subresource sr,
-			  enum pipe_transfer_usage usage,
+			  unsigned usage,
 			  const struct pipe_box *box)
 {
         struct pipe_screen *pscreen = pcontext->screen;

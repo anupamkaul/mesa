@@ -364,7 +364,7 @@ static struct pipe_transfer *
 llvmpipe_get_transfer(struct pipe_context *pipe,
 		      struct pipe_resource *resource,
 		      struct pipe_subresource sr,
-		      enum pipe_transfer_usage usage,
+		      unsigned usage,
 		      const struct pipe_box *box)
 {
    struct llvmpipe_resource *lptex = llvmpipe_resource(resource);
