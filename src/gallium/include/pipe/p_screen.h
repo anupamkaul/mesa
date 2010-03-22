@@ -107,7 +107,7 @@ struct pipe_screen {
     * Create a new texture object, using the given template info.
     */
    struct pipe_resource * (*resource_create)(struct pipe_screen *,
-					     const struct pipe_resource *template);
+					     const struct pipe_resource *templat);
 
    /**
     * Create a texture from a winsys_handle. The handle is often created in
@@ -115,7 +115,7 @@ struct pipe_screen {
     * texture_get_handle.
     */
    struct pipe_resource * (*resource_from_handle)(struct pipe_screen *,
-						  const struct pipe_resource *template,
+						  const struct pipe_resource *templat,
 						  struct winsys_handle *handle);
 
    /**
