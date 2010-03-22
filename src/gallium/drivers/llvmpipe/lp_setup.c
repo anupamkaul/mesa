@@ -498,8 +498,8 @@ lp_setup_set_fragment_sampler_views(struct lp_setup_context *setup,
                   (ubyte *) lp_tex->data + lp_tex->level_offset[j];
 #else
                jit_tex->data[j] =
-                  llvmpipe_get_linear_texture_image(lp_tex, 0, j,
-                                                    LP_TEXTURE_READ);
+                  llvmpipe_get_texture_image(lp_tex, 0, j, LP_TEXTURE_READ,
+                                             LP_TEXTURE_LINEAR);
 #endif
                jit_tex->row_stride[j] = lp_tex->stride[j];
             }

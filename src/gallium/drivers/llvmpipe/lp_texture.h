@@ -76,9 +76,6 @@ struct llvmpipe_texture
 {
    struct pipe_texture base;
 
-#if 0
-   unsigned long level_offset[LP_MAX_TEXTURE_2D_LEVELS];
-#endif
    unsigned stride[LP_MAX_TEXTURE_2D_LEVELS];
 
    /**
@@ -91,12 +88,8 @@ struct llvmpipe_texture
    /**
     * Malloc'ed data for regular textures, or a mapping to dt above.
     */
-#if 0
-   void *data;
-#else
    struct llvmpipe_texture_image tiled[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_2D_LEVELS];
    struct llvmpipe_texture_image linear[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_2D_LEVELS];
-#endif
 
    unsigned timestamp;
 };
@@ -156,15 +149,9 @@ llvmpipe_texture_unmap(struct pipe_texture *texture,
                        unsigned zslice);
 
 void *
-llvmpipe_get_linear_texture_image(struct llvmpipe_texture *texture,
-                                  unsigned face, unsigned level,
-                                  unsigned usage);
-
-
-void *
-llvmpipe_get_tiled_texture_image(struct llvmpipe_texture *texture,
-                                 unsigned face, unsigned level,
-                                 unsigned usage);
+llvmpipe_get_texture_image(struct llvmpipe_texture *texture,
+                           unsigned face, unsigned level,
+                           unsigned usage, unsigned layout);
 
 
 extern void

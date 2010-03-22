@@ -30,8 +30,6 @@
   *   Michel Dänzer <michel@tungstengraphics.com>
   */
 
-#include <stdio.h>
-
 #include "pipe/p_context.h"
 #include "pipe/p_defines.h"
 
@@ -220,8 +218,9 @@ llvmpipe_texture_map(struct pipe_texture *texture,
       /* convert from linear to tiled layout? */
       if (1111)
       {
-         void *tiled = llvmpipe_get_tiled_texture_image(lpt, 0, 0,
-                                                   LP_TEXTURE_READ_WRITE);
+         void *tiled = llvmpipe_get_texture_image(lpt, 0, 0,
+                                                  LP_TEXTURE_READ_WRITE,
+                                                  LP_TEXTURE_TILED);
          lp_linear_to_tiled(map, tiled,
                             lpt->base.width0, lpt->base.height0,
                             lpt->base.format,
@@ -257,10 +256,8 @@ llvmpipe_texture_map(struct pipe_texture *texture,
          offset = 0;
       }
 
-      if (layout == LP_TEXTURE_LINEAR)
-         map = llvmpipe_get_linear_texture_image(lpt, face, level, usage);
-      else
-         map = llvmpipe_get_tiled_texture_image(lpt, face, level, usage);
+      map = llvmpipe_get_texture_image(lpt, face, level, usage, layout);
+
       map += offset;
    }
 
@@ -291,8 +288,9 @@ llvmpipe_texture_unmap(struct pipe_texture *texture,
       /* convert from tiled to linear layout */
       if (1111)
       {
-         void *tiled = llvmpipe_get_tiled_texture_image(lpt, 0, 0,
-                                                   LP_TEXTURE_READ);
+         void *tiled = llvmpipe_get_texture_image(lpt, 0, 0,
+                                                  LP_TEXTURE_READ,
+                                                  LP_TEXTURE_TILED);
          lp_tiled_to_linear(tiled, lpt->dt_map,
                             lpt->base.width0, lpt->base.height0,
                             lpt->base.format,
@@ -535,30 +533,49 @@ tex_image_size(const struct llvmpipe_texture *lpt, unsigned level)
 
 
 /**
- * Comon/helper code used by llvmpipe_get_linear_texture_image() and
- * llvmpipe_get_tiled_texture_image().  Basically, return a pointer
- * to either linear or tiled texture data.  Allocate memory when needed
- * and convert from the other image format when its data is newer
+ * Return pointer to texture image data (either linear or tiled layout).
  * \param usage  one of LP_TEXTURE_READ/WRITE/READ_WRITE
+ * \param layout  either LP_TEXTURE_LINEAR or LP_TEXTURE_TILED
  */
-static void *
-get_texture_image_data(struct llvmpipe_texture *lpt,
-                       unsigned level,
-                       struct llvmpipe_texture_image *target_img,
-                       struct llvmpipe_texture_image *other_img,
-                       boolean getting_linear,
-                       unsigned usage)
+void *
+llvmpipe_get_texture_image(struct llvmpipe_texture *lpt,
+                           unsigned face, unsigned level,
+                           unsigned usage, unsigned layout)
 {
-   void *target_data = target_img->data;
-   void *other_data = other_img->data;
+   /*
+    * 'target' refers to the image which we're retrieving (either in
+    * tiled or linear layout).
+    * 'other' refers to the same image but in the other layout. (it may
+    *  or may not exist.
+    */
+   struct llvmpipe_texture_image *target_img;
+   struct llvmpipe_texture_image *other_img;
+   void *target_data;
+   void *other_data;
+
+   /* which is target?  which is other? */
+   if (layout == LP_TEXTURE_LINEAR) {
+      target_img = &lpt->linear[face][level];
+      other_img = &lpt->tiled[face][level];
+   }
+   else {
+      assert(layout == LP_TEXTURE_TILED);
+      target_img = &lpt->tiled[face][level];
+      other_img = &lpt->linear[face][level];
+   }
+
+   target_data = target_img->data;
+   other_data = other_img->data;
 
    if (!target_data) {
-      /* allocate memory for the target image */
+      /* allocate memory for the target image now */
       unsigned buffer_size = tex_image_size(lpt, level);
       target_img->data = align_malloc(buffer_size, 16);
+      target_img->timestamp = 0;
       target_data = target_img->data;
    }
 
+   /* check if the other image is newer than target image */
    if (other_data &&
        other_img->timestamp > target_img->timestamp &&
        usage != LP_TEXTURE_WRITE) {
@@ -568,7 +585,7 @@ get_texture_image_data(struct llvmpipe_texture *lpt,
       const unsigned width = u_minify(lpt->base.width0, level);
       const unsigned height = u_minify(lpt->base.height0, level);
 
-      if (getting_linear) 
+      if (layout == LP_TEXTURE_LINEAR)
          lp_tiled_to_linear(other_data, target_data,
                             width, height, lpt->base.format,
                             tiled_stride(width, height),
@@ -590,41 +607,12 @@ get_texture_image_data(struct llvmpipe_texture *lpt,
       target_img->timestamp = other_img->timestamp + 1;
    }
 
+   /* XXX if the 'other' image isn't used for a "long time", free it.
+    */
+
    assert(target_data);
 
    return target_data;
-}
-
-
-/**
- * Return pointer to texture image data in linear layout.
- * \param usage  one of LP_TEXTURE_READ/WRITE/READ_WRITE
- */
-void *
-llvmpipe_get_linear_texture_image(struct llvmpipe_texture *lpt,
-                                  unsigned face, unsigned level,
-                                  unsigned usage)
-{
-   struct llvmpipe_texture_image *linear_img = &lpt->linear[face][level];
-   struct llvmpipe_texture_image *tiled_img = &lpt->tiled[face][level];
-   return get_texture_image_data(lpt, level, linear_img, tiled_img,
-                                 TRUE, usage);
-}
-
-
-/**
- * Return pointer to texture image data in tiled layout.
- * \param usage  one of LP_TEXTURE_READ/WRITE/READ_WRITE
- */
-void *
-llvmpipe_get_tiled_texture_image(struct llvmpipe_texture *lpt,
-                                 unsigned face, unsigned level,
-                                 unsigned usage)
-{
-   struct llvmpipe_texture_image *tiled_img = &lpt->tiled[face][level];
-   struct llvmpipe_texture_image *linear_img = &lpt->linear[face][level];
-   return get_texture_image_data(lpt, level, tiled_img, linear_img,
-                                 FALSE, usage);
 }
 
 
