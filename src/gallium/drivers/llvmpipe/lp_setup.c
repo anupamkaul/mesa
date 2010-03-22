@@ -161,10 +161,6 @@ begin_binning( struct lp_setup_context *setup )
          lp_scene_bin_everywhere( scene, 
 				  lp_rast_clear_color, 
 				  setup->clear.color );
-      else
-         lp_scene_bin_everywhere( scene,
-				  lp_rast_load_color,
-				  lp_rast_arg_null() );
    }
 
    if (setup->fb.zsbuf) {

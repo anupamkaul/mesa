@@ -232,40 +232,6 @@ lp_rast_clear_zstencil(struct lp_rasterizer_task *task,
 }
 
 
-/**
- * Load tile color from the framebuffer surface.
- * This is a bin command called during bin processing.
- */
-void
-lp_rast_load_color(struct lp_rasterizer_task *task,
-                   const union lp_rast_cmd_arg arg)
-{
-#if 00
-   struct lp_rasterizer *rast = task->rast;
-   const unsigned x = task->x, y = task->y;
-   unsigned i;
-
-   LP_DBG(DEBUG_RAST, "%s at %u, %u\n", __FUNCTION__, x, y);
-
-   for (i = 0; i < rast->state.nr_cbufs; i++) {
-      if (x >= rast->cbuf[i].width || y >= rast->cbuf[i].height)
-	 continue;
-
-#if 00
-      lp_tile_read_4ub(rast->cbuf[i].format,
-		       task->tile.color[i],
-		       rast->cbuf[i].map, 
-		       rast->cbuf[i].stride,
-		       x, y,
-		       TILE_SIZE, TILE_SIZE);
-#endif
-
-      LP_COUNT(nr_color_tile_load);
-   }
-#endif
-}
-
-
 void
 lp_rast_set_state(struct lp_rasterizer_task *task,
                   const union lp_rast_cmd_arg arg)
@@ -569,7 +535,6 @@ static struct {
    const char *name;
 } cmd_names[] = 
 {
-   RAST(load_color),
    RAST(clear_color),
    RAST(clear_zstencil),
    RAST(triangle),
@@ -627,8 +592,7 @@ is_empty_bin( const struct cmd_bin *bin )
    }
 
    for (i = 0; i < head->count; i++)
-      if (head->cmd[i] != lp_rast_load_color &&
-          head->cmd[i] != lp_rast_set_state) {
+      if (head->cmd[i] != lp_rast_set_state) {
          return FALSE;
       }
 
