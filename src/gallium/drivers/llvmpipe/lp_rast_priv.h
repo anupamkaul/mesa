@@ -87,7 +87,6 @@ struct lp_rasterizer
 
    struct {
       unsigned nr_cbufs;
-      boolean write_color;
       boolean write_zstencil;
       unsigned clear_color;
       unsigned clear_depth;

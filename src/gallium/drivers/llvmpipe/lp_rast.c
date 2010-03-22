@@ -49,7 +49,6 @@ lp_rast_begin( struct lp_rasterizer *rast,
                struct lp_scene *scene )
 {
    const struct pipe_framebuffer_state *fb = &scene->fb;
-   boolean write_color = fb->nr_cbufs != 0;
    boolean write_zstencil = fb->zsbuf != NULL;
    int i;
 
@@ -59,7 +58,6 @@ lp_rast_begin( struct lp_rasterizer *rast,
 
    rast->state.nr_cbufs = scene->fb.nr_cbufs;
    rast->state.write_zstencil = write_zstencil;
-   rast->state.write_color = write_color;
    
    for (i = 0; i < rast->state.nr_cbufs; i++) {
       struct pipe_surface *cbuf = scene->fb.cbufs[i];
@@ -416,44 +414,15 @@ outline_subtiles(uint8_t *tile)
 
 
 /**
- * Write the rasterizer's color tile to the framebuffer.
+ * Called when we're done writing to a color tile.
+ * This is just a debug hook.
  */
 static void
-lp_rast_store_color(struct lp_rasterizer_task *task)
+lp_rast_finish_color_tile(struct lp_rasterizer_task *task)
 {
    struct lp_rasterizer *rast = task->rast;
    unsigned i;
 
-#if 00
-   const unsigned x = task->x, y = task->y;
-   for (i = 0; i < rast->state.nr_cbufs; i++) {
-      if (x >= rast->cbuf[i].width)
-	 continue;
-
-      if (y >= rast->cbuf[i].height)
-	 continue;
-
-      LP_DBG(DEBUG_RAST, "%s [%u] %d,%d\n", __FUNCTION__,
-	     task->thread_index, x, y);
-
-      if (LP_DEBUG & DEBUG_SHOW_SUBTILES)
-         outline_subtiles(task->tile.color[i]);
-      else if (LP_DEBUG & DEBUG_SHOW_TILES)
-         outline_tile(task->tile.color[i]);
-
-#if 00
-      lp_tile_write_4ub(rast->cbuf[i].format,
-			task->tile.color[i],
-			rast->cbuf[i].map, 
-			rast->cbuf[i].stride,
-			x, y,
-			TILE_SIZE, TILE_SIZE);
-#endif
-
-      LP_COUNT(nr_color_tile_store);
-   }
-
-#else
    for (i = 0; i < rast->state.nr_cbufs; i++) {
       uint8_t *color = lp_rast_color_pointer(rast, i, task->x, task->y);
 
@@ -462,7 +431,6 @@ lp_rast_store_color(struct lp_rasterizer_task *task)
       else if (LP_DEBUG & DEBUG_SHOW_TILES)
          outline_tile(color);
    }
-#endif
 }
 
 
@@ -517,10 +485,9 @@ rasterize_bin(struct lp_rasterizer_task *task,
       }
    }
 
-   /* Write the rasterizer's tiles to the framebuffer.
+   /* Done writing colors to this tile.
     */
-   if (task->rast->state.write_color)
-      lp_rast_store_color(task);
+   lp_rast_finish_color_tile(task);
 
    /* Free data for this bin.
     */
