@@ -310,6 +310,7 @@ struct pipe_resource *r300_buffer_create(struct pipe_screen *screen,
 {
     struct r300_screen *r300screen = r300_screen(screen);
     struct r300_buffer *rbuf;
+    unsigned alignment = 16;
 
     rbuf = CALLOC_STRUCT(r300_buffer);
     if (!rbuf)
@@ -322,9 +323,12 @@ struct pipe_resource *r300_buffer_create(struct pipe_screen *screen,
     pipe_reference_init(&rbuf->b.b.reference, 1);
     rbuf->b.b.screen = screen;
 
+    if (bind & R300_BIND_OQBO)
+       alignment = 4096;
+
     rbuf->buf = r300_winsys_buffer_create(r300screen,
-					  16,
-					  rbuf->b.b.bind, /* XXX */
+					  alignment,
+					  rbuf->b.b.bind,
 					  rbuf->b.b.width0);
 
     if (!rbuf->buf)
