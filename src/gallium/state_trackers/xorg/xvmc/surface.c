@@ -86,8 +86,8 @@ static bool
 CreateOrResizeBackBuffer(struct pipe_video_context *vpipe, unsigned int width, unsigned int height,
                          struct pipe_surface **backbuffer)
 {
-   struct pipe_texture template;
-   struct pipe_texture *tex;
+   struct pipe_resource template;
+   struct pipe_resource *tex;
 
    assert(vpipe);
 
@@ -108,14 +108,14 @@ CreateOrResizeBackBuffer(struct pipe_video_context *vpipe, unsigned int width, u
    template.depth0 = 1;
    template.tex_usage = PIPE_TEXTURE_USAGE_SHARED;
 
-   tex = vpipe->screen->texture_create(vpipe->screen, &template);
+   tex = vpipe->screen->resource_create(vpipe->screen, &template);
    if (!tex)
       return false;
 
    *backbuffer = vpipe->screen->get_tex_surface(vpipe->screen, tex, 0, 0, 0,
                                                 PIPE_BUFFER_USAGE_GPU_READ |
                                                 PIPE_BUFFER_USAGE_GPU_WRITE);
-   pipe_texture_reference(&tex, NULL);
+   pipe_resource_reference(&tex, NULL);
 
    if (!*backbuffer)
       return false;

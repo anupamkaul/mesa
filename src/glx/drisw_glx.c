@@ -85,11 +85,14 @@ XCreateDrawable(__GLXDRIdrawablePrivate * pdp,
    visMask = (VisualScreenMask | VisualIDMask);
    pdp->visinfo = XGetVisualInfo(dpy, visMask, &visTemp, &num_visuals);
 
-   pdp->ximage = XCreateImage(dpy, pdp->visinfo->visual, pdp->visinfo->depth, ZPixmap, 0,       /* format, offset */
-                              NULL,     /* data */
-                              0, 0,     /* size */
-                              32,       /* bitmap_pad */
-                              0);       /* bytes_per_line */
+   pdp->ximage = XCreateImage(dpy,
+                              pdp->visinfo->visual,
+                              pdp->visinfo->depth,
+                              ZPixmap, 0,             /* format, offset */
+                              NULL,                   /* data */
+                              0, 0,                   /* size */
+                              32,                     /* bitmap_pad */
+                              0);                     /* bytes_per_line */
 
    /* get the true number of bits per pixel */
    pdp->bpp = pdp->ximage->bits_per_pixel;
@@ -334,10 +337,17 @@ driCreateDrawable(__GLXscreenConfigs * psc,
    return pdraw;
 }
 
-static void
-driSwapBuffers(__GLXDRIdrawable * pdraw)
+static int64_t
+driSwapBuffers(__GLXDRIdrawable * pdraw,
+               int64_t target_msc, int64_t divisor, int64_t remainder)
 {
+   (void) target_msc;
+   (void) divisor;
+   (void) remainder;
+
    (*pdraw->psc->core->swapBuffers) (pdraw->driDrawable);
+
+   return 0;
 }
 
 static void

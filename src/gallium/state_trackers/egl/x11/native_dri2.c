@@ -72,7 +72,7 @@ struct dri2_surface {
    unsigned int server_stamp;
    unsigned int client_stamp;
    int width, height;
-   struct pipe_texture *textures[NUM_NATIVE_ATTACHMENTS];
+   struct pipe_resource *textures[NUM_NATIVE_ATTACHMENTS];
    uint valid_mask;
 
    boolean have_back, have_fake;
@@ -113,14 +113,14 @@ dri2_surface_process_drawable_buffers(struct native_surface *nsurf,
 {
    struct dri2_surface *dri2surf = dri2_surface(nsurf);
    struct dri2_display *dri2dpy = dri2surf->dri2dpy;
-   struct pipe_texture templ;
+   struct pipe_resource templ;
    struct winsys_handle whandle;
    uint valid_mask;
    int i;
 
    /* free the old textures */
    for (i = 0; i < NUM_NATIVE_ATTACHMENTS; i++)
-      pipe_texture_reference(&dri2surf->textures[i], NULL);
+      pipe_resource_reference(&dri2surf->textures[i], NULL);
    dri2surf->valid_mask = 0x0;
 
    dri2surf->have_back = FALSE;
@@ -175,7 +175,7 @@ dri2_surface_process_drawable_buffers(struct native_surface *nsurf,
       memset(&whandle, 0, sizeof(whandle));
       whandle.stride = xbuf->pitch;
       whandle.handle = xbuf->name;
-      dri2surf->textures[natt] = dri2dpy->base.screen->texture_from_handle(
+      dri2surf->textures[natt] = dri2dpy->base.screen->resource_from_handle(
          dri2dpy->base.screen, &templ, &whandle);
       if (dri2surf->textures[natt])
          valid_mask |= 1 << natt;
@@ -262,7 +262,7 @@ dri2_surface_update_buffers(struct native_surface *nsurf, uint buffer_mask)
    /* create textures for pbuffer */
    if (dri2surf->type == DRI2_SURFACE_TYPE_PBUFFER) {
       struct pipe_screen *screen = dri2dpy->base.screen;
-      struct pipe_texture templ;
+      struct pipe_resource templ;
       uint new_valid = 0x0;
       int att;
 
@@ -283,7 +283,7 @@ dri2_surface_update_buffers(struct native_surface *nsurf, uint buffer_mask)
          if (native_attachment_mask_test(buffer_mask, att)) {
             assert(!dri2surf->textures[att]);
 
-            dri2surf->textures[att] = screen->texture_create(screen, &templ);
+            dri2surf->textures[att] = screen->resource_create(screen, &templ);
             if (!dri2surf->textures[att])
                break;
 
@@ -372,7 +372,7 @@ dri2_surface_swap_buffers(struct native_surface *nsurf)
 
 static boolean
 dri2_surface_validate(struct native_surface *nsurf, uint attachment_mask,
-                      unsigned int *seq_num, struct pipe_texture **textures,
+                      unsigned int *seq_num, struct pipe_resource **textures,
                       int *width, int *height)
 {
    struct dri2_surface *dri2surf = dri2_surface(nsurf);
@@ -390,10 +390,10 @@ dri2_surface_validate(struct native_surface *nsurf, uint attachment_mask,
       int att;
       for (att = 0; att < NUM_NATIVE_ATTACHMENTS; att++) {
          if (native_attachment_mask_test(attachment_mask, att)) {
-            struct pipe_texture *ptex = dri2surf->textures[att];
+            struct pipe_resource *ptex = dri2surf->textures[att];
 
             textures[att] = NULL;
-            pipe_texture_reference(&textures[att], ptex);
+            pipe_resource_reference(&textures[att], ptex);
          }
       }
    }
@@ -429,8 +429,8 @@ dri2_surface_destroy(struct native_surface *nsurf)
       free(dri2surf->last_xbufs);
 
    for (i = 0; i < NUM_NATIVE_ATTACHMENTS; i++) {
-      struct pipe_texture *ptex = dri2surf->textures[i];
-      pipe_texture_reference(&ptex, NULL);
+      struct pipe_resource *ptex = dri2surf->textures[i];
+      pipe_resource_reference(&ptex, NULL);
    }
 
    if (dri2surf->drawable) {

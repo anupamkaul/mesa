@@ -34,11 +34,11 @@
 #include "r300_context.h"
 #include "r300_reg.h"
 #include "r300_screen.h"
+#include "r300_screen_buffer.h"
 #include "r300_state_inlines.h"
 #include "r300_fs.h"
 #include "r300_vs.h"
-
-#include "radeon_winsys.h"
+#include "r300_winsys.h"
 
 /* r300_state: Functions used to intialize state context by translating
  * Gallium state objects into semi-native r300 state objects. */
@@ -525,10 +525,10 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
         tex = (struct r300_texture*)old_state->cbufs[i]->texture;
 
         if (tex) {
-            r300->winsys->buffer_set_tiling(r300->winsys, tex->buffer,
+            r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                             tex->pitch[0],
-                                            tex->microtile != 0,
-                                            tex->macrotile != 0);
+                                            tex->microtile,
+                                            tex->macrotile);
         }
     }
     if (old_state->zsbuf &&
@@ -537,10 +537,10 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
         tex = (struct r300_texture*)old_state->zsbuf->texture;
 
         if (tex) {
-            r300->winsys->buffer_set_tiling(r300->winsys, tex->buffer,
+            r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                             tex->pitch[0],
-                                            tex->microtile != 0,
-                                            tex->macrotile != 0);
+                                            tex->microtile,
+                                            tex->macrotile);
         }
     }
 
@@ -549,19 +549,19 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
         tex = (struct r300_texture*)new_state->cbufs[i]->texture;
         level = new_state->cbufs[i]->level;
 
-        r300->winsys->buffer_set_tiling(r300->winsys, tex->buffer,
+        r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                         tex->pitch[level],
-                                        tex->microtile != 0,
-                                        tex->mip_macrotile[level] != 0);
+                                        tex->microtile,
+                                        tex->mip_macrotile[level]);
     }
     if (new_state->zsbuf) {
         tex = (struct r300_texture*)new_state->zsbuf->texture;
         level = new_state->zsbuf->level;
 
-        r300->winsys->buffer_set_tiling(r300->winsys, tex->buffer,
+        r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                         tex->pitch[level],
-                                        tex->microtile != 0,
-                                        tex->mip_macrotile[level] != 0);
+                                        tex->microtile,
+                                        tex->mip_macrotile[level]);
     }
 }
 
@@ -714,6 +714,7 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
 {
     struct r300_screen* r300screen = r300_screen(pipe->screen);
     struct r300_rs_state* rs = CALLOC_STRUCT(r300_rs_state);
+    unsigned coord_index;
 
     /* Copy rasterizer state for Draw. */
     rs->rs = *state;
@@ -806,6 +807,32 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
         rs->color_control = R300_SHADE_MODEL_SMOOTH;
     }
 
+    /* Point sprites */
+    if (state->sprite_coord_enable) {
+        coord_index = ffs(state->sprite_coord_enable)-1;
+
+        SCREEN_DBG(r300screen, DBG_DRAW,
+                   "r300: point sprite: shader coord=%d\n", coord_index);
+
+        rs->stuffing_enable =
+            R300_GB_POINT_STUFF_ENABLE |
+            R300_GB_TEX_ST << (R300_GB_TEX0_SOURCE_SHIFT + (coord_index*2));
+
+        rs->point_texcoord_left = 0.0f;
+        rs->point_texcoord_right = 1.0f;
+
+        switch (state->sprite_coord_mode) {
+            case PIPE_SPRITE_COORD_UPPER_LEFT:
+                rs->point_texcoord_top = 0.0f;
+                rs->point_texcoord_bottom = 1.0f;
+                break;
+            case PIPE_SPRITE_COORD_LOWER_LEFT:
+                rs->point_texcoord_top = 1.0f;
+                rs->point_texcoord_bottom = 0.0f;
+                break;
+        }
+    }
+
     return (void*)rs;
 }
 
@@ -815,6 +842,7 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     struct r300_context* r300 = r300_context(pipe);
     struct r300_rs_state* rs = (struct r300_rs_state*)state;
     boolean scissor_was_enabled = r300->scissor_enabled;
+    int last_sprite_coord_index = r300->sprite_coord_index;
 
     if (r300->draw) {
         draw_flush(r300->draw);
@@ -824,16 +852,21 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     if (rs) {
         r300->polygon_offset_enabled = rs->rs.offset_cw || rs->rs.offset_ccw;
         r300->scissor_enabled = rs->rs.scissor;
+        r300->sprite_coord_index = ffs(rs->rs.sprite_coord_enable)-1;
     } else {
         r300->polygon_offset_enabled = FALSE;
         r300->scissor_enabled = FALSE;
+        r300->sprite_coord_index = -1;
     }
 
     UPDATE_STATE(state, r300->rs_state);
-    r300->rs_state.size = 17 + (r300->polygon_offset_enabled ? 5 : 0);
+    r300->rs_state.size = 24 + (r300->polygon_offset_enabled ? 5 : 0);
 
     if (scissor_was_enabled != r300->scissor_enabled) {
         r300->scissor_state.dirty = TRUE;
+    }
+    if (last_sprite_coord_index != r300->sprite_coord_index) {
+        r300->rs_block_state.dirty = TRUE;
     }
 }
 
@@ -937,6 +970,9 @@ static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
                                             struct pipe_sampler_view** views)
 {
     struct r300_context* r300 = r300_context(pipe);
+    struct r300_textures_state* state =
+        (struct r300_textures_state*)r300->textures_state.state;
+    struct r300_texture *texture;
     unsigned i;
     boolean is_r500 = r300_screen(r300->context.screen)->caps->is_r500;
     boolean dirty_tex = FALSE;
@@ -947,16 +983,19 @@ static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
     }
 
     for (i = 0; i < count; i++) {
-        if (r300->fragment_sampler_views[i] != views[i]) {
-            struct r300_texture *texture;
+        if (state->fragment_sampler_views[i] != views[i]) {
+            pipe_sampler_view_reference(&state->fragment_sampler_views[i],
+                                        views[i]);
 
-            pipe_sampler_view_reference(&r300->fragment_sampler_views[i],
-                views[i]);
+            if (!views[i]) {
+                continue;
+            }
+
+            /* A new sampler view (= texture)... */
             dirty_tex = TRUE;
 
+            /* R300-specific - set the texrect factor in the fragment shader */
             texture = (struct r300_texture *)views[i]->texture;
-
-            /* R300-specific - set the texrect factor in a fragment shader */
             if (!is_r500 && texture->is_npot) {
                 /* XXX It would be nice to re-emit just 1 constant,
                  * XXX not all of them */
@@ -966,13 +1005,13 @@ static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
     }
 
     for (i = count; i < 8; i++) {
-        if (r300->fragment_sampler_views[i]) {
-            pipe_sampler_view_reference(&r300->fragment_sampler_views[i],
-                NULL);
+        if (state->fragment_sampler_views[i]) {
+            pipe_sampler_view_reference(&state->fragment_sampler_views[i],
+                                        NULL);
         }
     }
 
-    r300->fragment_sampler_view_count = count;
+    state->texture_count = count;
 
     r300->textures_state.dirty = TRUE;
 
@@ -983,29 +1022,27 @@ static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
 
 static struct pipe_sampler_view *
 r300_create_sampler_view(struct pipe_context *pipe,
-                         struct pipe_texture *texture,
+                         struct pipe_resource *texture,
                          const struct pipe_sampler_view *templ)
 {
-   struct r300_context *r300 = r300_context(pipe);
    struct pipe_sampler_view *view = CALLOC_STRUCT(pipe_sampler_view);
 
    if (view) {
       *view = *templ;
       view->reference.count = 1;
       view->texture = NULL;
-      pipe_texture_reference(&view->texture, texture);
+      pipe_resource_reference(&view->texture, texture);
       view->context = pipe;
    }
 
    return view;
 }
 
-
 static void
 r300_sampler_view_destroy(struct pipe_context *pipe,
                           struct pipe_sampler_view *view)
 {
-   pipe_texture_reference(&view->texture, NULL);
+   pipe_resource_reference(&view->texture, NULL);
    FREE(view);
 }
 
@@ -1070,38 +1107,71 @@ static void r300_set_vertex_buffers(struct pipe_context* pipe,
                                     const struct pipe_vertex_buffer* buffers)
 {
     struct r300_context* r300 = r300_context(pipe);
+    struct pipe_vertex_buffer *vbo;
     unsigned i, max_index = (1 << 24) - 1;
+    boolean any_user_buffer = FALSE;
+
+    if (count == r300->vertex_buffer_count &&
+        memcmp(r300->vertex_buffer, buffers,
+            sizeof(struct pipe_vertex_buffer) * count) == 0) {
+        return;
+    }
+
+    /* Check if the stride is aligned to the size of DWORD. */
+    for (i = 0; i < count; i++) {
+        if (buffers[i].buffer) {
+            if (buffers[i].stride % 4 != 0) {
+                // XXX Shouldn't we align the buffer?
+                fprintf(stderr, "r300_set_vertex_buffers: "
+                        "Unaligned buffer stride %i isn't supported.\n",
+                        buffers[i].stride);
+                assert(0);
+                abort();
+            }
+        }
+    }
+
+    for (i = 0; i < count; i++) {
+        /* Why, yes, I AM casting away constness. How did you know? */
+        vbo = (struct pipe_vertex_buffer*)&buffers[i];
+
+        /* Reference our buffer. */
+        pipe_resource_reference(&r300->vertex_buffer[i].buffer, vbo->buffer);
+
+        /* Skip NULL buffers */
+        if (!buffers[i].buffer) {
+            continue;
+        }
+
+        if (r300_buffer_is_user_buffer(vbo->buffer)) {
+            any_user_buffer = TRUE;
+        }
+
+        if (vbo->max_index == ~0) {
+            /* Bogus value from broken state tracker; hax it. */
+            vbo->max_index =
+                (vbo->buffer->width0 - vbo->buffer_offset) / vbo->stride;
+        }
+
+        max_index = MIN2(vbo->max_index, max_index);
+    }
+
+    for (; i < r300->vertex_buffer_count; i++) {
+        /* Dereference any old buffers. */
+        pipe_resource_reference(&r300->vertex_buffer[i].buffer, NULL);
+    }
 
     memcpy(r300->vertex_buffer, buffers,
         sizeof(struct pipe_vertex_buffer) * count);
 
-    for (i = 0; i < count; i++) {
-        max_index = MIN2(buffers[i].max_index, max_index);
-    }
-
     r300->vertex_buffer_count = count;
     r300->vertex_buffer_max_index = max_index;
+    r300->any_user_vbs = any_user_buffer;
 
     if (r300->draw) {
         draw_flush(r300->draw);
         draw_set_vertex_buffers(r300->draw, count, buffers);
     }
-}
-
-static boolean r300_validate_aos(struct r300_context *r300)
-{
-    struct pipe_vertex_buffer *vbuf = r300->vertex_buffer;
-    struct pipe_vertex_element *velem = r300->velems->velem;
-    int i;
-
-    /* Check if formats and strides are aligned to the size of DWORD. */
-    for (i = 0; i < r300->velems->count; i++) {
-        if (vbuf[velem[i].vertex_buffer_index].stride % 4 != 0 ||
-            util_format_get_blocksize(velem[i].src_format) % 4 != 0) {
-            return FALSE;
-        }
-    }
-    return TRUE;
 }
 
 static void r300_draw_emit_attrib(struct r300_context* r300,
@@ -1273,6 +1343,7 @@ static void* r300_create_vertex_elements_state(struct pipe_context* pipe,
     struct r300_context *r300 = r300_context(pipe);
     struct r300_screen* r300screen = r300_screen(pipe->screen);
     struct r300_vertex_element_state *velems;
+    unsigned i, size;
 
     assert(count <= PIPE_MAX_ATTRIBS);
     velems = CALLOC_STRUCT(r300_vertex_element_state);
@@ -1281,6 +1352,20 @@ static void* r300_create_vertex_elements_state(struct pipe_context* pipe,
         memcpy(velems->velem, attribs, sizeof(struct pipe_vertex_element) * count);
 
         if (r300screen->caps->has_tcl) {
+            /* Check if the format is aligned to the size of DWORD. */
+            for (i = 0; i < count; i++) {
+                size = util_format_get_blocksize(attribs[i].src_format);
+
+                if (size % 4 != 0) {
+                    /* XXX Shouldn't we align the format? */
+                    fprintf(stderr, "r300_create_vertex_elements_state: "
+                            "Unaligned format %s:%i isn't supported\n",
+                            util_format_name(attribs[i].src_format), size);
+                    assert(0);
+                    abort();
+                }
+            }
+
             r300_vertex_psc(velems);
         } else {
             memset(&r300->vertex_info, 0, sizeof(struct vertex_info));
@@ -1307,12 +1392,6 @@ static void r300_bind_vertex_elements_state(struct pipe_context *pipe,
     if (r300->draw) {
         draw_flush(r300->draw);
         draw_set_vertex_elements(r300->draw, velems->count, velems->velem);
-    }
-
-    if (!r300_validate_aos(r300)) {
-        /* XXX We should fallback using draw. */
-        assert(0);
-        abort();
     }
 
     UPDATE_STATE(&velems->vertex_stream, r300->vertex_stream_state);
@@ -1398,21 +1477,22 @@ static void r300_delete_vs_state(struct pipe_context* pipe, void* shader)
 
 static void r300_set_constant_buffer(struct pipe_context *pipe,
                                      uint shader, uint index,
-                                     struct pipe_buffer *buf)
+                                     struct pipe_resource *buf)
 {
     struct r300_context* r300 = r300_context(pipe);
     struct r300_screen *r300screen = r300_screen(pipe->screen);
+    struct pipe_transfer *tr;
     void *mapped;
     int max_size = 0;
 
-    if (buf == NULL || buf->size == 0 ||
-        (mapped = pipe_buffer_map(pipe->screen, buf, PIPE_BUFFER_USAGE_CPU_READ)) == NULL)
+    if (buf == NULL || buf->width0 == 0 ||
+        (mapped = pipe_buffer_map(pipe, buf, PIPE_BUFFER_USAGE_CPU_READ, &tr)) == NULL)
     {
         r300->shader_constants[shader].count = 0;
         return;
     }
 
-    assert((buf->size % 4 * sizeof(float)) == 0);
+    assert((buf->width0 % 4 * sizeof(float)) == 0);
 
     /* Check the size of the constant buffer. */
     switch (shader) {
@@ -1434,15 +1514,15 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
     }
 
     /* XXX Subtract immediates and RC_STATE_* variables. */
-    if (buf->size > (sizeof(float) * 4 * max_size)) {
+    if (buf->width0 > (sizeof(float) * 4 * max_size)) {
         debug_printf("r300: Max size of the constant buffer is "
                       "%i*4 floats.\n", max_size);
         abort();
     }
 
-    memcpy(r300->shader_constants[shader].constants, mapped, buf->size);
-    r300->shader_constants[shader].count = buf->size / (4 * sizeof(float));
-    pipe_buffer_unmap(pipe->screen, buf);
+    memcpy(r300->shader_constants[shader].constants, mapped, buf->width0);
+    r300->shader_constants[shader].count = buf->width0 / (4 * sizeof(float));
+    pipe_buffer_unmap(pipe, buf, tr);
 
     if (shader == PIPE_SHADER_VERTEX) {
         if (r300screen->caps->has_tcl) {

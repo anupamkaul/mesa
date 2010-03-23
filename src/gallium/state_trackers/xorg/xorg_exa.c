@@ -188,7 +188,7 @@ ExaDownloadFromScreen(PixmapPtr pPix, int x,  int y, int w,  int h, char *dst,
     if (!priv || !priv->tex)
 	return FALSE;
 
-    transfer = exa->pipe->get_transfer(exa->pipe, priv->tex, 0, 0, 0,
+    transfer = pipe_get_transfer(exa->pipe, priv->tex, 0, 0, 0,
 					   PIPE_TRANSFER_READ, x, y, w, h);
     if (!transfer)
 	return FALSE;
@@ -203,7 +203,7 @@ ExaDownloadFromScreen(PixmapPtr pPix, int x,  int y, int w,  int h, char *dst,
 		   transfer->stride, 0, 0);
 
     exa->pipe->transfer_unmap(exa->pipe, transfer);
-    exa->pipe->tex_transfer_destroy(exa->pipe, transfer);
+    exa->pipe->transfer_destroy(exa->pipe, transfer);
 
     return TRUE;
 }
@@ -222,7 +222,7 @@ ExaUploadToScreen(PixmapPtr pPix, int x, int y, int w, int h, char *src,
     if (!priv || !priv->tex)
 	return FALSE;
 
-    transfer = exa->pipe->get_transfer(exa->pipe, priv->tex, 0, 0, 0,
+    transfer = pipe_get_transfer(exa->pipe, priv->tex, 0, 0, 0,
 					   PIPE_TRANSFER_WRITE, x, y, w, h);
     if (!transfer)
 	return FALSE;
@@ -237,7 +237,7 @@ ExaUploadToScreen(PixmapPtr pPix, int x, int y, int w, int h, char *src,
 		   (unsigned char*)src, src_pitch, 0, 0);
 
     exa->pipe->transfer_unmap(exa->pipe, transfer);
-    exa->pipe->tex_transfer_destroy(exa->pipe, transfer);
+    exa->pipe->transfer_destroy(exa->pipe, transfer);
 
     return TRUE;
 }
@@ -264,20 +264,15 @@ ExaPrepareAccess(PixmapPtr pPix, int index)
         assert(pPix->drawable.width <= priv->tex->width0);
         assert(pPix->drawable.height <= priv->tex->height0);
 
-	u_box_wh(&box, 
-		 pPix->drawable.width,
-		 pPix->drawable.height);
-
 	priv->map_transfer =
-	    exa->pipe->get_transfer(exa->pipe,
-				    priv->tex,
-				    u_subresource(0, 0),
+	   pipe_get_transfer(exa->pipe, priv->tex, 0, 0, 0,
 #ifdef EXA_MIXED_PIXMAPS
-				    PIPE_TRANSFER_MAP_DIRECTLY |
+					PIPE_TRANSFER_MAP_DIRECTLY |
 #endif
-				    PIPE_TRANSFER_READ_WRITE,
-
-				    &box );
+					PIPE_TRANSFER_READ_WRITE,
+					0, 0, 
+                                        pPix->drawable.width,
+                                        pPix->drawable.height );
 	if (!priv->map_transfer)
 #ifdef EXA_MIXED_PIXMAPS
 	    return FALSE;
@@ -314,7 +309,7 @@ ExaFinishAccess(PixmapPtr pPix, int index)
     if (--priv->map_count == 0) {
 	assert(priv->map_transfer);
 	exa->pipe->transfer_unmap(exa->pipe, priv->map_transfer);
-	exa->pipe->tex_transfer_destroy(exa->pipe, priv->map_transfer);
+	exa->pipe->transfer_destroy(exa->pipe, priv->map_transfer);
 	priv->map_transfer = NULL;
 	pPix->devPrivate.ptr = NULL;
     }
@@ -473,7 +468,7 @@ ExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
           exa->copy.src_texture = renderer_clone_texture( exa->renderer,
                                                           exa->copy.src->tex );
        else
-          pipe_texture_reference(&exa->copy.src_texture,
+          pipe_resource_reference(&exa->copy.src_texture,
                                  exa->copy.src->tex);
 
        exa->copy.dst_surface =
@@ -546,7 +541,7 @@ ExaDoneCopy(PixmapPtr pPixmap)
    exa->copy.dst = NULL;
    pipe_surface_reference(&exa->copy.src_surface, NULL);
    pipe_surface_reference(&exa->copy.dst_surface, NULL);
-   pipe_texture_reference(&exa->copy.src_texture, NULL);
+   pipe_resource_reference(&exa->copy.src_texture, NULL);
 }
 
 
@@ -749,7 +744,7 @@ ExaDestroyPixmap(ScreenPtr pScreen, void *dPriv)
     if (!priv)
 	return;
 
-    pipe_texture_reference(&priv->tex, NULL);
+    pipe_resource_reference(&priv->tex, NULL);
 
     xfree(priv);
 }
@@ -872,8 +867,8 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
          !size_match(width, priv->tex->width0) ||
          !size_match(height, priv->tex->height0) ||
          priv->tex_flags != priv->flags)) {
-	struct pipe_texture *texture = NULL;
-	struct pipe_texture template;
+	struct pipe_resource *texture = NULL;
+	struct pipe_resource template;
 
 	memset(&template, 0, sizeof(template));
 	template.target = PIPE_TEXTURE_2D;
@@ -891,7 +886,7 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
 	template.last_level = 0;
 	template.tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET | priv->flags;
 	priv->tex_flags = priv->flags;
-	texture = exa->scrn->texture_create(exa->scrn, &template);
+	texture = exa->scrn->resource_create(exa->scrn, &template);
 
 	if (priv->tex) {
 	    struct pipe_surface *dst_surf;
@@ -913,25 +908,25 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
 	    exa->scrn->tex_surface_destroy(src_surf);
 	}
 
-	pipe_texture_reference(&priv->tex, texture);
+	pipe_resource_reference(&priv->tex, texture);
 	/* the texture we create has one reference */
-	pipe_texture_reference(&texture, NULL);
+	pipe_resource_reference(&texture, NULL);
     }
 
     return TRUE;
 }
 
-struct pipe_texture *
+struct pipe_resource *
 xorg_exa_get_texture(PixmapPtr pPixmap)
 {
    struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pPixmap);
-   struct pipe_texture *tex = NULL;
-   pipe_texture_reference(&tex, priv->tex);
+   struct pipe_resource *tex = NULL;
+   pipe_resource_reference(&tex, priv->tex);
    return tex;
 }
 
 Bool
-xorg_exa_set_texture(PixmapPtr pPixmap, struct  pipe_texture *tex)
+xorg_exa_set_texture(PixmapPtr pPixmap, struct  pipe_resource *tex)
 {
     struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pPixmap);
 
@@ -944,20 +939,20 @@ xorg_exa_set_texture(PixmapPtr pPixmap, struct  pipe_texture *tex)
 	pPixmap->drawable.height != tex->height0)
 	return FALSE;
 
-    pipe_texture_reference(&priv->tex, tex);
+    pipe_resource_reference(&priv->tex, tex);
     priv->tex_flags = tex->tex_usage & mask;
 
     return TRUE;
 }
 
-struct pipe_texture *
+struct pipe_resource *
 xorg_exa_create_root_texture(ScrnInfoPtr pScrn,
 			     int width, int height,
 			     int depth, int bitsPerPixel)
 {
     modesettingPtr ms = modesettingPTR(pScrn);
     struct exa_context *exa = ms->exa;
-    struct pipe_texture template;
+    struct pipe_resource template;
     int dummy;
 
     memset(&template, 0, sizeof(template));
@@ -971,7 +966,7 @@ xorg_exa_create_root_texture(ScrnInfoPtr pScrn,
     template.tex_usage |= PIPE_TEXTURE_USAGE_SCANOUT;
     template.tex_usage |= PIPE_TEXTURE_USAGE_SHARED;
 
-    return exa->scrn->texture_create(exa->scrn, &template);
+    return exa->scrn->resource_create(exa->scrn, &template);
 }
 
 void
@@ -979,6 +974,9 @@ xorg_exa_close(ScrnInfoPtr pScrn)
 {
    modesettingPtr ms = modesettingPTR(pScrn);
    struct exa_context *exa = ms->exa;
+
+   pipe_sampler_view_reference(&exa->bound_sampler_views[0], NULL);
+   pipe_sampler_view_reference(&exa->bound_sampler_views[1], NULL);
 
    renderer_destroy(exa->renderer);
 

@@ -457,6 +457,8 @@ StateVars = [
 	  ["ctx->Texture.Unit[ctx->Texture.CurrentUnit].CurrentTex[TEXTURE_1D_ARRAY_INDEX]->Name"], "", ["MESA_texture_array"] ),
 	( "GL_TEXTURE_BINDING_2D_ARRAY_EXT", GLint,
 	  ["ctx->Texture.Unit[ctx->Texture.CurrentUnit].CurrentTex[TEXTURE_2D_ARRAY_INDEX]->Name"], "", ["MESA_texture_array"] ),
+	( "GL_MAX_ARRAY_TEXTURE_LAYERS_EXT", GLint,
+	  ["ctx->Const.MaxArrayTextureLayers"], "", ["MESA_texture_array"] ),
 	( "GL_TEXTURE_GEN_S", GLboolean,
 	  ["((ctx->Texture.Unit[ctx->Texture.CurrentUnit].TexGenEnabled & S_BIT) ? 1 : 0)"], "", None ),
 	( "GL_TEXTURE_GEN_T", GLboolean,
@@ -1062,7 +1064,8 @@ StateVars = [
 	# GL3
 	( "GL_NUM_EXTENSIONS", GLint, ["_mesa_get_extension_count(ctx)"], "", None ),
 	( "GL_MAJOR_VERSION", GLint, ["ctx->VersionMajor"], "", None ),
-	( "GL_MINOR_VERSION", GLint, ["ctx->VersionMinor"], "", None )
+	( "GL_MINOR_VERSION", GLint, ["ctx->VersionMinor"], "", None ),
+	( "GL_CONTEXT_FLAGS", GLint, ["ctx->Const.ContextFlags"], "", None )
 ]
 
 

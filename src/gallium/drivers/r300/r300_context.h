@@ -29,9 +29,12 @@
 
 #include "pipe/p_context.h"
 #include "util/u_inlines.h"
+#include "util/u_transfer.h"
 
+#include "r300_defines.h"
 #include "r300_screen.h"
 
+struct u_upload_mgr;
 struct r300_context;
 
 struct r300_fragment_shader;
@@ -97,6 +100,16 @@ struct r300_rs_state {
     uint32_t line_stipple_value;    /* R300_GA_LINE_STIPPLE_VALUE: 0x4260 */
     uint32_t color_control;         /* R300_GA_COLOR_CONTROL: 0x4278 */
     uint32_t polygon_mode;          /* R300_GA_POLY_MODE: 0x4288 */
+
+    /* Specifies top of Raster pipe specific enable controls,
+     * i.e. texture coordinates stuffing for points, lines, triangles */
+    uint32_t stuffing_enable;       /* R300_GB_ENABLE: 0x4008 */
+
+    /* Point sprites texture coordinates, 0: lower left, 1: upper right */
+    float point_texcoord_left;      /* R300_GA_POINT_S0: 0x4200 */
+    float point_texcoord_bottom;    /* R300_GA_POINT_T0: 0x4204 */
+    float point_texcoord_right;     /* R300_GA_POINT_S1: 0x4208 */
+    float point_texcoord_top;       /* R300_GA_POINT_T1: 0x420c */
 };
 
 struct r300_rs_block {
@@ -124,8 +137,6 @@ struct r300_texture_format_state {
     uint32_t format2; /* R300_TX_FORMAT2: 0x4500 */
 };
 
-#define R300_MAX_TEXTURE_LEVELS 13
-
 struct r300_texture_fb_state {
     /* Colorbuffer. */
     uint32_t colorpitch[R300_MAX_TEXTURE_LEVELS]; /* R300_RB3D_COLORPITCH[0-3]*/
@@ -138,7 +149,7 @@ struct r300_texture_fb_state {
 
 struct r300_textures_state {
     /* Textures. */
-    struct r300_texture *textures[8];
+    struct pipe_sampler_view *fragment_sampler_views[8];
     int texture_count;
     /* Sampler states. */
     struct r300_sampler_state *sampler_states[8];
@@ -184,12 +195,6 @@ struct r300_ztop_state {
     uint32_t z_buffer_top;      /* R300_ZB_ZTOP: 0x4f14 */
 };
 
-#define R300_NEW_FRAGMENT_SHADER 0x00000020
-#define R300_NEW_FRAGMENT_SHADER_CONSTANTS    0x00000040
-#define R300_NEW_VERTEX_SHADER_CONSTANTS    0x10000000
-#define R300_NEW_QUERY           0x40000000
-#define R300_NEW_KITCHEN_SINK    0x7fffffff
-
 /* The next several objects are not pure Radeon state; they inherit from
  * various Gallium classes. */
 
@@ -227,15 +232,9 @@ struct r300_query {
     struct r300_query* next;
 };
 
-enum r300_buffer_tiling {
-    R300_BUFFER_LINEAR = 0,
-    R300_BUFFER_TILED,
-    R300_BUFFER_SQUARETILED
-};
-
 struct r300_texture {
     /* Parent class */
-    struct pipe_texture tex;
+    struct u_resource b;
 
     /* Offsets into the buffer. */
     unsigned offset[R300_MAX_TEXTURE_LEVELS];
@@ -268,7 +267,7 @@ struct r300_texture {
     boolean is_npot;
 
     /* Pipe buffer backing this texture. */
-    struct pipe_buffer* buffer;
+    struct r300_winsys_buffer *buffer;
 
     /* Registers carrying texture format data. */
     struct r300_texture_format_state state;
@@ -302,19 +301,19 @@ struct r300_context {
     struct pipe_context context;
 
     /* The interface to the windowing system, etc. */
-    struct radeon_winsys* winsys;
+    struct r300_winsys_screen *rws;
     /* Draw module. Used mostly for SW TCL. */
     struct draw_context* draw;
     /* Accelerated blit support. */
     struct blitter_context* blitter;
 
     /* Vertex buffer for rendering. */
-    struct pipe_buffer* vbo;
+    struct pipe_resource* vbo;
     /* Offset into the VBO. */
     size_t vbo_offset;
 
     /* Occlusion query buffer. */
-    struct pipe_buffer* oqbo;
+    struct pipe_resource* oqbo;
     /* Query list. */
     struct r300_query *query_current;
     struct r300_query query_list;
@@ -342,9 +341,8 @@ struct r300_context {
     struct r300_atom rs_block_state;
     /* Scissor state. */
     struct r300_atom scissor_state;
-    /* Sampler view states. */
-    struct pipe_sampler_view* fragment_sampler_views[8];
-    int fragment_sampler_view_count;
+    /* Textures state. */
+    struct r300_atom textures_state;
     /* Vertex stream formatting state. */
     struct r300_atom vertex_stream_state;
     /* VAP (vertex shader) output mapping state. */
@@ -369,6 +367,7 @@ struct r300_context {
     int vertex_buffer_max_index;
     /* Vertex elements for Gallium. */
     struct r300_vertex_element_state *velems;
+    bool any_user_vbs;
 
     /* Vertex info for Draw. */
     struct vertex_info vertex_info;
@@ -389,6 +388,12 @@ struct r300_context {
     uint32_t zbuffer_bpp;
     /* Whether scissor is enabled. */
     boolean scissor_enabled;
+    /* Point sprites texcoord index, -1 = unused. */
+    int sprite_coord_index;
+
+    /* upload managers */
+    struct u_upload_mgr *upload_vb;
+    struct u_upload_mgr *upload_ib;
 };
 
 /* Convenience cast wrapper. */
@@ -404,8 +409,7 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
 /* Context initialization. */
 struct draw_stage* r300_draw_stage(struct r300_context* r300);
 void r300_init_state_functions(struct r300_context* r300);
-void r300_init_surface_functions(struct r300_context* r300);
-void r300_init_tex_functions( struct pipe_context *pipe );
+void r300_init_resource_functions(struct r300_context* r300);
 
 static INLINE boolean CTX_DBG_ON(struct r300_context * ctx, unsigned flags)
 {
@@ -427,4 +431,3 @@ static INLINE void CTX_DBG(struct r300_context * ctx, unsigned flags,
 #define DBG     CTX_DBG
 
 #endif /* R300_CONTEXT_H */
-

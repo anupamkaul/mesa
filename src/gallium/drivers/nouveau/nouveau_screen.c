@@ -32,28 +32,9 @@ nouveau_screen_get_vendor(struct pipe_screen *pscreen)
 	return "nouveau";
 }
 
-static struct pipe_buffer *
-nouveau_screen_bo_skel(struct pipe_screen *pscreen, struct nouveau_bo *bo,
-		       unsigned alignment, unsigned usage, unsigned size)
-{
-	struct pipe_buffer *pb;
 
-	pb = CALLOC(1, sizeof(struct pipe_buffer)+sizeof(struct nouveau_bo *));
-	if (!pb) {
-		nouveau_bo_ref(NULL, &bo);
-		return NULL;
-	}
 
-	pipe_reference_init(&pb->reference, 1);
-	pb->screen = pscreen;
-	pb->alignment = alignment;
-	pb->usage = usage;
-	pb->size = size;
-	*(struct nouveau_bo **)(pb + 1) = bo;
-	return pb;
-}
-
-static struct pipe_buffer *
+struct nouveau_bo *
 nouveau_screen_bo_new(struct pipe_screen *pscreen, unsigned alignment,
 		      unsigned usage, unsigned size)
 {
@@ -93,10 +74,10 @@ nouveau_screen_bo_new(struct pipe_screen *pscreen, unsigned alignment,
 	if (ret)
 		return NULL;
 
-	return nouveau_screen_bo_skel(pscreen, bo, alignment, usage, size);
+	return bo;
 }
 
-static struct pipe_buffer *
+struct nouveau_bo *
 nouveau_screen_bo_user(struct pipe_screen *pscreen, void *ptr, unsigned bytes)
 {
 	struct nouveau_device *dev = nouveau_screen(pscreen)->device;
@@ -107,7 +88,7 @@ nouveau_screen_bo_user(struct pipe_screen *pscreen, void *ptr, unsigned bytes)
 	if (ret)
 		return NULL;
 
-	return nouveau_screen_bo_skel(pscreen, bo, 0, 0, bytes);
+	return bo;
 }
 
 static inline uint32_t
@@ -130,22 +111,13 @@ nouveau_screen_map_flags(unsigned pipe)
 	return flags;
 }
 
-static void *
-nouveau_screen_bo_map(struct pipe_screen *pscreen, struct pipe_buffer *pb,
+void *
+nouveau_screen_bo_map(struct pipe_screen *pscreen,
+		      struct nouveau_bo *pb,
 		      unsigned usage)
 {
-	struct nouveau_bo *bo = nouveau_bo(pb);
 	struct nouveau_screen *nscreen = nouveau_screen(pscreen);
 	int ret;
-
-	if (nscreen->pre_pipebuffer_map_callback) {
-		ret = nscreen->pre_pipebuffer_map_callback(pscreen, pb, usage);
-		if (ret) {
-			debug_printf("pre_pipebuffer_map_callback failed %d\n",
-				ret);
-			return NULL;
-		}
-	}
 
 	ret = nouveau_bo_map(bo, nouveau_screen_map_flags(usage));
 	if (ret) {
@@ -156,23 +128,13 @@ nouveau_screen_bo_map(struct pipe_screen *pscreen, struct pipe_buffer *pb,
 	return bo->map;
 }
 
-static void *
-nouveau_screen_bo_map_range(struct pipe_screen *pscreen, struct pipe_buffer *pb,
+void *
+nouveau_screen_bo_map_range(struct pipe_screen *pscreen, struct nouveau_bo *bo,
 			    unsigned offset, unsigned length, unsigned usage)
 {
-	struct nouveau_bo *bo = nouveau_bo(pb);
 	struct nouveau_screen *nscreen = nouveau_screen(pscreen);
 	uint32_t flags = nouveau_screen_map_flags(usage);
 	int ret;
-
-	if (nscreen->pre_pipebuffer_map_callback) {
-		ret = nscreen->pre_pipebuffer_map_callback(pscreen, pb, usage);
-		if (ret) {
-			debug_printf("pre_pipebuffer_map_callback failed %d\n",
-				ret);
-			return NULL;
-		}
-	}
 
 	ret = nouveau_bo_map_range(bo, offset, length, flags);
 	if (ret) {
@@ -185,30 +147,23 @@ nouveau_screen_bo_map_range(struct pipe_screen *pscreen, struct pipe_buffer *pb,
 	return (char *)bo->map - offset; /* why gallium? why? */
 }
 
-static void
-nouveau_screen_bo_map_flush(struct pipe_screen *pscreen, struct pipe_buffer *pb,
-			    unsigned offset, unsigned length)
+void
+nouveau_screen_bo_map_flush_range(struct pipe_screen *pscreen, struct nouveau_bo *bo,
+				  unsigned offset, unsigned length)
 {
-	struct nouveau_bo *bo = nouveau_bo(pb);
-
 	nouveau_bo_map_flush(bo, offset, length);
 }
 
-static void
-nouveau_screen_bo_unmap(struct pipe_screen *pscreen, struct pipe_buffer *pb)
+void
+nouveau_screen_bo_unmap(struct pipe_screen *pscreen, struct nouveau_bo *bo)
 {
-	struct nouveau_bo *bo = nouveau_bo(pb);
-
 	nouveau_bo_unmap(bo);
 }
 
-static void
-nouveau_screen_bo_del(struct pipe_buffer *pb)
+void
+nouveau_screen_bo_release(struct pipe_screen *pscreen, struct nouveau_bo *bo)
 {
-	struct nouveau_bo *bo = nouveau_bo(pb);
-
 	nouveau_bo_ref(NULL, &bo);
-	FREE(pb);
 }
 
 static void
@@ -236,59 +191,32 @@ nouveau_screen_fence_finish(struct pipe_screen *screen,
 }
 
 
-/*
- * Both texture_{from|get}_handle use drm api defines directly which they
- * shouldn't do. The problem is that from|get are pipe functions and as
- * such they should be defined in the pipe level. If nouveau had a propper
- * winsys interface we would have added from|get to that interface using
- * the winsys_handle struct as done with other drivers. However this code
- * calls directly into the libdrm_nouveau.so functions (nouveau_bo_*). So
- * we need to translate the handle into something they understand.
- */
-static struct pipe_texture *
-nouveau_screen_texture_from_handle(struct pipe_screen *pscreen,
-				   const struct pipe_texture *templ,
-				   struct winsys_handle *whandle)
+struct nouveau_bo *
+nouveau_screen_bo_from_handle(struct pipe_screen *pscreen,
+			      struct winsys_handle *whandle,
+			      unsigned *out_stride)
 {
 	struct nouveau_device *dev = nouveau_screen(pscreen)->device;
-	struct pipe_texture *pt;
-	struct pipe_buffer *pb;
-	int ret;
-
-	pb = CALLOC(1, sizeof(struct pipe_buffer) + sizeof(struct nouveau_bo*));
-	if (!pb)
-		return NULL;
-
-	ret = nouveau_bo_handle_ref(dev, whandle->handle, (struct nouveau_bo**)(pb+1));
+	struct nouveau_bo *bo;
+ 
+	ret = nouveau_bo_handle_ref(dev, whandle->handle, &bo);
 	if (ret) {
 		debug_printf("%s: ref name 0x%08x failed with %d\n",
 			     __func__, whandle->handle, ret);
-		FREE(pb);
 		return NULL;
 	}
 
-	pipe_reference_init(&pb->reference, 1);
-	pb->screen = pscreen;
-	pb->alignment = 0;
-	pb->usage = PIPE_BUFFER_USAGE_GPU_READ_WRITE |
-		    PIPE_BUFFER_USAGE_CPU_READ_WRITE;
-	pb->size = nouveau_bo(pb)->size;
-	pt = nouveau_screen(pscreen)->texture_blanket(pscreen, templ,
-                                                      &whandle->stride, pb);
-	pipe_buffer_reference(&pb, NULL);
-	return pt;
+	*out_stride = whandle->stride;
+	return bo;
 }
 
-static boolean
-nouveau_screen_texture_get_handle(struct pipe_screen *pscreen,
-				  struct pipe_texture *pt,
-				  struct winsys_handle *whandle)
+
+boolean
+nouveau_screen_bo_get_handle(struct pipe_screen *pscreen,
+			     struct nouveau_bo *bo,
+			     unsigned stride,
+			     struct winsys_handle *whandle)
 {
-	struct nouveau_miptree *mt = nouveau_miptree(pt);
-
-	if (!mt || !mt->bo)
-		return false;
-
 	whandle->stride = util_format_get_stride(mt->base.format, mt->base.width0);
 
 	if (whandle->type == DRM_API_HANDLE_TYPE_SHARED) { 
@@ -300,6 +228,26 @@ nouveau_screen_texture_get_handle(struct pipe_screen *pscreen,
 		return FALSE;
 	}
 }
+
+
+unsigned int
+nouveau_reference_flags(struct nouveau_bo *bo)
+{
+	uint32_t bo_flags;
+	int flags = 0;
+
+	bo_flags = nouveau_bo_pending(bo);
+	if (bo_flags & NOUVEAU_BO_RD)
+		flags |= PIPE_REFERENCED_FOR_READ;
+	if (bo_flags & NOUVEAU_BO_WR)
+		flags |= PIPE_REFERENCED_FOR_WRITE;
+
+	return flags;
+}
+
+
+
+
 
 int
 nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
@@ -316,20 +264,9 @@ nouveau_screen_init(struct nouveau_screen *screen, struct nouveau_device *dev)
 	pscreen->get_name = nouveau_screen_get_name;
 	pscreen->get_vendor = nouveau_screen_get_vendor;
 
-	pscreen->buffer_create = nouveau_screen_bo_new;
-	pscreen->user_buffer_create = nouveau_screen_bo_user;
-	pscreen->buffer_map = nouveau_screen_bo_map;
-	pscreen->buffer_map_range = nouveau_screen_bo_map_range;
-	pscreen->buffer_flush_mapped_range = nouveau_screen_bo_map_flush;
-	pscreen->buffer_unmap = nouveau_screen_bo_unmap;
-	pscreen->buffer_destroy = nouveau_screen_bo_del;
-
 	pscreen->fence_reference = nouveau_screen_fence_ref;
 	pscreen->fence_signalled = nouveau_screen_fence_signalled;
 	pscreen->fence_finish = nouveau_screen_fence_finish;
-
-	pscreen->texture_from_handle = nouveau_screen_texture_from_handle;
-	pscreen->texture_get_handle = nouveau_screen_texture_get_handle;
 
 	return 0;
 }

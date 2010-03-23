@@ -23,6 +23,7 @@
 #include "util/u_format.h"
 
 #include "nv50_context.h"
+#include "nv50_resource.h"
 #include "nouveau/nouveau_stateobj.h"
 
 static struct nouveau_stateobj *
@@ -43,7 +44,7 @@ validate_fb(struct nv50_context *nv50)
 		  (4 << 16) | (5 << 19) | (6 << 22) | (7 << 25));
 
 	for (i = 0; i < fb->nr_cbufs; i++) {
-		struct pipe_texture *pt = fb->cbufs[i]->texture;
+		struct pipe_resource *pt = fb->cbufs[i]->texture;
 		struct nouveau_bo *bo = nv50_miptree(pt)->base.bo;
 
 		if (!gw) {
@@ -104,7 +105,7 @@ validate_fb(struct nv50_context *nv50)
 	}
 
 	if (fb->zsbuf) {
-		struct pipe_texture *pt = fb->zsbuf->texture;
+		struct pipe_resource *pt = fb->zsbuf->texture;
 		struct nouveau_bo *bo = nv50_miptree(pt)->base.bo;
 
 		if (!gw) {
@@ -435,7 +436,7 @@ nv50_state_validate(struct nv50_context *nv50, unsigned wait_dwords)
 	so_emit_reloc_markers(chan, nv50->state.hw[3]); /* vp */
 	so_emit_reloc_markers(chan, nv50->state.hw[4]); /* fp */
 	so_emit_reloc_markers(chan, nv50->state.hw[17]); /* vb */
-	so_emit_reloc_markers(chan, nv50->screen->static_init);
+	nv50_screen_relocs(nv50->screen);
 
 	/* No idea.. */
 	BEGIN_RING(chan, tesla, 0x142c, 1);

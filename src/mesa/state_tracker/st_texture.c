@@ -342,21 +342,12 @@ st_texture_image_copy(struct pipe_context *pipe,
       src_surface = screen->get_tex_surface(screen, src, face, srcLevel, i,
                                             PIPE_BUFFER_USAGE_BLIT_SOURCE);
 
-      if (pipe->surface_copy) {
-         pipe->surface_copy(pipe,
-			    dst_surface,
-			    0, 0, /* destX, Y */
-			    src_surface,
-			    0, 0, /* srcX, Y */
-			    width, height);
-      } else {
-         util_surface_copy(pipe, FALSE,
-			   dst_surface,
-			   0, 0, /* destX, Y */
-			   src_surface,
-			   0, 0, /* srcX, Y */
-			   width, height);
-      }
+      pipe->surface_copy(pipe,
+                         dst_surface,
+                         0, 0, /* destX, Y */
+                         src_surface,
+                         0, 0, /* srcX, Y */
+                         width, height);
 
       pipe_surface_reference(&src_surface, NULL);
       pipe_surface_reference(&dst_surface, NULL);
@@ -528,14 +519,21 @@ st_bind_teximage(struct st_framebuffer *stfb, uint surfIndex,
    /* save the renderbuffer's surface/texture info */
    pipe_resource_reference(&strb->texture_save, strb->texture);
    pipe_surface_reference(&strb->surface_save, strb->surface);
+   pipe_sampler_view_reference(&strb->sampler_view_save, strb->sampler_view);
 
    /* plug in new surface/texture info */
    pipe_resource_reference(&strb->texture, stImage->pt);
+
+   /* XXX: Shouldn't we release reference to old surface here?
+    */
+
    strb->surface = screen->get_tex_surface(screen, strb->texture,
                                            face, level, slice,
                                            (PIPE_BUFFER_USAGE_RENDER_TARGET |
                                             PIPE_BUFFER_USAGE_BLIT_SOURCE |
 					    PIPE_BUFFER_USAGE_BLIT_DESTINATION));
+
+   pipe_sampler_view_reference(&strb->sampler_view, NULL);
 
    st->dirty.st |= ST_NEW_FRAMEBUFFER;
 
@@ -566,9 +564,11 @@ st_release_teximage(struct st_framebuffer *stfb, uint surfIndex,
    /* free tex surface, restore original */
    pipe_surface_reference(&strb->surface, strb->surface_save);
    pipe_resource_reference(&strb->texture, strb->texture_save);
+   pipe_sampler_view_reference(&strb->sampler_view, strb->sampler_view_save);
 
    pipe_surface_reference(&strb->surface_save, NULL);
    pipe_resource_reference(&strb->texture_save, NULL);
+   pipe_sampler_view_reference(&strb->sampler_view, NULL);
 
    st->dirty.st |= ST_NEW_FRAMEBUFFER;
 

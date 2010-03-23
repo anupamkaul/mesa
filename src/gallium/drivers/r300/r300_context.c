@@ -24,6 +24,7 @@
 
 #include "util/u_memory.h"
 #include "util/u_simple_list.h"
+#include "util/u_upload_mgr.h"
 
 #include "r300_blit.h"
 #include "r300_context.h"
@@ -32,11 +33,11 @@
 #include "r300_query.h"
 #include "r300_render.h"
 #include "r300_screen.h"
+#include "r300_screen_buffer.h"
 #include "r300_state_invariant.h"
 #include "r300_texture.h"
 #include "r300_transfer.h"
-
-#include "radeon_winsys.h"
+#include "r300_winsys.h"
 
 static void r300_destroy_context(struct pipe_context* context)
 {
@@ -47,13 +48,16 @@ static void r300_destroy_context(struct pipe_context* context)
     draw_destroy(r300->draw);
 
     /* Free the OQ BO. */
-    context->screen->buffer_destroy(r300->oqbo);
+    context->screen->resource_destroy(context->screen, r300->oqbo);
 
     /* If there are any queries pending or not destroyed, remove them now. */
     foreach_s(query, temp, &r300->query_list) {
         remove_from_list(query);
         FREE(query);
     }
+
+    u_upload_destroy(r300->upload_vb);
+    u_upload_destroy(r300->upload_ib);
 
     FREE(r300->blend_color_state.state);
     FREE(r300->clip_state.state);
@@ -67,32 +71,6 @@ static void r300_destroy_context(struct pipe_context* context)
     FREE(r300);
 }
 
-static unsigned int
-r300_is_texture_referenced(struct pipe_context *pipe,
-                           struct pipe_texture *texture,
-                           unsigned face, unsigned level)
-{
-    return pipe->is_buffer_referenced(pipe,
-                                      ((struct r300_texture *)texture)->buffer);
-}
-
-static unsigned int
-r300_is_buffer_referenced(struct pipe_context *pipe,
-                          struct pipe_buffer *buf)
-{
-    /* This only checks to see whether actual hardware buffers are
-     * referenced. Since we use managed BOs and transfers, it's actually not
-     * possible for pipe_buffers to ever reference the actual hardware, so
-     * buffers are never referenced. 
-     */
-
-    /* XXX: that doesn't make sense given that
-     * r300_is_texture_referenced is implemented on top of this
-     * function and hardware can certainly refer to textures
-     * directly...
-     */
-    return 0;
-}
 
 static void r300_flush_cb(void *data)
 {
@@ -157,14 +135,14 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
 {
     struct r300_context* r300 = CALLOC_STRUCT(r300_context);
     struct r300_screen* r300screen = r300_screen(screen);
-    struct radeon_winsys* radeon_winsys = r300screen->radeon_winsys;
+    struct r300_winsys_screen *rws = r300screen->rws;
 
     if (!r300)
         return NULL;
 
-    r300->winsys = radeon_winsys;
+    r300->rws = rws;
 
-    r300->context.winsys = (struct pipe_winsys*)radeon_winsys;
+    r300->context.winsys = (struct pipe_winsys*)rws;
     r300->context.screen = screen;
     r300->context.priv = priv;
 
@@ -194,30 +172,46 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
         draw_set_viewport_state(r300->draw, &r300_viewport_identity);
     }
 
-    r300->context.is_texture_referenced = r300_is_texture_referenced;
-    r300->context.is_buffer_referenced = r300_is_buffer_referenced;
-
     r300_setup_atoms(r300);
 
+    r300->sprite_coord_index = -1;
+
     /* Open up the OQ BO. */
-    r300->oqbo = screen->buffer_create(screen, 4096,
-            PIPE_BUFFER_USAGE_VERTEX, 4096);
+    r300->oqbo = pipe_buffer_create(screen, 4096,
+            PIPE_BUFFER_USAGE_PIXEL, 4096);
     make_empty_list(&r300->query_list);
 
     r300_init_flush_functions(r300);
 
     r300_init_query_functions(r300);
 
-    r300_init_transfer_functions(r300);
-
     r300_init_state_functions(r300);
 
     r300->invariant_state.dirty = TRUE;
 
-    r300->winsys->set_flush_cb(r300->winsys, r300_flush_cb, r300);
+    rws->set_flush_cb(r300->rws, r300_flush_cb, r300);
     r300->dirty_hw++;
 
     r300->blitter = util_blitter_create(&r300->context);
 
+    r300->upload_ib = u_upload_create(&r300->context,
+				      32 * 1024, 16,
+				      PIPE_BUFFER_USAGE_INDEX);
+
+    if (r300->upload_ib == NULL)
+        goto no_upload_ib;
+
+    r300->upload_vb = u_upload_create(&r300->context,
+				      128 * 1024, 16,
+				      PIPE_BUFFER_USAGE_VERTEX);
+    if (r300->upload_vb == NULL)
+        goto no_upload_vb;
+
     return &r300->context;
+
+ no_upload_ib:
+    u_upload_destroy(r300->upload_ib);
+ no_upload_vb:
+    FREE(r300);
+    return NULL;
 }

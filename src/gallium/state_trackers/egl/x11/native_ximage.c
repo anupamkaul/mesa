@@ -65,7 +65,7 @@ struct ximage_display {
 };
 
 struct ximage_buffer {
-   struct pipe_texture *texture;
+   struct pipe_resource *texture;
    struct xlib_drawable xdraw;
 };
 
@@ -116,7 +116,7 @@ ximage_surface_free_buffer(struct native_surface *nsurf,
    struct ximage_surface *xsurf = ximage_surface(nsurf);
    struct ximage_buffer *xbuf = &xsurf->buffers[which];
 
-   pipe_texture_reference(&xbuf->texture, NULL);
+   pipe_resource_reference(&xbuf->texture, NULL);
 }
 
 static boolean
@@ -126,7 +126,7 @@ ximage_surface_alloc_buffer(struct native_surface *nsurf,
    struct ximage_surface *xsurf = ximage_surface(nsurf);
    struct ximage_buffer *xbuf = &xsurf->buffers[which];
    struct pipe_screen *screen = xsurf->xdpy->base.screen;
-   struct pipe_texture templ;
+   struct pipe_resource templ;
 
    /* free old data */
    if (xbuf->texture)
@@ -154,7 +154,7 @@ ximage_surface_alloc_buffer(struct native_surface *nsurf,
          break;
       }
    }
-   xbuf->texture = screen->texture_create(screen, &templ);
+   xbuf->texture = screen->resource_create(screen, &templ);
    if (xbuf->texture) {
       xbuf->xdraw.visual = xsurf->visual.visual;
       xbuf->xdraw.depth = xsurf->visual.depth;
@@ -329,7 +329,7 @@ ximage_surface_swap_buffers(struct native_surface *nsurf)
 
 static boolean
 ximage_surface_validate(struct native_surface *nsurf, uint attachment_mask,
-                        unsigned int *seq_num, struct pipe_texture **textures,
+                        unsigned int *seq_num, struct pipe_resource **textures,
                         int *width, int *height)
 {
    struct ximage_surface *xsurf = ximage_surface(nsurf);
@@ -350,7 +350,7 @@ ximage_surface_validate(struct native_surface *nsurf, uint attachment_mask,
             struct ximage_buffer *xbuf = &xsurf->buffers[att];
 
             textures[att] = NULL;
-            pipe_texture_reference(&textures[att], xbuf->texture);
+            pipe_resource_reference(&textures[att], xbuf->texture);
          }
       }
    }

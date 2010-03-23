@@ -128,7 +128,7 @@ st_context_destroy(struct st_context *st_ctx)
          pipe_sampler_view_reference(&st_ctx->fragment_sampler_views[i], NULL);
       for(i = 0; i < PIPE_MAX_VERTEX_SAMPLERS; ++i)
          pipe_sampler_view_reference(&st_ctx->vertex_sampler_views[i], NULL);
-      pipe_texture_reference(&st_ctx->default_texture, NULL);
+      pipe_resource_reference(&st_ctx->default_texture, NULL);
 
       FREE(st_ctx);
       
@@ -229,8 +229,7 @@ st_context_create(struct st_device *st_dev)
    /* default textures */
    {
       struct pipe_screen *screen = st_dev->screen;
-      struct pipe_texture templat;
-      struct pipe_transfer *transfer;
+      struct pipe_resource templat;
       struct pipe_sampler_view view_templ;
       struct pipe_sampler_view *view;
       unsigned i;
@@ -243,26 +242,23 @@ st_context_create(struct st_device *st_dev)
       templat.depth0 = 1;
       templat.last_level = 0;
    
-      st_ctx->default_texture = screen->texture_create( screen, &templat );
+      st_ctx->default_texture = screen->resource_create( screen, &templat );
       if(st_ctx->default_texture) {
-         transfer = screen->get_transfer(screen,
-                                             st_ctx->default_texture,
-                                             0, 0, 0,
-                                             PIPE_TRANSFER_WRITE,
-                                             0, 0,
-                                             st_ctx->default_texture->width0,
-                                             st_ctx->default_texture->height0);
-         if (transfer) {
-            uint32_t *map;
-            map = (uint32_t *) screen->transfer_map(screen, transfer);
-            if(map) {
-               *map = 0x00000000;
-               screen->transfer_unmap(screen, transfer);
-            }
-            screen->tex_transfer_destroy(transfer);
-         }
-      }
+	 struct pipe_box box;
+	 uint32_t zero = 0;
+	 
+	 u_box_wh( 1, 1, &box );
 
+	 st_ctx->pipe->transfer_inline_write(st_ctx->pipe,
+					     st_ctx->default_texture,
+					     u_subresource(0,0),
+					     PIPE_TRANSFER_WRITE,
+					     &box,
+					     &zero,
+					     sizeof zero,
+					     0);
+      }
+      
       u_sampler_view_default_template(&view_templ,
                                       st_ctx->default_texture,
                                       st_ctx->default_texture->format);

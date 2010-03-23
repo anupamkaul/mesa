@@ -35,7 +35,6 @@
 #include "cell_context.h"
 #include "cell_screen.h"
 #include "cell_texture.h"
-#include "cell_buffer.h"
 #include "cell_public.h"
 
 #include "state_tracker/sw_winsys.h"
@@ -142,8 +141,10 @@ cell_is_format_supported( struct pipe_screen *screen,
        format == PIPE_FORMAT_A8B8G8R8_SRGB)
       return FALSE;
 
-   if (tex_usage & PIPE_TEXTURE_USAGE_DISPLAY_TARGET) {
-      if (!winsys->is_displaytarget_format_supported(winsys, format))
+   if (tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
+                    PIPE_TEXTURE_USAGE_SCANOUT |
+                    PIPE_TEXTURE_USAGE_SHARED)) {
+      if (!winsys->is_displaytarget_format_supported(winsys, tex_usage, format))
          return FALSE;
    }
 
@@ -193,7 +194,6 @@ cell_create_screen(struct sw_winsys *winsys)
    screen->base.context_create = cell_create_context;
 
    cell_init_screen_texture_funcs(&screen->base);
-   cell_init_screen_buffer_funcs(&screen->base);
 
    return &screen->base;
 }

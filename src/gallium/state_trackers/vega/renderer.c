@@ -39,6 +39,7 @@
 #include "util/u_simple_shaders.h"
 #include "util/u_memory.h"
 #include "util/u_rect.h"
+#include "util/u_sampler.h"
 
 #include "cso_cache/cso_context.h"
 
@@ -266,7 +267,7 @@ void renderer_draw_texture(struct renderer *r,
 }
 
 void renderer_copy_texture(struct renderer *ctx,
-                           struct pipe_resource *src,
+                           struct pipe_sampler_view *src,
                            VGfloat sx1, VGfloat sy1,
                            VGfloat sx2, VGfloat sy2,
                            struct pipe_resource *dst,
@@ -275,6 +276,7 @@ void renderer_copy_texture(struct renderer *ctx,
 {
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
+   struct pipe_resource *tex = src->texture;
    struct pipe_resource *buf;
    struct pipe_surface *dst_surf = screen->get_tex_surface(
       screen, dst, 0, 0, 0,
@@ -282,8 +284,8 @@ void renderer_copy_texture(struct renderer *ctx,
    struct pipe_framebuffer_state fb;
    float s0, t0, s1, t1;
 
-   assert(src->width0 != 0);
-   assert(src->height0 != 0);
+   assert(tex->width0 != 0);
+   assert(tex->height0 != 0);
    assert(dst->width0 != 0);
    assert(dst->height0 != 0);
 
@@ -293,10 +295,10 @@ void renderer_copy_texture(struct renderer *ctx,
 #endif
 
 #if 1
-   s0 = sx1 / src->width0;
-   s1 = sx2 / src->width0;
-   t0 = sy1 / src->height0;
-   t1 = sy2 / src->height0;
+   s0 = sx1 / tex->width0;
+   s1 = sx2 / tex->width0;
+   t0 = sy1 / tex->height0;
+   t1 = sy2 / tex->height0;
 #else
    s0 = 0;
    s1 = 1;
@@ -310,7 +312,7 @@ void renderer_copy_texture(struct renderer *ctx,
    /* save state (restored below) */
    cso_save_blend(ctx->cso);
    cso_save_samplers(ctx->cso);
-   cso_save_sampler_textures(ctx->cso);
+   cso_save_fragment_sampler_views(ctx->cso);
    cso_save_framebuffer(ctx->cso);
    cso_save_fragment_shader(ctx->cso);
    cso_save_vertex_shader(ctx->cso);
@@ -348,7 +350,7 @@ void renderer_copy_texture(struct renderer *ctx,
    vg_set_viewport(ctx->owner, VEGA_Y0_TOP);
 
    /* texture */
-   cso_set_sampler_textures(ctx->cso, 1, &src);
+   cso_set_fragment_sampler_views(ctx->cso, 1, &src);
 
    /* shaders */
    cso_set_vertex_shader_handle(ctx->cso, vg_texture_vs(ctx->owner));
@@ -388,7 +390,7 @@ void renderer_copy_texture(struct renderer *ctx,
    /* restore state we changed */
    cso_restore_blend(ctx->cso);
    cso_restore_samplers(ctx->cso);
-   cso_restore_sampler_textures(ctx->cso);
+   cso_restore_fragment_sampler_views(ctx->cso);
    cso_restore_framebuffer(ctx->cso);
    cso_restore_vertex_shader(ctx->cso);
    cso_restore_fragment_shader(ctx->cso);
@@ -409,6 +411,8 @@ void renderer_copy_surface(struct renderer *ctx,
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
    struct pipe_resource *buf;
+   struct pipe_sampler_view view_templ;
+   struct pipe_sampler_view *view;
    struct pipe_resource texTemp, *tex;
    struct pipe_surface *texSurf;
    struct pipe_framebuffer_state fb;
@@ -460,6 +464,12 @@ void renderer_copy_surface(struct renderer *ctx,
    if (!tex)
       return;
 
+   u_sampler_view_default_template(&view_templ, tex, tex->format);
+   view = pipe->create_sampler_view(pipe, tex, &view_templ);
+
+   if (!view)
+      return;
+
    texSurf = screen->get_tex_surface(screen, tex, 0, 0, 0,
                                      PIPE_BUFFER_USAGE_RENDER_TARGET);
 
@@ -482,7 +492,7 @@ void renderer_copy_surface(struct renderer *ctx,
    /* save state (restored below) */
    cso_save_blend(ctx->cso);
    cso_save_samplers(ctx->cso);
-   cso_save_sampler_textures(ctx->cso);
+   cso_save_fragment_sampler_views(ctx->cso);
    cso_save_framebuffer(ctx->cso);
    cso_save_fragment_shader(ctx->cso);
    cso_save_vertex_shader(ctx->cso);
@@ -518,7 +528,7 @@ void renderer_copy_surface(struct renderer *ctx,
    }
 
    /* texture */
-   cso_set_sampler_textures(ctx->cso, 1, &tex);
+   cso_set_fragment_sampler_views(ctx->cso, 1, &view);
 
    /* shaders */
    cso_set_fragment_shader_handle(ctx->cso, ctx->fs);
@@ -555,13 +565,14 @@ void renderer_copy_surface(struct renderer *ctx,
    /* restore state we changed */
    cso_restore_blend(ctx->cso);
    cso_restore_samplers(ctx->cso);
-   cso_restore_sampler_textures(ctx->cso);
+   cso_restore_fragment_sampler_views(ctx->cso);
    cso_restore_framebuffer(ctx->cso);
    cso_restore_fragment_shader(ctx->cso);
    cso_restore_vertex_shader(ctx->cso);
    cso_restore_viewport(ctx->cso);
 
    pipe_resource_reference(&tex, NULL);
+   pipe_sampler_view_reference(&view, NULL);
 }
 
 void renderer_texture_quad(struct renderer *r,

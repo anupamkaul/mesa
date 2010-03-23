@@ -45,7 +45,7 @@ dri_surface_from_handle(struct drm_api *api, struct pipe_screen *pscreen,
 				      PIPE_BUFFER_USAGE_GPU_WRITE);
 
 	/* we don't need the texture from this point on */
-	pipe_texture_reference(&pt, NULL);
+	pipe_resource_reference(&pt, NULL);
 	return ps;
 }
 
@@ -86,11 +86,9 @@ nouveau_drm_create_screen(struct drm_api *api, int fd,
 
 	switch (dev->chipset & 0xf0) {
 	case 0x30:
-		init = nv30_screen_create;
-		break;
 	case 0x40:
 	case 0x60:
-		init = nv40_screen_create;
+		init = nvfx_screen_create;
 		break;
 	case 0x50:
 	case 0x80:

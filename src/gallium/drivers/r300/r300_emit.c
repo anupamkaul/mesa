@@ -32,6 +32,8 @@
 #include "r300_emit.h"
 #include "r300_fs.h"
 #include "r300_screen.h"
+#include "r300_screen_buffer.h"
+#include "r300_state_inlines.h"
 #include "r300_vs.h"
 
 void r300_emit_blend_state(struct r300_context* r300,
@@ -149,7 +151,7 @@ static const float * get_shader_constant(
     struct r300_textures_state* texstate =
         (struct r300_textures_state*)r300->textures_state.state;
     static float vec[4] = { 0.0, 0.0, 0.0, 1.0 };
-    struct pipe_texture *tex;
+    struct pipe_resource *tex;
 
     switch(constant->Type) {
         case RC_CONSTANT_EXTERNAL:
@@ -163,7 +165,7 @@ static const float * get_shader_constant(
                 /* Factor for converting rectangle coords to
                  * normalized coords. Should only show up on non-r500. */
                 case RC_STATE_R300_TEXRECT_FACTOR:
-                    tex = r300->fragment_sampler_views[constant->u.State[1]]->texture;
+                    tex = texstate->fragment_sampler_views[constant->u.State[1]]->texture;
                     vec[0] = 1.0 / tex->width0;
                     vec[1] = 1.0 / tex->height0;
                     break;
@@ -415,10 +417,10 @@ void r300_emit_fb_state(struct r300_context* r300, unsigned size, void* state)
         assert(tex && tex->buffer && "cbuf is marked, but NULL!");
 
         OUT_CS_REG_SEQ(R300_RB3D_COLOROFFSET0 + (4 * i), 1);
-        OUT_CS_RELOC(tex->buffer, surf->offset, 0, RADEON_GEM_DOMAIN_VRAM, 0);
+        OUT_CS_TEX_RELOC(tex, surf->offset, 0, RADEON_GEM_DOMAIN_VRAM, 0);
 
         OUT_CS_REG_SEQ(R300_RB3D_COLORPITCH0 + (4 * i), 1);
-        OUT_CS_RELOC(tex->buffer, tex->fb_state.colorpitch[surf->level],
+        OUT_CS_TEX_RELOC(tex, tex->fb_state.colorpitch[surf->level],
                      0, RADEON_GEM_DOMAIN_VRAM, 0);
 
         OUT_CS_REG(R300_US_OUT_FMT_0 + (4 * i), tex->fb_state.us_out_fmt);
@@ -434,12 +436,12 @@ void r300_emit_fb_state(struct r300_context* r300, unsigned size, void* state)
         assert(tex && tex->buffer && "zsbuf is marked, but NULL!");
 
         OUT_CS_REG_SEQ(R300_ZB_DEPTHOFFSET, 1);
-        OUT_CS_RELOC(tex->buffer, surf->offset, 0, RADEON_GEM_DOMAIN_VRAM, 0);
+        OUT_CS_TEX_RELOC(tex, surf->offset, 0, RADEON_GEM_DOMAIN_VRAM, 0);
 
         OUT_CS_REG(R300_ZB_FORMAT, tex->fb_state.zb_format);
 
         OUT_CS_REG_SEQ(R300_ZB_DEPTHPITCH, 1);
-        OUT_CS_RELOC(tex->buffer, tex->fb_state.depthpitch[surf->level],
+        OUT_CS_TEX_RELOC(tex, tex->fb_state.depthpitch[surf->level],
                      0, RADEON_GEM_DOMAIN_VRAM, 0);
     }
 
@@ -491,13 +493,13 @@ static void r300_emit_query_finish(struct r300_context *r300,
             /* pipe 3 only */
             OUT_CS_REG(R300_SU_REG_DEST, 1 << 3);
             OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-            OUT_CS_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 3),
+            OUT_CS_BUF_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 3),
                     0, RADEON_GEM_DOMAIN_GTT, 0);
         case 3:
             /* pipe 2 only */
             OUT_CS_REG(R300_SU_REG_DEST, 1 << 2);
             OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-            OUT_CS_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 2),
+            OUT_CS_BUF_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 2),
                     0, RADEON_GEM_DOMAIN_GTT, 0);
         case 2:
             /* pipe 1 only */
@@ -505,13 +507,13 @@ static void r300_emit_query_finish(struct r300_context *r300,
             OUT_CS_REG(R300_SU_REG_DEST,
                     1 << (caps->high_second_pipe ? 3 : 1));
             OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-            OUT_CS_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 1),
+            OUT_CS_BUF_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 1),
                     0, RADEON_GEM_DOMAIN_GTT, 0);
         case 1:
             /* pipe 0 only */
             OUT_CS_REG(R300_SU_REG_DEST, 1 << 0);
             OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-            OUT_CS_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 0),
+            OUT_CS_BUF_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 0),
                     0, RADEON_GEM_DOMAIN_GTT, 0);
             break;
         default:
@@ -533,7 +535,7 @@ static void rv530_emit_query_single(struct r300_context *r300,
     BEGIN_CS(8);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_0);
     OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-    OUT_CS_RELOC(r300->oqbo, query->offset, 0, RADEON_GEM_DOMAIN_GTT, 0);
+    OUT_CS_BUF_RELOC(r300->oqbo, query->offset, 0, RADEON_GEM_DOMAIN_GTT, 0);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_ALL);
     END_CS;
 }
@@ -546,10 +548,10 @@ static void rv530_emit_query_double(struct r300_context *r300,
     BEGIN_CS(14);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_0);
     OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-    OUT_CS_RELOC(r300->oqbo, query->offset, 0, RADEON_GEM_DOMAIN_GTT, 0);
+    OUT_CS_BUF_RELOC(r300->oqbo, query->offset, 0, RADEON_GEM_DOMAIN_GTT, 0);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_1);
     OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-    OUT_CS_RELOC(r300->oqbo, query->offset + sizeof(uint32_t), 0, RADEON_GEM_DOMAIN_GTT, 0);
+    OUT_CS_BUF_RELOC(r300->oqbo, query->offset + sizeof(uint32_t), 0, RADEON_GEM_DOMAIN_GTT, 0);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_ALL);
     END_CS;
 }
@@ -614,6 +616,12 @@ void r300_emit_rs_state(struct r300_context* r300, unsigned size, void* state)
     OUT_CS_REG(R300_GA_LINE_STIPPLE_CONFIG, rs->line_stipple_config);
     OUT_CS_REG(R300_GA_LINE_STIPPLE_VALUE, rs->line_stipple_value);
     OUT_CS_REG(R300_GA_POLY_MODE, rs->polygon_mode);
+    OUT_CS_REG(R300_GB_ENABLE, rs->stuffing_enable);
+    OUT_CS_REG_SEQ(R300_GA_POINT_S0, 4);
+    OUT_CS_32F(rs->point_texcoord_left);
+    OUT_CS_32F(rs->point_texcoord_bottom);
+    OUT_CS_32F(rs->point_texcoord_right);
+    OUT_CS_32F(rs->point_texcoord_top);
     END_CS;
 }
 
@@ -747,8 +755,9 @@ void r300_emit_textures_state(struct r300_context *r300,
             OUT_CS_REG(R300_TX_FORMAT2_0 + (i * 4), texstate->format[2]);
 
             OUT_CS_REG_SEQ(R300_TX_OFFSET_0 + (i * 4), 1);
-            OUT_CS_RELOC(allstate->textures[i]->buffer, texstate->tile_config,
-                         RADEON_GEM_DOMAIN_GTT | RADEON_GEM_DOMAIN_VRAM, 0, 0);
+            OUT_CS_TEX_RELOC((struct r300_texture *)allstate->fragment_sampler_views[i]->texture,
+                             texstate->tile_config,
+                             RADEON_GEM_DOMAIN_GTT | RADEON_GEM_DOMAIN_VRAM, 0, 0);
         }
     }
     END_CS;
@@ -788,8 +797,8 @@ void r300_emit_aos(struct r300_context* r300, unsigned offset)
     }
 
     for (i = 0; i < aos_count; i++) {
-        OUT_CS_RELOC_NO_OFFSET(vbuf[velem[i].vertex_buffer_index].buffer,
-                               RADEON_GEM_DOMAIN_GTT, 0, 0);
+        OUT_CS_BUF_RELOC_NO_OFFSET(vbuf[velem[i].vertex_buffer_index].buffer,
+				   RADEON_GEM_DOMAIN_GTT, 0, 0);
     }
     END_CS;
 }
@@ -814,7 +823,7 @@ void r300_emit_vertex_buffer(struct r300_context* r300)
     OUT_CS(r300->vertex_info.size |
             (r300->vertex_info.size << 8));
     OUT_CS(r300->vbo_offset);
-    OUT_CS_RELOC(r300->vbo, 0, RADEON_GEM_DOMAIN_GTT, 0, 0);
+    OUT_CS_BUF_RELOC(r300->vbo, 0, RADEON_GEM_DOMAIN_GTT, 0, 0);
     END_CS;
 }
 
@@ -996,7 +1005,7 @@ void r300_emit_texture_cache_inval(struct r300_context* r300, unsigned size, voi
 
 void r300_emit_buffer_validate(struct r300_context *r300,
                                boolean do_validate_vertex_buffers,
-                               struct pipe_buffer *index_buffer)
+                               struct pipe_resource *index_buffer)
 {
     struct pipe_framebuffer_state* fb =
         (struct pipe_framebuffer_state*)r300->fb_state.state;
@@ -1005,20 +1014,26 @@ void r300_emit_buffer_validate(struct r300_context *r300,
     struct r300_texture* tex;
     struct pipe_vertex_buffer *vbuf = r300->vertex_buffer;
     struct pipe_vertex_element *velem = r300->velems->velem;
-    struct pipe_buffer *pbuf;
+    struct pipe_resource *pbuf;
     unsigned i;
     boolean invalid = FALSE;
 
+    /* upload buffers first */
+    if (r300->any_user_vbs) {
+        r300_upload_user_buffers(r300);
+        r300->any_user_vbs = false;
+    }
+
     /* Clean out BOs. */
-    r300->winsys->reset_bos(r300->winsys);
+    r300->rws->reset_bos(r300->rws);
 
 validate:
     /* Color buffers... */
     for (i = 0; i < fb->nr_cbufs; i++) {
         tex = (struct r300_texture*)fb->cbufs[i]->texture;
         assert(tex && tex->buffer && "cbuf is marked, but NULL!");
-        if (!r300->winsys->add_buffer(r300->winsys, tex->buffer,
-                    0, RADEON_GEM_DOMAIN_VRAM)) {
+        if (!r300_add_texture(r300->rws, tex,
+			      0, RADEON_GEM_DOMAIN_VRAM)) {
             r300->context.flush(&r300->context, 0, NULL);
             goto validate;
         }
@@ -1027,35 +1042,37 @@ validate:
     if (fb->zsbuf) {
         tex = (struct r300_texture*)fb->zsbuf->texture;
         assert(tex && tex->buffer && "zsbuf is marked, but NULL!");
-        if (!r300->winsys->add_buffer(r300->winsys, tex->buffer,
-                    0, RADEON_GEM_DOMAIN_VRAM)) {
+        if (!r300_add_texture(r300->rws, tex,
+			      0, RADEON_GEM_DOMAIN_VRAM)) {
             r300->context.flush(&r300->context, 0, NULL);
             goto validate;
         }
     }
     /* ...textures... */
-    for (i = 0; i < r300->fragment_sampler_view_count; i++) {
-        if (!r300->fragment_sampler_views[i])
+    for (i = 0; i < texstate->count; i++) {
+        if (!(texstate->tx_enable & (1 << i))) {
             continue;
-        tex = (struct r300_texture *)r300->fragment_sampler_views[i]->texture;
-        if (!r300->winsys->add_buffer(r300->winsys, tex->buffer,
-                    RADEON_GEM_DOMAIN_GTT | RADEON_GEM_DOMAIN_VRAM, 0)) {
+        }
+
+        tex = (struct r300_texture*)texstate->fragment_sampler_views[i]->texture;
+        if (!r300_add_texture(r300->rws, tex,
+			      RADEON_GEM_DOMAIN_GTT | RADEON_GEM_DOMAIN_VRAM, 0)) {
             r300->context.flush(&r300->context, 0, NULL);
             goto validate;
         }
     }
     /* ...occlusion query buffer... */
     if (r300->dirty_state & R300_NEW_QUERY) {
-        if (!r300->winsys->add_buffer(r300->winsys, r300->oqbo,
-                    0, RADEON_GEM_DOMAIN_GTT)) {
+        if (!r300_add_buffer(r300->rws, r300->oqbo,
+			     0, RADEON_GEM_DOMAIN_GTT)) {
             r300->context.flush(&r300->context, 0, NULL);
             goto validate;
         }
     }
     /* ...vertex buffer for SWTCL path... */
     if (r300->vbo) {
-        if (!r300->winsys->add_buffer(r300->winsys, r300->vbo,
-                    RADEON_GEM_DOMAIN_GTT, 0)) {
+        if (!r300_add_buffer(r300->rws, r300->vbo,
+			     RADEON_GEM_DOMAIN_GTT, 0)) {
             r300->context.flush(&r300->context, 0, NULL);
             goto validate;
         }
@@ -1065,23 +1082,22 @@ validate:
         for (i = 0; i < r300->velems->count; i++) {
             pbuf = vbuf[velem[i].vertex_buffer_index].buffer;
 
-            if (!r300->winsys->add_buffer(r300->winsys, pbuf,
-                                          RADEON_GEM_DOMAIN_GTT, 0)) {
-                r300->context.flush(&r300->context, 0, NULL);
+            if (!r300_add_buffer(r300->rws, pbuf,
+				 RADEON_GEM_DOMAIN_GTT, 0)) {
+		r300->context.flush(&r300->context, 0, NULL);
                 goto validate;
             }
         }
     }
     /* ...and index buffer for HWTCL path. */
     if (index_buffer) {
-        if (!r300->winsys->add_buffer(r300->winsys, index_buffer,
-                                      RADEON_GEM_DOMAIN_GTT, 0)) {
+        if (!r300_add_buffer(r300->rws, index_buffer,
+			     RADEON_GEM_DOMAIN_GTT, 0)) {
             r300->context.flush(&r300->context, 0, NULL);
             goto validate;
         }
     }
-
-    if (!r300->winsys->validate(r300->winsys)) {
+    if (!r300->rws->validate(r300->rws)) {
         r300->context.flush(&r300->context, 0, NULL);
         if (invalid) {
             /* Well, hell. */

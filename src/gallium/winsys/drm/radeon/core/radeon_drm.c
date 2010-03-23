@@ -31,7 +31,6 @@
 
 #include "radeon_drm.h"
 #include "radeon_r300.h"
-#include "radeon_buffer.h"
 
 #include "r300_winsys.h"
 #include "trace/tr_drm.h"
@@ -41,8 +40,22 @@
 #include "xf86drm.h"
 #include <sys/ioctl.h>
 
+static struct radeon_libdrm_winsys *
+radeon_winsys_create(int fd)
+{
+    struct radeon_libdrm_winsys *rws;
+
+    rws = CALLOC_STRUCT(radeon_libdrm_winsys);
+    if (rws == NULL) {
+        return NULL;
+    }
+
+    rws->fd = fd;
+    return rws;
+}
+
 /* Helper function to do the ioctls needed for setup and init. */
-static void do_ioctls(int fd, struct radeon_winsys* winsys)
+static void do_ioctls(int fd, struct radeon_libdrm_winsys* winsys)
 {
     struct drm_radeon_gem_info gem_info = {0};
     struct drm_radeon_info info = {0};
@@ -78,6 +91,10 @@ static void do_ioctls(int fd, struct radeon_winsys* winsys)
         drmFreeVersion(version);
         exit(1);
     }
+
+    // Supported since 2.1.0.
+    winsys->squaretiling = version->version_major > 2 ||
+                           version->version_minor >= 1;
 
     info.request = RADEON_INFO_DEVICE_ID;
     retval = drmCommandWriteRead(fd, DRM_RADEON_INFO, &info, sizeof(info));
@@ -133,19 +150,28 @@ struct pipe_screen* radeon_create_screen(struct drm_api* api,
                                          int drmFB,
                                          struct drm_create_screen_arg *arg)
 {
-    struct radeon_winsys* rwinsys = radeon_pipe_winsys(drmFB);
-    do_ioctls(drmFB, rwinsys);
+    struct radeon_libdrm_winsys* rws; 
+    boolean ret;
+
+    rws = radeon_winsys_create(drmFB);
+    if (!rws)
+	return NULL;
+
+    do_ioctls(drmFB, rws);
 
     /* The state tracker can organize a softpipe fallback if no hw
      * driver is found.
      */
-    if (is_r3xx(rwinsys->pci_id)) {
-        radeon_setup_winsys(drmFB, rwinsys);
-        return r300_create_screen(rwinsys);
-    } else {
-        FREE(rwinsys);
-        return NULL;
+    if (is_r3xx(rws->pci_id)) {
+        ret = radeon_setup_winsys(drmFB, rws);
+	if (ret == FALSE)
+	    goto fail;
+        return r300_create_screen(&rws->base);
     }
+
+fail:
+    FREE(rws);
+    return NULL;
 }
 
 static void radeon_drm_api_destroy(struct drm_api *api)

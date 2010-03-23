@@ -738,7 +738,7 @@ static struct pipe_transfer *
 identity_context_get_transfer(struct pipe_context *_context,
 			      struct pipe_resource *_resource,
 			      struct pipe_subresource sr,
-			      enum pipe_transfer_usage usage,
+			      unsigned usage,
 			      const struct pipe_box *box)
 {
    struct identity_context *id_context = identity_context(_context);
@@ -815,7 +815,7 @@ static void
 identity_context_transfer_inline_write( struct pipe_context *_context,
 					struct pipe_resource *_resource,
 					struct pipe_subresource sr,
-					enum pipe_transfer_usage usage,
+					unsigned usage,
 					const struct pipe_box *box,
 					const void *data,
 					unsigned stride,

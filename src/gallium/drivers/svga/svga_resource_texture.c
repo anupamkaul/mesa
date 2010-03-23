@@ -341,7 +341,7 @@ static struct pipe_transfer *
 svga_texture_get_transfer(struct pipe_context *pipe,
 			  struct pipe_resource *texture,
 			  struct pipe_subresource sr,
-			  enum pipe_transfer_usage usage,
+			  unsigned usage,
 			  const struct pipe_box *box)
 {
    struct svga_screen *ss = svga_screen(pipe->screen);

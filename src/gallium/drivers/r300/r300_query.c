@@ -76,17 +76,17 @@ static void r300_destroy_query(struct pipe_context* pipe,
 static void r300_begin_query(struct pipe_context* pipe,
                              struct pipe_query* query)
 {
-    uint32_t* map;
+    uint32_t value = ~0U;
     struct r300_context* r300 = r300_context(pipe);
     struct r300_query* q = (struct r300_query*)query;
 
     assert(r300->query_current == NULL);
 
-    map = pipe->screen->buffer_map(pipe->screen, r300->oqbo,
-            PIPE_BUFFER_USAGE_CPU_WRITE);
-    map += q->offset / 4;
-    *map = ~0U;
-    pipe->screen->buffer_unmap(pipe->screen, r300->oqbo);
+    pipe_buffer_write(pipe,
+		      r300->oqbo,
+		      q->offset,
+		      sizeof value,
+		      &value);
 
     q->flushed = FALSE;
     r300->query_current = q;
@@ -110,6 +110,7 @@ static boolean r300_get_query_result(struct pipe_context* pipe,
     struct r300_context* r300 = r300_context(pipe);
     struct r300_screen* r300screen = r300_screen(r300->context.screen);
     struct r300_query *q = (struct r300_query*)query;
+    struct pipe_transfer *transfer;
     unsigned flags = PIPE_BUFFER_USAGE_CPU_READ;
     uint32_t* map;
     uint32_t temp = 0;
@@ -118,10 +119,10 @@ static boolean r300_get_query_result(struct pipe_context* pipe,
     if (q->flushed == FALSE)
         pipe->flush(pipe, 0, NULL);
     if (!wait) {
-        flags |= PIPE_BUFFER_USAGE_DONTBLOCK;
+        flags |= PIPE_TRANSFER_DONTBLOCK;
     }
 
-    map = pipe->screen->buffer_map(pipe->screen, r300->oqbo, flags);
+    map = pipe_buffer_map(pipe, r300->oqbo, flags, &transfer);
     if (!map)
         return FALSE;
     map += q->offset / 4;
@@ -144,7 +145,7 @@ static boolean r300_get_query_result(struct pipe_context* pipe,
         temp += *map;
         map++;
     }
-    pipe->screen->buffer_unmap(pipe->screen, r300->oqbo);
+    pipe_buffer_unmap(pipe, r300->oqbo, transfer);
 
     if (temp == ~0U) {
         /* Our results haven't been written yet... */

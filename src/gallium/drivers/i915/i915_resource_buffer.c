@@ -75,7 +75,7 @@ static void
 i915_buffer_transfer_inline_write( struct pipe_context *rm_ctx,
 				   struct pipe_resource *resource,
 				   struct pipe_subresource sr,
-				   enum pipe_transfer_usage usage,
+				   unsigned usage,
 				   const struct pipe_box *box,
 				   const void *data,
 				   unsigned stride,

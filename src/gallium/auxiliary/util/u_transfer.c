@@ -10,7 +10,7 @@
 void u_default_transfer_inline_write( struct pipe_context *pipe,
 				      struct pipe_resource *resource,
 				      struct pipe_subresource sr,
-				      enum pipe_transfer_usage usage,
+				      unsigned usage,
 				      const struct pipe_box *box,
 				      const void *data,
 				      unsigned stride,
@@ -79,7 +79,7 @@ unsigned u_default_is_resource_referenced( struct pipe_context *pipe,
 struct pipe_transfer * u_default_get_transfer(struct pipe_context *context,
 					      struct pipe_resource *resource,
 					      struct pipe_subresource sr,
-					      enum pipe_transfer_usage usage,
+					      unsigned usage,
 					      const struct pipe_box *box)
 {
    struct pipe_transfer *transfer = CALLOC_STRUCT(pipe_transfer);

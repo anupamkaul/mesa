@@ -64,8 +64,6 @@ C_SOURCES = \
 	pipebuffer/pb_bufmgr_pool.c \
 	pipebuffer/pb_bufmgr_slab.c \
 	pipebuffer/pb_validate.c \
-	piperesource/rm_context.c \
-	piperesource/rm_screen.c \
 	rbug/rbug_connection.c \
 	rbug/rbug_core.c \
 	rbug/rbug_texture.c \
@@ -131,6 +129,7 @@ C_SOURCES = \
 	util/u_resource.c \
 	util/u_upload_mgr.c \
 	target-helpers/wrap_screen.c
+
 	# Disabling until pipe-video branch gets merged in
 	#vl/vl_bitstream_parser.c \
 	#vl/vl_mpeg12_mc_renderer.c \

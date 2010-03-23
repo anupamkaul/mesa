@@ -315,7 +315,7 @@ struct pipe_context {
    struct pipe_transfer *(*get_transfer)(struct pipe_context *,
 					 struct pipe_resource *resource,
 					 struct pipe_subresource,
-					 enum pipe_transfer_usage,
+					 unsigned usage,  /* a combination of PIPE_TRANSFER_x */
 					 const struct pipe_box *);
 
    void (*transfer_destroy)(struct pipe_context *,
@@ -342,7 +342,7 @@ struct pipe_context {
    void (*transfer_inline_write)( struct pipe_context *,
 				  struct pipe_resource *,
 				  struct pipe_subresource,
-				  enum pipe_transfer_usage,
+				  unsigned usage, /* a combination of PIPE_TRANSFER_x */
 				  const struct pipe_box *,
 				  const void *data,
 				  unsigned stride,

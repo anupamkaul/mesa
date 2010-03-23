@@ -26,7 +26,7 @@
 uint32_t r300_translate_primitive(unsigned prim);
 
 void r300_draw_range_elements(struct pipe_context* pipe,
-                              struct pipe_buffer* indexBuffer,
+                              struct pipe_resource* indexBuffer,
                               unsigned indexSize,
                               unsigned minIndex,
                               unsigned maxIndex,
@@ -35,7 +35,7 @@ void r300_draw_range_elements(struct pipe_context* pipe,
                               unsigned count);
 
 void r300_draw_elements(struct pipe_context* pipe,
-                        struct pipe_buffer* indexBuffer,
+                        struct pipe_resource* indexBuffer,
                         unsigned indexSize, unsigned mode,
                         unsigned start, unsigned count);
 
@@ -48,7 +48,7 @@ void r300_swtcl_draw_arrays(struct pipe_context* pipe,
                             unsigned count);
 
 void r300_swtcl_draw_range_elements(struct pipe_context* pipe,
-                                    struct pipe_buffer* indexBuffer,
+                                    struct pipe_resource* indexBuffer,
                                     unsigned indexSize,
                                     unsigned minIndex,
                                     unsigned maxIndex,
