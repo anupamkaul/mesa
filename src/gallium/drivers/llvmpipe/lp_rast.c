@@ -315,7 +315,6 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
    uint8_t *color[PIPE_MAX_COLOR_BUFS];
    void *depth;
    unsigned i;
-   unsigned ix, iy;
 
    assert(state);
 
@@ -325,9 +324,6 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
 
    assert((x % 4) == 0);
    assert((y % 4) == 0);
-
-   ix = x % TILE_SIZE;
-   iy = y % TILE_SIZE;
 
    /* color buffer */
    for (i = 0; i < rast->state.nr_cbufs; i++) {
