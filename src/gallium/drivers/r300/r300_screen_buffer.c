@@ -44,7 +44,7 @@ static unsigned r300_buffer_is_referenced(struct pipe_context *context,
     if (r300_buffer_is_user_buffer(buf))
  	return PIPE_UNREFERENCED;
 
-    if (r300->rws->is_resource_referenced(r300->rws, rbuf->buf))
+    if (r300->rws->is_buffer_referenced(r300->rws, rbuf->buf))
         return PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE;
 
     return PIPE_UNREFERENCED;
@@ -293,7 +293,7 @@ struct u_resource_vtbl r300_buffer_vtbl =
 {
    u_default_resource_get_handle,      /* get_handle */
    r300_buffer_destroy,		     /* resource_destroy */
-   r300_buffer_is_referenced,	     /* is_resource_referenced */
+   r300_buffer_is_referenced,	     /* is_buffer_referenced */
    u_default_get_transfer,	     /* get_transfer */
    u_default_transfer_destroy,	     /* transfer_destroy */
    r300_buffer_transfer_map,	     /* transfer_map */

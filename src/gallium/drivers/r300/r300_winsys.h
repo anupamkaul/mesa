@@ -159,7 +159,7 @@ struct r300_winsys_screen {
 				 unsigned stride,
 				 struct winsys_handle *whandle);
 
-    boolean (*is_resource_referenced)(struct r300_winsys_screen *winsys,
+    boolean (*is_buffer_referenced)(struct r300_winsys_screen *winsys,
                                     struct r300_winsys_buffer *buffer);
 
   

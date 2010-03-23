@@ -31,6 +31,7 @@
 
 #include "radeon_drm.h"
 #include "radeon_r300.h"
+#include "radeon_buffer.h"
 
 #include "r300_winsys.h"
 #include "trace/tr_drm.h"

@@ -21,6 +21,7 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #include "radeon_r300.h"
+#include "radeon_buffer.h"
 
 #include "radeon_bo_gem.h"
 #include "radeon_cs_gem.h"

@@ -3,6 +3,7 @@
 #include "radeon_drm.h"
 #include "radeon_bo_gem.h"
 #include "radeon_cs_gem.h"
+#include "radeon_buffer.h"
 
 #include "util/u_inlines.h"
 #include "util/u_memory.h"
@@ -71,7 +72,7 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
     struct radeon_drm_buffer *buf = radeon_drm_buffer(_buf);
     int write;
 
-    if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
+    if (flags & PIPE_TRANSFER_DONTBLOCK) {
 	if ((_buf->base.usage & PIPE_BUFFER_USAGE_VERTEX) ||
 	    (_buf->base.usage & PIPE_BUFFER_USAGE_INDEX))
 	    if (radeon_bo_is_referenced_by_cs(buf->bo, buf->mgr->rws->cs))
@@ -81,7 +82,7 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
     if (buf->bo->ptr != NULL)
 	return buf->bo->ptr;
 
-    if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
+    if (flags & PIPE_TRANSFER_DONTBLOCK) {
         uint32_t domain;
         if (radeon_bo_is_busy(buf->bo, &domain))
             return NULL;
