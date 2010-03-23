@@ -136,7 +136,7 @@ dri2_surface_process_drawable_buffers(struct native_surface *nsurf,
    templ.height0 = dri2surf->height;
    templ.depth0 = 1;
    templ.format = dri2surf->color_format;
-   templ.tex_usage = PIPE_BIND_RENDER_TARGET;
+   templ.bind = PIPE_BIND_RENDER_TARGET;
 
    valid_mask = 0x0;
    for (i = 0; i < num_xbufs; i++) {
@@ -277,7 +277,7 @@ dri2_surface_update_buffers(struct native_surface *nsurf, uint buffer_mask)
       templ.height0 = dri2surf->height;
       templ.depth0 = 1;
       templ.format = dri2surf->color_format;
-      templ.tex_usage = PIPE_BIND_RENDER_TARGET;
+      templ.bind = PIPE_BIND_RENDER_TARGET;
 
       for (att = 0; att < NUM_NATIVE_ATTACHMENTS; att++) {
          if (native_attachment_mask_test(buffer_mask, att)) {
