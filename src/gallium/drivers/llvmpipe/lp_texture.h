@@ -85,6 +85,7 @@ struct llvmpipe_texture
 {
    struct pipe_texture base;
 
+   /** Row stride in bytes */
    unsigned stride[LP_MAX_TEXTURE_LEVELS];
 
    /**
