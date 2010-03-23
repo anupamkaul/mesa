@@ -900,7 +900,6 @@ identity_context_create(struct pipe_screen *_screen, struct pipe_context *pipe)
    id_pipe->base.clear = identity_clear;
    id_pipe->base.flush = identity_flush;
    id_pipe->base.is_resource_referenced = identity_is_resource_referenced;
-   id_pipe->base.is_resource_referenced = identity_is_resource_referenced;
    id_pipe->base.create_sampler_view = identity_create_sampler_view;
    id_pipe->base.sampler_view_destroy = identity_sampler_view_destroy;
    id_pipe->base.get_transfer = identity_context_get_transfer;
