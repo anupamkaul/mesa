@@ -36,7 +36,7 @@ dri_surface_from_handle(struct drm_api *api, struct pipe_screen *pscreen,
 	whandle.stride = pitch;
 	whandle.handle = handle;
 
-	pt = pscreen->texture_from_handle(pscreen, &tmpl, &whandle);
+	pt = pscreen->resource_from_handle(pscreen, &tmpl, &whandle);
 	if (!pt)
 		return NULL;
 
