@@ -157,7 +157,7 @@ static INLINE struct pipe_resource *create_gradient_texture(struct vg_paint *p)
    templ.width0 = 1024;
    templ.height0 = 1;
    templ.depth0 = 1;
-   templ.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
+   templ.bind = PIPE_BIND_SAMPLER_VIEW;
 
    tex = screen->resource_create(screen, &templ);
 

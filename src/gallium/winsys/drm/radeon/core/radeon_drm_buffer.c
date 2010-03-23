@@ -72,8 +72,8 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
     int write;
 
     if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
-	if ((_buf->base.usage & PIPE_BUFFER_USAGE_VERTEX) ||
-	    (_buf->base.usage & PIPE_BUFFER_USAGE_INDEX))
+	if ((_buf->base.usage & PIPE_BIND_VERTEX_BUFFER) ||
+	    (_buf->base.usage & PIPE_BIND_INDEX_BUFFER))
 	    if (radeon_bo_is_referenced_by_cs(buf->bo, buf->mgr->rws->cs))
 		return NULL;
     }
@@ -153,10 +153,10 @@ static uint32_t radeon_domain_from_usage(unsigned usage)
     if (usage & PIPE_BUFFER_USAGE_PIXEL) {
         domain |= RADEON_GEM_DOMAIN_VRAM;
     }
-    if (usage & PIPE_BUFFER_USAGE_VERTEX) {
+    if (usage & PIPE_BIND_VERTEX_BUFFER) {
         domain |= RADEON_GEM_DOMAIN_GTT;
     }
-    if (usage & PIPE_BUFFER_USAGE_INDEX) {
+    if (usage & PIPE_BIND_INDEX_BUFFER) {
         domain |= RADEON_GEM_DOMAIN_GTT;
     }
 

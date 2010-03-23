@@ -176,22 +176,10 @@ enum pipe_texture_target {
 #define PIPE_TEX_COMPARE_NONE          0
 #define PIPE_TEX_COMPARE_R_TO_TEXTURE  1
 
-#define PIPE_TEXTURE_USAGE_RENDER_TARGET   0x1
-#define PIPE_TEXTURE_USAGE_DISPLAY_TARGET  0x2  /* windows presentable buffer, ie a backbuffer */
-#define PIPE_TEXTURE_USAGE_SCANOUT         0x4  /* ie a frontbuffer */
-#define PIPE_TEXTURE_USAGE_DEPTH_STENCIL   0x8
-#define PIPE_TEXTURE_USAGE_SAMPLER         0x10
-#define PIPE_TEXTURE_USAGE_DYNAMIC         0x20
-#define PIPE_TEXTURE_USAGE_SHARED          0x40
-/** Pipe driver custom usage flags should be greater or equal to this value */
-#define PIPE_TEXTURE_USAGE_CUSTOM          (1 << 16)
-
-#define PIPE_TEXTURE_GEOM_NON_SQUARE       0x1
-#define PIPE_TEXTURE_GEOM_NON_POWER_OF_TWO 0x2
-
 
 /**
- * Surface layout
+ * Surface layout -- a hint?  Or some driver-internal poking out into
+ * the interface?
  */
 #define PIPE_SURFACE_LAYOUT_LINEAR  0
 
@@ -287,30 +275,64 @@ enum pipe_transfer_usage {
 
 
 /*
- * Resource usage flags -- state tracker must specify in advance all
- * the ways a resource might be used.  
- *
- * XXX: add a method to extend the flags?
+ * Resource binding flags -- state tracker must specify in advance all
+ * the ways a resource might be used.
  */
+#define PIPE_BIND_DEPTH_STENCIL        (1 << 0) /* get_tex_surface */
+#define PIPE_BIND_RENDER_TARGET        (1 << 1) /* get_tex_surface */
+#define PIPE_BIND_SAMPLER_VIEW         (1 << 2) /* get_sampler_view */
+#define PIPE_BIND_VERTEX_BUFFER        (1 << 3) /* set_vertex_buffers */
+#define PIPE_BIND_INDEX_BUFFER         (1 << 4) /* draw_elements */
+#define PIPE_BIND_CONSTANT_BUFFER      (1 << 5) /* set_constant_buffer */
+#define PIPE_BIND_BLIT_SOURCE          (1 << 6) /* surface_copy */
+#define PIPE_BIND_BLIT_DESTINATION     (1 << 7) /* surface_copy, fill */
+#define PIPE_BIND_DISPLAY_TARGET       (1 << 8) /* flush_front_buffer */
+#define PIPE_BIND_TRANSFER_WRITE       (1 << 9) /* get_transfer */
+#define PIPE_BIND_TRANSFER_READ        (1 << 10) /* get_transfer */
+#define PIPE_BIND_CUSTOM               (1 << 16) /* state-tracker/winsys usages */
 
-#define PIPE_BUFFER_USAGE_DEPTH_STENCIL (1 << 0)
-#define PIPE_BUFFER_USAGE_RENDER_TARGET (1 << 1)
-#define PIPE_BUFFER_USAGE_SAMPLER       (1 << 2)
-#define PIPE_BUFFER_USAGE_VERTEX        (1 << 3)
-#define PIPE_BUFFER_USAGE_INDEX         (1 << 4)
-#define PIPE_BUFFER_USAGE_CONSTANT      (1 << 5)
-#define PIPE_BUFFER_USAGE_BLIT_SOURCE    (1 << 6) /* will go away */
-#define PIPE_BUFFER_USAGE_BLIT_DESTINATION (1 << 7) /* will go away */
+/* The first two flags were previously part of the amorphous
+ * TEXTURE_USAGE, most of which are now descriptions of the ways a
+ * particular texture can be bound to the gallium pipeline.  These two
+ * do not fit within that and probably need to be migrated to some
+ * other place.
+ *
+ * It seems like scanout is used by the Xorg state tracker to ask for
+ * a texture suitable for actual scanout (hence the name), which
+ * implies extra layout constraints on some hardware.  It may also
+ * have some special meaning regarding mouse cursor images.
+ *
+ * The shared flag is quite underspecified, but certainly isn't a
+ * binding flag - it seems more like a message to the winsys to create
+ * a shareable allocation.  Could it mean that this texture is a valid argument for 
+ */
+#define PIPE_BIND_SCANOUT     (1 << 14) /*  */
+#define PIPE_BIND_SHARED      (1 << 15) /* get_texture_handle ??? */
 
-#define PIPE_BUFFER_USAGE_CUSTOM        (1 << 16)
 
-/* Convenient shortcuts */
-#define PIPE_BUFFER_USAGE_CPU_READ_WRITE \
-   ( PIPE_BUFFER_USAGE_CPU_READ | PIPE_BUFFER_USAGE_CPU_WRITE )
-#define PIPE_BUFFER_USAGE_GPU_READ_WRITE \
-   ( PIPE_BUFFER_USAGE_GPU_READ | PIPE_BUFFER_USAGE_GPU_WRITE )
-#define PIPE_BUFFER_USAGE_WRITE \
-   ( PIPE_BUFFER_USAGE_CPU_WRITE | PIPE_BUFFER_USAGE_GPU_WRITE )
+/* Flags for the driver about resource behaviour:
+ */
+#define PIPE_RESOURCE_FLAG_GEN_MIPS    (1 << 0)  /* Driver performs autogen mips */
+#define PIPE_RESOURCE_FLAG_DRV_PRIV    (1 << 16) /* driver/winsys private */
+#define PIPE_RESOURCE_FLAG_ST_PRIV     (1 << 24) /* state-tracker/winsys private */
+
+/* Hint about the expected lifecycle of a resource.
+ */
+#define PIPE_USAGE_DEFAULT        0 /* many uploads, draws intermixed */
+#define PIPE_USAGE_DYNAMIC        1 /* many uploads, draws intermixed */
+#define PIPE_USAGE_STATIC         2 /* same as immutable?? */
+#define PIPE_USAGE_IMMUTABLE      3 /* no change after first upload */
+#define PIPE_USAGE_STREAM         4 /* upload, draw, upload, draw */
+
+
+/* These are intended to be used in calls to is_format_supported, but
+ * no driver actually uses these flags, and only the glx/xlib state
+ * tracker issues them.
+ *
+ * Deprecate?
+ */
+#define PIPE_TEXTURE_GEOM_NON_SQUARE       0x1
+#define PIPE_TEXTURE_GEOM_NON_POWER_OF_TWO 0x2
 
 
 /** 

@@ -162,7 +162,7 @@ r300_buffer_map_range(struct pipe_screen *screen,
     if (rbuf->user_buffer)
 	return rbuf->user_buffer;
 
-    if (rbuf->b.b.usage & PIPE_BUFFER_USAGE_CONSTANT) {
+    if (rbuf->b.b.bind & PIPE_BIND_CONSTANT_BUFFER) {
 	goto just_map;
     }
 
@@ -182,7 +182,7 @@ r300_buffer_map_range(struct pipe_screen *screen,
 		rbuf->map = NULL;
 		rbuf->buf = r300_winsys_buffer_create(r300screen,
 						      16,
-						      rbuf->b.b.usage,
+						      rbuf->b.b.bind, /* XXX */
 						      rbuf->b.b.width0);
 		break;
 	    }
@@ -206,7 +206,7 @@ r300_buffer_flush_mapped_range( struct pipe_screen *screen,
     if (rbuf->user_buffer)
 	return;
 
-    if (rbuf->b.b.usage & PIPE_BUFFER_USAGE_CONSTANT)
+    if (rbuf->b.b.bind & PIPE_BIND_CONSTANT_BUFFER)
 	return;
 
     /* mark the range as used */
@@ -324,7 +324,7 @@ struct pipe_resource *r300_buffer_create(struct pipe_screen *screen,
 
     rbuf->buf = r300_winsys_buffer_create(r300screen,
 					  16,
-					  rbuf->b.b.usage,
+					  rbuf->b.b.bind, /* XXX */
 					  rbuf->b.b.width0);
 
     if (!rbuf->buf)
@@ -341,7 +341,7 @@ error1:
 struct pipe_resource *r300_user_buffer_create(struct pipe_screen *screen,
 					      void *ptr,
 					      unsigned bytes,
-					      unsigned usage)
+					      unsigned bind)
 {
     struct r300_buffer *rbuf;
 
@@ -355,7 +355,8 @@ struct pipe_resource *r300_user_buffer_create(struct pipe_screen *screen,
     rbuf->b.vtbl = &r300_buffer_vtbl;
     rbuf->b.b.screen = screen;
     rbuf->b.b.format = PIPE_FORMAT_R8_UNORM;
-    rbuf->b.b.usage = usage;
+    rbuf->b.b._usage = PIPE_USAGE_IMMUTABLE;
+    rbuf->b.b.bind = bind;
     rbuf->b.b.width0 = bytes;
     rbuf->b.b.height0 = 1;
     rbuf->b.b.depth0 = 1;

@@ -147,7 +147,7 @@ nv40_fragtex_build(struct nvfx_context *nvfx, int unit)
 		return NULL;
 	}
 
-	if (!(pt->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR)) {
+	if (!(pt->flags & NVFX_RESOURCE_FLAG_LINEAR)) {
 		txp = 0;
 	} else {
 		txp  = nv40mt->level[0].pitch;

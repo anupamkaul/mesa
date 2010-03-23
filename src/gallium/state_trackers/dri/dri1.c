@@ -439,12 +439,12 @@ dri1_allocate_textures(struct dri_drawable *drawable,
       case ST_ATTACHMENT_FRONT_RIGHT:
       case ST_ATTACHMENT_BACK_RIGHT:
          format = drawable->stvis.color_format;
-         tex_usage = PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                     PIPE_TEXTURE_USAGE_RENDER_TARGET;
+         tex_usage = PIPE_BIND_DISPLAY_TARGET |
+                     PIPE_BIND_RENDER_TARGET;
          break;
       case ST_ATTACHMENT_DEPTH_STENCIL:
          format = drawable->stvis.depth_stencil_format;
-         tex_usage = PIPE_TEXTURE_USAGE_DEPTH_STENCIL;
+         tex_usage = PIPE_BIND_DEPTH_STENCIL;
          break;
       default:
          format = PIPE_FORMAT_NONE;

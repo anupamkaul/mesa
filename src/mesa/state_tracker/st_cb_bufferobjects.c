@@ -194,15 +194,15 @@ st_bufferobj_data(GLcontext *ctx,
    switch(target) {
    case GL_PIXEL_PACK_BUFFER_ARB:
    case GL_PIXEL_UNPACK_BUFFER_ARB:
-      buffer_usage = (PIPE_BUFFER_USAGE_RENDER_TARGET |
-		      PIPE_BUFFER_USAGE_BLIT_SOURCE |
-		      PIPE_BUFFER_USAGE_BLIT_DESTINATION);
+      buffer_usage = (PIPE_BIND_RENDER_TARGET |
+		      PIPE_BIND_BLIT_SOURCE |
+		      PIPE_BIND_BLIT_DESTINATION);
       break;
    case GL_ARRAY_BUFFER_ARB:
-      buffer_usage = PIPE_BUFFER_USAGE_VERTEX;
+      buffer_usage = PIPE_BIND_VERTEX_BUFFER;
       break;
    case GL_ELEMENT_ARRAY_BUFFER_ARB:
-      buffer_usage = PIPE_BUFFER_USAGE_INDEX;
+      buffer_usage = PIPE_BIND_INDEX_BUFFER;
       break;
    default:
       buffer_usage = 0;
@@ -211,7 +211,7 @@ st_bufferobj_data(GLcontext *ctx,
    pipe_resource_reference( &st_obj->buffer, NULL );
 
    if (size != 0) {
-      st_obj->buffer = pipe_buffer_create(pipe->screen, 32, buffer_usage, size);
+      st_obj->buffer = pipe_buffer_create(pipe->screen, buffer_usage, size);
 
       if (!st_obj->buffer) {
          return GL_FALSE;

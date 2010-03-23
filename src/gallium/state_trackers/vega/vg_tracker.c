@@ -62,11 +62,11 @@ create_texture(struct pipe_context *pipe, enum pipe_format format,
    templ.last_level = 0;
 
    if (util_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_ZS, 1)) {
-      templ.tex_usage = PIPE_TEXTURE_USAGE_DEPTH_STENCIL;
+      templ.bind = PIPE_BIND_DEPTH_STENCIL;
    } else {
-      templ.tex_usage = (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                         PIPE_TEXTURE_USAGE_RENDER_TARGET |
-                         PIPE_TEXTURE_USAGE_SAMPLER);
+      templ.bind = (PIPE_BIND_DISPLAY_TARGET |
+		    PIPE_BIND_RENDER_TARGET |
+		    PIPE_BIND_SAMPLER_VIEW);
    }
 
    return pipe->screen->resource_create(pipe->screen, &templ);
@@ -134,9 +134,9 @@ st_renderbuffer_alloc_storage(struct vg_context * ctx,
 
    /* Probably need dedicated flags for surface usage too:
     */
-   surface_usage = (PIPE_BUFFER_USAGE_RENDER_TARGET  |
-                    PIPE_BUFFER_USAGE_BLIT_SOURCE |
-		    PIPE_BUFFER_USAGE_BLIT_DESTINATION);
+   surface_usage = (PIPE_BIND_RENDER_TARGET  |
+                    PIPE_BIND_BLIT_SOURCE |
+		    PIPE_BIND_BLIT_DESTINATION);
 
    strb->texture = create_texture(pipe, strb->format, width, height);
 
@@ -256,13 +256,13 @@ static void setup_new_alpha_mask(struct vg_context *ctx,
          pipe->screen,
          stfb->alpha_mask_view->texture,
          0, 0, 0,
-         PIPE_BUFFER_USAGE_RENDER_TARGET |
-	 PIPE_BUFFER_USAGE_BLIT_DESTINATION);
+         PIPE_BIND_RENDER_TARGET |
+	 PIPE_BIND_BLIT_DESTINATION);
       struct pipe_surface *old_surface = pipe->screen->get_tex_surface(
          pipe->screen,
          old_sampler_view->texture,
          0, 0, 0,
-         PIPE_BUFFER_USAGE_BLIT_SOURCE);
+         PIPE_BIND_BLIT_SOURCE);
       if (pipe->surface_copy) {
          pipe->surface_copy(pipe,
                             surface,

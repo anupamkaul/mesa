@@ -407,7 +407,7 @@ nv50_draw_elements_instanced(struct pipe_context *pipe,
 					     instanceCount);
 		return;
 	} else
-	if (!(indexBuffer->usage & PIPE_BUFFER_USAGE_INDEX) || indexSize == 1) {
+	if (!(indexBuffer->bind & PIPE_BIND_INDEX_BUFFER) || indexSize == 1) {
 		nv50_draw_elements_inline(pipe, indexBuffer, indexSize,
 					  mode, start, count, startInstance,
 					  instanceCount);
@@ -559,7 +559,7 @@ nv50_vbo_validate(struct nv50_context *nv50)
 
 	for (i = 0; i < nv50->vtxbuf_nr; i++) {
 		if (nv50->vtxbuf[i].stride &&
-		    !(nv50->vtxbuf[i].buffer->usage & PIPE_BUFFER_USAGE_VERTEX))
+		    !(nv50->vtxbuf[i].buffer->bind & PIPE_BIND_VERTEX_BUFFER))
 			nv50->vbo_fifo = 0xffff;
 	}
 

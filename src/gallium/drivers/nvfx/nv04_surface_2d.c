@@ -287,8 +287,8 @@ nv04_surface_copy(struct nv04_surface_2d *ctx, struct pipe_surface *dst,
 {
 	unsigned src_pitch = ((struct nv04_surface *)src)->pitch;
 	unsigned dst_pitch = ((struct nv04_surface *)dst)->pitch;
-	int src_linear = src->texture->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR;
-	int dst_linear = dst->texture->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR;
+	int src_linear = src->texture->flags & NVFX_RESOURCE_FLAG_LINEAR;
+	int dst_linear = dst->texture->flags & NVFX_RESOURCE_FLAG_LINEAR;
 
 	assert(src->format == dst->format);
 
@@ -501,24 +501,17 @@ nv04_surface_2d_init(struct nouveau_screen *screen)
 }
 
 struct nv04_surface*
-nv04_surface_wrap_for_render(struct pipe_screen *pscreen, struct nv04_surface_2d* eng2d, struct nv04_surface* ns)
+nv04_surface_wrap_for_render(struct pipe_screen *pscreen,
+			     struct nv04_surface_2d* eng2d, struct nv04_surface* ns)
 {
 	int temp_flags;
 
-	// printf("creating temp, flags is %i!\n", flags);
+	temp_flags = (ns->base.usage |
+		      PIPE_BIND_BLIT_SOURCE |
+		      PIPE_BIND_BLIT_DESTINATION);
 
-	if(0 /*ns->base.usage & PIPE_BUFFER_USAGE_DISCARD*/)
-	{
-		temp_flags = ns->base.usage | PIPE_BUFFER_USAGE_GPU_READ;
-		ns->base.usage = PIPE_BUFFER_USAGE_GPU_WRITE | NOUVEAU_BUFFER_USAGE_NO_RENDER /*| PIPE_BUFFER_USAGE_DISCARD */;
-	}
-	else
-	{
-		temp_flags = ns->base.usage | PIPE_BUFFER_USAGE_GPU_READ | PIPE_BUFFER_USAGE_GPU_WRITE;
-		ns->base.usage = PIPE_BUFFER_USAGE_GPU_WRITE | NOUVEAU_BUFFER_USAGE_NO_RENDER | PIPE_BUFFER_USAGE_GPU_READ;
-	}
-
-	ns->base.usage = PIPE_BUFFER_USAGE_GPU_READ | PIPE_BUFFER_USAGE_GPU_WRITE;
+	ns->base.usage = (PIPE_BIND_BLIT_SOURCE |
+			 PIPE_BIND_BLIT_DESTINATION);
 
 	struct pipe_resource templ;
 	memset(&templ, 0, sizeof(templ));
@@ -532,14 +525,16 @@ nv04_surface_wrap_for_render(struct pipe_screen *pscreen, struct nv04_surface_2d
 	// TODO: this is probably wrong and we should specifically handle multisampling somehow once it is implemented
 	templ.nr_samples = ns->base.texture->nr_samples;
 
-	templ.tex_usage = ns->base.texture->tex_usage | PIPE_TEXTURE_USAGE_RENDER_TARGET;
+	templ.bind = ns->base.texture->bind | PIPE_BIND_RENDER_TARGET;
 
 	struct pipe_resource* temp_tex = pscreen->resource_create(pscreen, &templ);
 	struct nv04_surface* temp_ns = (struct nv04_surface*)pscreen->get_tex_surface(pscreen, temp_tex, 0, 0, 0, temp_flags);
 	temp_ns->backing = ns;
 
-	if(ns->base.usage & PIPE_BUFFER_USAGE_GPU_READ)
-		eng2d->copy(eng2d, &temp_ns->backing->base, 0, 0, &ns->base, 0, 0, ns->base.width, ns->base.height);
+	if(ns->base.usage & PIPE_BIND_BLIT_SOURCE)
+		eng2d->copy(eng2d, &temp_ns->backing->base,
+			    0, 0, &ns->base,
+			    0, 0, ns->base.width, ns->base.height);
 
 	return temp_ns;
 }

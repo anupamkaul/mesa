@@ -51,8 +51,8 @@ static enum pipe_error generate_indices( struct svga_hwtnl *hwtnl,
    struct pipe_resource *dst = NULL;
    void *dst_map = NULL;
 
-   dst = pipe_buffer_create( pipe->screen, 32, 
-			     PIPE_BUFFER_USAGE_INDEX, 
+   dst = pipe_buffer_create( pipe->screen, 
+			     PIPE_BIND_INDEX_BUFFER, 
 			     size );
    if (dst == NULL)
       goto fail;

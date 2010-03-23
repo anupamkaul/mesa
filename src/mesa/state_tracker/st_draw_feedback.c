@@ -172,7 +172,7 @@ st_feedback_draw_vbo(GLcontext *ctx,
          vbuffers[attr].buffer
             = pipe_user_buffer_create(pipe->screen, (void *) arrays[mesaAttr]->Ptr,
                                       bytes,
-				      PIPE_BUFFER_USAGE_VERTEX);
+				      PIPE_BIND_VERTEX_BUFFER);
          vbuffers[attr].buffer_offset = 0;
          velements[attr].src_offset = 0;
       }

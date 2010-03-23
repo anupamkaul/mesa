@@ -97,7 +97,6 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
    }
    else {
       struct pipe_resource template;
-      unsigned surface_usage;
     
       /* Free the old surface and texture
        */
@@ -116,16 +115,12 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
       template.last_level = 0;
       template.nr_samples = rb->NumSamples;
       if (util_format_is_depth_or_stencil(format)) {
-         template.tex_usage = PIPE_TEXTURE_USAGE_DEPTH_STENCIL;
+         template.bind = PIPE_BIND_DEPTH_STENCIL;
       }
       else {
-         template.tex_usage = (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                               PIPE_TEXTURE_USAGE_RENDER_TARGET);
+         template.bind = (PIPE_BIND_DISPLAY_TARGET |
+			  PIPE_BIND_RENDER_TARGET);
       }
-
-      /* Probably need dedicated flags for surface usage too: 
-       */
-      surface_usage = template.tex_usage;
 
       strb->texture = screen->resource_create(screen, &template);
 
@@ -135,7 +130,7 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
       strb->surface = screen->get_tex_surface(screen,
                                               strb->texture,
                                               0, 0, 0,
-                                              surface_usage);
+                                              template.bind);
       if (strb->surface) {
          assert(strb->surface->texture);
          assert(strb->surface->format);
@@ -375,7 +370,7 @@ st_render_texture(GLcontext *ctx,
                                            strb->rtt_face,
                                            strb->rtt_level,
                                            strb->rtt_slice,
-                                           PIPE_BUFFER_USAGE_RENDER_TARGET);
+                                           PIPE_BIND_RENDER_TARGET);
 
    strb->format = pt->format;
 
@@ -473,20 +468,20 @@ st_validate_framebuffer(GLcontext *ctx, struct gl_framebuffer *fb)
 
    if (!st_validate_attachment(screen,
 			       &fb->Attachment[BUFFER_DEPTH],
-			       PIPE_TEXTURE_USAGE_DEPTH_STENCIL)) {
+			       PIPE_BIND_DEPTH_STENCIL)) {
       fb->_Status = GL_FRAMEBUFFER_UNSUPPORTED_EXT;
       return;
    }
    if (!st_validate_attachment(screen,
 			       &fb->Attachment[BUFFER_STENCIL],
-			       PIPE_TEXTURE_USAGE_DEPTH_STENCIL)) {
+			       PIPE_BIND_DEPTH_STENCIL)) {
       fb->_Status = GL_FRAMEBUFFER_UNSUPPORTED_EXT;
       return;
    }
    for (i = 0; i < ctx->Const.MaxColorAttachments; i++) {
       if (!st_validate_attachment(screen,
 				  &fb->Attachment[BUFFER_COLOR0 + i],
-				  PIPE_TEXTURE_USAGE_RENDER_TARGET)) {
+				  PIPE_BIND_RENDER_TARGET)) {
 	 fb->_Status = GL_FRAMEBUFFER_UNSUPPORTED_EXT;
 	 return;
       }

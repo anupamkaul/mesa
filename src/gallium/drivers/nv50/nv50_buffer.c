@@ -4,6 +4,7 @@
 #include "util/u_math.h"
 
 #include "nouveau/nouveau_screen.h"
+#include "nouveau/nouveau_winsys.h"
 #include "nv50_resource.h"
 
 
@@ -34,7 +35,7 @@ nv50_buffer_transfer_map( struct pipe_context *pipe,
 					   buffer->bo,
 					   transfer->box.x,
 					   transfer->box.width,
-					   transfer->usage );
+					   nouveau_screen_transfer_flags(transfer->usage) );
 	if (map == NULL)
 		return NULL;
 	
@@ -99,7 +100,7 @@ nv50_buffer_create(struct pipe_screen *pscreen,
 
 	buffer->bo = nouveau_screen_bo_new(pscreen,
 					   16,
-					   buffer->base.usage,
+					   nouveau_screen_bind_flags(buffer->base.bind),
 					   buffer->base.width0);
 
 	if (buffer->bo == NULL)
@@ -117,7 +118,7 @@ struct pipe_resource *
 nv50_user_buffer_create(struct pipe_screen *pscreen,
 			void *ptr,
 			unsigned bytes,
-			unsigned usage)
+			unsigned bind)
 {
 	struct nv50_resource *buffer;
 
@@ -129,7 +130,8 @@ nv50_user_buffer_create(struct pipe_screen *pscreen,
 	buffer->vtbl = &nv50_buffer_vtbl;
 	buffer->base.screen = pscreen;
 	buffer->base.format = PIPE_FORMAT_R8_UNORM;
-	buffer->base.usage = usage;
+	buffer->base._usage = PIPE_USAGE_IMMUTABLE;
+	buffer->base.bind = bind;
 	buffer->base.width0 = bytes;
 	buffer->base.height0 = 1;
 	buffer->base.depth0 = 1;

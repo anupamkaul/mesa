@@ -1486,7 +1486,7 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
     int max_size = 0;
 
     if (buf == NULL || buf->width0 == 0 ||
-        (mapped = pipe_buffer_map(pipe, buf, PIPE_BUFFER_USAGE_CPU_READ, &tr)) == NULL)
+        (mapped = pipe_buffer_map(pipe, buf, PIPE_TRANSFER_READ, &tr)) == NULL)
     {
         r300->shader_constants[shader].count = 0;
         return;

@@ -210,8 +210,8 @@ svga_get_tex_surface(struct pipe_screen *screen,
 {
    struct svga_texture *tex = svga_texture(pt);
    struct svga_surface *s;
-   boolean render = (flags & (PIPE_BUFFER_USAGE_RENDER_TARGET |
-			      PIPE_BUFFER_USAGE_DEPTH_STENCIL)) ? TRUE : FALSE;
+   boolean render = (flags & (PIPE_BIND_RENDER_TARGET |
+			      PIPE_BIND_DEPTH_STENCIL)) ? TRUE : FALSE;
    boolean view = FALSE;
    SVGA3dSurfaceFormat format;
 

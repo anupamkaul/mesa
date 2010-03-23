@@ -330,7 +330,7 @@ alloc_texture(struct st_context *st, GLsizei width, GLsizei height,
    }
 
    pt = st_texture_create(st, PIPE_TEXTURE_2D, texFormat, 0,
-                          ptw, pth, 1, PIPE_TEXTURE_USAGE_SAMPLER);
+                          ptw, pth, 1, PIPE_BIND_SAMPLER_VIEW);
 
    return pt;
 }
@@ -506,7 +506,8 @@ draw_quad(GLcontext *ctx, GLfloat x0, GLfloat y0, GLfloat z,
       struct pipe_resource *buf;
 
       /* allocate/load buffer object with vertex data */
-      buf = pipe_buffer_create(pipe->screen, 32, PIPE_BUFFER_USAGE_VERTEX,
+      buf = pipe_buffer_create(pipe->screen,
+			       PIPE_BIND_VERTEX_BUFFER,
                                sizeof(verts));
       st_no_flush_pipe_buffer_write(st, buf, 0, sizeof(verts), verts);
 
@@ -997,7 +998,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
    srcFormat = rbRead->texture->format;
 
    if (screen->is_format_supported(screen, srcFormat, PIPE_TEXTURE_2D, 
-                                   PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                   PIPE_BIND_SAMPLER_VIEW, 0)) {
       texFormat = srcFormat;
    }
    else {
@@ -1005,13 +1006,13 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
       if (type == GL_DEPTH) {
          texFormat = st_choose_format(screen, GL_DEPTH_COMPONENT,
                                       PIPE_TEXTURE_2D, 
-                                      PIPE_TEXTURE_USAGE_DEPTH_STENCIL);
+                                      PIPE_BIND_DEPTH_STENCIL);
          assert(texFormat != PIPE_FORMAT_NONE);
       }
       else {
          /* default color format */
          texFormat = st_choose_format(screen, GL_RGBA, PIPE_TEXTURE_2D, 
-                                      PIPE_TEXTURE_USAGE_SAMPLER);
+                                      PIPE_BIND_SAMPLER_VIEW);
          assert(texFormat != PIPE_FORMAT_NONE);
       }
    }
@@ -1053,10 +1054,10 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
       /* copy source framebuffer surface into mipmap/texture */
       struct pipe_surface *psRead = screen->get_tex_surface(screen,
                                        rbRead->texture, 0, 0, 0,
-                                       PIPE_BUFFER_USAGE_BLIT_SOURCE);
+                                       PIPE_BIND_BLIT_SOURCE);
       struct pipe_surface *psTex = screen->get_tex_surface(screen, pt, 0, 0, 0, 
-				       PIPE_BUFFER_USAGE_RENDER_TARGET |
-				       PIPE_BUFFER_USAGE_BLIT_DESTINATION);
+				       PIPE_BIND_RENDER_TARGET |
+				       PIPE_BIND_BLIT_DESTINATION);
       pipe->surface_copy(pipe,
                          psTex,                               /* dest surf */
                          unpack.SkipPixels, unpack.SkipRows,  /* dest pos */

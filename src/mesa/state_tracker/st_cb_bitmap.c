@@ -274,7 +274,7 @@ make_bitmap_texture(GLcontext *ctx, GLsizei width, GLsizei height,
     */
    pt = st_texture_create(ctx->st, PIPE_TEXTURE_2D, ctx->st->bitmap.tex_format,
                           0, width, height, 1,
-                          PIPE_TEXTURE_USAGE_SAMPLER);
+                          PIPE_BIND_SAMPLER_VIEW);
    if (!pt) {
       _mesa_unmap_pbo_source(ctx, unpack);
       return NULL;
@@ -339,8 +339,8 @@ setup_bitmap_vertex_data(struct st_context *st,
    }
 
    if (!st->bitmap.vbuf) {
-      st->bitmap.vbuf = pipe_buffer_create(pipe->screen, 32, 
-                                           PIPE_BUFFER_USAGE_VERTEX,
+      st->bitmap.vbuf = pipe_buffer_create(pipe->screen, 
+                                           PIPE_BIND_VERTEX_BUFFER,
                                            max_slots * sizeof(st->bitmap.vertices));
    }
 
@@ -540,7 +540,8 @@ reset_cache(struct st_context *st)
    cache->texture = st_texture_create(st, PIPE_TEXTURE_2D,
                                       st->bitmap.tex_format, 0,
                                       BITMAP_CACHE_WIDTH, BITMAP_CACHE_HEIGHT,
-                                      1, PIPE_TEXTURE_USAGE_SAMPLER);
+                                      1,
+				      PIPE_BIND_SAMPLER_VIEW);
 }
 
 
@@ -805,15 +806,15 @@ st_init_bitmap(struct st_context *st)
 
    /* find a usable texture format */
    if (screen->is_format_supported(screen, PIPE_FORMAT_I8_UNORM, PIPE_TEXTURE_2D, 
-                                   PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                   PIPE_BIND_SAMPLER_VIEW, 0)) {
       st->bitmap.tex_format = PIPE_FORMAT_I8_UNORM;
    }
    else if (screen->is_format_supported(screen, PIPE_FORMAT_A8_UNORM, PIPE_TEXTURE_2D, 
-                                        PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                        PIPE_BIND_SAMPLER_VIEW, 0)) {
       st->bitmap.tex_format = PIPE_FORMAT_A8_UNORM;
    }
    else if (screen->is_format_supported(screen, PIPE_FORMAT_L8_UNORM, PIPE_TEXTURE_2D, 
-                                        PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                        PIPE_BIND_SAMPLER_VIEW, 0)) {
       st->bitmap.tex_format = PIPE_FORMAT_L8_UNORM;
    }
    else {

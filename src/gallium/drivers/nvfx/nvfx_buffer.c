@@ -4,6 +4,7 @@
 #include "util/u_math.h"
 
 #include "nouveau/nouveau_screen.h"
+#include "nouveau/nouveau_winsys.h"
 #include "nvfx_resource.h"
 
 
@@ -38,7 +39,7 @@ nvfx_buffer_transfer_map( struct pipe_context *pipe,
 					   buffer->bo,
 					   transfer->box.x,
 					   transfer->box.width,
-					   transfer->usage );
+					   nouveau_screen_transfer_flags(transfer->usage) );
 	if (map == NULL)
 		return NULL;
 	
@@ -85,7 +86,6 @@ struct u_resource_vtbl nvfx_buffer_vtbl =
 
 
 
-
 struct pipe_resource *
 nvfx_buffer_create(struct pipe_screen *pscreen,
 		   const struct pipe_resource *template)
@@ -103,7 +103,7 @@ nvfx_buffer_create(struct pipe_screen *pscreen,
 
 	buffer->bo = nouveau_screen_bo_new(pscreen,
 					   16,
-					   buffer->base.usage,
+					   nouveau_screen_bind_flags(buffer->base.bind),
 					   buffer->base.width0);
 
 	if (buffer->bo == NULL)
@@ -133,7 +133,8 @@ nvfx_user_buffer_create(struct pipe_screen *pscreen,
 	buffer->vtbl = &nvfx_buffer_vtbl;
 	buffer->base.screen = pscreen;
 	buffer->base.format = PIPE_FORMAT_R8_UNORM;
-	buffer->base.usage = usage;
+	buffer->base._usage = PIPE_USAGE_IMMUTABLE;
+	buffer->base.bind = usage;
 	buffer->base.width0 = bytes;
 	buffer->base.height0 = 1;
 	buffer->base.depth0 = 1;

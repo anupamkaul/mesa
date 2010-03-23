@@ -428,7 +428,7 @@ void renderer_set_constants(struct xorg_renderer *r,
 
    pipe_resource_reference(cbuf, NULL);
    *cbuf = pipe_buffer_create(r->pipe->screen, 16,
-                              PIPE_BUFFER_USAGE_CONSTANT,
+                              PIPE_BIND_CONSTANT_BUFFER,
                               param_bytes);
 
    if (*cbuf) {
@@ -449,7 +449,7 @@ void renderer_copy_prepare(struct xorg_renderer *r,
 
    assert(screen->is_format_supported(screen, dst_surface->format,
                                       PIPE_TEXTURE_2D,
-                                      PIPE_TEXTURE_USAGE_RENDER_TARGET,
+                                      PIPE_BIND_RENDER_TARGET,
                                       0));
    (void) screen;
 
@@ -525,7 +525,7 @@ renderer_clone_texture(struct xorg_renderer *r,
    /* the coming in texture should already have that invariance */
    debug_assert(screen->is_format_supported(screen, src->format,
                                             PIPE_TEXTURE_2D,
-                                            PIPE_TEXTURE_USAGE_SAMPLER, 0));
+                                            PIPE_BIND_SAMPLER_VIEW, 0));
 
    format = src->format;
 
@@ -536,7 +536,7 @@ renderer_clone_texture(struct xorg_renderer *r,
    templ.width0 = src->width0;
    templ.height0 = src->height0;
    templ.depth0 = 1;
-   templ.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
+   templ.tex_usage = PIPE_BIND_SAMPLER_VIEW;
 
    pt = screen->resource_create(screen, &templ);
 

@@ -82,7 +82,7 @@ st_texture_create(struct st_context *st,
 		  GLuint width0,
 		  GLuint height0,
 		  GLuint depth0,
-                  GLuint usage )
+                  GLuint bind )
 {
    struct pipe_resource pt, *newtex;
    struct pipe_screen *screen = st->pipe->screen;
@@ -95,7 +95,7 @@ st_texture_create(struct st_context *st,
 
    assert(format);
    assert(screen->is_format_supported(screen, format, target, 
-                                      PIPE_TEXTURE_USAGE_SAMPLER, 0));
+                                      PIPE_BIND_SAMPLER_VIEW, 0));
 
    memset(&pt, 0, sizeof(pt));
    pt.target = target;
@@ -104,7 +104,9 @@ st_texture_create(struct st_context *st,
    pt.width0 = width0;
    pt.height0 = height0;
    pt.depth0 = depth0;
-   pt.tex_usage = usage;
+   pt._usage = PIPE_USAGE_DEFAULT;
+   pt.bind = bind;
+   pt.flags = 0;
 
    newtex = screen->resource_create(screen, &pt);
 
@@ -337,10 +339,10 @@ st_texture_image_copy(struct pipe_context *pipe,
 #endif
 
       dst_surface = screen->get_tex_surface(screen, dst, face, dstLevel, i,
-                                            PIPE_BUFFER_USAGE_BLIT_DESTINATION);
+                                            PIPE_BIND_BLIT_DESTINATION);
 
       src_surface = screen->get_tex_surface(screen, src, face, srcLevel, i,
-                                            PIPE_BUFFER_USAGE_BLIT_SOURCE);
+                                            PIPE_BIND_BLIT_SOURCE);
 
       pipe->surface_copy(pipe,
                          dst_surface,
@@ -529,9 +531,9 @@ st_bind_teximage(struct st_framebuffer *stfb, uint surfIndex,
 
    strb->surface = screen->get_tex_surface(screen, strb->texture,
                                            face, level, slice,
-                                           (PIPE_BUFFER_USAGE_RENDER_TARGET |
-                                            PIPE_BUFFER_USAGE_BLIT_SOURCE |
-					    PIPE_BUFFER_USAGE_BLIT_DESTINATION));
+                                           (PIPE_BIND_RENDER_TARGET |
+                                            PIPE_BIND_BLIT_SOURCE |
+					    PIPE_BIND_BLIT_DESTINATION));
 
    pipe_sampler_view_reference(&strb->sampler_view, NULL);
 

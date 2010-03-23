@@ -186,7 +186,7 @@ i915_is_format_supported(struct pipe_screen *screen,
    const enum pipe_format *list;
    uint i;
 
-   if(tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET)
+   if(tex_usage & PIPE_BIND_RENDER_TARGET)
       list = surface_supported;
    else
       list = tex_supported;

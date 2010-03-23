@@ -73,7 +73,7 @@ static INLINE struct pipe_resource *create_texture_1d(struct vg_context *ctx,
    templ.width0 = color_data_len;
    templ.height0 = 1;
    templ.depth0 = 1;
-   templ.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
+   templ.bind = PIPE_BIND_SAMPLER_VIEW;
 
    tex = screen->resource_create(screen, &templ);
 
@@ -121,7 +121,7 @@ static INLINE struct pipe_surface * setup_framebuffer(struct vg_image *dst)
    struct pipe_framebuffer_state fb;
    struct pipe_surface *dst_surf = pipe->screen->get_tex_surface(
       pipe->screen, dst->sampler_view->texture, 0, 0, 0,
-      PIPE_BUFFER_USAGE_RENDER_TARGET);
+      PIPE_BIND_RENDER_TARGET);
 
    /* drawing dest */
    memset(&fb, 0, sizeof(fb));
@@ -176,8 +176,8 @@ static void setup_constant_buffer(struct vg_context *ctx, const void *buffer,
     * avoid gratuitous rendering synchronization. */
    pipe_resource_reference(cbuf, NULL);
 
-   *cbuf = pipe_buffer_create(pipe->screen, 16,
-                              PIPE_BUFFER_USAGE_CONSTANT,
+   *cbuf = pipe_buffer_create(pipe->screen, 
+                              PIPE_BIND_CONSTANT_BUFFER,
                               param_bytes);
 
    if (*cbuf) {

@@ -19,6 +19,7 @@ struct nvfx_transfer {
 
 static void
 nvfx_compatible_transfer_tex(struct pipe_resource *pt, unsigned width, unsigned height,
+			     unsigned bind,
                              struct pipe_resource *template)
 {
 	memset(template, 0, sizeof(struct pipe_resource));
@@ -29,9 +30,23 @@ nvfx_compatible_transfer_tex(struct pipe_resource *pt, unsigned width, unsigned 
 	template->depth0 = 1;
 	template->last_level = 0;
 	template->nr_samples = pt->nr_samples;
+	template->bind = bind;
+	template->_usage = PIPE_USAGE_DYNAMIC;
+	template->flags = NVFX_RESOURCE_FLAG_LINEAR;
+}
 
-	template->tex_usage = PIPE_TEXTURE_USAGE_DYNAMIC |
-	                      NOUVEAU_TEXTURE_USAGE_LINEAR;
+
+static unsigned nvfx_transfer_bind_flags( unsigned transfer_usage )
+{
+	unsigned bind = 0;
+
+	if (transfer_usage & PIPE_TRANSFER_WRITE)
+		bind |= PIPE_BIND_BLIT_DESTINATION;
+
+	if (transfer_usage & PIPE_TRANSFER_READ)
+		bind |= PIPE_BIND_BLIT_SOURCE;
+
+	return bind;
 }
 
 struct pipe_transfer *
@@ -47,6 +62,7 @@ nvfx_miptree_transfer_new(struct pipe_context *pcontext,
 	struct pipe_resource tx_tex_template, *tx_tex;
 	static boolean firsttime = TRUE;
 	static boolean no_transfer = FALSE;
+	unsigned bind = nvfx_transfer_bind_flags(usage);
 
 	if (firsttime) {
 	   no_transfer = debug_get_bool_option("NOUVEAU_NO_TRANSFER",
@@ -69,20 +85,24 @@ nvfx_miptree_transfer_new(struct pipe_context *pcontext,
 	tx->base.stride = mt->level[sr.level].pitch;
 
 	/* Direct access to texture */
-	if ((pt->tex_usage & PIPE_TEXTURE_USAGE_DYNAMIC || no_transfer) &&
-	    pt->tex_usage & NOUVEAU_TEXTURE_USAGE_LINEAR)
+	if ((pt->_usage == PIPE_USAGE_DYNAMIC ||
+	     no_transfer) &&
+	    pt->flags & NVFX_RESOURCE_FLAG_LINEAR)
 	{
 		tx->direct = true;
+
+		/* XXX: just call the internal nvfx function.  
+		 */
 		tx->surface = pscreen->get_tex_surface(pscreen, pt,
 	                                               sr.face, sr.level,
 						       box->z,
-	                                               pipe_transfer_buffer_flags(&tx->base));
+	                                               bind);
 		return &tx->base;
 	}
 
 	tx->direct = false;
 
-	nvfx_compatible_transfer_tex(pt, box->width, box->height, &tx_tex_template);
+	nvfx_compatible_transfer_tex(pt, box->width, box->height, bind, &tx_tex_template);
 
 	tx_tex = pscreen->resource_create(pscreen, &tx_tex_template);
 	if (!tx_tex)
@@ -95,7 +115,7 @@ nvfx_miptree_transfer_new(struct pipe_context *pcontext,
 
 	tx->surface = pscreen->get_tex_surface(pscreen, tx_tex,
 	                                       0, 0, 0,
-	                                       pipe_transfer_buffer_flags(&tx->base));
+	                                       bind);
 
 	pipe_resource_reference(&tx_tex, NULL);
 
@@ -112,7 +132,7 @@ nvfx_miptree_transfer_new(struct pipe_context *pcontext,
 
 		src = pscreen->get_tex_surface(pscreen, pt,
 	                                       sr.face, sr.level, box->z,
-	                                       PIPE_BUFFER_USAGE_GPU_READ);
+	                                       PIPE_BIND_BLIT_SOURCE);
 
 		/* TODO: Check if SIFM can deal with x,y,w,h when swizzling */
 		/* TODO: Check if SIFM can un-swizzle */
@@ -144,7 +164,7 @@ nvfx_miptree_transfer_del(struct pipe_context *pcontext,
 	                                       ptx->sr.face,
 					       ptx->sr.level,
 					       ptx->box.z,
-	                                       PIPE_BUFFER_USAGE_GPU_WRITE | NOUVEAU_BUFFER_USAGE_NO_RENDER);
+	                                       PIPE_BIND_BLIT_DESTINATION);
 
 		/* TODO: Check if SIFM can deal with x,y,w,h when swizzling */
 		nvscreen->eng2d->copy(nvscreen->eng2d,
@@ -168,7 +188,7 @@ nvfx_miptree_transfer_map(struct pipe_context *pcontext, struct pipe_transfer *p
 	struct nv04_surface *ns = (struct nv04_surface *)tx->surface;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)tx->surface->texture;
 	uint8_t *map = nouveau_screen_bo_map(pscreen, mt->base.bo,
-					  pipe_transfer_buffer_flags(ptx));
+					     nouveau_screen_transfer_flags(ptx->usage));
 
 	if(!tx->direct)
 		return map + ns->base.offset;

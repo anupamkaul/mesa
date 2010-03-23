@@ -227,8 +227,8 @@ static void setup_mask_operation(VGMaskOperation operation)
     */
    pipe_resource_reference(cbuf, NULL);
 
-   *cbuf = pipe_buffer_create(ctx->pipe->screen, 1,
-                              PIPE_BUFFER_USAGE_CONSTANT,
+   *cbuf = pipe_buffer_create(ctx->pipe->screen, 
+                              PIPE_BIND_CONSTANT_BUFFER,
                               param_bytes);
    if (*cbuf) {
       st_no_flush_pipe_buffer_write(ctx, *cbuf,
@@ -326,8 +326,8 @@ static void setup_mask_fill(const VGfloat color[4])
     */
    pipe_resource_reference(cbuf, NULL);
 
-   *cbuf = pipe_buffer_create(ctx->pipe->screen, 1,
-                              PIPE_BUFFER_USAGE_CONSTANT,
+   *cbuf = pipe_buffer_create(ctx->pipe->screen,
+                              PIPE_BIND_CONSTANT_BUFFER,
                               param_bytes);
    if (*cbuf) {
       st_no_flush_pipe_buffer_write(ctx, *cbuf, 0, param_bytes, color);
@@ -417,7 +417,7 @@ static void mask_using_texture(struct pipe_sampler_view *sampler_view,
    struct vg_context *ctx = vg_current_context();
    struct pipe_resource *texture = sampler_view->texture;
    struct pipe_surface *surface =
-      alpha_mask_surface(ctx, PIPE_BUFFER_USAGE_RENDER_TARGET);
+      alpha_mask_surface(ctx, PIPE_BIND_RENDER_TARGET);
    VGint offsets[4], loc[4];
 
    if (!surface)
@@ -496,7 +496,7 @@ struct vg_mask_layer * mask_layer_create(VGint width, VGint height)
       pt.width0 = width;
       pt.height0 = height;
       pt.depth0 = 1;
-      pt.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER;
+      pt.tex_usage = PIPE_BIND_SAMPLER_VIEW;
       pt.compressed = 0;
 
       texture = screen->resource_create(screen, &pt);
@@ -664,7 +664,7 @@ void mask_fill(VGint x, VGint y, VGint width, VGint height,
    struct vg_context *ctx = vg_current_context();
    VGfloat alpha_color[4] = {.0f, .0f, .0f, value};
    struct pipe_surface *surf = alpha_mask_surface(
-      ctx, PIPE_BUFFER_USAGE_RENDER_TARGET);
+      ctx, PIPE_BIND_RENDER_TARGET);
 
 #if DEBUG_MASKS
    debug_printf("mask_fill(%d, %d, %d, %d) with  rgba(%f, %f, %f, %f)\n",

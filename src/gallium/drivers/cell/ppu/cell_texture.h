@@ -45,7 +45,7 @@ struct cell_resource
    unsigned long stride[CELL_MAX_TEXTURE_LEVELS];
 
    /**
-    * Display target, for textures with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET
+    * Display target, for textures with the PIPE_BIND_DISPLAY_TARGET
     * usage.
     */
    struct sw_displaytarget *dt;

@@ -245,14 +245,14 @@ nvfx_draw_elements_swtnl(struct pipe_context *pipe,
 
 	for (i = 0; i < nvfx->vtxbuf_nr; i++) {
 		map = pipe_buffer_map(pipe, nvfx->vtxbuf[i].buffer,
-                                      PIPE_BUFFER_USAGE_CPU_READ,
+                                      PIPE_TRANSFER_READ,
 				      &vb_transfer[i]);
 		draw_set_mapped_vertex_buffer(nvfx->draw, i, map);
 	}
 
 	if (idxbuf) {
 		map = pipe_buffer_map(pipe, idxbuf,
-				      PIPE_BUFFER_USAGE_CPU_READ,
+				      PIPE_TRANSFER_READ,
 				      &ib_transfer);
 		draw_set_mapped_element_buffer(nvfx->draw, idxbuf_size, map);
 	} else {
@@ -264,7 +264,7 @@ nvfx_draw_elements_swtnl(struct pipe_context *pipe,
 
 		map = pipe_buffer_map(pipe,
 				      nvfx->constbuf[PIPE_SHADER_VERTEX],
-				      PIPE_BUFFER_USAGE_CPU_READ,
+				      PIPE_TRANSFER_READ,
 				      &cb_transfer);
 		draw_set_mapped_constant_buffer(nvfx->draw, PIPE_SHADER_VERTEX, 0,
                                                 map, nr);

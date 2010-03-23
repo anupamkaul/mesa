@@ -51,7 +51,7 @@ struct softpipe_resource
 
    /**
     * Display target, only valid for PIPE_TEXTURE_2D with the
-    * PIPE_TEXTURE_USAGE_DISPLAY_TARGET usage.
+    * PIPE_BIND_DISPLAY_TARGET usage.
     */
    struct sw_displaytarget *dt;
 

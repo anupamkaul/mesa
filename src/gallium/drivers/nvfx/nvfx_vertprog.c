@@ -964,7 +964,7 @@ check_gpu_resources:
 
 		if (constbuf) {
 			map = pipe_buffer_map(pipe, constbuf,
-					      PIPE_BUFFER_USAGE_CPU_READ,
+					      PIPE_TRANSFER_READ,
 					      &transfer);
 		}
 

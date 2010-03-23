@@ -127,7 +127,7 @@ nvfx_vbo_static_attrib(struct nvfx_context *nvfx, struct nouveau_stateobj *so,
 	if (nvfx_vbo_format_to_hw(ve->src_format, &type, &ncomp))
 		return FALSE;
 
-	map  = pipe_buffer_map(pipe, vb->buffer, PIPE_BUFFER_USAGE_CPU_READ, &transfer);
+	map  = pipe_buffer_map(pipe, vb->buffer, PIPE_TRANSFER_READ, &transfer);
 	map += vb->buffer_offset + ve->src_offset;
 
 	switch (type) {
@@ -388,7 +388,7 @@ nvfx_draw_elements_inline(struct pipe_context *pipe,
 	struct pipe_transfer *transfer;
 	void *map;
 
-	map = pipe_buffer_map(pipe, ib, PIPE_BUFFER_USAGE_CPU_READ, &transfer);
+	map = pipe_buffer_map(pipe, ib, PIPE_TRANSFER_READ, &transfer);
 	if (!ib) {
 		NOUVEAU_ERR("failed mapping ib\n");
 		return;

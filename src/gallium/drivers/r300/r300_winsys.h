@@ -39,6 +39,12 @@ struct pipe_screen* r300_create_screen(struct r300_winsys_screen *rws);
 
 struct r300_winsys_buffer;
 
+/* XXX: this is just a bandaid on larger problems in
+ * r300_screen_buffer.h which doesn't seem to be fully ported to
+ * gallium-resources.
+ */
+#define R300_BIND_OQBO  (1<<21)
+
 
 enum r300_value_id {
     R300_VID_PCI_ID,

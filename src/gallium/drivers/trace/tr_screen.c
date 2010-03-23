@@ -388,8 +388,8 @@ trace_screen_user_buffer_create(struct pipe_screen *_screen,
    trace_dump_call_end();
 
    if(result) {
-      assert(!(result->usage & TRACE_BUFFER_USAGE_USER));
-      result->usage |= TRACE_BUFFER_USAGE_USER;
+      assert(!(result->flags & TRACE_FLAG_USER_BUFFER));
+      result->flags |= TRACE_FLAG_USER_BUFFER;
    }
 
    return trace_resource_create(tr_scr, result);

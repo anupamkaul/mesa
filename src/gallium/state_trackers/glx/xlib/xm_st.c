@@ -70,7 +70,7 @@ xmesa_st_framebuffer_display(struct st_framebuffer_iface *stfbi,
       pipe_surface_reference(&xstfb->display_surface, NULL);
 
       psurf = xstfb->screen->get_tex_surface(xstfb->screen,
-            ptex, 0, 0, 0, PIPE_BUFFER_USAGE_CPU_READ);
+            ptex, 0, 0, 0, PIPE_BIND_DISPLAY_TARGET);
       if (!psurf)
          return FALSE;
 
@@ -110,9 +110,9 @@ xmesa_st_framebuffer_copy_textures(struct st_framebuffer_iface *stfbi,
    }
 
    src = xstfb->screen->get_tex_surface(xstfb->screen,
-         src_ptex, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_READ);
+         src_ptex, 0, 0, 0, PIPE_BIND_BLIT_SOURCE);
    dst = xstfb->screen->get_tex_surface(xstfb->screen,
-         dst_ptex, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_WRITE);
+         dst_ptex, 0, 0, 0, PIPE_BIND_BLIT_DESTINATION);
 
    if (src && dst)
       pipe->surface_copy(pipe, dst, x, y, src, x, y, width, height);
@@ -148,7 +148,7 @@ xmesa_st_framebuffer_validate_textures(struct st_framebuffer_iface *stfbi,
 
    for (i = 0; i < ST_ATTACHMENT_COUNT; i++) {
       enum pipe_format format;
-      unsigned tex_usage;
+      unsigned bind;
 
       /* the texture already exists or not requested */
       if (xstfb->textures[i] || !(mask & (1 << i))) {
@@ -164,12 +164,12 @@ xmesa_st_framebuffer_validate_textures(struct st_framebuffer_iface *stfbi,
       case ST_ATTACHMENT_FRONT_RIGHT:
       case ST_ATTACHMENT_BACK_RIGHT:
          format = xstfb->stvis.color_format;
-         tex_usage = PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                     PIPE_TEXTURE_USAGE_RENDER_TARGET;
+         bind = PIPE_BIND_DISPLAY_TARGET |
+                     PIPE_BIND_RENDER_TARGET;
          break;
       case ST_ATTACHMENT_DEPTH_STENCIL:
          format = xstfb->stvis.depth_stencil_format;
-         tex_usage = PIPE_TEXTURE_USAGE_DEPTH_STENCIL;
+         bind = PIPE_BIND_DEPTH_STENCIL;
          break;
       default:
          format = PIPE_FORMAT_NONE;
@@ -178,7 +178,7 @@ xmesa_st_framebuffer_validate_textures(struct st_framebuffer_iface *stfbi,
 
       if (format != PIPE_FORMAT_NONE) {
          templ.format = format;
-         templ.tex_usage = tex_usage;
+         templ.bind = bind;
 
          xstfb->textures[i] =
             xstfb->screen->resource_create(xstfb->screen, &templ);

@@ -128,9 +128,9 @@ llvmpipe_resource_create(struct pipe_screen *_screen,
    pipe_reference_init(&lpt->base.reference, 1);
    lpt->base.screen = &screen->base;
 
-   if (lpt->base.tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                              PIPE_TEXTURE_USAGE_SCANOUT |
-                              PIPE_TEXTURE_USAGE_SHARED)) {
+   if (lpt->base.tex_usage & (PIPE_BIND_DISPLAY_TARGET |
+                              PIPE_BIND_SCANOUT |
+                              PIPE_BIND_SHARED)) {
       if (!llvmpipe_displaytarget_layout(screen, lpt))
          goto fail;
    }

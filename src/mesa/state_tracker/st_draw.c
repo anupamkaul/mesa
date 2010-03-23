@@ -361,7 +361,7 @@ setup_interleaved_attribs(GLcontext *ctx,
          if (userSpace) {
             vbuffer->buffer =
                pipe_user_buffer_create(pipe->screen, (void *) low, high - low,
-				       PIPE_BUFFER_USAGE_VERTEX);
+				       PIPE_BIND_VERTEX_BUFFER);
             vbuffer->buffer_offset = 0;
          }
          else {
@@ -447,7 +447,7 @@ setup_non_interleaved_attribs(GLcontext *ctx,
             vbuffer[attr].buffer = 
 	       pipe_user_buffer_create(pipe->screen,
 				       (void *) arrays[mesaAttr]->Ptr, bytes,
-				       PIPE_BUFFER_USAGE_VERTEX);
+				       PIPE_BIND_VERTEX_BUFFER);
          }
          else {
             /* no array, use ctx->Current.Attrib[] value */
@@ -456,7 +456,7 @@ setup_non_interleaved_attribs(GLcontext *ctx,
 	       pipe_user_buffer_create(pipe->screen,
 				       (void *) ctx->Current.Attrib[mesaAttr],
 				       bytes,
-				       PIPE_BUFFER_USAGE_VERTEX);
+				       PIPE_BIND_VERTEX_BUFFER);
             stride = 0;
          }
 
@@ -654,7 +654,7 @@ st_draw_vbo(GLcontext *ctx,
          /* element/indicies are in user space memory */
          indexBuf = pipe_user_buffer_create(pipe->screen, (void *) ib->ptr,
                                             ib->count * indexSize,
-					    PIPE_BUFFER_USAGE_INDEX);
+					    PIPE_BIND_INDEX_BUFFER);
          indexOffset = 0;
       }
 

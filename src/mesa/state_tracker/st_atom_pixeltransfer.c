@@ -122,11 +122,11 @@ create_color_map_texture(GLcontext *ctx)
 
    /* find an RGBA texture format */
    format = st_choose_format(pipe->screen, GL_RGBA,
-                             PIPE_TEXTURE_2D, PIPE_TEXTURE_USAGE_SAMPLER);
+                             PIPE_TEXTURE_2D, PIPE_BIND_SAMPLER_VIEW);
 
    /* create texture for color map/table */
    pt = st_texture_create(ctx->st, PIPE_TEXTURE_2D, format, 0,
-                          texSize, texSize, 1, PIPE_TEXTURE_USAGE_SAMPLER);
+                          texSize, texSize, 1, PIPE_BIND_SAMPLER_VIEW);
    return pt;
 }
 

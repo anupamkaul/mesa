@@ -91,7 +91,7 @@ st_render_mipmap(struct st_context *st,
 
    /* check if we can render in the texture's format */
    if (!screen->is_format_supported(screen, psv->format, psv->texture->target,
-                                    PIPE_TEXTURE_USAGE_RENDER_TARGET, 0)) {
+                                    PIPE_BIND_RENDER_TARGET, 0)) {
       return FALSE;
    }
 
@@ -242,7 +242,7 @@ st_generate_mipmap(GLcontext *ctx, GLenum target,
                                     oldTex->width0,
                                     oldTex->height0,
                                     oldTex->depth0,
-                                    oldTex->tex_usage);
+                                    oldTex->bind);
 
       /* The texture isn't in a "complete" state yet so set the expected
        * lastLevel here, since it won't get done in st_finalize_texture().

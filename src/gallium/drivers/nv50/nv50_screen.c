@@ -33,7 +33,7 @@ nv50_screen_is_format_supported(struct pipe_screen *pscreen,
 				enum pipe_texture_target target,
 				unsigned tex_usage, unsigned geom_flags)
 {
-	if (tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) {
+	if (tex_usage & PIPE_BIND_RENDER_TARGET) {
 		switch (format) {
 		case PIPE_FORMAT_B8G8R8X8_UNORM:
 		case PIPE_FORMAT_B8G8R8A8_UNORM:
@@ -48,7 +48,7 @@ nv50_screen_is_format_supported(struct pipe_screen *pscreen,
 			break;
 		}
 	} else
-	if (tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL) {
+	if (tex_usage & PIPE_BIND_DEPTH_STENCIL) {
 		switch (format) {
 		case PIPE_FORMAT_Z32_FLOAT:
 		case PIPE_FORMAT_S8Z24_UNORM:

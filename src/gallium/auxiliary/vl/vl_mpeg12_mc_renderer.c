@@ -898,7 +898,7 @@ init_buffers(struct vl_mpeg12_mc_renderer *r)
    template.height0 = r->pot_buffers ?
       util_next_power_of_two(r->picture_height) : r->picture_height;
    template.depth0 = 1;
-   template.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER | PIPE_TEXTURE_USAGE_DYNAMIC;
+   template.tex_usage = PIPE_BIND_SAMPLER_VIEW | PIPE_TEXTURE_USAGE_DYNAMIC;
 
    r->textures.individual.y = r->pipe->screen->texture_create(r->pipe->screen, &template);
 
@@ -927,7 +927,7 @@ init_buffers(struct vl_mpeg12_mc_renderer *r)
    (
       r->pipe->screen,
       DEFAULT_BUF_ALIGNMENT,
-      PIPE_BUFFER_USAGE_VERTEX | PIPE_BUFFER_USAGE_DISCARD,
+      PIPE_BIND_VERTEX_BUFFER | PIPE_BUFFER_USAGE_DISCARD,
       sizeof(struct vertex2f) * 4 * 24 * r->macroblocks_per_batch
    );
 
@@ -939,7 +939,7 @@ init_buffers(struct vl_mpeg12_mc_renderer *r)
       (
          r->pipe->screen,
          DEFAULT_BUF_ALIGNMENT,
-         PIPE_BUFFER_USAGE_VERTEX | PIPE_BUFFER_USAGE_DISCARD,
+         PIPE_BIND_VERTEX_BUFFER | PIPE_BUFFER_USAGE_DISCARD,
          sizeof(struct vertex2f) * 2 * 24 * r->macroblocks_per_batch
       );
    }
@@ -948,7 +948,7 @@ init_buffers(struct vl_mpeg12_mc_renderer *r)
    (
       r->pipe->screen,
       DEFAULT_BUF_ALIGNMENT,
-      PIPE_BUFFER_USAGE_CONSTANT | PIPE_BUFFER_USAGE_DISCARD,
+      PIPE_BIND_CONSTANT_BUFFER | PIPE_BUFFER_USAGE_DISCARD,
       sizeof(struct vertex_shader_consts)
    );
 
@@ -956,7 +956,7 @@ init_buffers(struct vl_mpeg12_mc_renderer *r)
    (
       r->pipe->screen,
       DEFAULT_BUF_ALIGNMENT,
-      PIPE_BUFFER_USAGE_CONSTANT, sizeof(struct fragment_shader_consts)
+      PIPE_BIND_CONSTANT_BUFFER, sizeof(struct fragment_shader_consts)
    );
 
    memcpy

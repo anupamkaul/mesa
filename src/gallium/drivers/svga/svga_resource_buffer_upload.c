@@ -119,9 +119,9 @@ svga_buffer_create_host_surface(struct svga_screen *ss,
       sbuf->key.flags = 0;
       
       sbuf->key.format = SVGA3D_BUFFER;
-      if(sbuf->b.b.usage & PIPE_BUFFER_USAGE_VERTEX)
+      if(sbuf->b.b.bind & PIPE_BIND_VERTEX_BUFFER)
          sbuf->key.flags |= SVGA3D_SURFACE_HINT_VERTEXBUFFER;
-      if(sbuf->b.b.usage & PIPE_BUFFER_USAGE_INDEX)
+      if(sbuf->b.b.bind & PIPE_BIND_INDEX_BUFFER)
          sbuf->key.flags |= SVGA3D_SURFACE_HINT_INDEXBUFFER;
       
       sbuf->key.size.width = sbuf->b.b.width0;

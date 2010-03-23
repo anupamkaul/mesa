@@ -314,7 +314,7 @@ init_buffers(struct vl_compositor *c)
    (
       c->pipe->screen,
       1,
-      PIPE_BUFFER_USAGE_VERTEX,
+      PIPE_BIND_VERTEX_BUFFER,
       sizeof(struct vertex2f) * 4
    );
 
@@ -338,7 +338,7 @@ init_buffers(struct vl_compositor *c)
    (
       c->pipe->screen,
       1,
-      PIPE_BUFFER_USAGE_VERTEX,
+      PIPE_BIND_VERTEX_BUFFER,
       sizeof(struct vertex2f) * 4
    );
 
@@ -359,7 +359,7 @@ init_buffers(struct vl_compositor *c)
    (
       c->pipe->screen,
       1,
-      PIPE_BUFFER_USAGE_CONSTANT | PIPE_BUFFER_USAGE_DISCARD,
+      PIPE_BIND_CONSTANT_BUFFER | PIPE_BUFFER_USAGE_DISCARD,
       sizeof(struct vertex_shader_consts)
    );
 
@@ -371,7 +371,7 @@ init_buffers(struct vl_compositor *c)
    (
       c->pipe->screen,
       1,
-      PIPE_BUFFER_USAGE_CONSTANT,
+      PIPE_BIND_CONSTANT_BUFFER,
       sizeof(struct fragment_shader_consts)
    );
 
