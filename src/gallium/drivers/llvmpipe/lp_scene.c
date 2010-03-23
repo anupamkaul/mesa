@@ -60,6 +60,7 @@ lp_scene_create( struct pipe_context *pipe,
    make_empty_list(&scene->textures);
 
    pipe_mutex_init(scene->mutex);
+   pipe_mutex_init(scene->map_mutex);
 
    return scene;
 }
@@ -88,6 +89,7 @@ lp_scene_destroy(struct lp_scene *scene)
    scene->data.head = NULL;
 
    pipe_mutex_destroy(scene->mutex);
+   pipe_mutex_destroy(scene->map_mutex);
 
    FREE(scene);
 }
@@ -390,6 +392,30 @@ end:
 }
 
 
+
+void *
+lp_scene_map_color_buffer(struct lp_scene *scene, unsigned buf,
+                          unsigned tex_usage)
+{
+   pipe_mutex_lock(scene->map_mutex);
+
+   if (!scene->cbuf_map[buf]) {
+      struct pipe_surface *cbuf = scene->fb.cbufs[buf];
+
+      scene->cbuf_map[buf] = llvmpipe_texture_map(cbuf->texture,
+                                                  cbuf->face,
+                                                  cbuf->level,
+                                                  cbuf->zslice,
+                                                  tex_usage,
+                                                  LP_TEXTURE_TILED);
+   }
+
+   pipe_mutex_unlock(scene->map_mutex);
+
+   return scene->cbuf_map[buf];
+}
+
+
 /**
  * Prepare this scene for the rasterizer.
  * Map the framebuffer surfaces.  Initialize the 'rast' state.
@@ -397,14 +423,20 @@ end:
 static boolean
 lp_scene_map_buffers( struct lp_scene *scene )
 {
-   struct pipe_surface *cbuf, *zsbuf;
-   int i;
+   struct pipe_surface *zsbuf;
 
    LP_DBG(DEBUG_RAST, "%s\n", __FUNCTION__);
 
 
    /* Map all color buffers 
     */
+   /* XXX get color buffers on demand.  That way we can avoid
+    * linear->tiled conversion when clearing because we know we're
+    * going to completely overwrite the old image data.
+    */
+#if 0
+   struct pipe_surface *cbuf, *zsbuf;
+   int i;
    for (i = 0; i < scene->fb.nr_cbufs; i++) {
       cbuf = scene->fb.cbufs[i];
       if (cbuf) {
@@ -412,11 +444,15 @@ lp_scene_map_buffers( struct lp_scene *scene )
 	                                           cbuf->face,
                                                    cbuf->level,
                                                    cbuf->zslice,
+                                                   LP_TEXTURE_READ_WRITE,
                                                    LP_TEXTURE_TILED);
 	 if (!scene->cbuf_map[i])
 	    goto fail;
       }
    }
+#endif
+
+   /* XXX do this on demand! */
 
    /* Map the zsbuffer
     */
@@ -426,6 +462,7 @@ lp_scene_map_buffers( struct lp_scene *scene )
                                               zsbuf->face,
                                               zsbuf->level,
                                               zsbuf->zslice,
+                                              LP_TEXTURE_READ_WRITE,
                                               LP_TEXTURE_TILED);
       if (!scene->zsbuf_map)
 	 goto fail;
@@ -503,7 +540,6 @@ void lp_scene_rasterize( struct lp_scene *scene,
          }
       }
    }
-
 
    scene->write_depth = (scene->fb.zsbuf != NULL &&
                          write_depth);

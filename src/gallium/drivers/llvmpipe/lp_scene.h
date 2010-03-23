@@ -137,6 +137,9 @@ struct lp_scene {
    int curr_x, curr_y;  /**< for iterating over bins */
    pipe_mutex mutex;
 
+   /** Used when mapping/unmapping color/z/stencil buffers */
+   pipe_mutex map_mutex;
+
    /* Where to place this scene once it has been rasterized:
     */
    struct lp_scene_queue *empty_queue;
@@ -303,6 +306,12 @@ lp_scene_bin_iter_begin( struct lp_scene *scene );
 
 struct cmd_bin *
 lp_scene_bin_iter_next( struct lp_scene *scene, int *bin_x, int *bin_y );
+
+
+void *
+lp_scene_map_color_buffer(struct lp_scene *scene, unsigned buf,
+                          unsigned tex_usage);
+
 
 void
 lp_scene_rasterize( struct lp_scene *scene,

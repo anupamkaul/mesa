@@ -60,6 +60,9 @@ llvmpipe_texture_layout(struct llvmpipe_screen *screen,
    unsigned level;
    unsigned width = pt->width0;
 
+   assert(LP_MAX_TEXTURE_2D_LEVELS <= LP_MAX_TEXTURE_LEVELS);
+   assert(LP_MAX_TEXTURE_3D_LEVELS <= LP_MAX_TEXTURE_LEVELS);
+
    for (level = 0; level <= pt->last_level; level++) {
       unsigned nblocksx;
 
@@ -194,10 +197,16 @@ llvmpipe_texture_map(struct pipe_texture *texture,
                      unsigned face,
                      unsigned level,
                      unsigned zslice,
-                     unsigned layout)
+                     enum lp_texture_usage tex_usage,
+                     enum lp_texture_layout layout)
 {
    struct llvmpipe_texture *lpt = llvmpipe_texture(texture);
    uint8_t *map;
+   unsigned offset = 0;
+
+   assert(tex_usage == LP_TEXTURE_READ ||
+          tex_usage == LP_TEXTURE_READ_WRITE ||
+          tex_usage == LP_TEXTURE_WRITE_ALL);
 
    assert(layout == LP_TEXTURE_TILED ||
           layout == LP_TEXTURE_LINEAR);
@@ -206,41 +215,32 @@ llvmpipe_texture_map(struct pipe_texture *texture,
       /* display target */
       struct llvmpipe_screen *screen = llvmpipe_screen(texture->screen);
       struct sw_winsys *winsys = screen->winsys;
-      const unsigned usage = PIPE_BUFFER_USAGE_CPU_READ_WRITE;
+      unsigned dt_usage;
+
+      if (tex_usage == LP_TEXTURE_READ) {
+         dt_usage = PIPE_BUFFER_USAGE_CPU_READ;
+      }
+      else {
+         dt_usage = PIPE_BUFFER_USAGE_CPU_READ_WRITE;
+      }
 
       assert(face == 0);
       assert(level == 0);
       assert(zslice == 0);
 
       /* FIXME: keep map count? */
-      map = winsys->displaytarget_map(winsys, lpt->dt, usage);
+      map = winsys->displaytarget_map(winsys, lpt->dt, dt_usage);
 
-      /* convert from linear to tiled layout? */
-      if (1111)
-      {
-         void *tiled = llvmpipe_get_texture_image(lpt, 0, 0,
-                                                  LP_TEXTURE_READ_WRITE,
-                                                  LP_TEXTURE_TILED);
-         lp_linear_to_tiled(map, tiled,
-                            lpt->base.width0, lpt->base.height0,
-                            lpt->base.format,
-                            lpt->stride[0], 
-                            tiled_stride(lpt->base.width0, lpt->base.height0));
-
-         lpt->dt_map = map;
-
-         map = tiled;
-      }
-
+      /* install this linear image in texture data structure */
+      lpt->linear[face][level].data = map;
+      lpt->linear[face][level].timestamp = lpt->tiled[face][level].timestamp + 1;
    }
    else {
       /* regular texture */
       unsigned tex_height = u_minify(texture->height0, level);
       const unsigned nblocksy =
          util_format_get_nblocksy(texture->format, tex_height);
-      const unsigned usage = LP_TEXTURE_READ_WRITE;
       const unsigned stride = lpt->stride[level];
-      unsigned offset;
 
       if (texture->target == PIPE_TEXTURE_CUBE) {
          /* XXX incorrect
@@ -255,11 +255,10 @@ llvmpipe_texture_map(struct pipe_texture *texture,
          assert(zslice == 0);
          offset = 0;
       }
-
-      map = llvmpipe_get_texture_image(lpt, face, level, usage, layout);
-
-      map += offset;
    }
+
+   map = llvmpipe_get_texture_image(lpt, face, level, tex_usage, layout);
+   map += offset;
 
    return map;
 }
@@ -285,18 +284,10 @@ llvmpipe_texture_unmap(struct pipe_texture *texture,
       assert(level == 0);
       assert(zslice == 0);
 
-      /* convert from tiled to linear layout */
-      if (1111)
-      {
-         void *tiled = llvmpipe_get_texture_image(lpt, 0, 0,
-                                                  LP_TEXTURE_READ,
-                                                  LP_TEXTURE_TILED);
-         lp_tiled_to_linear(tiled, lpt->dt_map,
-                            lpt->base.width0, lpt->base.height0,
-                            lpt->base.format,
-                            tiled_stride(lpt->base.width0, lpt->base.height0),
-                            lpt->stride[0]);
-      }
+      /* make sure linear image is up to date */
+      (void) llvmpipe_get_texture_image(lpt, 0, 0,
+                                        LP_TEXTURE_READ,
+                                        LP_TEXTURE_LINEAR);
 
       winsys->displaytarget_unmap(winsys, lpt->dt);
    }
@@ -352,7 +343,7 @@ static struct pipe_surface *
 llvmpipe_get_tex_surface(struct pipe_screen *screen,
                          struct pipe_texture *pt,
                          unsigned face, unsigned level, unsigned zslice,
-                         unsigned usage)
+                         enum lp_texture_usage usage)
 {
    struct llvmpipe_texture *lpt = llvmpipe_texture(pt);
    struct pipe_surface *ps;
@@ -464,6 +455,14 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
    ubyte *map;
    struct llvmpipe_texture *lpt;
    enum pipe_format format;
+   enum lp_texture_usage tex_usage;
+
+   if (transfer->usage == PIPE_TRANSFER_READ) {
+      tex_usage = LP_TEXTURE_READ;
+   }
+   else {
+      tex_usage = LP_TEXTURE_READ_WRITE;
+   }
 
    assert(transfer->texture);
    lpt = llvmpipe_texture(transfer->texture);
@@ -480,10 +479,10 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
                           TRUE, /* cpu_access */
                           FALSE); /* do_not_flush */
 
-   /* XXX pass read/write flags */
+   /* get pointer to linear texture image */
    map = llvmpipe_texture_map(transfer->texture, transfer->face,
                               transfer->level, transfer->zslice,
-                              LP_TEXTURE_LINEAR);
+                              tex_usage, LP_TEXTURE_LINEAR);
 
    /* May want to do different things here depending on read/write nature
     * of the map:
@@ -534,13 +533,14 @@ tex_image_size(const struct llvmpipe_texture *lpt, unsigned level)
 
 /**
  * Return pointer to texture image data (either linear or tiled layout).
- * \param usage  one of LP_TEXTURE_READ/WRITE/READ_WRITE
+ * \param usage  one of LP_TEXTURE_READ/WRITE_ALL/READ_WRITE
  * \param layout  either LP_TEXTURE_LINEAR or LP_TEXTURE_TILED
  */
 void *
 llvmpipe_get_texture_image(struct llvmpipe_texture *lpt,
                            unsigned face, unsigned level,
-                           unsigned usage, unsigned layout)
+                           enum lp_texture_usage usage,
+                           enum lp_texture_layout layout)
 {
    /*
     * 'target' refers to the image which we're retrieving (either in
@@ -553,13 +553,19 @@ llvmpipe_get_texture_image(struct llvmpipe_texture *lpt,
    void *target_data;
    void *other_data;
 
+   assert(layout == LP_TEXTURE_TILED ||
+          layout == LP_TEXTURE_LINEAR);
+
+   assert(usage == LP_TEXTURE_READ ||
+          usage == LP_TEXTURE_READ_WRITE ||
+          usage == LP_TEXTURE_WRITE_ALL);
+
    /* which is target?  which is other? */
    if (layout == LP_TEXTURE_LINEAR) {
       target_img = &lpt->linear[face][level];
       other_img = &lpt->tiled[face][level];
    }
    else {
-      assert(layout == LP_TEXTURE_TILED);
       target_img = &lpt->tiled[face][level];
       other_img = &lpt->linear[face][level];
    }
@@ -578,7 +584,7 @@ llvmpipe_get_texture_image(struct llvmpipe_texture *lpt,
    /* check if the other image is newer than target image */
    if (other_data &&
        other_img->timestamp > target_img->timestamp &&
-       usage != LP_TEXTURE_WRITE) {
+       usage != LP_TEXTURE_WRITE_ALL) {
       /* The other image is newer than the target image -> need to
        * update target image.
        */

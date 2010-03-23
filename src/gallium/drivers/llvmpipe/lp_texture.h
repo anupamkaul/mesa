@@ -35,13 +35,22 @@
 #define LP_MAX_TEXTURE_2D_LEVELS 13  /* 4K x 4K for now */
 #define LP_MAX_TEXTURE_3D_LEVELS 10  /* 512 x 512 x 512 for now */
 
+#define LP_MAX_TEXTURE_LEVELS LP_MAX_TEXTURE_2D_LEVELS
 
-#define LP_TEXTURE_READ       1
-#define LP_TEXTURE_WRITE      2
-#define LP_TEXTURE_READ_WRITE 3
 
-#define LP_TEXTURE_TILED      1
-#define LP_TEXTURE_LINEAR     2
+enum lp_texture_usage
+{
+   LP_TEXTURE_READ = 1,
+   LP_TEXTURE_READ_WRITE,
+   LP_TEXTURE_WRITE_ALL
+};
+
+
+enum lp_texture_layout
+{
+   LP_TEXTURE_TILED = 100,
+   LP_TEXTURE_LINEAR
+};
 
 
 struct pipe_context;
@@ -59,7 +68,7 @@ struct sw_displaytarget;
  *
  * When both image layouts are present we can determine which might be
  * newer by examining the timestap fields.  If they're equal the images
- * are identical (except for layour).  If they're not equal we must
+ * are identical (except for layout).  If they're not equal we must
  * update the older one before using it.
  */
 
@@ -76,20 +85,19 @@ struct llvmpipe_texture
 {
    struct pipe_texture base;
 
-   unsigned stride[LP_MAX_TEXTURE_2D_LEVELS];
+   unsigned stride[LP_MAX_TEXTURE_LEVELS];
 
    /**
     * Display target, for textures with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET
     * usage.
     */
    struct sw_displaytarget *dt;
-   void *dt_map;
 
    /**
     * Malloc'ed data for regular textures, or a mapping to dt above.
     */
-   struct llvmpipe_texture_image tiled[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_2D_LEVELS];
-   struct llvmpipe_texture_image linear[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_2D_LEVELS];
+   struct llvmpipe_texture_image tiled[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
+   struct llvmpipe_texture_image linear[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
 
    unsigned timestamp;
 };
@@ -140,7 +148,8 @@ llvmpipe_texture_map(struct pipe_texture *texture,
                      unsigned face,
                      unsigned level,
                      unsigned zslice,
-                     unsigned layout);
+                     enum lp_texture_usage usage,
+                     enum lp_texture_layout layout);
 
 void
 llvmpipe_texture_unmap(struct pipe_texture *texture,
@@ -151,7 +160,8 @@ llvmpipe_texture_unmap(struct pipe_texture *texture,
 void *
 llvmpipe_get_texture_image(struct llvmpipe_texture *texture,
                            unsigned face, unsigned level,
-                           unsigned usage, unsigned layout);
+                           enum lp_texture_usage usage,
+                           enum lp_texture_layout layout);
 
 
 extern void
