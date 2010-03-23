@@ -176,19 +176,6 @@ llvmpipe_texture_destroy(struct pipe_texture *pt)
 }
 
 
-static unsigned
-tiled_stride(unsigned width, unsigned height)
-{
-   /* size in tiles */
-   unsigned wt = (width + TILE_SIZE - 1) / TILE_SIZE;
-   /*unsigned ht = (height + TILE_SIZE - 1) / TILE_SIZE;*/
-
-   unsigned tiled_stride = wt * TILE_SIZE * TILE_SIZE * 4;
-
-   return tiled_stride;
-}
-
-
 /**
  * Map a texture for read/write (rendering).  Without any synchronization.
  */
@@ -453,7 +440,6 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
 {
    struct llvmpipe_screen *screen = llvmpipe_screen(pipe->screen);
    ubyte *map;
-   struct llvmpipe_texture *lpt;
    enum pipe_format format;
    enum lp_texture_usage tex_usage;
 
@@ -465,8 +451,7 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
    }
 
    assert(transfer->texture);
-   lpt = llvmpipe_texture(transfer->texture);
-   format = lpt->base.format;
+   format = transfer->texture->format;
 
    /*
     * Transfers, like other pipe operations, must happen in order, so flush the
@@ -594,13 +579,11 @@ llvmpipe_get_texture_image(struct llvmpipe_texture *lpt,
       if (layout == LP_TEXTURE_LINEAR)
          lp_tiled_to_linear(other_data, target_data,
                             width, height, lpt->base.format,
-                            tiled_stride(width, height),
                             lpt->stride[level]);
       else
          lp_linear_to_tiled(other_data, target_data,
                             width, height, lpt->base.format,
-                            lpt->stride[level], 
-                            tiled_stride(width, height));
+                            lpt->stride[level]);
 
       /* target image is now equal to the other image */
       target_img->timestamp = other_img->timestamp;
