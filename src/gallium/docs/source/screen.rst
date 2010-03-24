@@ -126,17 +126,7 @@ handled.
 * ``GPU_READ``, ``GPU_WRITE``: Whether the driver will internally need to
   read from or write to the buffer. The latter will only happen if the buffer
   is made into a render target.
-* ``DISCARD``: When set on a map, the contents of the map will be discarded
-  beforehand. Cannot be used with ``CPU_READ``.
-* ``DONTBLOCK``: When set on a map, the map will fail if the buffer cannot be
-  mapped immediately.
-* ``UNSYNCHRONIZED``: When set on a map, any outstanding operations on the
-  buffer will be ignored. The interaction of any writes to the map and any
-  operations pending with the buffer are undefined. Cannot be used with
-  ``CPU_READ``.
-* ``FLUSH_EXPLICIT``: When set on a map, written ranges of the map require
-  explicit flushes using :ref:`buffer_flush_mapped_range`. Requires
-  ``CPU_WRITE``.
+
 
 .. _pipe_texture_usage:
 
@@ -226,56 +216,15 @@ Returns TRUE if all usages can be satisfied.
 
    ``PIPE_TEXTURE_USAGE_DYNAMIC`` is not a valid usage.
 
-.. _texture_create:
+.. _resource_create:
 
-texture_create
+resource_create
 ^^^^^^^^^^^^^^
 
-Given a template of texture setup, create a buffer and texture.
+Given a template of texture setup, create a resource.
 
-texture_blanket
+resource_destroy
 ^^^^^^^^^^^^^^^
 
-Like :ref:`texture_create`, but use a supplied buffer instead of creating a
-new one.
+Destroy a resource. A resource is destroyed if it has no more references.
 
-texture_destroy
-^^^^^^^^^^^^^^^
-
-Destroy a texture. The buffer backing the texture is destroyed if it has no
-more references.
-
-buffer_map
-^^^^^^^^^^
-
-Map a buffer into memory.
-
-**usage** is a bitmask of :ref:`PIPE_BUFFER_USAGE` flags.
-
-Returns a pointer to the map, or NULL if the mapping failed.
-
-buffer_map_range
-^^^^^^^^^^^^^^^^
-
-Map a range of a buffer into memory.
-
-The returned map is always relative to the beginning of the buffer, not the
-beginning of the mapped range.
-
-.. _buffer_flush_mapped_range:
-
-buffer_flush_mapped_range
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Flush a range of mapped memory into a buffer.
-
-The buffer must have been mapped with ``PIPE_BUFFER_USAGE_FLUSH_EXPLICIT``.
-
-**usage** is a bitmask of :ref:`PIPE_BUFFER_USAGE` flags.
-
-buffer_unmap
-^^^^^^^^^^^^
-
-Unmap a buffer from memory.
-
-Any pointers into the map should be considered invalid and discarded.
