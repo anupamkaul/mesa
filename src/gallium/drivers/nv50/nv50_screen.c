@@ -280,7 +280,7 @@ nv50_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 	pscreen->is_format_supported = nv50_screen_is_format_supported;
 	pscreen->context_create = nv50_create;
 
-	nv50_screen_init_miptree_functions(pscreen);
+	nv50_screen_init_resource_functions(pscreen);
 
 	/* DMA engine object */
 	ret = nouveau_grobj_alloc(chan, 0xbeef5039,
