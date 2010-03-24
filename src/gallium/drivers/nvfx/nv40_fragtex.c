@@ -110,7 +110,7 @@ struct nouveau_stateobj *
 nv40_fragtex_build(struct nvfx_context *nvfx, int unit)
 {
 	struct nvfx_sampler_state *ps = nvfx->tex_sampler[unit];
-	struct nvfx_miptree *nv40mt = nvfx->tex_miptree[unit];
+	struct nvfx_miptree *nv40mt = (struct nvfx_miptree *)nvfx->fragment_sampler_views[unit]->texture;
 	struct nouveau_bo *bo = nv40mt->base.bo;
 	struct pipe_resource *pt = &nv40mt->base.base;
 	struct nv40_texture_format *tf;

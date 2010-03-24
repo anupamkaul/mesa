@@ -132,6 +132,7 @@ nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *pt)
 		return NULL;
 
 	mt->base.base = *pt;
+	mt->base.vtbl = &nvfx_miptree_vtbl;
 	pipe_reference_init(&mt->base.base.reference, 1);
 	mt->base.base.screen = pscreen;
 

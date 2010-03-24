@@ -73,7 +73,7 @@ nvfx_create(struct pipe_screen *pscreen, void *priv)
 	nvfx_init_query_functions(nvfx);
 	nvfx_init_surface_functions(nvfx);
 	nvfx_init_state_functions(nvfx);
-	nvfx_init_transfer_functions(nvfx);
+	nvfx_init_resource_functions(nvfx);
 
 	/* Create, configure, and install fallback swtnl path */
 	nvfx->draw = draw_create();

@@ -15,6 +15,7 @@
 
 /* XXX this should go away */
 #include "state_tracker/drm_api.h"
+#include "util/u_simple_screen.h"
 
 static const char *
 nouveau_screen_get_name(struct pipe_screen *pscreen)
@@ -92,20 +93,20 @@ nouveau_screen_bo_user(struct pipe_screen *pscreen, void *ptr, unsigned bytes)
 }
 
 static inline uint32_t
-nouveau_screen_map_flags(unsigned pipe)
+nouveau_screen_map_flags(unsigned usage)
 {
 	uint32_t flags = 0;
 
-	if (pipe & PIPE_BUFFER_USAGE_CPU_READ)
+	if (usage & PIPE_TRANSFER_READ)
 		flags |= NOUVEAU_BO_RD;
-	if (pipe & PIPE_BUFFER_USAGE_CPU_WRITE)
+	if (usage & PIPE_TRANSFER_WRITE)
 		flags |= NOUVEAU_BO_WR;
-	if (pipe & PIPE_BUFFER_USAGE_DISCARD)
+	if (usage & PIPE_TRANSFER_DISCARD)
 		flags |= NOUVEAU_BO_INVAL;
-	if (pipe & PIPE_BUFFER_USAGE_DONTBLOCK)
+	if (usage & PIPE_TRANSFER_DONTBLOCK)
 		flags |= NOUVEAU_BO_NOWAIT;
 	else
-	if (pipe & PIPE_BUFFER_USAGE_UNSYNCHRONIZED)
+	if (usage & PIPE_TRANSFER_UNSYNCHRONIZED)
 		flags |= NOUVEAU_BO_NOSYNC;
 
 	return flags;
@@ -113,10 +114,9 @@ nouveau_screen_map_flags(unsigned pipe)
 
 void *
 nouveau_screen_bo_map(struct pipe_screen *pscreen,
-		      struct nouveau_bo *pb,
+		      struct nouveau_bo *bo,
 		      unsigned usage)
 {
-	struct nouveau_screen *nscreen = nouveau_screen(pscreen);
 	int ret;
 
 	ret = nouveau_bo_map(bo, nouveau_screen_map_flags(usage));
@@ -132,7 +132,6 @@ void *
 nouveau_screen_bo_map_range(struct pipe_screen *pscreen, struct nouveau_bo *bo,
 			    unsigned offset, unsigned length, unsigned usage)
 {
-	struct nouveau_screen *nscreen = nouveau_screen(pscreen);
 	uint32_t flags = nouveau_screen_map_flags(usage);
 	int ret;
 
@@ -197,7 +196,8 @@ nouveau_screen_bo_from_handle(struct pipe_screen *pscreen,
 			      unsigned *out_stride)
 {
 	struct nouveau_device *dev = nouveau_screen(pscreen)->device;
-	struct nouveau_bo *bo;
+	struct nouveau_bo *bo = 0;
+	int ret;
  
 	ret = nouveau_bo_handle_ref(dev, whandle->handle, &bo);
 	if (ret) {
@@ -217,12 +217,12 @@ nouveau_screen_bo_get_handle(struct pipe_screen *pscreen,
 			     unsigned stride,
 			     struct winsys_handle *whandle)
 {
-	whandle->stride = util_format_get_stride(mt->base.format, mt->base.width0);
+	whandle->stride = stride;
 
 	if (whandle->type == DRM_API_HANDLE_TYPE_SHARED) { 
-		return nouveau_bo_handle_get(mt->bo, &whandle->handle) == 0;
+		return nouveau_bo_handle_get(bo, &whandle->handle) == 0;
 	} else if (whandle->type == DRM_API_HANDLE_TYPE_KMS) {
-		whandle->handle = mt->bo->handle;
+		whandle->handle = bo->handle;
 		return TRUE;
 	} else {
 		return FALSE;

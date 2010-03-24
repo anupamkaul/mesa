@@ -76,7 +76,7 @@ nvfx_miptree_transfer_new(struct pipe_context *pcontext,
 		tx->surface = pscreen->get_tex_surface(pscreen, pt,
 	                                               sr.face, sr.level,
 						       box->z,
-	                                               pipe_transfer_buffer_flags(&tx->base));
+	                                               usage);
 		return &tx->base;
 	}
 
@@ -95,7 +95,7 @@ nvfx_miptree_transfer_new(struct pipe_context *pcontext,
 
 	tx->surface = pscreen->get_tex_surface(pscreen, tx_tex,
 	                                       0, 0, 0,
-	                                       pipe_transfer_buffer_flags(&tx->base));
+	                                       tx->base.usage);
 
 	pipe_resource_reference(&tx_tex, NULL);
 
@@ -167,8 +167,7 @@ nvfx_miptree_transfer_map(struct pipe_context *pcontext, struct pipe_transfer *p
 	struct nvfx_transfer *tx = (struct nvfx_transfer *)ptx;
 	struct nv04_surface *ns = (struct nv04_surface *)tx->surface;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)tx->surface->texture;
-	uint8_t *map = nouveau_screen_bo_map(pscreen, mt->base.bo,
-					  pipe_transfer_buffer_flags(ptx));
+	uint8_t *map = nouveau_screen_bo_map(pscreen, mt->base.bo, ptx->usage);
 
 	if(!tx->direct)
 		return map + ns->base.offset;
