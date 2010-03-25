@@ -620,6 +620,9 @@ lp_rast_queue_scene( struct lp_rasterizer *rast,
       rasterize_scene( &rast->tasks[0], scene );
 
       lp_scene_reset( scene );
+
+      lp_rast_end( rast );
+
       rast->curr_scene = NULL;
    }
    else {
