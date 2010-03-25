@@ -56,13 +56,17 @@ lp_rast_begin( struct lp_rasterizer *rast,
 
    LP_DBG(DEBUG_RAST, "%s\n", __FUNCTION__);
 
+   /*
+    * Note that we map the color and z/stencil surfaces later on
+    * demand.  That's because we won't know until later if the first
+    * command is a clear or rendering operation (which determins whether
+    * or not we need to do an image layout (linear/tiled) conversion.
+    */
+
    rast->state.nr_cbufs = scene->fb.nr_cbufs;
    
    for (i = 0; i < rast->state.nr_cbufs; i++) {
       struct pipe_surface *cbuf = scene->fb.cbufs[i];
-#if 0
-      rast->cbuf[i].map = scene->cbuf_map[i];
-#endif
       rast->cbuf[i].format = cbuf->texture->format;
       rast->cbuf[i].tiles_per_row = align(cbuf->width, TILE_SIZE) / TILE_SIZE;
       rast->cbuf[i].blocksize = 
@@ -71,7 +75,6 @@ lp_rast_begin( struct lp_rasterizer *rast,
 
    if (write_zstencil) {
       struct pipe_surface *zsbuf = scene->fb.zsbuf;
-      rast->zsbuf.map = scene->zsbuf_map;
       rast->zsbuf.stride = llvmpipe_texture_stride(zsbuf->texture, zsbuf->level);
       rast->zsbuf.blocksize = 
          util_format_get_blocksize(zsbuf->texture->format);
@@ -189,12 +192,6 @@ lp_rast_clear_zstencil(struct lp_rasterizer_task *task,
    unsigned i, j;
 
    LP_DBG(DEBUG_RAST, "%s 0x%x\n", __FUNCTION__, arg.clear_zstencil);
-
-   assert(rast->zsbuf.map);
-   if (!rast->zsbuf.map)
-      return;
-
-   LP_DBG(DEBUG_RAST, "%s\n", __FUNCTION__);
 
    /*
     * Clear the aera of the swizzled depth/depth buffer matching this tile, in

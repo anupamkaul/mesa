@@ -33,6 +33,7 @@
 #include "gallivm/lp_bld_debug.h"
 #include "lp_rast.h"
 #include "lp_scene.h"
+#include "lp_texture.h"
 #include "lp_tile_soa.h"
 
 
@@ -131,16 +132,22 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
  */
 static INLINE void *
 lp_rast_get_depth_tile_pointer( struct lp_rasterizer *rast,
-                                unsigned x, unsigned y, unsigned tex_usage )
+                                unsigned x, unsigned y,
+                                enum lp_texture_usage usage )
 {
    void * depth;
 
    assert((x % TILE_VECTOR_WIDTH) == 0);
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
-   /* XXX map on demand here */
-   if (!rast->zsbuf.map)
-      return NULL;
+   if (!rast->zsbuf.map) {
+      struct lp_scene *scene = rast->curr_scene;
+      rast->zsbuf.map = lp_scene_map_zstencil_buffer(scene, usage,
+                                                     LP_TEXTURE_TILED);
+      if (!rast->zsbuf.map) {
+         return NULL;
+      }
+   }
 
    depth = (rast->zsbuf.map +
             rast->zsbuf.stride * y +
@@ -158,7 +165,7 @@ lp_rast_get_depth_tile_pointer( struct lp_rasterizer *rast,
 static INLINE void *
 lp_rast_get_color_tile_pointer( struct lp_rasterizer *rast,
                                 unsigned buf, unsigned x, unsigned y,
-                                unsigned tex_usage )
+                                enum lp_texture_usage usage )
 {
    unsigned tx, ty, tile_offset;
    unsigned px, py, pixel_offset;
@@ -169,7 +176,8 @@ lp_rast_get_color_tile_pointer( struct lp_rasterizer *rast,
 
    if (!rast->cbuf[buf].map) {
       struct lp_scene *scene = rast->curr_scene;
-      rast->cbuf[buf].map = lp_scene_map_color_buffer(scene, buf, tex_usage);
+      rast->cbuf[buf].map = lp_scene_map_color_buffer(scene, buf, usage,
+                                                      LP_TEXTURE_TILED);
       if (!rast->cbuf[buf].map) {
          return NULL;
       }

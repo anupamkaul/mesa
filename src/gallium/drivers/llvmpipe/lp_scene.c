@@ -393,9 +393,13 @@ end:
 
 
 
+/**
+ * Map a color buffer for rendering.
+ */
 void *
 lp_scene_map_color_buffer(struct lp_scene *scene, unsigned buf,
-                          unsigned tex_usage)
+                          enum lp_texture_usage usage,
+                          enum lp_texture_layout layout)
 {
    pipe_mutex_lock(scene->map_mutex);
 
@@ -406,13 +410,39 @@ lp_scene_map_color_buffer(struct lp_scene *scene, unsigned buf,
                                                   cbuf->face,
                                                   cbuf->level,
                                                   cbuf->zslice,
-                                                  tex_usage,
-                                                  LP_TEXTURE_TILED);
+                                                  usage,
+                                                  layout);
    }
 
    pipe_mutex_unlock(scene->map_mutex);
 
    return scene->cbuf_map[buf];
+}
+
+
+/**
+ * Map the z/stencil buffer for rendering.
+ */
+void *
+lp_scene_map_zstencil_buffer(struct lp_scene *scene,
+                             enum lp_texture_usage usage,
+                             enum lp_texture_layout layout)
+{
+   pipe_mutex_lock(scene->map_mutex);
+
+   if (!scene->zsbuf_map && scene->fb.zsbuf) {
+      struct pipe_surface *zsbuf = scene->fb.zsbuf;
+      scene->zsbuf_map = llvmpipe_texture_map(zsbuf->texture,
+                                              zsbuf->face,
+                                              zsbuf->level,
+                                              zsbuf->zslice,
+                                              usage,
+                                              layout);
+   }
+
+   pipe_mutex_unlock(scene->map_mutex);
+
+   return scene->zsbuf_map;
 }
 
 
@@ -423,57 +453,12 @@ lp_scene_map_color_buffer(struct lp_scene *scene, unsigned buf,
 static boolean
 lp_scene_map_buffers( struct lp_scene *scene )
 {
-   struct pipe_surface *zsbuf;
-
    LP_DBG(DEBUG_RAST, "%s\n", __FUNCTION__);
 
-
-   /* Map all color buffers 
-    */
-   /* XXX get color buffers on demand.  That way we can avoid
-    * linear->tiled conversion when clearing because we know we're
-    * going to completely overwrite the old image data.
-    */
-#if 0
-   struct pipe_surface *cbuf, *zsbuf;
-   int i;
-   for (i = 0; i < scene->fb.nr_cbufs; i++) {
-      cbuf = scene->fb.cbufs[i];
-      if (cbuf) {
-	 scene->cbuf_map[i] = llvmpipe_texture_map(cbuf->texture,
-	                                           cbuf->face,
-                                                   cbuf->level,
-                                                   cbuf->zslice,
-                                                   LP_TEXTURE_READ_WRITE,
-                                                   LP_TEXTURE_TILED);
-	 if (!scene->cbuf_map[i])
-	    goto fail;
-      }
-   }
-#endif
-
-   /* XXX do this on demand! */
-
-   /* Map the zsbuffer
-    */
-   zsbuf = scene->fb.zsbuf;
-   if (zsbuf) {
-      scene->zsbuf_map = llvmpipe_texture_map(zsbuf->texture,
-                                              zsbuf->face,
-                                              zsbuf->level,
-                                              zsbuf->zslice,
-                                              LP_TEXTURE_READ_WRITE,
-                                              LP_TEXTURE_TILED);
-      if (!scene->zsbuf_map)
-	 goto fail;
-   }
+   /* XXX framebuffer surfaces are no longer mapped here */
+   /* XXX move all map/unmap stuff into rast module... */
 
    return TRUE;
-
-fail:
-   /* Unmap and release transfers?
-    */
-   return FALSE;
 }
 
 

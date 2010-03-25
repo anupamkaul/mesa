@@ -310,7 +310,14 @@ lp_scene_bin_iter_next( struct lp_scene *scene, int *bin_x, int *bin_y );
 
 void *
 lp_scene_map_color_buffer(struct lp_scene *scene, unsigned buf,
-                          unsigned tex_usage);
+                          enum lp_texture_usage usage,
+                          enum lp_texture_layout layout);
+
+
+void *
+lp_scene_map_zstencil_buffer(struct lp_scene *scene,
+                             enum lp_texture_usage usage,
+                             enum lp_texture_layout layout);
 
 
 void
