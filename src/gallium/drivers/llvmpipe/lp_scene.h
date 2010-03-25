@@ -115,11 +115,6 @@ struct texture_ref {
 struct lp_scene {
    struct pipe_context *pipe;
 
-   /* Scene's buffers are mapped at the time the scene is enqueued:
-    */
-   void *cbuf_map[PIPE_MAX_COLOR_BUFS];
-   uint8_t *zsbuf_map;
-
    /** the framebuffer to render the scene into */
    struct pipe_framebuffer_state fb;
 
@@ -136,9 +131,6 @@ struct lp_scene {
 
    int curr_x, curr_y;  /**< for iterating over bins */
    pipe_mutex mutex;
-
-   /** Used when mapping/unmapping color/z/stencil buffers */
-   pipe_mutex map_mutex;
 
    /* Where to place this scene once it has been rasterized:
     */
@@ -306,18 +298,6 @@ lp_scene_bin_iter_begin( struct lp_scene *scene );
 
 struct cmd_bin *
 lp_scene_bin_iter_next( struct lp_scene *scene, int *bin_x, int *bin_y );
-
-
-void *
-lp_scene_map_color_buffer(struct lp_scene *scene, unsigned buf,
-                          enum lp_texture_usage usage,
-                          enum lp_texture_layout layout);
-
-
-void *
-lp_scene_map_zstencil_buffer(struct lp_scene *scene,
-                             enum lp_texture_usage usage,
-                             enum lp_texture_layout layout);
 
 
 void

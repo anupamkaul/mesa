@@ -60,7 +60,6 @@ lp_scene_create( struct pipe_context *pipe,
    make_empty_list(&scene->textures);
 
    pipe_mutex_init(scene->mutex);
-   pipe_mutex_init(scene->map_mutex);
 
    return scene;
 }
@@ -89,7 +88,6 @@ lp_scene_destroy(struct lp_scene *scene)
    scene->data.head = NULL;
 
    pipe_mutex_destroy(scene->mutex);
-   pipe_mutex_destroy(scene->map_mutex);
 
    FREE(scene);
 }
@@ -394,59 +392,6 @@ end:
 
 
 /**
- * Map a color buffer for rendering.
- */
-void *
-lp_scene_map_color_buffer(struct lp_scene *scene, unsigned buf,
-                          enum lp_texture_usage usage,
-                          enum lp_texture_layout layout)
-{
-   pipe_mutex_lock(scene->map_mutex);
-
-   if (!scene->cbuf_map[buf]) {
-      struct pipe_surface *cbuf = scene->fb.cbufs[buf];
-
-      scene->cbuf_map[buf] = llvmpipe_texture_map(cbuf->texture,
-                                                  cbuf->face,
-                                                  cbuf->level,
-                                                  cbuf->zslice,
-                                                  usage,
-                                                  layout);
-   }
-
-   pipe_mutex_unlock(scene->map_mutex);
-
-   return scene->cbuf_map[buf];
-}
-
-
-/**
- * Map the z/stencil buffer for rendering.
- */
-void *
-lp_scene_map_zstencil_buffer(struct lp_scene *scene,
-                             enum lp_texture_usage usage,
-                             enum lp_texture_layout layout)
-{
-   pipe_mutex_lock(scene->map_mutex);
-
-   if (!scene->zsbuf_map && scene->fb.zsbuf) {
-      struct pipe_surface *zsbuf = scene->fb.zsbuf;
-      scene->zsbuf_map = llvmpipe_texture_map(zsbuf->texture,
-                                              zsbuf->face,
-                                              zsbuf->level,
-                                              zsbuf->zslice,
-                                              usage,
-                                              layout);
-   }
-
-   pipe_mutex_unlock(scene->map_mutex);
-
-   return scene->zsbuf_map;
-}
-
-
-/**
  * Prepare this scene for the rasterizer.
  * Map the framebuffer surfaces.  Initialize the 'rast' state.
  */
@@ -472,6 +417,7 @@ lp_scene_map_buffers( struct lp_scene *scene )
 static void
 lp_scene_unmap_buffers( struct lp_scene *scene )
 {
+#if 0
    unsigned i;
 
    for (i = 0; i < scene->fb.nr_cbufs; i++) {
@@ -493,6 +439,7 @@ lp_scene_unmap_buffers( struct lp_scene *scene )
                              zsbuf->zslice);
       scene->zsbuf_map = NULL;
    }
+#endif
 
    util_unreference_framebuffer_state( &scene->fb );
 }

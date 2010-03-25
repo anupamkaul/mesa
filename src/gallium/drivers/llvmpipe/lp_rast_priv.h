@@ -117,6 +117,8 @@ struct lp_rasterizer
 
    /** For synchronizing the rasterization threads */
    pipe_barrier barrier;
+
+   pipe_mutex map_mutex;
 };
 
 
@@ -128,6 +130,7 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
 
 /**
  * Get the pointer to a depth tile.
+ * We'll map the z/stencil buffer on demand here.
  * \param x, y location of 4x4 block in window coords
  */
 static INLINE void *
@@ -141,13 +144,21 @@ lp_rast_get_depth_tile_pointer( struct lp_rasterizer *rast,
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
    if (!rast->zsbuf.map) {
-      struct lp_scene *scene = rast->curr_scene;
-      rast->zsbuf.map = lp_scene_map_zstencil_buffer(scene, usage,
-                                                     LP_TEXTURE_TILED);
+      pipe_mutex_lock(rast->map_mutex);
       if (!rast->zsbuf.map) {
-         return NULL;
+         struct lp_scene *scene = rast->curr_scene;
+         struct pipe_surface *zsbuf = scene->fb.zsbuf;
+         rast->zsbuf.map = llvmpipe_texture_map(zsbuf->texture,
+                                                zsbuf->face,
+                                                zsbuf->level,
+                                                zsbuf->zslice,
+                                                usage,
+                                                LP_TEXTURE_TILED);
       }
+      pipe_mutex_unlock(rast->map_mutex);
    }
+
+   assert(rast->zsbuf.map);
 
    depth = (rast->zsbuf.map +
             rast->zsbuf.stride * y +
@@ -160,6 +171,7 @@ lp_rast_get_depth_tile_pointer( struct lp_rasterizer *rast,
 
 /**
  * Get the pointer to a color tile.
+ * We'll map the color buffer on demand here.
  * \param x, y location of 4x4 block in window coords
  */
 static INLINE void *
@@ -175,13 +187,21 @@ lp_rast_get_color_tile_pointer( struct lp_rasterizer *rast,
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
    if (!rast->cbuf[buf].map) {
-      struct lp_scene *scene = rast->curr_scene;
-      rast->cbuf[buf].map = lp_scene_map_color_buffer(scene, buf, usage,
-                                                      LP_TEXTURE_TILED);
+      pipe_mutex_lock(rast->map_mutex);
       if (!rast->cbuf[buf].map) {
-         return NULL;
+         struct lp_scene *scene = rast->curr_scene;
+         struct pipe_surface *cbuf = scene->fb.cbufs[buf];
+         rast->cbuf[buf].map = llvmpipe_texture_map(cbuf->texture,
+                                                    cbuf->face,
+                                                    cbuf->level,
+                                                    cbuf->zslice,
+                                                    usage,
+                                                    LP_TEXTURE_TILED);
       }
+      pipe_mutex_unlock(rast->map_mutex);
    }
+
+   assert(rast->cbuf[buf].map);
 
    tx = x / TILE_SIZE;
    ty = y / TILE_SIZE;

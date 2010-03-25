@@ -89,16 +89,37 @@ lp_rast_begin( struct lp_rasterizer *rast,
 static void
 lp_rast_end( struct lp_rasterizer *rast )
 {
-   int i;
+   struct lp_scene *scene = rast->curr_scene;
+   unsigned i;
+
+   /* Unmap color buffers */
+   for (i = 0; i < rast->state.nr_cbufs; i++) {
+      if (rast->cbuf[i].map) {
+         struct pipe_surface *cbuf = scene->fb.cbufs[i];
+         llvmpipe_texture_unmap(cbuf->texture,
+                                cbuf->face,
+                                cbuf->level,
+                                cbuf->zslice);
+         rast->cbuf[i].map = NULL;
+      }
+   }
+
+   /* Unmap z/stencil buffer */
+   if (rast->zsbuf.map) {
+      struct pipe_surface *zsbuf = scene->fb.zsbuf;
+      llvmpipe_texture_unmap(zsbuf->texture,
+                             zsbuf->face,
+                             zsbuf->level,
+                             zsbuf->zslice);
+      rast->zsbuf.map = NULL;
+   }
 
    lp_scene_reset( rast->curr_scene );
 
-   for (i = 0; i < rast->state.nr_cbufs; i++)
-      rast->cbuf[i].map = NULL;
-
-   rast->zsbuf.map = NULL;
    rast->curr_scene = NULL;
 }
+
+
 
 /**
  * Begining rasterization of a tile.
@@ -774,6 +795,9 @@ lp_rast_create( void )
    /* for synchronizing rasterization threads */
    pipe_barrier_init( &rast->barrier, rast->num_threads );
 
+   /* for buffer mapping */
+   pipe_mutex_init(rast->map_mutex);
+
    return rast;
 }
 
@@ -806,6 +830,8 @@ void lp_rast_destroy( struct lp_rasterizer *rast )
 
    /* for synchronizing rasterization threads */
    pipe_barrier_destroy( &rast->barrier );
+
+   pipe_mutex_destroy(rast->map_mutex);
 
    FREE(rast);
 }
