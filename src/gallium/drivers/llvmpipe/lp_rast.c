@@ -57,7 +57,6 @@ lp_rast_begin( struct lp_rasterizer *rast,
    LP_DBG(DEBUG_RAST, "%s\n", __FUNCTION__);
 
    rast->state.nr_cbufs = scene->fb.nr_cbufs;
-   rast->state.write_zstencil = write_zstencil;
    
    for (i = 0; i < rast->state.nr_cbufs; i++) {
       struct pipe_surface *cbuf = scene->fb.cbufs[i];
