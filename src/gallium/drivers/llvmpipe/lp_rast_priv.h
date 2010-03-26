@@ -240,13 +240,9 @@ lp_rast_shade_quads_all( struct lp_rasterizer_task *task,
 {
    struct lp_rasterizer *rast = task->rast;
    const struct lp_rast_state *state = task->current_state;
-   const unsigned ix = x % TILE_SIZE, iy = y % TILE_SIZE;
    uint8_t *color[PIPE_MAX_COLOR_BUFS];
    void *depth;
-   unsigned block_offset, i;
-
-   /* offset of the containing 16x16 pixel block within the tile */
-   block_offset = (iy / 4) * (16 * 16) + (ix / 4) * 16;
+   unsigned i;
 
    /* color buffer */
    for (i = 0; i < rast->state.nr_cbufs; i++)
