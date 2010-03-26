@@ -131,6 +131,8 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
 /**
  * Get the pointer to a depth tile.
  * We'll map the z/stencil buffer on demand here.
+ * Note that this may be called even when there's no z/stencil buffer - return
+ * NULL in that case.
  * \param x, y location of 4x4 block in window coords
  */
 static INLINE void *
@@ -144,10 +146,12 @@ lp_rast_get_depth_tile_pointer( struct lp_rasterizer *rast,
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
    if (!rast->zsbuf.map) {
+      struct pipe_surface *zsbuf = rast->curr_scene->fb.zsbuf;
+      if (!zsbuf) {
+         return NULL;
+      }
       pipe_mutex_lock(rast->map_mutex);
       if (!rast->zsbuf.map) {
-         struct lp_scene *scene = rast->curr_scene;
-         struct pipe_surface *zsbuf = scene->fb.zsbuf;
          rast->zsbuf.map = llvmpipe_texture_map(zsbuf->texture,
                                                 zsbuf->face,
                                                 zsbuf->level,
@@ -172,6 +176,8 @@ lp_rast_get_depth_tile_pointer( struct lp_rasterizer *rast,
 /**
  * Get the pointer to a color tile.
  * We'll map the color buffer on demand here.
+ * Note that this may be called even when there's no color buffers - return
+ * NULL in that case.
  * \param x, y location of 4x4 block in window coords
  */
 static INLINE void *
@@ -187,10 +193,12 @@ lp_rast_get_color_tile_pointer( struct lp_rasterizer *rast,
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
    if (!rast->cbuf[buf].map) {
+      struct pipe_surface *cbuf = rast->curr_scene->fb.cbufs[buf];
+      if (!cbuf) {
+         return NULL;
+      }
       pipe_mutex_lock(rast->map_mutex);
       if (!rast->cbuf[buf].map) {
-         struct lp_scene *scene = rast->curr_scene;
-         struct pipe_surface *cbuf = scene->fb.cbufs[buf];
          rast->cbuf[buf].map = llvmpipe_texture_map(cbuf->texture,
                                                     cbuf->face,
                                                     cbuf->level,
