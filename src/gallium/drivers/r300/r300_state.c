@@ -38,8 +38,7 @@
 #include "r300_state_inlines.h"
 #include "r300_fs.h"
 #include "r300_vs.h"
-
-#include "radeon_winsys.h"
+#include "r300_winsys.h"
 
 /* r300_state: Functions used to intialize state context by translating
  * Gallium state objects into semi-native r300 state objects. */
@@ -528,8 +527,8 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
         if (tex) {
             r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                             tex->pitch[0],
-                                            tex->microtile != 0,
-                                            tex->macrotile != 0);
+                                            tex->microtile,
+                                            tex->macrotile);
         }
     }
     if (old_state->zsbuf &&
@@ -540,8 +539,8 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
         if (tex) {
             r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                             tex->pitch[0],
-                                            tex->microtile != 0,
-                                            tex->macrotile != 0);
+                                            tex->microtile,
+                                            tex->macrotile);
         }
     }
 
@@ -552,8 +551,8 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
 
         r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                         tex->pitch[level],
-                                        tex->microtile != 0,
-                                        tex->mip_macrotile[level] != 0);
+                                        tex->microtile,
+                                        tex->mip_macrotile[level]);
     }
     if (new_state->zsbuf) {
         tex = (struct r300_texture*)new_state->zsbuf->texture;
@@ -561,8 +560,8 @@ static void r300_fb_update_tiling_flags(struct r300_context *r300,
 
         r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                                         tex->pitch[level],
-                                        tex->microtile != 0,
-                                        tex->mip_macrotile[level] != 0);
+                                        tex->microtile,
+                                        tex->mip_macrotile[level]);
     }
 }
 
@@ -576,9 +575,8 @@ static void
     unsigned max_width, max_height;
     uint32_t zbuffer_bpp = 0;
 
-
     if (state->nr_cbufs > 4) {
-        debug_printf("r300: Implementation error: Too many MRTs in %s, "
+        fprintf(stderr, "r300: Implementation error: Too many MRTs in %s, "
             "refusing to bind framebuffer state!\n", __FUNCTION__);
         return;
     }
@@ -592,7 +590,7 @@ static void
     }
 
     if (state->width > max_width || state->height > max_height) {
-        debug_printf("r300: Implementation error: Render targets are too "
+        fprintf(stderr, "r300: Implementation error: Render targets are too "
         "big in %s, refusing to bind framebuffer state!\n", __FUNCTION__);
         return;
     }
@@ -715,7 +713,6 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
 {
     struct r300_screen* r300screen = r300_screen(pipe->screen);
     struct r300_rs_state* rs = CALLOC_STRUCT(r300_rs_state);
-    unsigned coord_index;
 
     /* Copy rasterizer state for Draw. */
     rs->rs = *state;
@@ -808,32 +805,6 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
         rs->color_control = R300_SHADE_MODEL_SMOOTH;
     }
 
-    /* Point sprites */
-    if (state->sprite_coord_enable) {
-        coord_index = ffs(state->sprite_coord_enable)-1;
-
-        SCREEN_DBG(r300screen, DBG_DRAW,
-                   "r300: point sprite: shader coord=%d\n", coord_index);
-
-        rs->stuffing_enable =
-            R300_GB_POINT_STUFF_ENABLE |
-            R300_GB_TEX_ST << (R300_GB_TEX0_SOURCE_SHIFT + (coord_index*2));
-
-        rs->point_texcoord_left = 0.0f;
-        rs->point_texcoord_right = 1.0f;
-
-        switch (state->sprite_coord_mode) {
-            case PIPE_SPRITE_COORD_UPPER_LEFT:
-                rs->point_texcoord_top = 0.0f;
-                rs->point_texcoord_bottom = 1.0f;
-                break;
-            case PIPE_SPRITE_COORD_LOWER_LEFT:
-                rs->point_texcoord_top = 1.0f;
-                rs->point_texcoord_bottom = 0.0f;
-                break;
-        }
-    }
-
     return (void*)rs;
 }
 
@@ -843,7 +814,6 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     struct r300_context* r300 = r300_context(pipe);
     struct r300_rs_state* rs = (struct r300_rs_state*)state;
     boolean scissor_was_enabled = r300->scissor_enabled;
-    int last_sprite_coord_index = r300->sprite_coord_index;
 
     if (r300->draw) {
         draw_flush(r300->draw);
@@ -853,21 +823,16 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     if (rs) {
         r300->polygon_offset_enabled = rs->rs.offset_cw || rs->rs.offset_ccw;
         r300->scissor_enabled = rs->rs.scissor;
-        r300->sprite_coord_index = ffs(rs->rs.sprite_coord_enable)-1;
     } else {
         r300->polygon_offset_enabled = FALSE;
         r300->scissor_enabled = FALSE;
-        r300->sprite_coord_index = -1;
     }
 
     UPDATE_STATE(state, r300->rs_state);
-    r300->rs_state.size = 24 + (r300->polygon_offset_enabled ? 5 : 0);
+    r300->rs_state.size = 17 + (r300->polygon_offset_enabled ? 5 : 0);
 
     if (scissor_was_enabled != r300->scissor_enabled) {
         r300->scissor_state.dirty = TRUE;
-    }
-    if (last_sprite_coord_index != r300->sprite_coord_index) {
-        r300->rs_block_state.dirty = TRUE;
     }
 }
 
@@ -1039,7 +1004,6 @@ r300_create_sampler_view(struct pipe_context *pipe,
    return view;
 }
 
-
 static void
 r300_sampler_view_destroy(struct pipe_context *pipe,
                           struct pipe_sampler_view *view)
@@ -1109,26 +1073,62 @@ static void r300_set_vertex_buffers(struct pipe_context* pipe,
                                     const struct pipe_vertex_buffer* buffers)
 {
     struct r300_context* r300 = r300_context(pipe);
-    int i;
-    unsigned max_index = (1 << 24) - 1;
-    boolean any_user_buffer = false;
+    struct pipe_vertex_buffer *vbo;
+    unsigned i, max_index = (1 << 24) - 1;
+    boolean any_user_buffer = FALSE;
 
     if (count == r300->vertex_buffer_count &&
-	memcmp(r300->vertex_buffer, buffers, count * sizeof(buffers[0])) == 0)
+        memcmp(r300->vertex_buffer, buffers,
+            sizeof(struct pipe_vertex_buffer) * count) == 0) {
         return;
-
-    for (i = 0; i < count; i++) {
-	pipe_buffer_reference(&r300->vertex_buffer[i].buffer, buffers[i].buffer);
-	if (r300_buffer_is_user_buffer(buffers[i].buffer))
-	    any_user_buffer = true;
-        max_index = MIN2(buffers[i].max_index, max_index);
     }
 
-    for ( ; i < r300->vertex_buffer_count; i++)
-	pipe_buffer_reference(&r300->vertex_buffer[i].buffer, NULL);
+    /* Check if the stride is aligned to the size of DWORD. */
+    for (i = 0; i < count; i++) {
+        if (buffers[i].buffer) {
+            if (buffers[i].stride % 4 != 0) {
+                // XXX Shouldn't we align the buffer?
+                fprintf(stderr, "r300_set_vertex_buffers: "
+                        "Unaligned buffer stride %i isn't supported.\n",
+                        buffers[i].stride);
+                assert(0);
+                abort();
+            }
+        }
+    }
+
+    for (i = 0; i < count; i++) {
+        /* Why, yes, I AM casting away constness. How did you know? */
+        vbo = (struct pipe_vertex_buffer*)&buffers[i];
+
+        /* Reference our buffer. */
+        pipe_buffer_reference(&r300->vertex_buffer[i].buffer, vbo->buffer);
+
+        /* Skip NULL buffers */
+        if (!buffers[i].buffer) {
+            continue;
+        }
+
+        if (r300_buffer_is_user_buffer(vbo->buffer)) {
+            any_user_buffer = TRUE;
+        }
+
+        if (vbo->max_index == ~0) {
+            /* Bogus value from broken state tracker; hax it. */
+            vbo->max_index =
+                (vbo->buffer->size - vbo->buffer_offset) / vbo->stride;
+        }
+
+        max_index = MIN2(vbo->max_index, max_index);
+    }
+
+    for (; i < r300->vertex_buffer_count; i++) {
+        /* Dereference any old buffers. */
+        pipe_buffer_reference(&r300->vertex_buffer[i].buffer, NULL);
+    }
 
     memcpy(r300->vertex_buffer, buffers,
-	   sizeof(struct pipe_vertex_buffer) * count);
+        sizeof(struct pipe_vertex_buffer) * count);
 
     r300->vertex_buffer_count = count;
     r300->vertex_buffer_max_index = max_index;
@@ -1138,88 +1138,6 @@ static void r300_set_vertex_buffers(struct pipe_context* pipe,
         draw_flush(r300->draw);
         draw_set_vertex_buffers(r300->draw, count, buffers);
     }
-}
-
-static boolean r300_validate_aos(struct r300_context *r300)
-{
-    struct pipe_vertex_buffer *vbuf = r300->vertex_buffer;
-    struct pipe_vertex_element *velem = r300->velems->velem;
-    int i;
-
-    /* Check if formats and strides are aligned to the size of DWORD. */
-    for (i = 0; i < r300->velems->count; i++) {
-        if (vbuf[velem[i].vertex_buffer_index].stride % 4 != 0 ||
-            util_format_get_blocksize(velem[i].src_format) % 4 != 0) {
-            return FALSE;
-        }
-    }
-    return TRUE;
-}
-
-static void r300_draw_emit_attrib(struct r300_context* r300,
-                                  enum attrib_emit emit,
-                                  enum interp_mode interp,
-                                  int index)
-{
-    struct r300_vertex_shader* vs = r300->vs_state.state;
-    struct tgsi_shader_info* info = &vs->info;
-    int output;
-
-    output = draw_find_shader_output(r300->draw,
-                                     info->output_semantic_name[index],
-                                     info->output_semantic_index[index]);
-    draw_emit_vertex_attr(&r300->vertex_info, emit, interp, output);
-}
-
-static void r300_draw_emit_all_attribs(struct r300_context* r300)
-{
-    struct r300_vertex_shader* vs = r300->vs_state.state;
-    struct r300_shader_semantics* vs_outputs = &vs->outputs;
-    int i, gen_count;
-
-    /* Position. */
-    if (vs_outputs->pos != ATTR_UNUSED) {
-        r300_draw_emit_attrib(r300, EMIT_4F, INTERP_PERSPECTIVE,
-                              vs_outputs->pos);
-    } else {
-        assert(0);
-    }
-
-    /* Point size. */
-    if (vs_outputs->psize != ATTR_UNUSED) {
-        r300_draw_emit_attrib(r300, EMIT_1F_PSIZE, INTERP_POS,
-                              vs_outputs->psize);
-    }
-
-    /* Colors. */
-    for (i = 0; i < ATTR_COLOR_COUNT; i++) {
-        if (vs_outputs->color[i] != ATTR_UNUSED) {
-            r300_draw_emit_attrib(r300, EMIT_4F, INTERP_LINEAR,
-                                  vs_outputs->color[i]);
-        }
-    }
-
-    /* XXX Back-face colors. */
-
-    /* Texture coordinates. */
-    gen_count = 0;
-    for (i = 0; i < ATTR_GENERIC_COUNT; i++) {
-        if (vs_outputs->generic[i] != ATTR_UNUSED) {
-            r300_draw_emit_attrib(r300, EMIT_4F, INTERP_PERSPECTIVE,
-                                  vs_outputs->generic[i]);
-            gen_count++;
-        }
-    }
-
-    /* Fog coordinates. */
-    if (vs_outputs->fog != ATTR_UNUSED) {
-        r300_draw_emit_attrib(r300, EMIT_4F, INTERP_PERSPECTIVE,
-                              vs_outputs->fog);
-        gen_count++;
-    }
-
-    /* XXX magic */
-    assert(gen_count <= 8);
 }
 
 /* Update the PSC tables. */
@@ -1261,63 +1179,6 @@ static void r300_vertex_psc(struct r300_vertex_element_state *velems)
     vstream->count = (i >> 1) + 1;
 }
 
-/* Update the PSC tables for SW TCL, using Draw. */
-static void r300_swtcl_vertex_psc(struct r300_context *r300,
-                                  struct r300_vertex_element_state *velems)
-{
-    struct r300_vertex_stream_state *vstream = &velems->vertex_stream;
-    struct r300_vertex_shader* vs = r300->vs_state.state;
-    struct vertex_info* vinfo = &r300->vertex_info;
-    uint16_t type, swizzle;
-    enum pipe_format format;
-    unsigned i, attrib_count;
-    int* vs_output_tab = vs->stream_loc_notcl;
-
-    /* For each Draw attribute, route it to the fragment shader according
-     * to the vs_output_tab. */
-    attrib_count = vinfo->num_attribs;
-    DBG(r300, DBG_DRAW, "r300: attrib count: %d\n", attrib_count);
-    for (i = 0; i < attrib_count; i++) {
-        DBG(r300, DBG_DRAW, "r300: attrib: offset %d, interp %d, size %d,"
-               " vs_output_tab %d\n", vinfo->attrib[i].src_index,
-               vinfo->attrib[i].interp_mode, vinfo->attrib[i].emit,
-               vs_output_tab[i]);
-    }
-
-    for (i = 0; i < attrib_count; i++) {
-        /* Make sure we have a proper destination for our attribute. */
-        assert(vs_output_tab[i] != -1);
-
-        format = draw_translate_vinfo_format(vinfo->attrib[i].emit);
-
-        /* Obtain the type of data in this attribute. */
-        type = r300_translate_vertex_data_type(format) |
-            vs_output_tab[i] << R300_DST_VEC_LOC_SHIFT;
-
-        /* Obtain the swizzle for this attribute. Note that the default
-         * swizzle in the hardware is not XYZW! */
-        swizzle = r300_translate_vertex_data_swizzle(format);
-
-        /* Add the attribute to the PSC table. */
-        if (i & 1) {
-            vstream->vap_prog_stream_cntl[i >> 1] |= type << 16;
-            vstream->vap_prog_stream_cntl_ext[i >> 1] |= swizzle << 16;
-        } else {
-            vstream->vap_prog_stream_cntl[i >> 1] |= type;
-            vstream->vap_prog_stream_cntl_ext[i >> 1] |= swizzle;
-        }
-    }
-
-    /* Set the last vector in the PSC. */
-    if (i) {
-        i -= 1;
-    }
-    vstream->vap_prog_stream_cntl[i >> 1] |=
-        (R300_LAST_VEC << (i & 1 ? 16 : 0));
-
-    vstream->count = (i >> 1) + 1;
-}
-
 static void* r300_create_vertex_elements_state(struct pipe_context* pipe,
                                                unsigned count,
                                                const struct pipe_vertex_element* attribs)
@@ -1325,6 +1186,7 @@ static void* r300_create_vertex_elements_state(struct pipe_context* pipe,
     struct r300_context *r300 = r300_context(pipe);
     struct r300_screen* r300screen = r300_screen(pipe->screen);
     struct r300_vertex_element_state *velems;
+    unsigned i, size;
 
     assert(count <= PIPE_MAX_ATTRIBS);
     velems = CALLOC_STRUCT(r300_vertex_element_state);
@@ -1333,12 +1195,21 @@ static void* r300_create_vertex_elements_state(struct pipe_context* pipe,
         memcpy(velems->velem, attribs, sizeof(struct pipe_vertex_element) * count);
 
         if (r300screen->caps->has_tcl) {
+            /* Check if the format is aligned to the size of DWORD. */
+            for (i = 0; i < count; i++) {
+                size = util_format_get_blocksize(attribs[i].src_format);
+
+                if (size % 4 != 0) {
+                    /* XXX Shouldn't we align the format? */
+                    fprintf(stderr, "r300_create_vertex_elements_state: "
+                            "Unaligned format %s:%i isn't supported\n",
+                            util_format_name(attribs[i].src_format), size);
+                    assert(0);
+                    abort();
+                }
+            }
+
             r300_vertex_psc(velems);
-        } else {
-            memset(&r300->vertex_info, 0, sizeof(struct vertex_info));
-            r300_draw_emit_all_attribs(r300);
-            draw_compute_vertex_size(&r300->vertex_info);
-            r300_swtcl_vertex_psc(r300, velems);
         }
     }
     return velems;
@@ -1359,12 +1230,6 @@ static void r300_bind_vertex_elements_state(struct pipe_context *pipe,
     if (r300->draw) {
         draw_flush(r300->draw);
         draw_set_vertex_elements(r300->draw, velems->count, velems->velem);
-    }
-
-    if (!r300_validate_aos(r300)) {
-        /* XXX We should fallback using draw. */
-        assert(0);
-        abort();
     }
 
     UPDATE_STATE(&velems->vertex_stream, r300->vertex_stream_state);
@@ -1487,7 +1352,7 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
 
     /* XXX Subtract immediates and RC_STATE_* variables. */
     if (buf->size > (sizeof(float) * 4 * max_size)) {
-        debug_printf("r300: Max size of the constant buffer is "
+        fprintf(stderr, "r300: Max size of the constant buffer is "
                       "%i*4 floats.\n", max_size);
         abort();
     }

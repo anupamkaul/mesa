@@ -31,8 +31,7 @@
 #include "r300_texture.h"
 #include "r300_screen.h"
 #include "r300_state_inlines.h"
-
-#include "radeon_winsys.h"
+#include "r300_winsys.h"
 
 #define TILE_WIDTH 0
 #define TILE_HEIGHT 1
@@ -45,6 +44,18 @@ static const unsigned microblock_table[5][3][2] = {
     {{ 4, 1}, {0, 0}, {2, 2}}, /*  64 bits per pixel */
     {{ 2, 1}, {0, 0}, {0, 0}}  /* 128 bits per pixel */
 };
+
+/* Return true for non-compressed and non-YUV formats. */
+static boolean r300_format_is_plain(enum pipe_format format)
+{
+    const struct util_format_description *desc = util_format_description(format);
+
+    if (!format) {
+        return FALSE;
+    }
+
+    return desc->layout == UTIL_FORMAT_LAYOUT_PLAIN;
+}
 
 /* Translate a pipe_format into a useful texture format for sampling.
  *
@@ -148,7 +159,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
     }
 
     /* Compressed formats. */
-    if (desc->layout == UTIL_FORMAT_LAYOUT_COMPRESSED) {
+    if (desc->layout == UTIL_FORMAT_LAYOUT_S3TC) {
         switch (format) {
             case PIPE_FORMAT_DXT1_RGB:
             case PIPE_FORMAT_DXT1_RGBA:
@@ -640,7 +651,7 @@ unsigned r300_texture_get_stride(struct r300_screen* screen,
 
     width = u_minify(tex->tex.width0, level);
 
-    if (!util_format_is_compressed(tex->tex.format)) {
+    if (r300_format_is_plain(tex->tex.format)) {
         tile_width = r300_texture_get_tile_size(tex, TILE_WIDTH,
                                                 tex->mip_macrotile[level]);
         width = align(width, tile_width);
@@ -658,7 +669,7 @@ static unsigned r300_texture_get_nblocksy(struct r300_texture* tex,
 
     height = u_minify(tex->tex.height0, level);
 
-    if (!util_format_is_compressed(tex->tex.format)) {
+    if (r300_format_is_plain(tex->tex.format)) {
         tile_height = r300_texture_get_tile_size(tex, TILE_HEIGHT,
                                                  tex->mip_macrotile[level]);
         height = align(height, tile_height);
@@ -681,7 +692,8 @@ static void r300_setup_miptree(struct r300_screen* screen,
         /* Let's see if this miplevel can be macrotiled. */
         tex->mip_macrotile[i] =
             (tex->macrotile == R300_BUFFER_TILED &&
-             r300_texture_macro_switch(tex, i, rv350_mode, TILE_WIDTH)) ?
+             r300_texture_macro_switch(tex, i, rv350_mode, TILE_WIDTH) &&
+             r300_texture_macro_switch(tex, i, rv350_mode, TILE_HEIGHT)) ?
              R300_BUFFER_TILED : R300_BUFFER_LINEAR;
 
         stride = r300_texture_get_stride(screen, tex, i);
@@ -715,10 +727,11 @@ static void r300_setup_flags(struct r300_texture* tex)
 static void r300_setup_tiling(struct pipe_screen *screen,
                               struct r300_texture *tex)
 {
+    struct r300_winsys_screen *rws = (struct r300_winsys_screen *)screen->winsys;
     enum pipe_format format = tex->tex.format;
     boolean rv350_mode = r300_screen(screen)->caps->family >= CHIP_FAMILY_RV350;
 
-    if (util_format_is_compressed(format)) {
+    if (!r300_format_is_plain(format)) {
         return;
     }
 
@@ -734,12 +747,12 @@ static void r300_setup_tiling(struct pipe_screen *screen,
             tex->microtile = R300_BUFFER_TILED;
             break;
 
-        /* XXX Square-tiling doesn't work with kernel older than 2.6.34,
-         * XXX need to check the DRM version */
-        /*case 2:
+        case 2:
         case 8:
-            tex->microtile = R300_BUFFER_SQUARETILED;
-            break;*/
+            if (rws->get_value(rws, R300_VID_SQUARE_TILING_SUPPORT)) {
+                tex->microtile = R300_BUFFER_SQUARETILED;
+            }
+            break;
     }
 
     /* Set macrotiling. */
@@ -777,8 +790,8 @@ static struct pipe_texture* r300_texture_create(struct pipe_screen* screen,
 				     tex->size);
     rws->buffer_set_tiling(rws, tex->buffer,
 			   tex->pitch[0],
-			   tex->microtile != R300_BUFFER_LINEAR,
-			   tex->macrotile != R300_BUFFER_LINEAR);
+			   tex->microtile,
+			   tex->macrotile);
 
     if (!tex->buffer) {
         FREE(tex);

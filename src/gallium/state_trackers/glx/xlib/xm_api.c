@@ -78,17 +78,39 @@ void xmesa_set_driver( const struct xm_driver *templ )
    stapi = driver.create_st_api();
 }
 
+
+/*
+ * XXX replace this with a linked list, or better yet, try to attach the
+ * gallium/mesa extra bits to the X Display object with XAddExtension().
+ */
+#define MAX_DISPLAYS 10
+static struct xmesa_display Displays[MAX_DISPLAYS];
+static int NumDisplays = 0;
+
+
 static XMesaDisplay
 xmesa_init_display( Display *display )
 {
    pipe_static_mutex(init_mutex);
-   static struct xmesa_display xm_display;
    XMesaDisplay xmdpy;
-   
+   int i;
+
    pipe_mutex_lock(init_mutex);
 
-   /* TODO support for multiple displays */
-   xmdpy = &xm_display;
+   /* Look for XMesaDisplay which corresponds to 'display' */
+   for (i = 0; i < NumDisplays; i++) {
+      if (Displays[i].display == display) {
+         /* Found it */
+         pipe_mutex_unlock(init_mutex);
+         return &Displays[i];
+      }
+   }
+
+   /* Create new XMesaDisplay */
+
+   assert(NumDisplays < MAX_DISPLAYS);
+   xmdpy = &Displays[NumDisplays];
+   NumDisplays++;
 
    if (!xmdpy->display && display) {
       xmdpy->display = display;
@@ -309,8 +331,9 @@ choose_pixel_format(XMesaVisual v)
    return 0;
 }
 
+
 /**
- * Choose a depth/stencil format that is "better" than the given depth and
+ * Choose a depth/stencil format that satisfies the given depth and
  * stencil sizes.
  */
 static enum pipe_format
@@ -324,16 +347,20 @@ choose_depth_stencil_format(XMesaDisplay xmdpy, int depth, int stencil)
    int count, i;
 
    count = 0;
+
+   if (depth <= 16 && stencil == 0) {
+      formats[count++] = PIPE_FORMAT_Z16_UNORM;
+   }
+   if (depth <= 24 && stencil == 0) {
+      formats[count++] = PIPE_FORMAT_X8Z24_UNORM;
+      formats[count++] = PIPE_FORMAT_Z24X8_UNORM;
+   }
    if (depth <= 24 && stencil <= 8) {
       formats[count++] = PIPE_FORMAT_S8Z24_UNORM;
       formats[count++] = PIPE_FORMAT_Z24S8_UNORM;
    }
-
-   if (!stencil) {
-      if (depth <= 16)
-         formats[count++] = PIPE_FORMAT_Z16_UNORM;
-      if (depth <= 32)
-         formats[count++] = PIPE_FORMAT_Z32_UNORM;
+   if (depth <= 32 && stencil == 0) {
+      formats[count++] = PIPE_FORMAT_Z32_UNORM;
    }
 
    fmt = PIPE_FORMAT_NONE;

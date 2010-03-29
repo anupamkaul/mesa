@@ -30,6 +30,7 @@
 #include "pipe/p_context.h"
 #include "util/u_inlines.h"
 
+#include "r300_defines.h"
 #include "r300_screen.h"
 
 struct u_upload_mgr;
@@ -98,16 +99,6 @@ struct r300_rs_state {
     uint32_t line_stipple_value;    /* R300_GA_LINE_STIPPLE_VALUE: 0x4260 */
     uint32_t color_control;         /* R300_GA_COLOR_CONTROL: 0x4278 */
     uint32_t polygon_mode;          /* R300_GA_POLY_MODE: 0x4288 */
-
-    /* Specifies top of Raster pipe specific enable controls,
-     * i.e. texture coordinates stuffing for points, lines, triangles */
-    uint32_t stuffing_enable;       /* R300_GB_ENABLE: 0x4008 */
-
-    /* Point sprites texture coordinates, 0: lower left, 1: upper right */
-    float point_texcoord_left;      /* R300_GA_POINT_S0: 0x4200 */
-    float point_texcoord_bottom;    /* R300_GA_POINT_T0: 0x4204 */
-    float point_texcoord_right;     /* R300_GA_POINT_S1: 0x4208 */
-    float point_texcoord_top;       /* R300_GA_POINT_T1: 0x420c */
 };
 
 struct r300_rs_block {
@@ -134,8 +125,6 @@ struct r300_texture_format_state {
     uint32_t format1; /* R300_TX_FORMAT1: 0x44c0 */
     uint32_t format2; /* R300_TX_FORMAT2: 0x4500 */
 };
-
-#define R300_MAX_TEXTURE_LEVELS 13
 
 struct r300_texture_fb_state {
     /* Colorbuffer. */
@@ -195,12 +184,6 @@ struct r300_ztop_state {
     uint32_t z_buffer_top;      /* R300_ZB_ZTOP: 0x4f14 */
 };
 
-#define R300_NEW_FRAGMENT_SHADER 0x00000020
-#define R300_NEW_FRAGMENT_SHADER_CONSTANTS    0x00000040
-#define R300_NEW_VERTEX_SHADER_CONSTANTS    0x10000000
-#define R300_NEW_QUERY           0x40000000
-#define R300_NEW_KITCHEN_SINK    0x7fffffff
-
 /* The next several objects are not pure Radeon state; they inherit from
  * various Gallium classes. */
 
@@ -236,12 +219,6 @@ struct r300_query {
     /* Linked list members. */
     struct r300_query* prev;
     struct r300_query* next;
-};
-
-enum r300_buffer_tiling {
-    R300_BUFFER_LINEAR = 0,
-    R300_BUFFER_TILED,
-    R300_BUFFER_SQUARETILED
 };
 
 struct r300_texture {
@@ -400,9 +377,6 @@ struct r300_context {
     uint32_t zbuffer_bpp;
     /* Whether scissor is enabled. */
     boolean scissor_enabled;
-    /* Point sprites texcoord index, -1 = unused. */
-    int sprite_coord_index;
-
     /* upload managers */
     struct u_upload_mgr *upload_vb;
     struct u_upload_mgr *upload_ib;
@@ -435,7 +409,7 @@ static INLINE void CTX_DBG(struct r300_context * ctx, unsigned flags,
     if (CTX_DBG_ON(ctx, flags)) {
         va_list va;
         va_start(va, fmt);
-        debug_vprintf(fmt, va);
+        vfprintf(stderr, fmt, va);
         va_end(va);
     }
 }
@@ -444,4 +418,3 @@ static INLINE void CTX_DBG(struct r300_context * ctx, unsigned flags,
 #define DBG     CTX_DBG
 
 #endif /* R300_CONTEXT_H */
-
