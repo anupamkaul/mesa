@@ -227,11 +227,26 @@ set_scene_state( struct lp_setup_context *setup,
 }
 
 
+/**
+ * \param flags  bitmask of PIPE_FLUSH_x flags
+ */
 void
 lp_setup_flush( struct lp_setup_context *setup,
                 unsigned flags )
 {
    LP_DBG(DEBUG_SETUP, "%s\n", __FUNCTION__);
+
+   if (setup->scene) {
+      struct lp_scene *scene = lp_setup_get_current_scene(setup);
+      union lp_rast_cmd_arg dummy;
+
+      if (flags & PIPE_FLUSH_SWAPBUFFERS) {
+         /* store colors in the linear color buffer(s) */
+         lp_scene_bin_everywhere( scene, 
+                                  lp_rast_store_color,
+                                  dummy );
+      }
+   }
 
    set_scene_state( setup, SETUP_FLUSHED );
 }

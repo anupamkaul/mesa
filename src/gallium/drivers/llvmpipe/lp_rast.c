@@ -252,6 +252,9 @@ lp_rast_clear_zstencil(struct lp_rasterizer_task *task,
 }
 
 
+/**
+ * This is a bin command called during bin processing.
+ */
 void
 lp_rast_set_state(struct lp_rasterizer_task *task,
                   const union lp_rast_cmd_arg arg)
@@ -262,6 +265,55 @@ lp_rast_set_state(struct lp_rasterizer_task *task,
 
    /* just set the current state pointer for this rasterizer */
    task->current_state = state;
+}
+
+
+/**
+ * Convert the color tile from tiled to linear layout.
+ * This is generally only done when we're flushing the scene just prior to
+ * SwapBuffers.  If we didn't do this here, we'd have to convert the entire
+ * tiled color buffer to linear layout in the llvmpipe_texture_unmap()
+ * function.  It's better to do it here to take advantage of
+ * threading/parallelism.
+ */
+void
+lp_rast_store_color( struct lp_rasterizer_task *task,
+                     const union lp_rast_cmd_arg arg)
+{
+   struct lp_rasterizer *rast = task->rast;
+   struct lp_scene *scene = rast->curr_scene;
+   const boolean last_tile = ((task->x / TILE_SIZE == scene->tiles_x - 1) &&
+                              (task->y / TILE_SIZE == scene->tiles_y - 1));
+   unsigned buf;
+
+   for (buf = 0; buf < rast->state.nr_cbufs; buf++) {
+      struct pipe_surface *cbuf = scene->fb.cbufs[buf];
+      const unsigned face = cbuf->face, level = cbuf->level;
+      struct llvmpipe_texture *lpt = llvmpipe_texture(cbuf->texture);
+      const unsigned linear_stride = lpt->stride[level];
+      void *linear, *tile;
+
+      tile = lp_rast_get_color_tile_pointer(rast, buf, task->x, task->y,
+                                            LP_TEXTURE_READ);
+
+      linear = llvmpipe_get_texture_image(lpt, face, level,
+                                          LP_TEXTURE_WRITE_ALL,
+                                          LP_TEXTURE_LINEAR);
+
+      lp_tile_write_4ub(lpt->base.format,
+                        tile, linear, linear_stride,
+                        task->x, task->y, TILE_SIZE, TILE_SIZE);
+
+      if (last_tile) {
+         /* This is the last tile to rasterize.
+          * Update the image's timestamp now to indicate that the linear
+          * image is equivalent to the tiled image.
+          * XXX encapsulate this.
+          */
+         lpt->linear[face][level].timestamp =
+            lpt->tiled[face][level].timestamp;
+      }
+   }
 }
 
 
