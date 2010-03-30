@@ -477,7 +477,7 @@ void debug_dump_texture(struct pipe_context *pipe,
 
    /* XXX for now, just dump image for face=0, level=0 */
    surface = screen->get_tex_surface(screen, texture, 0, 0, 0,
-                                     PIPE_TEXTURE_USAGE_SAMPLER);
+                                     PIPE_BIND_SAMPLER_VIEW);
    if (surface) {
       debug_dump_surface(pipe, prefix, surface);
       screen->tex_surface_destroy(surface);

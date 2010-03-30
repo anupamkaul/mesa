@@ -126,7 +126,7 @@ nvfx_screen_surface_format_supported(struct pipe_screen *pscreen,
 	struct nvfx_screen *screen = nvfx_screen(pscreen);
 	struct pipe_surface *front = ((struct nouveau_winsys *) pscreen->winsys)->front;
 
-	if (tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) {
+	if (tex_usage & PIPE_BIND_RENDER_TARGET) {
 		switch (format) {
 		case PIPE_FORMAT_B8G8R8A8_UNORM:
 		case PIPE_FORMAT_B5G6R5_UNORM:
@@ -135,7 +135,7 @@ nvfx_screen_surface_format_supported(struct pipe_screen *pscreen,
 			break;
 		}
 	} else
-	if (tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL) {
+	if (tex_usage & PIPE_BIND_DEPTH_STENCIL) {
 		switch (format) {
 		case PIPE_FORMAT_S8Z24_UNORM:
 		case PIPE_FORMAT_X8Z24_UNORM:

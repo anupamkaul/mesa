@@ -279,7 +279,7 @@ static void draw_polygon(struct vg_context *ctx,
       poly->vbuf= pipe_user_buffer_create(poly->screen,
                                           poly->data,
                                           vert_size,
-					  PIPE_BUFFER_USAGE_VERTEX);
+					  PIPE_BIND_VERTEX_BUFFER);
       poly->dirty = VG_FALSE;
    }
 

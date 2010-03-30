@@ -850,7 +850,7 @@ nvfx_fragprog_upload(struct nvfx_context *nvfx,
 		int i;
 
 		map = pipe_buffer_map(pipe, fp->buffer,
-				      PIPE_BUFFER_USAGE_CPU_WRITE,
+				      PIPE_TRANSFER_WRITE,
 				      &transfer);
 	
 		/* Weird swapping for big-endian chips */
@@ -885,7 +885,11 @@ nvfx_fragprog_validate(struct nvfx_context *nvfx)
 		return FALSE;
 	}
 
-	fp->buffer = pipe_buffer_create(pscreen, 0x100, 0, fp->insn_len * 4);
+	fp->buffer = pipe_buffer_create(pscreen,
+					/* XXX: no alignment, maybe use a priv bind flag
+					 * 0x100,
+					 */
+					0, fp->insn_len * 4);
 	nvfx_fragprog_upload(nvfx, fp);
 
 	so = so_new(4, 4, 1);

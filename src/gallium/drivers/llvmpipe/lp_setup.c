@@ -506,7 +506,7 @@ lp_setup_set_fragment_sampler_views(struct lp_setup_context *setup,
             struct llvmpipe_screen *screen = llvmpipe_screen(tex->screen);
             struct sw_winsys *winsys = screen->winsys;
             jit_tex->data[0] = winsys->displaytarget_map(winsys, lp_tex->dt,
-                                                      PIPE_BUFFER_USAGE_CPU_READ);
+							 PIPE_TRANSFER_READ);
             jit_tex->row_stride[0] = lp_tex->stride[0];
             assert(jit_tex->data[0]);
          }

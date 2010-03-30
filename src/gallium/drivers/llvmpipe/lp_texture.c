@@ -128,9 +128,9 @@ llvmpipe_resource_create(struct pipe_screen *_screen,
    pipe_reference_init(&lpt->base.reference, 1);
    lpt->base.screen = &screen->base;
 
-   if (lpt->base.tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                              PIPE_TEXTURE_USAGE_SCANOUT |
-                              PIPE_TEXTURE_USAGE_SHARED)) {
+   if (lpt->base.tex_usage & (PIPE_BIND_DISPLAY_TARGET |
+                              PIPE_BIND_SCANOUT |
+                              PIPE_BIND_SHARED)) {
       if (!llvmpipe_displaytarget_layout(screen, lpt))
          goto fail;
    }
@@ -173,9 +173,10 @@ llvmpipe_resource_destroy(struct pipe_screen *pscreen,
  */
 void *
 llvmpipe_resource_map(struct pipe_resource *texture,
-                     unsigned face,
-                     unsigned level,
-                     unsigned zslice)
+		      unsigned usage,
+		      unsigned face,
+		      unsigned level,
+		      unsigned zslice)
 {
    struct llvmpipe_resource *lpt = llvmpipe_resource(texture);
    uint8_t *map;
@@ -184,7 +185,6 @@ llvmpipe_resource_map(struct pipe_resource *texture,
       /* display target */
       struct llvmpipe_screen *screen = llvmpipe_screen(texture->screen);
       struct sw_winsys *winsys = screen->winsys;
-      const unsigned usage = PIPE_BUFFER_USAGE_CPU_READ_WRITE;
 
       assert(face == 0);
       assert(level == 0);
@@ -305,7 +305,6 @@ llvmpipe_get_tex_surface(struct pipe_screen *screen,
                          unsigned face, unsigned level, unsigned zslice,
                          unsigned usage)
 {
-   struct llvmpipe_resource *lpt = llvmpipe_resource(pt);
    struct pipe_surface *ps;
 
    assert(level <= pt->last_level);
@@ -318,26 +317,6 @@ llvmpipe_get_tex_surface(struct pipe_screen *screen,
       ps->width = u_minify(pt->width0, level);
       ps->height = u_minify(pt->height0, level);
       ps->usage = usage;
-
-      /* Because we are llvmpipe, anything that the state tracker
-       * thought was going to be done with the GPU will actually get
-       * done with the CPU.  Let's adjust the flags to take that into
-       * account.
-       */
-      if (ps->usage & PIPE_BUFFER_USAGE_GPU_WRITE) {
-         /* GPU_WRITE means "render" and that can involve reads (blending) */
-         ps->usage |= PIPE_BUFFER_USAGE_CPU_WRITE | PIPE_BUFFER_USAGE_CPU_READ;
-      }
-
-      if (ps->usage & PIPE_BUFFER_USAGE_GPU_READ)
-         ps->usage |= PIPE_BUFFER_USAGE_CPU_READ;
-
-      if (ps->usage & (PIPE_BUFFER_USAGE_CPU_WRITE |
-                       PIPE_BUFFER_USAGE_GPU_WRITE)) {
-         /* Mark the surface as dirty. */
-         lpt->timestamp++;
-         llvmpipe_screen(screen)->timestamp++;
-      }
 
       ps->face = face;
       ps->level = level;
@@ -428,6 +407,7 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
                           FALSE); /* do_not_flush */
 
    map = llvmpipe_resource_map(transfer->resource,
+			       transfer->usage,
 			       transfer->sr.face,
 			       transfer->sr.level,
 			       transfer->box.z);
@@ -494,7 +474,7 @@ llvmpipe_user_buffer_create(struct pipe_screen *screen,
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
    buffer->base.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   buffer->base.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
+   buffer->base.usage = usage;
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
    buffer->base.depth0 = 1;

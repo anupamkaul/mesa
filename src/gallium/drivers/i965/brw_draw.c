@@ -266,14 +266,14 @@ boolean brw_draw_init( struct brw_context *brw )
    brw->vb.upload_vertex = u_upload_create( &brw->base,
 					    128 * 1024,
 					    64,
-					    PIPE_BUFFER_USAGE_VERTEX );
+					    PIPE_BIND_VERTEX_BUFFER );
    if (brw->vb.upload_vertex == NULL)
       return FALSE;
 
    brw->vb.upload_index = u_upload_create( &brw->base,
 					   32 * 1024,
 					   64,
-					   PIPE_BUFFER_USAGE_INDEX );
+					   PIPE_BIND_INDEX_BUFFER );
    if (brw->vb.upload_index == NULL)
       return FALSE;
 

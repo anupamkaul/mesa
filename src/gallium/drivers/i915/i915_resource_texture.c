@@ -219,12 +219,17 @@ i915_texture_layout_2d(struct i915_texture *tex)
    unsigned nblocksy = util_format_get_nblocksy(pt->format, pt->width0);
 
    /* used for scanouts that need special layouts */
-   if (pt->tex_usage & PIPE_TEXTURE_USAGE_SCANOUT)
+   if (pt->bind & PIPE_BIND_SCANOUT)
       if (i915_scanout_layout(tex))
          return;
 
-   /* shared buffers needs to be compatible with X servers */
-   if (pt->tex_usage & PIPE_TEXTURE_USAGE_SHARED)
+   /* shared buffers needs to be compatible with X servers 
+    * 
+    * XXX: need a better name than shared for this if it is to be part
+    * of core gallium, and probably move the flag to resource.flags,
+    * rather than bindings.
+    */
+   if (pt->bind & PIPE_BIND_SHARED)
       if (i915_display_target_layout(tex))
          return;
 
@@ -369,12 +374,12 @@ i945_texture_layout_2d(struct i915_texture *tex)
    unsigned nblocksy = util_format_get_nblocksy(pt->format, pt->height0);
 
    /* used for scanouts that need special layouts */
-   if (tex->b.b.tex_usage & PIPE_TEXTURE_USAGE_SCANOUT)
+   if (tex->b.b.bind & PIPE_BIND_SCANOUT)
       if (i915_scanout_layout(tex))
          return;
 
    /* shared buffers needs to be compatible with X servers */
-   if (tex->b.b.tex_usage & PIPE_TEXTURE_USAGE_SHARED)
+   if (tex->b.b.bind & PIPE_BIND_SHARED)
       if (i915_display_target_layout(tex))
          return;
 
@@ -742,7 +747,11 @@ i915_texture_create(struct pipe_screen *screen,
    tex_size = tex->stride * tex->total_nblocksy;
 
    /* for scanouts and cursors, cursors arn't scanouts */
-   if ((template->tex_usage & PIPE_TEXTURE_USAGE_SCANOUT) && template->width0 != 64)
+
+   /* XXX: use a custom flag for cursors, don't rely on magically
+    * guessing that this is Xorg asking for a cursor
+    */
+   if ((template->bind & PIPE_BIND_SCANOUT) && template->width0 != 64)
       buf_usage = INTEL_NEW_SCANOUT;
    else
       buf_usage = INTEL_NEW_TEXTURE;

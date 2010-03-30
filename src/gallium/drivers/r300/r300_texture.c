@@ -844,14 +844,14 @@ struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
     tex->b.b.screen = screen;
 
     r300_setup_flags(tex);
-    if (!(template->tex_usage & R300_TEXTURE_USAGE_TRANSFER)) {
+    if (!(template->flags & R300_RESOURCE_FLAG_TRANSFER)) {
         r300_setup_tiling(screen, tex);
     }
     r300_setup_miptree(rscreen, tex);
     r300_setup_texture_state(rscreen, tex);
 
     tex->buffer = rws->buffer_create(rws, 2048,
-				     PIPE_BUFFER_USAGE_PIXEL,
+				     PIPE_BIND_SAMPLER_VIEW, /* XXX */
 				     tex->size);
     rws->buffer_set_tiling(rws, tex->buffer,
 			   tex->pitch[0],
@@ -983,8 +983,8 @@ r300_video_surface_create(struct pipe_screen *screen,
     template.width0 = util_next_power_of_two(width);
     template.height0 = util_next_power_of_two(height);
     template.depth0 = 1;
-    template.tex_usage = PIPE_TEXTURE_USAGE_SAMPLER |
-                         PIPE_TEXTURE_USAGE_RENDER_TARGET;
+    template.bind = (PIPE_BIND_SAMPLER_VIEW |
+		     PIPE_BIND_RENDER_TARGET);
 
     r300_vsfc->tex = screen->resource_create(screen, &template);
     if (!r300_vsfc->tex)

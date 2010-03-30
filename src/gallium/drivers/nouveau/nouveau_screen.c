@@ -47,19 +47,19 @@ nouveau_screen_bo_new(struct pipe_screen *pscreen, unsigned alignment,
 	if (usage & NOUVEAU_BUFFER_USAGE_TRANSFER)
 		flags |= NOUVEAU_BO_GART;
 	else
-	if (usage & PIPE_BUFFER_USAGE_VERTEX) {
+	if (usage & NOUVEAU_BUFFER_USAGE_VERTEX) {
 		if (pscreen->get_param(pscreen, NOUVEAU_CAP_HW_VTXBUF))
 			flags |= NOUVEAU_BO_GART;
 	} else
-	if (usage & PIPE_BUFFER_USAGE_INDEX) {
+	if (usage & NOUVEAU_BUFFER_USAGE_INDEX) {
 		if (pscreen->get_param(pscreen, NOUVEAU_CAP_HW_IDXBUF))
 			flags |= NOUVEAU_BO_GART;
 	}
 
-	if (usage & PIPE_BUFFER_USAGE_PIXEL) {
+	if (usage & NOUVEAU_BUFFER_USAGE_PIXEL) {
 		if (usage & NOUVEAU_BUFFER_USAGE_TEXTURE)
 			flags |= NOUVEAU_BO_GART;
-		if (!(usage & PIPE_BUFFER_USAGE_CPU_READ_WRITE))
+		if (!(usage & NOUVEAU_BUFFER_USAGE_CPU_READ_WRITE))
 			flags |= NOUVEAU_BO_VRAM;
 
 		if (dev->chipset == 0x50 || dev->chipset >= 0x80) {
@@ -112,14 +112,15 @@ nouveau_screen_map_flags(unsigned usage)
 	return flags;
 }
 
+
 void *
 nouveau_screen_bo_map(struct pipe_screen *pscreen,
-		      struct nouveau_bo *bo,
-		      unsigned usage)
+		      struct nouveau_bo *pb,
+		      unsigned map_flags)
 {
 	int ret;
 
-	ret = nouveau_bo_map(bo, nouveau_screen_map_flags(usage));
+	ret = nouveau_bo_map(bo, map_flags);
 	if (ret) {
 		debug_printf("map failed: %d\n", ret);
 		return NULL;
@@ -130,9 +131,8 @@ nouveau_screen_bo_map(struct pipe_screen *pscreen,
 
 void *
 nouveau_screen_bo_map_range(struct pipe_screen *pscreen, struct nouveau_bo *bo,
-			    unsigned offset, unsigned length, unsigned usage)
+			    unsigned offset, unsigned length, unsigned flags)
 {
-	uint32_t flags = nouveau_screen_map_flags(usage);
 	int ret;
 
 	ret = nouveau_bo_map_range(bo, offset, length, flags);

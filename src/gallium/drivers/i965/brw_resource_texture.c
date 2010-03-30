@@ -390,8 +390,8 @@ brw_texture_create( struct pipe_screen *screen,
       goto fail;
 
    
-   if (template->tex_usage & (PIPE_TEXTURE_USAGE_SCANOUT |
-                           PIPE_TEXTURE_USAGE_SHARED)) {
+   if (template->bind & (PIPE_BIND_SCANOUT |
+                           PIPE_BIND_SHARED)) {
       buffer_type = BRW_BUFFER_TYPE_SCANOUT;
    }
    else {

@@ -143,22 +143,17 @@ brw_buffer_create(struct pipe_screen *screen,
    pipe_reference_init(&buf->b.b.reference, 1);
    buf->b.b.screen = screen;
 
-   switch (template->usage & (PIPE_BUFFER_USAGE_VERTEX |
-			      PIPE_BUFFER_USAGE_INDEX |
-			      PIPE_BUFFER_USAGE_PIXEL |
-			      PIPE_BUFFER_USAGE_CONSTANT))
+   switch (template->bind & (PIPE_BIND_VERTEX_BUFFER |
+			      PIPE_BIND_INDEX_BUFFER |
+			      PIPE_BIND_CONSTANT_BUFFER))
    {
-   case PIPE_BUFFER_USAGE_VERTEX:
-   case PIPE_BUFFER_USAGE_INDEX:
-   case (PIPE_BUFFER_USAGE_VERTEX|PIPE_BUFFER_USAGE_INDEX):
+   case PIPE_BIND_VERTEX_BUFFER:
+   case PIPE_BIND_INDEX_BUFFER:
+   case (PIPE_BIND_VERTEX_BUFFER|PIPE_BIND_INDEX_BUFFER):
       buffer_type = BRW_BUFFER_TYPE_VERTEX;
       break;
       
-   case PIPE_BUFFER_USAGE_PIXEL:
-      buffer_type = BRW_BUFFER_TYPE_PIXEL;
-      break;
-
-   case PIPE_BUFFER_USAGE_CONSTANT:
+   case PIPE_BIND_CONSTANT_BUFFER:
       buffer_type = BRW_BUFFER_TYPE_SHADER_CONSTANTS;
       break;
 
@@ -182,7 +177,7 @@ struct pipe_resource *
 brw_user_buffer_create(struct pipe_screen *screen,
                        void *ptr,
                        unsigned bytes,
-		       unsigned usage)
+		       unsigned bind)
 {
    struct brw_buffer *buf;
    
@@ -194,7 +189,8 @@ brw_user_buffer_create(struct pipe_screen *screen,
    buf->b.vtbl = &brw_buffer_vtbl;
    buf->b.b.screen = screen;
    buf->b.b.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   buf->b.b.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
+   buf->b.b._usage = PIPE_USAGE_IMMUTABLE;
+   buf->b.b.bind = bind;
    buf->b.b.width0 = bytes;
    buf->b.b.height0 = 1;
    buf->b.b.depth0 = 1;

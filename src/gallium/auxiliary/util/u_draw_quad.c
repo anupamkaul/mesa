@@ -114,7 +114,7 @@ util_draw_texquad(struct pipe_context *pipe,
    v[29] = 1.0;
 	 
    vbuf = pipe_user_buffer_create(pipe->screen, v, vertexBytes,
-				  PIPE_BUFFER_USAGE_VERTEX);
+				  PIPE_BIND_VERTEX_BUFFER);
    if (!vbuf) 
       goto out;
 

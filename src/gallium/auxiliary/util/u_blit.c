@@ -186,8 +186,7 @@ get_next_slot( struct blit_state *ctx )
 
    if (!ctx->vbuf) {
       ctx->vbuf = pipe_buffer_create(ctx->pipe->screen,
-                                     32,
-                                     PIPE_BUFFER_USAGE_VERTEX,
+                                     PIPE_BIND_VERTEX_BUFFER,
                                      max_slots * sizeof ctx->vertices);
    }
    
@@ -304,9 +303,9 @@ util_blit_pixels_writemask(struct blit_state *ctx,
           filter == PIPE_TEX_MIPFILTER_LINEAR);
 
    assert(screen->is_format_supported(screen, src->format, PIPE_TEXTURE_2D,
-                                      PIPE_TEXTURE_USAGE_SAMPLER, 0));
+                                      PIPE_BIND_SAMPLER_VIEW, 0));
    assert(screen->is_format_supported(screen, dst->format, PIPE_TEXTURE_2D,
-                                      PIPE_TEXTURE_USAGE_RENDER_TARGET, 0));
+                                      PIPE_BIND_RENDER_TARGET, 0));
 
    /* do the regions overlap? */
    overlap = util_same_surface(src, dst) &&
@@ -335,7 +334,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
    }
    
    assert(screen->is_format_supported(screen, dst->format, PIPE_TEXTURE_2D,
-                                      PIPE_TEXTURE_USAGE_RENDER_TARGET, 0));
+                                      PIPE_BIND_RENDER_TARGET, 0));
 
    /* Create a temporary texture when src and dest alias or when src
     * is anything other than a single-level 2d texture.
@@ -389,7 +388,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
       }
 
       texSurf = screen->get_tex_surface(screen, tex, 0, 0, 0, 
-                                        PIPE_BUFFER_USAGE_GPU_WRITE);
+                                        PIPE_BIND_BLIT_DESTINATION);
 
       /* load temp texture */
       if (pipe->surface_copy) {
@@ -582,7 +581,7 @@ util_blit_pixels_tex(struct blit_state *ctx,
 
    assert(ctx->pipe->screen->is_format_supported(ctx->pipe->screen, dst->format,
                                                  PIPE_TEXTURE_2D,
-                                                 PIPE_TEXTURE_USAGE_RENDER_TARGET,
+                                                 PIPE_BIND_RENDER_TARGET,
                                                  0));
 
    /* save state (restored below) */

@@ -111,7 +111,7 @@ static boolean r300_get_query_result(struct pipe_context* pipe,
     struct r300_screen* r300screen = r300_screen(r300->context.screen);
     struct r300_query *q = (struct r300_query*)query;
     struct pipe_transfer *transfer;
-    unsigned flags = PIPE_BUFFER_USAGE_CPU_READ;
+    unsigned flags = PIPE_TRANSFER_READ;
     uint32_t* map;
     uint32_t temp = 0;
     unsigned i, num_results;

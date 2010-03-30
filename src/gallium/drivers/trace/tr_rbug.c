@@ -202,7 +202,7 @@ trace_rbug_texture_info(struct trace_rbug *tr_rbug, struct rbug_header *header, 
                                util_format_get_blocksize(t->format),
                                t->last_level,
                                t->nr_samples,
-                               t->tex_usage,
+                               t->bind,
                                NULL);
 
    pipe_mutex_unlock(tr_scr->list_mutex);

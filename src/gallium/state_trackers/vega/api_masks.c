@@ -82,7 +82,7 @@ draw_clear_quad(struct vg_context *st,
    buf =  pipe_user_buffer_create(pipe->screen,
                                   st->clear.vertices,
                                   sizeof(st->clear.vertices),
-				  PIPE_BUFFER_USAGE_VERTEX);
+				  PIPE_BIND_VERTEX_BUFFER);
 
 
    /* draw */

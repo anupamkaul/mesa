@@ -137,7 +137,7 @@ struct pipe_resource *
 i915_user_buffer_create(struct pipe_screen *screen,
                         void *ptr,
                         unsigned bytes,
-			unsigned usage)
+			unsigned bind)
 {
    struct i915_buffer *buf = CALLOC_STRUCT(i915_buffer);
 
@@ -148,7 +148,9 @@ i915_user_buffer_create(struct pipe_screen *screen,
    buf->b.vtbl = &i915_buffer_vtbl;
    buf->b.b.screen = screen;
    buf->b.b.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   buf->b.b.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
+   buf->b.b._usage = PIPE_USAGE_IMMUTABLE;
+   buf->b.b.bind = bind;
+   buf->b.b.flags = 0;
    buf->b.b.width0 = bytes;
    buf->b.b.height0 = 1;
    buf->b.b.depth0 = 1;

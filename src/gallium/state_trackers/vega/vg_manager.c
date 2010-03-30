@@ -110,7 +110,9 @@ vg_manager_validate_framebuffer(struct vg_context *ctx)
 
    rb->texture = pt;
    rb->surface = screen->get_tex_surface(screen, rb->texture, 0, 0, 0,
-         PIPE_BUFFER_USAGE_GPU_READ | PIPE_BUFFER_USAGE_GPU_WRITE);
+					 PIPE_BIND_RENDER_TARGET |
+					 PIPE_BIND_BLIT_SOURCE |
+					 PIPE_BIND_BLIT_DESTINATION);
 
    rb->width = rb->surface->width;
    rb->height = rb->surface->height;

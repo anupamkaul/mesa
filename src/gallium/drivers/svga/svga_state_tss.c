@@ -135,7 +135,7 @@ update_tss_binding(struct svga_context *svga,
             svga->swc->surface_relocation(svga->swc,
                                           &ts[i].value,
                                           queue.bind[i].view->v->handle,
-                                          PIPE_BUFFER_USAGE_GPU_READ);
+                                          SVGA_RELOC_READ);
          }
          else {
             ts[i].value = SVGA3D_INVALID_ID;

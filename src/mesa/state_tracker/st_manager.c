@@ -184,7 +184,7 @@ st_framebuffer_validate(struct st_framebuffer *stfb, struct st_context *st)
       }
 
       ps = screen->get_tex_surface(screen, textures[i], 0, 0, 0,
-            PIPE_BUFFER_USAGE_GPU_READ | PIPE_BUFFER_USAGE_GPU_WRITE);
+				   PIPE_BIND_RENDER_TARGET);
       if (ps) {
          pipe_surface_reference(&strb->surface, ps);
          pipe_resource_reference(&strb->texture, ps->texture);

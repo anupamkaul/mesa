@@ -263,7 +263,7 @@ svga_transfer_dma(struct svga_transfer *st,
                sws->fence_reference(sws, &fence, NULL);
             }
 
-            hw = sws->buffer_map(sws, st->hwbuf, PIPE_BUFFER_USAGE_CPU_WRITE);
+            hw = sws->buffer_map(sws, st->hwbuf, PIPE_TRANSFER_WRITE);
             assert(hw);
             if(hw) {
                memcpy(hw, sw, length);
@@ -277,7 +277,7 @@ svga_transfer_dma(struct svga_transfer *st,
             svga_screen_flush(screen, &fence);
             sws->fence_finish(sws, fence, 0);
 
-            hw = sws->buffer_map(sws, st->hwbuf, PIPE_BUFFER_USAGE_CPU_READ);
+            hw = sws->buffer_map(sws, st->hwbuf, PIPE_TRANSFER_READ);
             assert(hw);
             if(hw) {
                memcpy(sw, hw, length);
@@ -519,18 +519,18 @@ svga_texture_create(struct pipe_screen *screen,
 
    tex->key.cachable = 1;
 
-   if(template->tex_usage & PIPE_TEXTURE_USAGE_SAMPLER)
+   if (template->bind & PIPE_BIND_SAMPLER_VIEW)
       tex->key.flags |= SVGA3D_SURFACE_HINT_TEXTURE;
 
-   if(template->tex_usage & PIPE_TEXTURE_USAGE_DISPLAY_TARGET) {
+   if (template->bind & PIPE_BIND_DISPLAY_TARGET) {
       tex->key.cachable = 0;
    }
 
-   if(template->tex_usage & PIPE_TEXTURE_USAGE_SHARED) {
+   if (template->bind & PIPE_BIND_SHARED) {
       tex->key.cachable = 0;
    }
 
-   if(template->tex_usage & PIPE_TEXTURE_USAGE_SCANOUT) {
+   if (template->bind & PIPE_BIND_SCANOUT) {
       tex->key.flags |= SVGA3D_SURFACE_HINT_SCANOUT;
       tex->key.cachable = 0;
    }
@@ -538,16 +538,16 @@ svga_texture_create(struct pipe_screen *screen,
    /* 
     * XXX: Never pass the SVGA3D_SURFACE_HINT_RENDERTARGET hint. Mesa cannot
     * know beforehand whether a texture will be used as a rendertarget or not
-    * and it always requests PIPE_TEXTURE_USAGE_RENDER_TARGET, therefore
+    * and it always requests PIPE_BIND_RENDER_TARGET, therefore
     * passing the SVGA3D_SURFACE_HINT_RENDERTARGET here defeats its purpose.
     */
 #if 0
-   if((template->tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) &&
+   if((template->tex_usage & PIPE_BIND_RENDER_TARGET) &&
       !util_format_is_compressed(template->format))
       tex->key.flags |= SVGA3D_SURFACE_HINT_RENDERTARGET;
 #endif
    
-   if(template->tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL)
+   if(template->bind & PIPE_BIND_DEPTH_STENCIL)
       tex->key.flags |= SVGA3D_SURFACE_HINT_DEPTHSTENCIL;
    
    tex->key.numMipLevels = template->last_level + 1;

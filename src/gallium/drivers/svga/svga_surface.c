@@ -210,7 +210,8 @@ svga_get_tex_surface(struct pipe_screen *screen,
 {
    struct svga_texture *tex = svga_texture(pt);
    struct svga_surface *s;
-   boolean render = flags & PIPE_BUFFER_USAGE_GPU_WRITE ? TRUE : FALSE;
+   boolean render = (flags & (PIPE_BIND_RENDER_TARGET |
+			      PIPE_BIND_DEPTH_STENCIL)) ? TRUE : FALSE;
    boolean view = FALSE;
    SVGA3dSurfaceFormat format;
 
@@ -234,8 +235,6 @@ svga_get_tex_surface(struct pipe_screen *screen,
       format = svga_translate_format_render(pt->format);
 
    assert(format != SVGA3D_FORMAT_INVALID);
-   assert(!(flags & PIPE_BUFFER_USAGE_CPU_READ_WRITE));
-
 
    if (svga_screen(screen)->debug.force_surface_view)
       view = TRUE;

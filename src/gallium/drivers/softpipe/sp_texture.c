@@ -92,7 +92,7 @@ softpipe_displaytarget_layout(struct pipe_screen *screen,
    /* Round up the surface size to a multiple of the tile size?
     */
    spt->dt = winsys->displaytarget_create(winsys,
-                                          spt->base.tex_usage,
+                                          spt->base.bind,
                                           spt->base.format,
                                           spt->base.width0, 
                                           spt->base.height0,
@@ -124,9 +124,9 @@ softpipe_resource_create(struct pipe_screen *screen,
                util_is_power_of_two(template->height0) &&
                util_is_power_of_two(template->depth0));
 
-   if (spt->base.tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                              PIPE_TEXTURE_USAGE_SCANOUT |
-                              PIPE_TEXTURE_USAGE_SHARED)) {
+   if (spt->base.bind & (PIPE_BIND_DISPLAY_TARGET |
+			 PIPE_BIND_SCANOUT |
+			 PIPE_BIND_SHARED)) {
       if (!softpipe_displaytarget_layout(screen, spt))
          goto fail;
    }
@@ -236,26 +236,6 @@ softpipe_get_tex_surface(struct pipe_screen *screen,
       ps->height = u_minify(pt->height0, level);
       ps->offset = spt->level_offset[level];
       ps->usage = usage;
-
-      /* Because we are softpipe, anything that the state tracker
-       * thought was going to be done with the GPU will actually get
-       * done with the CPU.  Let's adjust the flags to take that into
-       * account.
-       */
-      if (ps->usage & PIPE_BUFFER_USAGE_GPU_WRITE) {
-         /* GPU_WRITE means "render" and that can involve reads (blending) */
-         ps->usage |= PIPE_BUFFER_USAGE_CPU_WRITE | PIPE_BUFFER_USAGE_CPU_READ;
-      }
-
-      if (ps->usage & PIPE_BUFFER_USAGE_GPU_READ)
-         ps->usage |= PIPE_BUFFER_USAGE_CPU_READ;
-
-      if (ps->usage & (PIPE_BUFFER_USAGE_CPU_WRITE |
-                       PIPE_BUFFER_USAGE_GPU_WRITE)) {
-         /* Mark the surface as dirty.  The tile cache will look for this. */
-         spt->timestamp++;
-         softpipe_screen(screen)->timestamp++;
-      }
 
       ps->face = face;
       ps->level = level;
@@ -433,7 +413,7 @@ static struct pipe_resource *
 softpipe_user_buffer_create(struct pipe_screen *screen,
                             void *ptr,
                             unsigned bytes,
-			    unsigned usage)
+			    unsigned bind_flags)
 {
    struct softpipe_resource *buffer;
 
@@ -441,10 +421,13 @@ softpipe_user_buffer_create(struct pipe_screen *screen,
    if(!buffer)
       return NULL;
 
+   
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
    buffer->base.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   buffer->base.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
+   buffer->base.bind = bind_flags;
+   buffer->base._usage = PIPE_USAGE_IMMUTABLE;
+   buffer->base.flags = 0;
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
    buffer->base.depth0 = 1;

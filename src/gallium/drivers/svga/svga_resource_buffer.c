@@ -47,7 +47,7 @@
 static INLINE boolean
 svga_buffer_needs_hw_storage(unsigned usage)
 {
-   return usage & (PIPE_BUFFER_USAGE_VERTEX | PIPE_BUFFER_USAGE_INDEX);
+   return usage & (PIPE_BIND_VERTEX_BUFFER | PIPE_BIND_INDEX_BUFFER);
 }
 
 
@@ -76,7 +76,7 @@ svga_buffer_is_referenced( struct pipe_context *pipe,
     * a flush in st_bufferobj_get_subdata, during display list replay.
     */
 
-   if (sbuf->b.b.usage & (PIPE_BUFFER_USAGE_VERTEX | PIPE_BUFFER_USAGE_INDEX))
+   if (sbuf->b.b.bind & (PIPE_BIND_VERTEX_BUFFER | PIPE_BIND_INDEX_BUFFER))
       return PIPE_REFERENCED_FOR_READ;
 
    return PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE;
@@ -302,7 +302,7 @@ svga_buffer_create(struct pipe_screen *screen,
    pipe_reference_init(&sbuf->b.b.reference, 1);
    sbuf->b.b.screen = screen;
 
-   if(svga_buffer_needs_hw_storage(template->usage)) {
+   if(svga_buffer_needs_hw_storage(template->bind)) {
       if(svga_buffer_create_host_surface(ss, sbuf) != PIPE_OK)
          goto error2;
    }
@@ -324,7 +324,7 @@ struct pipe_resource *
 svga_user_buffer_create(struct pipe_screen *screen,
                         void *ptr,
                         unsigned bytes,
-			unsigned usage)
+			unsigned bind)
 {
    struct svga_buffer *sbuf;
    
@@ -336,7 +336,8 @@ svga_user_buffer_create(struct pipe_screen *screen,
    sbuf->b.vtbl = &svga_buffer_vtbl;
    sbuf->b.b.screen = screen;
    sbuf->b.b.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   sbuf->b.b.usage = usage;
+   sbuf->b.b._usage = PIPE_USAGE_IMMUTABLE;
+   sbuf->b.b.bind = bind;
    sbuf->b.b.width0 = bytes;
    sbuf->b.b.height0 = 1;
    sbuf->b.b.depth0 = 1;

@@ -280,7 +280,7 @@ struct pipe_surface
 
    unsigned layout;              /**< PIPE_SURFACE_LAYOUT_x */
    unsigned offset;              /**< offset from start of buffer, in bytes */
-   unsigned usage;               /**< bitmask of PIPE_BUFFER_USAGE_x */
+   unsigned usage;               /**< bitmask of PIPE_BIND_x */
 
    unsigned zslice;
    unsigned face;
@@ -331,11 +331,13 @@ struct pipe_resource
    unsigned width0;
    unsigned height0;
    unsigned depth0;
+
    unsigned last_level:8;    /**< Index of last mipmap level present/defined */
    unsigned nr_samples:8;    /**< for multisampled surfaces, nr of samples */
+   unsigned _usage:8;	       /* PIPE_USAGE_x (not a bitmask) */
 
-   unsigned usage;	       /* xxx: unify with tex_usage */
-   unsigned tex_usage;       /**< bitmask of PIPE_TEXTURE_USAGE_* */
+   unsigned bind;	       /* PIPE_BIND_x */
+   unsigned flags;	       /* PIPE_RESOURCE_FLAG_x */
 };
 
 

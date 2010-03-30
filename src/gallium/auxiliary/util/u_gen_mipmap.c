@@ -1358,8 +1358,7 @@ get_next_slot(struct gen_mipmap_state *ctx)
 
    if (!ctx->vbuf) {
       ctx->vbuf = pipe_buffer_create(ctx->pipe->screen,
-                                     32,
-                                     PIPE_BUFFER_USAGE_VERTEX,
+                                     PIPE_BIND_VERTEX_BUFFER,
                                      max_slots * sizeof ctx->vertices);
    }
    
@@ -1495,7 +1494,7 @@ util_gen_mipmap(struct gen_mipmap_state *ctx,
 
    /* check if we can render in the texture's format */
    if (!screen->is_format_supported(screen, psv->format, PIPE_TEXTURE_2D,
-                                    PIPE_TEXTURE_USAGE_RENDER_TARGET, 0)) {
+                                    PIPE_BIND_RENDER_TARGET, 0)) {
       fallback_gen_mipmap(ctx, pt, face, baseLevel, lastLevel);
       return;
    }
@@ -1541,7 +1540,7 @@ util_gen_mipmap(struct gen_mipmap_state *ctx,
 
       struct pipe_surface *surf = 
          screen->get_tex_surface(screen, pt, face, dstLevel, zslice,
-                                 PIPE_BUFFER_USAGE_GPU_WRITE);
+                                 PIPE_BIND_RENDER_TARGET);
 
       /*
        * Setup framebuffer / dest surface

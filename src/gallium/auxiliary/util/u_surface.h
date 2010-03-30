@@ -52,7 +52,7 @@ util_same_surface(const struct pipe_surface *s1, const struct pipe_surface *s2)
 
 extern boolean
 util_create_rgba_surface(struct pipe_screen *screen,
-                         uint width, uint height,
+                         uint width, uint height, uint bind,
                          struct pipe_resource **textureOut,
                          struct pipe_surface **surfaceOut);
 

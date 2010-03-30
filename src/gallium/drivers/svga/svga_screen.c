@@ -249,7 +249,7 @@ svga_is_format_supported( struct pipe_screen *screen,
    assert(tex_usage);
 
    /* Override host capabilities */
-   if (tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) {
+   if (tex_usage & PIPE_BIND_RENDER_TARGET) {
       switch(format) { 
 
       /* Often unsupported/problematic. This means we end up with the same
@@ -279,11 +279,11 @@ svga_is_format_supported( struct pipe_screen *screen,
       SVGA3dSurfaceFormatCaps mask;
       
       mask.value = 0;
-      if (tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET)
+      if (tex_usage & PIPE_BIND_RENDER_TARGET)
          mask.offscreenRenderTarget = 1;
-      if (tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL)
+      if (tex_usage & PIPE_BIND_DEPTH_STENCIL)
          mask.zStencil = 1;
-      if (tex_usage & PIPE_TEXTURE_USAGE_SAMPLER)
+      if (tex_usage & PIPE_BIND_SAMPLER_VIEW)
          mask.texture = 1;
 
       if ((result.u & mask.value) == mask.value)
@@ -296,7 +296,7 @@ svga_is_format_supported( struct pipe_screen *screen,
     * duplicated list of supported formats which is prone to getting
     * out of sync:
     */
-   if(tex_usage & (PIPE_TEXTURE_USAGE_RENDER_TARGET | PIPE_TEXTURE_USAGE_DEPTH_STENCIL))
+   if(tex_usage & (PIPE_BIND_RENDER_TARGET | PIPE_BIND_DEPTH_STENCIL))
       return svga_translate_format_render(format) != SVGA3D_FORMAT_INVALID;
    else
       return svga_translate_format(format) != SVGA3D_FORMAT_INVALID;

@@ -386,9 +386,9 @@ void vg_validate_state(struct vg_context *ctx)
       vg_set_viewport(ctx, VEGA_Y0_BOTTOM);
 
       pipe_resource_reference(cbuf, NULL);
-      *cbuf = pipe_buffer_create(ctx->pipe->screen, 16,
-                                        PIPE_BUFFER_USAGE_CONSTANT,
-                                        param_bytes);
+      *cbuf = pipe_buffer_create(ctx->pipe->screen, 
+				 PIPE_BIND_CONSTANT_BUFFER,
+				 param_bytes);
 
       if (*cbuf) {
          st_no_flush_pipe_buffer_write(ctx, *cbuf,
@@ -451,7 +451,8 @@ void vg_prepare_blend_surface(struct vg_context *ctx)
    dest_surface = pipe->screen->get_tex_surface(pipe->screen,
                                                 stfb->blend_texture_view->texture,
                                                 0, 0, 0,
-                                                PIPE_BUFFER_USAGE_GPU_WRITE);
+                                                PIPE_BIND_BLIT_DESTINATION |
+						PIPE_BIND_RENDER_TARGET);
    /* flip it, because we want to use it as a sampler */
    util_blit_pixels_tex(ctx->blit,
                         view,
@@ -487,7 +488,8 @@ void vg_prepare_blend_surface_from_mask(struct vg_context *ctx)
    dest_surface = pipe->screen->get_tex_surface(pipe->screen,
                                                 stfb->blend_texture_view->texture,
                                                 0, 0, 0,
-                                                PIPE_BUFFER_USAGE_GPU_WRITE);
+                                                PIPE_BIND_BLIT_DESTINATION |
+						PIPE_BIND_RENDER_TARGET);
 
    /* flip it, because we want to use it as a sampler */
    util_blit_pixels_tex(ctx->blit,

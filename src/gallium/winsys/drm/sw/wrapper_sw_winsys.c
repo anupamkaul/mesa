@@ -131,7 +131,7 @@ err_unref:
 
 static struct sw_displaytarget *
 wsw_dt_create(struct sw_winsys *ws,
-              unsigned tex_usage,
+              unsigned bind,
               enum pipe_format format,
               unsigned width, unsigned height,
               unsigned alignment,
@@ -148,7 +148,7 @@ wsw_dt_create(struct sw_winsys *ws,
    templ.width0 = width;
    templ.height0 = height;
    templ.format = format;
-   templ.tex_usage = tex_usage;
+   templ.bind = bind;
 
    /* XXX alignment: we can't do anything about this */
 

@@ -128,8 +128,8 @@ dri2_do_create_buffer(DrawablePtr pDraw, DRI2BufferPtr buffer, unsigned int form
 	    template.height0 = pDraw->height;
 	    template.depth0 = 1;
 	    template.last_level = 0;
-	    template.tex_usage = PIPE_TEXTURE_USAGE_DEPTH_STENCIL |
-		PIPE_TEXTURE_USAGE_SHARED;
+	    template.tex_usage = PIPE_BIND_DEPTH_STENCIL |
+		PIPE_BIND_SHARED;
 	    tex = ms->screen->resource_create(ms->screen, &template);
 	    pipe_resource_reference(&exa_priv->depth_stencil_tex, tex);
 	}
@@ -437,11 +437,11 @@ xorg_dri2_init(ScreenPtr pScreen)
     ms->d_depth_bits_last =
 	 ms->screen->is_format_supported(ms->screen, PIPE_FORMAT_Z24X8_UNORM,
 					 PIPE_TEXTURE_2D,
-					 PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+					 PIPE_BIND_DEPTH_STENCIL, 0);
     ms->ds_depth_bits_last =
 	 ms->screen->is_format_supported(ms->screen, PIPE_FORMAT_Z24S8_UNORM,
 					 PIPE_TEXTURE_2D,
-					 PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+					 PIPE_BIND_DEPTH_STENCIL, 0);
 
     return DRI2ScreenInit(pScreen, &dri2info);
 }

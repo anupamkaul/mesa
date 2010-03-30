@@ -162,7 +162,7 @@ r300_buffer_map_range(struct pipe_screen *screen,
     if (rbuf->user_buffer)
 	return rbuf->user_buffer;
 
-    if (rbuf->b.b.usage & PIPE_BUFFER_USAGE_CONSTANT) {
+    if (rbuf->b.b.bind & PIPE_BIND_CONSTANT_BUFFER) {
 	goto just_map;
     }
 
@@ -182,7 +182,7 @@ r300_buffer_map_range(struct pipe_screen *screen,
 		rbuf->map = NULL;
 		rbuf->buf = r300_winsys_buffer_create(r300screen,
 						      16,
-						      rbuf->b.b.usage,
+						      rbuf->b.b.bind, /* XXX */
 						      rbuf->b.b.width0);
 		break;
 	    }
@@ -206,7 +206,7 @@ r300_buffer_flush_mapped_range( struct pipe_screen *screen,
     if (rbuf->user_buffer)
 	return;
 
-    if (rbuf->b.b.usage & PIPE_BUFFER_USAGE_CONSTANT)
+    if (rbuf->b.b.bind & PIPE_BIND_CONSTANT_BUFFER)
 	return;
 
     /* mark the range as used */
@@ -310,6 +310,7 @@ struct pipe_resource *r300_buffer_create(struct pipe_screen *screen,
 {
     struct r300_screen *r300screen = r300_screen(screen);
     struct r300_buffer *rbuf;
+    unsigned alignment = 16;
 
     rbuf = CALLOC_STRUCT(r300_buffer);
     if (!rbuf)
@@ -322,9 +323,12 @@ struct pipe_resource *r300_buffer_create(struct pipe_screen *screen,
     pipe_reference_init(&rbuf->b.b.reference, 1);
     rbuf->b.b.screen = screen;
 
+    if (bind & R300_BIND_OQBO)
+       alignment = 4096;
+
     rbuf->buf = r300_winsys_buffer_create(r300screen,
-					  16,
-					  rbuf->b.b.usage,
+					  alignment,
+					  rbuf->b.b.bind,
 					  rbuf->b.b.width0);
 
     if (!rbuf->buf)
@@ -341,7 +345,7 @@ error1:
 struct pipe_resource *r300_user_buffer_create(struct pipe_screen *screen,
 					      void *ptr,
 					      unsigned bytes,
-					      unsigned usage)
+					      unsigned bind)
 {
     struct r300_buffer *rbuf;
 
@@ -355,7 +359,8 @@ struct pipe_resource *r300_user_buffer_create(struct pipe_screen *screen,
     rbuf->b.vtbl = &r300_buffer_vtbl;
     rbuf->b.b.screen = screen;
     rbuf->b.b.format = PIPE_FORMAT_R8_UNORM;
-    rbuf->b.b.usage = usage;
+    rbuf->b.b._usage = PIPE_USAGE_IMMUTABLE;
+    rbuf->b.b.bind = bind;
     rbuf->b.b.width0 = bytes;
     rbuf->b.b.height0 = 1;
     rbuf->b.b.depth0 = 1;

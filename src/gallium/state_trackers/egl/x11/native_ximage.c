@@ -138,17 +138,17 @@ ximage_surface_alloc_buffer(struct native_surface *nsurf,
    templ.width0 = xsurf->width;
    templ.height0 = xsurf->height;
    templ.depth0 = 1;
-   templ.tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET;
+   templ.bind = PIPE_BIND_RENDER_TARGET;
 
    if (xsurf->type != XIMAGE_SURFACE_TYPE_PBUFFER) {
       switch (which) {
       case NATIVE_ATTACHMENT_FRONT_LEFT:
       case NATIVE_ATTACHMENT_FRONT_RIGHT:
-         templ.tex_usage |= PIPE_TEXTURE_USAGE_SCANOUT;
+         templ.bind |= PIPE_BIND_SCANOUT;
          break;
       case NATIVE_ATTACHMENT_BACK_LEFT:
       case NATIVE_ATTACHMENT_BACK_RIGHT:
-         templ.tex_usage |= PIPE_TEXTURE_USAGE_DISPLAY_TARGET;
+         templ.bind |= PIPE_BIND_DISPLAY_TARGET;
          break;
       default:
          break;
@@ -273,7 +273,7 @@ ximage_surface_draw_buffer(struct native_surface *nsurf,
       pipe_surface_reference(&xsurf->draw_surface, NULL);
 
       psurf = screen->get_tex_surface(screen,
-            xbuf->texture, 0, 0, 0, PIPE_BUFFER_USAGE_CPU_READ);
+            xbuf->texture, 0, 0, 0, PIPE_BIND_DISPLAY_TARGET);
       if (!psurf)
          return FALSE;
 

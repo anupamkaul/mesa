@@ -172,9 +172,9 @@ softpipe_is_format_supported( struct pipe_screen *screen,
       break;
    }
 
-   if(tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                   PIPE_TEXTURE_USAGE_SCANOUT |
-                   PIPE_TEXTURE_USAGE_SHARED)) {
+   if(tex_usage & (PIPE_BIND_DISPLAY_TARGET |
+                   PIPE_BIND_SCANOUT |
+                   PIPE_BIND_SHARED)) {
       if(!winsys->is_displaytarget_format_supported(winsys, tex_usage, format))
          return FALSE;
    }

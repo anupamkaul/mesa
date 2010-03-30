@@ -190,7 +190,7 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
       break;
    }
 
-   if(tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) {
+   if(tex_usage & PIPE_BIND_RENDER_TARGET) {
       if(format_desc->block.width != 1 ||
          format_desc->block.height != 1)
          return FALSE;
@@ -203,14 +203,14 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
          return FALSE;
    }
 
-   if(tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                   PIPE_TEXTURE_USAGE_SCANOUT |
-                   PIPE_TEXTURE_USAGE_SHARED)) {
+   if(tex_usage & (PIPE_BIND_DISPLAY_TARGET |
+                   PIPE_BIND_SCANOUT |
+                   PIPE_BIND_SHARED)) {
       if(!winsys->is_displaytarget_format_supported(winsys, tex_usage, format))
          return FALSE;
    }
 
-   if(tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL) {
+   if(tex_usage & PIPE_BIND_DEPTH_STENCIL) {
       if(format_desc->colorspace != UTIL_FORMAT_COLORSPACE_ZS)
          return FALSE;
 
@@ -220,7 +220,7 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
    }
 
    /* FIXME: Temporary restrictions. See lp_bld_sample_soa.c */
-   if(tex_usage & PIPE_TEXTURE_USAGE_SAMPLER) {
+   if(tex_usage & PIPE_BIND_SAMPLER_VIEW) {
       if(format_desc->block.width != 1 ||
          format_desc->block.height != 1)
          return FALSE;

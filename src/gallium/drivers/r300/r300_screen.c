@@ -218,32 +218,32 @@ static boolean r300_is_format_supported(struct pipe_screen* screen,
     }
 
     /* Check sampler format support. */
-    if ((usage & PIPE_TEXTURE_USAGE_SAMPLER) &&
+    if ((usage & PIPE_BIND_SAMPLER_VIEW) &&
         /* Z24 cannot be sampled from on non-r5xx. */
         (is_r500 || !is_z24) &&
         r300_is_sampler_format_supported(format)) {
-        retval |= PIPE_TEXTURE_USAGE_SAMPLER;
+        retval |= PIPE_BIND_SAMPLER_VIEW;
     }
 
     /* Check colorbuffer format support. */
-    if ((usage & (PIPE_TEXTURE_USAGE_RENDER_TARGET |
-                  PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                  PIPE_TEXTURE_USAGE_SCANOUT |
-                  PIPE_TEXTURE_USAGE_SHARED)) &&
+    if ((usage & (PIPE_BIND_RENDER_TARGET |
+                  PIPE_BIND_DISPLAY_TARGET |
+                  PIPE_BIND_SCANOUT |
+                  PIPE_BIND_SHARED)) &&
         /* 2101010 cannot be rendered to on non-r5xx. */
         (is_r500 || !is_color2101010) &&
         r300_is_colorbuffer_format_supported(format)) {
         retval |= usage &
-            (PIPE_TEXTURE_USAGE_RENDER_TARGET |
-             PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-             PIPE_TEXTURE_USAGE_SCANOUT |
-             PIPE_TEXTURE_USAGE_SHARED);
+            (PIPE_BIND_RENDER_TARGET |
+             PIPE_BIND_DISPLAY_TARGET |
+             PIPE_BIND_SCANOUT |
+             PIPE_BIND_SHARED);
     }
 
     /* Check depth-stencil format support. */
-    if (usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL &&
+    if (usage & PIPE_BIND_DEPTH_STENCIL &&
         r300_is_zs_format_supported(format)) {
-        retval |= PIPE_TEXTURE_USAGE_DEPTH_STENCIL;
+        retval |= PIPE_BIND_DEPTH_STENCIL;
     }
 
     return retval == usage;

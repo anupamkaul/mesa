@@ -127,25 +127,25 @@ dri_fill_in_modes(struct dri_screen *screen,
 
    pf_x8z24 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_Z24X8_UNORM,
 					    PIPE_TEXTURE_2D,
-					    PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+					    PIPE_BIND_DEPTH_STENCIL, 0);
    pf_z24x8 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_X8Z24_UNORM,
 					    PIPE_TEXTURE_2D,
-					    PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+					    PIPE_BIND_DEPTH_STENCIL, 0);
    pf_s8z24 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_Z24S8_UNORM,
 					    PIPE_TEXTURE_2D,
-					    PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+					    PIPE_BIND_DEPTH_STENCIL, 0);
    pf_z24s8 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_S8Z24_UNORM,
 					    PIPE_TEXTURE_2D,
-					    PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+					    PIPE_BIND_DEPTH_STENCIL, 0);
    pf_a8r8g8b8 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_B8G8R8A8_UNORM,
 					       PIPE_TEXTURE_2D,
-					       PIPE_TEXTURE_USAGE_RENDER_TARGET, 0);
+					       PIPE_BIND_RENDER_TARGET, 0);
    pf_x8r8g8b8 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_B8G8R8X8_UNORM,
 					       PIPE_TEXTURE_2D,
-					       PIPE_TEXTURE_USAGE_RENDER_TARGET, 0);
+					       PIPE_BIND_RENDER_TARGET, 0);
    pf_r5g6b5 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_B5G6R5_UNORM,
 					     PIPE_TEXTURE_2D,
-					     PIPE_TEXTURE_USAGE_RENDER_TARGET, 0);
+					     PIPE_BIND_RENDER_TARGET, 0);
 
    /* We can only get a 16 or 32 bit depth buffer with getBuffersWithFormat */
    if (screen->sPriv->dri2.loader &&
@@ -153,10 +153,10 @@ dri_fill_in_modes(struct dri_screen *screen,
        (screen->sPriv->dri2.loader->getBuffersWithFormat != NULL)) {
       pf_z16 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_Z16_UNORM,
                                              PIPE_TEXTURE_2D,
-                                             PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+                                             PIPE_BIND_DEPTH_STENCIL, 0);
       pf_z32 = p_screen->is_format_supported(p_screen, PIPE_FORMAT_Z32_UNORM,
                                              PIPE_TEXTURE_2D,
-                                             PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+                                             PIPE_BIND_DEPTH_STENCIL, 0);
    } else {
       pf_z16 = FALSE;
       pf_z32 = FALSE;

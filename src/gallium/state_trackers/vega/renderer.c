@@ -92,7 +92,7 @@ setup_vertex_data(struct renderer *ctx,
    return pipe_user_buffer_create( ctx->pipe->screen,
                                    ctx->vertices,
                                    sizeof(ctx->vertices),
-				   PIPE_BUFFER_USAGE_VERTEX);
+				   PIPE_BIND_VERTEX_BUFFER);
 }
 
 static struct pipe_resource *
@@ -128,7 +128,7 @@ setup_vertex_data_tex(struct renderer *ctx,
    return pipe_user_buffer_create( ctx->pipe->screen,
                                    ctx->vertices,
                                    sizeof(ctx->vertices),
-				   PIPE_BUFFER_USAGE_VERTEX);
+				   PIPE_BIND_VERTEX_BUFFER);
 }
 
 
@@ -166,7 +166,7 @@ setup_vertex_data_qtex(struct renderer *ctx,
    return pipe_user_buffer_create( ctx->pipe->screen,
                                    ctx->vertices,
                                    sizeof(ctx->vertices),
-				   PIPE_BUFFER_USAGE_VERTEX);
+				   PIPE_BIND_VERTEX_BUFFER);
 }
 
 struct renderer * renderer_create(struct vg_context *owner)
@@ -280,7 +280,7 @@ void renderer_copy_texture(struct renderer *ctx,
    struct pipe_resource *buf;
    struct pipe_surface *dst_surf = screen->get_tex_surface(
       screen, dst, 0, 0, 0,
-      PIPE_BUFFER_USAGE_GPU_WRITE);
+      PIPE_BIND_RENDER_TARGET);
    struct pipe_framebuffer_state fb;
    float s0, t0, s1, t1;
 
@@ -307,7 +307,7 @@ void renderer_copy_texture(struct renderer *ctx,
 #endif
 
    assert(screen->is_format_supported(screen, dst_surf->format, PIPE_TEXTURE_2D,
-                                      PIPE_TEXTURE_USAGE_RENDER_TARGET, 0));
+                                      PIPE_BIND_RENDER_TARGET, 0));
 
    /* save state (restored below) */
    cso_save_blend(ctx->cso);
@@ -440,11 +440,11 @@ void renderer_copy_surface(struct renderer *ctx,
    }
 
    assert(screen->is_format_supported(screen, src->format, PIPE_TEXTURE_2D,
-                                      PIPE_TEXTURE_USAGE_SAMPLER, 0));
+                                      PIPE_BIND_SAMPLER_VIEW, 0));
    assert(screen->is_format_supported(screen, dst->format, PIPE_TEXTURE_2D,
-                                      PIPE_TEXTURE_USAGE_SAMPLER, 0));
+                                      PIPE_BIND_SAMPLER_VIEW, 0));
    assert(screen->is_format_supported(screen, dst->format, PIPE_TEXTURE_2D,
-                                      PIPE_TEXTURE_USAGE_RENDER_TARGET, 0));
+                                      PIPE_BIND_RENDER_TARGET, 0));
 
    /*
     * XXX for now we're always creating a temporary texture.
@@ -471,7 +471,7 @@ void renderer_copy_surface(struct renderer *ctx,
       return;
 
    texSurf = screen->get_tex_surface(screen, tex, 0, 0, 0,
-                                     PIPE_BUFFER_USAGE_GPU_WRITE);
+                                     PIPE_BIND_RENDER_TARGET);
 
    /* load temp texture */
    if (pipe->surface_copy) {

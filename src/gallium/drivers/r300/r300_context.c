@@ -177,8 +177,8 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     r300->sprite_coord_index = -1;
 
     /* Open up the OQ BO. */
-    r300->oqbo = pipe_buffer_create(screen, 4096,
-            PIPE_BUFFER_USAGE_PIXEL, 4096);
+    r300->oqbo = pipe_buffer_create(screen,
+				    R300_BIND_OQBO, 4096);
     make_empty_list(&r300->query_list);
 
     r300_init_flush_functions(r300);
@@ -196,14 +196,14 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
 
     r300->upload_ib = u_upload_create(&r300->context,
 				      32 * 1024, 16,
-				      PIPE_BUFFER_USAGE_INDEX);
+				      PIPE_BIND_INDEX_BUFFER);
 
     if (r300->upload_ib == NULL)
         goto no_upload_ib;
 
     r300->upload_vb = u_upload_create(&r300->context,
 				      128 * 1024, 16,
-				      PIPE_BUFFER_USAGE_VERTEX);
+				      PIPE_BIND_VERTEX_BUFFER);
     if (r300->upload_vb == NULL)
         goto no_upload_vb;
 

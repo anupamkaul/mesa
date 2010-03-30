@@ -276,9 +276,9 @@ brw_is_format_supported(struct pipe_screen *screen,
    const enum pipe_format *list;
    uint i;
 
-   if (tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL)
+   if (tex_usage & PIPE_BIND_DEPTH_STENCIL)
       list = depth_supported;
-   else if (tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET)
+   else if (tex_usage & PIPE_BIND_RENDER_TARGET)
       list = render_supported;
    else
       list = tex_supported;

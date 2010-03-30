@@ -128,13 +128,16 @@ pipe_sampler_view_reference(struct pipe_sampler_view **ptr, struct pipe_sampler_
 
 static INLINE struct pipe_resource *
 pipe_buffer_create( struct pipe_screen *screen,
-                    unsigned alignment, unsigned usage, unsigned size )
+		    unsigned bind,
+		    unsigned size )
 {
    struct pipe_resource buffer;
    memset(&buffer, 0, sizeof buffer);
    buffer.target = PIPE_BUFFER;
    buffer.format = PIPE_FORMAT_R8_UNORM; /* want TYPELESS or similar */
-   buffer.usage = usage;
+   buffer.bind = bind;
+   buffer._usage = PIPE_USAGE_DEFAULT;
+   buffer.flags = 0;
    buffer.width0 = size;
    buffer.height0 = 1;
    buffer.depth0 = 1;

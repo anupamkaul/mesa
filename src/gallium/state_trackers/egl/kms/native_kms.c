@@ -53,9 +53,9 @@ kms_surface_validate(struct native_surface *nsurf, uint attachment_mask,
       templ.height0 = ksurf->height;
       templ.depth0 = 1;
       templ.format = ksurf->color_format;
-      templ.tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET;
+      templ.tex_usage = PIPE_BIND_RENDER_TARGET;
       if (ksurf->type == KMS_SURFACE_TYPE_SCANOUT)
-         templ.tex_usage |= PIPE_TEXTURE_USAGE_SCANOUT;
+         templ.tex_usage |= PIPE_BIND_SCANOUT;
    }
 
    /* create textures */
@@ -591,8 +591,8 @@ kms_display_is_format_supported(struct native_display *ndpy,
 {
    return ndpy->screen->is_format_supported(ndpy->screen,
          fmt, PIPE_TEXTURE_2D,
-         (is_color) ? PIPE_TEXTURE_USAGE_RENDER_TARGET :
-         PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0);
+         (is_color) ? PIPE_BIND_RENDER_TARGET :
+         PIPE_BIND_DEPTH_STENCIL, 0);
 }
 
 static const struct native_config **

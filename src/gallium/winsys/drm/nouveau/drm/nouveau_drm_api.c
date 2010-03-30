@@ -22,9 +22,13 @@ dri_surface_from_handle(struct drm_api *api, struct pipe_screen *pscreen,
 	struct pipe_resource *pt = NULL;
 	struct pipe_resource tmpl;
 	struct winsys_handle whandle;
+	unsigned bind = (PIPE_BIND_SCANOUT |
+			 PIPE_BIND_RENDER_TARGET |
+			 PIPE_BIND_BLIT_DESTINATION |
+			 PIPE_BIND_BLIT_SOURCE);
 
 	memset(&tmpl, 0, sizeof(tmpl));
-	tmpl.tex_usage = PIPE_TEXTURE_USAGE_SCANOUT;
+	tmpl.bind = bind;
 	tmpl.target = PIPE_TEXTURE_2D;
 	tmpl.last_level = 0;
 	tmpl.depth0 = 1;
@@ -40,9 +44,7 @@ dri_surface_from_handle(struct drm_api *api, struct pipe_screen *pscreen,
 	if (!pt)
 		return NULL;
 
-	ps = pscreen->get_tex_surface(pscreen, pt, 0, 0, 0,
-				      PIPE_BUFFER_USAGE_GPU_READ |
-				      PIPE_BUFFER_USAGE_GPU_WRITE);
+	ps = pscreen->get_tex_surface(pscreen, pt, 0, 0, 0, bind);
 
 	/* we don't need the texture from this point on */
 	pipe_resource_reference(&pt, NULL);

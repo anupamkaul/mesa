@@ -68,13 +68,11 @@ static void r300_copy_from_tiled_texture(struct pipe_context *ctx,
 				  transfer->sr.face,
                                   transfer->sr.level,
 				  transfer->box.z,
-                                  PIPE_BUFFER_USAGE_GPU_READ |
-                                  PIPE_BUFFER_USAGE_PIXEL);
+				  PIPE_BIND_BLIT_SOURCE);
 
     dst = screen->get_tex_surface(screen, &r300transfer->detiled_texture->b.b,
                                   0, 0, 0,
-                                  PIPE_BUFFER_USAGE_GPU_WRITE |
-                                  PIPE_BUFFER_USAGE_PIXEL);
+                                  PIPE_BIND_BLIT_DESTINATION);
 
     ctx->surface_copy(ctx, dst, 0, 0, src, 
 		      transfer->box.x, transfer->box.y,
@@ -95,15 +93,13 @@ static void r300_copy_into_tiled_texture(struct pipe_context *ctx,
 
     src = screen->get_tex_surface(screen, &r300transfer->detiled_texture->b.b,
                                   0, 0, 0,
-                                  PIPE_BUFFER_USAGE_GPU_READ |
-                                  PIPE_BUFFER_USAGE_PIXEL);
+                                  PIPE_BIND_BLIT_SOURCE);
 
     dst = screen->get_tex_surface(screen, tex,
 				  transfer->sr.face,
                                   transfer->sr.level,
 				  transfer->box.z,
-                                  PIPE_BUFFER_USAGE_GPU_WRITE |
-                                  PIPE_BUFFER_USAGE_PIXEL);
+                                  PIPE_BIND_BLIT_DESTINATION);
 
     /* XXX this flush prevents the following DRM error from occuring:
      * [drm:radeon_cs_ioctl] *ERROR* Failed to parse relocation !
@@ -148,8 +144,8 @@ r300_texture_get_transfer(struct pipe_context *ctx,
         if (tex->microtile || tex->macrotile) {
             trans->render_target_usage =
                 util_format_is_depth_or_stencil(texture->format) ?
-                PIPE_TEXTURE_USAGE_DEPTH_STENCIL :
-                PIPE_TEXTURE_USAGE_RENDER_TARGET;
+                PIPE_BIND_DEPTH_STENCIL :
+                PIPE_BIND_RENDER_TARGET;
 
             template.target = PIPE_TEXTURE_2D;
             template.format = texture->format;
@@ -158,18 +154,18 @@ r300_texture_get_transfer(struct pipe_context *ctx,
             template.depth0 = 0;
             template.last_level = 0;
             template.nr_samples = 0;
-            template.tex_usage = PIPE_TEXTURE_USAGE_DYNAMIC |
-                                 R300_TEXTURE_USAGE_TRANSFER;
+            template._usage = PIPE_USAGE_DYNAMIC;
+	    template.flags = R300_RESOURCE_FLAG_TRANSFER;
 
             /* For texture reading, the temporary (detiled) texture is used as
              * a render target when blitting from a tiled texture. */
             if (usage & PIPE_TRANSFER_READ) {
-                template.tex_usage |= trans->render_target_usage;
+                template.bind |= trans->render_target_usage;
             }
             /* For texture writing, the temporary texture is used as a sampler
              * when blitting into a tiled texture. */
             if (usage & PIPE_TRANSFER_WRITE) {
-                template.tex_usage |= PIPE_TEXTURE_USAGE_SAMPLER;
+                template.bind |= PIPE_BIND_SAMPLER_VIEW;
             }
 
             /* Create the temporary texture. */

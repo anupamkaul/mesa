@@ -94,7 +94,7 @@ dri_drawable_process_buffers(struct dri_drawable *drawable,
       pipe_resource_reference(&drawable->textures[i], NULL);
 
    memset(&templ, 0, sizeof(templ));
-   templ.tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET;
+   templ.tex_usage = PIPE_BIND_RENDER_TARGET;
    templ.target = PIPE_TEXTURE_2D;
    templ.last_level = 0;
    templ.width0 = dri_drawable->w;

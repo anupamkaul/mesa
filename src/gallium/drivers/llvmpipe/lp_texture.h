@@ -51,7 +51,7 @@ struct llvmpipe_resource
    unsigned stride[LP_MAX_TEXTURE_2D_LEVELS];
 
    /**
-    * Display target, for textures with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET
+    * Display target, for textures with the PIPE_BIND_DISPLAY_TARGET
     * usage.
     */
    struct sw_displaytarget *dt;
@@ -111,9 +111,10 @@ llvmpipe_resource_stride(struct pipe_resource *texture,
 
 void *
 llvmpipe_resource_map(struct pipe_resource *texture,
-                     unsigned face,
-                     unsigned level,
-                     unsigned zslice);
+		      unsigned usage,
+		      unsigned face,
+		      unsigned level,
+		      unsigned zslice);
 
 void
 llvmpipe_resource_unmap(struct pipe_resource *texture,

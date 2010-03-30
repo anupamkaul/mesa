@@ -81,7 +81,7 @@ struct sw_winsys
     * pools, or obtained directly from the windowing system.
     *  
     * This callback is invoked by the pipe_screen when creating a texture marked
-    * with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET flag to get the underlying 
+    * with the PIPE_BIND_DISPLAY_TARGET flag to get the underlying 
     * storage.
     */
    struct sw_displaytarget *

@@ -347,7 +347,7 @@ ExaPrepareSolid(PixmapPtr pPixmap, int alu, Pixel planeMask, Pixel fg)
 
     if (!exa->scrn->is_format_supported(exa->scrn, priv->tex->format,
                                         priv->tex->target,
-                                        PIPE_TEXTURE_USAGE_RENDER_TARGET, 0)) {
+                                        PIPE_BIND_RENDER_TARGET, 0)) {
 	XORG_FALLBACK("format %s", util_format_name(priv->tex->format));
     }
 
@@ -428,12 +428,12 @@ ExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
 
     if (!exa->scrn->is_format_supported(exa->scrn, priv->tex->format,
                                         priv->tex->target,
-                                        PIPE_TEXTURE_USAGE_RENDER_TARGET, 0))
+                                        PIPE_BIND_RENDER_TARGET, 0))
 	XORG_FALLBACK("pDst format %s", util_format_name(priv->tex->format));
 
     if (!exa->scrn->is_format_supported(exa->scrn, src_priv->tex->format,
                                         src_priv->tex->target,
-                                        PIPE_TEXTURE_USAGE_SAMPLER, 0))
+                                        PIPE_BIND_SAMPLER_VIEW, 0))
 	XORG_FALLBACK("pSrc format %s", util_format_name(src_priv->tex->format));
 
     exa->copy.src = src_priv;
@@ -639,7 +639,7 @@ ExaPrepareComposite(int op, PicturePtr pSrcPicture,
 
    if (!exa->scrn->is_format_supported(exa->scrn, priv->tex->format,
                                        priv->tex->target,
-                                       PIPE_TEXTURE_USAGE_RENDER_TARGET, 0))
+                                       PIPE_BIND_RENDER_TARGET, 0))
       XORG_FALLBACK("pDst format: %s", util_format_name(priv->tex->format));
 
    if (priv->picture_format != pDstPicture->format)
@@ -654,7 +654,7 @@ ExaPrepareComposite(int op, PicturePtr pSrcPicture,
 
       if (!exa->scrn->is_format_supported(exa->scrn, priv->tex->format,
                                           priv->tex->target,
-                                          PIPE_TEXTURE_USAGE_SAMPLER, 0))
+                                          PIPE_BIND_SAMPLER_VIEW, 0))
          XORG_FALLBACK("pSrc format: %s", util_format_name(priv->tex->format));
 
       if (!picture_check_formats(priv, pSrcPicture))
@@ -671,7 +671,7 @@ ExaPrepareComposite(int op, PicturePtr pSrcPicture,
 
       if (!exa->scrn->is_format_supported(exa->scrn, priv->tex->format,
                                           priv->tex->target,
-                                          PIPE_TEXTURE_USAGE_SAMPLER, 0))
+                                          PIPE_BIND_SAMPLER_VIEW, 0))
          XORG_FALLBACK("pMask format: %s", util_format_name(priv->tex->format));
 
       if (!picture_check_formats(priv, pMaskPicture))
@@ -776,7 +776,7 @@ xorg_exa_set_displayed_usage(PixmapPtr pPixmap)
 	return 0;
     }
 
-    priv->flags |= PIPE_TEXTURE_USAGE_SCANOUT;
+    priv->flags |= PIPE_BIND_SCANOUT;
 
     return 0;
 }
@@ -792,7 +792,7 @@ xorg_exa_set_shared_usage(PixmapPtr pPixmap)
 	return 0;
     }
 
-    priv->flags |= PIPE_TEXTURE_USAGE_SHARED;
+    priv->flags |= PIPE_BIND_SHARED;
 
     return 0;
 }
@@ -884,7 +884,7 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
 
 	template.depth0 = 1;
 	template.last_level = 0;
-	template.tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET | priv->flags;
+	template.tex_usage = PIPE_BIND_RENDER_TARGET | priv->flags;
 	priv->tex_flags = priv->flags;
 	texture = exa->scrn->resource_create(exa->scrn, &template);
 
@@ -930,7 +930,7 @@ xorg_exa_set_texture(PixmapPtr pPixmap, struct  pipe_resource *tex)
 {
     struct exa_pixmap_priv *priv = exaGetPixmapDriverPrivate(pPixmap);
 
-    int mask = PIPE_TEXTURE_USAGE_SHARED | PIPE_TEXTURE_USAGE_SCANOUT;
+    int mask = PIPE_BIND_SHARED | PIPE_BIND_SCANOUT;
 
     if (!priv)
 	return FALSE;
@@ -962,9 +962,9 @@ xorg_exa_create_root_texture(ScrnInfoPtr pScrn,
     template.height0 = height;
     template.depth0 = 1;
     template.last_level = 0;
-    template.tex_usage |= PIPE_TEXTURE_USAGE_RENDER_TARGET;
-    template.tex_usage |= PIPE_TEXTURE_USAGE_SCANOUT;
-    template.tex_usage |= PIPE_TEXTURE_USAGE_SHARED;
+    template.tex_usage |= PIPE_BIND_RENDER_TARGET;
+    template.tex_usage |= PIPE_BIND_SCANOUT;
+    template.tex_usage |= PIPE_BIND_SHARED;
 
     return exa->scrn->resource_create(exa->scrn, &template);
 }

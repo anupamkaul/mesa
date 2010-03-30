@@ -72,9 +72,9 @@ void st_upload_constants( struct st_context *st,
        * avoid gratuitous rendering synchronization.
        */
       pipe_resource_reference(cbuf, NULL );
-      *cbuf = pipe_buffer_create(pipe->screen, 16,
-                                        PIPE_BUFFER_USAGE_CONSTANT,
-					paramBytes );
+      *cbuf = pipe_buffer_create(pipe->screen,
+				 PIPE_BIND_CONSTANT_BUFFER,
+				 paramBytes );
 
       if (ST_DEBUG & DEBUG_CONSTANTS) {
 	 debug_printf("%s(shader=%d, numParams=%d, stateFlags=0x%x)\n", 

@@ -51,15 +51,13 @@ static enum pipe_error generate_indices( struct svga_hwtnl *hwtnl,
    struct pipe_resource *dst = NULL;
    void *dst_map = NULL;
 
-   dst = pipe_buffer_create( pipe->screen, 32, 
-			     PIPE_BUFFER_USAGE_INDEX |
-			     PIPE_BUFFER_USAGE_CPU_WRITE |
-			     PIPE_BUFFER_USAGE_GPU_READ, 
+   dst = pipe_buffer_create( pipe->screen, 
+			     PIPE_BIND_INDEX_BUFFER, 
 			     size );
    if (dst == NULL)
       goto fail;
 
-   dst_map = pipe_buffer_map( pipe, dst, PIPE_BUFFER_USAGE_CPU_WRITE,
+   dst_map = pipe_buffer_map( pipe, dst, PIPE_TRANSFER_WRITE,
 			      &transfer);
    if (dst_map == NULL)
       goto fail;

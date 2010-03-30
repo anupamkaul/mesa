@@ -112,7 +112,7 @@ static void setup_constant_buffer(struct shader *shader)
       *cbuf = pipe_user_buffer_create(pipe->screen,
                                       &shader->constants,
                                       sizeof(shader->constants),
-				      PIPE_BUFFER_USAGE_VERTEX);
+				      PIPE_BIND_VERTEX_BUFFER);
    }
 
    ctx->pipe->set_constant_buffer(ctx->pipe, PIPE_SHADER_FRAGMENT, 0, *cbuf);

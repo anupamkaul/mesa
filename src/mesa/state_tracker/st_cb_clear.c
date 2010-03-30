@@ -131,7 +131,8 @@ draw_quad(GLcontext *ctx,
    }
 
    if (!st->clear.vbuf) {
-      st->clear.vbuf = pipe_buffer_create(pipe->screen, 32, PIPE_BUFFER_USAGE_VERTEX,
+      st->clear.vbuf = pipe_buffer_create(pipe->screen,
+					  PIPE_BIND_VERTEX_BUFFER,
                                           max_slots * sizeof(st->clear.vertices));
    }
 

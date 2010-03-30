@@ -131,14 +131,14 @@ struct pipe_context *svga_context_create( struct pipe_screen *screen,
    svga->upload_ib = u_upload_create( &svga->pipe,
                                       32 * 1024,
                                       16,
-                                      PIPE_BUFFER_USAGE_INDEX );
+                                      PIPE_BIND_INDEX_BUFFER );
    if (svga->upload_ib == NULL)
       goto no_upload_ib;
 
    svga->upload_vb = u_upload_create( &svga->pipe,
                                       128 * 1024,
                                       16,
-                                      PIPE_BUFFER_USAGE_VERTEX );
+                                      PIPE_BIND_VERTEX_BUFFER );
    if (svga->upload_vb == NULL)
       goto no_upload_vb;
 
