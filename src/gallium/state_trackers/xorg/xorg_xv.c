@@ -171,7 +171,7 @@ create_component_texture(struct pipe_context *pipe,
    templ.width0 = width;
    templ.height0 = height;
    templ.depth0 = 1;
-   templ.tex_usage = PIPE_BIND_SAMPLER_VIEW;
+   templ.bind = PIPE_BIND_SAMPLER_VIEW;
 
    tex = screen->resource_create(screen, &templ);
 

@@ -106,15 +106,14 @@ CreateOrResizeBackBuffer(struct pipe_video_context *vpipe, unsigned int width, u
    template.width0 = width;
    template.height0 = height;
    template.depth0 = 1;
-   template.tex_usage = PIPE_BIND_SHARED;
+   template.bind = PIPE_BIND_SHARED;
 
    tex = vpipe->screen->resource_create(vpipe->screen, &template);
    if (!tex)
       return false;
 
    *backbuffer = vpipe->screen->get_tex_surface(vpipe->screen, tex, 0, 0, 0,
-                                                PIPE_BUFFER_USAGE_GPU_READ |
-                                                PIPE_BUFFER_USAGE_GPU_WRITE);
+                                                PIPE_BIND_RENDER_TARGET);
    pipe_resource_reference(&tex, NULL);
 
    if (!*backbuffer)

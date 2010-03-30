@@ -453,13 +453,13 @@ ExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
           exa->scrn->get_tex_surface( exa->scrn,
                                       exa->copy.src->tex,
                                       0, 0, 0,
-                                      PIPE_BUFFER_USAGE_GPU_READ);
+                                      PIPE_BIND_BLIT_SOURCE);
 
        exa->copy.dst_surface =
           exa->scrn->get_tex_surface( exa->scrn, 
                                       exa->copy.dst->tex,
                                       0, 0, 0, 
-                                      PIPE_BUFFER_USAGE_GPU_WRITE );
+                                      PIPE_BIND_BLIT_DESTINATION );
     }
     else {
        exa->copy.use_surface_copy = FALSE;
@@ -475,7 +475,7 @@ ExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
           exa->scrn->get_tex_surface(exa->scrn,
                                      exa->copy.dst->tex,
                                      0, 0, 0,
-                                     PIPE_BUFFER_USAGE_GPU_WRITE);
+                                     PIPE_BIND_BLIT_DESTINATION);
 
 
        renderer_copy_prepare(exa->renderer, 
@@ -884,7 +884,7 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
 
 	template.depth0 = 1;
 	template.last_level = 0;
-	template.tex_usage = PIPE_BIND_RENDER_TARGET | priv->flags;
+	template.bind = PIPE_BIND_RENDER_TARGET | priv->flags;
 	priv->tex_flags = priv->flags;
 	texture = exa->scrn->resource_create(exa->scrn, &template);
 
@@ -893,7 +893,7 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
 	    struct pipe_surface *src_surf;
 
 	    dst_surf = exa->scrn->get_tex_surface(
-		exa->scrn, texture, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_WRITE);
+		exa->scrn, texture, 0, 0, 0, PIPE_BIND_BLIT_DESTINATION);
 	    src_surf = xorg_gpu_surface(exa->pipe->screen, priv);
             if (exa->pipe->surface_copy) {
                exa->pipe->surface_copy(exa->pipe, dst_surf, 0, 0, src_surf,
@@ -940,7 +940,7 @@ xorg_exa_set_texture(PixmapPtr pPixmap, struct  pipe_resource *tex)
 	return FALSE;
 
     pipe_resource_reference(&priv->tex, tex);
-    priv->tex_flags = tex->tex_usage & mask;
+    priv->tex_flags = tex->bind & mask;
 
     return TRUE;
 }
@@ -962,9 +962,9 @@ xorg_exa_create_root_texture(ScrnInfoPtr pScrn,
     template.height0 = height;
     template.depth0 = 1;
     template.last_level = 0;
-    template.tex_usage |= PIPE_BIND_RENDER_TARGET;
-    template.tex_usage |= PIPE_BIND_SCANOUT;
-    template.tex_usage |= PIPE_BIND_SHARED;
+    template.bind |= PIPE_BIND_RENDER_TARGET;
+    template.bind |= PIPE_BIND_SCANOUT;
+    template.bind |= PIPE_BIND_SHARED;
 
     return exa->scrn->resource_create(exa->scrn, &template);
 }
@@ -1073,9 +1073,12 @@ out_err:
 struct pipe_surface *
 xorg_gpu_surface(struct pipe_screen *scrn, struct exa_pixmap_priv *priv)
 {
+   
+   /* seems to get called both for blits and render target usage */
    return scrn->get_tex_surface(scrn, priv->tex, 0, 0, 0,
-                                PIPE_BUFFER_USAGE_GPU_READ |
-                                PIPE_BUFFER_USAGE_GPU_WRITE);
+                                PIPE_BIND_BLIT_SOURCE |
+                                PIPE_BIND_BLIT_DESTINATION |
+                                PIPE_BIND_RENDER_TARGET);
 
 }
 

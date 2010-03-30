@@ -130,9 +130,9 @@ cell_resource_create(struct pipe_screen *screen,
    /* Create both a displaytarget (linear) and regular texture
     * (twiddled).  Convert twiddled->linear at flush_frontbuffer time.
     */
-   if (ct->base.tex_usage & (PIPE_BIND_DISPLAY_TARGET |
-                             PIPE_BIND_SCANOUT |
-                             PIPE_BIND_SHARED)) {
+   if (ct->base.bind & (PIPE_BIND_DISPLAY_TARGET |
+                        PIPE_BIND_SCANOUT |
+                        PIPE_BIND_SHARED)) {
       if (!cell_displaytarget_layout(screen, ct))
          goto fail;
    }
@@ -562,8 +562,8 @@ cell_flush_frontbuffer(struct pipe_screen *_screen,
     */
    {
       unsigned *map = winsys->displaytarget_map(winsys, ct->dt,
-                                                (PIPE_BUFFER_USAGE_CPU_READ |
-                                                 PIPE_BUFFER_USAGE_CPU_WRITE));
+                                                (PIPE_TRANSFER_READ |
+                                                 PIPE_TRANSFER_WRITE));
       unsigned *src = (unsigned *)(ct->data + ct->level_offset[surface->level]);
 
       untwiddle_image_uint(surface->width,
@@ -599,7 +599,7 @@ cell_user_buffer_create(struct pipe_screen *screen,
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
    buffer->base.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   buffer->base.bind = PIPE_TRANSFER_READ | bind_flags;
+   buffer->base.bind = PIPE_BIND_TRANSFER_READ | bind_flags;
    buffer->base._usage = PIPE_USAGE_IMMUTABLE;
    buffer->base.flags = 0;
    buffer->base.width0 = bytes;

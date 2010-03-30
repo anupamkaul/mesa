@@ -128,7 +128,7 @@ dri2_do_create_buffer(DrawablePtr pDraw, DRI2BufferPtr buffer, unsigned int form
 	    template.height0 = pDraw->height;
 	    template.depth0 = 1;
 	    template.last_level = 0;
-	    template.tex_usage = PIPE_BIND_DEPTH_STENCIL |
+	    template.bind = PIPE_BIND_DEPTH_STENCIL |
 		PIPE_BIND_SHARED;
 	    tex = ms->screen->resource_create(ms->screen, &template);
 	    pipe_resource_reference(&exa_priv->depth_stencil_tex, tex);

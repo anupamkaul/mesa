@@ -53,9 +53,9 @@ kms_surface_validate(struct native_surface *nsurf, uint attachment_mask,
       templ.height0 = ksurf->height;
       templ.depth0 = 1;
       templ.format = ksurf->color_format;
-      templ.tex_usage = PIPE_BIND_RENDER_TARGET;
+      templ.bind = PIPE_BIND_RENDER_TARGET;
       if (ksurf->type == KMS_SURFACE_TYPE_SCANOUT)
-         templ.tex_usage |= PIPE_BIND_SCANOUT;
+         templ.bind |= PIPE_BIND_SCANOUT;
    }
 
    /* create textures */

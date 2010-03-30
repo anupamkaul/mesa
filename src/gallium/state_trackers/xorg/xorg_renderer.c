@@ -50,8 +50,8 @@ renderer_buffer_create(struct xorg_renderer *r)
                               r->buffer,
                               sizeof(float)*
                               r->buffer_size,
-			      (PIPE_BUFFER_USAGE_PIXEL |
-			       PIPE_BUFFER_USAGE_GPU_WRITE));
+/* XXX was: PIPE_BUFFER_USAGE_PIXEL/PIPE_BUFFER_USAGE_GPU_WRITE even though this is a vertex buffer??? */
+			      PIPE_BIND_VERTEX_BUFFER);
    r->buffer_size = 0;
 
    return buf;
@@ -427,7 +427,7 @@ void renderer_set_constants(struct xorg_renderer *r,
       &r->fs_const_buffer;
 
    pipe_resource_reference(cbuf, NULL);
-   *cbuf = pipe_buffer_create(r->pipe->screen, 16,
+   *cbuf = pipe_buffer_create(r->pipe->screen,
                               PIPE_BIND_CONSTANT_BUFFER,
                               param_bytes);
 
@@ -536,7 +536,7 @@ renderer_clone_texture(struct xorg_renderer *r,
    templ.width0 = src->width0;
    templ.height0 = src->height0;
    templ.depth0 = 1;
-   templ.tex_usage = PIPE_BIND_SAMPLER_VIEW;
+   templ.bind = PIPE_BIND_SAMPLER_VIEW;
 
    pt = screen->resource_create(screen, &templ);
 
@@ -548,9 +548,9 @@ renderer_clone_texture(struct xorg_renderer *r,
    {
       /* copy source framebuffer surface into texture */
       struct pipe_surface *ps_read = screen->get_tex_surface(
-         screen, src, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_READ);
+         screen, src, 0, 0, 0, PIPE_BIND_BLIT_SOURCE);
       struct pipe_surface *ps_tex = screen->get_tex_surface(
-         screen, pt, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_WRITE );
+         screen, pt, 0, 0, 0, PIPE_BIND_BLIT_DESTINATION );
       if (pipe->surface_copy) {
          pipe->surface_copy(pipe,
                 ps_tex, /* dest */

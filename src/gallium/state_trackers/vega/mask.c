@@ -143,7 +143,7 @@ static void read_alpha_mask(void * data, VGint dataStride,
       struct pipe_surface *surf;
 
       surf = screen->get_tex_surface(screen, strb->texture,  0, 0, 0,
-                                     PIPE_BUFFER_USAGE_CPU_READ);
+                                     PIPE_BIND_TRANSFER_READ);
 
       /* Do a row at a time to flip image data vertically */
       for (i = 0; i < height; i++) {
@@ -496,7 +496,7 @@ struct vg_mask_layer * mask_layer_create(VGint width, VGint height)
       pt.width0 = width;
       pt.height0 = height;
       pt.depth0 = 1;
-      pt.tex_usage = PIPE_BIND_SAMPLER_VIEW;
+      pt.bind = PIPE_BIND_SAMPLER_VIEW;
       pt.compressed = 0;
 
       texture = screen->resource_create(screen, &pt);
@@ -537,7 +537,7 @@ void mask_layer_fill(struct vg_mask_layer *layer,
    surface = ctx->pipe->screen->get_tex_surface(
       ctx->pipe->screen, layer->sampler_view->texture,
       0, 0, 0,
-      PIPE_BUFFER_USAGE_GPU_WRITE);
+      PIPE_BIND_RENDER_TARGET);
 
    surface_fill(surface,
                 layer->width, layer->height,
@@ -573,7 +573,7 @@ static void mask_layer_render_to(struct vg_mask_layer *layer,
    struct pipe_surface *surface;
 
    surface = screen->get_tex_surface(screen, layer->sampler_view->texture,  0, 0, 0,
-                                     PIPE_BUFFER_USAGE_GPU_WRITE);
+                                     PIPE_BIND_RENDER_TARGET);
 
    cso_save_framebuffer(ctx->cso_context);
    cso_save_fragment_shader(ctx->cso_context);
