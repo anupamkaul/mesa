@@ -542,7 +542,7 @@ svga_texture_create(struct pipe_screen *screen,
     * passing the SVGA3D_SURFACE_HINT_RENDERTARGET here defeats its purpose.
     */
 #if 0
-   if((template->tex_usage & PIPE_BIND_RENDER_TARGET) &&
+   if((template->bind & PIPE_BIND_RENDER_TARGET) &&
       !util_format_is_compressed(template->format))
       tex->key.flags |= SVGA3D_SURFACE_HINT_RENDERTARGET;
 #endif

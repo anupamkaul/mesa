@@ -105,7 +105,7 @@ cell_displaytarget_layout(struct pipe_screen *screen,
    /* Round up the surface size to a multiple of the tile size?
     */
    ct->dt = winsys->displaytarget_create(winsys,
-                                          ct->base->tex_usage,
+                                          ct->base->bind,
                                           ct->base.format,
                                           ct->base.width0, 
                                           ct->base.height0,
@@ -588,7 +588,7 @@ static struct pipe_resource *
 cell_user_buffer_create(struct pipe_screen *screen,
                             void *ptr,
                             unsigned bytes,
-			    unsigned usage)
+			    unsigned bind_flags)
 {
    struct cell_resource *buffer;
 
@@ -599,7 +599,9 @@ cell_user_buffer_create(struct pipe_screen *screen,
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
    buffer->base.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   buffer->base.usage = PIPE_BUFFER_USAGE_CPU_READ | usage;
+   buffer->base.bind = PIPE_TRANSFER_READ | bind_flags;
+   buffer->base._usage = PIPE_USAGE_IMMUTABLE;
+   buffer->base.flags = 0;
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
    buffer->base.depth0 = 1;

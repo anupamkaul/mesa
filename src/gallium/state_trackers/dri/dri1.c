@@ -223,7 +223,7 @@ dri1_get_pipe_surface(struct dri_drawable *drawable, struct pipe_resource *ptex)
       pipe_surface_reference(&drawable->dri1_surface, NULL);
 
       drawable->dri1_surface = pipe_screen->get_tex_surface(pipe_screen,
-            ptex, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_READ);
+            ptex, 0, 0, 0, PIPE_BIND_BLIT_SOURCE);
 
       psurf = drawable->dri1_surface;
    }
@@ -453,7 +453,7 @@ dri1_allocate_textures(struct dri_drawable *drawable,
 
       if (format != PIPE_FORMAT_NONE) {
          templ.format = format;
-         templ.tex_usage = tex_usage;
+         templ.bind = tex_usage;
 
          drawable->textures[i] =
             screen->pipe_screen->resource_create(screen->pipe_screen, &templ);

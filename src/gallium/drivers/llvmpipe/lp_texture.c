@@ -105,7 +105,7 @@ llvmpipe_displaytarget_layout(struct llvmpipe_screen *screen,
    unsigned height = align(lpt->base.height0, TILE_SIZE);
 
    lpt->dt = winsys->displaytarget_create(winsys,
-                                          lpt->base.tex_usage,
+                                          lpt->base.bind,
                                           lpt->base.format,
                                           width, height,
                                           16,
@@ -128,9 +128,9 @@ llvmpipe_resource_create(struct pipe_screen *_screen,
    pipe_reference_init(&lpt->base.reference, 1);
    lpt->base.screen = &screen->base;
 
-   if (lpt->base.tex_usage & (PIPE_BIND_DISPLAY_TARGET |
-                              PIPE_BIND_SCANOUT |
-                              PIPE_BIND_SHARED)) {
+   if (lpt->base.bind & (PIPE_BIND_DISPLAY_TARGET |
+                         PIPE_BIND_SCANOUT |
+                         PIPE_BIND_SHARED)) {
       if (!llvmpipe_displaytarget_layout(screen, lpt))
          goto fail;
    }
@@ -138,7 +138,7 @@ llvmpipe_resource_create(struct pipe_screen *_screen,
       if (!llvmpipe_resource_layout(screen, lpt))
          goto fail;
    }
-    
+
    return &lpt->base;
 
  fail:
@@ -463,7 +463,7 @@ static struct pipe_resource *
 llvmpipe_user_buffer_create(struct pipe_screen *screen,
                             void *ptr,
                             unsigned bytes,
-			    unsigned usage)
+			    unsigned bind_flags)
 {
    struct llvmpipe_resource *buffer;
 
@@ -474,7 +474,9 @@ llvmpipe_user_buffer_create(struct pipe_screen *screen,
    pipe_reference_init(&buffer->base.reference, 1);
    buffer->base.screen = screen;
    buffer->base.format = PIPE_FORMAT_R8_UNORM; /* ?? */
-   buffer->base.usage = usage;
+   buffer->base.bind = bind_flags;
+   buffer->base._usage = PIPE_USAGE_IMMUTABLE;
+   buffer->base.flags = 0;
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
    buffer->base.depth0 = 1;
