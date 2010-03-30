@@ -92,30 +92,9 @@ nouveau_screen_bo_user(struct pipe_screen *pscreen, void *ptr, unsigned bytes)
 	return bo;
 }
 
-static inline uint32_t
-nouveau_screen_map_flags(unsigned usage)
-{
-	uint32_t flags = 0;
-
-	if (usage & PIPE_TRANSFER_READ)
-		flags |= NOUVEAU_BO_RD;
-	if (usage & PIPE_TRANSFER_WRITE)
-		flags |= NOUVEAU_BO_WR;
-	if (usage & PIPE_TRANSFER_DISCARD)
-		flags |= NOUVEAU_BO_INVAL;
-	if (usage & PIPE_TRANSFER_DONTBLOCK)
-		flags |= NOUVEAU_BO_NOWAIT;
-	else
-	if (usage & PIPE_TRANSFER_UNSYNCHRONIZED)
-		flags |= NOUVEAU_BO_NOSYNC;
-
-	return flags;
-}
-
-
 void *
 nouveau_screen_bo_map(struct pipe_screen *pscreen,
-		      struct nouveau_bo *pb,
+		      struct nouveau_bo *bo,
 		      unsigned map_flags)
 {
 	int ret;
