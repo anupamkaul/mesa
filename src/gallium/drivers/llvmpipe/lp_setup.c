@@ -52,7 +52,7 @@
 #include "draw/draw_vbuf.h"
 
 
-static void set_scene_state( struct lp_setup_context *, unsigned );
+static void set_scene_state( struct lp_setup_context *, enum setup_state );
 
 
 struct lp_scene *
@@ -191,7 +191,7 @@ execute_clears( struct lp_setup_context *setup )
 
 static void
 set_scene_state( struct lp_setup_context *setup,
-           unsigned new_state )
+                 enum setup_state new_state )
 {
    unsigned old_state = setup->state;
 
@@ -218,6 +218,9 @@ set_scene_state( struct lp_setup_context *setup,
       else
          lp_setup_rasterize_scene( setup, TRUE );
       break;
+
+   default:
+      assert(0 && "invalid setup state mode");
    }
 
    setup->state = new_state;
