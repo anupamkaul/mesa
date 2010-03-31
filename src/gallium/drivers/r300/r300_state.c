@@ -1368,7 +1368,7 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
         } else if (r300->draw) {
             draw_set_mapped_constant_buffer(r300->draw, PIPE_SHADER_VERTEX,
                 0, r300->shader_constants[PIPE_SHADER_VERTEX].constants,
-                buf->size);
+                buf->width0);
         }
     } else if (shader == PIPE_SHADER_FRAGMENT) {
         r300->dirty_state |= R300_NEW_FRAGMENT_SHADER_CONSTANTS;

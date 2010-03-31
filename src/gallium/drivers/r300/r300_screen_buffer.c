@@ -323,7 +323,7 @@ struct pipe_resource *r300_buffer_create(struct pipe_screen *screen,
     pipe_reference_init(&rbuf->b.b.reference, 1);
     rbuf->b.b.screen = screen;
 
-    if (bind & R300_BIND_OQBO)
+    if (rbuf->b.b.bind & R300_BIND_OQBO)
        alignment = 4096;
 
     rbuf->buf = r300_winsys_buffer_create(r300screen,

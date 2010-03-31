@@ -42,11 +42,6 @@
 
 
 
-
-
-
-
-
 static struct pipe_resource *
 r300_resource_create(struct pipe_screen *screen,
                     const struct pipe_resource *template)
@@ -54,7 +49,7 @@ r300_resource_create(struct pipe_screen *screen,
    if (template->target == PIPE_BUFFER)
       return r300_buffer_create(screen, template);
    else
-      return r300_resource_create(screen, template);
+      return r300_texture_create(screen, template);
 
 }
 
