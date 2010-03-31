@@ -47,7 +47,7 @@
 /*#define BOUNDS_CHECK*/
 
 
-#ifdef FEATURE_OES_mapbuffer
+#if FEATURE_OES_mapbuffer
 #define DEFAULT_ACCESS GL_MAP_WRITE_BIT
 #else
 #define DEFAULT_ACCESS (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT)
@@ -83,6 +83,13 @@ get_buffer_target(GLcontext *ctx, GLenum target)
          return &ctx->CopyWriteBuffer;
       }
       break;
+#if FEATURE_EXT_transform_feedback
+   case GL_TRANSFORM_FEEDBACK_BUFFER:
+      if (ctx->Extensions.EXT_transform_feedback) {
+         return &ctx->TransformFeedback.CurrentBuffer;
+      }
+      break;
+#endif
    default:
       return NULL;
    }
@@ -1475,7 +1482,6 @@ _mesa_GetBufferParameteri64v(GLenum target, GLenum pname, GLint64 *params)
       return;
    default:
       ; /* fall-through */
-      return;
    }
 
 invalid_pname:

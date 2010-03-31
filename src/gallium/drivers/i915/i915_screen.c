@@ -35,7 +35,7 @@
 #include "i915_screen.h"
 #include "i915_surface.h"
 #include "i915_resource.h"
-#include "intel_winsys.h"
+#include "i915_winsys.h"
 
 
 /*
@@ -165,8 +165,12 @@ i915_is_format_supported(struct pipe_screen *screen,
                          unsigned geom_flags)
 {
    static const enum pipe_format tex_supported[] = {
-      PIPE_FORMAT_A8B8G8R8_UNORM,
       PIPE_FORMAT_B8G8R8A8_UNORM,
+      PIPE_FORMAT_B8G8R8X8_UNORM,
+      PIPE_FORMAT_R8G8B8A8_UNORM,
+#if 0
+      PIPE_FORMAT_R8G8B8X8_UNORM,
+#endif
       PIPE_FORMAT_B5G6R5_UNORM,
       PIPE_FORMAT_L8_UNORM,
       PIPE_FORMAT_A8_UNORM,
@@ -174,13 +178,13 @@ i915_is_format_supported(struct pipe_screen *screen,
       PIPE_FORMAT_L8A8_UNORM,
       PIPE_FORMAT_UYVY,
       PIPE_FORMAT_YUYV,
-      PIPE_FORMAT_Z24S8_UNORM,
+      PIPE_FORMAT_Z24_UNORM_S8_USCALED,
       PIPE_FORMAT_NONE  /* list terminator */
    };
    static const enum pipe_format surface_supported[] = {
       PIPE_FORMAT_B8G8R8A8_UNORM,
       PIPE_FORMAT_B5G6R5_UNORM,
-      PIPE_FORMAT_Z24S8_UNORM,
+      PIPE_FORMAT_Z24_UNORM_S8_USCALED,
       PIPE_FORMAT_NONE  /* list terminator */
    };
    const enum pipe_format *list;
@@ -256,7 +260,7 @@ i915_destroy_screen(struct pipe_screen *screen)
  * Create a new i915_screen object
  */
 struct pipe_screen *
-i915_create_screen(struct intel_winsys *iws, uint pci_id)
+i915_create_screen(struct i915_winsys *iws, uint pci_id)
 {
    struct i915_screen *is = CALLOC_STRUCT(i915_screen);
 

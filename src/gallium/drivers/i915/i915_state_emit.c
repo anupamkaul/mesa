@@ -51,7 +51,7 @@ static unsigned translate_format( enum pipe_format format )
 static unsigned translate_depth_format( enum pipe_format zformat )
 {
    switch (zformat) {
-   case PIPE_FORMAT_Z24S8_UNORM:
+   case PIPE_FORMAT_Z24_UNORM_S8_USCALED:
       return DEPTH_FRMT_24_FIXED_8_OTHER;
    case PIPE_FORMAT_Z16_UNORM:
       return DEPTH_FRMT_16_FIXED;
@@ -183,7 +183,7 @@ i915_emit_hardware_state(struct i915_context *i915 )
       
       if(i915->vbo)
          OUT_RELOC(i915->vbo,
-                   INTEL_USAGE_VERTEX,
+                   I915_USAGE_VERTEX,
                    i915->current.immediate[I915_IMMEDIATE_S0]);
       else
          /* FIXME: we should not do this */
@@ -226,7 +226,7 @@ i915_emit_hardware_state(struct i915_context *i915 )
                    ctile);
 
          OUT_RELOC(tex->buffer,
-                   INTEL_USAGE_RENDER,
+                   I915_USAGE_RENDER,
                    cbuf_surface->offset);
       }
 
@@ -249,7 +249,7 @@ i915_emit_hardware_state(struct i915_context *i915 )
                    ztile);
 
          OUT_RELOC(tex->buffer,
-                   INTEL_USAGE_RENDER,
+                   I915_USAGE_RENDER,
                    depth_surface->offset);
       }
    
@@ -290,13 +290,13 @@ i915_emit_hardware_state(struct i915_context *i915 )
             for (unit = 0; unit < I915_TEX_UNITS; unit++) {
                if (enabled & (1 << unit)) {
                   struct i915_texture *texture = i915_texture(i915->fragment_sampler_views[unit]->texture);
-                  struct intel_buffer *buf = texture->buffer;
+                  struct i915_winsys_buffer *buf = texture->buffer;
                   uint offset = 0;
                   assert(buf);
 
                   count++;
 
-                  OUT_RELOC(buf, INTEL_USAGE_SAMPLER, offset);
+                  OUT_RELOC(buf, I915_USAGE_SAMPLER, offset);
                   OUT_BATCH(i915->current.texbuffer[unit][0]); /* MS3 */
                   OUT_BATCH(i915->current.texbuffer[unit][1]); /* MS4 */
                }

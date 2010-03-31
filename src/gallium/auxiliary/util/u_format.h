@@ -56,15 +56,23 @@ enum util_format_layout {
     *
     * This is for formats like YV12 where there is less than one sample per
     * pixel.
-    *
-    * XXX: This could actually b
     */
    UTIL_FORMAT_LAYOUT_SUBSAMPLED = 3,
 
    /**
-    * An unspecified compression algorithm.
+    * S3 Texture Compression formats.
     */
-   UTIL_FORMAT_LAYOUT_COMPRESSED = 4
+   UTIL_FORMAT_LAYOUT_S3TC = 4,
+
+   /**
+    * Red-Green Texture Compression formats.
+    */
+   UTIL_FORMAT_LAYOUT_RGTC = 5,
+
+   /**
+    * Everything else that doesn't fit in any of the above layouts.
+    */
+   UTIL_FORMAT_LAYOUT_OTHER = 6
 };
 
 
@@ -181,6 +189,23 @@ struct util_format_description
     * Colorspace transformation.
     */
    enum util_format_colorspace colorspace;
+
+   /**
+    * Accessor functions.
+    */
+
+   void
+   (*unpack_8unorm)(uint8_t *dst, const uint8_t *src, unsigned nr_blocks);
+
+   void
+   (*pack_8unorm)(uint8_t *dst, const uint8_t *src, unsigned nr_blocks);
+
+   void
+   (*unpack_float)(float *dst, const uint8_t *src, unsigned nr_blocks);
+
+   void
+   (*pack_float)(uint8_t *dst, const float *src, unsigned nr_blocks);
+
 };
 
 
@@ -210,7 +235,7 @@ util_format_name(enum pipe_format format)
 }
 
 static INLINE boolean 
-util_format_is_compressed(enum pipe_format format)
+util_format_is_s3tc(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
 
@@ -219,7 +244,7 @@ util_format_is_compressed(enum pipe_format format)
       return FALSE;
    }
 
-   return desc->layout == UTIL_FORMAT_LAYOUT_COMPRESSED ? TRUE : FALSE;
+   return desc->layout == UTIL_FORMAT_LAYOUT_S3TC ? TRUE : FALSE;
 }
 
 static INLINE boolean 
@@ -251,6 +276,34 @@ util_format_is_depth_and_stencil(enum pipe_format format)
 
    return (desc->swizzle[0] != UTIL_FORMAT_SWIZZLE_NONE &&
            desc->swizzle[1] != UTIL_FORMAT_SWIZZLE_NONE) ? TRUE : FALSE;
+}
+
+/**
+ * Whether this format is a rgab8 variant.
+ *
+ * That is, any format that matches the
+ *
+ *   PIPE_FORMAT_?8?8?8?8_UNORM
+ */
+static INLINE boolean
+util_format_is_rgba8_variant(const struct util_format_description *desc)
+{
+   unsigned chan;
+
+   if(desc->block.width != 1 ||
+      desc->block.height != 1 ||
+      desc->block.bits != 32)
+      return FALSE;
+
+   for(chan = 0; chan < 4; ++chan) {
+      if(desc->channel[chan].type != UTIL_FORMAT_TYPE_UNSIGNED &&
+         desc->channel[chan].type != UTIL_FORMAT_TYPE_VOID)
+         return FALSE;
+      if(desc->channel[chan].size != 8)
+         return FALSE;
+   }
+
+   return TRUE;
 }
 
 

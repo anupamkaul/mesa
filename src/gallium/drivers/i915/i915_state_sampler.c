@@ -193,6 +193,14 @@ translate_texture_format(enum pipe_format pipeFormat)
       return MAPSURF_16BIT | MT_16BIT_ARGB4444;
    case PIPE_FORMAT_B8G8R8A8_UNORM:
       return MAPSURF_32BIT | MT_32BIT_ARGB8888;
+   case PIPE_FORMAT_B8G8R8X8_UNORM:
+      return MAPSURF_32BIT | MT_32BIT_XRGB8888;
+   case PIPE_FORMAT_R8G8B8A8_UNORM:
+      return MAPSURF_32BIT | MT_32BIT_ABGR8888;
+#if 0
+   case PIPE_FORMAT_R8G8B8X8_UNORM:
+      return MAPSURF_32BIT | MT_32BIT_XBGR8888;
+#endif
    case PIPE_FORMAT_YUYV:
       return (MAPSURF_422 | MT_422_YCRCB_NORMAL);
    case PIPE_FORMAT_UYVY:
@@ -213,7 +221,7 @@ translate_texture_format(enum pipe_format pipeFormat)
    case PIPE_FORMAT_RGBA_DXT5:
       return (MAPSURF_COMPRESSED | MT_COMPRESS_DXT4_5);
 #endif
-   case PIPE_FORMAT_Z24S8_UNORM:
+   case PIPE_FORMAT_Z24_UNORM_S8_USCALED:
       return (MAPSURF_32BIT | MT_32BIT_xI824);
    default:
       debug_printf("i915: translate_texture_format() bad image format %x\n",

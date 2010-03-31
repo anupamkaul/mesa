@@ -31,8 +31,6 @@
 #include "id_drm.h"
 #include "id_screen.h"
 #include "id_public.h"
-#include "id_screen.h"
-#include "id_objects.h"
 
 struct identity_drm_api
 {

@@ -175,7 +175,7 @@ static GLuint translate_tex_format( enum pipe_format pf )
    case PIPE_FORMAT_Z16_UNORM:
          return BRW_SURFACEFORMAT_I16_UNORM;
 
-   case PIPE_FORMAT_Z24S8_UNORM:
+   case PIPE_FORMAT_Z24_UNORM_S8_USCALED:
    case PIPE_FORMAT_Z24X8_UNORM:
          return BRW_SURFACEFORMAT_I24X8_UNORM;
 
@@ -365,7 +365,7 @@ brw_texture_create( struct pipe_screen *screen,
    /* XXX: compressed textures need special treatment here
     */
    tex->cpp = util_format_get_blocksize(tex->b.b.format);
-   tex->compressed = util_format_is_compressed(tex->b.b.format);
+   tex->compressed = util_format_is_s3tc(tex->b.b.format);
 
    make_empty_list(&tex->views[0]);
    make_empty_list(&tex->views[1]);
@@ -473,13 +473,14 @@ brw_texture_from_handle(struct pipe_screen *screen,
    struct brw_winsys_buffer *buffer;
    unsigned tiling;
    unsigned pitch;
+   GLuint format;
 
    if (template->target != PIPE_TEXTURE_2D ||
        template->last_level != 0 ||
        template->depth0 != 1)
       return NULL;
 
-   if (util_format_is_compressed(template->format))
+   if (util_format_is_s3tc(template->format))
       return NULL;
 
    tex = CALLOC_STRUCT(brw_texture);
@@ -521,7 +522,10 @@ brw_texture_from_handle(struct pipe_screen *screen,
 
    tex->ss.ss0.mipmap_layout_mode = BRW_SURFACE_MIPMAPLAYOUT_BELOW;
    tex->ss.ss0.surface_type = translate_tex_target(tex->b.b.target);
-   tex->ss.ss0.surface_format = translate_tex_format(tex->b.b.format);
+
+   format = translate_tex_format(tex->b.b.format);
+   assert(format != BRW_SURFACEFORMAT_INVALID);
+   tex->ss.ss0.surface_format = format;
    assert(tex->ss.ss0.surface_format != BRW_SURFACEFORMAT_INVALID);
 
    /* This is ok for all textures with channel width 8bit or less:

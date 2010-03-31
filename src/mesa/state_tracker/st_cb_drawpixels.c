@@ -736,14 +736,14 @@ draw_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
 
             /* now pack the stencil (and Z) values in the dest format */
             switch (pt->resource->format) {
-            case PIPE_FORMAT_S8_UNORM:
+            case PIPE_FORMAT_S8_USCALED:
                {
                   ubyte *dest = stmap + spanY * pt->stride + spanX;
                   assert(usage == PIPE_TRANSFER_WRITE);
                   memcpy(dest, sValues, spanWidth);
                }
                break;
-            case PIPE_FORMAT_Z24S8_UNORM:
+            case PIPE_FORMAT_Z24_UNORM_S8_USCALED:
                if (format == GL_DEPTH_STENCIL) {
                   uint *dest = (uint *) (stmap + spanY * pt->stride + spanX*4);
                   GLint k;
@@ -761,7 +761,7 @@ draw_stencil_pixels(GLcontext *ctx, GLint x, GLint y,
                   }
                }
                break;
-            case PIPE_FORMAT_S8Z24_UNORM:
+            case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
                if (format == GL_DEPTH_STENCIL) {
                   uint *dest = (uint *) (stmap + spanY * pt->stride + spanX*4);
                   GLint k;
@@ -914,7 +914,7 @@ copy_stencil_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
       src = buffer + i * width;
 
       switch (ptDraw->resource->format) {
-      case PIPE_FORMAT_Z24S8_UNORM:
+      case PIPE_FORMAT_Z24_UNORM_S8_USCALED:
          {
             uint *dst4 = (uint *) dst;
             int j;
@@ -925,7 +925,7 @@ copy_stencil_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
             }
          }
          break;
-      case PIPE_FORMAT_S8Z24_UNORM:
+      case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
          {
             uint *dst4 = (uint *) dst;
             int j;
@@ -936,7 +936,7 @@ copy_stencil_pixels(GLcontext *ctx, GLint srcx, GLint srcy,
             }
          }
          break;
-      case PIPE_FORMAT_S8_UNORM:
+      case PIPE_FORMAT_S8_USCALED:
          assert(usage == PIPE_TRANSFER_WRITE);
          memcpy(dst, src, width);
          break;
@@ -969,7 +969,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
    enum pipe_format srcFormat, texFormat;
    GLboolean invertTex = GL_FALSE;
    GLint readX, readY, readW, readH;
-   struct gl_pixelstore_attrib unpack = ctx->DefaultPacking;
+   struct gl_pixelstore_attrib pack = ctx->DefaultPacking;
 
    pipe->flush(pipe, PIPE_FLUSH_RENDER_CACHE, NULL);
 
@@ -1033,7 +1033,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
    readY = srcy;
    readW = width;
    readH = height;
-   _mesa_clip_readpixels(ctx, &readX, &readY, &readW, &readH, &unpack);
+   _mesa_clip_readpixels(ctx, &readX, &readY, &readW, &readH, &pack);
    readW = MAX2(0, readW);
    readH = MAX2(0, readH);
 
@@ -1056,11 +1056,11 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
                                        rbRead->texture, 0, 0, 0,
                                        PIPE_BIND_BLIT_SOURCE);
       struct pipe_surface *psTex = screen->get_tex_surface(screen, pt, 0, 0, 0, 
-				       PIPE_BIND_RENDER_TARGET |
-				       PIPE_BIND_BLIT_DESTINATION);
+                                       PIPE_BIND_RENDER_TARGET |
+                                       PIPE_BIND_BLIT_DESTINATION);
       pipe->surface_copy(pipe,
                          psTex,                               /* dest surf */
-                         unpack.SkipPixels, unpack.SkipRows,  /* dest pos */
+                         pack.SkipPixels, pack.SkipRows,      /* dest pos */
                          psRead,                              /* src surf */
                          readX, readY, readW, readH);         /* src region */
 
@@ -1098,7 +1098,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
          /* alternate path using get/put_tile() */
          GLfloat *buf = (GLfloat *) malloc(width * height * 4 * sizeof(GLfloat));
          pipe_get_tile_rgba(pipe, ptRead, readX, readY, readW, readH, buf);
-         pipe_put_tile_rgba(pipe, ptTex, unpack.SkipPixels, unpack.SkipRows,
+         pipe_put_tile_rgba(pipe, ptTex, pack.SkipPixels, pack.SkipRows,
                             readW, readH, buf);
          free(buf);
       }
@@ -1106,7 +1106,7 @@ st_CopyPixels(GLcontext *ctx, GLint srcx, GLint srcy,
          /* GL_DEPTH */
          GLuint *buf = (GLuint *) malloc(width * height * sizeof(GLuint));
          pipe_get_tile_z(pipe, ptRead, readX, readY, readW, readH, buf);
-         pipe_put_tile_z(pipe, ptTex, unpack.SkipPixels, unpack.SkipRows,
+         pipe_put_tile_z(pipe, ptTex, pack.SkipPixels, pack.SkipRows,
                          readW, readH, buf);
          free(buf);
       }

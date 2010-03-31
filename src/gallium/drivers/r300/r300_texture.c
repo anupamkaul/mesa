@@ -105,7 +105,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
                 case PIPE_FORMAT_Z16_UNORM:
                     return R300_EASY_TX_FORMAT(X, X, X, X, X16);
                 case PIPE_FORMAT_X8Z24_UNORM:
-                case PIPE_FORMAT_S8Z24_UNORM:
+                case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
                     return R300_EASY_TX_FORMAT(X, X, X, X, W24_FP);
                 default:
                     return ~0; /* Unsupported. */
@@ -160,7 +160,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
     }
 
     /* Compressed formats. */
-    if (desc->layout == UTIL_FORMAT_LAYOUT_COMPRESSED) {
+    if (desc->layout == UTIL_FORMAT_LAYOUT_S3TC) {
         switch (format) {
             case PIPE_FORMAT_DXT1_RGB:
             case PIPE_FORMAT_DXT1_RGBA:
@@ -373,7 +373,7 @@ static uint32_t r300_translate_zsformat(enum pipe_format format)
         /* 24-bit depth, ignored stencil */
         case PIPE_FORMAT_X8Z24_UNORM:
         /* 24-bit depth, 8-bit stencil */
-        case PIPE_FORMAT_S8Z24_UNORM:
+        case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
             return R300_DEPTHFORMAT_24BIT_INT_Z_8BIT_STENCIL;
         default:
             return ~0; /* Unsupported. */
@@ -693,7 +693,8 @@ static void r300_setup_miptree(struct r300_screen* screen,
         /* Let's see if this miplevel can be macrotiled. */
         tex->mip_macrotile[i] =
             (tex->macrotile == R300_BUFFER_TILED &&
-             r300_texture_macro_switch(tex, i, rv350_mode, TILE_WIDTH)) ?
+             r300_texture_macro_switch(tex, i, rv350_mode, TILE_WIDTH) &&
+             r300_texture_macro_switch(tex, i, rv350_mode, TILE_HEIGHT)) ?
              R300_BUFFER_TILED : R300_BUFFER_LINEAR;
 
         stride = r300_texture_get_stride(screen, tex, i);

@@ -40,7 +40,6 @@
 #include "main/teximage.h"
 #include "main/texstate.h"
 #include "main/texfetch.h"
-#include "main/fbobject.h"
 #include "main/framebuffer.h"
 #include "main/renderbuffer.h"
 #include "st_texture.h"
@@ -60,10 +59,13 @@ void st_flush(struct st_context *st, uint pipeFlushFlags,
               struct pipe_fence_handle **fence);
 
 /**
+ * Cast wrapper to convert a GLframebuffer to an st_framebuffer.
+ * Return NULL if the GLframebuffer is a user-created framebuffer.
+ * We'll only return non-null for window system framebuffers.
  * Note that this function may fail.
  */
 static INLINE struct st_framebuffer *
-st_framebuffer(GLframebuffer *fb)
+st_ws_framebuffer(GLframebuffer *fb)
 {
    /* FBO cannot be casted.  See st_new_framebuffer */
    return (struct st_framebuffer *) ((fb && !fb->Name) ? fb : NULL);
@@ -331,15 +333,15 @@ st_visual_to_context_mode(const struct st_visual *visual,
    }
 
    if (visual->depth_stencil_format != PIPE_FORMAT_NONE) {
-      mode->haveDepthBuffer = GL_TRUE;
-      mode->haveStencilBuffer = GL_TRUE;
-
       mode->depthBits =
          util_format_get_component_bits(visual->depth_stencil_format,
                UTIL_FORMAT_COLORSPACE_ZS, 0);
       mode->stencilBits =
          util_format_get_component_bits(visual->depth_stencil_format,
                UTIL_FORMAT_COLORSPACE_ZS, 1);
+
+      mode->haveDepthBuffer = mode->depthBits > 0;
+      mode->haveStencilBuffer = mode->stencilBits > 0;
    }
 
    if (visual->accum_format != PIPE_FORMAT_NONE) {
@@ -474,9 +476,9 @@ st_context_notify_invalid_framebuffer(struct st_context_iface *stctxi,
    struct st_framebuffer *stfb;
 
    /* either draw or read winsys fb */
-   stfb = st_framebuffer(st->ctx->WinSysDrawBuffer);
+   stfb = st_ws_framebuffer(st->ctx->WinSysDrawBuffer);
    if (!stfb || stfb->iface != stfbi)
-      stfb = st_framebuffer(st->ctx->WinSysReadBuffer);
+      stfb = st_ws_framebuffer(st->ctx->WinSysReadBuffer);
    assert(stfb && stfb->iface == stfbi);
 
    p_atomic_set(&stfb->revalidate, TRUE);
@@ -617,7 +619,7 @@ st_api_make_current(struct st_api *stapi, struct st_context_iface *stctxi,
 
    if (st) {
       /* reuse/create the draw fb */
-      stfb = st_framebuffer(st->ctx->WinSysDrawBuffer);
+      stfb = st_ws_framebuffer(st->ctx->WinSysDrawBuffer);
       if (stfb && stfb->iface == stdrawi) {
          stdraw = NULL;
          st_framebuffer_reference(&stdraw, stfb);
@@ -627,7 +629,7 @@ st_api_make_current(struct st_api *stapi, struct st_context_iface *stctxi,
       }
 
       /* reuse/create the read fb */
-      stfb = st_framebuffer(st->ctx->WinSysReadBuffer);
+      stfb = st_ws_framebuffer(st->ctx->WinSysReadBuffer);
       if (!stfb || stfb->iface != streadi)
          stfb = stdraw;
       if (stfb && stfb->iface == streadi) {
@@ -699,7 +701,7 @@ st_api_destroy(struct st_api *stapi)
 void
 st_manager_flush_frontbuffer(struct st_context *st)
 {
-   struct st_framebuffer *stfb = st_framebuffer(st->ctx->DrawBuffer);
+   struct st_framebuffer *stfb = st_ws_framebuffer(st->ctx->DrawBuffer);
    struct st_renderbuffer *strb = NULL;
 
    if (stfb)
@@ -724,8 +726,8 @@ st_manager_flush_frontbuffer(struct st_context *st)
 void
 st_manager_validate_framebuffers(struct st_context *st)
 {
-   struct st_framebuffer *stdraw = st_framebuffer(st->ctx->DrawBuffer);
-   struct st_framebuffer *stread = st_framebuffer(st->ctx->ReadBuffer);
+   struct st_framebuffer *stdraw = st_ws_framebuffer(st->ctx->DrawBuffer);
+   struct st_framebuffer *stread = st_ws_framebuffer(st->ctx->ReadBuffer);
 
    /* st_public.h */
    if ((stdraw && !stdraw->iface) || (stread && !stread->iface)) {
@@ -748,7 +750,7 @@ boolean
 st_manager_add_color_renderbuffer(struct st_context *st, GLframebuffer *fb,
                                   gl_buffer_index idx)
 {
-   struct st_framebuffer *stfb = st_framebuffer(fb);
+   struct st_framebuffer *stfb = st_ws_framebuffer(fb);
 
    /* FBO or st_public.h */
    if (!stfb || !stfb->iface)

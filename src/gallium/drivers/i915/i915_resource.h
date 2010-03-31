@@ -68,7 +68,7 @@ struct i915_texture {
 
    /* The data is held here:
     */
-   struct intel_buffer *buffer;
+   struct i915_winsys_buffer *buffer;
 };
 
 void i915_init_screen_resource_functions(struct i915_screen *is);

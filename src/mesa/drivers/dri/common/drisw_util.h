@@ -21,13 +21,25 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+/**
+ * @file
+ * Binding of the DRI interface (dri_interface.h) for DRISW.
+ *
+ * The DRISW structs are 'base classes' of the corresponding DRI1 / DRI2 (DRM)
+ * structs. The bindings for SW and DRM can be unified by making the DRM structs
+ * 'sub-classes' of the SW structs, either proper or with field re-ordering.
+ *
+ * The code can also be unified but that requires cluttering the common code
+ * with ifdef's and guarding with (__DRIscreen::fd >= 0) for DRM.
+ */
 
-#ifndef _DRI_SW_H
-#define _DRI_SW_H
+#ifndef _DRISW_UTIL_H
+#define _DRISW_UTIL_H
 
 #include <GL/gl.h>
 #include <GL/internal/glcore.h>
 #include <GL/internal/dri_interface.h>
+typedef struct _drmLock drmLock;
 
 
 /**
@@ -35,6 +47,39 @@
  */
 extern const __DRIcoreExtension driCoreExtension;
 extern const __DRIswrastExtension driSWRastExtension;
+
+
+/**
+ * Driver callback functions
+ */
+struct __DriverAPIRec {
+    const __DRIconfig **(*InitScreen) (__DRIscreen * priv);
+
+    void (*DestroyScreen)(__DRIscreen *driScrnPriv);
+
+    GLboolean (*CreateContext)(const __GLcontextModes *glVis,
+                               __DRIcontext *driContextPriv,
+                               void *sharedContextPrivate);
+
+    void (*DestroyContext)(__DRIcontext *driContextPriv);
+
+    GLboolean (*CreateBuffer)(__DRIscreen *driScrnPriv,
+                              __DRIdrawable *driDrawPriv,
+                              const __GLcontextModes *glVis,
+                              GLboolean pixmapBuffer);
+
+    void (*DestroyBuffer)(__DRIdrawable *driDrawPriv);
+
+    void (*SwapBuffers)(__DRIdrawable *driDrawPriv);
+
+    GLboolean (*MakeCurrent)(__DRIcontext *driContextPriv,
+                             __DRIdrawable *driDrawPriv,
+                             __DRIdrawable *driReadPriv);
+
+    GLboolean (*UnbindContext)(__DRIcontext *driContextPriv);
+};
+
+extern const struct __DriverAPIRec driDriverAPI;
 
 
 /**
@@ -71,42 +116,17 @@ struct __DRIdrawableRec {
 
     void *loaderPrivate;
 
+    __DRIcontext *driContextPriv;
+
     __DRIscreen *driScreenPriv;
 
     int refcount;
+
+    /* gallium */
+    unsigned int lastStamp;
+
+    int w;
+    int h;
 };
 
-
-/**
- * Driver callback functions
- */
-struct __DriverAPIRec {
-    const __DRIconfig **(*InitScreen) (__DRIscreen * priv);
-
-    void (*DestroyScreen)(__DRIscreen *driScrnPriv);
-
-    GLboolean (*CreateContext)(const __GLcontextModes *glVis,
-                               __DRIcontext *driContextPriv,
-                               void *sharedContextPrivate);
-
-    void (*DestroyContext)(__DRIcontext *driContextPriv);
-
-    GLboolean (*CreateBuffer)(__DRIscreen *driScrnPriv,
-                              __DRIdrawable *driDrawPriv,
-                              const __GLcontextModes *glVis,
-                              GLboolean pixmapBuffer);
-
-    void (*DestroyBuffer)(__DRIdrawable *driDrawPriv);
-
-    void (*SwapBuffers)(__DRIdrawable *driDrawPriv);
-
-    GLboolean (*MakeCurrent)(__DRIcontext *driContextPriv,
-                             __DRIdrawable *driDrawPriv,
-                             __DRIdrawable *driReadPriv);
-
-    GLboolean (*UnbindContext)(__DRIcontext *driContextPriv);
-};
-
-extern const struct __DriverAPIRec driDriverAPI;
-
-#endif /* _DRI_SW_H */
+#endif /* _DRISW_UTIL_H */

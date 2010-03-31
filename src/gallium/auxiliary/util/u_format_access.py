@@ -60,6 +60,9 @@ def is_format_supported(format):
         channel = format.channels[i]
         if channel.type not in (VOID, UNSIGNED, FLOAT):
             return False
+        if channel.type == FLOAT:
+            if channel.size not in (32, 64) or format.is_mixed():
+               return False
 
     # We can only read a color from a depth/stencil format if the depth channel is present
     if format.colorspace == 'zs' and format.swizzles[0] == SWIZZLE_NONE:
@@ -78,7 +81,7 @@ def native_type(format):
         else:
             # For array pixel formats return the integer type that matches the color channel
             channel = format.channels[0]
-            if channel.type == UNSIGNED:
+            if channel.type in (UNSIGNED, VOID):
                 return 'uint%u_t' % channel.size
             elif channel.type == SIGNED:
                 return 'int%u_t' % channel.size
@@ -317,7 +320,7 @@ def main():
     print
     print '#include "pipe/p_compiler.h"'
     print '#include "u_math.h"'
-    print '#include "u_format_pack.h"'
+    print '#include "u_format.h"'
     print
 
     generate_srgb_tables()

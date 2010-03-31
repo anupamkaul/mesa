@@ -35,7 +35,6 @@
 #include "r300_screen.h"
 #include "r300_screen_buffer.h"
 #include "r300_state_invariant.h"
-#include "r300_texture.h"
 #include "r300_transfer.h"
 #include "r300_winsys.h"
 
@@ -173,8 +172,6 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     }
 
     r300_setup_atoms(r300);
-
-    r300->sprite_coord_index = -1;
 
     /* Open up the OQ BO. */
     r300->oqbo = pipe_buffer_create(screen,

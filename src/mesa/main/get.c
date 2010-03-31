@@ -77,9 +77,6 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
    if (!params)
       return;
 
-   if (ctx->NewState)
-      _mesa_update_state(ctx);
-
    if (ctx->Driver.GetBooleanv &&
        ctx->Driver.GetBooleanv(ctx, pname, params))
       return;
@@ -107,6 +104,8 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          params[0] = FLOAT_TO_BOOLEAN(ctx->Pixel.AlphaBias);
          break;
       case GL_ALPHA_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = INT_TO_BOOLEAN(ctx->DrawBuffer->Visual.alphaBits);
          break;
       case GL_ALPHA_SCALE:
@@ -167,6 +166,8 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          params[0] = FLOAT_TO_BOOLEAN(ctx->Pixel.BlueBias);
          break;
       case GL_BLUE_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = INT_TO_BOOLEAN(ctx->DrawBuffer->Visual.blueBits);
          break;
       case GL_BLUE_SCALE:
@@ -221,27 +222,21 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          params[0] = ENUM_TO_BOOLEAN(ctx->Polygon.CullFaceMode);
          break;
       case GL_CURRENT_COLOR:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][0]);
          params[1] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][1]);
          params[2] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][2]);
          params[3] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3]);
-         }
          break;
       case GL_CURRENT_INDEX:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR_INDEX][0]);
-         }
          break;
       case GL_CURRENT_NORMAL:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][0]);
          params[1] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][1]);
          params[2] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][2]);
-         }
          break;
       case GL_CURRENT_RASTER_COLOR:
          params[0] = FLOAT_TO_BOOLEAN(ctx->Current.RasterColor[0]);
@@ -334,10 +329,8 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          params[0] = ENUM_TO_BOOLEAN(ctx->DrawBuffer->ColorDrawBuffer[0]);
          break;
       case GL_EDGE_FLAG:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = (ctx->Current.Attrib[VERT_ATTRIB_EDGEFLAG][0] == 1.0);
-         }
          break;
       case GL_FEEDBACK_BUFFER_SIZE:
          params[0] = INT_TO_BOOLEAN(ctx->Feedback.BufferSize);
@@ -379,12 +372,16 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          params[0] = FLOAT_TO_BOOLEAN(ctx->Pixel.GreenBias);
          break;
       case GL_GREEN_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = INT_TO_BOOLEAN(ctx->DrawBuffer->Visual.greenBits);
          break;
       case GL_GREEN_SCALE:
          params[0] = FLOAT_TO_BOOLEAN(ctx->Pixel.GreenScale);
          break;
       case GL_INDEX_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = INT_TO_BOOLEAN(ctx->DrawBuffer->Visual.indexBits);
          break;
       case GL_INDEX_CLEAR_VALUE:
@@ -815,6 +812,8 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          params[0] = FLOAT_TO_BOOLEAN(ctx->Pixel.RedBias);
          break;
       case GL_RED_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = INT_TO_BOOLEAN(ctx->DrawBuffer->Visual.redBits);
          break;
       case GL_RED_SCALE:
@@ -1345,13 +1344,11 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          break;
       case GL_CURRENT_SECONDARY_COLOR_EXT:
          CHECK_EXT1(EXT_secondary_color, "GetBooleanv");
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][0]);
          params[1] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][1]);
          params[2] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][2]);
          params[3] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][3]);
-         }
          break;
       case GL_SECONDARY_COLOR_ARRAY_EXT:
          CHECK_EXT1(EXT_secondary_color, "GetBooleanv");
@@ -1371,10 +1368,8 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          break;
       case GL_CURRENT_FOG_COORDINATE_EXT:
          CHECK_EXT1(EXT_fog_coord, "GetBooleanv");
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_BOOLEAN(ctx->Current.Attrib[VERT_ATTRIB_FOG][0]);
-         }
          break;
       case GL_FOG_COORDINATE_ARRAY_EXT:
          CHECK_EXT1(EXT_fog_coord, "GetBooleanv");
@@ -1927,6 +1922,26 @@ _mesa_GetBooleanv( GLenum pname, GLboolean *params )
          CHECK_EXT1(ARB_sync, "GetBooleanv");
          params[0] = INT64_TO_BOOLEAN(ctx->Const.MaxServerWaitTimeout);
          break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING:
+         CHECK_EXT1(EXT_transform_feedback, "GetBooleanv");
+         params[0] = INT_TO_BOOLEAN(ctx->TransformFeedback.CurrentBuffer->Name);
+         break;
+      case GL_RASTERIZER_DISCARD:
+         CHECK_EXT1(EXT_transform_feedback, "GetBooleanv");
+         params[0] = ctx->TransformFeedback.RasterDiscard;
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS:
+         CHECK_EXT1(EXT_transform_feedback, "GetBooleanv");
+         params[0] = INT_TO_BOOLEAN(ctx->Const.MaxTransformFeedbackInterleavedComponents);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS:
+         CHECK_EXT1(EXT_transform_feedback, "GetBooleanv");
+         params[0] = INT_TO_BOOLEAN(ctx->Const.MaxTransformFeedbackSeparateAttribs);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS:
+         CHECK_EXT1(EXT_transform_feedback, "GetBooleanv");
+         params[0] = INT_TO_BOOLEAN(ctx->Const.MaxTransformFeedbackSeparateComponents);
+         break;
       case GL_NUM_EXTENSIONS:
          params[0] = INT_TO_BOOLEAN(_mesa_get_extension_count(ctx));
          break;
@@ -1952,9 +1967,6 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
 
    if (!params)
       return;
-
-   if (ctx->NewState)
-      _mesa_update_state(ctx);
 
    if (ctx->Driver.GetFloatv &&
        ctx->Driver.GetFloatv(ctx, pname, params))
@@ -1983,6 +1995,8 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          params[0] = ctx->Pixel.AlphaBias;
          break;
       case GL_ALPHA_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLfloat)(ctx->DrawBuffer->Visual.alphaBits);
          break;
       case GL_ALPHA_SCALE:
@@ -2043,6 +2057,8 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          params[0] = ctx->Pixel.BlueBias;
          break;
       case GL_BLUE_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLfloat)(ctx->DrawBuffer->Visual.blueBits);
          break;
       case GL_BLUE_SCALE:
@@ -2097,27 +2113,21 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          params[0] = ENUM_TO_FLOAT(ctx->Polygon.CullFaceMode);
          break;
       case GL_CURRENT_COLOR:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][0];
          params[1] = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][1];
          params[2] = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][2];
          params[3] = ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3];
-         }
          break;
       case GL_CURRENT_INDEX:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = ctx->Current.Attrib[VERT_ATTRIB_COLOR_INDEX][0];
-         }
          break;
       case GL_CURRENT_NORMAL:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = ctx->Current.Attrib[VERT_ATTRIB_NORMAL][0];
          params[1] = ctx->Current.Attrib[VERT_ATTRIB_NORMAL][1];
          params[2] = ctx->Current.Attrib[VERT_ATTRIB_NORMAL][2];
-         }
          break;
       case GL_CURRENT_RASTER_COLOR:
          params[0] = ctx->Current.RasterColor[0];
@@ -2210,10 +2220,8 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          params[0] = ENUM_TO_FLOAT(ctx->DrawBuffer->ColorDrawBuffer[0]);
          break;
       case GL_EDGE_FLAG:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = BOOLEAN_TO_FLOAT((ctx->Current.Attrib[VERT_ATTRIB_EDGEFLAG][0] == 1.0));
-         }
          break;
       case GL_FEEDBACK_BUFFER_SIZE:
          params[0] = (GLfloat)(ctx->Feedback.BufferSize);
@@ -2255,12 +2263,16 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          params[0] = ctx->Pixel.GreenBias;
          break;
       case GL_GREEN_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLfloat)(ctx->DrawBuffer->Visual.greenBits);
          break;
       case GL_GREEN_SCALE:
          params[0] = ctx->Pixel.GreenScale;
          break;
       case GL_INDEX_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLfloat)(ctx->DrawBuffer->Visual.indexBits);
          break;
       case GL_INDEX_CLEAR_VALUE:
@@ -2691,6 +2703,8 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          params[0] = ctx->Pixel.RedBias;
          break;
       case GL_RED_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLfloat)(ctx->DrawBuffer->Visual.redBits);
          break;
       case GL_RED_SCALE:
@@ -3221,13 +3235,11 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          break;
       case GL_CURRENT_SECONDARY_COLOR_EXT:
          CHECK_EXT1(EXT_secondary_color, "GetFloatv");
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = ctx->Current.Attrib[VERT_ATTRIB_COLOR1][0];
          params[1] = ctx->Current.Attrib[VERT_ATTRIB_COLOR1][1];
          params[2] = ctx->Current.Attrib[VERT_ATTRIB_COLOR1][2];
          params[3] = ctx->Current.Attrib[VERT_ATTRIB_COLOR1][3];
-         }
          break;
       case GL_SECONDARY_COLOR_ARRAY_EXT:
          CHECK_EXT1(EXT_secondary_color, "GetFloatv");
@@ -3247,10 +3259,8 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          break;
       case GL_CURRENT_FOG_COORDINATE_EXT:
          CHECK_EXT1(EXT_fog_coord, "GetFloatv");
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = ctx->Current.Attrib[VERT_ATTRIB_FOG][0];
-         }
          break;
       case GL_FOG_COORDINATE_ARRAY_EXT:
          CHECK_EXT1(EXT_fog_coord, "GetFloatv");
@@ -3803,6 +3813,26 @@ _mesa_GetFloatv( GLenum pname, GLfloat *params )
          CHECK_EXT1(ARB_sync, "GetFloatv");
          params[0] = (GLfloat)(ctx->Const.MaxServerWaitTimeout);
          break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING:
+         CHECK_EXT1(EXT_transform_feedback, "GetFloatv");
+         params[0] = (GLfloat)(ctx->TransformFeedback.CurrentBuffer->Name);
+         break;
+      case GL_RASTERIZER_DISCARD:
+         CHECK_EXT1(EXT_transform_feedback, "GetFloatv");
+         params[0] = BOOLEAN_TO_FLOAT(ctx->TransformFeedback.RasterDiscard);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS:
+         CHECK_EXT1(EXT_transform_feedback, "GetFloatv");
+         params[0] = (GLfloat)(ctx->Const.MaxTransformFeedbackInterleavedComponents);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS:
+         CHECK_EXT1(EXT_transform_feedback, "GetFloatv");
+         params[0] = (GLfloat)(ctx->Const.MaxTransformFeedbackSeparateAttribs);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS:
+         CHECK_EXT1(EXT_transform_feedback, "GetFloatv");
+         params[0] = (GLfloat)(ctx->Const.MaxTransformFeedbackSeparateComponents);
+         break;
       case GL_NUM_EXTENSIONS:
          params[0] = (GLfloat)(_mesa_get_extension_count(ctx));
          break;
@@ -3828,9 +3858,6 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
 
    if (!params)
       return;
-
-   if (ctx->NewState)
-      _mesa_update_state(ctx);
 
    if (ctx->Driver.GetIntegerv &&
        ctx->Driver.GetIntegerv(ctx, pname, params))
@@ -3859,6 +3886,8 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          params[0] = IROUND(ctx->Pixel.AlphaBias);
          break;
       case GL_ALPHA_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = ctx->DrawBuffer->Visual.alphaBits;
          break;
       case GL_ALPHA_SCALE:
@@ -3919,6 +3948,8 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          params[0] = IROUND(ctx->Pixel.BlueBias);
          break;
       case GL_BLUE_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = ctx->DrawBuffer->Visual.blueBits;
          break;
       case GL_BLUE_SCALE:
@@ -3973,27 +4004,21 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          params[0] = ENUM_TO_INT(ctx->Polygon.CullFaceMode);
          break;
       case GL_CURRENT_COLOR:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][0]);
          params[1] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][1]);
          params[2] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][2]);
          params[3] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3]);
-         }
          break;
       case GL_CURRENT_INDEX:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = IROUND(ctx->Current.Attrib[VERT_ATTRIB_COLOR_INDEX][0]);
-         }
          break;
       case GL_CURRENT_NORMAL:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][0]);
          params[1] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][1]);
          params[2] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][2]);
-         }
          break;
       case GL_CURRENT_RASTER_COLOR:
          params[0] = FLOAT_TO_INT(ctx->Current.RasterColor[0]);
@@ -4086,10 +4111,8 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          params[0] = ENUM_TO_INT(ctx->DrawBuffer->ColorDrawBuffer[0]);
          break;
       case GL_EDGE_FLAG:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = BOOLEAN_TO_INT((ctx->Current.Attrib[VERT_ATTRIB_EDGEFLAG][0] == 1.0));
-         }
          break;
       case GL_FEEDBACK_BUFFER_SIZE:
          params[0] = ctx->Feedback.BufferSize;
@@ -4131,12 +4154,16 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          params[0] = IROUND(ctx->Pixel.GreenBias);
          break;
       case GL_GREEN_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = ctx->DrawBuffer->Visual.greenBits;
          break;
       case GL_GREEN_SCALE:
          params[0] = IROUND(ctx->Pixel.GreenScale);
          break;
       case GL_INDEX_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = ctx->DrawBuffer->Visual.indexBits;
          break;
       case GL_INDEX_CLEAR_VALUE:
@@ -4567,6 +4594,8 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          params[0] = IROUND(ctx->Pixel.RedBias);
          break;
       case GL_RED_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = ctx->DrawBuffer->Visual.redBits;
          break;
       case GL_RED_SCALE:
@@ -5097,13 +5126,11 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          break;
       case GL_CURRENT_SECONDARY_COLOR_EXT:
          CHECK_EXT1(EXT_secondary_color, "GetIntegerv");
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][0]);
          params[1] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][1]);
          params[2] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][2]);
          params[3] = FLOAT_TO_INT(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][3]);
-         }
          break;
       case GL_SECONDARY_COLOR_ARRAY_EXT:
          CHECK_EXT1(EXT_secondary_color, "GetIntegerv");
@@ -5123,10 +5150,8 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          break;
       case GL_CURRENT_FOG_COORDINATE_EXT:
          CHECK_EXT1(EXT_fog_coord, "GetIntegerv");
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = IROUND(ctx->Current.Attrib[VERT_ATTRIB_FOG][0]);
-         }
          break;
       case GL_FOG_COORDINATE_ARRAY_EXT:
          CHECK_EXT1(EXT_fog_coord, "GetIntegerv");
@@ -5679,6 +5704,26 @@ _mesa_GetIntegerv( GLenum pname, GLint *params )
          CHECK_EXT1(ARB_sync, "GetIntegerv");
          params[0] = INT64_TO_INT(ctx->Const.MaxServerWaitTimeout);
          break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING:
+         CHECK_EXT1(EXT_transform_feedback, "GetIntegerv");
+         params[0] = ctx->TransformFeedback.CurrentBuffer->Name;
+         break;
+      case GL_RASTERIZER_DISCARD:
+         CHECK_EXT1(EXT_transform_feedback, "GetIntegerv");
+         params[0] = BOOLEAN_TO_INT(ctx->TransformFeedback.RasterDiscard);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS:
+         CHECK_EXT1(EXT_transform_feedback, "GetIntegerv");
+         params[0] = ctx->Const.MaxTransformFeedbackInterleavedComponents;
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS:
+         CHECK_EXT1(EXT_transform_feedback, "GetIntegerv");
+         params[0] = ctx->Const.MaxTransformFeedbackSeparateAttribs;
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS:
+         CHECK_EXT1(EXT_transform_feedback, "GetIntegerv");
+         params[0] = ctx->Const.MaxTransformFeedbackSeparateComponents;
+         break;
       case GL_NUM_EXTENSIONS:
          params[0] = _mesa_get_extension_count(ctx);
          break;
@@ -5705,9 +5750,6 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
 
    if (!params)
       return;
-
-   if (ctx->NewState)
-      _mesa_update_state(ctx);
 
    if (ctx->Driver.GetInteger64v &&
        ctx->Driver.GetInteger64v(ctx, pname, params))
@@ -5736,6 +5778,8 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          params[0] = IROUND64(ctx->Pixel.AlphaBias);
          break;
       case GL_ALPHA_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLint64)(ctx->DrawBuffer->Visual.alphaBits);
          break;
       case GL_ALPHA_SCALE:
@@ -5796,6 +5840,8 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          params[0] = IROUND64(ctx->Pixel.BlueBias);
          break;
       case GL_BLUE_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLint64)(ctx->DrawBuffer->Visual.blueBits);
          break;
       case GL_BLUE_SCALE:
@@ -5850,27 +5896,21 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          params[0] = ENUM_TO_INT64(ctx->Polygon.CullFaceMode);
          break;
       case GL_CURRENT_COLOR:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][0]);
          params[1] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][1]);
          params[2] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][2]);
          params[3] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3]);
-         }
          break;
       case GL_CURRENT_INDEX:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = IROUND64(ctx->Current.Attrib[VERT_ATTRIB_COLOR_INDEX][0]);
-         }
          break;
       case GL_CURRENT_NORMAL:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][0]);
          params[1] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][1]);
          params[2] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_NORMAL][2]);
-         }
          break;
       case GL_CURRENT_RASTER_COLOR:
          params[0] = FLOAT_TO_INT64(ctx->Current.RasterColor[0]);
@@ -5963,10 +6003,8 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          params[0] = ENUM_TO_INT64(ctx->DrawBuffer->ColorDrawBuffer[0]);
          break;
       case GL_EDGE_FLAG:
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = BOOLEAN_TO_INT64((ctx->Current.Attrib[VERT_ATTRIB_EDGEFLAG][0] == 1.0));
-         }
          break;
       case GL_FEEDBACK_BUFFER_SIZE:
          params[0] = (GLint64)(ctx->Feedback.BufferSize);
@@ -6008,12 +6046,16 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          params[0] = IROUND64(ctx->Pixel.GreenBias);
          break;
       case GL_GREEN_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLint64)(ctx->DrawBuffer->Visual.greenBits);
          break;
       case GL_GREEN_SCALE:
          params[0] = IROUND64(ctx->Pixel.GreenScale);
          break;
       case GL_INDEX_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLint64)(ctx->DrawBuffer->Visual.indexBits);
          break;
       case GL_INDEX_CLEAR_VALUE:
@@ -6444,6 +6486,8 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          params[0] = IROUND64(ctx->Pixel.RedBias);
          break;
       case GL_RED_BITS:
+         if (ctx->NewState & _NEW_BUFFERS)
+            _mesa_update_state(ctx);
          params[0] = (GLint64)(ctx->DrawBuffer->Visual.redBits);
          break;
       case GL_RED_SCALE:
@@ -6974,13 +7018,11 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          break;
       case GL_CURRENT_SECONDARY_COLOR_EXT:
          CHECK_EXT1(EXT_secondary_color, "GetInteger64v");
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][0]);
          params[1] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][1]);
          params[2] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][2]);
          params[3] = FLOAT_TO_INT64(ctx->Current.Attrib[VERT_ATTRIB_COLOR1][3]);
-         }
          break;
       case GL_SECONDARY_COLOR_ARRAY_EXT:
          CHECK_EXT1(EXT_secondary_color, "GetInteger64v");
@@ -7000,10 +7042,8 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          break;
       case GL_CURRENT_FOG_COORDINATE_EXT:
          CHECK_EXT1(EXT_fog_coord, "GetInteger64v");
-         {
          FLUSH_CURRENT(ctx, 0);
          params[0] = IROUND64(ctx->Current.Attrib[VERT_ATTRIB_FOG][0]);
-         }
          break;
       case GL_FOG_COORDINATE_ARRAY_EXT:
          CHECK_EXT1(EXT_fog_coord, "GetInteger64v");
@@ -7556,6 +7596,26 @@ _mesa_GetInteger64v( GLenum pname, GLint64 *params )
          CHECK_EXT1(ARB_sync, "GetInteger64v");
          params[0] = ctx->Const.MaxServerWaitTimeout;
          break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING:
+         CHECK_EXT1(EXT_transform_feedback, "GetInteger64v");
+         params[0] = (GLint64)(ctx->TransformFeedback.CurrentBuffer->Name);
+         break;
+      case GL_RASTERIZER_DISCARD:
+         CHECK_EXT1(EXT_transform_feedback, "GetInteger64v");
+         params[0] = BOOLEAN_TO_INT64(ctx->TransformFeedback.RasterDiscard);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS:
+         CHECK_EXT1(EXT_transform_feedback, "GetInteger64v");
+         params[0] = (GLint64)(ctx->Const.MaxTransformFeedbackInterleavedComponents);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS:
+         CHECK_EXT1(EXT_transform_feedback, "GetInteger64v");
+         params[0] = (GLint64)(ctx->Const.MaxTransformFeedbackSeparateAttribs);
+         break;
+      case GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS:
+         CHECK_EXT1(EXT_transform_feedback, "GetInteger64v");
+         params[0] = (GLint64)(ctx->Const.MaxTransformFeedbackSeparateComponents);
+         break;
       case GL_NUM_EXTENSIONS:
          params[0] = (GLint64)(_mesa_get_extension_count(ctx));
          break;
@@ -7606,14 +7666,12 @@ _mesa_GetBooleanIndexedv( GLenum pname, GLuint index, GLboolean *params )
    if (!params)
       return;
 
-   if (ctx->NewState)
-      _mesa_update_state(ctx);
-
    switch (pname) {
       case GL_BLEND:
          CHECK_EXT1(EXT_draw_buffers2, "GetBooleanIndexedv");
          if (index >= ctx->Const.MaxDrawBuffers) {
             _mesa_error(ctx, GL_INVALID_VALUE, "glGetBooleanIndexedv(index=%u), index", pname);
+            return;
          }
          params[0] = INT_TO_BOOLEAN(((ctx->Color.BlendEnabled >> index) & 1));
          break;
@@ -7621,11 +7679,36 @@ _mesa_GetBooleanIndexedv( GLenum pname, GLuint index, GLboolean *params )
          CHECK_EXT1(EXT_draw_buffers2, "GetBooleanIndexedv");
          if (index >= ctx->Const.MaxDrawBuffers) {
             _mesa_error(ctx, GL_INVALID_VALUE, "glGetBooleanIndexedv(index=%u), index", pname);
+            return;
          }
          params[0] = INT_TO_BOOLEAN(ctx->Color.ColorMask[index][RCOMP] ? 1 : 0);
          params[1] = INT_TO_BOOLEAN(ctx->Color.ColorMask[index][GCOMP] ? 1 : 0);
          params[2] = INT_TO_BOOLEAN(ctx->Color.ColorMask[index][BCOMP] ? 1 : 0);
          params[3] = INT_TO_BOOLEAN(ctx->Color.ColorMask[index][ACOMP] ? 1 : 0);
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_START:
+         CHECK_EXT1(EXT_transform_feedback, "GetBooleanIndexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetBooleanIndexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = INT64_TO_BOOLEAN(ctx->TransformFeedback.Offset[index]);
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_SIZE:
+         CHECK_EXT1(EXT_transform_feedback, "GetBooleanIndexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetBooleanIndexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = INT64_TO_BOOLEAN(ctx->TransformFeedback.Size[index]);
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING:
+         CHECK_EXT1(EXT_transform_feedback, "GetBooleanIndexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetBooleanIndexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = INT_TO_BOOLEAN(ctx->TransformFeedback.Buffers[index]->Name);
          break;
       default:
          _mesa_error(ctx, GL_INVALID_ENUM, "glGetBooleanIndexedv(pname=0x%x)", pname);
@@ -7641,14 +7724,12 @@ _mesa_GetIntegerIndexedv( GLenum pname, GLuint index, GLint *params )
    if (!params)
       return;
 
-   if (ctx->NewState)
-      _mesa_update_state(ctx);
-
    switch (pname) {
       case GL_BLEND:
          CHECK_EXT1(EXT_draw_buffers2, "GetIntegerIndexedv");
          if (index >= ctx->Const.MaxDrawBuffers) {
             _mesa_error(ctx, GL_INVALID_VALUE, "glGetIntegerIndexedv(index=%u), index", pname);
+            return;
          }
          params[0] = ((ctx->Color.BlendEnabled >> index) & 1);
          break;
@@ -7656,11 +7737,36 @@ _mesa_GetIntegerIndexedv( GLenum pname, GLuint index, GLint *params )
          CHECK_EXT1(EXT_draw_buffers2, "GetIntegerIndexedv");
          if (index >= ctx->Const.MaxDrawBuffers) {
             _mesa_error(ctx, GL_INVALID_VALUE, "glGetIntegerIndexedv(index=%u), index", pname);
+            return;
          }
          params[0] = ctx->Color.ColorMask[index][RCOMP] ? 1 : 0;
          params[1] = ctx->Color.ColorMask[index][GCOMP] ? 1 : 0;
          params[2] = ctx->Color.ColorMask[index][BCOMP] ? 1 : 0;
          params[3] = ctx->Color.ColorMask[index][ACOMP] ? 1 : 0;
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_START:
+         CHECK_EXT1(EXT_transform_feedback, "GetIntegerIndexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetIntegerIndexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = INT64_TO_INT(ctx->TransformFeedback.Offset[index]);
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_SIZE:
+         CHECK_EXT1(EXT_transform_feedback, "GetIntegerIndexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetIntegerIndexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = INT64_TO_INT(ctx->TransformFeedback.Size[index]);
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING:
+         CHECK_EXT1(EXT_transform_feedback, "GetIntegerIndexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetIntegerIndexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = ctx->TransformFeedback.Buffers[index]->Name;
          break;
       default:
          _mesa_error(ctx, GL_INVALID_ENUM, "glGetIntegerIndexedv(pname=0x%x)", pname);
@@ -7677,14 +7783,12 @@ _mesa_GetInteger64Indexedv( GLenum pname, GLuint index, GLint64 *params )
    if (!params)
       return;
 
-   if (ctx->NewState)
-      _mesa_update_state(ctx);
-
    switch (pname) {
       case GL_BLEND:
          CHECK_EXT1(EXT_draw_buffers2, "GetInteger64Indexedv");
          if (index >= ctx->Const.MaxDrawBuffers) {
             _mesa_error(ctx, GL_INVALID_VALUE, "glGetInteger64Indexedv(index=%u), index", pname);
+            return;
          }
          params[0] = (GLint64)(((ctx->Color.BlendEnabled >> index) & 1));
          break;
@@ -7692,11 +7796,36 @@ _mesa_GetInteger64Indexedv( GLenum pname, GLuint index, GLint64 *params )
          CHECK_EXT1(EXT_draw_buffers2, "GetInteger64Indexedv");
          if (index >= ctx->Const.MaxDrawBuffers) {
             _mesa_error(ctx, GL_INVALID_VALUE, "glGetInteger64Indexedv(index=%u), index", pname);
+            return;
          }
          params[0] = (GLint64)(ctx->Color.ColorMask[index][RCOMP] ? 1 : 0);
          params[1] = (GLint64)(ctx->Color.ColorMask[index][GCOMP] ? 1 : 0);
          params[2] = (GLint64)(ctx->Color.ColorMask[index][BCOMP] ? 1 : 0);
          params[3] = (GLint64)(ctx->Color.ColorMask[index][ACOMP] ? 1 : 0);
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_START:
+         CHECK_EXT1(EXT_transform_feedback, "GetInteger64Indexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetInteger64Indexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = ctx->TransformFeedback.Offset[index];
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_SIZE:
+         CHECK_EXT1(EXT_transform_feedback, "GetInteger64Indexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetInteger64Indexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = ctx->TransformFeedback.Size[index];
+         break;
+      case GL_TRANSFORM_FEEDBACK_BUFFER_BINDING:
+         CHECK_EXT1(EXT_transform_feedback, "GetInteger64Indexedv");
+         if (index >= ctx->Const.MaxTransformFeedbackSeparateAttribs) {
+            _mesa_error(ctx, GL_INVALID_VALUE, "glGetInteger64Indexedv(index=%u), index", pname);
+            return;
+         }
+         params[0] = (GLint64)(ctx->TransformFeedback.Buffers[index]->Name);
          break;
       default:
          _mesa_error(ctx, GL_INVALID_ENUM, "glGetInteger64Indexedv(pname=0x%x)", pname);

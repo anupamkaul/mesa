@@ -64,7 +64,7 @@ nv30_texture_formats[] = {
 	_(I8_UNORM      , L8      ,   S1,   S1,   S1,   S1, X, X, X, X),
 	_(L8A8_UNORM    , A8L8    ,   S1,   S1,   S1,   S1, X, X, X, Y),
 	_(Z16_UNORM     , R5G6B5  ,   S1,   S1,   S1,  ONE, X, X, X, X),
-	_(S8Z24_UNORM   , A8R8G8B8,   S1,   S1,   S1,  ONE, X, X, X, X),
+	_(S8_USCALED_Z24_UNORM   , A8R8G8B8,   S1,   S1,   S1,  ONE, X, X, X, X),
 	_(DXT1_RGB      , DXT1    ,   S1,   S1,   S1,  ONE, X, Y, Z, W),
 	_(DXT1_RGBA     , DXT1    ,   S1,   S1,   S1,   S1, X, Y, Z, W),
 	_(DXT3_RGBA     , DXT3    ,   S1,   S1,   S1,   S1, X, Y, Z, W),
@@ -93,8 +93,8 @@ nv30_fragtex_build(struct nvfx_context *nvfx, int unit)
 {
 	struct nvfx_sampler_state *ps = nvfx->tex_sampler[unit];
 	struct nvfx_miptree *nv30mt = (struct nvfx_miptree *)nvfx->fragment_sampler_views[unit]->texture;
-	struct pipe_resource *pt = &nv30mt->base.base;
-	struct nouveau_bo *bo = nv30mt->base.bo;
+	struct pipe_resource *pt = &nv30mt->base;
+	struct nouveau_bo *bo = nouveau_bo(nv30mt->buffer);
 	struct nv30_texture_format *tf;
 	struct nouveau_stateobj *so;
 	uint32_t txf, txs;

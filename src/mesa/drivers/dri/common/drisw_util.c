@@ -63,6 +63,7 @@ driCreateNewScreen(int scrn, const __DRIextension **extensions,
     setupLoaderExtensions(psp, extensions);
 
     psp->extensions = emptyExtensionList;
+    psp->fd = -1;
     psp->myNum = scrn;
 
     *driver_configs = driDriverAPI.InitScreen(psp);
@@ -146,6 +147,7 @@ static int driBindContext(__DRIcontext *pcp,
 	pcp->driDrawablePriv = pdp;
 	pcp->driReadablePriv = prp;
 	if (pdp) {
+	    pdp->driContextPriv = pcp;
 	    dri_get_drawable(pdp);
 	}
 	if ( prp && pdp != prp ) {
@@ -221,6 +223,7 @@ driCreateNewDrawable(__DRIscreen *psp,
     pdp->loaderPrivate = data;
 
     pdp->driScreenPriv = psp;
+    pdp->driContextPriv = NULL;
 
     dri_get_drawable(pdp);
 
@@ -228,6 +231,8 @@ driCreateNewDrawable(__DRIscreen *psp,
 	FREE(pdp);
 	return NULL;
     }
+
+    pdp->lastStamp = 1; /* const */
 
     return pdp;
 }

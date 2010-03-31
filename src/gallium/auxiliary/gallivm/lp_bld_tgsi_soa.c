@@ -651,32 +651,40 @@ emit_declaration(
    unsigned first = decl->Range.First;
    unsigned last = decl->Range.Last;
    unsigned idx, i;
+   LLVMBasicBlockRef current_block =
+      LLVMGetInsertBlock(bld->base.builder);
+   LLVMBasicBlockRef first_block =
+      LLVMGetEntryBasicBlock(
+         LLVMGetBasicBlockParent(current_block));
+   LLVMValueRef first_inst =
+      LLVMGetFirstInstruction(first_block);
+
+   /* we want alloca's to be the first instruction
+    * in the function so we need to rewind the builder
+    * to the very beginning */
+   LLVMPositionBuilderBefore(bld->base.builder,
+                             first_inst);
 
    for (idx = first; idx <= last; ++idx) {
-      boolean ok;
-
       switch (decl->Declaration.File) {
       case TGSI_FILE_TEMPORARY:
          for (i = 0; i < NUM_CHANNELS; i++)
             bld->temps[idx][i] = lp_build_alloca(&bld->base);
-         ok = TRUE;
          break;
 
       case TGSI_FILE_OUTPUT:
          for (i = 0; i < NUM_CHANNELS; i++)
             bld->outputs[idx][i] = lp_build_alloca(&bld->base);
-         ok = TRUE;
          break;
 
       default:
          /* don't need to declare other vars */
-         ok = TRUE;
+         break;
       }
-
-      if (!ok)
-         return FALSE;
    }
 
+   LLVMPositionBuilderAtEnd(bld->base.builder,
+                            current_block);
    return TRUE;
 }
 

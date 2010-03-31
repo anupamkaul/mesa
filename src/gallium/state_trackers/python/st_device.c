@@ -31,6 +31,7 @@
 #include "pipe/p_shader_tokens.h"
 #include "util/u_inlines.h"
 #include "cso_cache/cso_context.h"
+#include "util/u_inlines.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 #include "util/u_sampler.h"
@@ -228,6 +229,7 @@ st_context_create(struct st_device *st_dev)
 
    /* default textures */
    {
+      struct pipe_context *pipe = st_ctx->pipe;
       struct pipe_screen *screen = st_dev->screen;
       struct pipe_resource templat;
       struct pipe_sampler_view view_templ;
@@ -249,16 +251,16 @@ st_context_create(struct st_device *st_dev)
 	 
 	 u_box_wh( 1, 1, &box );
 
-	 st_ctx->pipe->transfer_inline_write(st_ctx->pipe,
-					     st_ctx->default_texture,
-					     u_subresource(0,0),
-					     PIPE_TRANSFER_WRITE,
-					     &box,
-					     &zero,
-					     sizeof zero,
-					     0);
+	 pipe->transfer_inline_write(pipe,
+				     st_ctx->default_texture,
+				     u_subresource(0,0),
+				     PIPE_TRANSFER_WRITE,
+				     &box,
+				     &zero,
+				     sizeof zero,
+				     0);
       }
-      
+
       u_sampler_view_default_template(&view_templ,
                                       st_ctx->default_texture,
                                       st_ctx->default_texture->format);

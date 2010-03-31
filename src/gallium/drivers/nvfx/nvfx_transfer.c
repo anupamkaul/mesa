@@ -56,19 +56,15 @@ nvfx_miptree_transfer_new(struct pipe_context *pcontext,
 			  unsigned usage,
 			  const struct pipe_box *box)
 {
-        struct pipe_screen *pscreen = pcontext->screen;
+	struct pipe_screen *pscreen = pipe->screen;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)pt;
 	struct nvfx_transfer *tx;
 	struct pipe_resource tx_tex_template, *tx_tex;
-	static boolean firsttime = TRUE;
-	static boolean no_transfer = FALSE;
+	static int no_transfer = -1;
 	unsigned bind = nvfx_transfer_bind_flags(usage);
+	if(no_transfer < 0)
+		no_transfer = debug_get_bool_option("NOUVEAU_NO_TRANSFER", TRUE/*XXX:FALSE*/);
 
-	if (firsttime) {
-	   no_transfer = debug_get_bool_option("NOUVEAU_NO_TRANSFER",
-					       TRUE/*XXX:FALSE*/);
-	   firsttime = FALSE;
-	}
 
 	tx = CALLOC_STRUCT(nvfx_transfer);
 	if (!tx)
@@ -149,13 +145,13 @@ nvfx_miptree_transfer_new(struct pipe_context *pcontext,
 }
 
 void
-nvfx_miptree_transfer_del(struct pipe_context *pcontext,
+nvfx_miptree_transfer_del(struct pipe_context *pipe,
 			  struct pipe_transfer *ptx)
 {
 	struct nvfx_transfer *tx = (struct nvfx_transfer *)ptx;
 
 	if (!tx->direct && (ptx->usage & PIPE_TRANSFER_WRITE)) {
-		struct pipe_screen *pscreen = pcontext->screen;
+		struct pipe_screen *pscreen = pipe->screen;
 		struct nvfx_screen *nvscreen = nvfx_screen(pscreen);
 		struct pipe_surface *dst;
 
@@ -181,9 +177,9 @@ nvfx_miptree_transfer_del(struct pipe_context *pcontext,
 }
 
 void *
-nvfx_miptree_transfer_map(struct pipe_context *pcontext, struct pipe_transfer *ptx)
+nvfx_miptree_transfer_map(struct pipe_context *pipe, struct pipe_transfer *ptx)
 {
-        struct pipe_screen *pscreen = pcontext->screen;
+	struct pipe_screen *pscreen = pipe->screen;
 	struct nvfx_transfer *tx = (struct nvfx_transfer *)ptx;
 	struct nv04_surface *ns = (struct nv04_surface *)tx->surface;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)tx->surface->texture;
@@ -198,9 +194,9 @@ nvfx_miptree_transfer_map(struct pipe_context *pcontext, struct pipe_transfer *p
 }
 
 void
-nvfx_miptree_transfer_unmap(struct pipe_context *pcontext, struct pipe_transfer *ptx)
+nvfx_miptree_transfer_unmap(struct pipe_context *pipe, struct pipe_transfer *ptx)
 {
-	struct pipe_screen *pscreen = pcontext->screen;
+	struct pipe_screen *pscreen = pipe->screen;
 	struct nvfx_transfer *tx = (struct nvfx_transfer *)ptx;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)tx->surface->texture;
 
