@@ -103,49 +103,47 @@ For backwards compatibility, one-dimensional access to CONST register
 file is still supported. In that case, the constbuf index is assumed
 to be 0.
 
-.. _pipe_buffer_usage:
+.. _pipe_bind:
 
-PIPE_BUFFER_USAGE
-^^^^^^^^^^^^^^^^^
+PIPE_BIND
+^^^^^^^^^
 
-These flags control buffer creation. Buffers may only have one role, so
-care should be taken to not allocate a buffer with the wrong usage.
-
-* ``PIXEL``: This is the flag to use for all textures.
-* ``VERTEX``: A vertex buffer.
-* ``INDEX``: An element buffer.
-* ``CONSTANT``: A buffer of shader constants.
-
-Buffers are inevitably abstracting the pipe's underlying memory management,
-so many of their usage flags can be used to direct the way the buffer is
-handled.
-
-* ``CPU_READ``, ``CPU_WRITE``: Whether the user will map and, in the case of
-  the latter, write to, the buffer. The convenience flag ``CPU_READ_WRITE`` is
-  available to signify a read/write buffer.
-* ``GPU_READ``, ``GPU_WRITE``: Whether the driver will internally need to
-  read from or write to the buffer. The latter will only happen if the buffer
-  is made into a render target.
-
-
-.. _pipe_texture_usage:
-
-PIPE_TEXTURE_USAGE
-^^^^^^^^^^^^^^^^^^
-
-These flags determine the possible roles a texture may be used for during its
-lifetime. Texture usage flags are cumulative and may be combined to create a
-texture that can be used as multiple things.
+These flags control resource creation. Resources may be used in different roles
+during their lifecycle. Bind flags are cumulative and may be combined to create
+a resource which can be used as multiple things.
+Depending on the pipe driver's memory management, depending on these bind flags
+resources might be created and handled quite differently.
 
 * ``RENDER_TARGET``: A color buffer or pixel buffer which will be rendered to.
 * ``DISPLAY_TARGET``: A sharable buffer that can be given to another process.
-* ``PRIMARY``: A front color buffer or scanout buffer.
 * ``DEPTH_STENCIL``: A depth (Z) buffer or stencil buffer.  Gallium does
   not explicitly provide for stencil-only buffers, so any stencil buffer
   validated here is implicitly also a depth buffer.
-* ``SAMPLER``: A texture that may be sampled from in a fragment or vertex
+* ``SAMPLER_VIEW``: A texture that may be sampled from in a fragment or vertex
   shader.
-* ``DYNAMIC``: A texture that will be mapped frequently.
+* ``VERTEX_BUFFER``: A vertex buffer.
+* ``INDEX_BUFFER``: An element buffer.
+* ``CONSTANT_BUFFER``: A buffer of shader constants.
+* ``BLIT_SOURCE``: A blit source, as given to surface_copy.
+* ``BLIT_DESTINATION``: A blit destination, as given to surface_copy and surface_fill.
+* ``TRANSFER_WRITE``: A transfer object which will be written to.
+* ``TRANSFER_READ``: A transfer object which will be read from.
+* ``CUSTOM``:
+* ``SCANOUT``: A front color buffer or scanout buffer.
+* ``SHARED``:
+
+.. _pipe_usage:
+
+PIPE_USAGE
+^^^^^^^^^^
+
+The PIPE_USAGE enums are hints about the expected lifecycle of a resource.
+* ``DEFAULT``: Expect many uploads to the resource, intermixed with draws.
+* ``DYNAMIC``: Expect many uploads to the resource, intermixed with draws.
+* ``STATIC``: Same as immutable (?)
+* ``IMMUTABLE``: Resource will not be changed after first upload.
+* ``STREAM``: Upload will be followed by draw, followed by upload, ...
+
 
 
 PIPE_TEXTURE_GEOM
@@ -208,13 +206,10 @@ is_format_supported
 
 See if a format can be used in a specific manner.
 
-**usage** is a bitmask of :ref:`PIPE_TEXTURE_USAGE` flags.
+**tex_usage** is a bitmask of :ref:`PIPE_BIND` flags.
 
 Returns TRUE if all usages can be satisfied.
 
-.. note::
-
-   ``PIPE_TEXTURE_USAGE_DYNAMIC`` is not a valid usage.
 
 .. _resource_create:
 
@@ -222,6 +217,9 @@ resource_create
 ^^^^^^^^^^^^^^
 
 Given a template of texture setup, create a resource.
+The way a resource may be used is specifed by bind flags, :ref:`pipe_bind`.
+and hints are used to indicate to the driver what access pattern might be
+likely, :ref:`pipe_usage`.
 
 resource_destroy
 ^^^^^^^^^^^^^^^
