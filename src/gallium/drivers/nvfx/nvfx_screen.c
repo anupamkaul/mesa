@@ -376,7 +376,7 @@ nvfx_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 	}
 
 	nvfx_screen_init_resource_functions(pscreen);
-	nvfx_screen_init_miptree_functions(pscreen);
+	nvfx_screen_init_buffer_functions(screen);
 
 	ret = nouveau_grobj_alloc(chan, 0xbeef3097, eng3d_class, &screen->eng3d);
 	if (ret) {

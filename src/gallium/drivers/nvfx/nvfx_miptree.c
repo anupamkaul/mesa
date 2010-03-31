@@ -171,7 +171,7 @@ nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *pt)
 		case PIPE_FORMAT_R16_SNORM:
 		{
 			if (no_swizzle)
-				mt->base.flags |= NVFX_RESOURCE_FLAG_LINEAR;
+				mt->base.base.flags |= NVFX_RESOURCE_FLAG_LINEAR;
 			break;
 		}
 		default:
