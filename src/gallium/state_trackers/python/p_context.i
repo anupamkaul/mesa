@@ -286,13 +286,12 @@ struct st_context {
       size = num_verts * num_attribs * 4 * sizeof(float);
 
       vbuf = pipe_buffer_create(screen,
-                                32,
-                                PIPE_BUFFER_USAGE_VERTEX, 
+                                PIPE_BIND_VERTEX_BUFFER, 
                                 size);
       if(!vbuf)
          goto error1;
       
-      map = pipe_buffer_map(screen, vbuf, PIPE_BUFFER_USAGE_CPU_WRITE);
+      map = pipe_buffer_map(screen, vbuf, PIPE_TRANSFER_WRITE);
       if (!map)
          goto error2;
       memcpy(map, vertices, size);
@@ -330,11 +329,11 @@ error1:
       struct pipe_surface *_dst = NULL;
       struct pipe_surface *_src = NULL;
       
-      _dst = st_pipe_surface(dst, PIPE_BUFFER_USAGE_GPU_WRITE);
+      _dst = st_pipe_surface(dst, PIPE_BIND_BLIT_DESTINATION);
       if(!_dst)
          SWIG_exception(SWIG_ValueError, "couldn't acquire destination surface for writing");
 
-      _src = st_pipe_surface(src, PIPE_BUFFER_USAGE_GPU_READ);
+      _src = st_pipe_surface(src, PIPE_BIND_BLIT_SOURCE);
       if(!_src)
          SWIG_exception(SWIG_ValueError, "couldn't acquire source surface for reading");
       
@@ -352,7 +351,7 @@ error1:
    {
       struct pipe_surface *_dst = NULL;
       
-      _dst = st_pipe_surface(dst, PIPE_BUFFER_USAGE_GPU_WRITE);
+      _dst = st_pipe_surface(dst, PIPE_BIND_BLIT_DESTINATION);
       if(!_dst)
          SWIG_exception(SWIG_ValueError, "couldn't acquire destination surface for writing");
 

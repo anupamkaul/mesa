@@ -71,7 +71,7 @@ dri_drawable_get_format(struct dri_drawable *drawable,
 }
 
 /**
- * Process __DRIbuffer and convert them into pipe_textures.
+ * Process __DRIbuffer and convert them into pipe_resources.
  */
 static void
 dri_drawable_process_buffers(struct dri_drawable *drawable,

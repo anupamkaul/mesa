@@ -89,7 +89,7 @@ struct st_device {
                             unsigned geom_flags ) {
       /* We can't really display surfaces with the python statetracker so mask
        * out that usage */
-      tex_usage &= ~PIPE_TEXTURE_USAGE_DISPLAY_TARGET;
+      tex_usage &= ~PIPE_BIND_DISPLAY_TARGET;
 
       return $self->screen->is_format_supported( $self->screen, 
                                                  format, 
@@ -117,7 +117,7 @@ struct st_device {
 
       /* We can't really display surfaces with the python statetracker so mask
        * out that usage */
-      tex_usage &= ~PIPE_TEXTURE_USAGE_DISPLAY_TARGET;
+      tex_usage &= ~PIPE_BIND_DISPLAY_TARGET;
 
       memset(&templat, 0, sizeof(templat));
       templat.format = format;
@@ -126,7 +126,7 @@ struct st_device {
       templat.depth0 = depth;
       templat.last_level = last_level;
       templat.target = target;
-      templat.tex_usage = tex_usage;
+      templat.bind = tex_usage;
 
       return $self->screen->texture_create($self->screen, &templat);
    }
