@@ -49,7 +49,7 @@ struct svga_winsys_buffer;
 struct pipe_screen;
 struct pipe_context;
 struct pipe_fence_handle;
-struct pipe_texture;
+struct pipe_resource;
 struct svga_region;
 struct winsys_handle;
 

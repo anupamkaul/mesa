@@ -752,7 +752,7 @@ i915_texture_create(struct pipe_screen *screen,
     * guessing that this is Xorg asking for a cursor
     */
    if ((template->bind & PIPE_BIND_SCANOUT) && template->width0 != 64)
-      buf_usage = INTEL_NEW_SCANOUT;
+      buf_usage = I915_NEW_SCANOUT;
    else
       buf_usage = I915_NEW_TEXTURE;
 
@@ -820,38 +820,5 @@ i915_texture_from_handle(struct pipe_screen * screen,
    tex->buffer = buffer;
 
    return &tex->b.b;
-}
-
-static boolean
-i915_texture_get_handle(struct pipe_screen * screen,
-                        struct pipe_texture *texture,
-                        struct winsys_handle *whandle)
-{
-   struct i915_screen *is = i915_screen(screen);
-   struct i915_texture *tex = (struct i915_texture *)texture;
-   struct i915_winsys *iws = is->iws;
-
-   return iws->buffer_get_handle(iws, tex->buffer, whandle, tex->stride);
-}
-
-
-static void
-i915_texture_destroy(struct pipe_texture *pt)
-{
-   struct i915_texture *tex = (struct i915_texture *)pt;
-   struct i915_winsys *iws = i915_screen(pt->screen)->iws;
-   uint i;
-
-   /*
-     DBG("%s deleting %p\n", __FUNCTION__, (void *) tex);
-   */
-
-   iws->buffer_destroy(iws, tex->buffer);
-
-   for (i = 0; i < Elements(tex->image_offset); i++)
-      if (tex->image_offset[i])
-         FREE(tex->image_offset[i]);
-
-   FREE(tex);
 }
 

@@ -292,7 +292,7 @@ void st_init_extensions(struct st_context *st)
    else if (screen->is_format_supported(screen, PIPE_FORMAT_Z24_UNORM_S8_USCALED,
                                         PIPE_TEXTURE_2D, 
                                         PIPE_BIND_DEPTH_STENCIL, 0) &&
-            screen->is_format_supported(screen, PIPE_FORMAT_Z24S8_UNORM,
+            screen->is_format_supported(screen, PIPE_FORMAT_Z24_UNORM_S8_USCALED,
                                         PIPE_TEXTURE_2D, 
                                         PIPE_BIND_SAMPLER_VIEW, 0)) {
       ctx->Extensions.EXT_packed_depth_stencil = GL_TRUE;

@@ -31,11 +31,11 @@
 #include "cell/common.h"
 
 struct cell_context;
-struct pipe_texture;
+struct pipe_resource;
 
 
 /**
- * Subclass of pipe_texture
+ * Subclass of pipe_resource
  */
 struct cell_resource
 {

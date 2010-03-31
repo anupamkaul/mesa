@@ -492,7 +492,7 @@ lp_setup_set_fragment_sampler_views(struct lp_setup_context *setup,
          /* We're referencing the texture's internal data, so save a
           * reference to it.
           */
-         pipe_texture_reference(&setup->fs.current_tex[i], tex);
+         pipe_resource_reference(&setup->fs.current_tex[i], tex);
 
          if (!lp_tex->dt) {
             /* regular texture - setup array of mipmap level pointers */

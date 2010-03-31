@@ -31,7 +31,7 @@
 struct i915_winsys;
 struct i915_winsys_buffer;
 struct i915_winsys_batchbuffer;
-struct pipe_texture;
+struct pipe_resource;
 struct pipe_fence_handle;
 struct winsys_handle;
 

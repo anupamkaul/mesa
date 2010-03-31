@@ -54,7 +54,7 @@ void trace_dump_template(const struct pipe_resource *templat)
       return;
    }
 
-   trace_dump_struct_begin("pipe_texture");
+   trace_dump_struct_begin("pipe_resource");
 
    trace_dump_member(int, templat, target);
    trace_dump_member(format, templat, format);

@@ -52,9 +52,8 @@ struct lp_shader_input {
    unsigned src_index;          /* where to find values in incoming vertices */
 };
 
-struct pipe_texture;
+struct pipe_resource;
 struct pipe_surface;
-struct pipe_buffer;
 struct pipe_blend_color;
 struct pipe_screen;
 struct pipe_framebuffer_state;
