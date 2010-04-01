@@ -81,7 +81,7 @@ struct st_device {
    /**
     * Check if the given pipe_format is supported as a texture or
     * drawing surface.
-    * \param type  one of PIPE_TEXTURE, PIPE_SURFACE
+    * \param tex_usage bitmask of PIPE_BIND flags
     */
    int is_format_supported( enum pipe_format format, 
                             enum pipe_texture_target target,
@@ -103,7 +103,7 @@ struct st_device {
       return st_context_create($self);
    }
 
-   struct pipe_texture * 
+   struct pipe_resource * 
    texture_create(
          enum pipe_format format,
          unsigned width,
@@ -113,7 +113,7 @@ struct st_device {
          enum pipe_texture_target target = PIPE_TEXTURE_2D,
          unsigned tex_usage = 0
       ) {
-      struct pipe_texture templat;
+      struct pipe_resource templat;
 
       /* We can't really display surfaces with the python statetracker so mask
        * out that usage */
@@ -128,12 +128,12 @@ struct st_device {
       templat.target = target;
       templat.bind = tex_usage;
 
-      return $self->screen->texture_create($self->screen, &templat);
+      return $self->screen->resource_create($self->screen, &templat);
    }
-   
-   struct pipe_buffer *
-   buffer_create(unsigned size, unsigned alignment = 0, unsigned usage = 0) {
-      return pipe_buffer_create($self->screen, alignment, usage, size);
+
+   struct pipe_resource *
+   buffer_create(unsigned size, unsigned bind = 0) {
+      return pipe_buffer_create($self->screen, bind, size);
    }
 
 };

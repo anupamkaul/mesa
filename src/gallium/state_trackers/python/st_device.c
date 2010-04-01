@@ -249,7 +249,7 @@ st_context_create(struct st_device *st_dev)
 	 struct pipe_box box;
 	 uint32_t zero = 0;
 	 
-	 u_box_wh( 1, 1, &box );
+	 u_box_origin_2d( 1, 1, &box );
 
 	 pipe->transfer_inline_write(pipe,
 				     st_ctx->default_texture,

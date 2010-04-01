@@ -534,15 +534,15 @@ st_sample_surface(struct pipe_context *pipe,
    struct pipe_transfer *transfer;
    void *raw;
 
-   transfer = pipe->get_transfer(pipe,
-                                 surface->texture,
-                                 surface->face,
-                                 surface->level,
-                                 surface->zslice,
-                                 PIPE_TRANSFER_WRITE,
-                                 0, 0,
-                                 width,
-                                 height);
+   transfer = pipe_get_transfer(pipe,
+                                surface->texture,
+                                surface->face,
+                                surface->level,
+                                surface->zslice,
+                                PIPE_TRANSFER_WRITE,
+                                0, 0,
+                                width,
+                                height);
    if (!transfer)
       return;
 
