@@ -28,6 +28,7 @@
 
 #include "pipe/p_context.h"
 #include "util/u_memory.h"
+#include "util/u_inlines.h"
 
 #include "id_context.h"
 #include "id_objects.h"
