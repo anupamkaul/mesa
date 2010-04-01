@@ -179,10 +179,9 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     make_empty_list(&r300->query_list);
 
     r300_init_flush_functions(r300);
-
     r300_init_query_functions(r300);
-
     r300_init_state_functions(r300);
+    r300_init_resource_functions(r300);
 
     r300->invariant_state.dirty = TRUE;
 
