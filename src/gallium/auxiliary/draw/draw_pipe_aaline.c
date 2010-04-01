@@ -435,7 +435,7 @@ aaline_create_texture(struct aaline_stage *aaline)
 
       assert(aaline->texture->width0 == aaline->texture->height0);
 
-      u_box_orgin_2d( size, size, &box );
+      u_box_origin_2d( size, size, &box );
 
       /* This texture is new, no need to flush. 
        */

@@ -32,9 +32,9 @@ void u_box_2d( unsigned x,
 }
 
 static INLINE
-void u_box_orgin_2d( unsigned w,
-		     unsigned h,
-		     struct pipe_box *box )
+void u_box_origin_2d( unsigned w,
+		      unsigned h,
+		      struct pipe_box *box )
 {
    box->x = 0;
    box->y = 0;
