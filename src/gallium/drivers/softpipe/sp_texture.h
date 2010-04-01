@@ -30,7 +30,6 @@
 
 
 #include "pipe/p_state.h"
-#include "pipe/p_video_state.h"
 
 
 #define SP_MAX_TEXTURE_2D_LEVELS 13  /* 4K x 4K */
@@ -75,14 +74,6 @@ struct softpipe_transfer
    unsigned long offset;
 };
 
-struct softpipe_video_surface
-{
-   struct pipe_video_surface base;
-
-   /* The data is held here:
-    */
-   struct pipe_resource *tex;
-};
 
 
 /** cast wrappers */
@@ -96,12 +87,6 @@ static INLINE struct softpipe_transfer *
 softpipe_transfer(struct pipe_transfer *pt)
 {
    return (struct softpipe_transfer *) pt;
-}
-
-static INLINE struct softpipe_video_surface *
-softpipe_video_surface(struct pipe_video_surface *pvs)
-{
-   return (struct softpipe_video_surface *) pvs;
 }
 
 

@@ -57,7 +57,6 @@ struct pipe_winsys;
 struct pipe_texture;
 struct pipe_resource;
 struct pipe_surface;
-struct pipe_video_surface;
 struct pipe_transfer;
 
 
@@ -169,17 +168,6 @@ struct pipe_screen {
 					       void *ptr,
 					       unsigned bytes,
 					       unsigned bind_flags);
-
-   /**
-    * Create a video surface suitable for use as a decoding target by the
-    * driver's pipe_video_context.
-    */
-   struct pipe_video_surface*
-   (*video_surface_create)( struct pipe_screen *screen,
-                            enum pipe_video_chroma_format chroma_format,
-                            unsigned width, unsigned height );
-
-   void (*video_surface_destroy)( struct pipe_video_surface *vsfc );
 
    /**
     * Do any special operations to ensure buffer size is correct

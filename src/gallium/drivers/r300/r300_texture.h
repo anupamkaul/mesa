@@ -23,7 +23,6 @@
 #ifndef R300_TEXTURE_H
 #define R300_TEXTURE_H
 
-#include "pipe/p_video_state.h"
 #include "util/u_format.h"
 
 #include "r300_reg.h"
@@ -46,19 +45,6 @@ boolean r300_is_zs_format_supported(enum pipe_format format);
 
 boolean r300_is_sampler_format_supported(enum pipe_format format);
 
-struct r300_video_surface
-{
-    struct pipe_video_surface   base;
-    struct pipe_resource         *tex;
-};
-
-static INLINE struct r300_video_surface *
-r300_video_surface(struct pipe_video_surface *pvs)
-{
-    return (struct r300_video_surface *)pvs;
-}
-
-
 
 struct pipe_resource*
 r300_texture_from_handle(struct pipe_screen* screen,
@@ -68,13 +54,6 @@ r300_texture_from_handle(struct pipe_screen* screen,
 struct pipe_resource*
 r300_texture_create(struct pipe_screen* screen,
 		    const struct pipe_resource* template);
-
-struct pipe_video_surface *
-r300_video_surface_create(struct pipe_screen *screen,
-                          enum pipe_video_chroma_format chroma_format,
-                          unsigned width, unsigned height);
-
-void r300_video_surface_destroy(struct pipe_video_surface *vsfc);
 
 
 struct pipe_surface* r300_get_tex_surface(struct pipe_screen* screen,
