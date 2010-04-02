@@ -1,6 +1,8 @@
 #ifndef __NOUVEAU_SCREEN_H__
 #define __NOUVEAU_SCREEN_H__
 
+#define PIPE_USAGE_STAGING         5
+
 struct nouveau_screen {
 	struct pipe_screen base;
 	struct nouveau_device *device;
@@ -21,7 +23,7 @@ nouveau_screen(struct pipe_screen *pscreen)
  */
 struct nouveau_bo *
 nouveau_screen_bo_new(struct pipe_screen *pscreen, unsigned alignment,
-		      unsigned usage, unsigned size);
+		      unsigned usage, unsigned bind, unsigned size);
 struct nouveau_bo *
 nouveau_screen_bo_user(struct pipe_screen *pscreen, void *ptr, unsigned bytes);
 void *

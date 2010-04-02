@@ -124,8 +124,6 @@ struct pipe_resource *
 nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *pt)
 {
 	struct nvfx_miptree *mt;
-	unsigned buf_usage = NOUVEAU_BUFFER_USAGE_PIXEL |
-	                     NOUVEAU_BUFFER_USAGE_TEXTURE;
 	static int no_swizzle = -1;
 	if(no_swizzle < 0)
 		no_swizzle = debug_get_bool_option("NOUVEAU_NO_SWIZZLE", FALSE);
@@ -179,9 +177,6 @@ nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *pt)
 		}
 	}
 
-	if (pt->_usage == PIPE_USAGE_DYNAMIC)
-		buf_usage |= NOUVEAU_BUFFER_USAGE_CPU_READ_WRITE;
-
 	/* apparently we can't render to swizzled surfaces smaller than 64 bytes, so make them linear.
 	 * If the user did not ask for a render target, they can still render to it, but it will cost them an extra copy.
 	 * This also happens for small mipmaps of large textures. */
@@ -192,7 +187,7 @@ nvfx_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *pt)
 	nvfx_miptree_layout(mt);
 
 	mt->base.bo = nouveau_screen_bo_new(pscreen, 256,
-					    buf_usage, mt->total_size);
+            pt->_usage, pt->bind, mt->total_size);
 	if (!mt->base.bo) {
 		FREE(mt);
 		return NULL;

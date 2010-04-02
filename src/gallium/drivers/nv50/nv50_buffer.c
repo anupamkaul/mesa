@@ -100,7 +100,8 @@ nv50_buffer_create(struct pipe_screen *pscreen,
 
 	buffer->bo = nouveau_screen_bo_new(pscreen,
 					   16,
-					   nouveau_screen_bind_flags(buffer->base.bind),
+					   buffer->base._usage,
+					   buffer->base.bind,
 					   buffer->base.width0);
 
 	if (buffer->bo == NULL)

@@ -50,7 +50,7 @@ nvfx_surface_buffer(struct pipe_surface *surf)
 
 
 void
-nvfx_init_resource_functions(struct pipe_context *pcontext);
+nvfx_init_resource_functions(struct pipe_context *pipe);
 
 void
 nvfx_screen_init_resource_functions(struct pipe_screen *pscreen);

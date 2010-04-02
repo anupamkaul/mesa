@@ -37,33 +37,42 @@ nouveau_screen_get_vendor(struct pipe_screen *pscreen)
 
 struct nouveau_bo *
 nouveau_screen_bo_new(struct pipe_screen *pscreen, unsigned alignment,
-		      unsigned usage, unsigned size)
+		      unsigned usage, unsigned bind, unsigned size)
 {
 	struct nouveau_device *dev = nouveau_screen(pscreen)->device;
 	struct nouveau_bo *bo = NULL;
 	uint32_t flags = NOUVEAU_BO_MAP, tile_mode = 0, tile_flags = 0;
 	int ret;
 
-	if (usage & NOUVEAU_BUFFER_USAGE_TRANSFER)
+	/* TODO: this is somewhat wrong */
+	if (usage == PIPE_USAGE_STAGING)
 		flags |= NOUVEAU_BO_GART;
 	else
-	if (usage & NOUVEAU_BUFFER_USAGE_VERTEX) {
+	if (bind & PIPE_BIND_VERTEX_BUFFER) {
 		if (pscreen->get_param(pscreen, NOUVEAU_CAP_HW_VTXBUF))
 			flags |= NOUVEAU_BO_GART;
 	} else
-	if (usage & NOUVEAU_BUFFER_USAGE_INDEX) {
+	if (usage & PIPE_BIND_INDEX_BUFFER) {
 		if (pscreen->get_param(pscreen, NOUVEAU_CAP_HW_IDXBUF))
 			flags |= NOUVEAU_BO_GART;
 	}
 
-	if (usage & NOUVEAU_BUFFER_USAGE_PIXEL) {
-		if (usage & NOUVEAU_BUFFER_USAGE_TEXTURE)
+	if (bind & (PIPE_BIND_RENDER_TARGET |
+			PIPE_BIND_DEPTH_STENCIL |
+			PIPE_BIND_BLIT_SOURCE |
+			PIPE_BIND_BLIT_DESTINATION |
+			PIPE_BIND_SCANOUT |
+			PIPE_BIND_DISPLAY_TARGET |
+			PIPE_BIND_SAMPLER_VIEW))
+	{
+		/* TODO: this may be incorrect or suboptimal */
+		if (!(bind & PIPE_BIND_SCANOUT))
 			flags |= NOUVEAU_BO_GART;
-		if (!(usage & NOUVEAU_BUFFER_USAGE_CPU_READ_WRITE))
+		if (usage != PIPE_USAGE_DYNAMIC)
 			flags |= NOUVEAU_BO_VRAM;
 
 		if (dev->chipset == 0x50 || dev->chipset >= 0x80) {
-			if (usage & NOUVEAU_BUFFER_USAGE_ZETA)
+			if (bind & PIPE_BIND_DEPTH_STENCIL)
 				tile_flags = 0x2800;
 			else
 				tile_flags = 0x7000;

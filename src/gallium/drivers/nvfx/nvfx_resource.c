@@ -42,15 +42,15 @@ nvfx_resource_from_handle(struct pipe_screen * screen,
 }
 
 void
-nvfx_init_resource_functions(struct pipe_context *pcontext)
+nvfx_init_resource_functions(struct pipe_context *pipe)
 {
-	pcontext->get_transfer = u_get_transfer_vtbl;
-	pcontext->transfer_map = u_transfer_map_vtbl;
-	pcontext->transfer_flush_region = u_transfer_flush_region_vtbl;
-	pcontext->transfer_unmap = u_transfer_unmap_vtbl;
-	pcontext->transfer_destroy = u_transfer_destroy_vtbl;
-	pcontext->transfer_inline_write = u_transfer_inline_write_vtbl;
-	pcontext->is_resource_referenced = nvfx_resource_is_referenced;
+	pipe->get_transfer = u_get_transfer_vtbl;
+	pipe->transfer_map = u_transfer_map_vtbl;
+	pipe->transfer_flush_region = u_transfer_flush_region_vtbl;
+	pipe->transfer_unmap = u_transfer_unmap_vtbl;
+	pipe->transfer_destroy = u_transfer_destroy_vtbl;
+	pipe->transfer_inline_write = u_transfer_inline_write_vtbl;
+	pipe->is_resource_referenced = nvfx_resource_is_referenced;
 }
 
 void
