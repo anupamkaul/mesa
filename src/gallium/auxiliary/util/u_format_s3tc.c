@@ -303,7 +303,7 @@ util_format_dxt3_rgba_unpack_8unorm(uint8_t *dst_row, unsigned dst_stride, const
 void
 util_format_dxt5_rgba_unpack_8unorm(uint8_t *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
 {
-   if (is_nop(util_format_dxt5_rgba_fetch)) {
+   if (!is_nop(util_format_dxt5_rgba_fetch)) {
       unsigned x, y, i, j;
       for(y = 0; y < height; y += 4) {
          const uint8_t *src = src_row;
@@ -324,7 +324,7 @@ util_format_dxt5_rgba_unpack_8unorm(uint8_t *dst_row, unsigned dst_stride, const
 void
 util_format_dxt1_rgb_unpack_float(float *dst_row, unsigned dst_stride, const uint8_t *src_row, unsigned src_stride, unsigned width, unsigned height)
 {
-   if (is_nop(util_format_dxt1_rgb_fetch)) {
+   if (!is_nop(util_format_dxt1_rgb_fetch)) {
       unsigned x, y, i, j;
       for(y = 0; y < height; y += 4) {
          const uint8_t *src = src_row;
