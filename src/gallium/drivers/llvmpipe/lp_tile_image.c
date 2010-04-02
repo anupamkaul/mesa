@@ -127,9 +127,15 @@ tile_4_4_uint16(const uint16_t *src, uint16_t *dst, unsigned src_stride)
  */
 void
 lp_tiled_to_linear(const void *src, void *dst,
+                   unsigned x, unsigned y,
                    unsigned width, unsigned height,
                    enum pipe_format format, unsigned dst_stride)
 {
+   assert(x % TILE_SIZE == 0);
+   assert(y % TILE_SIZE == 0);
+   /*assert(width % TILE_SIZE == 0);
+     assert(height % TILE_SIZE == 0);*/
+
    /* Note that Z/stencil surfaces use a different tiling size than
     * color surfaces.
     */
@@ -149,9 +155,10 @@ lp_tiled_to_linear(const void *src, void *dst,
          for (j = 0; j < height; j += tile_h) {
             for (i = 0; i < width; i += tile_w) {
                /* compute offsets in 32-bit words */
-               uint src_offset =
-                  (j / tile_h * tiles_per_row + i / tile_w) * (tile_w * tile_h);
-               uint dst_offset = j * dst_stride + i;
+               uint ii = i + x, jj = j + y;
+               uint src_offset = (jj / tile_h * tiles_per_row + ii / tile_w)
+                  * (tile_w * tile_h);
+               uint dst_offset = jj * dst_stride + ii;
                untile_4_4_uint32(src32 + src_offset,
                                  dst32 + dst_offset,
                                  dst_stride);
@@ -168,9 +175,10 @@ lp_tiled_to_linear(const void *src, void *dst,
          for (j = 0; j < height; j += tile_h) {
             for (i = 0; i < width; i += tile_w) {
                /* compute offsets in 16-bit words */
-               uint src_offset =
-                  (j / tile_h * tiles_per_row + i / tile_w) * (tile_w * tile_h);
-               uint dst_offset = j * dst_stride + i;
+               uint ii = i + x, jj = j + y;
+               uint src_offset = (jj / tile_h * tiles_per_row + ii / tile_w)
+                  * (tile_w * tile_h);
+               uint dst_offset = jj * dst_stride + ii;
                untile_4_4_uint16(src16 + src_offset,
                                  dst16 + dst_offset,
                                  dst_stride);
@@ -189,15 +197,15 @@ lp_tiled_to_linear(const void *src, void *dst,
 
       for (j = 0; j < height; j += tile_h) {
          for (i = 0; i < width; i += tile_w) {
-            uint tile_offset =
-               ((j / tile_h) * tiles_per_row + i / tile_w);
+            uint ii = i + x, jj = j + y;
+            uint tile_offset = ((jj / tile_h) * tiles_per_row + ii / tile_w);
             uint byte_offset = tile_offset * bytes_per_tile;
             const uint8_t *src_tile = (uint8_t *) src + byte_offset;
 
             lp_tile_write_4ub(format,
                               src_tile,
                               dst, dst_stride,
-                              i, j, tile_w, tile_h);
+                              ii, jj, tile_w, tile_h);
          }
       }
    }
@@ -211,9 +219,15 @@ lp_tiled_to_linear(const void *src, void *dst,
  */
 void
 lp_linear_to_tiled(const void *src, void *dst,
+                   unsigned x, unsigned y,
                    unsigned width, unsigned height,
                    enum pipe_format format, unsigned src_stride)
 {
+   assert(x % TILE_SIZE == 0);
+   assert(y % TILE_SIZE == 0);
+   assert(width % TILE_SIZE == 0);
+   assert(height % TILE_SIZE == 0);
+
    if (util_format_is_depth_or_stencil(format)) {
       const uint bpp = util_format_get_blocksize(format);
       const uint dst_stride = src_stride * TILE_VECTOR_WIDTH;
@@ -230,8 +244,9 @@ lp_linear_to_tiled(const void *src, void *dst,
          for (j = 0; j < height; j += tile_h) {
             for (i = 0; i < width; i += tile_w) {
                /* compute offsets in 32-bit words */
-               uint src_offset = j * src_stride + i;
-               uint dst_offset = (j / tile_h * tiles_per_row + i / tile_w)
+               uint ii = i + x, jj = j + y;
+               uint src_offset = jj * src_stride + ii;
+               uint dst_offset = (jj / tile_h * tiles_per_row + ii / tile_w)
                   * (tile_w * tile_h);
                tile_4_4_uint32(src32 + src_offset,
                                dst32 + dst_offset,
@@ -249,8 +264,9 @@ lp_linear_to_tiled(const void *src, void *dst,
          for (j = 0; j < height; j += tile_h) {
             for (i = 0; i < width; i += tile_w) {
                /* compute offsets in 16-bit words */
-               uint src_offset = j * src_stride + i;
-               uint dst_offset = (j / tile_h * tiles_per_row + i / tile_w)
+               uint ii = i + x, jj = j + y;
+               uint src_offset = jj * src_stride + ii;
+               uint dst_offset = (jj / tile_h * tiles_per_row + ii / tile_w)
                   * (tile_w * tile_h);
                tile_4_4_uint16(src16 + src_offset,
                                dst16 + dst_offset,
@@ -269,15 +285,15 @@ lp_linear_to_tiled(const void *src, void *dst,
 
       for (j = 0; j < height; j += TILE_SIZE) {
          for (i = 0; i < width; i += TILE_SIZE) {
-            uint tile_offset =
-               ((j / tile_h) * tiles_per_row + i / tile_w);
+            uint ii = i + x, jj = j + y;
+            uint tile_offset = ((jj / tile_h) * tiles_per_row + ii / tile_w);
             uint byte_offset = tile_offset * bytes_per_tile;
             uint8_t *dst_tile = (uint8_t *) dst + byte_offset;
 
             lp_tile_read_4ub(format,
                              dst_tile,
                              src, src_stride,
-                             i, j, tile_w, tile_h);
+                             ii, jj, tile_w, tile_h);
          }
       }
    }
@@ -301,10 +317,10 @@ test_tiled_linear_conversion(void *data,
 
    /*unsigned tiled_stride = wt * TILE_SIZE * TILE_SIZE * 4;*/
 
-   lp_linear_to_tiled(data, tiled, width, height, format,
+   lp_linear_to_tiled(data, tiled, 0, 0, width, height, format,
                       stride);
 
-   lp_tiled_to_linear(tiled, data, width, height, format,
+   lp_tiled_to_linear(tiled, data, 0, 0, width, height, format,
                       stride);
 
    free(tiled);

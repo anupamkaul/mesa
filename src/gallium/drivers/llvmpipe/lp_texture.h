@@ -101,6 +101,8 @@ struct llvmpipe_texture
    struct llvmpipe_texture_image linear[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
 
    unsigned timestamp;
+
+   unsigned id;  /**< temporary, for debugging */
 };
 
 
@@ -163,6 +165,18 @@ llvmpipe_get_texture_image(struct llvmpipe_texture *texture,
                            unsigned face, unsigned level,
                            enum lp_texture_usage usage,
                            enum lp_texture_layout layout);
+
+
+ubyte *
+llvmpipe_get_texture_tile(struct llvmpipe_texture *lpt,
+                          unsigned face, unsigned level,
+                          enum lp_texture_usage usage,
+                          unsigned x, unsigned y);
+
+
+enum lp_texture_layout
+llvmpipe_get_texture_image_layout(const struct llvmpipe_texture *lpt,
+                                  unsigned face, unsigned level);
 
 
 extern void
