@@ -327,8 +327,7 @@ choose_pixel_format(XMesaVisual v)
       return PIPE_FORMAT_B5G6R5_UNORM;
    }
 
-   assert(0);
-   return 0;
+   return PIPE_FORMAT_NONE;
 }
 
 
@@ -356,8 +355,8 @@ choose_depth_stencil_format(XMesaDisplay xmdpy, int depth, int stencil)
       formats[count++] = PIPE_FORMAT_Z24X8_UNORM;
    }
    if (depth <= 24 && stencil <= 8) {
-      formats[count++] = PIPE_FORMAT_S8Z24_UNORM;
-      formats[count++] = PIPE_FORMAT_Z24S8_UNORM;
+      formats[count++] = PIPE_FORMAT_S8_USCALED_Z24_UNORM;
+      formats[count++] = PIPE_FORMAT_Z24_UNORM_S8_USCALED;
    }
    if (depth <= 32 && stencil == 0) {
       formats[count++] = PIPE_FORMAT_Z32_UNORM;
@@ -737,6 +736,12 @@ XMesaVisual XMesaCreateVisual( Display *display,
    }
 
    v->stvis.color_format = choose_pixel_format(v);
+   if (v->stvis.color_format == PIPE_FORMAT_NONE) {
+      FREE(v->visinfo);
+      FREE(v);
+      return NULL;
+   }
+
    v->stvis.depth_stencil_format =
       choose_depth_stencil_format(xmdpy, depth_size, stencil_size);
 

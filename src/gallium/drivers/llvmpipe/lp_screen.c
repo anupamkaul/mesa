@@ -191,14 +191,14 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
       break;
    }
 
+   if(format_desc->block.width != 1 ||
+      format_desc->block.height != 1)
+      return FALSE;
+
+   if(format_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN)
+      return FALSE;
+
    if(tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) {
-      if(format_desc->block.width != 1 ||
-         format_desc->block.height != 1)
-         return FALSE;
-
-      if(format_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN)
-         return FALSE;
-
       if(format_desc->colorspace != UTIL_FORMAT_COLORSPACE_RGB &&
          format_desc->colorspace != UTIL_FORMAT_COLORSPACE_SRGB)
          return FALSE;
@@ -222,19 +222,12 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
 
    /* FIXME: Temporary restrictions. See lp_bld_sample_soa.c */
    if(tex_usage & PIPE_TEXTURE_USAGE_SAMPLER) {
-      if(format_desc->block.width != 1 ||
-         format_desc->block.height != 1)
-         return FALSE;
-
-      if(format_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN)
+      if(!format_desc->is_bitmask &&
+         format != PIPE_FORMAT_R32_FLOAT)
          return FALSE;
 
       if(format_desc->colorspace != UTIL_FORMAT_COLORSPACE_RGB &&
          format_desc->colorspace != UTIL_FORMAT_COLORSPACE_ZS)
-         return FALSE;
-
-      /* not supported yet */
-      if (format == PIPE_FORMAT_Z16_UNORM)
          return FALSE;
    }
 

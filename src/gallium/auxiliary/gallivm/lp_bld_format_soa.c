@@ -80,6 +80,24 @@ lp_build_format_swizzle_soa(const struct util_format_description *format_desc,
 }
 
 
+/**
+ * Unpack several pixels in SoA.
+ *
+ * It takes a vector of packed pixels:
+ *
+ *   packed = {P0, P1, P2, P3, ..., Pn}
+ *
+ * And will produce four vectors:
+ *
+ *   red    = {R0, R1, R2, R3, ..., Rn}
+ *   green  = {G0, G1, G2, G3, ..., Gn}
+ *   blue   = {B0, B1, B2, B3, ..., Bn}
+ *   alpha  = {A0, A1, A2, A3, ..., An}
+ *
+ * It requires that a packed pixel fits into an element of the output
+ * channels. The common case is when converting pixel with a depth of 32 bit or
+ * less into floats.
+ */
 void
 lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
                          const struct util_format_description *format_desc,
@@ -91,15 +109,17 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
    unsigned start;
    unsigned chan;
 
-   /* FIXME: Support more formats */
-   assert(format_desc->layout == UTIL_FORMAT_LAYOUT_PLAIN);
+   /* FIXME: Support more pixel formats */
    assert(format_desc->block.width == 1);
    assert(format_desc->block.height == 1);
-   assert(format_desc->block.bits <= 32);
+   assert(format_desc->block.bits <= type.width);
+   /* FIXME: Support more output types */
+   assert(type.floating);
+   assert(type.width == 32);
 
    /* Decode the input vector components */
    start = 0;
-   for (chan = 0; chan < 4; ++chan) {
+   for (chan = 0; chan < format_desc->nr_channels; ++chan) {
       unsigned width = format_desc->channel[chan].size;
       unsigned stop = start + width;
       LLVMValueRef input;
@@ -108,22 +128,92 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
 
       switch(format_desc->channel[chan].type) {
       case UTIL_FORMAT_TYPE_VOID:
-         input = NULL;
+         input = lp_build_undef(type);
          break;
 
       case UTIL_FORMAT_TYPE_UNSIGNED:
-         if(type.floating) {
-            if(start)
-               input = LLVMBuildLShr(builder, input, lp_build_const_int_vec(type, start), "");
-            if(stop < format_desc->block.bits) {
-               unsigned mask = ((unsigned long long)1 << width) - 1;
-               input = LLVMBuildAnd(builder, input, lp_build_const_int_vec(type, mask), "");
-            }
+         /*
+          * Align the LSB
+          */
 
+         if (start) {
+            input = LLVMBuildLShr(builder, input, lp_build_const_int_vec(type, start), "");
+         }
+
+         /*
+          * Zero the MSBs
+          */
+
+         if (stop < format_desc->block.bits) {
+            unsigned mask = ((unsigned long long)1 << width) - 1;
+            input = LLVMBuildAnd(builder, input, lp_build_const_int_vec(type, mask), "");
+         }
+
+         /*
+          * Type conversion
+          */
+
+         if (type.floating) {
             if(format_desc->channel[chan].normalized)
                input = lp_build_unsigned_norm_to_float(builder, width, type, input);
             else
-               input = LLVMBuildFPToSI(builder, input, lp_build_vec_type(type), "");
+               input = LLVMBuildSIToFP(builder, input, lp_build_vec_type(type), "");
+         }
+         else {
+            /* FIXME */
+            assert(0);
+            input = lp_build_undef(type);
+         }
+
+         break;
+
+      case UTIL_FORMAT_TYPE_SIGNED:
+         /*
+          * Align the sign bit first.
+          */
+
+         if (stop < type.width) {
+            unsigned bits = type.width - stop;
+            LLVMValueRef bits_val = lp_build_const_int_vec(type, bits);
+            input = LLVMBuildShl(builder, input, bits_val, "");
+         }
+
+         /*
+          * Align the LSB (with an arithmetic shift to preserve the sign)
+          */
+
+         if (format_desc->channel[chan].size < type.width) {
+            unsigned bits = type.width - format_desc->channel[chan].size;
+            LLVMValueRef bits_val = lp_build_const_int_vec(type, bits);
+            input = LLVMBuildAShr(builder, input, bits_val, "");
+         }
+
+         /*
+          * Type conversion
+          */
+
+         if (type.floating) {
+            input = LLVMBuildSIToFP(builder, input, lp_build_vec_type(type), "");
+            if (format_desc->channel[chan].normalized) {
+               double scale = 1.0 / ((1 << (format_desc->channel[chan].size - 1)) - 1);
+               LLVMValueRef scale_val = lp_build_const_vec(type, scale);
+               input = LLVMBuildMul(builder, input, scale_val, "");
+            }
+         }
+         else {
+            /* FIXME */
+            assert(0);
+            input = lp_build_undef(type);
+         }
+
+         break;
+
+      case UTIL_FORMAT_TYPE_FLOAT:
+         if (type.floating) {
+            assert(start == 0);
+            assert(stop == 32);
+            assert(type.width == 32);
+            input = LLVMBuildBitCast(builder, input, lp_build_vec_type(type), "");
          }
          else {
             /* FIXME */
@@ -132,8 +222,13 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
          }
          break;
 
+      case UTIL_FORMAT_TYPE_FIXED:
+         assert(0);
+         input = lp_build_undef(type);
+         break;
+
       default:
-         /* fall through */
+         assert(0);
          input = lp_build_undef(type);
          break;
       }

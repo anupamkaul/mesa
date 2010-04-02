@@ -31,18 +31,16 @@ env.CodeGenerate(
 )
 
 env.CodeGenerate(
-    target = File('util/u_format_pack.h').srcnode(),
-    script = 'util/u_format_pack.py',
-    source = ['util/u_format.csv'],
-    command = 'python $SCRIPT $SOURCE > $TARGET'
+    target = 'util/u_half.c',
+    script = 'util/u_half.py',
+    source = [],
+    command = 'python $SCRIPT > $TARGET'
 )
 
-env.CodeGenerate(
-    target = 'util/u_format_access.c',
-    script = 'util/u_format_access.py',
-    source = ['util/u_format.csv'],
-    command = 'python $SCRIPT $SOURCE > $TARGET'
-)
+env.Depends('util/u_format_table.c', [
+    'util/u_format_parse.py', 
+    'util/u_format_pack.py', 
+])
 
 source = [
     'cso_cache/cso_context.c',
@@ -149,10 +147,12 @@ source = [
     'util/u_dump_state.c',
     'util/u_dl.c',
     'util/u_draw_quad.c',
-    'util/u_format_access.c',
+    'util/u_format.c',
+    'util/u_format_s3tc.c',
     'util/u_format_table.c',
     'util/u_format_tests.c',
     'util/u_gen_mipmap.c',
+    'util/u_half.c',
     'util/u_handle_table.c',
     'util/u_hash.c',
     'util/u_hash_table.c',
@@ -192,14 +192,13 @@ if drawllvm:
     'gallivm/lp_bld_debug.c',
     'gallivm/lp_bld_depth.c',
     'gallivm/lp_bld_flow.c',
-    'gallivm/lp_bld_format_aos.c',
-    'gallivm/lp_bld_format_query.c',
     'gallivm/lp_bld_format_soa.c',
     'gallivm/lp_bld_interp.c',
     'gallivm/lp_bld_intr.c',
     'gallivm/lp_bld_logic.c',
     'gallivm/lp_bld_init.cpp',
     'gallivm/lp_bld_pack.c',
+    'gallivm/lp_bld_printf.c',
     'gallivm/lp_bld_sample.c',
     'gallivm/lp_bld_sample_soa.c',
     'gallivm/lp_bld_struct.c',
