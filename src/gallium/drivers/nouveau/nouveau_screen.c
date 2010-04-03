@@ -44,10 +44,6 @@ nouveau_screen_bo_new(struct pipe_screen *pscreen, unsigned alignment,
 	uint32_t flags = NOUVEAU_BO_MAP, tile_mode = 0, tile_flags = 0;
 	int ret;
 
-	/* TODO: this is somewhat wrong */
-	if (usage == PIPE_USAGE_STAGING)
-		flags |= NOUVEAU_BO_GART;
-	else
 	if (bind & PIPE_BIND_VERTEX_BUFFER) {
 		if (pscreen->get_param(pscreen, NOUVEAU_CAP_HW_VTXBUF))
 			flags |= NOUVEAU_BO_GART;
