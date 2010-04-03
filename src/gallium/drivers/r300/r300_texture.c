@@ -938,6 +938,7 @@ r300_texture_from_handle(struct pipe_screen* screen,
     }
 
     tex->b.b = *base;
+    tex->b.vtbl = &r300_texture_vtbl;
     pipe_reference_init(&tex->b.b.reference, 1);
     tex->b.b.screen = screen;
 
