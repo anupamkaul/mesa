@@ -27,6 +27,7 @@
 
 
 #include "util/u_memory.h"
+#include "util/u_format.h"
 #include "util/u_format_s3tc.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_screen.h"
@@ -155,24 +156,8 @@ softpipe_is_format_supported( struct pipe_screen *screen,
           target == PIPE_TEXTURE_3D ||
           target == PIPE_TEXTURE_CUBE);
 
-   switch(format) {
-   case PIPE_FORMAT_YUYV:
-   case PIPE_FORMAT_UYVY:
+   if(!util_format_is_supported(format))
       return FALSE;
-
-   case PIPE_FORMAT_DXT1_RGB:
-   case PIPE_FORMAT_DXT1_RGBA:
-   case PIPE_FORMAT_DXT3_RGBA:
-   case PIPE_FORMAT_DXT5_RGBA:
-      return util_format_s3tc_enabled;
-
-   case PIPE_FORMAT_Z32_FLOAT:
-   case PIPE_FORMAT_NONE:
-      return FALSE;
-
-   default:
-      break;
-   }
 
    if(tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
                    PIPE_TEXTURE_USAGE_SCANOUT |
@@ -181,8 +166,6 @@ softpipe_is_format_supported( struct pipe_screen *screen,
          return FALSE;
    }
 
-   /* XXX: this is often a lie.  Pull in logic from llvmpipe to fix.
-    */
    return TRUE;
 }
 
@@ -240,8 +223,6 @@ softpipe_create_screen(struct sw_winsys *winsys)
    screen->base.is_format_supported = softpipe_is_format_supported;
    screen->base.context_create = softpipe_create_context;
    screen->base.flush_frontbuffer = softpipe_flush_frontbuffer;
-
-   util_format_s3tc_init();
 
    softpipe_init_screen_texture_funcs(&screen->base);
    softpipe_init_screen_buffer_funcs(&screen->base);
