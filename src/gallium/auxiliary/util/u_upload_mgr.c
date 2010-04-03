@@ -95,7 +95,7 @@ my_buffer_write(struct pipe_context *pipe,
    assert(dirty_size >= size);
    assert(size);
 
-   map = pipe_buffer_map_range(pipe, buf, offset, size, 
+   map = pipe_buffer_map_range(pipe, buf, offset, dirty_size,
                                PIPE_TRANSFER_WRITE |
                                PIPE_TRANSFER_FLUSH_EXPLICIT |
                                PIPE_TRANSFER_DISCARD |
