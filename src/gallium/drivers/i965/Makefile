@@ -36,6 +36,7 @@ C_SOURCES = \
 	brw_pipe_vertex.c \
 	brw_pipe_clear.c \
 	brw_pipe_rast.c \
+	brw_resource.c \
 	brw_sf.c \
 	brw_sf_emit.c \
 	brw_sf_state.c \
