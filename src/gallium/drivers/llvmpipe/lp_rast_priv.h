@@ -50,6 +50,8 @@ struct lp_rasterizer_task
 {
    unsigned x, y;          /**< Pos of this tile in framebuffer, in pixels */
 
+   void *color_tiles[PIPE_MAX_COLOR_BUFS];
+
    const struct lp_rast_state *current_state;
 
    /** "back" pointer */
@@ -128,17 +130,23 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
                           int32_t c1, int32_t c2, int32_t c3);
 
 
+void *
+lp_rast_get_color_tile_pointer(struct lp_rasterizer_task *task,
+                               unsigned buf, unsigned x, unsigned y,
+                               enum lp_texture_usage usage);
+
+
 /**
- * Get the pointer to a depth tile.
+ * Get the pointer to a 4x4 depth/stencil block.
  * We'll map the z/stencil buffer on demand here.
  * Note that this may be called even when there's no z/stencil buffer - return
  * NULL in that case.
  * \param x, y location of 4x4 block in window coords
  */
 static INLINE void *
-lp_rast_get_depth_tile_pointer( struct lp_rasterizer *rast,
+lp_rast_get_depth_block_pointer(struct lp_rasterizer *rast,
                                 unsigned x, unsigned y,
-                                enum lp_texture_usage usage )
+                                enum lp_texture_usage usage)
 {
    void * depth;
 
@@ -174,53 +182,39 @@ lp_rast_get_depth_tile_pointer( struct lp_rasterizer *rast,
 
 
 /**
- * Get the pointer to a color tile.
+ * Get the pointer to a 4x4 color block (within a 64x64 tile).
  * We'll map the color buffer on demand here.
  * Note that this may be called even when there's no color buffers - return
  * NULL in that case.
  * \param x, y location of 4x4 block in window coords
  */
 static INLINE void *
-lp_rast_get_color_tile_pointer( struct lp_rasterizer *rast,
+lp_rast_get_color_block_pointer(struct lp_rasterizer_task *task,
                                 unsigned buf, unsigned x, unsigned y,
-                                enum lp_texture_usage usage )
+                                enum lp_texture_usage usage)
 {
-   unsigned tx, ty, tile_offset;
    unsigned px, py, pixel_offset;
-   void * color;
+   ubyte *color;
 
    assert((x % TILE_VECTOR_WIDTH) == 0);
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
-   if (!rast->cbuf[buf].map) {
-      struct pipe_surface *cbuf = rast->curr_scene->fb.cbufs[buf];
-      if (!cbuf) {
-         return NULL;
-      }
-      pipe_mutex_lock(rast->map_mutex);
-      if (!rast->cbuf[buf].map) {
-         rast->cbuf[buf].map = llvmpipe_texture_map(cbuf->texture,
-                                                    cbuf->face,
-                                                    cbuf->level,
-                                                    cbuf->zslice,
-                                                    usage,
-                                                    LP_TEXTURE_TILED);
-      }
-      pipe_mutex_unlock(rast->map_mutex);
+   if (task->color_tiles[buf]) {
+      color = task->color_tiles[buf];
    }
-
-   assert(rast->cbuf[buf].map);
-
-   tx = x / TILE_SIZE;
-   ty = y / TILE_SIZE;
-   tile_offset = ty * rast->cbuf[buf].tiles_per_row + tx;
-   tile_offset *= TILE_SIZE * TILE_SIZE * 4;
+   else {
+      unsigned tx = x & ~(TILE_SIZE - 1);
+      unsigned ty = y & ~(TILE_SIZE - 1);
+      color = lp_rast_get_color_tile_pointer(task, buf, tx, ty, usage);
+      if (!color)
+         return NULL;
+   }
 
    px = x % TILE_SIZE;
    py = y % TILE_SIZE;
    pixel_offset = tile_pixel_offset(px, py, 0);
 
-   color = (ubyte *) rast->cbuf[buf].map + tile_offset + pixel_offset;
+   color = color + pixel_offset;
 
    assert(lp_check_alignment(color, 16));
    return color;
@@ -246,11 +240,11 @@ lp_rast_shade_quads_all( struct lp_rasterizer_task *task,
 
    /* color buffer */
    for (i = 0; i < rast->state.nr_cbufs; i++)
-      color[i] = lp_rast_get_color_tile_pointer(rast, i, x, y,
-                                                LP_TEXTURE_READ_WRITE);
+      color[i] = lp_rast_get_color_block_pointer(task, i, x, y,
+                                                 LP_TEXTURE_READ_WRITE);
 
-   depth = lp_rast_get_depth_tile_pointer(rast, x, y,
-                                          LP_TEXTURE_READ_WRITE);
+   depth = lp_rast_get_depth_block_pointer(rast, x, y,
+                                           LP_TEXTURE_READ_WRITE);
 
    /* run shader on 4x4 block */
    state->jit_function[RAST_WHOLE]( &state->jit_context,

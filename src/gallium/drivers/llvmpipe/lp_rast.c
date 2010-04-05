@@ -42,6 +42,56 @@
 #include "lp_scene.h"
 
 
+/**
+ * Get the pointer to a 64x64 color tile.
+ * \param x, y location of 64x64 tile in window coords
+ */
+void *
+lp_rast_get_color_tile_pointer(struct lp_rasterizer_task *task,
+                               unsigned buf, unsigned x, unsigned y,
+                               enum lp_texture_usage usage)
+{
+   struct lp_rasterizer *rast = task->rast;
+
+   assert((x % TILE_SIZE) == 0);
+   assert((y % TILE_SIZE) == 0);
+
+   if (!task->color_tiles[buf]) {
+      unsigned tx, ty, tile_offset;
+
+      if (!rast->cbuf[buf].map) {
+         struct pipe_surface *cbuf = rast->curr_scene->fb.cbufs[buf];
+         if (!cbuf) {
+            return NULL;
+         }
+         pipe_mutex_lock(rast->map_mutex);
+         if (!rast->cbuf[buf].map) {
+            rast->cbuf[buf].map = llvmpipe_texture_map(cbuf->texture,
+                                                       cbuf->face,
+                                                       cbuf->level,
+                                                       cbuf->zslice,
+                                                       usage,
+                                                       LP_TEXTURE_TILED);
+         }
+         pipe_mutex_unlock(rast->map_mutex);
+      }
+
+      assert(rast->cbuf[buf].map);
+
+      tx = x / TILE_SIZE;
+      ty = y / TILE_SIZE;
+      tile_offset = ty * rast->cbuf[buf].tiles_per_row + tx;
+      tile_offset *= TILE_SIZE * TILE_SIZE * 4;
+
+      task->color_tiles[buf] = (ubyte *) rast->cbuf[buf].map + tile_offset;
+
+      assert(lp_check_alignment(task->color_tiles[buf], 16));
+   }
+
+   return task->color_tiles[buf];
+}
+
+
 /* Begin rasterizing a scene:
  */
 static boolean
@@ -130,10 +180,13 @@ static void
 lp_rast_start_tile(struct lp_rasterizer_task *task,
                    unsigned x, unsigned y)
 {
+
    LP_DBG(DEBUG_RAST, "%s %d,%d\n", __FUNCTION__, x, y);
 
    task->x = x;
    task->y = y;
+
+   memset(task->color_tiles, 0, sizeof(task->color_tiles));
 }
 
 
@@ -161,8 +214,8 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
        clear_color[2] == clear_color[3]) {
       /* clear to grayscale value {x, x, x, x} */
       for (i = 0; i < rast->state.nr_cbufs; i++) {
-         void *ptr = lp_rast_get_color_tile_pointer(rast, i, task->x, task->y,
-                                                    LP_TEXTURE_WRITE_ALL);
+         void *ptr = lp_rast_get_color_block_pointer(task, i, task->x, task->y,
+                                                     LP_TEXTURE_WRITE_ALL);
 	 memset(ptr, clear_color[0], TILE_SIZE * TILE_SIZE * 4);
       }
    }
@@ -174,8 +227,9 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
        */
       const unsigned chunk = TILE_SIZE / 4;
       for (i = 0; i < rast->state.nr_cbufs; i++) {
-         uint8_t *c = lp_rast_get_color_tile_pointer(rast, i, task->x, task->y,
-                                                     LP_TEXTURE_WRITE_ALL);
+         uint8_t *c = lp_rast_get_color_block_pointer(task, i,
+                                                      task->x, task->y,
+                                                      LP_TEXTURE_WRITE_ALL);
          unsigned j;
          for (j = 0; j < 4 * TILE_SIZE; j++) {
             memset(c, clear_color[0], chunk);
@@ -222,8 +276,8 @@ lp_rast_clear_zstencil(struct lp_rasterizer_task *task,
     * TILE_VECTOR_HEIGHT x TILE_VECTOR_WIDTH pixels have consecutive offsets.
     */
 
-   dst = lp_rast_get_depth_tile_pointer(rast, tile_x, tile_y,
-                                        LP_TEXTURE_WRITE_ALL);
+   dst = lp_rast_get_depth_block_pointer(rast, tile_x, tile_y,
+                                         LP_TEXTURE_WRITE_ALL);
 
    switch (block_size) {
    case 1:
@@ -293,8 +347,8 @@ lp_rast_store_color( struct lp_rasterizer_task *task,
       const unsigned linear_stride = lpt->stride[level];
       void *linear, *tile;
 
-      tile = lp_rast_get_color_tile_pointer(rast, buf, task->x, task->y,
-                                            LP_TEXTURE_READ);
+      tile = lp_rast_get_color_block_pointer(task, buf, task->x, task->y,
+                                             LP_TEXTURE_READ);
 
       linear = llvmpipe_get_texture_image(lpt, face, level,
                                           LP_TEXTURE_WRITE_ALL,
@@ -344,13 +398,13 @@ lp_rast_shade_tile(struct lp_rasterizer_task *task,
 
          /* color buffer */
          for (i = 0; i < rast->state.nr_cbufs; i++)
-            color[i] = lp_rast_get_color_tile_pointer(rast, i,
-                                                      tile_x + x, tile_y + y,
-                                                      LP_TEXTURE_READ_WRITE);
+            color[i] = lp_rast_get_color_block_pointer(task, i,
+                                                       tile_x + x, tile_y + y,
+                                                       LP_TEXTURE_READ_WRITE);
 
          /* depth buffer */
-         depth = lp_rast_get_depth_tile_pointer(rast, tile_x + x, tile_y + y,
-                                                LP_TEXTURE_READ_WRITE);
+         depth = lp_rast_get_depth_block_pointer(rast, tile_x + x, tile_y + y,
+                                                 LP_TEXTURE_READ_WRITE);
 
          /* run shader on 4x4 block */
          state->jit_function[RAST_WHOLE]( &state->jit_context,
@@ -396,14 +450,14 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
 
    /* color buffer */
    for (i = 0; i < rast->state.nr_cbufs; i++) {
-      color[i] = lp_rast_get_color_tile_pointer(rast, i, x, y,
-                                                LP_TEXTURE_READ_WRITE);
+      color[i] = lp_rast_get_color_block_pointer(task, i, x, y,
+                                                 LP_TEXTURE_READ_WRITE);
       assert(lp_check_alignment(color[i], 16));
    }
 
    /* depth buffer */
-   depth = lp_rast_get_depth_tile_pointer(rast, x, y,
-                                          LP_TEXTURE_READ_WRITE);
+   depth = lp_rast_get_depth_block_pointer(rast, x, y,
+                                           LP_TEXTURE_READ_WRITE);
 
 
    assert(lp_check_alignment(state->jit_context.blend_color, 16));
@@ -492,9 +546,9 @@ lp_rast_finish_color_tile(struct lp_rasterizer_task *task)
    unsigned i;
 
    for (i = 0; i < rast->state.nr_cbufs; i++) {
-      uint8_t *color = lp_rast_get_color_tile_pointer(rast, i,
-                                                      task->x, task->y,
-                                                      LP_TEXTURE_READ_WRITE);
+      uint8_t *color = lp_rast_get_color_block_pointer(task, i,
+                                                       task->x, task->y,
+                                                       LP_TEXTURE_READ_WRITE);
 
       if (LP_DEBUG & DEBUG_SHOW_SUBTILES)
          outline_subtiles(color);
