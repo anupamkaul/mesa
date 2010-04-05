@@ -177,7 +177,7 @@ lp_rast_end( struct lp_rasterizer *rast )
  * \param y  window Y position of the tile, in pixels
  */
 static void
-lp_rast_start_tile(struct lp_rasterizer_task *task,
+lp_rast_tile_begin(struct lp_rasterizer_task *task,
                    unsigned x, unsigned y)
 {
 
@@ -540,7 +540,7 @@ outline_subtiles(uint8_t *tile)
  * This is just a debug hook.
  */
 static void
-lp_rast_finish_color_tile(struct lp_rasterizer_task *task)
+lp_rast_tile_end(struct lp_rasterizer_task *task)
 {
    struct lp_rasterizer *rast = task->rast;
    unsigned i;
@@ -589,7 +589,7 @@ rasterize_bin(struct lp_rasterizer_task *task,
    struct cmd_block *block;
    unsigned k;
 
-   lp_rast_start_tile( task, x * TILE_SIZE, y * TILE_SIZE );
+   lp_rast_tile_begin( task, x * TILE_SIZE, y * TILE_SIZE );
 
    /* simply execute each of the commands in the block list */
    for (block = commands->head; block; block = block->next) {
@@ -598,9 +598,7 @@ rasterize_bin(struct lp_rasterizer_task *task,
       }
    }
 
-   /* Done writing colors to this tile.
-    */
-   lp_rast_finish_color_tile(task);
+   lp_rast_tile_end(task);
 
    /* Free data for this bin.
     */
