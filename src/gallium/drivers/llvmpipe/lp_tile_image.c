@@ -225,8 +225,10 @@ lp_linear_to_tiled(const void *src, void *dst,
 {
    assert(x % TILE_SIZE == 0);
    assert(y % TILE_SIZE == 0);
+   /*
    assert(width % TILE_SIZE == 0);
    assert(height % TILE_SIZE == 0);
+   */
 
    if (util_format_is_depth_or_stencil(format)) {
       const uint bpp = util_format_get_blocksize(format);
