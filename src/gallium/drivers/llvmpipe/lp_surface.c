@@ -93,11 +93,10 @@ lp_surface_copy(struct pipe_context *pipe,
 
          for (y = 0; y < th; y += TILE_SIZE) {
             for (x = 0; x < tw; x += TILE_SIZE) {
-               void *p;
-               p = llvmpipe_get_texture_tile_linear(src_tex,
-                                                    src->face, src->level,
-                                                    LP_TEX_USAGE_READ,
-                                                    tx + x, ty + y);
+               (void) llvmpipe_get_texture_tile_linear(src_tex,
+                                                       src->face, src->level,
+                                                       LP_TEX_USAGE_READ,
+                                                       tx + x, ty + y);
             }
          }
       }
@@ -108,6 +107,10 @@ lp_surface_copy(struct pipe_context *pipe,
          unsigned x, y;
          enum lp_texture_usage usage;
 
+         /* XXX for the tiles which are completely contained by the
+          * dest rectangle, we could set the usage mode to WRITE_ALL.
+          * Just test for the case of replacing the whole dest region for now.
+          */
          if (width == dst_tex->base.width0 && height == dst_tex->base.height0)
             usage = LP_TEX_USAGE_WRITE_ALL;
          else
@@ -117,11 +120,10 @@ lp_surface_copy(struct pipe_context *pipe,
 
          for (y = 0; y < th; y += TILE_SIZE) {
             for (x = 0; x < tw; x += TILE_SIZE) {
-               void *p;
-               p = llvmpipe_get_texture_tile_linear(dst_tex,
-                                                    dst->face, dst->level,
-                                                    usage,
-                                                    tx + x, ty + y);
+               (void) llvmpipe_get_texture_tile_linear(dst_tex,
+                                                       dst->face, dst->level,
+                                                       usage,
+                                                       tx + x, ty + y);
             }
          }
       }
