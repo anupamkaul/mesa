@@ -157,17 +157,21 @@ begin_binning( struct lp_setup_context *setup )
           (setup->clear.flags & PIPE_CLEAR_DEPTHSTENCIL) ? "clear": "load");
 
    if (setup->fb.nr_cbufs) {
-      if (setup->clear.flags & PIPE_CLEAR_COLOR)
+      if (setup->clear.flags & PIPE_CLEAR_COLOR) {
          lp_scene_bin_everywhere( scene, 
 				  lp_rast_clear_color, 
 				  setup->clear.color );
+         scene->has_color_clear = TRUE;
+      }
    }
 
    if (setup->fb.zsbuf) {
-      if (setup->clear.flags & PIPE_CLEAR_DEPTHSTENCIL)
+      if (setup->clear.flags & PIPE_CLEAR_DEPTHSTENCIL) {
          lp_scene_bin_everywhere( scene, 
 				  lp_rast_clear_zstencil, 
 				  setup->clear.zstencil );
+         scene->has_depth_clear = TRUE;
+      }
    }
 
    LP_DBG(DEBUG_SETUP, "%s done\n", __FUNCTION__);
@@ -240,11 +244,14 @@ lp_setup_flush( struct lp_setup_context *setup,
       struct lp_scene *scene = lp_setup_get_current_scene(setup);
       union lp_rast_cmd_arg dummy;
 
-      if (flags & PIPE_FLUSH_SWAPBUFFERS) {
-         /* store colors in the linear color buffer(s) */
-         lp_scene_bin_everywhere( scene, 
-                                  lp_rast_store_color,
-                                  dummy );
+      if (flags & (PIPE_FLUSH_SWAPBUFFERS |
+                   PIPE_FLUSH_FRAME)) {
+         /* Store colors in the linear color buffer(s).
+          * If we don't do this here, we'll end up converting the tiled
+          * data to linear in the texture_unmap() function, which will
+          * not be a parallel/threaded operation as here.
+          */
+         lp_scene_bin_everywhere(scene, lp_rast_store_color, dummy);
       }
    }
 
@@ -301,15 +308,20 @@ lp_setup_clear( struct lp_setup_context *setup,
        * binned scene and start again, but I don't see that as being
        * a common usage.
        */
-      if (flags & PIPE_CLEAR_COLOR)
+      if (flags & PIPE_CLEAR_COLOR) {
          lp_scene_bin_everywhere( scene, 
                                   lp_rast_clear_color,
                                   setup->clear.color );
+         scene->has_color_clear = TRUE;
+      }
 
-      if (setup->clear.flags & PIPE_CLEAR_DEPTHSTENCIL)
+      if (setup->clear.flags & PIPE_CLEAR_DEPTHSTENCIL) {
          lp_scene_bin_everywhere( scene, 
                                   lp_rast_clear_zstencil,
                                   setup->clear.zstencil );
+         scene->has_depth_clear = TRUE;
+      }
+
    }
    else {
       /* Put ourselves into the 'pre-clear' state, specifically to try
@@ -518,8 +530,8 @@ lp_setup_set_fragment_sampler_views(struct lp_setup_context *setup,
                   (ubyte *) lp_tex->data + lp_tex->level_offset[j];
 #else
                jit_tex->data[j] =
-                  llvmpipe_get_texture_image(lp_tex, 0, j, LP_TEXTURE_READ,
-                                             LP_TEXTURE_LINEAR);
+                  llvmpipe_get_texture_image(lp_tex, 0, j, LP_TEX_USAGE_READ,
+                                             LP_TEX_LAYOUT_LINEAR);
 #endif
                jit_tex->row_stride[j] = lp_tex->stride[j];
             }

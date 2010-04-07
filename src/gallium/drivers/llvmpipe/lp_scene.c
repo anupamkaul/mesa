@@ -186,6 +186,9 @@ lp_scene_reset(struct lp_scene *scene )
       }
       make_empty_list(ref_list);
    }
+
+   scene->has_color_clear = FALSE;
+   scene->has_depth_clear = FALSE;
 }
 
 

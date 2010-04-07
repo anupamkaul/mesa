@@ -50,7 +50,8 @@ struct lp_rasterizer_task
 {
    unsigned x, y;          /**< Pos of this tile in framebuffer, in pixels */
 
-   void *color_tiles[PIPE_MAX_COLOR_BUFS];
+   uint8_t *color_tiles[PIPE_MAX_COLOR_BUFS];
+   uint8_t *depth_tile;
 
    const struct lp_rast_state *current_state;
 
@@ -73,6 +74,8 @@ struct lp_rasterizer_task
 struct lp_rasterizer
 {
    boolean exit_flag;
+
+   boolean write_linear_colors;
 
    /* Framebuffer stuff
     */
@@ -119,8 +122,6 @@ struct lp_rasterizer
 
    /** For synchronizing the rasterization threads */
    pipe_barrier barrier;
-
-   pipe_mutex map_mutex;
 };
 
 
@@ -128,12 +129,6 @@ void lp_rast_shade_quads( struct lp_rasterizer_task *task,
                           const struct lp_rast_shader_inputs *inputs,
                           unsigned x, unsigned y,
                           int32_t c1, int32_t c2, int32_t c3);
-
-
-void *
-lp_rast_get_color_tile_pointer(struct lp_rasterizer_task *task,
-                               unsigned buf, unsigned x, unsigned y,
-                               enum lp_texture_usage usage);
 
 
 /**
@@ -144,33 +139,18 @@ lp_rast_get_color_tile_pointer(struct lp_rasterizer_task *task,
  * \param x, y location of 4x4 block in window coords
  */
 static INLINE void *
-lp_rast_get_depth_block_pointer(struct lp_rasterizer *rast,
-                                unsigned x, unsigned y,
-                                enum lp_texture_usage usage)
+lp_rast_get_depth_block_pointer(const struct lp_rasterizer *rast,
+                                unsigned x, unsigned y)
 {
-   void * depth;
+   void *depth;
 
    assert((x % TILE_VECTOR_WIDTH) == 0);
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
-   if (!rast->zsbuf.map) {
-      struct pipe_surface *zsbuf = rast->curr_scene->fb.zsbuf;
-      if (!zsbuf) {
-         return NULL;
-      }
-      pipe_mutex_lock(rast->map_mutex);
-      if (!rast->zsbuf.map) {
-         rast->zsbuf.map = llvmpipe_texture_map(zsbuf->texture,
-                                                zsbuf->face,
-                                                zsbuf->level,
-                                                zsbuf->zslice,
-                                                usage,
-                                                LP_TEXTURE_TILED);
-      }
-      pipe_mutex_unlock(rast->map_mutex);
-   }
+   assert(rast->zsbuf.map || !rast->curr_scene->fb.zsbuf);
 
-   assert(rast->zsbuf.map);
+   if (!rast->zsbuf.map)
+      return NULL;
 
    depth = (rast->zsbuf.map +
             rast->zsbuf.stride * y +
@@ -188,27 +168,18 @@ lp_rast_get_depth_block_pointer(struct lp_rasterizer *rast,
  * NULL in that case.
  * \param x, y location of 4x4 block in window coords
  */
-static INLINE void *
+static INLINE uint8_t *
 lp_rast_get_color_block_pointer(struct lp_rasterizer_task *task,
-                                unsigned buf, unsigned x, unsigned y,
-                                enum lp_texture_usage usage)
+                                unsigned buf, unsigned x, unsigned y)
 {
    unsigned px, py, pixel_offset;
-   ubyte *color;
+   uint8_t *color;
 
    assert((x % TILE_VECTOR_WIDTH) == 0);
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
-   if (task->color_tiles[buf]) {
-      color = task->color_tiles[buf];
-   }
-   else {
-      unsigned tx = x & ~(TILE_SIZE - 1);
-      unsigned ty = y & ~(TILE_SIZE - 1);
-      color = lp_rast_get_color_tile_pointer(task, buf, tx, ty, usage);
-      if (!color)
-         return NULL;
-   }
+   color = task->color_tiles[buf];
+   assert(color);
 
    px = x % TILE_SIZE;
    py = y % TILE_SIZE;
@@ -240,11 +211,9 @@ lp_rast_shade_quads_all( struct lp_rasterizer_task *task,
 
    /* color buffer */
    for (i = 0; i < rast->state.nr_cbufs; i++)
-      color[i] = lp_rast_get_color_block_pointer(task, i, x, y,
-                                                 LP_TEXTURE_READ_WRITE);
+      color[i] = lp_rast_get_color_block_pointer(task, i, x, y);
 
-   depth = lp_rast_get_depth_block_pointer(rast, x, y,
-                                           LP_TEXTURE_READ_WRITE);
+   depth = lp_rast_get_depth_block_pointer(rast, x, y);
 
    /* run shader on 4x4 block */
    state->jit_function[RAST_WHOLE]( &state->jit_context,

@@ -40,16 +40,19 @@
 
 enum lp_texture_usage
 {
-   LP_TEXTURE_READ = 1,
-   LP_TEXTURE_READ_WRITE,
-   LP_TEXTURE_WRITE_ALL
+   LP_TEX_USAGE_READ = 100,
+   LP_TEX_USAGE_READ_WRITE,
+   LP_TEX_USAGE_WRITE_ALL
 };
 
 
+/** Per-tile layout mode */
 enum lp_texture_layout
 {
-   LP_TEXTURE_TILED = 100,
-   LP_TEXTURE_LINEAR
+   LP_TEX_LAYOUT_NONE = 0,  /**< no layout for the tile data yet */
+   LP_TEX_LAYOUT_TILED,     /**< the tile data is in tiled layout */
+   LP_TEX_LAYOUT_LINEAR,    /**< the tile data is in linear layout */
+   LP_TEX_LAYOUT_BOTH       /**< the tile data is in both modes */
 };
 
 
@@ -63,13 +66,8 @@ struct sw_displaytarget;
 /**
  * We keep one or two copies of the texture image data:  one in a simple
  * linear layout (for texture sampling) and another in a tiled layout (for
- * render targets).
- * But we only keep both images when necessary.
- *
- * When both image layouts are present we can determine which might be
- * newer by examining the timestap fields.  If they're equal the images
- * are identical (except for layout).  If they're not equal we must
- * update the older one before using it.
+ * render targets).  We keep track of whether each image tile is linear
+ * or tiled on a per-tile basis.
  */
 
 
@@ -77,7 +75,6 @@ struct sw_displaytarget;
 struct llvmpipe_texture_image
 {
    void *data;
-   unsigned timestamp;
 };
 
 
@@ -87,6 +84,7 @@ struct llvmpipe_texture
 
    /** Row stride in bytes */
    unsigned stride[LP_MAX_TEXTURE_LEVELS];
+   unsigned tiles_per_row[LP_MAX_TEXTURE_LEVELS];
 
    /**
     * Display target, for textures with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET
@@ -99,6 +97,9 @@ struct llvmpipe_texture
     */
    struct llvmpipe_texture_image tiled[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
    struct llvmpipe_texture_image linear[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
+
+   /** per-tile layout info */
+   enum lp_texture_layout *layout[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
 
    unsigned timestamp;
 
@@ -168,15 +169,17 @@ llvmpipe_get_texture_image(struct llvmpipe_texture *texture,
 
 
 ubyte *
+llvmpipe_get_texture_tile_linear(struct llvmpipe_texture *lpt,
+                                 unsigned face, unsigned level,
+                                 enum lp_texture_usage usage,
+                                 unsigned x, unsigned y);
+
+ubyte *
 llvmpipe_get_texture_tile(struct llvmpipe_texture *lpt,
                           unsigned face, unsigned level,
                           enum lp_texture_usage usage,
                           unsigned x, unsigned y);
 
-
-enum lp_texture_layout
-llvmpipe_get_texture_image_layout(const struct llvmpipe_texture *lpt,
-                                  unsigned face, unsigned level);
 
 
 extern void

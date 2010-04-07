@@ -122,6 +122,8 @@ struct lp_scene {
    struct texture_ref textures;
 
    boolean write_depth;
+   boolean has_color_clear;
+   boolean has_depth_clear;
 
    /**
     * Number of active tiles in each dimension.

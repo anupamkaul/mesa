@@ -56,8 +56,6 @@ lp_surface_copy(struct pipe_context *pipe,
                 struct pipe_surface *src, unsigned srcx, unsigned srcy,
                 unsigned width, unsigned height)
 {
-   enum lp_texture_layout src_layout, dst_layout;
-
    llvmpipe_flush_texture(pipe,
                           dst->texture, dst->face, dst->level,
                           0, /* flush_flags */
@@ -80,50 +78,67 @@ lp_surface_copy(struct pipe_context *pipe,
       struct llvmpipe_texture *dst_tex = llvmpipe_texture(dst->texture);
       enum pipe_format format = src_tex->base.format;
 
-      src_layout = llvmpipe_get_texture_image_layout(src_tex,
-                                                     src->face, src->level);
+      /*
+      printf("surface copy from %u to %u: %u,%u to %u,%u %u x %u\n",
+             src_tex->id, dst_tex->id,
+             srcx, srcy, dstx, dsty, width, height);
+      */
 
-      dst_layout = llvmpipe_get_texture_image_layout(dst_tex,
-                                                     dst->face, dst->level);
-
-      if (src_layout == LP_TEXTURE_TILED &&
-          dst_layout == LP_TEXTURE_LINEAR) {
+      /* set src tiles to linear layout */
+      {
          unsigned tx, ty, tw, th;
-         ubyte *src_tiled_ptr = src_tex->tiled[src->face][src->level].data;
+         unsigned x, y;
+
+         adjust_to_tile_bounds(srcx, srcy, width, height, &tx, &ty, &tw, &th);
+
+         for (y = 0; y < th; y += TILE_SIZE) {
+            for (x = 0; x < tw; x += TILE_SIZE) {
+               void *p;
+               p = llvmpipe_get_texture_tile_linear(src_tex,
+                                                    src->face, src->level,
+                                                    LP_TEX_USAGE_READ,
+                                                    tx + x, ty + y);
+            }
+         }
+      }
+
+      /* set dst tiles to linear layout */
+      {
+         unsigned tx, ty, tw, th;
+         unsigned x, y;
+         enum lp_texture_usage usage;
+
+         if (width == dst_tex->base.width0 && height == dst_tex->base.height0)
+            usage = LP_TEX_USAGE_WRITE_ALL;
+         else
+            usage = LP_TEX_USAGE_READ_WRITE;
+
+         adjust_to_tile_bounds(dstx, dsty, width, height, &tx, &ty, &tw, &th);
+
+         for (y = 0; y < th; y += TILE_SIZE) {
+            for (x = 0; x < tw; x += TILE_SIZE) {
+               void *p;
+               p = llvmpipe_get_texture_tile_linear(dst_tex,
+                                                    dst->face, dst->level,
+                                                    usage,
+                                                    tx + x, ty + y);
+            }
+         }
+      }
+
+      /* copy */
+      {
          ubyte *src_linear_ptr = src_tex->linear[src->face][src->level].data;
          ubyte *dst_linear_ptr = dst_tex->linear[dst->face][dst->level].data;
 
-         if (src_linear_ptr && src_tiled_ptr && dst_linear_ptr) {
-            adjust_to_tile_bounds(srcx, srcy, width, height,
-                                  &tx, &ty, &tw, &th);
-
-            /* convert tiled src data to linear */
-            lp_tiled_to_linear(src_tiled_ptr,
-                               src_linear_ptr,
-                               tx, ty, tw, th,
-                               format,
-                               dst_tex->stride[dst->level]);
-
-            util_copy_rect(dst_linear_ptr, format,
-                           dst_tex->stride[dst->level],
-                           dstx, dsty,
-                           width, height,
-                           src_linear_ptr, src_tex->stride[src->level],
-                           srcx, srcy);
-
-            if (width == src->width && height == src->height) {
-               assert(srcx == 0);
-               assert(srcy == 0);
-               /* We converted the whole src image to linear.
-                * Update the timestamp to indicate equality.
-                */
-               src_tex->linear[src->face][src->level].timestamp =
-                  src_tex->linear[src->face][src->level].timestamp;
-            }
-
-            return;
-         }
+         util_copy_rect(dst_linear_ptr, format,
+                        dst_tex->stride[dst->level],
+                        dstx, dsty,
+                        width, height,
+                        src_linear_ptr, src_tex->stride[src->level],
+                        srcx, srcy);
       }
+      return;
    }
 
    util_surface_copy(pipe, FALSE,
