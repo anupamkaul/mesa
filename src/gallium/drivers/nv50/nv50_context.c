@@ -25,6 +25,7 @@
 
 #include "nv50_context.h"
 #include "nv50_screen.h"
+#include "nv50_resource.h"
 
 static void
 nv50_flush(struct pipe_context *pipe, unsigned flags,

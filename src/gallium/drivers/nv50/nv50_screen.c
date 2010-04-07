@@ -24,6 +24,7 @@
 
 #include "nv50_context.h"
 #include "nv50_screen.h"
+#include "nv50_resource.h"
 
 #include "nouveau/nouveau_stateobj.h"
 
