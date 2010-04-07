@@ -161,6 +161,7 @@ pipe_buffer_map_range(struct pipe_context *pipe,
 		      struct pipe_transfer **transfer)
 {
    struct pipe_box box;
+   char *map;
 
    assert(offset < buffer->width0);
    assert(offset + length <= buffer->width0);
@@ -177,7 +178,14 @@ pipe_buffer_map_range(struct pipe_context *pipe,
    if (*transfer == NULL)
       return NULL;
 
-   return pipe->transfer_map( pipe, *transfer );
+   map = pipe->transfer_map( pipe, *transfer );
+   if (map == NULL)
+      return NULL;
+
+   /* Match old screen->buffer_map_range() behaviour, return pointer
+    * to where the beginning of the buffer would be:
+    */
+   return (void *)(map - offset);
 }
 
 
@@ -209,10 +217,19 @@ pipe_buffer_flush_mapped_range(struct pipe_context *pipe,
                                unsigned length)
 {
    struct pipe_box box;
+   int transfer_offset;
 
    assert(length);
+   assert(transfer->box.x <= offset);
+   assert(transfer->box.x + transfer->box.width <= offset + length);
 
-   u_box_1d(offset, length, &box);
+   /* Match old screen->buffer_flush_mapped_range() behaviour, where
+    * offset parameter is relative to the start of the buffer, not the
+    * mapped range.
+    */
+   transfer_offset = offset - transfer->box.x;
+   
+   u_box_1d(transfer_offset, length, &box);
 
    pipe->transfer_flush_region(pipe, transfer, &box);
 }
