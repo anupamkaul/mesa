@@ -51,6 +51,9 @@ tile_offset[TILE_VECTOR_HEIGHT][TILE_VECTOR_WIDTH];
 #define TILE_Y_STRIDE (TILE_VECTOR_HEIGHT * TILE_SIZE * NUM_CHANNELS) //1024
 
 
+extern int tile_write_count, tile_read_count;
+
+
 /**
  * Return offset of the given pixel (and color channel) from the start
  * of a tile, in bytes.
