@@ -3,6 +3,7 @@
 
 #include "nvfx_context.h"
 #include "nvfx_screen.h"
+#include "nvfx_resource.h"
 
 static void
 nvfx_flush(struct pipe_context *pipe, unsigned flags,
@@ -73,7 +74,7 @@ nvfx_create(struct pipe_screen *pscreen, void *priv)
 	nvfx_init_query_functions(nvfx);
 	nvfx_init_surface_functions(nvfx);
 	nvfx_init_state_functions(nvfx);
-	nvfx_init_resource_functions(nvfx);
+	nvfx_init_resource_functions(&nvfx->pipe);
 
 	/* Create, configure, and install fallback swtnl path */
 	nvfx->draw = draw_create();
