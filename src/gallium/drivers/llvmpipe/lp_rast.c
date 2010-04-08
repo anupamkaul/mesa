@@ -567,6 +567,8 @@ lp_rast_tile_end(struct lp_rasterizer_task *task)
       else if (LP_DEBUG & DEBUG_SHOW_TILES)
          outline_tile(color);
    }
+#else
+   (void) outline_subtiles;
 #endif
 
    if (rast->write_linear_colors) {
