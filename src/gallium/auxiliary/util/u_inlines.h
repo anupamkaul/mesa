@@ -179,8 +179,10 @@ pipe_buffer_map_range(struct pipe_context *pipe,
       return NULL;
 
    map = pipe->transfer_map( pipe, *transfer );
-   if (map == NULL)
+   if (map == NULL) {
+      pipe->transfer_destroy( pipe, *transfer );
       return NULL;
+   }
 
    /* Match old screen->buffer_map_range() behaviour, return pointer
     * to where the beginning of the buffer would be:
@@ -298,7 +300,7 @@ pipe_buffer_read(struct pipe_context *pipe,
 					 &src_transfer);
 
    if (map)
-      memcpy(data, map, size);
+      memcpy(data, map + offset, size);
 
    pipe_buffer_unmap(pipe, buf, src_transfer);
 }
