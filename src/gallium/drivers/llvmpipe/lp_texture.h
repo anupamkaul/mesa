@@ -95,8 +95,8 @@ struct llvmpipe_texture
    /**
     * Malloc'ed data for regular textures, or a mapping to dt above.
     */
-   struct llvmpipe_texture_image tiled[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
-   struct llvmpipe_texture_image linear[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
+   struct llvmpipe_texture_image tiled[LP_MAX_TEXTURE_LEVELS];
+   struct llvmpipe_texture_image linear[LP_MAX_TEXTURE_LEVELS];
 
    /** per-tile layout info */
    enum lp_texture_layout *layout[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
@@ -160,6 +160,11 @@ llvmpipe_texture_unmap(struct pipe_texture *texture,
                        unsigned face,
                        unsigned level,
                        unsigned zslice);
+
+void *
+llvmpipe_get_texture_image_address(struct llvmpipe_texture *lpt,
+                                   unsigned face, unsigned level,
+                                   enum lp_texture_layout layout);
 
 void *
 llvmpipe_get_texture_image(struct llvmpipe_texture *texture,

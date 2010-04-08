@@ -189,23 +189,21 @@ llvmpipe_texture_destroy(struct pipe_texture *pt)
    }
    else {
       /* regular texture */
-      uint face, level;
+      uint level;
 
-      for (face = 0; face < Elements(lpt->linear); face++) {
-         for (level = 0; level < Elements(lpt->linear[0]); level++) {
-            if (lpt->linear[face][level].data) {
-               align_free(lpt->linear[face][level].data);
-               lpt->linear[face][level].data = NULL;
-            }
+      /* free linear image data */
+      for (level = 0; level < Elements(lpt->linear); level++) {
+         if (lpt->linear[level].data) {
+            align_free(lpt->linear[level].data);
+            lpt->linear[level].data = NULL;
          }
       }
 
-      for (face = 0; face < Elements(lpt->tiled); face++) {
-         for (level = 0; level < Elements(lpt->tiled[0]); level++) {
-            if (lpt->tiled[face][level].data) {
-               align_free(lpt->tiled[face][level].data);
-               lpt->tiled[face][level].data = NULL;
-            }
+      /* free tiled image data */
+      for (level = 0; level < Elements(lpt->tiled); level++) {
+         if (lpt->tiled[level].data) {
+            align_free(lpt->tiled[level].data);
+            lpt->tiled[level].data = NULL;
          }
       }
    }
@@ -261,7 +259,7 @@ llvmpipe_texture_map(struct pipe_texture *texture,
       map = winsys->displaytarget_map(winsys, lpt->dt, dt_usage);
 
       /* install this linear image in texture data structure */
-      lpt->linear[face][level].data = map;
+      lpt->linear[level].data = map;
    }
    else {
       /* regular texture */
@@ -563,14 +561,16 @@ llvmpipe_transfer_unmap(struct pipe_context *pipe,
 
 
 /**
- * Compute size (in bytes) need to store a texture image / mipmap level.
+ * Compute size (in bytes) need to store a texture image / mipmap level,
+ * for just one cube face.
  */
 static unsigned
-tex_image_size(const struct llvmpipe_texture *lpt, unsigned level,
-               enum lp_texture_layout layout)
+tex_image_face_size(const struct llvmpipe_texture *lpt, unsigned level,
+                    enum lp_texture_layout layout)
 {
-   enum pipe_format format = layout == LP_TEX_LAYOUT_LINEAR
-      ? lpt->base.format : PIPE_FORMAT_A8R8G8B8_UNORM;
+   /* for tiled layout, force a 32bpp format */
+   enum pipe_format format = layout == LP_TEX_LAYOUT_TILED
+      ? PIPE_FORMAT_B8G8R8A8_UNORM : lpt->base.format;
    const unsigned height = u_minify(lpt->base.height0, level);
    const unsigned depth = u_minify(lpt->base.depth0, level);
    const unsigned nblocksy =
@@ -578,8 +578,21 @@ tex_image_size(const struct llvmpipe_texture *lpt, unsigned level,
    const unsigned buffer_size =
       nblocksy * lpt->stride[level] *
       (lpt->base.target == PIPE_TEXTURE_3D ? depth : 1);
-
    return buffer_size;
+}
+
+
+/**
+ * Compute size (in bytes) need to store a texture image / mipmap level,
+ * including all cube faces.
+ */
+static unsigned
+tex_image_size(const struct llvmpipe_texture *lpt, unsigned level,
+               enum lp_texture_layout layout)
+{
+   const unsigned buf_size = tex_image_face_size(lpt, level, layout);
+   const unsigned num_faces = lpt->base.target == PIPE_TEXTURE_CUBE ? 6 : 1;
+   return buf_size * num_faces;
 }
 
 
@@ -642,6 +655,34 @@ layout_logic(enum lp_texture_layout cur_layout,
 }
 
 
+/**
+ * Return pointer to a texture image.  No tiled/linear conversion is done.
+ */
+void *
+llvmpipe_get_texture_image_address(struct llvmpipe_texture *lpt,
+                                   unsigned face, unsigned level,
+                                   enum lp_texture_layout layout)
+{
+   struct llvmpipe_texture_image *img;
+   unsigned face_offset;
+
+   if (layout == LP_TEX_LAYOUT_LINEAR) {
+      img = &lpt->linear[level];
+   }
+   else {
+      assert (layout == LP_TEX_LAYOUT_TILED);
+      img = &lpt->tiled[level];
+   }
+
+   if (face > 0)
+      face_offset = face * tex_image_face_size(lpt, level, layout);
+   else
+      face_offset = 0;
+
+   return (ubyte *) img->data + face_offset;
+}
+
+
 
 /**
  * Return pointer to texture image data (either linear or tiled layout).
@@ -668,6 +709,7 @@ llvmpipe_get_texture_image(struct llvmpipe_texture *lpt,
    const unsigned height = u_minify(lpt->base.height0, level);
    const unsigned width_t = align(width, TILE_SIZE) / TILE_SIZE;
    const unsigned height_t = align(height, TILE_SIZE) / TILE_SIZE;
+   enum lp_texture_layout other_layout;
 
    assert(layout == LP_TEX_LAYOUT_NONE ||
           layout == LP_TEX_LAYOUT_TILED ||
@@ -678,17 +720,19 @@ llvmpipe_get_texture_image(struct llvmpipe_texture *lpt,
           usage == LP_TEX_USAGE_WRITE_ALL);
 
    if (lpt->dt) {
-      assert(lpt->linear[face][level].data);
+      assert(lpt->linear[level].data);
    }
 
    /* which is target?  which is other? */
    if (layout == LP_TEX_LAYOUT_LINEAR) {
-      target_img = &lpt->linear[face][level];
-      other_img = &lpt->tiled[face][level];
+      target_img = &lpt->linear[level];
+      other_img = &lpt->tiled[level];
+      other_layout = LP_TEX_LAYOUT_TILED;
    }
    else {
-      target_img = &lpt->tiled[face][level];
-      other_img = &lpt->linear[face][level];
+      target_img = &lpt->tiled[level];
+      other_img = &lpt->linear[level];
+      other_layout = LP_TEX_LAYOUT_LINEAR;
    }
 
    target_data = target_img->data;
@@ -699,6 +743,16 @@ llvmpipe_get_texture_image(struct llvmpipe_texture *lpt,
       unsigned buffer_size = tex_image_size(lpt, level, layout);
       target_img->data = align_malloc(buffer_size, 16);
       target_data = target_img->data;
+   }
+
+   if (face > 0) {
+      unsigned offset = face * tex_image_face_size(lpt, level, layout);
+      if (target_data) {
+         target_data = (uint8_t *) target_data + offset;
+      }
+      if (other_data) {
+         other_data = (uint8_t *) other_data + offset;
+      }
    }
 
    if (layout == LP_TEX_LAYOUT_NONE) {
@@ -783,7 +837,8 @@ llvmpipe_set_texture_tile_layout(struct llvmpipe_texture *lpt,
 /**
  * Get pointer to a linear image where the tile at (x,y) is known to be
  * in linear layout.
- * \return pointer to start of image (not the tile)
+ * Conversion from tiled to linear will be done if necessary.
+ * \return pointer to start of image/face (not the tile)
  */
 ubyte *
 llvmpipe_get_texture_tile_linear(struct llvmpipe_texture *lpt,
@@ -791,8 +846,8 @@ llvmpipe_get_texture_tile_linear(struct llvmpipe_texture *lpt,
                                  enum lp_texture_usage usage,
                                  unsigned x, unsigned y)
 {
-   struct llvmpipe_texture_image *tiled_img = &lpt->tiled[face][level];
-   struct llvmpipe_texture_image *linear_img = &lpt->linear[face][level];
+   struct llvmpipe_texture_image *tiled_img = &lpt->tiled[level];
+   struct llvmpipe_texture_image *linear_img = &lpt->linear[level];
    enum lp_texture_layout cur_layout, new_layout;
    const unsigned tx = x / TILE_SIZE, ty = y / TILE_SIZE;
    boolean convert;
@@ -820,7 +875,14 @@ llvmpipe_get_texture_tile_linear(struct llvmpipe_texture *lpt,
    if (new_layout != cur_layout)
       llvmpipe_set_texture_tile_layout(lpt, face, level, tx, ty, new_layout);
 
-   return linear_img->data;
+   if (face > 0) {
+      unsigned offset
+         = face * tex_image_face_size(lpt, level, LP_TEX_LAYOUT_LINEAR);
+      return (ubyte *) linear_img->data + offset;
+   }
+   else {
+      return linear_img->data;
+   }
 }
 
 
@@ -835,8 +897,8 @@ llvmpipe_get_texture_tile(struct llvmpipe_texture *lpt,
                           unsigned x, unsigned y)
 {
    const unsigned width = u_minify(lpt->base.width0, level);
-   struct llvmpipe_texture_image *tiled_img = &lpt->tiled[face][level];
-   struct llvmpipe_texture_image *linear_img = &lpt->linear[face][level];
+   struct llvmpipe_texture_image *tiled_img = &lpt->tiled[level];
+   struct llvmpipe_texture_image *linear_img = &lpt->linear[level];
    enum lp_texture_layout cur_layout, new_layout;
    const unsigned tx = x / TILE_SIZE, ty = y / TILE_SIZE;
    boolean convert;
@@ -864,7 +926,7 @@ llvmpipe_get_texture_tile(struct llvmpipe_texture *lpt,
 
    /* compute, return address of the 64x64 tile */
    {
-      unsigned tiles_per_row, tile_offset;
+      unsigned tiles_per_row, tile_offset, face_offset;
 
       tiles_per_row = align(width, TILE_SIZE) / TILE_SIZE;
 
@@ -874,7 +936,12 @@ llvmpipe_get_texture_tile(struct llvmpipe_texture *lpt,
       tile_offset *= TILE_SIZE * TILE_SIZE * 4;
 
       assert(tiled_img->data);
-      return (ubyte *) tiled_img->data + tile_offset;
+
+      face_offset = (face > 0)
+         ? (face * tex_image_face_size(lpt, level, LP_TEX_LAYOUT_TILED))
+         : 0;
+
+      return (ubyte *) tiled_img->data + face_offset + tile_offset;
    }
 }
 

@@ -130,8 +130,14 @@ lp_surface_copy(struct pipe_context *pipe,
 
       /* copy */
       {
-         ubyte *src_linear_ptr = src_tex->linear[src->face][src->level].data;
-         ubyte *dst_linear_ptr = dst_tex->linear[dst->face][dst->level].data;
+         const ubyte *src_linear_ptr
+            = llvmpipe_get_texture_image_address(src_tex, src->face,
+                                                 src->level,
+                                                 LP_TEX_LAYOUT_LINEAR);
+         ubyte *dst_linear_ptr
+            = llvmpipe_get_texture_image_address(dst_tex, dst->face,
+                                                 dst->level,
+                                                 LP_TEX_LAYOUT_LINEAR);
 
          util_copy_rect(dst_linear_ptr, format,
                         dst_tex->stride[dst->level],
