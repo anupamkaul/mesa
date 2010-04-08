@@ -275,12 +275,13 @@ These methods are used to get data to/from a resource.
 data to be written to the resource at this point.
 
 ``transfer_map`` creates a memory mapping for the transfer object.
-The returned map is always relative to the beginning of the resource, not
-taking the potential box region into account.
+The returned map points to the start of the mapped range according to
+the box region, not the beginning of the resource.
 
 .. _transfer_flush_region:
 ``transfer_flush_region`` If a transfer was created with TRANFER_FLUSH_EXPLICIT,
-only the region specified is guaranteed to be written to.
+only the region specified is guaranteed to be written to. This is relative to
+the mapped range, not the beginning of the resource.
 
 ``transfer_unmap`` remove the memory mapping for the transfer object.
 Any pointers into the map should be considered invalid and discarded.
