@@ -175,12 +175,26 @@ lp_rast_tile_begin(struct lp_rasterizer_task *task,
    {
       struct pipe_surface *zsbuf = rast->curr_scene->fb.zsbuf;
       if (zsbuf) {
+         struct llvmpipe_texture *lpt = llvmpipe_texture(zsbuf->texture);
+
          if (scene->has_depth_clear)
             usage = LP_TEX_USAGE_WRITE_ALL;
          else
             usage = LP_TEX_USAGE_READ_WRITE;
 
+         /* "prime" the tile: convert data from linear to tiled if necessary
+          * and update the tile's layout info.
+          */
+         (void) llvmpipe_get_texture_tile(lpt,
+                                          zsbuf->face,
+                                          zsbuf->level,
+                                          usage,
+                                          x, y);
+         /* Get actual pointer to the tile data.  Note that depth/stencil
+          * data is tiled differently than color data.
+          */
          task->depth_tile = lp_rast_get_depth_block_pointer(rast, x, y);
+
          assert(task->depth_tile);
       }
       else {
