@@ -635,6 +635,7 @@ static struct {
    RAST(triangle),
    RAST(shade_tile),
    RAST(set_state),
+   RAST(store_color),
    RAST(fence),
 };
 
