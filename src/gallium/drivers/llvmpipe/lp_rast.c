@@ -57,8 +57,6 @@ lp_rast_begin( struct lp_rasterizer *rast,
 
    LP_DBG(DEBUG_RAST, "%s\n", __FUNCTION__);
 
-   rast->write_linear_colors = 0*TRUE;
-
    rast->state.nr_cbufs = scene->fb.nr_cbufs;
    
    for (i = 0; i < rast->state.nr_cbufs; i++) {
@@ -554,9 +552,6 @@ outline_subtiles(uint8_t *tile)
 static void
 lp_rast_tile_end(struct lp_rasterizer_task *task)
 {
-   struct lp_rasterizer *rast = task->rast;
-   unsigned buf;
-
 #if DEBUG
    for (buf = 0; buf < rast->state.nr_cbufs; buf++) {
       uint8_t *color = lp_rast_get_color_block_pointer(task, buf,
@@ -570,27 +565,6 @@ lp_rast_tile_end(struct lp_rasterizer_task *task)
 #else
    (void) outline_subtiles;
 #endif
-
-   if (rast->write_linear_colors) {
-      struct lp_scene *scene = rast->curr_scene;
-
-      for (buf = 0; buf < rast->state.nr_cbufs; buf++) {
-         struct pipe_surface *cbuf = scene->fb.cbufs[buf];
-         const unsigned face = cbuf->face, level = cbuf->level;
-         struct llvmpipe_texture *lpt = llvmpipe_texture(cbuf->texture);
-         const unsigned linear_stride = lpt->stride[level];
-         void *linear, *tile;
-
-         tile = llvmpipe_get_texture_tile(lpt, face, level,
-                                          LP_TEX_USAGE_READ,
-                                          task->x, task->y);
-         linear = lpt->linear[face][level].data;
-
-         lp_tile_write_4ub(lpt->base.format,
-                           tile, linear, linear_stride,
-                           task->x, task->y, TILE_SIZE, TILE_SIZE);
-      }
-   }
 
    /* debug */
    memset(task->color_tiles, 0, sizeof(task->color_tiles));

@@ -75,8 +75,6 @@ struct lp_rasterizer
 {
    boolean exit_flag;
 
-   boolean write_linear_colors;
-
    /* Framebuffer stuff
     */
    struct {
