@@ -553,6 +553,9 @@ static void
 lp_rast_tile_end(struct lp_rasterizer_task *task)
 {
 #if DEBUG
+   struct lp_rasterizer *rast = task->rast;
+   unsigned buf;
+
    for (buf = 0; buf < rast->state.nr_cbufs; buf++) {
       uint8_t *color = lp_rast_get_color_block_pointer(task, buf,
                                                        task->x, task->y);
