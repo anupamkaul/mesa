@@ -139,32 +139,18 @@ st_bufferobj_get_subdata(GLcontext *ctx,
                          GLsizeiptrARB size,
                          GLvoid * data, struct gl_buffer_object *obj)
 {
-   struct pipe_context *pipe = st_context(ctx)->pipe;
    struct st_buffer_object *st_obj = st_buffer_object(obj);
-   struct pipe_transfer *src_transfer;
-   ubyte *srcPtr;
-
-   if(!size)
-      return;
 
    /* we may be called from VBO code, so double-check params here */
    ASSERT(offset >= 0);
    ASSERT(size >= 0);
    ASSERT(offset + size <= obj->Size);
 
-   /* buffer should not already be mapped */
-   assert(!obj->Pointer);
+   if (!size)
+      return;
 
-   srcPtr = (ubyte *) pipe_buffer_map_range(pipe,
-                                            st_obj->buffer,
-                                            offset, size,
-                                            PIPE_TRANSFER_READ,
-					    &src_transfer);
-
-   if (srcPtr)
-      memcpy(data, srcPtr, size);
-
-   pipe_buffer_unmap(pipe, st_obj->buffer, src_transfer);
+   pipe_buffer_read(st_context(ctx)->pipe, st_obj->buffer,
+                    offset, size, data);
 }
 
 
@@ -235,8 +221,6 @@ st_bufferobj_map(GLcontext *ctx, GLenum target, GLenum access,
                  struct gl_buffer_object *obj)
 {
    struct st_buffer_object *st_obj = st_buffer_object(obj);
-   struct pipe_context *pipe = st_context(ctx)->pipe;
-   struct pipe_box box;
    uint flags;
 
    switch (access) {
@@ -252,16 +236,11 @@ st_bufferobj_map(GLcontext *ctx, GLenum target, GLenum access,
       break;      
    }
 
-   u_box_1d( 0, st_obj->buffer->width0, &box );
+   obj->Pointer = pipe_buffer_map(st_context(ctx)->pipe,
+                                  st_obj->buffer,
+                                  flags,
+                                  &st_obj->transfer);
 
-   st_obj->transfer = pipe->get_transfer( pipe,
-					  st_obj->buffer,
-					  u_subresource(0, 0),
-					  flags,
-					  &box);
-   
-   obj->Pointer = pipe_transfer_map( pipe,
-				     st_obj->transfer );
    if (obj->Pointer) {
       obj->Offset = 0;
       obj->Length = obj->Size;
@@ -288,7 +267,6 @@ st_bufferobj_map_range(GLcontext *ctx, GLenum target,
    struct pipe_context *pipe = st_context(ctx)->pipe;
    struct st_buffer_object *st_obj = st_buffer_object(obj);
    enum pipe_transfer_usage flags = 0x0;
-   struct pipe_box box;
 
    if (access & GL_MAP_WRITE_BIT)
       flags |= PIPE_TRANSFER_WRITE;
@@ -319,22 +297,17 @@ st_bufferobj_map_range(GLcontext *ctx, GLenum target,
     */
    if (!length) {
       obj->Pointer = &st_bufferobj_zero_length_range;
-      return obj->Pointer;
    }
-
-   u_box_1d( offset, length, &box );
-
-   st_obj->transfer = pipe->get_transfer(pipe,
-					 st_obj->buffer,
-					 u_subresource(0,0),
-					 flags,
-					 &box);
-   if (st_obj->transfer == NULL)
-      goto fail;
-
-   obj->Pointer = pipe->transfer_map(pipe, st_obj->transfer);
-   if (obj->Pointer == NULL)
-      goto fail;
+   else {
+      obj->Pointer = pipe_buffer_map_range(pipe, 
+                                           st_obj->buffer,
+                                           offset, length,
+                                           flags,
+                                           &st_obj->transfer);
+      if (obj->Pointer) {
+         obj->Pointer = (ubyte *) obj->Pointer + offset;
+      }
+   }
    
    if (obj->Pointer) {
       obj->Offset = offset;
@@ -343,12 +316,6 @@ st_bufferobj_map_range(GLcontext *ctx, GLenum target,
    }
 
    return obj->Pointer;
-
-fail:
-   if (st_obj->transfer)
-      pipe->transfer_destroy( pipe, st_obj->transfer );
-
-   return NULL;
 }
 
 
@@ -359,23 +326,18 @@ st_bufferobj_flush_mapped_range(GLcontext *ctx, GLenum target,
 {
    struct pipe_context *pipe = st_context(ctx)->pipe;
    struct st_buffer_object *st_obj = st_buffer_object(obj);
-   struct pipe_box box;
 
    /* Subrange is relative to mapped range */
    assert(offset >= 0);
    assert(length >= 0);
    assert(offset + length <= obj->Length);
-   assert(st_obj->transfer);
    assert(obj->Pointer);
    
    if (!length)
       return;
 
-   u_box_1d(offset, length, &box);
-
-   pipe->transfer_flush_region(pipe,
-			       st_obj->transfer,
-			       &box);
+   pipe_buffer_flush_mapped_range(pipe, st_obj->transfer, 
+                                  obj->Offset + offset, length);
 }
 
 
@@ -388,12 +350,8 @@ st_bufferobj_unmap(GLcontext *ctx, GLenum target, struct gl_buffer_object *obj)
    struct pipe_context *pipe = st_context(ctx)->pipe;
    struct st_buffer_object *st_obj = st_buffer_object(obj);
 
-   /* Special case again for zero-length maps:
-    */
-   if (obj->Length) {
-      pipe->transfer_unmap(pipe, st_obj->transfer);
-      pipe->transfer_destroy(pipe, st_obj->transfer);
-   }
+   if (obj->Length)
+      pipe_buffer_unmap(pipe, st_obj->buffer, st_obj->transfer);
 
    st_obj->transfer = NULL;
    obj->Pointer = NULL;
@@ -440,7 +398,7 @@ st_copy_buffer_subdata(GLcontext *ctx,
 					    &dst_transfer);
 
    if (srcPtr && dstPtr)
-      memcpy(dstPtr, srcPtr, size);
+      memcpy(dstPtr + writeOffset, srcPtr + readOffset, size);
 
    pipe_buffer_unmap(pipe, srcObj->buffer, src_transfer);
    pipe_buffer_unmap(pipe, dstObj->buffer, dst_transfer);
