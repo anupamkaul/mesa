@@ -743,7 +743,7 @@ st_manager_get_egl_image_surface(struct st_context *st,
 
    ps = smapi->screen->get_tex_surface(smapi->screen,
          stimg.texture, stimg.face, stimg.level, stimg.zslice, usage);
-   pipe_texture_reference(&stimg.texture, NULL);
+   pipe_resource_reference(&stimg.texture, NULL);
 
    return ps;
 }
