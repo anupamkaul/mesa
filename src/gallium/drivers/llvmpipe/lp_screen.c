@@ -220,23 +220,6 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
          return FALSE;
    }
 
-<<<<<<< HEAD:src/gallium/drivers/llvmpipe/lp_screen.c
-   /* FIXME: Temporary restrictions. See lp_bld_sample_soa.c */
-   if(tex_usage & PIPE_BIND_SAMPLER_VIEW) {
-      if(!format_desc->is_bitmask)
-         return FALSE;
-
-      if(format_desc->colorspace != UTIL_FORMAT_COLORSPACE_RGB &&
-         format_desc->colorspace != UTIL_FORMAT_COLORSPACE_ZS)
-         return FALSE;
-
-      /* not supported yet */
-      if (format == PIPE_FORMAT_Z16_UNORM)
-         return FALSE;
-   }
-
-=======
->>>>>>> origin/master:src/gallium/drivers/llvmpipe/lp_screen.c
    return TRUE;
 }
 
@@ -303,14 +286,9 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
    screen->base.context_create = llvmpipe_create_context;
    screen->base.flush_frontbuffer = llvmpipe_flush_frontbuffer;
 
-<<<<<<< HEAD:src/gallium/drivers/llvmpipe/lp_screen.c
-   llvmpipe_init_screen_resource_funcs(&screen->base);
-=======
    util_format_s3tc_init();
 
-   llvmpipe_init_screen_texture_funcs(&screen->base);
-   llvmpipe_init_screen_buffer_funcs(&screen->base);
->>>>>>> origin/master:src/gallium/drivers/llvmpipe/lp_screen.c
+   llvmpipe_init_screen_resource_funcs(&screen->base);
    llvmpipe_init_screen_fence_funcs(&screen->base);
 
    lp_jit_screen_init(screen);
