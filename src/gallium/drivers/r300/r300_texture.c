@@ -31,8 +31,10 @@
 #include "r300_texture.h"
 #include "r300_transfer.h"
 #include "r300_screen.h"
-#include "r300_state_inlines.h"
 #include "r300_winsys.h"
+
+/* XXX Enable float textures here. */
+/*#define ENABLE_FLOAT_TEXTURES*/
 
 #define TILE_WIDTH 0
 #define TILE_HEIGHT 1
@@ -74,7 +76,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
 {
     uint32_t result = 0;
     const struct util_format_description *desc;
-    unsigned components = 0, i;
+    unsigned i;
     boolean uniform = TRUE;
     const uint32_t swizzle_shift[4] = {
         R300_TX_FORMAT_R_SHIFT,
@@ -159,7 +161,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
         }
     }
 
-    /* Compressed formats. */
+    /* S3TC formats. */
     if (desc->layout == UTIL_FORMAT_LAYOUT_S3TC) {
         switch (format) {
             case PIPE_FORMAT_DXT1_RGB:
@@ -178,28 +180,35 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
         }
     }
 
-    /* Get the number of components. */
-    for (i = 0; i < 4; i++) {
-        if (desc->channel[i].type != UTIL_FORMAT_TYPE_VOID) {
-            ++components;
-        }
-    }
-
     /* Add sign. */
-    for (i = 0; i < components; i++) {
+    for (i = 0; i < desc->nr_channels; i++) {
         if (desc->channel[i].type == UTIL_FORMAT_TYPE_SIGNED) {
             result |= sign_bit[i];
         }
     }
 
+    /* RGTC formats. */
+    if (desc->layout == UTIL_FORMAT_LAYOUT_RGTC) {
+        switch (format) {
+            case PIPE_FORMAT_RGTC1_UNORM:
+            case PIPE_FORMAT_RGTC1_SNORM:
+                return R500_TX_FORMAT_ATI1N | result;
+            case PIPE_FORMAT_RGTC2_UNORM:
+            case PIPE_FORMAT_RGTC2_SNORM:
+                return R400_TX_FORMAT_ATI2N | result;
+            default:
+                return ~0; /* Unsupported/unknown. */
+        }
+    }
+
     /* See whether the components are of the same size. */
-    for (i = 1; i < components; i++) {
+    for (i = 1; i < desc->nr_channels; i++) {
         uniform = uniform && desc->channel[0].size == desc->channel[i].size;
     }
 
     /* Non-uniform formats. */
     if (!uniform) {
-        switch (components) {
+        switch (desc->nr_channels) {
             case 3:
                 if (desc->channel[0].size == 5 &&
                     desc->channel[1].size == 6 &&
@@ -241,7 +250,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
 
             switch (desc->channel[0].size) {
                 case 4:
-                    switch (components) {
+                    switch (desc->nr_channels) {
                         case 2:
                             return R300_TX_FORMAT_Y4X4 | result;
                         case 4:
@@ -250,7 +259,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
                     return ~0;
 
                 case 8:
-                    switch (components) {
+                    switch (desc->nr_channels) {
                         case 1:
                             return R300_TX_FORMAT_X8 | result;
                         case 2:
@@ -261,7 +270,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
                     return ~0;
 
                 case 16:
-                    switch (components) {
+                    switch (desc->nr_channels) {
                         case 1:
                             return R300_TX_FORMAT_X16 | result;
                         case 2:
@@ -272,12 +281,11 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
             }
             return ~0;
 
-/* XXX Enable float textures here. */
-#if 0
+#if defined(ENABLE_FLOAT_TEXTURES)
         case UTIL_FORMAT_TYPE_FLOAT:
             switch (desc->channel[0].size) {
                 case 16:
-                    switch (components) {
+                    switch (desc->nr_channels) {
                         case 1:
                             return R300_TX_FORMAT_16F | result;
                         case 2:
@@ -288,7 +296,7 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
                     return ~0;
 
                 case 32:
-                    switch (components) {
+                    switch (desc->nr_channels) {
                         case 1:
                             return R300_TX_FORMAT_32F | result;
                         case 2:
@@ -301,6 +309,17 @@ static uint32_t r300_translate_texformat(enum pipe_format format)
     }
 
     return ~0; /* Unsupported/unknown. */
+}
+
+static uint32_t r500_tx_format_msb_bit(enum pipe_format format)
+{
+    switch (format) {
+        case PIPE_FORMAT_RGTC1_UNORM:
+        case PIPE_FORMAT_RGTC1_SNORM:
+            return R500_TXFORMAT_MSB;
+        default:
+            return 0;
+    }
 }
 
 /* Buffer formats. */
@@ -343,12 +362,13 @@ static uint32_t r300_translate_colorformat(enum pipe_format format)
         /* 64-bit buffers. */
         case PIPE_FORMAT_R16G16B16A16_UNORM:
         case PIPE_FORMAT_R16G16B16A16_SNORM:
-        //case PIPE_FORMAT_R16G16B16A16_FLOAT: /* not in pipe_format */
+#if defined(ENABLE_FLOAT_TEXTURES)
+        case PIPE_FORMAT_R16G16B16A16_FLOAT:
+#endif
             return R300_COLOR_FORMAT_ARGB16161616;
 
-/* XXX Enable float textures here. */
-#if 0
         /* 128-bit buffers. */
+#if defined(ENABLE_FLOAT_TEXTURES)
         case PIPE_FORMAT_R32G32B32A32_FLOAT:
             return R300_COLOR_FORMAT_ARGB32323232;
 #endif
@@ -496,13 +516,13 @@ static void r300_setup_texture_state(struct r300_screen* screen, struct r300_tex
     struct r300_texture_format_state* state = &tex->state;
     struct pipe_resource *pt = &tex->b.b;
     unsigned i;
-    boolean is_r500 = screen->caps->is_r500;
+    boolean is_r500 = screen->caps.is_r500;
 
     /* Set sampler state. */
     state->format0 = R300_TX_WIDTH((pt->width0 - 1) & 0x7ff) |
                      R300_TX_HEIGHT((pt->height0 - 1) & 0x7ff);
 
-    if (tex->is_npot) {
+    if (tex->uses_pitch) {
         /* rectangles love this */
         state->format0 |= R300_TX_PITCH_EN;
         state->format2 = (tex->pitch[0] - 1) & 0x1fff;
@@ -528,6 +548,7 @@ static void r300_setup_texture_state(struct r300_screen* screen, struct r300_tex
         if (pt->height0 > 2048) {
             state->format2 |= R500_TXHEIGHT_BIT11;
         }
+        state->format2 |= r500_tx_format_msb_bit(pt->format);
     }
 
     SCREEN_DBG(screen, DBG_TEX, "r300: Set texture state (%dx%d, %d levels)\n",
@@ -565,7 +586,7 @@ void r300_texture_reinterpret_format(struct pipe_screen *screen,
 
     tex->format = new_format;
 
-    r300_setup_texture_state(r300_screen(screen), (struct r300_texture*)tex);
+    r300_setup_texture_state(r300_screen(screen), r300_texture(tex));
 }
 
 unsigned r300_texture_get_offset(struct r300_texture* tex, unsigned level,
@@ -684,7 +705,7 @@ static void r300_setup_miptree(struct r300_screen* screen,
 {
     struct pipe_resource* base = &tex->b.b;
     unsigned stride, size, layer_size, nblocksy, i;
-    boolean rv350_mode = screen->caps->family >= CHIP_FAMILY_RV350;
+    boolean rv350_mode = screen->caps.family >= CHIP_FAMILY_RV350;
 
     SCREEN_DBG(screen, DBG_TEX, "r300: Making miptree for texture, format %s\n",
                util_format_name(base->format));
@@ -721,8 +742,9 @@ static void r300_setup_miptree(struct r300_screen* screen,
 
 static void r300_setup_flags(struct r300_texture* tex)
 {
-    tex->is_npot = !util_is_power_of_two(tex->b.b.width0) ||
-                   !util_is_power_of_two(tex->b.b.height0);
+    tex->uses_pitch = !util_is_power_of_two(tex->b.b.width0) ||
+                      !util_is_power_of_two(tex->b.b.height0) ||
+                      tex->stride_override;
 }
 
 static void r300_setup_tiling(struct pipe_screen *screen,
@@ -730,7 +752,7 @@ static void r300_setup_tiling(struct pipe_screen *screen,
 {
     struct r300_winsys_screen *rws = (struct r300_winsys_screen *)screen->winsys;
     enum pipe_format format = tex->b.b.format;
-    boolean rv350_mode = r300_screen(screen)->caps->family >= CHIP_FAMILY_RV350;
+    boolean rv350_mode = r300_screen(screen)->caps.family >= CHIP_FAMILY_RV350;
 
     if (!r300_format_is_plain(format)) {
         return;
@@ -829,7 +851,7 @@ struct u_resource_vtbl r300_texture_vtbl =
 
 /* Create a new texture. */
 struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
-					  const struct pipe_resource* template)
+                                          const struct pipe_resource* base)
 {
     struct r300_texture* tex = CALLOC_STRUCT(r300_texture);
     struct r300_screen* rscreen = r300_screen(screen);
@@ -839,13 +861,13 @@ struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
         return NULL;
     }
 
-    tex->b.b = *template;
+    tex->b.b = *base;
     tex->b.vtbl = &r300_texture_vtbl;
     pipe_reference_init(&tex->b.b.reference, 1);
     tex->b.b.screen = screen;
 
     r300_setup_flags(tex);
-    if (!(template->flags & R300_RESOURCE_FLAG_TRANSFER)) {
+    if (!(base->flags & R300_RESOURCE_FLAG_TRANSFER)) {
         r300_setup_tiling(screen, tex);
     }
     r300_setup_miptree(rscreen, tex);
@@ -878,7 +900,7 @@ struct pipe_surface* r300_get_tex_surface(struct pipe_screen* screen,
 					  unsigned zslice,
 					  unsigned flags)
 {
-    struct r300_texture* tex = (struct r300_texture*)texture;
+    struct r300_texture* tex = r300_texture(texture);
     struct pipe_surface* surface = CALLOC_STRUCT(pipe_surface);
     unsigned offset;
 
@@ -919,6 +941,7 @@ r300_texture_from_handle(struct pipe_screen* screen,
     struct r300_winsys_buffer *buffer;
     struct r300_texture* tex;
     unsigned stride;
+    boolean override_zb_flags;
 
     /* Support only 2D textures without mipmaps */
     if (base->target != PIPE_TEXTURE_2D ||
@@ -943,13 +966,44 @@ r300_texture_from_handle(struct pipe_screen* screen,
     tex->b.b.screen = screen;
 
     tex->stride_override = stride;
-    tex->pitch[0] = stride / util_format_get_blocksize(base->format);
-
-    r300_setup_flags(tex);
-    r300_setup_texture_state(rscreen, tex);
 
     /* one ref already taken */
     tex->buffer = buffer;
 
+    rws->buffer_get_tiling(rws, buffer, &tex->microtile, &tex->macrotile);
+    r300_setup_flags(tex);
+
+    /* Enforce microtiled zbuffer. */
+    override_zb_flags = util_format_is_depth_or_stencil(base->format) &&
+                        tex->microtile == R300_BUFFER_LINEAR;
+
+    if (override_zb_flags) {
+        switch (util_format_get_blocksize(base->format)) {
+            case 4:
+                tex->microtile = R300_BUFFER_TILED;
+                break;
+
+            case 2:
+                if (rws->get_value(rws, R300_VID_SQUARE_TILING_SUPPORT)) {
+                    tex->microtile = R300_BUFFER_SQUARETILED;
+                    break;
+                }
+                /* Pass through. */
+
+            default:
+                override_zb_flags = FALSE;
+        }
+    }
+
+    r300_setup_miptree(rscreen, tex);
+    r300_setup_texture_state(rscreen, tex);
+
+    if (override_zb_flags) {
+        rws->buffer_set_tiling(rws, tex->buffer,
+                               tex->pitch[0],
+                               tex->microtile,
+                               tex->macrotile);
+    }
     return (struct pipe_resource*)tex;
 }
+

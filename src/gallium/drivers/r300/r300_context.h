@@ -80,6 +80,11 @@ struct r300_dsa_state {
     uint32_t z_stencil_control; /* R300_ZB_ZSTENCILCNTL: 0x4f04 */
     uint32_t stencil_ref_mask;  /* R300_ZB_STENCILREFMASK: 0x4f08 */
     uint32_t stencil_ref_bf;    /* R500_ZB_STENCILREFMASK_BF: 0x4fd4 */
+
+    /* Whether a two-sided stencil is enabled. */
+    boolean two_sided;
+    /* Whether a fallback should be used for a two-sided stencil ref value. */
+    boolean stencil_ref_bf_fallback;
 };
 
 struct r300_rs_state {
@@ -139,10 +144,10 @@ struct r300_texture_fb_state {
 
 struct r300_textures_state {
     /* Textures. */
-    struct pipe_sampler_view *fragment_sampler_views[8];
+    struct pipe_sampler_view *fragment_sampler_views[16];
     int texture_count;
     /* Sampler states. */
-    struct r300_sampler_state *sampler_states[8];
+    struct r300_sampler_state *sampler_states[16];
     int sampler_count;
 
     /* These is the merge of the texture and sampler states. */
@@ -153,7 +158,7 @@ struct r300_textures_state {
         uint32_t filter[2];     /* R300_TX_FILTER[0-1] */
         uint32_t border_color;  /* R300_TX_BORDER_COLOR: 0x45c0 */
         uint32_t tile_config;   /* R300_TX_OFFSET (subset thereof) */
-    } regs[8];
+    } regs[16];
 };
 
 struct r300_vertex_stream_state {
@@ -251,10 +256,11 @@ struct r300_texture {
     /* Total size of this texture, in bytes. */
     unsigned size;
 
-    /* Whether this texture has non-power-of-two dimensions.
+    /* Whether this texture has non-power-of-two dimensions
+     * or a user-specified pitch.
      * It can be either a regular texture or a rectangle one.
      */
-    boolean is_npot;
+    boolean uses_pitch;
 
     /* Pipe buffer backing this texture. */
     struct r300_winsys_buffer *buffer;
@@ -290,8 +296,25 @@ struct r300_context {
     /* Parent class */
     struct pipe_context context;
 
+    /* Emission of drawing packets. */
+    void (*emit_draw_arrays_immediate)(
+            struct r300_context *r300,
+            unsigned mode, unsigned start, unsigned count);
+
+    void (*emit_draw_arrays)(
+            struct r300_context *r300,
+            unsigned mode, unsigned count);
+
+    void (*emit_draw_elements)(
+            struct r300_context *r300, struct pipe_buffer* indexBuffer,
+            unsigned indexSize, unsigned minIndex, unsigned maxIndex,
+            unsigned mode, unsigned start, unsigned count);
+
+
     /* The interface to the windowing system, etc. */
     struct r300_winsys_screen *rws;
+    /* Screen. */
+    struct r300_screen *screen;
     /* Draw module. Used mostly for SW TCL. */
     struct draw_context* draw;
     /* Accelerated blit support. */
@@ -378,12 +401,22 @@ struct r300_context {
     uint32_t zbuffer_bpp;
     /* Whether scissor is enabled. */
     boolean scissor_enabled;
+    /* Whether rendering is conditional and should be skipped. */
+    boolean skip_rendering;
+    /* Whether the two-sided stencil ref value is different for front and
+     * back faces, and fallback should be used for r3xx-r4xx. */
+    boolean stencil_ref_bf_fallback;
     /* upload managers */
     struct u_upload_mgr *upload_vb;
     struct u_upload_mgr *upload_ib;
 };
 
 /* Convenience cast wrapper. */
+static INLINE struct r300_texture* r300_texture(struct pipe_texture* tex)
+{
+    return (struct r300_texture*)tex;
+}
+
 static INLINE struct r300_context* r300_context(struct pipe_context* context)
 {
     return (struct r300_context*)context;
@@ -400,7 +433,7 @@ void r300_init_resource_functions(struct r300_context* r300);
 
 static INLINE boolean CTX_DBG_ON(struct r300_context * ctx, unsigned flags)
 {
-    return SCREEN_DBG_ON(r300_screen(ctx->context.screen), flags);
+    return SCREEN_DBG_ON(ctx->screen, flags);
 }
 
 static INLINE void CTX_DBG(struct r300_context * ctx, unsigned flags,

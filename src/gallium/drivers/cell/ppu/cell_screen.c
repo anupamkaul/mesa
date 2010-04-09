@@ -139,10 +139,6 @@ cell_is_format_supported( struct pipe_screen *screen,
 {
    struct sw_winsys *winsys = cell_screen(screen)->winsys;
 
-   if (format == PIPE_FORMAT_DXT5_RGBA ||
-       format == PIPE_FORMAT_A8B8G8R8_SRGB)
-      return FALSE;
-
    if (tex_usage & (PIPE_BIND_DISPLAY_TARGET |
                     PIPE_BIND_SCANOUT |
                     PIPE_BIND_SHARED)) {

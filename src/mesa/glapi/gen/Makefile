@@ -74,6 +74,7 @@ API_XML = \
 	ARB_copy_buffer.xml \
 	ARB_depth_clamp.xml \
 	ARB_draw_elements_base_vertex.xml \
+	ARB_draw_instanced.xml \
 	ARB_framebuffer_object.xml \
 	ARB_map_buffer_range.xml \
 	ARB_seamless_cube_map.xml \
@@ -86,6 +87,7 @@ API_XML = \
 	EXT_packed_depth_stencil.xml \
 	EXT_provoking_vertex.xml \
 	EXT_texture_array.xml \
+	EXT_transform_feedback.xml \
 	NV_conditional_render.xml \
 	OES_EGL_image.xml
 
@@ -103,7 +105,7 @@ xorg: check-xorg-source $(XORG_OUTPUTS)
 
 check-xorg-source:
 	@if ! test -d $(XORG_GLX_DIR); then \
-		echo "ERROR: Must specify path to xserver checkout; set XORG_BASE."; \
+		echo "ERROR: Must specify path to xserver/GL/GLX checkout; set XORG_GLX_DIR."; \
 		exit 1; \
 	fi
 

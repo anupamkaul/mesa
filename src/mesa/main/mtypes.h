@@ -2443,6 +2443,7 @@ struct gl_extensions
    GLboolean ARB_depth_clamp;
    GLboolean ARB_draw_buffers;
    GLboolean ARB_draw_elements_base_vertex;
+   GLboolean ARB_draw_instanced;
    GLboolean ARB_fragment_coord_conventions;
    GLboolean ARB_fragment_program;
    GLboolean ARB_fragment_program_shadow;
@@ -2572,6 +2573,9 @@ struct gl_extensions
    GLboolean SGIS_texture_lod;
    GLboolean TDFX_texture_compression_FXT1;
    GLboolean S3_s3tc;
+#if FEATURE_OES_EGL_image
+   GLboolean OES_EGL_image;
+#endif
 #if FEATURE_OES_draw_texture
    GLboolean OES_draw_texture;
 #endif /* FEATURE_OES_draw_texture */

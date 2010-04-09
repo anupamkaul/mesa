@@ -30,9 +30,10 @@
 
 
 #include "pipe/p_state.h"
+#include "util/u_debug.h"
 
 
-#define LP_MAX_TEXTURE_2D_LEVELS 13  /* 4K x 4K for now */
+#define LP_MAX_TEXTURE_2D_LEVELS 12  /* 2K x 2K for now */
 #define LP_MAX_TEXTURE_3D_LEVELS 10  /* 512 x 512 x 512 for now */
 
 

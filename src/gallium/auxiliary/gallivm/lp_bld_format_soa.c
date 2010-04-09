@@ -27,10 +27,14 @@
 
 
 #include "util/u_format.h"
+#include "util/u_memory.h"
+#include "util/u_string.h"
 
 #include "lp_bld_type.h"
 #include "lp_bld_const.h"
 #include "lp_bld_conv.h"
+#include "lp_bld_sample.h" /* for lp_build_gather */
+#include "lp_bld_init.h"
 #include "lp_bld_format.h"
 
 
@@ -80,6 +84,24 @@ lp_build_format_swizzle_soa(const struct util_format_description *format_desc,
 }
 
 
+/**
+ * Unpack several pixels in SoA.
+ *
+ * It takes a vector of packed pixels:
+ *
+ *   packed = {P0, P1, P2, P3, ..., Pn}
+ *
+ * And will produce four vectors:
+ *
+ *   red    = {R0, R1, R2, R3, ..., Rn}
+ *   green  = {G0, G1, G2, G3, ..., Gn}
+ *   blue   = {B0, B1, B2, B3, ..., Bn}
+ *   alpha  = {A0, A1, A2, A3, ..., An}
+ *
+ * It requires that a packed pixel fits into an element of the output
+ * channels. The common case is when converting pixel with a depth of 32 bit or
+ * less into floats.
+ */
 void
 lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
                          const struct util_format_description *format_desc,
@@ -91,11 +113,13 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
    unsigned start;
    unsigned chan;
 
-   /* FIXME: Support more formats */
-   assert(format_desc->is_bitmask);
+   assert(format_desc->layout == UTIL_FORMAT_LAYOUT_PLAIN);
    assert(format_desc->block.width == 1);
    assert(format_desc->block.height == 1);
-   assert(format_desc->block.bits <= 32);
+   assert(format_desc->block.bits <= type.width);
+   /* FIXME: Support more output types */
+   assert(type.floating);
+   assert(type.width == 32);
 
    /* Decode the input vector components */
    start = 0;
@@ -108,18 +132,32 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
 
       switch(format_desc->channel[chan].type) {
       case UTIL_FORMAT_TYPE_VOID:
-         input = NULL;
+         input = lp_build_undef(type);
          break;
 
       case UTIL_FORMAT_TYPE_UNSIGNED:
-         if(type.floating) {
-            if(start)
-               input = LLVMBuildLShr(builder, input, lp_build_const_int_vec(type, start), "");
-            if(stop < format_desc->block.bits) {
-               unsigned mask = ((unsigned long long)1 << width) - 1;
-               input = LLVMBuildAnd(builder, input, lp_build_const_int_vec(type, mask), "");
-            }
+         /*
+          * Align the LSB
+          */
 
+         if (start) {
+            input = LLVMBuildLShr(builder, input, lp_build_const_int_vec(type, start), "");
+         }
+
+         /*
+          * Zero the MSBs
+          */
+
+         if (stop < format_desc->block.bits) {
+            unsigned mask = ((unsigned long long)1 << width) - 1;
+            input = LLVMBuildAnd(builder, input, lp_build_const_int_vec(type, mask), "");
+         }
+
+         /*
+          * Type conversion
+          */
+
+         if (type.floating) {
             if(format_desc->channel[chan].normalized)
                input = lp_build_unsigned_norm_to_float(builder, width, type, input);
             else
@@ -130,10 +168,80 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
             assert(0);
             input = lp_build_undef(type);
          }
+
+         break;
+
+      case UTIL_FORMAT_TYPE_SIGNED:
+         /*
+          * Align the sign bit first.
+          */
+
+         if (stop < type.width) {
+            unsigned bits = type.width - stop;
+            LLVMValueRef bits_val = lp_build_const_int_vec(type, bits);
+            input = LLVMBuildShl(builder, input, bits_val, "");
+         }
+
+         /*
+          * Align the LSB (with an arithmetic shift to preserve the sign)
+          */
+
+         if (format_desc->channel[chan].size < type.width) {
+            unsigned bits = type.width - format_desc->channel[chan].size;
+            LLVMValueRef bits_val = lp_build_const_int_vec(type, bits);
+            input = LLVMBuildAShr(builder, input, bits_val, "");
+         }
+
+         /*
+          * Type conversion
+          */
+
+         if (type.floating) {
+            input = LLVMBuildSIToFP(builder, input, lp_build_vec_type(type), "");
+            if (format_desc->channel[chan].normalized) {
+               double scale = 1.0 / ((1 << (format_desc->channel[chan].size - 1)) - 1);
+               LLVMValueRef scale_val = lp_build_const_vec(type, scale);
+               input = LLVMBuildMul(builder, input, scale_val, "");
+            }
+         }
+         else {
+            /* FIXME */
+            assert(0);
+            input = lp_build_undef(type);
+         }
+
+         break;
+
+      case UTIL_FORMAT_TYPE_FLOAT:
+         if (type.floating) {
+            assert(start == 0);
+            assert(stop == 32);
+            assert(type.width == 32);
+            input = LLVMBuildBitCast(builder, input, lp_build_vec_type(type), "");
+         }
+         else {
+            /* FIXME */
+            assert(0);
+            input = lp_build_undef(type);
+         }
+         break;
+
+      case UTIL_FORMAT_TYPE_FIXED:
+         if (type.floating) {
+            double scale = 1.0 / ((1 << (format_desc->channel[chan].size/2)) - 1);
+            LLVMValueRef scale_val = lp_build_const_vec(type, scale);
+            input = LLVMBuildSIToFP(builder, input, lp_build_vec_type(type), "");
+            input = LLVMBuildMul(builder, input, scale_val, "");
+         }
+         else {
+            /* FIXME */
+            assert(0);
+            input = lp_build_undef(type);
+         }
          break;
 
       default:
-         /* fall through */
+         assert(0);
          input = lp_build_undef(type);
          break;
       }
@@ -144,4 +252,145 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
    }
 
    lp_build_format_swizzle_soa(format_desc, type, inputs, rgba);
+}
+
+
+/**
+ * Fetch a pixel into a SoA.
+ *
+ * i and j are the sub-block pixel coordinates.
+ */
+void
+lp_build_fetch_rgba_soa(LLVMBuilderRef builder,
+                        const struct util_format_description *format_desc,
+                        struct lp_type type,
+                        LLVMValueRef base_ptr,
+                        LLVMValueRef offset,
+                        LLVMValueRef i,
+                        LLVMValueRef j,
+                        LLVMValueRef *rgba)
+{
+
+   if (format_desc->layout == UTIL_FORMAT_LAYOUT_PLAIN &&
+       (format_desc->colorspace == UTIL_FORMAT_COLORSPACE_RGB ||
+        format_desc->colorspace == UTIL_FORMAT_COLORSPACE_ZS) &&
+       format_desc->block.width == 1 &&
+       format_desc->block.height == 1 &&
+       format_desc->block.bits <= type.width &&
+       (format_desc->channel[0].type != UTIL_FORMAT_TYPE_FLOAT ||
+        format_desc->channel[0].size == 32))
+   {
+      /*
+       * The packed pixel fits into an element of the destination format. Put
+       * the packed pixels into a vector and estract each component for all
+       * vector elements in parallel.
+       */
+
+      LLVMValueRef packed;
+
+      /*
+       * gather the texels from the texture
+       */
+      packed = lp_build_gather(builder,
+                               type.length,
+                               format_desc->block.bits,
+                               type.width,
+                               base_ptr, offset);
+
+      /*
+       * convert texels to float rgba
+       */
+      lp_build_unpack_rgba_soa(builder,
+                               format_desc,
+                               type,
+                               packed, rgba);
+   }
+   else {
+      /*
+       * Fallback to calling util_format_description::fetch_float for each
+       * pixel.
+       *
+       * This is definitely not the most efficient way of fetching pixels, as
+       * we miss the opportunity to do vectorization, but this it is a
+       * convenient for formats or scenarios for which there was no opportunity
+       * or incentive to optimize.
+       */
+
+      LLVMModuleRef module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
+      char name[256];
+      LLVMValueRef function;
+      LLVMValueRef tmp;
+      unsigned k, chan;
+
+      assert(type.floating);
+
+      util_snprintf(name, sizeof name, "util_format_%s_fetch_float", format_desc->short_name);
+
+      /*
+       * Declare and bind format_desc->fetch_float().
+       */
+
+      function = LLVMGetNamedFunction(module, name);
+      if (!function) {
+         LLVMTypeRef ret_type;
+         LLVMTypeRef arg_types[4];
+         LLVMTypeRef function_type;
+
+         ret_type = LLVMVoidType();
+         arg_types[0] = LLVMPointerType(LLVMFloatType(), 0);
+         arg_types[1] = LLVMPointerType(LLVMInt8Type(), 0);
+         arg_types[3] = arg_types[2] = LLVMIntType(sizeof(unsigned) * 8);
+         function_type = LLVMFunctionType(ret_type, arg_types, Elements(arg_types), 0);
+         function = LLVMAddFunction(module, name, function_type);
+
+         LLVMSetFunctionCallConv(function, LLVMCCallConv);
+         LLVMSetLinkage(function, LLVMExternalLinkage);
+
+         assert(LLVMIsDeclaration(function));
+
+         LLVMAddGlobalMapping(lp_build_engine, function, format_desc->fetch_float);
+      }
+
+      for (chan = 0; chan < 4; ++chan) {
+         rgba[chan] = lp_build_undef(type);
+      }
+
+      tmp = LLVMBuildArrayAlloca(builder,
+                                 LLVMFloatType(),
+                                 LLVMConstInt(LLVMInt32Type(), 4, 0),
+                                 "");
+
+      /*
+       * Invoke format_desc->fetch_float() for each pixel and insert the result
+       * in the SoA vectors.
+       */
+
+      for(k = 0; k < type.length; ++k) {
+         LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), k, 0);
+         LLVMValueRef offset_elem;
+         LLVMValueRef ptr;
+         LLVMValueRef i_elem, j_elem;
+         LLVMValueRef args[4];
+
+         offset_elem = LLVMBuildExtractElement(builder, offset, index, "");
+         ptr = LLVMBuildGEP(builder, base_ptr, &offset_elem, 1, "");
+
+         i_elem = LLVMBuildExtractElement(builder, i, index, "");
+         j_elem = LLVMBuildExtractElement(builder, j, index, "");
+
+         args[0] = tmp;
+         args[1] = ptr;
+         args[2] = i_elem;
+         args[3] = j_elem;
+
+         LLVMBuildCall(builder, function, args, 4, "");
+
+         for (chan = 0; chan < 4; ++chan) {
+            LLVMValueRef chan_val = LLVMConstInt(LLVMInt32Type(), chan, 0),
+            tmp_chan = LLVMBuildGEP(builder, tmp, &chan_val, 1, "");
+            tmp_chan = LLVMBuildLoad(builder, tmp_chan, "");
+            rgba[chan] = LLVMBuildInsertElement(builder, rgba[chan], tmp_chan, index, "");
+         }
+      }
+   }
 }

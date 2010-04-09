@@ -50,6 +50,7 @@ static const struct {
    { OFF, "GL_ARB_depth_clamp",                F(ARB_depth_clamp) },
    { ON,  "GL_ARB_draw_buffers",               F(ARB_draw_buffers) },
    { OFF, "GL_ARB_draw_elements_base_vertex",  F(ARB_draw_elements_base_vertex) },
+   { OFF, "GL_ARB_draw_instanced",             F(ARB_draw_instanced) },
    { OFF, "GL_ARB_fragment_coord_conventions", F(ARB_fragment_coord_conventions) },
    { OFF, "GL_ARB_fragment_program",           F(ARB_fragment_program) },
    { OFF, "GL_ARB_fragment_program_shadow",    F(ARB_fragment_program_shadow) },
@@ -106,6 +107,7 @@ static const struct {
    { ON,  "GL_EXT_copy_texture",               F(EXT_copy_texture) },
    { OFF, "GL_EXT_depth_bounds_test",          F(EXT_depth_bounds_test) },
    { OFF, "GL_EXT_draw_buffers2",              F(EXT_draw_buffers2) },
+   { OFF, "GL_EXT_draw_instanced",             F(ARB_draw_instanced) },
    { ON,  "GL_EXT_draw_range_elements",        F(EXT_draw_range_elements) },
    { OFF, "GL_EXT_framebuffer_blit",           F(EXT_framebuffer_blit) },
    { OFF, "GL_EXT_framebuffer_multisample",    F(EXT_framebuffer_multisample) },
@@ -195,6 +197,9 @@ static const struct {
    { ON,  "GL_SGIS_texture_lod",               F(SGIS_texture_lod) },
    { ON,  "GL_SUN_multi_draw_arrays",          F(EXT_multi_draw_arrays) },
    { OFF, "GL_S3_s3tc",                        F(S3_s3tc) },
+#if FEATURE_OES_EGL_image
+   { OFF, "GL_OES_EGL_image",                  F(OES_EGL_image) },
+#endif
 #if FEATURE_OES_draw_texture
    { OFF, "GL_OES_draw_texture",               F(OES_draw_texture) },
 #endif /* FEATURE_OES_draw_texture */
@@ -321,7 +326,7 @@ _mesa_enable_sw_extensions(GLcontext *ctx)
 #endif
    ctx->Extensions.EXT_texture_swizzle = GL_TRUE;
 #if FEATURE_EXT_transform_feedback
-   ctx->Extensions.EXT_transform_feedback = GL_TRUE;
+   /*ctx->Extensions.EXT_transform_feedback = GL_TRUE;*/
 #endif
    ctx->Extensions.EXT_vertex_array_bgra = GL_TRUE;
    /*ctx->Extensions.IBM_multimode_draw_arrays = GL_TRUE;*/

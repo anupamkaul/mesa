@@ -42,7 +42,29 @@ import os.path
 
 sys.path.insert(0, os.path.join(os.path.dirname(sys.argv[0]), '../../auxiliary/util'))
 
-from u_format_access import *
+from u_format_pack import *
+
+
+def is_format_supported(format):
+    '''Determines whether we actually have the plumbing necessary to generate the 
+    to read/write to/from this format.'''
+
+    # FIXME: Ideally we would support any format combination here.
+
+    if format.layout != PLAIN:
+        return False
+
+    for i in range(4):
+        channel = format.channels[i]
+        if channel.type not in (VOID, UNSIGNED, SIGNED, FLOAT):
+            return False
+        if channel.type == FLOAT and channel.size not in (32 ,64):
+            return False
+
+    if format.colorspace not in ('rgb', 'srgb'):
+        return False
+
+    return True
 
 
 def generate_format_read(format, dst_channel, dst_native_type, dst_suffix):
@@ -62,7 +84,7 @@ def generate_format_read(format, dst_channel, dst_native_type, dst_suffix):
     print '      for (x = 0; x < w; ++x) {'
 
     names = ['']*4
-    if format.colorspace == 'rgb':
+    if format.colorspace in ('rgb', 'srgb'):
         for i in range(4):
             swizzle = format.swizzles[i]
             if swizzle < 4:
@@ -95,16 +117,21 @@ def generate_format_read(format, dst_channel, dst_native_type, dst_suffix):
                 shift += width
         else:
             for i in range(4):
+                if names[i]:
+                    print '         %s %s;' % (dst_native_type, names[i])
+            for i in range(4):
                 src_channel = format.channels[i]
                 if names[i]:
                     value = '(*src_pixel++)'
                     value = conversion_expr(src_channel, dst_channel, dst_native_type, value, clamp=False)
-                    print '         %s %s = %s;' % (dst_native_type, names[i], value)
+                    print '         %s = %s;' % (names[i], value)
+                elif src_channel.size:
+                    print '         ++src_pixel;'
     else:
         assert False
 
     for i in range(4):
-        if format.colorspace == 'rgb':
+        if format.colorspace in ('rgb', 'srgb'):
             swizzle = format.swizzles[i]
             if swizzle < 4:
                 value = names[swizzle]
@@ -134,7 +161,7 @@ def pack_rgba(format, src_channel, r, g, b, a):
     """Return an expression for packing r, g, b, a into a pixel of the
     given format.  Ex: '(b << 24) | (g << 16) | (r << 8) | (a << 0)'
     """
-    assert format.colorspace == 'rgb'
+    assert format.colorspace in ('rgb', 'srgb')
     inv_swizzle = format.inv_swizzles()
     shift = 0
     expr = None
@@ -230,6 +257,8 @@ def emit_tile_pixel_write_code(format, src_channel):
                     value = 'TILE_PIXEL(src, x, y, %u)' % inv_swizzle[i]
                     value = conversion_expr(src_channel, dst_channel, dst_native_type, value, clamp=False)
                     print '         *dst_pixel++ = %s;' % value
+                else:
+                    print '         ++dst_pixel;'
     else:
         assert False
 
@@ -251,7 +280,8 @@ def generate_format_write(format, src_channel, src_native_type, src_suffix):
         and format.block_size() <= 32 \
         and format.is_pot() \
         and not format.is_mixed() \
-        and format.channels[0].type == UNSIGNED:
+        and (format.channels[0].type == UNSIGNED \
+             or format.channels[1].type == UNSIGNED):
         emit_unrolled_write_code(format, src_channel)
     else:
         emit_tile_pixel_write_code(format, src_channel)
@@ -277,7 +307,7 @@ def generate_read(formats, dst_channel, dst_native_type, dst_suffix):
             print '      func = &lp_tile_%s_read_%s;' % (format.short_name(), dst_suffix)
             print '      break;'
     print '   default:'
-    print '      debug_printf("unsupported format\\n");'
+    print '      debug_printf("%s: unsupported format %s\\n", __FUNCTION__, util_format_name(format));'
     print '      return;'
     print '   }'
     print '   func(dst, (const uint8_t *)src, src_stride, x, y, w, h);'
@@ -304,7 +334,7 @@ def generate_write(formats, src_channel, src_native_type, src_suffix):
             print '      func = &lp_tile_%s_write_%s;' % (format.short_name(), src_suffix)
             print '      break;'
     print '   default:'
-    print '      debug_printf("unsupported format\\n");'
+    print '      debug_printf("%s: unsupported format %s\\n", __FUNCTION__, util_format_name(format));'
     print '      return;'
     print '   }'
     print '   func(src, (uint8_t *)dst, dst_stride, x, y, w, h);'
@@ -325,6 +355,7 @@ def main():
     print '#include "pipe/p_compiler.h"'
     print '#include "util/u_format.h"'
     print '#include "util/u_math.h"'
+    print '#include "util/u_half.h"'
     print '#include "lp_tile_soa.h"'
     print
     print 'const unsigned char'
@@ -348,8 +379,6 @@ def main():
     print '   2, 2, 3, 3, 2, 2, 3, 3'
     print '};'
     print
-
-    generate_clamp()
 
     channel = Channel(UNSIGNED, True, 8)
     native_type = 'uint8_t'

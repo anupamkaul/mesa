@@ -88,8 +88,8 @@ static void r300_flush_cb(void *data)
 
 static void r300_setup_atoms(struct r300_context* r300)
 {
-    boolean is_r500 = r300_screen(r300->context.screen)->caps->is_r500;
-    boolean has_tcl = r300_screen(r300->context.screen)->caps->has_tcl;
+    boolean is_r500 = r300->screen->caps.is_r500;
+    boolean has_tcl = r300->screen->caps.has_tcl;
 
     /* Create the actual atom list.
      *
@@ -140,6 +140,7 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
         return NULL;
 
     r300->rws = rws;
+    r300->screen = r300screen;
 
     r300->context.winsys = (struct pipe_winsys*)rws;
     r300->context.screen = screen;
@@ -151,10 +152,20 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     r300->context.surface_copy = r300_surface_copy;
     r300->context.surface_fill = r300_surface_fill;
 
-    if (r300screen->caps->has_tcl) {
+    if (r300screen->caps.has_tcl) {
         r300->context.draw_arrays = r300_draw_arrays;
         r300->context.draw_elements = r300_draw_elements;
         r300->context.draw_range_elements = r300_draw_range_elements;
+
+        if (r300screen->caps.is_r500) {
+            r300->emit_draw_arrays_immediate = r500_emit_draw_arrays_immediate;
+            r300->emit_draw_arrays = r500_emit_draw_arrays;
+            r300->emit_draw_elements = r500_emit_draw_elements;
+        } else {
+            r300->emit_draw_arrays_immediate = r300_emit_draw_arrays_immediate;
+            r300->emit_draw_arrays = r300_emit_draw_arrays;
+            r300->emit_draw_elements = r300_emit_draw_elements;
+        }
     } else {
         r300->context.draw_arrays = r300_swtcl_draw_arrays;
         r300->context.draw_elements = r300_draw_elements;

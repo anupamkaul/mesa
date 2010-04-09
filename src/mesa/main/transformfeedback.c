@@ -33,7 +33,6 @@
 #include "buffers.h"
 #include "bufferobj.h"
 #include "context.h"
-#include "enums.h"
 #include "transformfeedback.h"
 
 #include "shader/prog_parameter.h"
@@ -419,9 +418,18 @@ _mesa_GetTransformFeedbackVarying(GLuint program, GLuint index,
 
       /* return the datatype and value's size (in datatype units) */
       if (type)
-         *type = param->Type;
+         *type = param->DataType;
       if (size)
          *size = param->Size;
+   }
+   else {
+      name[0] = 0;
+      if (length)
+         *length = 0;
+      if (type)
+         *type = 0;
+      if (size)
+         *size = 0;
    }
 }
 

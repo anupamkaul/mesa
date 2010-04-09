@@ -99,7 +99,6 @@ static void r300_draw_emit_all_attribs(struct r300_context* r300)
         gen_count++;
     }
 
-    /* XXX magic */
     assert(gen_count <= 8);
 }
 
@@ -266,7 +265,7 @@ static void r300_update_rs_block(struct r300_context* r300,
     boolean any_bcolor_used = vs_outputs->bcolor[0] != ATTR_UNUSED ||
                               vs_outputs->bcolor[1] != ATTR_UNUSED;
 
-    if (r300_screen(r300->context.screen)->caps->is_r500) {
+    if (r300->screen->caps.is_r500) {
         rX00_rs_col       = r500_rs_col;
         rX00_rs_col_write = r500_rs_col_write;
         rX00_rs_tex       = r500_rs_tex;
@@ -471,7 +470,7 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
             state->tx_enable |= 1 << i;
 
             view = state->fragment_sampler_views[i];
-            tex = (struct r300_texture *)view->texture;
+            tex = r300_texture(view->texture);
             sampler = state->sampler_states[i];
 
             assert(view->format == tex->b.b.format);
@@ -490,7 +489,7 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
                 texstate->filter[0] |= R300_TX_WRAP_T(R300_TX_CLAMP_TO_EDGE);
             }
 
-            if (tex->is_npot) {
+            if (tex->uses_pitch) {
                 /* NPOT textures don't support mip filter, unfortunately.
                  * This prevents incorrect rendering. */
                 texstate->filter[0] &= ~R300_TX_MIN_FILTER_MIP_MASK;

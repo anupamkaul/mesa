@@ -191,21 +191,44 @@ struct util_format_description
    enum util_format_colorspace colorspace;
 
    /**
-    * Accessor functions.
+    * Unpack pixel blocks to R8G8B8A8_UNORM.
     */
-
    void
-   (*unpack_8unorm)(uint8_t *dst, const uint8_t *src, unsigned nr_blocks);
+   (*unpack_8unorm)(uint8_t *dst, unsigned dst_stride,
+                    const uint8_t *src, unsigned src_stride,
+                    unsigned width, unsigned height);
 
+   /**
+    * Pack pixel blocks from R8G8B8A8_UNORM.
+    */
    void
-   (*pack_8unorm)(uint8_t *dst, const uint8_t *src, unsigned nr_blocks);
+   (*pack_8unorm)(uint8_t *dst, unsigned dst_stride,
+                  const uint8_t *src, unsigned src_stride,
+                  unsigned width, unsigned height);
 
+   /**
+    * Unpack pixel blocks to R32G32B32A32_FLOAT.
+    */
    void
-   (*unpack_float)(float *dst, const uint8_t *src, unsigned nr_blocks);
+   (*unpack_float)(float *dst, unsigned dst_stride,
+                   const uint8_t *src, unsigned src_stride,
+                   unsigned width, unsigned height);
 
+   /**
+    * Pack pixel blocks from R32G32B32A32_FLOAT.
+    */
    void
-   (*pack_float)(uint8_t *dst, const float *src, unsigned nr_blocks);
+   (*pack_float)(uint8_t *dst, unsigned dst_stride,
+                 const float *src, unsigned src_stride,
+                 unsigned width, unsigned height);
 
+   /**
+    * Fetch a single pixel (i, j) from a block.
+    */
+   void
+   (*fetch_float)(float *dst,
+                  const uint8_t *src,
+                  unsigned i, unsigned j);
 };
 
 
@@ -226,8 +249,8 @@ util_format_name(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
 
-   assert(format);
-   if (!format) {
+   assert(desc);
+   if (!desc) {
       return "???";
    }
 
@@ -239,8 +262,8 @@ util_format_is_s3tc(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
 
-   assert(format);
-   if (!format) {
+   assert(desc);
+   if (!desc) {
       return FALSE;
    }
 
@@ -252,8 +275,8 @@ util_format_is_depth_or_stencil(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
 
-   assert(format);
-   if (!format) {
+   assert(desc);
+   if (!desc) {
       return FALSE;
    }
 
@@ -265,8 +288,8 @@ util_format_is_depth_and_stencil(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
 
-   assert(format);
-   if (!format) {
+   assert(desc);
+   if (!desc) {
       return FALSE;
    }
 
@@ -315,8 +338,8 @@ util_format_get_blocksizebits(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
 
-   assert(format);
-   if (!format) {
+   assert(desc);
+   if (!desc) {
       return 0;
    }
 
@@ -341,8 +364,8 @@ util_format_get_blockwidth(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
 
-   assert(format);
-   if (!format) {
+   assert(desc);
+   if (!desc) {
       return 1;
    }
 
@@ -354,8 +377,8 @@ util_format_get_blockheight(enum pipe_format format)
 {
    const struct util_format_description *desc = util_format_description(format);
 
-   assert(format);
-   if (!format) {
+   assert(desc);
+   if (!desc) {
       return 1;
    }
 
@@ -506,6 +529,19 @@ util_format_write_4ub(enum pipe_format format,
                       const uint8_t *src, unsigned src_stride, 
                       void *dst, unsigned dst_stride, 
                       unsigned x, unsigned y, unsigned w, unsigned h);
+
+/*
+ * Generic format conversion;
+ */
+
+void
+util_format_translate(enum pipe_format dst_format,
+                      void *dst, unsigned dst_stride,
+                      unsigned dst_x, unsigned dst_y,
+                      enum pipe_format src_format,
+                      const void *src, unsigned src_stride,
+                      unsigned src_x, unsigned src_y,
+                      unsigned width, unsigned height);
 
 #ifdef __cplusplus
 } // extern "C" {

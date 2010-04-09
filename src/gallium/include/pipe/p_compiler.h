@@ -74,7 +74,6 @@ typedef unsigned char boolean;
 #define FALSE false
 #endif
 
-
 /* Function inlining */
 #ifndef INLINE
 #  ifdef __cplusplus

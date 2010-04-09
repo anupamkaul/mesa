@@ -31,6 +31,10 @@
 #include "state_tracker/st_api.h"
 #include "st_context.h"
 
+struct pipe_surface *
+st_manager_get_egl_image_surface(struct st_context *st,
+                                 void *eglimg, unsigned usage);
+
 void
 st_manager_flush_frontbuffer(struct st_context *st);
 

@@ -191,7 +191,7 @@ class TextureColorSampleTest(TestCase):
             zslice = zslice,
         )
         
-        ctx.surface_sample_rgba(surface, expected_rgba)
+        ctx.surface_sample_rgba(surface, expected_rgba, True)
         
         ctx.set_fragment_sampler_texture(0, texture)
 
@@ -428,7 +428,7 @@ class TextureDepthSampleTest(TestCase):
             zslice = zslice,
         )
 
-        ctx.surface_sample_rgba(surface, expected_rgba)
+        ctx.surface_sample_rgba(surface, expected_rgba, True)
         
         ctx.set_fragment_sampler_texture(0, texture)
 
@@ -555,6 +555,7 @@ def main():
     random.seed(0xdead3eef)
 
     dev = Device()
+    ctx = dev.context_create()
     suite = TestSuite()
     
     targets = [
@@ -577,9 +578,10 @@ def main():
         PIPE_TEX_FACE_NEG_Z,
     ]
 
-    ctx = dev.context_create()
-
-    n = 10000
+    try:
+        n = int(sys.argv[1])
+    except:
+        n = 10000
     
     for i in range(n):
         format = random.choice(formats.keys())
@@ -599,7 +601,7 @@ def main():
                 depth = 1
 
             if target == PIPE_TEXTURE_CUBE:
-                face =random.choice(faces)
+                face = random.choice(faces)
             else:
                 face = PIPE_TEX_FACE_POS_X
 

@@ -1556,6 +1556,26 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #	define R300_TX_FORMAT_32F_32F 	    	    0x1C
 #	define R300_TX_FORMAT_32F_32F_32F_32F  	    0x1D
 #       define R300_TX_FORMAT_W24_FP                0x1E
+#       define R400_TX_FORMAT_ATI2N                 0x1F
+
+/* These need TX_FORMAT2_[0-15].TXFORMAT_MSB set.
+
+   My guess is the 10-bit formats are the 8-bit ones but with filtering being
+   performed with the precision of 10 bits per channel. This makes sense
+   with sRGB textures since the conversion to linear space reduces the precision
+   significantly so the shader gets approximately the 8-bit precision
+   in the end. It might also improve the quality of HDR rendering where
+   high-precision filtering is desirable.
+
+   Again, this is guessed, the formats might mean something entirely else.
+   The others should be fine. */
+#       define R500_TX_FORMAT_X1                    0x0
+#       define R500_TX_FORMAT_X1_REV                0x1
+#       define R500_TX_FORMAT_X10                   0x2
+#       define R500_TX_FORMAT_Y10X10                0x3
+#       define R500_TX_FORMAT_W10Z10Y10X10          0x4
+#       define R500_TX_FORMAT_ATI1N                 0x5
+
 
 #       define R300_TX_FORMAT_SIGNED_W             (1 << 5)
 #       define R300_TX_FORMAT_SIGNED_Z             (1 << 6)
@@ -1720,6 +1740,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #       define R300_PFS_CNTL_TEX_OFFSET_MASK     (31 << 13)
 #       define R300_PFS_CNTL_TEX_END_SHIFT       18
 #       define R300_PFS_CNTL_TEX_END_MASK        (31 << 18)
+#       define R400_PFS_CNTL_TEX_OFFSET_MSB_SHIFT 24
+#       define R400_PFS_CNTL_TEX_OFFSET_MSB_MASK (0xf << 24)
+#       define R400_PFS_CNTL_TEX_END_MSB_SHIFT   28
+#       define R400_PFS_CNTL_TEX_END_MSB_MASK    (0xf << 28)
 
 /* gap */
 
@@ -1744,6 +1768,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #       define R300_TEX_SIZE_MASK           (31 << 17)
 #	define R300_RGBA_OUT                (1 << 22)
 #	define R300_W_OUT                   (1 << 23)
+#       define R400_TEX_START_MSB_SHIFT     24
+#       define R400_TEX_START_MSG_MASK      (0xf << 24)
+#       define R400_TEX_SIZE_MSB_SHIFT      28
+#       define R400_TEX_SIZE_MSG_MASK       (0xf << 28)
 
 /* TEX
  * As far as I can tell, texture instructions cannot write into output
@@ -1764,6 +1792,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #		define R300_TEX_OP_TXP	        3
 #		define R300_TEX_OP_TXB	        4
 #	define R300_TEX_INST_MASK               (7 << 15)
+#      define R400_SRC_ADDR_EXT_BIT         (1 << 19)
+#      define R400_DST_ADDR_EXT_BIT         (1 << 20)
 
 /* Output format from the unfied shader */
 #define R300_US_OUT_FMT_0                   0x46A4
@@ -2071,6 +2101,43 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #       define R300_ALU_OUTA_CLAMP              (1 << 30)
 /* END: Fragment program instruction set */
+
+/* R4xx extended fragment shader registers. */
+#define R400_US_ALU_EXT_ADDR_0              0x4ac0 /* up to 63 (0x4bbc) */
+#   define R400_ADDR0_EXT_RGB_MSB_BIT       0x01
+#   define R400_ADDR1_EXT_RGB_MSB_BIT       0x02
+#   define R400_ADDR2_EXT_RGB_MSB_BIT       0x04
+#   define R400_ADDRD_EXT_RGB_MSB_BIT       0x08
+#   define R400_ADDR0_EXT_A_MSB_BIT         0x10
+#   define R400_ADDR1_EXT_A_MSB_BIT         0x20
+#   define R400_ADDR2_EXT_A_MSB_BIT         0x40
+#   define R400_ADDRD_EXT_A_MSB_BIT         0x80
+#define R400_US_CODE_BANK                   0x46b8
+#   define R400_BANK_SHIFT                  0
+#   define R400_BANK_MASK                   0xf
+#   define R400_R390_MODE_ENABLE            (1 << 4)
+#define R400_US_CODE_EXT                    0x46bc
+#   define R400_ALU_OFFSET_MSB_SHIFT        0
+#   define R400_ALU_OFFSET_MSB_MASK         (0x7 << 0)
+#   define R400_ALU_SIZE_MSB_SHIFT          3
+#   define R400_ALU_SIZE_MSB_MASK           (0x7 << 3)
+#   define R400_ALU_START0_MSB_SHIFT        6
+#   define R400_ALU_START0_MSB_MASK         (0x7 << 6)
+#   define R400_ALU_SIZE0_MSB_SHIFT         9
+#   define R400_ALU_SIZE0_MSB_MASK          (0x7 << 9)
+#   define R400_ALU_START1_MSB_SHIFT        12
+#   define R400_ALU_START1_MSB_MASK         (0x7 << 12)
+#   define R400_ALU_SIZE1_MSB_SHIFT         15
+#   define R400_ALU_SIZE1_MSB_MASK          (0x7 << 15)
+#   define R400_ALU_START2_MSB_SHIFT        18
+#   define R400_ALU_START2_MSB_MASK         (0x7 << 18)
+#   define R400_ALU_SIZE2_MSB_SHIFT         21
+#   define R400_ALU_SIZE2_MSB_MASK          (0x7 << 21)
+#   define R400_ALU_START3_MSB_SHIFT        24
+#   define R400_ALU_START3_MSB_MASK         (0x7 << 24)
+#   define R400_ALU_SIZE3_MSB_SHIFT         27
+#   define R400_ALU_SIZE3_MSB_MASK          (0x7 << 27)
+/* END: R4xx extended fragment shader registers. */
 
 /* Fog: Fog Blending Enable */
 #define R300_FG_FOG_BLEND                             0x4bc0
@@ -3269,7 +3336,6 @@ enum {
 #   define R300_W_FMT_W24FP				(2 << 0)
 #   define R300_W_SRC_US				(0 << 2)
 #   define R300_W_SRC_RAS				(1 << 2)
-
 
 /* Draw a primitive from vertex data in arrays loaded via 3D_LOAD_VBPNTR.
  * Two parameter dwords:

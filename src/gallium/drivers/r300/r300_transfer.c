@@ -125,10 +125,10 @@ r300_texture_get_transfer(struct pipe_context *ctx,
 			  unsigned usage,
 			  const struct pipe_box *box)
 {
-    struct r300_texture *tex = (struct r300_texture *)texture;
+    struct r300_texture *tex = r300_texture(texture);
     struct r300_screen *r300screen = r300_screen(ctx->screen);
     struct r300_transfer *trans;
-    struct pipe_resource template;
+    struct pipe_resource base;
 
     trans = CALLOC_STRUCT(r300_transfer);
     if (trans) {
@@ -147,31 +147,31 @@ r300_texture_get_transfer(struct pipe_context *ctx,
                 PIPE_BIND_DEPTH_STENCIL :
                 PIPE_BIND_RENDER_TARGET;
 
-            template.target = PIPE_TEXTURE_2D;
-            template.format = texture->format;
-            template.width0 = box->width;
-            template.height0 = box->height;
-            template.depth0 = 0;
-            template.last_level = 0;
-            template.nr_samples = 0;
-            template._usage = PIPE_USAGE_DYNAMIC;
-	    template.flags = R300_RESOURCE_FLAG_TRANSFER;
+            base.target = PIPE_TEXTURE_2D;
+            base.format = texture->format;
+            base.width0 = box->width;
+            base.height0 = box->height;
+            base.depth0 = 0;
+            base.last_level = 0;
+            base.nr_samples = 0;
+            base._usage = PIPE_USAGE_DYNAMIC;
+	    base.flags = R300_RESOURCE_FLAG_TRANSFER;
 
             /* For texture reading, the temporary (detiled) texture is used as
              * a render target when blitting from a tiled texture. */
             if (usage & PIPE_TRANSFER_READ) {
-                template.bind |= trans->render_target_usage;
+                base.bind |= trans->render_target_usage;
             }
             /* For texture writing, the temporary texture is used as a sampler
              * when blitting into a tiled texture. */
             if (usage & PIPE_TRANSFER_WRITE) {
-                template.bind |= PIPE_BIND_SAMPLER_VIEW;
+                base.bind |= PIPE_BIND_SAMPLER_VIEW;
             }
 
             /* Create the temporary texture. */
-            trans->detiled_texture = (struct r300_texture*)
+            trans->detiled_texture = r300_texture(
                ctx->screen->resource_create(ctx->screen,
-                                           &template);
+                                            &base));
 
             assert(!trans->detiled_texture->microtile &&
                    !trans->detiled_texture->macrotile);
@@ -222,7 +222,7 @@ void* r300_texture_transfer_map(struct pipe_context *ctx,
 {
     struct r300_winsys_screen *rws = (struct r300_winsys_screen *)ctx->winsys;
     struct r300_transfer *r300transfer = r300_transfer(transfer);
-    struct r300_texture *tex = (struct r300_texture*)transfer->resource;
+    struct r300_texture *tex = r300_texture(transfer->resource);
     char *map;
     enum pipe_format format = tex->b.b.format;
 
@@ -252,7 +252,7 @@ void r300_texture_transfer_unmap(struct pipe_context *ctx,
 {
     struct r300_winsys_screen *rws = (struct r300_winsys_screen *)ctx->winsys;
     struct r300_transfer *r300transfer = r300_transfer(transfer);
-    struct r300_texture *tex = (struct r300_texture*)transfer->resource;
+    struct r300_texture *tex = r300_texture(transfer->resource);
 
     if (r300transfer->detiled_texture) {
 	rws->buffer_unmap(rws, r300transfer->detiled_texture->buffer);

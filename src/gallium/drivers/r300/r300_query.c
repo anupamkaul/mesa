@@ -36,7 +36,7 @@ static struct pipe_query *r300_create_query(struct pipe_context *pipe,
                                             unsigned query_type)
 {
     struct r300_context *r300 = r300_context(pipe);
-    struct r300_screen *r300screen = r300_screen(r300->context.screen);
+    struct r300_screen *r300screen = r300->screen;
     unsigned query_size;
     struct r300_query *q, *qptr;
 
@@ -47,10 +47,10 @@ static struct pipe_query *r300_create_query(struct pipe_context *pipe,
 
     q->active = FALSE;
 
-    if (r300screen->caps->family == CHIP_FAMILY_RV530)
-	query_size = r300screen->caps->num_z_pipes * sizeof(uint32_t);
+    if (r300screen->caps.family == CHIP_FAMILY_RV530)
+        query_size = r300screen->caps.num_z_pipes * sizeof(uint32_t);
     else
-	query_size = r300screen->caps->num_frag_pipes * sizeof(uint32_t);
+        query_size = r300screen->caps.num_frag_pipes * sizeof(uint32_t);
 
     if (!is_empty_list(&r300->query_list)) {
         qptr = last_elem(&r300->query_list);
@@ -112,7 +112,7 @@ static boolean r300_get_query_result(struct pipe_context* pipe,
                                      uint64_t* result)
 {
     struct r300_context* r300 = r300_context(pipe);
-    struct r300_screen* r300screen = r300_screen(r300->context.screen);
+    struct r300_screen* r300screen = r300->screen;
     struct r300_query *q = (struct r300_query*)query;
     struct pipe_transfer *transfer;
     unsigned flags = PIPE_TRANSFER_READ;
@@ -131,10 +131,10 @@ static boolean r300_get_query_result(struct pipe_context* pipe,
         return FALSE;
     map += q->offset / 4;
 
-    if (r300screen->caps->family == CHIP_FAMILY_RV530)
-        num_results = r300screen->caps->num_z_pipes;
+    if (r300screen->caps.family == CHIP_FAMILY_RV530)
+        num_results = r300screen->caps.num_z_pipes;
     else
-        num_results = r300screen->caps->num_frag_pipes;
+        num_results = r300screen->caps.num_frag_pipes;
 
     for (i = 0; i < num_results; i++) {
         if (*map == ~0U) {
@@ -160,10 +160,33 @@ static boolean r300_get_query_result(struct pipe_context* pipe,
     return TRUE;
 }
 
+static void r300_render_condition(struct pipe_context *pipe,
+                                  struct pipe_query *query,
+                                  uint mode)
+{
+    struct r300_context *r300 = r300_context(pipe);
+    uint64_t result;
+    boolean wait;
+
+    if (query) {
+        wait = mode == PIPE_RENDER_COND_WAIT ||
+               mode == PIPE_RENDER_COND_BY_REGION_WAIT;
+
+        if (!r300_get_query_result(pipe, query, wait, &result)) {
+            r300->skip_rendering = FALSE;
+        }
+
+        r300->skip_rendering = result == 0;
+    } else {
+        r300->skip_rendering = FALSE;
+    }
+}
+
 void r300_init_query_functions(struct r300_context* r300) {
     r300->context.create_query = r300_create_query;
     r300->context.destroy_query = r300_destroy_query;
     r300->context.begin_query = r300_begin_query;
     r300->context.end_query = r300_end_query;
     r300->context.get_query_result = r300_get_query_result;
+    r300->context.render_condition = r300_render_condition;
 }

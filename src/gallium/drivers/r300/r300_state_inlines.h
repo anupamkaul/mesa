@@ -338,7 +338,7 @@ static INLINE uint32_t r500_anisotropy(unsigned max_aniso)
 
     // Map the range [0, 15] to [0, 63].
     return R500_TX_MAX_ANISO(MIN2((unsigned)(max_aniso*4.2001), 63)) |
-           R500_TX_ANISO_HIGH_QUALITY;;
+           R500_TX_ANISO_HIGH_QUALITY;
 }
 
 /* Non-CSO state. (For now.) */
@@ -367,7 +367,6 @@ static INLINE uint16_t
 r300_translate_vertex_data_type(enum pipe_format format) {
     uint32_t result = 0;
     const struct util_format_description *desc;
-    unsigned components = util_format_get_nr_components(format);
 
     desc = util_format_description(format);
 
@@ -380,17 +379,17 @@ r300_translate_vertex_data_type(enum pipe_format format) {
     switch (desc->channel[0].type) {
         /* Half-floats, floats, doubles */
         case UTIL_FORMAT_TYPE_FLOAT:
-            switch (util_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB, 0)) {
+            switch (desc->channel[0].size) {
                 case 16:
                     /* XXX Supported only on RV350 and later. */
-                    if (components > 2) {
+                    if (desc->nr_channels > 2) {
                         result = R300_DATA_TYPE_FLT16_4;
                     } else {
                         result = R300_DATA_TYPE_FLT16_2;
                     }
                     break;
                 case 32:
-                    result = R300_DATA_TYPE_FLOAT_1 + (components - 1);
+                    result = R300_DATA_TYPE_FLOAT_1 + (desc->nr_channels - 1);
                     break;
                 default:
                     fprintf(stderr, "r300: Bad format %s in %s:%d\n",
@@ -402,12 +401,12 @@ r300_translate_vertex_data_type(enum pipe_format format) {
         case UTIL_FORMAT_TYPE_UNSIGNED:
         /* Signed ints */
         case UTIL_FORMAT_TYPE_SIGNED:
-            switch (util_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB, 0)) {
+            switch (desc->channel[0].size) {
                 case 8:
                     result = R300_DATA_TYPE_BYTE;
                     break;
                 case 16:
-                    if (components > 2) {
+                    if (desc->nr_channels > 2) {
                         result = R300_DATA_TYPE_SHORT_4;
                     } else {
                         result = R300_DATA_TYPE_SHORT_2;
@@ -416,8 +415,8 @@ r300_translate_vertex_data_type(enum pipe_format format) {
                 default:
                     fprintf(stderr, "r300: Bad format %s in %s:%d\n",
                         util_format_name(format), __FUNCTION__, __LINE__);
-                    fprintf(stderr, "r300: util_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB, 0) == %d\n",
-                        util_format_get_component_bits(format, UTIL_FORMAT_COLORSPACE_RGB, 0));
+                    fprintf(stderr, "r300: desc->channel[0].size == %d\n",
+                        desc->channel[0].size);
                     assert(0);
             }
             break;
