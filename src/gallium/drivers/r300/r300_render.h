@@ -35,7 +35,7 @@ void r500_emit_draw_arrays(struct r300_context *r300,
                            unsigned count);
 
 void r500_emit_draw_elements(struct r300_context *r300,
-                             struct pipe_buffer* indexBuffer,
+                             struct pipe_resource* indexBuffer,
                              unsigned indexSize,
                              unsigned minIndex,
                              unsigned maxIndex,
@@ -53,7 +53,7 @@ void r300_emit_draw_arrays(struct r300_context *r300,
                            unsigned count);
 
 void r300_emit_draw_elements(struct r300_context *r300,
-                             struct pipe_buffer* indexBuffer,
+                             struct pipe_resource* indexBuffer,
                              unsigned indexSize,
                              unsigned minIndex,
                              unsigned maxIndex,

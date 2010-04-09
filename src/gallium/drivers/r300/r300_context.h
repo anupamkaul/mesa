@@ -306,7 +306,7 @@ struct r300_context {
             unsigned mode, unsigned count);
 
     void (*emit_draw_elements)(
-            struct r300_context *r300, struct pipe_buffer* indexBuffer,
+            struct r300_context *r300, struct pipe_resource* indexBuffer,
             unsigned indexSize, unsigned minIndex, unsigned maxIndex,
             unsigned mode, unsigned start, unsigned count);
 
@@ -412,7 +412,7 @@ struct r300_context {
 };
 
 /* Convenience cast wrapper. */
-static INLINE struct r300_texture* r300_texture(struct pipe_texture* tex)
+static INLINE struct r300_texture* r300_texture(struct pipe_resource* tex)
 {
     return (struct r300_texture*)tex;
 }
