@@ -93,7 +93,7 @@ struct pipe_screen {
    /**
     * Check if the given pipe_format is supported as a texture or
     * drawing surface.
-    * \param tex_usage  bitmask of PIPE_TEXTURE_USAGE_*
+    * \param tex_usage  bitmask of PIPE_BIND_*
     * \param geom_flags  bitmask of PIPE_TEXTURE_GEOM_*
     */
    boolean (*is_format_supported)( struct pipe_screen *,
