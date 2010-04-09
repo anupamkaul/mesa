@@ -74,9 +74,7 @@ struct pipe_winsys
     * other way around...).
     *
     * usage is a bitmask of PIPE_BIND_*.
-    * XXX is this true?
-    * This usage argument is only an optimization hint, not a guarantee,
-    * therefore proper behavior must be observed in all circumstances.
+    * All possible usages must be present.
     *
     * alignment indicates the client's alignment requirements, eg for
     * SSE instructions.
