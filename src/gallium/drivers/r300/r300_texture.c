@@ -867,7 +867,8 @@ struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
     tex->b.b.screen = screen;
 
     r300_setup_flags(tex);
-    if (!(base->flags & R300_RESOURCE_FLAG_TRANSFER)) {
+    if (!(base->flags & R300_RESOURCE_FLAG_TRANSFER) &&
+        !(base->bind & PIPE_BIND_SCANOUT)) {
         r300_setup_tiling(screen, tex);
     }
     r300_setup_miptree(rscreen, tex);
