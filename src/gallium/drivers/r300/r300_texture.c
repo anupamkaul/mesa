@@ -695,6 +695,9 @@ static unsigned r300_texture_get_nblocksy(struct r300_texture* tex,
         tile_height = r300_texture_get_tile_size(tex, TILE_HEIGHT,
                                                  tex->mip_macrotile[level]);
         height = align(height, tile_height);
+
+        /* This is needed for the kernel checker, unfortunately. */
+        height = util_next_power_of_two(height);
     }
 
     return util_format_get_nblocksy(tex->b.b.format, height);
