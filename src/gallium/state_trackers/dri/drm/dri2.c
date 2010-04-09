@@ -390,12 +390,12 @@ dri2_create_image_from_name(__DRIcontext *context,
 {
    struct dri_screen *screen = dri_screen(context->driScreenPriv);
    __DRIimage *img;
-   struct pipe_texture templ;
+   struct pipe_resource templ;
    struct winsys_handle whandle;
    unsigned tex_usage;
    enum pipe_format pf;
 
-   tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET | PIPE_TEXTURE_USAGE_SAMPLER;
+   tex_usage = PIPE_BIND_RENDER_TARGET | PIPE_BIND_SAMPLER_VIEW;
 
    switch (format) {
    case __DRI_IMAGE_FORMAT_RGB565:
@@ -419,7 +419,7 @@ dri2_create_image_from_name(__DRIcontext *context,
       return NULL;
 
    memset(&templ, 0, sizeof(templ));
-   templ.tex_usage = tex_usage;
+   templ.bind = tex_usage;
    templ.format = pf;
    templ.target = PIPE_TEXTURE_2D;
    templ.last_level = 0;
@@ -431,7 +431,7 @@ dri2_create_image_from_name(__DRIcontext *context,
    whandle.handle = name;
    whandle.stride = pitch * util_format_get_blocksize(pf);
 
-   img->texture = screen->pipe_screen->texture_from_handle(screen->pipe_screen,
+   img->texture = screen->pipe_screen->resource_from_handle(screen->pipe_screen,
          &templ, &whandle);
    if (!img->texture) {
       FREE(img);
