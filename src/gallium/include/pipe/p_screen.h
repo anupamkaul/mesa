@@ -131,7 +131,7 @@ struct pipe_screen {
 			    struct pipe_resource *pt);
 
    /** Get a 2D surface which is a "view" into a texture
-    * \param usage  bitmaks of PIPE_BUFFER_USAGE_* read/write flags
+    * \param usage  bitmaks of PIPE_BIND_* flags
     */
    struct pipe_surface *(*get_tex_surface)(struct pipe_screen *,
                                            struct pipe_resource *resource,

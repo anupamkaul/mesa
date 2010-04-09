@@ -230,9 +230,7 @@ struct svga_winsys_screen
    /**
     * Buffer management. Buffer attributes are mostly fixed over its lifetime.
     *
-    * usage is a bitmask of PIPE_BUFFER_USAGE_PIXEL/VERTEX/INDEX/CONSTANT. This
-    * usage argument is only an optimization hint, not a guarantee, therefore 
-    * proper behavior must be observed in all circumstances.
+    * XXX usage seems to be a bitmask of SVGA_BUFFER_USAGE_* flags.
     *
     * alignment indicates the client's alignment requirements, eg for
     * SSE instructions.
@@ -246,9 +244,9 @@ struct svga_winsys_screen
    /** 
     * Map the entire data store of a buffer object into the client's address.
     * flags is a bitmask of:
-    * - PIPE_BUFFER_USAGE_CPU_READ/WRITE
-    * - PIPE_BUFFER_USAGE_DONTBLOCK
-    * - PIPE_BUFFER_USAGE_UNSYNCHRONIZED
+    * - PB_USAGE_CPU_READ/WRITE
+    * - PB_USAGE_DONTBLOCK
+    * - PB_USAGE_UNSYNCHRONIZED
     */
    void *
    (*buffer_map)( struct svga_winsys_screen *sws, 

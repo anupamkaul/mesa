@@ -73,9 +73,10 @@ struct pipe_winsys
     * window systems must then implement that interface (rather than the
     * other way around...).
     *
-    * usage is a bitmask of PIPE_BUFFER_USAGE_PIXEL/VERTEX/INDEX/CONSTANT. This
-    * usage argument is only an optimization hint, not a guarantee, therefore
-    * proper behavior must be observed in all circumstances.
+    * usage is a bitmask of PIPE_BIND_*.
+    * XXX is this true?
+    * This usage argument is only an optimization hint, not a guarantee,
+    * therefore proper behavior must be observed in all circumstances.
     *
     * alignment indicates the client's alignment requirements, eg for
     * SSE instructions.
@@ -117,7 +118,7 @@ struct pipe_winsys
     * display targets) must be allocated with special characteristics, memory
     * pools, or obtained directly from the windowing system.
     *
-    * This callback is invoked by the pipe_screenwhen creating a texture marked
+    * This callback is invoked by the pipe_screen when creating a texture marked
     * with the PIPE_BIND_DISPLAY_TARGET flag  to get the underlying
     * buffer storage.
     */
