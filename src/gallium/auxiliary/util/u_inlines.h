@@ -161,7 +161,7 @@ pipe_buffer_map_range(struct pipe_context *pipe,
 		      struct pipe_transfer **transfer)
 {
    struct pipe_box box;
-   char *map;
+   void *map;
 
    assert(offset < buffer->width0);
    assert(offset + length <= buffer->width0);
@@ -187,7 +187,7 @@ pipe_buffer_map_range(struct pipe_context *pipe,
    /* Match old screen->buffer_map_range() behaviour, return pointer
     * to where the beginning of the buffer would be:
     */
-   return (void *)(map - offset);
+   return (void *)((char *)map - offset);
 }
 
 
