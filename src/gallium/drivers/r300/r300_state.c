@@ -1347,7 +1347,6 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
                                      struct pipe_resource *buf)
 {
     struct r300_context* r300 = r300_context(pipe);
-    struct r300_screen *r300screen = r300_screen(pipe->screen);
     struct pipe_transfer *tr;
     void *mapped;
     int max_size = 0;
