@@ -241,7 +241,7 @@ dri_st_manager_get_egl_image(struct st_manager *smapi,
       return FALSE;
 
    stimg->texture = NULL;
-   pipe_texture_reference(&stimg->texture, img->texture);
+   pipe_resource_reference(&stimg->texture, img->texture);
    stimg->face = img->face;
    stimg->level = img->level;
    stimg->zslice = img->zslice;

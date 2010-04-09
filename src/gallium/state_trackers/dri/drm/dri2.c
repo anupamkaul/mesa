@@ -462,7 +462,7 @@ dri2_create_image_from_renderbuffer(__DRIcontext *context,
 static void
 dri2_destroy_image(__DRIimage *img)
 {
-   pipe_texture_reference(&img->texture, NULL);
+   pipe_resource_reference(&img->texture, NULL);
    FREE(img);
 }
 
