@@ -309,6 +309,7 @@ i915_create_screen(struct i915_winsys *iws, uint pci_id)
    is->base.fence_finish = i915_fence_finish;
 
    i915_init_screen_resource_functions(is);
+   i915_init_screen_surface_functions(is);
 
    return &is->base;
 }
