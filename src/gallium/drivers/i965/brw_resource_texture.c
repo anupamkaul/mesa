@@ -270,6 +270,29 @@ static unsigned brw_texture_is_referenced( struct pipe_context *pipe,
  * Transfer functions
  */
 
+
+static struct pipe_transfer * 
+brw_texture_get_transfer(struct pipe_context *context,
+			  struct pipe_resource *resource,
+			  struct pipe_subresource sr,
+			  unsigned usage,
+			  const struct pipe_box *box)
+{
+   struct brw_texture *tex = brw_texture(resource);
+   struct pipe_transfer *transfer = CALLOC_STRUCT(pipe_transfer);
+   if (transfer == NULL)
+      return NULL;
+
+   transfer->resource = resource;
+   transfer->sr = sr;
+   transfer->usage = usage;
+   transfer->box = *box;
+   transfer->stride = tex->pitch * tex->cpp;
+
+   return transfer;
+}
+
+
 static void *
 brw_texture_transfer_map(struct pipe_context *pipe,
                  struct pipe_transfer *transfer)
@@ -331,7 +354,7 @@ struct u_resource_vtbl brw_texture_vtbl =
    brw_texture_get_handle,	      /* get_handle */
    brw_texture_destroy,	      /* resource_destroy */
    brw_texture_is_referenced,	      /* is_resource_referenced */
-   u_default_get_transfer,	      /* get_transfer */
+   brw_texture_get_transfer,	      /* get_transfer */
    u_default_transfer_destroy,	      /* transfer_destroy */
    brw_texture_transfer_map,	      /* transfer_map */
    u_default_transfer_flush_region,   /* transfer_flush_region */

@@ -653,6 +653,26 @@ i915_texture_destroy(struct pipe_screen *screen,
    FREE(tex);
 }
 
+static struct pipe_transfer * 
+i915_texture_get_transfer(struct pipe_context *context,
+			  struct pipe_resource *resource,
+			  struct pipe_subresource sr,
+			  unsigned usage,
+			  const struct pipe_box *box)
+{
+   struct i915_texture *tex = i915_texture(resource);
+   struct pipe_transfer *transfer = CALLOC_STRUCT(pipe_transfer);
+   if (transfer == NULL)
+      return NULL;
+
+   transfer->resource = resource;
+   transfer->sr = sr;
+   transfer->usage = usage;
+   transfer->box = *box;
+   transfer->stride = tex->stride;
+
+   return transfer;
+}
 
 
 static void *
@@ -707,7 +727,7 @@ struct u_resource_vtbl i915_texture_vtbl =
    i915_texture_get_handle,	      /* get_handle */
    i915_texture_destroy,	      /* resource_destroy */
    NULL,			      /* is_resource_referenced */
-   u_default_get_transfer,	      /* get_transfer */
+   i915_texture_get_transfer,	      /* get_transfer */
    u_default_transfer_destroy,	      /* transfer_destroy */
    i915_texture_transfer_map,	      /* transfer_map */
    u_default_transfer_flush_region,   /* transfer_flush_region */
