@@ -24,6 +24,7 @@
 
 #include "nv50_context.h"
 #include "nv50_screen.h"
+#include "nv50_resource.h"
 
 #include "nouveau/nouveau_stateobj.h"
 
@@ -33,7 +34,7 @@ nv50_screen_is_format_supported(struct pipe_screen *pscreen,
 				enum pipe_texture_target target,
 				unsigned tex_usage, unsigned geom_flags)
 {
-	if (tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) {
+	if (tex_usage & PIPE_BIND_RENDER_TARGET) {
 		switch (format) {
 		case PIPE_FORMAT_B8G8R8X8_UNORM:
 		case PIPE_FORMAT_B8G8R8A8_UNORM:
@@ -48,7 +49,7 @@ nv50_screen_is_format_supported(struct pipe_screen *pscreen,
 			break;
 		}
 	} else
-	if (tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL) {
+	if (tex_usage & PIPE_BIND_DEPTH_STENCIL) {
 		switch (format) {
 		case PIPE_FORMAT_Z32_FLOAT:
 		case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
@@ -133,10 +134,6 @@ nv50_screen_get_param(struct pipe_screen *pscreen, int param)
 		return 1;
 	case PIPE_CAP_BLEND_EQUATION_SEPARATE:
 		return 1;
-	case NOUVEAU_CAP_HW_VTXBUF:
-		return screen->force_push ? 0 : 1;
-	case NOUVEAU_CAP_HW_IDXBUF:
-		return screen->force_push ? 0 : 1;
 	case PIPE_CAP_INDEP_BLEND_ENABLE:
 		return 1;
 	case PIPE_CAP_INDEP_BLEND_FUNC:
@@ -280,7 +277,7 @@ nv50_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 	pscreen->is_format_supported = nv50_screen_is_format_supported;
 	pscreen->context_create = nv50_create;
 
-	nv50_screen_init_miptree_functions(pscreen);
+	nv50_screen_init_resource_functions(pscreen);
 
 	/* DMA engine object */
 	ret = nouveau_grobj_alloc(chan, 0xbeef5039,
@@ -334,6 +331,9 @@ nv50_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 		return NULL;
 	}
 
+	/* this is necessary for the new RING_3D / statebuffer code */
+	BIND_RING(chan, screen->tesla, 7);
+
 	/* Sync notifier */
 	ret = nouveau_notifier_alloc(chan, 0xbeef0301, 1, &screen->sync);
 	if (ret) {
@@ -379,8 +379,8 @@ nv50_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 	OUT_RING  (chan, 1);
 
 	/* activate all 32 lanes (threads) in a warp */
-	BEGIN_RING(chan, screen->tesla, NV50TCL_WARP_HALVES, 1);
-	OUT_RING  (chan, 2);
+	BEGIN_RING(chan, screen->tesla, NV50TCL_REG_MODE, 1);
+	OUT_RING  (chan, NV50TCL_REG_MODE_STRIPED);
 	BEGIN_RING(chan, screen->tesla, 0x1400, 1);
 	OUT_RING  (chan, 0xf);
 
@@ -497,6 +497,8 @@ nv50_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 	FIRE_RING (chan);
 
 	screen->force_push = debug_get_bool_option("NV50_ALWAYS_PUSH", FALSE);
+	if(!screen->force_push)
+		screen->base.vertex_buffer_flags = screen->base.index_buffer_flags = NOUVEAU_BO_GART;
 	return pscreen;
 }
 

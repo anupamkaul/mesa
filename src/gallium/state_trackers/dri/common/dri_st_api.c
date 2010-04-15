@@ -14,12 +14,13 @@
  * The above copyright notice and this permission notice shall be included
  * in all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
- * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  *
  * Authors:
  *    Chia-I Wu <olv@lunarg.com>
@@ -46,7 +47,7 @@ static boolean
 dri_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
                             const enum st_attachment_type *statts,
                             unsigned count,
-                            struct pipe_texture **out)
+                            struct pipe_resource **out)
 {
    struct dri_drawable *drawable =
       (struct dri_drawable *) stfbi->st_manager_private;
@@ -99,7 +100,7 @@ dri_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
 
    for (i = 0; i < count; i++) {
       out[i] = NULL;
-      pipe_texture_reference(&out[i], drawable->textures[statts[i]]);
+      pipe_resource_reference(&out[i], drawable->textures[statts[i]]);
    }
 
    return TRUE;
@@ -156,7 +157,7 @@ dri_destroy_st_framebuffer(struct st_framebuffer_iface *stfbi)
    int i;
 
    for (i = 0; i < ST_ATTACHMENT_COUNT; i++)
-      pipe_texture_reference(&drawable->textures[i], NULL);
+      pipe_resource_reference(&drawable->textures[i], NULL);
 
    FREE(stfbi);
 }
@@ -224,6 +225,31 @@ _dri_put_st_api(void)
    }
 }
 
+static boolean
+dri_st_manager_get_egl_image(struct st_manager *smapi,
+                             struct st_egl_image *stimg)
+{
+   __DRIimage *img = NULL;
+
+#ifndef __NOT_HAVE_DRM_H
+   if (!__dri1_api_hooks) {
+      struct dri_context *ctx = (struct dri_context *)
+         stimg->stctxi->st_manager_private;
+      img = dri2_lookup_egl_image(ctx, stimg->egl_image);
+   }
+#endif
+   if (!img)
+      return FALSE;
+
+   stimg->texture = NULL;
+   pipe_resource_reference(&stimg->texture, img->texture);
+   stimg->face = img->face;
+   stimg->level = img->level;
+   stimg->zslice = img->zslice;
+
+   return TRUE;
+}
+
 /**
  * Create a state tracker manager from the given screen.
  */
@@ -235,6 +261,7 @@ dri_create_st_manager(struct dri_screen *screen)
    smapi = CALLOC_STRUCT(st_manager);
    if (smapi) {
       smapi->screen = screen->pipe_screen;
+      smapi->get_egl_image = dri_st_manager_get_egl_image;
       _dri_get_st_api();
    }
 

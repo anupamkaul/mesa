@@ -92,7 +92,7 @@ def write_format_table(formats):
     u_format_pack.generate(formats)
     
     for format in formats:
-        print 'struct util_format_description'
+        print 'const struct util_format_description'
         print 'util_format_%s_description = {' % (format.short_name(),)
         print "   %s," % (format.name,)
         print "   \"%s\"," % (format.name,)
@@ -103,7 +103,6 @@ def write_format_table(formats):
         print "   %s,\t/* is_array */" % (bool_map(format.is_array()),)
         print "   %s,\t/* is_bitmask */" % (bool_map(format.is_bitmask()),)
         print "   %s,\t/* is_mixed */" % (bool_map(format.is_mixed()),)
-        print "   %s,\t/* is_supported */" % ("TRUE" if u_format_pack.is_format_supported(format) else "FALSE",)
         print "   {"
         for i in range(4):
             channel = format.channels[i]
@@ -130,11 +129,34 @@ def write_format_table(formats):
             print "      %s%s\t/* %s */" % (swizzle_map[swizzle], sep, comment)
         print "   },"
         print "   %s," % (colorspace_map(format.colorspace),)
-        print "   &util_format_%s_unpack_8unorm," % format.short_name() 
-        print "   &util_format_%s_pack_8unorm," % format.short_name() 
-        print "   &util_format_%s_unpack_float," % format.short_name() 
-        print "   &util_format_%s_pack_float," % format.short_name() 
-        print "   &util_format_%s_fetch_float" % format.short_name() 
+        if format.colorspace != ZS:
+            print "   &util_format_%s_unpack_rgba_8unorm," % format.short_name() 
+            print "   &util_format_%s_pack_rgba_8unorm," % format.short_name() 
+            print "   &util_format_%s_unpack_rgba_float," % format.short_name() 
+            print "   &util_format_%s_pack_rgba_float," % format.short_name() 
+            print "   &util_format_%s_fetch_rgba_float," % format.short_name()
+        else:
+            print "   NULL, /* unpack_rgba_8unorm */" 
+            print "   NULL, /* pack_rgba_8unorm */" 
+            print "   NULL, /* unpack_rgba_float */" 
+            print "   NULL, /* pack_rgba_float */" 
+            print "   NULL, /* fetch_rgba_float */" 
+        if format.colorspace == ZS and format.swizzles[0] != SWIZZLE_NONE:
+            print "   &util_format_%s_unpack_z_32unorm," % format.short_name() 
+            print "   &util_format_%s_pack_z_32unorm," % format.short_name() 
+            print "   &util_format_%s_unpack_z_float," % format.short_name() 
+            print "   &util_format_%s_pack_z_float," % format.short_name() 
+        else:
+            print "   NULL, /* unpack_z_32unorm */" 
+            print "   NULL, /* pack_z_32unorm */" 
+            print "   NULL, /* unpack_z_float */" 
+            print "   NULL, /* pack_z_float */" 
+        if format.colorspace == ZS and format.swizzles[1] != SWIZZLE_NONE:
+            print "   &util_format_%s_unpack_s_8uscaled," % format.short_name() 
+            print "   &util_format_%s_pack_s_8uscaled" % format.short_name() 
+        else:
+            print "   NULL, /* unpack_s_8uscaled */" 
+            print "   NULL /* pack_s_8uscaled */" 
         print "};"
         print
         
@@ -150,7 +172,6 @@ def write_format_table(formats):
         print "   case %s:" % format.name
         print "      return &util_format_%s_description;" % (format.short_name(),)
     print "   default:"
-    print "      assert(0);"
     print "      return NULL;"
     print "   }"
     print "}"

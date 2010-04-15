@@ -199,6 +199,7 @@ STATETRACKER_SOURCES = \
 	state_tracker/st_cb_condrender.c \
 	state_tracker/st_cb_flush.c \
 	state_tracker/st_cb_drawpixels.c \
+	state_tracker/st_cb_eglimage.c \
 	state_tracker/st_cb_fbo.c \
 	state_tracker/st_cb_feedback.c \
 	state_tracker/st_cb_program.c \
@@ -213,7 +214,6 @@ STATETRACKER_SOURCES = \
 	state_tracker/st_draw_feedback.c \
 	state_tracker/st_extensions.c \
 	state_tracker/st_format.c \
-	state_tracker/st_framebuffer.c \
 	state_tracker/st_gen_mipmap.c \
 	state_tracker/st_manager.c \
 	state_tracker/st_mesa_to_tgsi.c \

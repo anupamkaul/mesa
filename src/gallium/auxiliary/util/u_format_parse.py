@@ -73,6 +73,8 @@ class Channel:
         '''Maximum representable number.'''
         if self.type == FLOAT:
             return VERY_LARGE
+        if self.type == FIXED:
+            return (1 << (self.size/2)) - 1
         if self.norm:
             return 1
         if self.type == UNSIGNED:
@@ -85,6 +87,8 @@ class Channel:
         '''Minimum representable number.'''
         if self.type == FLOAT:
             return -VERY_LARGE
+        if self.type == FIXED:
+            return -(1 << (self.size/2))
         if self.type == UNSIGNED:
             return 0
         if self.norm:
@@ -134,6 +138,8 @@ class Format:
         return nr_channels
 
     def is_array(self):
+        if self.layout != PLAIN:
+            return False
         ref_channel = self.channels[0]
         for channel in self.channels[1:]:
             if channel.size and (channel.size != ref_channel.size or channel.size % 8):
@@ -141,6 +147,8 @@ class Format:
         return True
 
     def is_mixed(self):
+        if self.layout != PLAIN:
+            return False
         ref_channel = self.channels[0]
         if ref_channel.type == VOID:
            ref_channel = self.channels[1]
@@ -156,18 +164,24 @@ class Format:
         return is_pot(self.block_size())
 
     def is_int(self):
+        if self.layout != PLAIN:
+            return False
         for channel in self.channels:
             if channel.type not in (VOID, UNSIGNED, SIGNED):
                 return False
         return True
 
     def is_float(self):
+        if self.layout != PLAIN:
+            return False
         for channel in self.channels:
             if channel.type not in (VOID, FLOAT):
                 return False
         return True
 
     def is_bitmask(self):
+        if self.layout != PLAIN:
+            return False
         if self.block_size() not in (8, 16, 32):
             return False
         for channel in self.channels:

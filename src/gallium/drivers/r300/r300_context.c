@@ -35,7 +35,6 @@
 #include "r300_screen.h"
 #include "r300_screen_buffer.h"
 #include "r300_state_invariant.h"
-#include "r300_transfer.h"
 #include "r300_winsys.h"
 
 static void r300_destroy_context(struct pipe_context* context)
@@ -47,7 +46,7 @@ static void r300_destroy_context(struct pipe_context* context)
     draw_destroy(r300->draw);
 
     /* Free the OQ BO. */
-    context->screen->buffer_destroy(r300->oqbo);
+    context->screen->resource_destroy(context->screen, r300->oqbo);
 
     /* If there are any queries pending or not destroyed, remove them now. */
     foreach_s(query, temp, &r300->query_list) {
@@ -67,28 +66,11 @@ static void r300_destroy_context(struct pipe_context* context)
     FREE(r300->vap_output_state.state);
     FREE(r300->viewport_state.state);
     FREE(r300->ztop_state.state);
+    FREE(r300->fs_constants.state);
+    FREE(r300->vs_constants.state);
     FREE(r300);
 }
 
-static unsigned int
-r300_is_texture_referenced(struct pipe_context *context,
-                           struct pipe_texture *texture,
-                           unsigned face, unsigned level)
-{
-    struct r300_context* r300 = r300_context(context);
-    struct r300_texture* tex = (struct r300_texture*)texture;
-
-    return r300->rws->is_buffer_referenced(r300->rws, tex->buffer);
-}
-
-static unsigned int
-r300_is_buffer_referenced(struct pipe_context *context,
-                          struct pipe_buffer *buf)
-{
-    struct r300_context* r300 = r300_context(context);
-
-    return r300_buffer_is_referenced(r300, buf);
-}
 
 static void r300_flush_cb(void *data)
 {
@@ -107,8 +89,8 @@ static void r300_flush_cb(void *data)
 
 static void r300_setup_atoms(struct r300_context* r300)
 {
-    boolean is_r500 = r300_screen(r300->context.screen)->caps->is_r500;
-    boolean has_tcl = r300_screen(r300->context.screen)->caps->has_tcl;
+    boolean is_r500 = r300->screen->caps.is_r500;
+    boolean has_tcl = r300->screen->caps.has_tcl;
 
     /* Create the actual atom list.
      *
@@ -119,6 +101,7 @@ static void r300_setup_atoms(struct r300_context* r300)
      * the size of 0 here. */
     make_empty_list(&r300->atom_list);
     R300_INIT_ATOM(invariant_state, 71);
+    R300_INIT_ATOM(query_start, 4);
     R300_INIT_ATOM(ztop_state, 2);
     R300_INIT_ATOM(blend_state, 8);
     R300_INIT_ATOM(blend_color_state, is_r500 ? 3 : 2);
@@ -133,8 +116,19 @@ static void r300_setup_atoms(struct r300_context* r300)
     R300_INIT_ATOM(vap_output_state, 6);
     R300_INIT_ATOM(pvs_flush, 2);
     R300_INIT_ATOM(vs_state, 0);
+    R300_INIT_ATOM(vs_constants, 0);
     R300_INIT_ATOM(texture_cache_inval, 2);
     R300_INIT_ATOM(textures_state, 0);
+    R300_INIT_ATOM(fs, 0);
+    R300_INIT_ATOM(fs_rc_constant_state, 0);
+    R300_INIT_ATOM(fs_constants, 0);
+
+    /* Replace emission functions for r500. */
+    if (r300->screen->caps.is_r500) {
+        r300->fs.emit = r500_emit_fs;
+        r300->fs_rc_constant_state.emit = r500_emit_fs_rc_constant_state;
+        r300->fs_constants.emit = r500_emit_fs_constants;
+    }
 
     /* Some non-CSO atoms need explicit space to store the state locally. */
     r300->blend_color_state.state = CALLOC_STRUCT(r300_blend_color_state);
@@ -146,6 +140,8 @@ static void r300_setup_atoms(struct r300_context* r300)
     r300->vap_output_state.state = CALLOC_STRUCT(r300_vap_output_state);
     r300->viewport_state.state = CALLOC_STRUCT(r300_viewport_state);
     r300->ztop_state.state = CALLOC_STRUCT(r300_ztop_state);
+    r300->fs_constants.state = CALLOC_STRUCT(r300_constant_buffer);
+    r300->vs_constants.state = CALLOC_STRUCT(r300_constant_buffer);
 }
 
 struct pipe_context* r300_create_context(struct pipe_screen* screen,
@@ -159,6 +155,7 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
         return NULL;
 
     r300->rws = rws;
+    r300->screen = r300screen;
 
     r300->context.winsys = (struct pipe_winsys*)rws;
     r300->context.screen = screen;
@@ -170,10 +167,20 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     r300->context.surface_copy = r300_surface_copy;
     r300->context.surface_fill = r300_surface_fill;
 
-    if (r300screen->caps->has_tcl) {
+    if (r300screen->caps.has_tcl) {
         r300->context.draw_arrays = r300_draw_arrays;
         r300->context.draw_elements = r300_draw_elements;
         r300->context.draw_range_elements = r300_draw_range_elements;
+
+        if (r300screen->caps.is_r500) {
+            r300->emit_draw_arrays_immediate = r500_emit_draw_arrays_immediate;
+            r300->emit_draw_arrays = r500_emit_draw_arrays;
+            r300->emit_draw_elements = r500_emit_draw_elements;
+        } else {
+            r300->emit_draw_arrays_immediate = r300_emit_draw_arrays_immediate;
+            r300->emit_draw_arrays = r300_emit_draw_arrays;
+            r300->emit_draw_elements = r300_emit_draw_elements;
+        }
     } else {
         r300->context.draw_arrays = r300_swtcl_draw_arrays;
         r300->context.draw_elements = r300_draw_elements;
@@ -190,23 +197,17 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
         draw_set_viewport_state(r300->draw, &r300_viewport_identity);
     }
 
-    r300->context.is_texture_referenced = r300_is_texture_referenced;
-    r300->context.is_buffer_referenced = r300_is_buffer_referenced;
-
     r300_setup_atoms(r300);
 
     /* Open up the OQ BO. */
-    r300->oqbo = screen->buffer_create(screen, 4096,
-            PIPE_BUFFER_USAGE_PIXEL, 4096);
+    r300->oqbo = pipe_buffer_create(screen,
+				    R300_BIND_OQBO, 4096);
     make_empty_list(&r300->query_list);
 
     r300_init_flush_functions(r300);
-
     r300_init_query_functions(r300);
-
-    r300_init_transfer_functions(r300);
-
     r300_init_state_functions(r300);
+    r300_init_resource_functions(r300);
 
     r300->invariant_state.dirty = TRUE;
 
@@ -215,16 +216,16 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
 
     r300->blitter = util_blitter_create(&r300->context);
 
-    r300->upload_ib = u_upload_create(screen,
+    r300->upload_ib = u_upload_create(&r300->context,
 				      32 * 1024, 16,
-				      PIPE_BUFFER_USAGE_INDEX);
+				      PIPE_BIND_INDEX_BUFFER);
 
     if (r300->upload_ib == NULL)
         goto no_upload_ib;
 
-    r300->upload_vb = u_upload_create(screen,
+    r300->upload_vb = u_upload_create(&r300->context,
 				      128 * 1024, 16,
-				      PIPE_BUFFER_USAGE_VERTEX);
+				      PIPE_BIND_VERTEX_BUFFER);
     if (r300->upload_vb == NULL)
         goto no_upload_vb;
 

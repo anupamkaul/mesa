@@ -1,10 +1,12 @@
 #include "pipe/p_screen.h"
 #include "pipe/p_state.h"
+#include "util/u_simple_screen.h"
 
 #include "nouveau/nouveau_screen.h"
 
 #include "nvfx_context.h"
 #include "nvfx_screen.h"
+#include "nvfx_resource.h"
 
 #define NV30TCL_CHIPSET_3X_MASK 0x00000003
 #define NV34TCL_CHIPSET_3X_MASK 0x00000010
@@ -67,10 +69,6 @@ nvfx_screen_get_param(struct pipe_screen *pscreen, int param)
 		return 0;
 	case PIPE_CAP_BLEND_EQUATION_SEPARATE:
 		return !!screen->is_nv4x;
-	case NOUVEAU_CAP_HW_VTXBUF:
-		return 0;
-	case NOUVEAU_CAP_HW_IDXBUF:
-		return 0;
 	case PIPE_CAP_MAX_COMBINED_SAMPLERS:
 		return 16;
 	case PIPE_CAP_INDEP_BLEND_ENABLE:
@@ -122,16 +120,17 @@ nvfx_screen_surface_format_supported(struct pipe_screen *pscreen,
 	struct nvfx_screen *screen = nvfx_screen(pscreen);
 	struct pipe_surface *front = ((struct nouveau_winsys *) pscreen->winsys)->front;
 
-	if (tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) {
+	if (tex_usage & PIPE_BIND_RENDER_TARGET) {
 		switch (format) {
 		case PIPE_FORMAT_B8G8R8A8_UNORM:
+		case PIPE_FORMAT_B8G8R8X8_UNORM:
 		case PIPE_FORMAT_B5G6R5_UNORM:
 			return TRUE;
 		default:
 			break;
 		}
 	} else
-	if (tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL) {
+	if (tex_usage & PIPE_BIND_DEPTH_STENCIL) {
 		switch (format) {
 		case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
 		case PIPE_FORMAT_X8Z24_UNORM:
@@ -147,6 +146,7 @@ nvfx_screen_surface_format_supported(struct pipe_screen *pscreen,
 	} else {
 		switch (format) {
 		case PIPE_FORMAT_B8G8R8A8_UNORM:
+		case PIPE_FORMAT_B8G8R8X8_UNORM:
 		case PIPE_FORMAT_B5G5R5A1_UNORM:
 		case PIPE_FORMAT_B4G4R4A4_UNORM:
 		case PIPE_FORMAT_B5G6R5_UNORM:
@@ -172,24 +172,11 @@ nvfx_screen_surface_format_supported(struct pipe_screen *pscreen,
 	return FALSE;
 }
 
-static struct pipe_buffer *
-nvfx_surface_buffer(struct pipe_surface *surf)
-{
-	struct nvfx_miptree *mt = (struct nvfx_miptree *)surf->texture;
-
-	return mt->buffer;
-}
 
 static void
 nvfx_screen_destroy(struct pipe_screen *pscreen)
 {
 	struct nvfx_screen *screen = nvfx_screen(pscreen);
-	unsigned i;
-
-	for (i = 0; i < NVFX_STATE_MAX; i++) {
-		if (screen->state[i])
-			so_ref(NULL, &screen->state[i]);
-	}
 
 	nouveau_resource_destroy(&screen->vp_exec_heap);
 	nouveau_resource_destroy(&screen->vp_data_heap);
@@ -204,97 +191,100 @@ nvfx_screen_destroy(struct pipe_screen *pscreen)
 	FREE(pscreen);
 }
 
-static void nv30_screen_init(struct nvfx_screen *screen, struct nouveau_stateobj* so)
+static void nv30_screen_init(struct nvfx_screen *screen)
 {
+	struct nouveau_channel *chan = screen->base.channel;
 	int i;
 
 	/* TODO: perhaps we should do some of this on nv40 too? */
 	for (i=1; i<8; i++) {
-		so_method(so, screen->eng3d, NV34TCL_VIEWPORT_CLIP_HORIZ(i), 1);
-		so_data  (so, 0);
-		so_method(so, screen->eng3d, NV34TCL_VIEWPORT_CLIP_VERT(i), 1);
-		so_data  (so, 0);
+		OUT_RING(chan, RING_3D(NV34TCL_VIEWPORT_CLIP_HORIZ(i), 1));
+		OUT_RING(chan, 0);
+		OUT_RING(chan, RING_3D(NV34TCL_VIEWPORT_CLIP_VERT(i), 1));
+		OUT_RING(chan, 0);
 	}
 
-	so_method(so, screen->eng3d, 0x220, 1);
-	so_data  (so, 1);
+	OUT_RING(chan, RING_3D(0x220, 1));
+	OUT_RING(chan, 1);
 
-	so_method(so, screen->eng3d, 0x03b0, 1);
-	so_data  (so, 0x00100000);
-	so_method(so, screen->eng3d, 0x1454, 1);
-	so_data  (so, 0);
-	so_method(so, screen->eng3d, 0x1d80, 1);
-	so_data  (so, 3);
-	so_method(so, screen->eng3d, 0x1450, 1);
-	so_data  (so, 0x00030004);
+	OUT_RING(chan, RING_3D(0x03b0, 1));
+	OUT_RING(chan, 0x00100000);
+	OUT_RING(chan, RING_3D(0x1454, 1));
+	OUT_RING(chan, 0);
+	OUT_RING(chan, RING_3D(0x1d80, 1));
+	OUT_RING(chan, 3);
+	OUT_RING(chan, RING_3D(0x1450, 1));
+	OUT_RING(chan, 0x00030004);
 
 	/* NEW */
-	so_method(so, screen->eng3d, 0x1e98, 1);
-	so_data  (so, 0);
-	so_method(so, screen->eng3d, 0x17e0, 3);
-	so_data  (so, fui(0.0));
-	so_data  (so, fui(0.0));
-	so_data  (so, fui(1.0));
-	so_method(so, screen->eng3d, 0x1f80, 16);
+	OUT_RING(chan, RING_3D(0x1e98, 1));
+	OUT_RING(chan, 0);
+	OUT_RING(chan, RING_3D(0x17e0, 3));
+	OUT_RING(chan, fui(0.0));
+	OUT_RING(chan, fui(0.0));
+	OUT_RING(chan, fui(1.0));
+	OUT_RING(chan, RING_3D(0x1f80, 16));
 	for (i=0; i<16; i++) {
-		so_data  (so, (i==8) ? 0x0000ffff : 0);
+		OUT_RING(chan, (i==8) ? 0x0000ffff : 0);
 	}
 
-	so_method(so, screen->eng3d, 0x120, 3);
-	so_data  (so, 0);
-	so_data  (so, 1);
-	so_data  (so, 2);
+	OUT_RING(chan, RING_3D(0x120, 3));
+	OUT_RING(chan, 0);
+	OUT_RING(chan, 1);
+	OUT_RING(chan, 2);
 
-	so_method(so, screen->eng3d, 0x1d88, 1);
-	so_data  (so, 0x00001200);
+	OUT_RING(chan, RING_3D(0x1d88, 1));
+	OUT_RING(chan, 0x00001200);
 
-	so_method(so, screen->eng3d, NV34TCL_RC_ENABLE, 1);
-	so_data  (so, 0);
+	OUT_RING(chan, RING_3D(NV34TCL_RC_ENABLE, 1));
+	OUT_RING(chan, 0);
 
-	so_method(so, screen->eng3d, NV34TCL_DEPTH_RANGE_NEAR, 2);
-	so_data  (so, fui(0.0));
-	so_data  (so, fui(1.0));
+	OUT_RING(chan, RING_3D(NV34TCL_DEPTH_RANGE_NEAR, 2));
+	OUT_RING(chan, fui(0.0));
+	OUT_RING(chan, fui(1.0));
 
-	so_method(so, screen->eng3d, NV34TCL_MULTISAMPLE_CONTROL, 1);
-	so_data  (so, 0xffff0000);
+	OUT_RING(chan, RING_3D(NV34TCL_MULTISAMPLE_CONTROL, 1));
+	OUT_RING(chan, 0xffff0000);
 
 	/* enables use of vp rather than fixed-function somehow */
-	so_method(so, screen->eng3d, 0x1e94, 1);
-	so_data  (so, 0x13);
+	OUT_RING(chan, RING_3D(0x1e94, 1));
+	OUT_RING(chan, 0x13);
 }
 
-static void nv40_screen_init(struct nvfx_screen *screen, struct nouveau_stateobj* so)
+static void nv40_screen_init(struct nvfx_screen *screen)
 {
-	so_method(so, screen->eng3d, NV40TCL_DMA_COLOR2, 2);
-	so_data  (so, screen->base.channel->vram->handle);
-	so_data  (so, screen->base.channel->vram->handle);
+	struct nouveau_channel *chan = screen->base.channel;
 
-	so_method(so, screen->eng3d, 0x1ea4, 3);
-	so_data  (so, 0x00000010);
-	so_data  (so, 0x01000100);
-	so_data  (so, 0xff800006);
+	OUT_RING(chan, RING_3D(NV40TCL_DMA_COLOR2, 2));
+	OUT_RING(chan, screen->base.channel->vram->handle);
+	OUT_RING(chan, screen->base.channel->vram->handle);
+
+	OUT_RING(chan, RING_3D(0x1ea4, 3));
+	OUT_RING(chan, 0x00000010);
+	OUT_RING(chan, 0x01000100);
+	OUT_RING(chan, 0xff800006);
 
 	/* vtxprog output routing */
-	so_method(so, screen->eng3d, 0x1fc4, 1);
-	so_data  (so, 0x06144321);
-	so_method(so, screen->eng3d, 0x1fc8, 2);
-	so_data  (so, 0xedcba987);
-	so_data  (so, 0x00000021);
-	so_method(so, screen->eng3d, 0x1fd0, 1);
-	so_data  (so, 0x00171615);
-	so_method(so, screen->eng3d, 0x1fd4, 1);
-	so_data  (so, 0x001b1a19);
+	OUT_RING(chan, RING_3D(0x1fc4, 1));
+	OUT_RING(chan, 0x06144321);
+	OUT_RING(chan, RING_3D(0x1fc8, 2));
+	OUT_RING(chan, 0xedcba987);
+	OUT_RING(chan, 0x00000021);
+	OUT_RING(chan, RING_3D(0x1fd0, 1));
+	OUT_RING(chan, 0x00171615);
+	OUT_RING(chan, RING_3D(0x1fd4, 1));
+	OUT_RING(chan, 0x001b1a19);
 
-	so_method(so, screen->eng3d, 0x1ef8, 1);
-	so_data  (so, 0x0020ffff);
-	so_method(so, screen->eng3d, 0x1d64, 1);
-	so_data  (so, 0x00d30000);
-	so_method(so, screen->eng3d, 0x1e94, 1);
-	so_data  (so, 0x00000001);
+	OUT_RING(chan, RING_3D(0x1ef8, 1));
+	OUT_RING(chan, 0x0020ffff);
+	OUT_RING(chan, RING_3D(0x1d64, 1));
+	OUT_RING(chan, 0x00d30000);
+	OUT_RING(chan, RING_3D(0x1e94, 1));
+	OUT_RING(chan, 0x00000001);
 }
 
-static void
-nvfx_screen_init_buffer_functions(struct nvfx_screen* screen)
+static unsigned
+nvfx_screen_get_vertex_buffer_flags(struct nvfx_screen* screen)
 {
 	int vram_hack_default = 0;
 	int vram_hack;
@@ -320,7 +310,7 @@ nvfx_screen_init_buffer_functions(struct nvfx_screen* screen)
 	}
 #endif
 
-	screen->vertex_buffer_flags = vram_hack ? NOUVEAU_BO_VRAM : NOUVEAU_BO_GART;
+	return vram_hack ? NOUVEAU_BO_VRAM : NOUVEAU_BO_GART;
 }
 
 struct pipe_screen *
@@ -329,9 +319,8 @@ nvfx_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 	struct nvfx_screen *screen = CALLOC_STRUCT(nvfx_screen);
 	struct nouveau_channel *chan;
 	struct pipe_screen *pscreen;
-	struct nouveau_stateobj *so;
 	unsigned eng3d_class = 0;
-	int ret;
+	int ret, i;
 
 	if (!screen)
 		return NULL;
@@ -380,8 +369,18 @@ nvfx_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 		return NULL;
 	}
 
-	nvfx_screen_init_buffer_functions(screen);
-	nvfx_screen_init_miptree_functions(pscreen);
+	screen->force_swtnl = debug_get_bool_option("NOUVEAU_SWTNL", FALSE);
+
+	screen->vertex_buffer_reloc_flags = nvfx_screen_get_vertex_buffer_flags(screen);
+
+	/* surely both nv3x and nv44 support index buffers too: find out how and test that */
+	if(eng3d_class == NV40TCL)
+		screen->index_buffer_reloc_flags = screen->vertex_buffer_reloc_flags;
+
+	if(!screen->force_swtnl && screen->vertex_buffer_reloc_flags == screen->index_buffer_reloc_flags)
+		screen->base.vertex_buffer_flags = screen->base.index_buffer_flags = screen->vertex_buffer_reloc_flags;
+
+	nvfx_screen_init_resource_functions(pscreen);
 
 	ret = nouveau_grobj_alloc(chan, 0xbeef3097, eng3d_class, &screen->eng3d);
 	if (ret) {
@@ -402,19 +401,28 @@ nvfx_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 	}
 
 	/* Query objects */
-	ret = nouveau_notifier_alloc(chan, 0xbeef0302, 32, &screen->query);
+	unsigned query_sizes[] = {(4096 - 4 * 32) / 32, 3 * 1024 / 32, 2 * 1024 / 32, 1024 / 32};
+	for(i = 0; i < sizeof(query_sizes) / sizeof(query_sizes[0]); ++i)
+	{
+		ret = nouveau_notifier_alloc(chan, 0xbeef0302, query_sizes[i], &screen->query);
+		if(!ret)
+			break;
+	}
+
 	if (ret) {
 		NOUVEAU_ERR("Error initialising query objects: %d\n", ret);
 		nvfx_screen_destroy(pscreen);
 		return NULL;
 	}
 
-	ret = nouveau_resource_init(&screen->query_heap, 0, 32);
+	ret = nouveau_resource_init(&screen->query_heap, 0, query_sizes[i]);
 	if (ret) {
 		NOUVEAU_ERR("Error initialising query object heap: %d\n", ret);
 		nvfx_screen_destroy(pscreen);
 		return NULL;
 	}
+
+	LIST_INITHEAD(&screen->query_list);
 
 	/* Vtxprog resources */
 	if (nouveau_resource_init(&screen->vp_exec_heap, 0, screen->is_nv4x ? 512 : 256) ||
@@ -423,40 +431,36 @@ nvfx_screen_create(struct pipe_winsys *ws, struct nouveau_device *dev)
 		return NULL;
 	}
 
+	BIND_RING(chan, screen->eng3d, 7);
+
 	/* Static eng3d initialisation */
-	/* make the so big and don't worry about exact values
-	   since we it will be thrown away immediately after use */
-	so = so_new(256, 256, 0);
-	so_method(so, screen->eng3d, NV34TCL_DMA_NOTIFY, 1);
-	so_data  (so, screen->sync->handle);
-	so_method(so, screen->eng3d, NV34TCL_DMA_TEXTURE0, 2);
-	so_data  (so, chan->vram->handle);
-	so_data  (so, chan->gart->handle);
-	so_method(so, screen->eng3d, NV34TCL_DMA_COLOR1, 1);
-	so_data  (so, chan->vram->handle);
-	so_method(so, screen->eng3d, NV34TCL_DMA_COLOR0, 2);
-	so_data  (so, chan->vram->handle);
-	so_data  (so, chan->vram->handle);
-	so_method(so, screen->eng3d, NV34TCL_DMA_VTXBUF0, 2);
-	so_data  (so, chan->vram->handle);
-	so_data  (so, chan->gart->handle);
+	/* note that we just started using the channel, so we must have space in the pushbuffer */
+	OUT_RING(chan, RING_3D(NV34TCL_DMA_NOTIFY, 1));
+	OUT_RING(chan, screen->sync->handle);
+	OUT_RING(chan, RING_3D(NV34TCL_DMA_TEXTURE0, 2));
+	OUT_RING(chan, chan->vram->handle);
+	OUT_RING(chan, chan->gart->handle);
+	OUT_RING(chan, RING_3D(NV34TCL_DMA_COLOR1, 1));
+	OUT_RING(chan, chan->vram->handle);
+	OUT_RING(chan, RING_3D(NV34TCL_DMA_COLOR0, 2));
+	OUT_RING(chan, chan->vram->handle);
+	OUT_RING(chan, chan->vram->handle);
+	OUT_RING(chan, RING_3D(NV34TCL_DMA_VTXBUF0, 2));
+	OUT_RING(chan, chan->vram->handle);
+	OUT_RING(chan, chan->gart->handle);
 
-	so_method(so, screen->eng3d, NV34TCL_DMA_FENCE, 2);
-	so_data  (so, 0);
-	so_data  (so, screen->query->handle);
+	OUT_RING(chan, RING_3D(NV34TCL_DMA_FENCE, 2));
+	OUT_RING(chan, 0);
+	OUT_RING(chan, screen->query->handle);
 
-	so_method(so, screen->eng3d, NV34TCL_DMA_IN_MEMORY7, 2);
-	so_data  (so, chan->vram->handle);
-	so_data  (so, chan->vram->handle);
+	OUT_RING(chan, RING_3D(NV34TCL_DMA_IN_MEMORY7, 2));
+	OUT_RING(chan, chan->vram->handle);
+	OUT_RING(chan, chan->vram->handle);
 
 	if(!screen->is_nv4x)
-		nv30_screen_init(screen, so);
+		nv30_screen_init(screen);
 	else
-		nv40_screen_init(screen, so);
-
-	so_emit(chan, so);
-	so_ref(NULL, &so);
-	nouveau_pushbuf_flush(chan, 0);
+		nv40_screen_init(screen);
 
 	return pscreen;
 }

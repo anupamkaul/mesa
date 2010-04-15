@@ -27,7 +27,6 @@
 
 
 #include "util/u_memory.h"
-#include "util/u_format.h"
 #include "util/u_format_s3tc.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_screen.h"
@@ -37,7 +36,6 @@
 #include "sp_texture.h"
 #include "sp_screen.h"
 #include "sp_context.h"
-#include "sp_buffer.h"
 #include "sp_fence.h"
 #include "sp_public.h"
 
@@ -156,16 +154,34 @@ softpipe_is_format_supported( struct pipe_screen *screen,
           target == PIPE_TEXTURE_3D ||
           target == PIPE_TEXTURE_CUBE);
 
-   if(!util_format_is_supported(format))
+   switch(format) {
+   case PIPE_FORMAT_YUYV:
+   case PIPE_FORMAT_UYVY:
       return FALSE;
 
-   if(tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                   PIPE_TEXTURE_USAGE_SCANOUT |
-                   PIPE_TEXTURE_USAGE_SHARED)) {
+   case PIPE_FORMAT_DXT1_RGB:
+   case PIPE_FORMAT_DXT1_RGBA:
+   case PIPE_FORMAT_DXT3_RGBA:
+   case PIPE_FORMAT_DXT5_RGBA:
+      return util_format_s3tc_enabled;
+
+   case PIPE_FORMAT_Z32_FLOAT:
+   case PIPE_FORMAT_NONE:
+      return FALSE;
+
+   default:
+      break;
+   }
+
+   if(tex_usage & (PIPE_BIND_DISPLAY_TARGET |
+                   PIPE_BIND_SCANOUT |
+                   PIPE_BIND_SHARED)) {
       if(!winsys->is_displaytarget_format_supported(winsys, tex_usage, format))
          return FALSE;
    }
 
+   /* XXX: this is often a lie.  Pull in logic from llvmpipe to fix.
+    */
    return TRUE;
 }
 
@@ -192,7 +208,7 @@ softpipe_flush_frontbuffer(struct pipe_screen *_screen,
 {
    struct softpipe_screen *screen = softpipe_screen(_screen);
    struct sw_winsys *winsys = screen->winsys;
-   struct softpipe_texture *texture = softpipe_texture(surface->texture);
+   struct softpipe_resource *texture = softpipe_resource(surface->texture);
 
    assert(texture->dt);
    if (texture->dt)
@@ -224,8 +240,9 @@ softpipe_create_screen(struct sw_winsys *winsys)
    screen->base.context_create = softpipe_create_context;
    screen->base.flush_frontbuffer = softpipe_flush_frontbuffer;
 
+   util_format_s3tc_init();
+
    softpipe_init_screen_texture_funcs(&screen->base);
-   softpipe_init_screen_buffer_funcs(&screen->base);
    softpipe_init_screen_fence_funcs(&screen->base);
 
    return &screen->base;

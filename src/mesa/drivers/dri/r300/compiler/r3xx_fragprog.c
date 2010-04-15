@@ -110,6 +110,16 @@ void r3xx_compile_fragment_program(struct r300_fragment_program_compiler* c)
 		c->Base.SwizzleCaps = &r300_swizzle_caps;
 	}
 
+	/* As a stopgap, run the ALU lowering sequence once again.
+	 *
+	 * The entire lowering sequence should be fixed so that these little
+	 * inter-dependent instructions aren't an issue. I suppose we'd need a
+	 * list of safe instructions first... */
+	struct radeon_program_transformation maths_lowering[] = {
+		{ &radeonTransformALU, 0 }
+	};
+	radeonLocalTransform(&c->Base, 1, maths_lowering);
+
 	if (c->Base.Debug) {
 		fprintf(stderr, "Fragment Program: After native rewrite:\n");
 		rc_print_program(&c->Base.Program);
@@ -156,10 +166,7 @@ void r3xx_compile_fragment_program(struct r300_fragment_program_compiler* c)
 		fflush(stderr);
 	}
 
-	if (c->is_r500)
-		rc_pair_regalloc(c, 128);
-	else
-		rc_pair_regalloc(c, R300_PFS_NUM_TEMP_REGS);
+	rc_pair_regalloc(c, c->max_temp_regs);
 
 	if (c->Base.Error)
 		return;

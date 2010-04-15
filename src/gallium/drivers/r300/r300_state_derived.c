@@ -30,12 +30,19 @@
 #include "r300_fs.h"
 #include "r300_screen.h"
 #include "r300_shader_semantics.h"
+#include "r300_state.h"
 #include "r300_state_derived.h"
 #include "r300_state_inlines.h"
 #include "r300_vs.h"
 
 /* r300_state_derived: Various bits of state which are dependent upon
  * currently bound CSO data. */
+
+enum r300_rs_swizzle {
+    SWIZ_XYZW = 0,
+    SWIZ_X001,
+    SWIZ_XY01,
+};
 
 static void r300_draw_emit_attrib(struct r300_context* r300,
                                   enum attrib_emit emit,
@@ -83,8 +90,10 @@ static void r300_draw_emit_all_attribs(struct r300_context* r300)
     /* XXX Back-face colors. */
 
     /* Texture coordinates. */
+    /* Only 8 generic vertex attributes can be used. If there are more,
+     * they won't be rasterized. */
     gen_count = 0;
-    for (i = 0; i < ATTR_GENERIC_COUNT; i++) {
+    for (i = 0; i < ATTR_GENERIC_COUNT && gen_count < 8; i++) {
         if (vs_outputs->generic[i] != ATTR_UNUSED) {
             r300_draw_emit_attrib(r300, EMIT_4F, INTERP_PERSPECTIVE,
                                   vs_outputs->generic[i]);
@@ -93,14 +102,11 @@ static void r300_draw_emit_all_attribs(struct r300_context* r300)
     }
 
     /* Fog coordinates. */
-    if (vs_outputs->fog != ATTR_UNUSED) {
+    if (gen_count < 8 && vs_outputs->fog != ATTR_UNUSED) {
         r300_draw_emit_attrib(r300, EMIT_4F, INTERP_PERSPECTIVE,
                               vs_outputs->fog);
         gen_count++;
     }
-
-    /* XXX magic */
-    assert(gen_count <= 8);
 }
 
 /* Update the PSC tables for SW TCL, using Draw. */
@@ -181,12 +187,18 @@ static void r300_rs_col_write(struct r300_rs_block* rs, int id, int fp_offset)
 }
 
 static void r300_rs_tex(struct r300_rs_block* rs, int id, int ptr,
-                        boolean swizzle_X001)
+                        enum r300_rs_swizzle swiz)
 {
-    if (swizzle_X001) {
+    if (swiz == SWIZ_X001) {
         rs->ip[id] |= R300_RS_TEX_PTR(ptr*4) |
                       R300_RS_SEL_S(R300_RS_SEL_C0) |
                       R300_RS_SEL_T(R300_RS_SEL_K0) |
+                      R300_RS_SEL_R(R300_RS_SEL_K0) |
+                      R300_RS_SEL_Q(R300_RS_SEL_K1);
+    } else if (swiz == SWIZ_XY01) {
+        rs->ip[id] |= R300_RS_TEX_PTR(ptr*4) |
+                      R300_RS_SEL_S(R300_RS_SEL_C0) |
+                      R300_RS_SEL_T(R300_RS_SEL_C1) |
                       R300_RS_SEL_R(R300_RS_SEL_K0) |
                       R300_RS_SEL_Q(R300_RS_SEL_K1);
     } else {
@@ -224,13 +236,18 @@ static void r500_rs_col_write(struct r300_rs_block* rs, int id, int fp_offset)
 }
 
 static void r500_rs_tex(struct r300_rs_block* rs, int id, int ptr,
-                        boolean swizzle_X001)
+			enum r300_rs_swizzle swiz)
 {
     int rs_tex_comp = ptr*4;
 
-    if (swizzle_X001) {
+    if (swiz == SWIZ_X001) {
         rs->ip[id] |= R500_RS_SEL_S(rs_tex_comp) |
                       R500_RS_SEL_T(R500_RS_IP_PTR_K0) |
+                      R500_RS_SEL_R(R500_RS_IP_PTR_K0) |
+                      R500_RS_SEL_Q(R500_RS_IP_PTR_K1);
+    } else if (swiz == SWIZ_XY01) {
+        rs->ip[id] |= R500_RS_SEL_S(rs_tex_comp) |
+                      R500_RS_SEL_T(rs_tex_comp + 1) |
                       R500_RS_SEL_R(R500_RS_IP_PTR_K0) |
                       R500_RS_SEL_Q(R500_RS_IP_PTR_K1);
     } else {
@@ -261,12 +278,12 @@ static void r300_update_rs_block(struct r300_context* r300,
     int i, col_count = 0, tex_count = 0, fp_offset = 0, count;
     void (*rX00_rs_col)(struct r300_rs_block*, int, int, boolean);
     void (*rX00_rs_col_write)(struct r300_rs_block*, int, int);
-    void (*rX00_rs_tex)(struct r300_rs_block*, int, int, boolean);
+    void (*rX00_rs_tex)(struct r300_rs_block*, int, int, enum r300_rs_swizzle);
     void (*rX00_rs_tex_write)(struct r300_rs_block*, int, int);
     boolean any_bcolor_used = vs_outputs->bcolor[0] != ATTR_UNUSED ||
                               vs_outputs->bcolor[1] != ATTR_UNUSED;
 
-    if (r300_screen(r300->context.screen)->caps->is_r500) {
+    if (r300->screen->caps.is_r500) {
         rX00_rs_col       = r500_rs_col;
         rX00_rs_col_write = r500_rs_col_write;
         rX00_rs_tex       = r500_rs_tex;
@@ -303,14 +320,19 @@ static void r300_update_rs_block(struct r300_context* r300,
 
     /* Rasterize texture coordinates. */
     for (i = 0; i < ATTR_GENERIC_COUNT; i++) {
-        if (vs_outputs->generic[i] != ATTR_UNUSED) {
+	bool sprite_coord = !!(r300->sprite_coord_enable & (1 << i));
+
+        if (vs_outputs->generic[i] != ATTR_UNUSED || sprite_coord) {
             /* Always rasterize if it's written by the VS,
              * otherwise it locks up. */
-            rX00_rs_tex(&rs, tex_count, tex_count, FALSE);
+            rX00_rs_tex(&rs, tex_count, tex_count,
+			sprite_coord ? SWIZ_XY01 : SWIZ_XYZW);
 
             /* Write it to the FS input register if it's used by the FS. */
             if (fs_inputs->generic[i] != ATTR_UNUSED) {
                 rX00_rs_tex_write(&rs, tex_count, fp_offset);
+                if (sprite_coord)
+                    debug_printf("r300: SpriteCoord (generic index %i) is being written to reg %i\n", i, fp_offset);
                 fp_offset++;
             }
             tex_count++;
@@ -327,7 +349,7 @@ static void r300_update_rs_block(struct r300_context* r300,
     if (vs_outputs->fog != ATTR_UNUSED) {
         /* Always rasterize if it's written by the VS,
          * otherwise it locks up. */
-        rX00_rs_tex(&rs, tex_count, tex_count, TRUE);
+        rX00_rs_tex(&rs, tex_count, tex_count, SWIZ_X001);
 
         /* Write it to the FS input register if it's used by the FS. */
         if (fs_inputs->fog != ATTR_UNUSED) {
@@ -345,8 +367,8 @@ static void r300_update_rs_block(struct r300_context* r300,
 
     /* Rasterize WPOS. */
     /* If the FS doesn't need it, it's not written by the VS. */
-    if (fs_inputs->wpos != ATTR_UNUSED) {
-        rX00_rs_tex(&rs, tex_count, tex_count, FALSE);
+    if (vs_outputs->wpos != ATTR_UNUSED && fs_inputs->wpos != ATTR_UNUSED) {
+        rX00_rs_tex(&rs, tex_count, tex_count, SWIZ_XYZW);
         rX00_rs_tex_write(&rs, tex_count, fp_offset);
 
         fp_offset++;
@@ -377,7 +399,7 @@ static void r300_update_derived_shader_state(struct r300_context* r300)
 {
     struct r300_vertex_shader* vs = r300->vs_state.state;
 
-    r300_update_rs_block(r300, &vs->outputs, &r300->fs->inputs);
+    r300_update_rs_block(r300, &vs->outputs, &r300_fs(r300)->shader->inputs);
 }
 
 static boolean r300_dsa_writes_depth_stencil(struct r300_dsa_state* dsa)
@@ -437,12 +459,12 @@ static void r300_update_ztop(struct r300_context* r300)
 
     /* ZS writes */
     if (r300_dsa_writes_depth_stencil(r300->dsa_state.state) &&
-           (r300_dsa_alpha_test_enabled(r300->dsa_state.state) ||/* (1) */
-            r300->fs->info.uses_kill)) {                         /* (2) */
+           (r300_dsa_alpha_test_enabled(r300->dsa_state.state) ||  /* (1) */
+            r300_fs(r300)->shader->info.uses_kill)) {              /* (2) */
         ztop_state->z_buffer_top = R300_ZTOP_DISABLE;
-    } else if (r300_fragment_shader_writes_depth(r300->fs)) {    /* (5) */
+    } else if (r300_fragment_shader_writes_depth(r300_fs(r300))) { /* (5) */
         ztop_state->z_buffer_top = R300_ZTOP_DISABLE;
-    } else if (r300->query_current) {                            /* (6) */
+    } else if (r300->query_current) {                              /* (6) */
         ztop_state->z_buffer_top = R300_ZTOP_DISABLE;
     } else {
         ztop_state->z_buffer_top = R300_ZTOP_ENABLE;
@@ -457,55 +479,71 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
         (struct r300_textures_state*)r300->textures_state.state;
     struct r300_texture_sampler_state *texstate;
     struct r300_sampler_state *sampler;
-    struct pipe_sampler_view *view;
+    struct r300_sampler_view *view;
     struct r300_texture *tex;
     unsigned min_level, max_level, i, size;
-    unsigned count = MIN2(state->texture_count, state->sampler_count);
+    unsigned count = MIN2(state->sampler_view_count,
+                          state->sampler_state_count);
 
     state->tx_enable = 0;
     state->count = 0;
     size = 2;
 
     for (i = 0; i < count; i++) {
-        if (state->fragment_sampler_views[i] && state->sampler_states[i]) {
+        if (state->sampler_views[i] && state->sampler_states[i]) {
             state->tx_enable |= 1 << i;
 
-            view = state->fragment_sampler_views[i];
-            tex = (struct r300_texture *)view->texture;
+            view = state->sampler_views[i];
+            tex = r300_texture(view->base.texture);
             sampler = state->sampler_states[i];
 
-            assert(view->format == tex->tex.format);
-
             texstate = &state->regs[i];
-            memcpy(texstate->format, &tex->state, sizeof(uint32_t)*3);
-            texstate->filter[0] = sampler->filter0;
-            texstate->filter[1] = sampler->filter1;
+            texstate->format = view->format;
+            texstate->filter0 = sampler->filter0;
+            texstate->filter1 = sampler->filter1;
             texstate->border_color = sampler->border_color;
-            texstate->tile_config = R300_TXO_MACRO_TILE(tex->macrotile) |
-                                    R300_TXO_MICRO_TILE(tex->microtile);
 
             /* to emulate 1D textures through 2D ones correctly */
-            if (tex->tex.target == PIPE_TEXTURE_1D) {
-                texstate->filter[0] &= ~R300_TX_WRAP_T_MASK;
-                texstate->filter[0] |= R300_TX_WRAP_T(R300_TX_CLAMP_TO_EDGE);
+            if (tex->b.b.target == PIPE_TEXTURE_1D) {
+                texstate->filter0 &= ~R300_TX_WRAP_T_MASK;
+                texstate->filter0 |= R300_TX_WRAP_T(R300_TX_CLAMP_TO_EDGE);
             }
 
-            if (tex->is_npot) {
+            if (tex->uses_pitch) {
                 /* NPOT textures don't support mip filter, unfortunately.
                  * This prevents incorrect rendering. */
-                texstate->filter[0] &= ~R300_TX_MIN_FILTER_MIP_MASK;
+                texstate->filter0 &= ~R300_TX_MIN_FILTER_MIP_MASK;
+
+                /* Set repeat or mirrored-repeat to clamp-to-edge. */
+                /* Wrap S. */
+                if ((texstate->filter0 & R300_TX_WRAP_S_MASK) ==
+                     R300_TX_WRAP_S(R300_TX_REPEAT) ||
+                    (texstate->filter0 & R300_TX_WRAP_S_MASK) ==
+                     R300_TX_WRAP_S(R300_TX_MIRRORED)) {
+                    texstate->filter0 &= ~R300_TX_WRAP_S_MASK;
+                    texstate->filter0 |= R300_TX_WRAP_S(R300_TX_CLAMP_TO_EDGE);
+                }
+
+                /* Wrap T. */
+                if ((texstate->filter0 & R300_TX_WRAP_T_MASK) ==
+                     R300_TX_WRAP_T(R300_TX_REPEAT) ||
+                    (texstate->filter0 & R300_TX_WRAP_T_MASK) ==
+                     R300_TX_WRAP_T(R300_TX_MIRRORED)) {
+                    texstate->filter0 &= ~R300_TX_WRAP_T_MASK;
+                    texstate->filter0 |= R300_TX_WRAP_T(R300_TX_CLAMP_TO_EDGE);
+                }
             } else {
                 /* determine min/max levels */
                 /* the MAX_MIP level is the largest (finest) one */
-                max_level = MIN3(sampler->max_lod + view->first_level,
-                                 tex->tex.last_level, view->last_level);
-                min_level = MIN2(sampler->min_lod + view->first_level,
+                max_level = MIN3(sampler->max_lod + view->base.first_level,
+                                 tex->b.b.last_level, view->base.last_level);
+                min_level = MIN2(sampler->min_lod + view->base.first_level,
                                  max_level);
-                texstate->format[0] |= R300_TX_NUM_LEVELS(max_level);
-                texstate->filter[0] |= R300_TX_MAX_MIP_LEVEL(min_level);
+                texstate->format.format0 |= R300_TX_NUM_LEVELS(max_level);
+                texstate->filter0 |= R300_TX_MAX_MIP_LEVEL(min_level);
             }
 
-            texstate->filter[0] |= i << 28;
+            texstate->filter0 |= i << 28;
 
             size += 16;
             state->count = i+1;
@@ -513,16 +551,24 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
     }
 
     r300->textures_state.size = size;
+
+    /* Pick a fragment shader based on either the texture compare state
+     * or the uses_pitch flag. */
+    if (r300->fs.state && count) {
+        if (r300_pick_fragment_shader(r300)) {
+            r300_mark_fs_code_dirty(r300);
+        }
+    }
 }
 
 void r300_update_derived_state(struct r300_context* r300)
 {
-    if (r300->rs_block_state.dirty) {
-        r300_update_derived_shader_state(r300);
-    }
-
     if (r300->textures_state.dirty) {
         r300_merge_textures_and_samplers(r300);
+    }
+
+    if (r300->rs_block_state.dirty) {
+        r300_update_derived_shader_state(r300);
     }
 
     if (r300->draw) {

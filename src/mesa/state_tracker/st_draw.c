@@ -74,6 +74,13 @@ static GLuint float_types[4] = {
    PIPE_FORMAT_R32G32B32A32_FLOAT
 };
 
+static GLuint half_float_types[4] = {
+   PIPE_FORMAT_R16_FLOAT,
+   PIPE_FORMAT_R16G16_FLOAT,
+   PIPE_FORMAT_R16G16B16_FLOAT,
+   PIPE_FORMAT_R16G16B16A16_FLOAT
+};
+
 static GLuint uint_types_norm[4] = {
    PIPE_FORMAT_R32_UNORM,
    PIPE_FORMAT_R32G32_UNORM,
@@ -175,7 +182,7 @@ st_pipe_vertex_format(GLenum type, GLuint size, GLenum format,
                       GLboolean normalized)
 {
    assert((type >= GL_BYTE && type <= GL_DOUBLE) ||
-          type == GL_FIXED);
+          type == GL_FIXED || type == GL_HALF_FLOAT);
    assert(size >= 1);
    assert(size <= 4);
    assert(format == GL_RGBA || format == GL_BGRA);
@@ -191,6 +198,7 @@ st_pipe_vertex_format(GLenum type, GLuint size, GLenum format,
       switch (type) {
       case GL_DOUBLE: return double_types[size-1];
       case GL_FLOAT: return float_types[size-1];
+      case GL_HALF_FLOAT: return half_float_types[size-1];
       case GL_INT: return int_types_norm[size-1];
       case GL_SHORT: return short_types_norm[size-1];
       case GL_BYTE: return byte_types_norm[size-1];
@@ -205,6 +213,7 @@ st_pipe_vertex_format(GLenum type, GLuint size, GLenum format,
       switch (type) {
       case GL_DOUBLE: return double_types[size-1];
       case GL_FLOAT: return float_types[size-1];
+      case GL_HALF_FLOAT: return half_float_types[size-1];
       case GL_INT: return int_types_scale[size-1];
       case GL_SHORT: return short_types_scale[size-1];
       case GL_BYTE: return byte_types_scale[size-1];
@@ -360,12 +369,13 @@ setup_interleaved_attribs(GLcontext *ctx,
          offset0 = low;
          if (userSpace) {
             vbuffer->buffer =
-               pipe_user_buffer_create(pipe->screen, (void *) low, high - low);
+               pipe_user_buffer_create(pipe->screen, (void *) low, high - low,
+				       PIPE_BIND_VERTEX_BUFFER);
             vbuffer->buffer_offset = 0;
          }
          else {
             vbuffer->buffer = NULL;
-            pipe_buffer_reference(&vbuffer->buffer, stobj->buffer);
+            pipe_resource_reference(&vbuffer->buffer, stobj->buffer);
             vbuffer->buffer_offset = pointer_to_offset(low);
          }
          vbuffer->stride = stride; /* in bytes */
@@ -422,7 +432,7 @@ setup_non_interleaved_attribs(GLcontext *ctx,
          /*printf("stobj %u = %p\n", attr, (void*) stobj);*/
 
          vbuffer[attr].buffer = NULL;
-         pipe_buffer_reference(&vbuffer[attr].buffer, stobj->buffer);
+         pipe_resource_reference(&vbuffer[attr].buffer, stobj->buffer);
          vbuffer[attr].buffer_offset = pointer_to_offset(arrays[mesaAttr]->Ptr);
          velements[attr].src_offset = 0;
       }
@@ -443,14 +453,19 @@ setup_non_interleaved_attribs(GLcontext *ctx,
                bytes = arrays[mesaAttr]->Size
                   * _mesa_sizeof_type(arrays[mesaAttr]->Type);
             }
-            vbuffer[attr].buffer = pipe_user_buffer_create(pipe->screen,
-                           (void *) arrays[mesaAttr]->Ptr, bytes);
+            vbuffer[attr].buffer = 
+	       pipe_user_buffer_create(pipe->screen,
+				       (void *) arrays[mesaAttr]->Ptr, bytes,
+				       PIPE_BIND_VERTEX_BUFFER);
          }
          else {
             /* no array, use ctx->Current.Attrib[] value */
             bytes = sizeof(ctx->Current.Attrib[0]);
-            vbuffer[attr].buffer = pipe_user_buffer_create(pipe->screen,
-                           (void *) ctx->Current.Attrib[mesaAttr], bytes);
+            vbuffer[attr].buffer = 
+	       pipe_user_buffer_create(pipe->screen,
+				       (void *) ctx->Current.Attrib[mesaAttr],
+				       bytes,
+				       PIPE_BIND_VERTEX_BUFFER);
             stride = 0;
          }
 
@@ -618,7 +633,7 @@ st_draw_vbo(GLcontext *ctx,
    if (ib) {
       /* indexed primitive */
       struct gl_buffer_object *bufobj = ib->obj;
-      struct pipe_buffer *indexBuf = NULL;
+      struct pipe_resource *indexBuf = NULL;
       unsigned indexSize, indexOffset, i;
       unsigned prim;
 
@@ -641,13 +656,14 @@ st_draw_vbo(GLcontext *ctx,
       if (bufobj && bufobj->Name) {
          /* elements/indexes are in a real VBO */
          struct st_buffer_object *stobj = st_buffer_object(bufobj);
-         pipe_buffer_reference(&indexBuf, stobj->buffer);
+         pipe_resource_reference(&indexBuf, stobj->buffer);
          indexOffset = pointer_to_offset(ib->ptr) / indexSize;
       }
       else {
          /* element/indicies are in user space memory */
          indexBuf = pipe_user_buffer_create(pipe->screen, (void *) ib->ptr,
-                                            ib->count * indexSize);
+                                            ib->count * indexSize,
+					    PIPE_BIND_INDEX_BUFFER);
          indexOffset = 0;
       }
 
@@ -669,13 +685,21 @@ st_draw_vbo(GLcontext *ctx,
          for (i = 0; i < nr_prims; i++) {
             prim = translate_prim( ctx, prims[i].mode );
             
-            pipe->draw_elements(pipe, indexBuf, indexSize,
-                                prim,
-                                prims[i].start + indexOffset, prims[i].count);
+            if (prims[i].num_instances == 1) {
+               pipe->draw_elements(pipe, indexBuf, indexSize, prim,
+                                   prims[i].start + indexOffset,
+                                   prims[i].count);
+            }
+            else {
+               pipe->draw_elements_instanced(pipe, indexBuf, indexSize, prim,
+                                             prims[i].start + indexOffset,
+                                             prims[i].count,
+                                             0, prims[i].num_instances);
+            }
          }
       }
 
-      pipe_buffer_reference(&indexBuf, NULL);
+      pipe_resource_reference(&indexBuf, NULL);
    }
    else {
       /* non-indexed */
@@ -685,13 +709,20 @@ st_draw_vbo(GLcontext *ctx,
       for (i = 0; i < nr_prims; i++) {
          prim = translate_prim( ctx, prims[i].mode );
 
-         pipe->draw_arrays(pipe, prim, prims[i].start, prims[i].count);
+         if (prims[i].num_instances == 1) {
+            pipe->draw_arrays(pipe, prim, prims[i].start, prims[i].count);
+         }
+         else {
+            pipe->draw_arrays_instanced(pipe, prim, prims[i].start,
+                                        prims[i].count,
+                                        0, prims[i].num_instances);
+         }
       }
    }
 
    /* unreference buffers (frees wrapped user-space buffer objects) */
    for (attr = 0; attr < num_vbuffers; attr++) {
-      pipe_buffer_reference(&vbuffer[attr].buffer, NULL);
+      pipe_resource_reference(&vbuffer[attr].buffer, NULL);
       assert(!vbuffer[attr].buffer);
    }
 

@@ -14,12 +14,13 @@
  * The above copyright notice and this permission notice shall be included
  * in all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
- * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  *
  * Authors:
  *    Chia-I Wu <olv@lunarg.com>
@@ -85,6 +86,37 @@ egl_g3d_create_st_api(enum st_api_type api)
    return mod->create_api();
 }
 
+static boolean
+egl_g3d_st_manager_get_egl_image(struct st_manager *smapi,
+                                 struct st_egl_image *stimg)
+{
+   struct egl_g3d_st_manager *gsmapi = egl_g3d_st_manager(smapi);
+   EGLImageKHR handle = (EGLImageKHR) stimg->egl_image;
+   _EGLImage *img;
+   struct egl_g3d_image *gimg;
+
+   /* this is called from state trackers */
+   _eglLockMutex(&gsmapi->display->Mutex);
+
+   img = _eglLookupImage(handle, gsmapi->display);
+   if (!img) {
+      _eglUnlockMutex(&gsmapi->display->Mutex);
+      return FALSE;
+   }
+
+   gimg = egl_g3d_image(img);
+
+   stimg->texture = NULL;
+   pipe_resource_reference(&stimg->texture, gimg->texture);
+   stimg->face = gimg->face;
+   stimg->level = gimg->level;
+   stimg->zslice = gimg->zslice;
+
+   _eglUnlockMutex(&gsmapi->display->Mutex);
+
+   return TRUE;
+}
+
 struct st_manager *
 egl_g3d_create_st_manager(_EGLDisplay *dpy)
 {
@@ -96,6 +128,7 @@ egl_g3d_create_st_manager(_EGLDisplay *dpy)
       gsmapi->display = dpy;
 
       gsmapi->base.screen = gdpy->native->screen;
+      gsmapi->base.get_egl_image = egl_g3d_st_manager_get_egl_image;
    }
 
    return &gsmapi->base;;
@@ -105,7 +138,54 @@ void
 egl_g3d_destroy_st_manager(struct st_manager *smapi)
 {
    struct egl_g3d_st_manager *gsmapi = egl_g3d_st_manager(smapi);
-   free(gsmapi);
+   FREE(gsmapi);
+}
+
+static boolean
+egl_g3d_st_framebuffer_flush_front_pbuffer(struct st_framebuffer_iface *stfbi,
+                                           enum st_attachment_type statt)
+{
+   return TRUE;
+}
+
+static boolean 
+egl_g3d_st_framebuffer_validate_pbuffer(struct st_framebuffer_iface *stfbi,
+                                        const enum st_attachment_type *statts,
+                                        unsigned count,
+                                        struct pipe_resource **out)
+{
+   _EGLSurface *surf = (_EGLSurface *) stfbi->st_manager_private;
+   struct egl_g3d_surface *gsurf = egl_g3d_surface(surf);
+   struct pipe_resource templ;
+   unsigned i;
+
+   for (i = 0; i < count; i++) {
+      out[i] = NULL;
+
+      if (gsurf->stvis.render_buffer != statts[i])
+         continue;
+
+      if (!gsurf->render_texture) {
+         struct egl_g3d_display *gdpy =
+            egl_g3d_display(gsurf->base.Resource.Display);
+         struct pipe_screen *screen = gdpy->native->screen;
+
+         memset(&templ, 0, sizeof(templ));
+         templ.target = PIPE_TEXTURE_2D;
+         templ.last_level = 0;
+         templ.width0 = gsurf->base.Width;
+         templ.height0 = gsurf->base.Height;
+         templ.depth0 = 1;
+         templ.format = gsurf->stvis.color_format;
+         templ.bind = PIPE_BIND_RENDER_TARGET;
+
+         gsurf->render_texture = screen->resource_create(screen, &templ);
+      }
+
+      pipe_resource_reference(&out[i], gsurf->render_texture);
+   }
+
+   return TRUE;
 }
 
 static boolean
@@ -122,11 +202,11 @@ static boolean
 egl_g3d_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
                                 const enum st_attachment_type *statts,
                                 unsigned count,
-                                struct pipe_texture **out)
+                                struct pipe_resource **out)
 {
    _EGLSurface *surf = (_EGLSurface *) stfbi->st_manager_private;
    struct egl_g3d_surface *gsurf = egl_g3d_surface(surf);
-   struct pipe_texture *textures[NUM_NATIVE_ATTACHMENTS];
+   struct pipe_resource *textures[NUM_NATIVE_ATTACHMENTS];
    uint attachment_mask = 0;
    unsigned i;
 
@@ -161,7 +241,7 @@ egl_g3d_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
       return FALSE;
 
    for (i = 0; i < count; i++) {
-      struct pipe_texture *tex;
+      struct pipe_resource *tex;
       int natt;
 
       switch (statts[i]) {
@@ -186,7 +266,7 @@ egl_g3d_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
          tex = textures[natt];
 
          if (statts[i] == stfbi->visual->render_buffer)
-            pipe_texture_reference(&gsurf->render_texture, tex);
+            pipe_resource_reference(&gsurf->render_texture, tex);
 
          if (attachment_mask & (1 << natt)) {
             /* transfer the ownership to the caller */
@@ -195,7 +275,7 @@ egl_g3d_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
          }
          else {
             /* the attachment is listed more than once */
-            pipe_texture_reference(&out[i], tex);
+            pipe_resource_reference(&out[i], tex);
          }
       }
    }
@@ -214,8 +294,14 @@ egl_g3d_create_st_framebuffer(_EGLSurface *surf)
       return NULL;
 
    stfbi->visual = &gsurf->stvis;
-   stfbi->flush_front = egl_g3d_st_framebuffer_flush_front;
-   stfbi->validate = egl_g3d_st_framebuffer_validate;
+   if (gsurf->base.Type != EGL_PBUFFER_BIT) {
+      stfbi->flush_front = egl_g3d_st_framebuffer_flush_front;
+      stfbi->validate = egl_g3d_st_framebuffer_validate;
+   }
+   else {
+      stfbi->flush_front = egl_g3d_st_framebuffer_flush_front_pbuffer;
+      stfbi->validate = egl_g3d_st_framebuffer_validate_pbuffer;
+   }
    stfbi->st_manager_private = (void *) &gsurf->base;
 
    return stfbi;
@@ -224,5 +310,5 @@ egl_g3d_create_st_framebuffer(_EGLSurface *surf)
 void
 egl_g3d_destroy_st_framebuffer(struct st_framebuffer_iface *stfbi)
 {
-   free(stfbi);
+   FREE(stfbi);
 }

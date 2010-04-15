@@ -14,70 +14,28 @@
  * The above copyright notice and this permission notice shall be included
  * in all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
- * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  */
 
-#include <assert.h>
-#include <stdio.h>
-#include <string.h>
-#include "pipe/p_screen.h"
-#include "util/u_memory.h"
-#include "util/u_rect.h"
-#include "util/u_inlines.h"
 #include "egldriver.h"
 #include "eglcurrent.h"
-#include "eglconfigutil.h"
 #include "egllog.h"
 
-#include "native.h"
+#include "pipe/p_screen.h"
+#include "util/u_memory.h"
+#include "util/u_format.h"
+#include "util/u_string.h"
+
 #include "egl_g3d.h"
+#include "egl_g3d_api.h"
 #include "egl_g3d_st.h"
-#include "egl_g3d_image.h"
-
-/**
- * Return the state tracker for the given context.
- */
-static struct st_api *
-egl_g3d_choose_st(_EGLDriver *drv, _EGLContext *ctx)
-{
-   struct egl_g3d_driver *gdrv = egl_g3d_driver(drv);
-   struct st_api *stapi;
-   EGLint idx = -1;
-
-   switch (ctx->ClientAPI) {
-   case EGL_OPENGL_ES_API:
-      switch (ctx->ClientVersion) {
-      case 1:
-         idx = ST_API_OPENGL_ES1;
-         break;
-      case 2:
-         idx = ST_API_OPENGL_ES2;
-         break;
-      default:
-         _eglLog(_EGL_WARNING, "unknown client version %d",
-               ctx->ClientVersion);
-         break;
-      }
-      break;
-   case EGL_OPENVG_API:
-      idx = ST_API_OPENVG;
-      break;
-   case EGL_OPENGL_API:
-      idx = ST_API_OPENGL;
-      break;
-   default:
-      _eglLog(_EGL_WARNING, "unknown client API 0x%04x", ctx->ClientAPI);
-      break;
-   }
-
-   stapi = (idx >= 0) ? gdrv->stapis[idx] : NULL;
-   return stapi;
-}
+#include "native.h"
 
 /**
  * Initialize the state trackers.
@@ -157,7 +115,7 @@ egl_g3d_add_screens(_EGLDriver *drv, _EGLDisplay *dpy)
       gdpy->native->modeset->get_connectors(gdpy->native, &num_connectors, NULL);
    if (!num_connectors) {
       if (native_connectors)
-         free(native_connectors);
+         FREE(native_connectors);
       return;
    }
 
@@ -172,13 +130,13 @@ egl_g3d_add_screens(_EGLDriver *drv, _EGLDisplay *dpy)
          gdpy->native->modeset->get_modes(gdpy->native, nconn, &num_modes);
       if (!num_modes) {
          if (native_modes)
-            free(native_modes);
+            FREE(native_modes);
          continue;
       }
 
       gscr = CALLOC_STRUCT(egl_g3d_screen);
       if (!gscr) {
-         free(native_modes);
+         FREE(native_modes);
          continue;
       }
 
@@ -202,41 +160,137 @@ egl_g3d_add_screens(_EGLDriver *drv, _EGLDisplay *dpy)
       _eglAddScreen(dpy, &gscr->base);
    }
 
-   free(native_connectors);
+   FREE(native_connectors);
 }
 
 #endif /* EGL_MESA_screen_surface */
+
+/**
+ * Initialize and validate the EGL config attributes.
+ */
+static EGLBoolean
+init_config_attributes(_EGLConfig *conf, const struct native_config *nconf,
+                       EGLint api_mask, enum pipe_format depth_stencil_format)
+{
+   uint rgba[4], depth_stencil[2], buffer_size;
+   EGLint surface_type;
+   EGLint i;
+
+   /* get the color and depth/stencil component sizes */
+   assert(nconf->color_format != PIPE_FORMAT_NONE);
+   buffer_size = 0;
+   for (i = 0; i < 4; i++) {
+      rgba[i] = util_format_get_component_bits(nconf->color_format,
+            UTIL_FORMAT_COLORSPACE_RGB, i);
+      buffer_size += rgba[i];
+   }
+   for (i = 0; i < 2; i++) {
+      if (depth_stencil_format != PIPE_FORMAT_NONE) {
+         depth_stencil[i] =
+            util_format_get_component_bits(depth_stencil_format,
+               UTIL_FORMAT_COLORSPACE_ZS, i);
+      }
+      else {
+         depth_stencil[i] = 0;
+      }
+   }
+
+   surface_type = 0x0;
+   if (nconf->window_bit)
+      surface_type |= EGL_WINDOW_BIT;
+   if (nconf->pixmap_bit)
+      surface_type |= EGL_PIXMAP_BIT;
+#ifdef EGL_MESA_screen_surface
+   if (nconf->scanout_bit)
+      surface_type |= EGL_SCREEN_BIT_MESA;
+#endif
+
+   if (nconf->buffer_mask & (1 << NATIVE_ATTACHMENT_BACK_LEFT))
+      surface_type |= EGL_PBUFFER_BIT;
+
+   SET_CONFIG_ATTRIB(conf, EGL_CONFORMANT, api_mask);
+   SET_CONFIG_ATTRIB(conf, EGL_RENDERABLE_TYPE, api_mask);
+
+   SET_CONFIG_ATTRIB(conf, EGL_RED_SIZE, rgba[0]);
+   SET_CONFIG_ATTRIB(conf, EGL_GREEN_SIZE, rgba[1]);
+   SET_CONFIG_ATTRIB(conf, EGL_BLUE_SIZE, rgba[2]);
+   SET_CONFIG_ATTRIB(conf, EGL_ALPHA_SIZE, rgba[3]);
+   SET_CONFIG_ATTRIB(conf, EGL_BUFFER_SIZE, buffer_size);
+
+   SET_CONFIG_ATTRIB(conf, EGL_DEPTH_SIZE, depth_stencil[0]);
+   SET_CONFIG_ATTRIB(conf, EGL_STENCIL_SIZE, depth_stencil[1]);
+
+   SET_CONFIG_ATTRIB(conf, EGL_SURFACE_TYPE, surface_type);
+
+   SET_CONFIG_ATTRIB(conf, EGL_NATIVE_RENDERABLE, EGL_TRUE);
+   if (surface_type & EGL_WINDOW_BIT) {
+      SET_CONFIG_ATTRIB(conf, EGL_NATIVE_VISUAL_ID, nconf->native_visual_id);
+      SET_CONFIG_ATTRIB(conf, EGL_NATIVE_VISUAL_TYPE,
+            nconf->native_visual_type);
+   }
+
+   if (surface_type & EGL_PBUFFER_BIT) {
+      SET_CONFIG_ATTRIB(conf, EGL_BIND_TO_TEXTURE_RGB, EGL_TRUE);
+      if (rgba[3])
+         SET_CONFIG_ATTRIB(conf, EGL_BIND_TO_TEXTURE_RGBA, EGL_TRUE);
+
+      SET_CONFIG_ATTRIB(conf, EGL_MAX_PBUFFER_WIDTH, 4096);
+      SET_CONFIG_ATTRIB(conf, EGL_MAX_PBUFFER_HEIGHT, 4096);
+      SET_CONFIG_ATTRIB(conf, EGL_MAX_PBUFFER_PIXELS, 4096 * 4096);
+   }
+
+   SET_CONFIG_ATTRIB(conf, EGL_LEVEL, nconf->level);
+   SET_CONFIG_ATTRIB(conf, EGL_SAMPLES, nconf->samples);
+   SET_CONFIG_ATTRIB(conf, EGL_SAMPLE_BUFFERS, 1);
+
+   if (nconf->slow_config)
+      SET_CONFIG_ATTRIB(conf, EGL_CONFIG_CAVEAT, EGL_SLOW_CONFIG);
+
+   if (nconf->transparent_rgb) {
+      rgba[0] = nconf->transparent_rgb_values[0];
+      rgba[1] = nconf->transparent_rgb_values[1];
+      rgba[2] = nconf->transparent_rgb_values[2];
+
+      SET_CONFIG_ATTRIB(conf, EGL_TRANSPARENT_TYPE, EGL_TRANSPARENT_RGB);
+      SET_CONFIG_ATTRIB(conf, EGL_TRANSPARENT_RED_VALUE, rgba[0]);
+      SET_CONFIG_ATTRIB(conf, EGL_TRANSPARENT_GREEN_VALUE, rgba[1]);
+      SET_CONFIG_ATTRIB(conf, EGL_TRANSPARENT_BLUE_VALUE, rgba[2]);
+   }
+
+   return _eglValidateConfig(conf, EGL_FALSE);
+}
 
 /**
  * Initialize an EGL config from the native config.
  */
 static EGLBoolean
 egl_g3d_init_config(_EGLDriver *drv, _EGLDisplay *dpy,
-                    _EGLConfig *conf, const struct native_config *nconf)
+                    _EGLConfig *conf, const struct native_config *nconf,
+                    enum pipe_format depth_stencil_format)
 {
    struct egl_g3d_driver *gdrv = egl_g3d_driver(drv);
    struct egl_g3d_config *gconf = egl_g3d_config(conf);
-   const __GLcontextModes *mode = &nconf->mode;
    EGLint buffer_mask, api_mask;
    EGLBoolean valid;
    EGLint i;
 
-   buffer_mask = ST_ATTACHMENT_FRONT_LEFT_MASK;
-   if (mode->doubleBufferMode)
+   buffer_mask = 0x0;
+   if (nconf->buffer_mask & (1 << NATIVE_ATTACHMENT_FRONT_LEFT))
+      buffer_mask |= ST_ATTACHMENT_FRONT_LEFT_MASK;
+   if (nconf->buffer_mask & (1 << NATIVE_ATTACHMENT_BACK_LEFT))
       buffer_mask |= ST_ATTACHMENT_BACK_LEFT_MASK;
-   if (mode->stereoMode) {
+   if (nconf->buffer_mask & (1 << NATIVE_ATTACHMENT_FRONT_RIGHT))
       buffer_mask |= ST_ATTACHMENT_FRONT_RIGHT_MASK;
-      if (mode->doubleBufferMode)
-         buffer_mask |= ST_ATTACHMENT_BACK_RIGHT_MASK;
-   }
+   if (nconf->buffer_mask & (1 << NATIVE_ATTACHMENT_BACK_RIGHT))
+      buffer_mask |= ST_ATTACHMENT_BACK_RIGHT_MASK;
 
    gconf->stvis.buffer_mask = buffer_mask;
    gconf->stvis.color_format = nconf->color_format;
-   gconf->stvis.depth_stencil_format = nconf->depth_format;
+   gconf->stvis.depth_stencil_format = depth_stencil_format;
    gconf->stvis.accum_format = PIPE_FORMAT_NONE;
-   gconf->stvis.samples = 0;
+   gconf->stvis.samples = nconf->samples;
 
-   gconf->stvis.render_buffer = (buffer_mask & ST_ATTACHMENT_BACK_LEFT) ?
+   gconf->stvis.render_buffer = (buffer_mask & ST_ATTACHMENT_BACK_LEFT_MASK) ?
       ST_ATTACHMENT_BACK_LEFT : ST_ATTACHMENT_FRONT_LEFT;
 
    api_mask = 0;
@@ -248,35 +302,65 @@ egl_g3d_init_config(_EGLDriver *drv, _EGLDisplay *dpy,
       }
    }
    /* this is required by EGL, not by OpenGL ES */
-   if ((mode->drawableType & GLX_WINDOW_BIT) && !mode->doubleBufferMode)
+   if (nconf->window_bit &&
+       gconf->stvis.render_buffer != ST_ATTACHMENT_BACK_LEFT)
       api_mask &= ~(EGL_OPENGL_ES_BIT | EGL_OPENGL_ES2_BIT);
 
    if (!api_mask) {
       _eglLog(_EGL_DEBUG, "no state tracker supports config 0x%x",
-            mode->visualID);
+            nconf->native_visual_id);
    }
 
-   valid = _eglConfigFromContextModesRec(&gconf->base,
-         mode, api_mask, api_mask);
-   if (valid) {
-#ifdef EGL_MESA_screen_surface
-      /* check if scanout surface bit is set */
-      if (nconf->scanout_bit) {
-         EGLint val = GET_CONFIG_ATTRIB(&gconf->base, EGL_SURFACE_TYPE);
-         val |= EGL_SCREEN_BIT_MESA;
-         SET_CONFIG_ATTRIB(&gconf->base, EGL_SURFACE_TYPE, val);
-      }
-#endif
-      valid = _eglValidateConfig(&gconf->base, EGL_FALSE);
-   }
+   valid = init_config_attributes(&gconf->base,
+         nconf, api_mask, depth_stencil_format);
    if (!valid) {
-      _eglLog(_EGL_DEBUG, "skip invalid config 0x%x", mode->visualID);
+      _eglLog(_EGL_DEBUG, "skip invalid config 0x%x", nconf->native_visual_id);
       return EGL_FALSE;
    }
 
    gconf->native = nconf;
 
    return EGL_TRUE;
+}
+
+/**
+ * Get all interested depth/stencil formats of a display.
+ */
+static EGLint
+egl_g3d_fill_depth_stencil_formats(_EGLDisplay *dpy,
+                                   enum pipe_format formats[8])
+{
+   struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
+   struct pipe_screen *screen = gdpy->native->screen;
+   const EGLint candidates[] = {
+      1, PIPE_FORMAT_Z16_UNORM,
+      1, PIPE_FORMAT_Z32_UNORM,
+      2, PIPE_FORMAT_Z24_UNORM_S8_USCALED, PIPE_FORMAT_S8_USCALED_Z24_UNORM,
+      2, PIPE_FORMAT_Z24X8_UNORM, PIPE_FORMAT_X8Z24_UNORM,
+      0
+   };
+   const EGLint *fmt = candidates;
+   EGLint count;
+
+   count = 0;
+   formats[count++] = PIPE_FORMAT_NONE;
+
+   while (*fmt) {
+      EGLint i, n = *fmt++;
+
+      /* pick the first supported format */
+      for (i = 0; i < n; i++) {
+         if (screen->is_format_supported(screen, fmt[i],
+                  PIPE_TEXTURE_2D, PIPE_BIND_DEPTH_STENCIL, 0)) {
+            formats[count++] = fmt[i];
+            break;
+         }
+      }
+
+      fmt += n;
+   }
+
+   return count;
 }
 
 /**
@@ -287,32 +371,39 @@ egl_g3d_add_configs(_EGLDriver *drv, _EGLDisplay *dpy, EGLint id)
 {
    struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
    const struct native_config **native_configs;
-   int num_configs, i;
+   enum pipe_format depth_stencil_formats[8];
+   int num_formats, num_configs, i, j;
 
    native_configs = gdpy->native->get_configs(gdpy->native, &num_configs);
    if (!num_configs) {
       if (native_configs)
-         free(native_configs);
+         FREE(native_configs);
       return id;
    }
 
+   num_formats = egl_g3d_fill_depth_stencil_formats(dpy,
+         depth_stencil_formats);
+
    for (i = 0; i < num_configs; i++) {
-      struct egl_g3d_config *gconf;
+      for (j = 0; j < num_formats; j++) {
+         struct egl_g3d_config *gconf;
 
-      gconf = CALLOC_STRUCT(egl_g3d_config);
-      if (gconf) {
-         _eglInitConfig(&gconf->base, dpy, id);
-         if (!egl_g3d_init_config(drv, dpy, &gconf->base, native_configs[i])) {
-            free(gconf);
-            continue;
+         gconf = CALLOC_STRUCT(egl_g3d_config);
+         if (gconf) {
+            _eglInitConfig(&gconf->base, dpy, id);
+            if (!egl_g3d_init_config(drv, dpy, &gconf->base,
+                     native_configs[i], depth_stencil_formats[j])) {
+               FREE(gconf);
+               break;
+            }
+
+            _eglAddConfig(dpy, &gconf->base);
+            id++;
          }
-
-         _eglAddConfig(dpy, &gconf->base);
-         id++;
       }
    }
 
-   free(native_configs);
+   FREE(native_configs);
    return id;
 }
 
@@ -353,10 +444,10 @@ egl_g3d_terminate(_EGLDriver *drv, _EGLDisplay *dpy)
    if (dpy->Screens) {
       for (i = 0; i < dpy->NumScreens; i++) {
          struct egl_g3d_screen *gscr = egl_g3d_screen(dpy->Screens[i]);
-         free(gscr->native_modes);
-         free(gscr);
+         FREE(gscr->native_modes);
+         FREE(gscr);
       }
-      free(dpy->Screens);
+      FREE(dpy->Screens);
    }
 
    if (gdpy->smapi)
@@ -365,7 +456,7 @@ egl_g3d_terminate(_EGLDriver *drv, _EGLDisplay *dpy)
    if (gdpy->native)
       gdpy->native->destroy(gdpy->native);
 
-   free(gdpy);
+   FREE(gdpy);
    dpy->DriverData = NULL;
 
    return EGL_TRUE;
@@ -435,456 +526,6 @@ fail:
    return EGL_FALSE;
 }
 
-static _EGLContext *
-egl_g3d_create_context(_EGLDriver *drv, _EGLDisplay *dpy, _EGLConfig *conf,
-                       _EGLContext *share, const EGLint *attribs)
-{
-   struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
-   struct egl_g3d_context *gshare = egl_g3d_context(share);
-   struct egl_g3d_config *gconf = egl_g3d_config(conf);
-   struct egl_g3d_context *gctx;
-
-   gctx = CALLOC_STRUCT(egl_g3d_context);
-   if (!gctx) {
-      _eglError(EGL_BAD_ALLOC, "eglCreateContext");
-      return NULL;
-   }
-
-   if (!_eglInitContext(&gctx->base, dpy, conf, attribs)) {
-      free(gctx);
-      return NULL;
-   }
-
-   gctx->stapi = egl_g3d_choose_st(drv, &gctx->base);
-   if (!gctx->stapi) {
-      free(gctx);
-      return NULL;
-   }
-
-   gctx->stctxi = gctx->stapi->create_context(gctx->stapi, gdpy->smapi,
-         &gconf->stvis, (gshare) ? gshare->stctxi : NULL);
-   if (!gctx->stctxi) {
-      free(gctx);
-      return NULL;
-   }
-
-   gctx->stctxi->st_manager_private = (void *) &gctx->base;
-
-   return &gctx->base;
-}
-
-/**
- * Destroy a context.
- */
-static void
-destroy_context(_EGLDisplay *dpy, _EGLContext *ctx)
-{
-   struct egl_g3d_context *gctx = egl_g3d_context(ctx);
-
-   /* FIXME a context might live longer than its display */
-   if (!dpy->Initialized)
-      _eglLog(_EGL_FATAL, "destroy a context with an unitialized display");
-
-   gctx->stctxi->destroy(gctx->stctxi);
-
-   free(gctx);
-}
-
-static EGLBoolean
-egl_g3d_destroy_context(_EGLDriver *drv, _EGLDisplay *dpy, _EGLContext *ctx)
-{
-   if (!_eglIsContextBound(ctx))
-      destroy_context(dpy, ctx);
-   return EGL_TRUE;
-}
-
-struct egl_g3d_create_surface_arg {
-   EGLint type;
-   union {
-      EGLNativeWindowType win;
-      EGLNativePixmapType pix;
-   } u;
-};
-
-static _EGLSurface *
-egl_g3d_create_surface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLConfig *conf,
-                       struct egl_g3d_create_surface_arg *arg,
-                       const EGLint *attribs)
-{
-   struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
-   struct egl_g3d_config *gconf = egl_g3d_config(conf);
-   struct egl_g3d_surface *gsurf;
-   struct native_surface *nsurf;
-   const char *err;
-
-   switch (arg->type) {
-   case EGL_WINDOW_BIT:
-      err = "eglCreateWindowSurface";
-      break;
-   case EGL_PIXMAP_BIT:
-      err = "eglCreatePixmapSurface";
-      break;
-   case EGL_PBUFFER_BIT:
-      err = "eglCreatePBufferSurface";
-      break;
-#ifdef EGL_MESA_screen_surface
-   case EGL_SCREEN_BIT_MESA:
-      err = "eglCreateScreenSurface";
-      break;
-#endif
-   default:
-      err = "eglCreateUnknownSurface";
-      break;
-   }
-
-   gsurf = CALLOC_STRUCT(egl_g3d_surface);
-   if (!gsurf) {
-      _eglError(EGL_BAD_ALLOC, err);
-      return NULL;
-   }
-
-   if (!_eglInitSurface(&gsurf->base, dpy, arg->type, conf, attribs)) {
-      free(gsurf);
-      return NULL;
-   }
-
-   /* create the native surface */
-   switch (arg->type) {
-   case EGL_WINDOW_BIT:
-      nsurf = gdpy->native->create_window_surface(gdpy->native,
-            arg->u.win, gconf->native);
-      break;
-   case EGL_PIXMAP_BIT:
-      nsurf = gdpy->native->create_pixmap_surface(gdpy->native,
-            arg->u.pix, gconf->native);
-      break;
-   case EGL_PBUFFER_BIT:
-      nsurf = gdpy->native->create_pbuffer_surface(gdpy->native,
-            gconf->native, gsurf->base.Width, gsurf->base.Height);
-      break;
-#ifdef EGL_MESA_screen_surface
-   case EGL_SCREEN_BIT_MESA:
-      /* prefer back buffer (move to _eglInitSurface?) */
-      gsurf->base.RenderBuffer = EGL_BACK_BUFFER;
-      nsurf = gdpy->native->modeset->create_scanout_surface(gdpy->native,
-            gconf->native, gsurf->base.Width, gsurf->base.Height);
-      break;
-#endif
-   default:
-      nsurf = NULL;
-      break;
-   }
-
-   if (!nsurf) {
-      free(gsurf);
-      return NULL;
-   }
-   /* initialize the geometry */
-   if (!nsurf->validate(nsurf, 0x0, &gsurf->sequence_number, NULL,
-            &gsurf->base.Width, &gsurf->base.Height)) {
-      nsurf->destroy(nsurf);
-      free(gsurf);
-      return NULL;
-   }
-
-   gsurf->stvis = gconf->stvis;
-   if (gsurf->base.RenderBuffer == EGL_SINGLE_BUFFER)
-      gsurf->stvis.render_buffer = ST_ATTACHMENT_FRONT_LEFT;
-
-   gsurf->stfbi = egl_g3d_create_st_framebuffer(&gsurf->base);
-   if (!gsurf->stfbi) {
-      gsurf->native->destroy(gsurf->native);
-      free(gsurf);
-      return NULL;
-   }
-
-   nsurf->user_data = &gsurf->base;
-   gsurf->native = nsurf;
-
-   return &gsurf->base;
-}
-
-static _EGLSurface *
-egl_g3d_create_window_surface(_EGLDriver *drv, _EGLDisplay *dpy,
-                              _EGLConfig *conf, EGLNativeWindowType win,
-                              const EGLint *attribs)
-{
-   struct egl_g3d_create_surface_arg arg;
-
-   memset(&arg, 0, sizeof(arg));
-   arg.type = EGL_WINDOW_BIT;
-   arg.u.win = win;
-
-   return egl_g3d_create_surface(drv, dpy, conf, &arg, attribs);
-}
-
-static _EGLSurface *
-egl_g3d_create_pixmap_surface(_EGLDriver *drv, _EGLDisplay *dpy,
-                              _EGLConfig *conf, EGLNativePixmapType pix,
-                              const EGLint *attribs)
-{
-   struct egl_g3d_create_surface_arg arg;
-
-   memset(&arg, 0, sizeof(arg));
-   arg.type = EGL_PIXMAP_BIT;
-   arg.u.pix = pix;
-
-   return egl_g3d_create_surface(drv, dpy, conf, &arg, attribs);
-}
-
-static _EGLSurface *
-egl_g3d_create_pbuffer_surface(_EGLDriver *drv, _EGLDisplay *dpy,
-                               _EGLConfig *conf, const EGLint *attribs)
-{
-   struct egl_g3d_create_surface_arg arg;
-
-   memset(&arg, 0, sizeof(arg));
-   arg.type = EGL_PBUFFER_BIT;
-
-   return egl_g3d_create_surface(drv, dpy, conf, &arg, attribs);
-}
-
-/**
- * Destroy a surface.
- */
-static void
-destroy_surface(_EGLDisplay *dpy, _EGLSurface *surf)
-{
-   struct egl_g3d_surface *gsurf = egl_g3d_surface(surf);
-
-   /* FIXME a surface might live longer than its display */
-   if (!dpy->Initialized)
-      _eglLog(_EGL_FATAL, "destroy a surface with an unitialized display");
-
-   pipe_texture_reference(&gsurf->render_texture, NULL);
-   egl_g3d_destroy_st_framebuffer(gsurf->stfbi);
-   gsurf->native->destroy(gsurf->native);
-   free(gsurf);
-}
-
-static EGLBoolean
-egl_g3d_destroy_surface(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf)
-{
-   if (!_eglIsSurfaceBound(surf))
-      destroy_surface(dpy, surf);
-   return EGL_TRUE;
-}
-
-static EGLBoolean
-egl_g3d_make_current(_EGLDriver *drv, _EGLDisplay *dpy,
-                     _EGLSurface *draw, _EGLSurface *read, _EGLContext *ctx)
-{
-   struct egl_g3d_context *gctx = egl_g3d_context(ctx);
-   struct egl_g3d_surface *gdraw = egl_g3d_surface(draw);
-   struct egl_g3d_surface *gread = egl_g3d_surface(read);
-   struct egl_g3d_context *old_gctx;
-   EGLBoolean ok = EGL_TRUE;
-
-   /* bind the new context and return the "orphaned" one */
-   if (!_eglBindContext(&ctx, &draw, &read))
-      return EGL_FALSE;
-   old_gctx = egl_g3d_context(ctx);
-
-   if (old_gctx) {
-      /* flush old context */
-      old_gctx->stctxi->flush(old_gctx->stctxi,
-            PIPE_FLUSH_RENDER_CACHE | PIPE_FLUSH_FRAME, NULL);
-   }
-
-   if (gctx) {
-      ok = gctx->stapi->make_current(gctx->stapi, gctx->stctxi,
-            (gdraw) ? gdraw->stfbi : NULL, (gread) ? gread->stfbi : NULL);
-      if (ok) {
-         gctx->stctxi->notify_invalid_framebuffer(gctx->stctxi, gdraw->stfbi);
-         if (gread != gdraw) {
-            gctx->stctxi->notify_invalid_framebuffer(gctx->stctxi,
-                  gread->stfbi);
-         }
-
-         if (gdraw->base.Type == EGL_WINDOW_BIT) {
-            gctx->base.WindowRenderBuffer =
-               (gdraw->stvis.render_buffer == ST_ATTACHMENT_FRONT_LEFT) ?
-               EGL_SINGLE_BUFFER : EGL_BACK_BUFFER;
-         }
-      }
-   }
-   else if (old_gctx) {
-      ok = old_gctx->stapi->make_current(old_gctx->stapi, NULL, NULL, NULL);
-      old_gctx->base.WindowRenderBuffer = EGL_NONE;
-   }
-
-   if (ctx && !_eglIsContextLinked(ctx))
-      destroy_context(dpy, ctx);
-   if (draw && !_eglIsSurfaceLinked(draw))
-      destroy_surface(dpy, draw);
-   if (read && read != draw && !_eglIsSurfaceLinked(read))
-      destroy_surface(dpy, read);
-
-   return ok;
-}
-
-static EGLBoolean
-egl_g3d_swap_buffers(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf)
-{
-   struct egl_g3d_surface *gsurf = egl_g3d_surface(surf);
-   _EGLContext *ctx = _eglGetCurrentContext();
-   struct egl_g3d_context *gctx = NULL;
-
-   /* no-op for pixmap or pbuffer surface */
-   if (gsurf->base.Type == EGL_PIXMAP_BIT ||
-       gsurf->base.Type == EGL_PBUFFER_BIT)
-      return EGL_TRUE;
-
-   /* or when the surface is single-buffered */
-   if (gsurf->stvis.render_buffer == ST_ATTACHMENT_FRONT_LEFT)
-      return EGL_TRUE;
-
-   if (ctx && ctx->DrawSurface == surf)
-      gctx = egl_g3d_context(ctx);
-
-   /* flush if the surface is current */
-   if (gctx) {
-      gctx->stctxi->flush(gctx->stctxi,
-            PIPE_FLUSH_RENDER_CACHE | PIPE_FLUSH_FRAME, NULL);
-   }
-
-   return gsurf->native->swap_buffers(gsurf->native);
-}
-
-/**
- * Find a config that supports the pixmap.
- */
-_EGLConfig *
-egl_g3d_find_pixmap_config(_EGLDisplay *dpy, EGLNativePixmapType pix)
-{
-   struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
-   struct egl_g3d_config *gconf;
-   EGLint i;
-
-   for (i = 0; i < dpy->NumConfigs; i++) {
-      gconf = egl_g3d_config(dpy->Configs[i]);
-      if (gdpy->native->is_pixmap_supported(gdpy->native, pix, gconf->native))
-         break;
-   }
-
-   return (i < dpy->NumConfigs) ? &gconf->base : NULL;
-}
-
-/**
- * Get the pipe surface of the given attachment of the native surface.
- */
-static struct pipe_surface *
-get_pipe_surface(struct native_display *ndpy, struct native_surface *nsurf,
-                 enum native_attachment natt)
-{
-   struct pipe_texture *textures[NUM_NATIVE_ATTACHMENTS];
-   struct pipe_surface *psurf;
-
-   textures[natt] = NULL;
-   nsurf->validate(nsurf, 1 << natt, NULL, textures, NULL, NULL);
-   if (!textures[natt])
-      return NULL;
-
-   psurf = ndpy->screen->get_tex_surface(ndpy->screen, textures[natt],
-         0, 0, 0, PIPE_BUFFER_USAGE_GPU_WRITE);
-   pipe_texture_reference(&textures[natt], NULL);
-
-   return psurf;
-}
-
-static EGLBoolean
-egl_g3d_copy_buffers(_EGLDriver *drv, _EGLDisplay *dpy, _EGLSurface *surf,
-                     EGLNativePixmapType target)
-{
-   struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
-   struct egl_g3d_surface *gsurf = egl_g3d_surface(surf);
-   _EGLContext *ctx = _eglGetCurrentContext();
-   struct egl_g3d_config *gconf;
-   struct native_surface *nsurf;
-   struct pipe_screen *screen = gdpy->native->screen;
-   struct pipe_surface *psurf;
-
-   if (!gsurf->render_texture)
-      return EGL_TRUE;
-
-   gconf = egl_g3d_config(egl_g3d_find_pixmap_config(dpy, target));
-   if (!gconf)
-      return _eglError(EGL_BAD_NATIVE_PIXMAP, "eglCopyBuffers");
-
-   nsurf = gdpy->native->create_pixmap_surface(gdpy->native,
-         target, gconf->native);
-   if (!nsurf)
-      return _eglError(EGL_BAD_NATIVE_PIXMAP, "eglCopyBuffers");
-
-   /* flush if the surface is current */
-   if (ctx && ctx->DrawSurface == &gsurf->base) {
-      struct egl_g3d_context *gctx = egl_g3d_context(ctx);
-      gctx->stctxi->flush(gctx->stctxi,
-            PIPE_FLUSH_RENDER_CACHE | PIPE_FLUSH_FRAME, NULL);
-   }
-
-   /* create a pipe context to copy surfaces */
-   if (!gdpy->pipe) {
-      gdpy->pipe =
-         gdpy->native->screen->context_create(gdpy->native->screen, NULL);
-      if (!gdpy->pipe)
-         return EGL_FALSE;
-   }
-
-   psurf = get_pipe_surface(gdpy->native, nsurf, NATIVE_ATTACHMENT_FRONT_LEFT);
-   if (psurf) {
-      struct pipe_surface *psrc;
-
-      psrc = screen->get_tex_surface(screen, gsurf->render_texture,
-            0, 0, 0, PIPE_BUFFER_USAGE_GPU_READ);
-      if (psrc) {
-         gdpy->pipe->surface_copy(gdpy->pipe, psurf, 0, 0,
-               psrc, 0, 0, psurf->width, psurf->height);
-         pipe_surface_reference(&psrc, NULL);
-
-         nsurf->flush_frontbuffer(nsurf);
-      }
-
-      pipe_surface_reference(&psurf, NULL);
-   }
-
-   nsurf->destroy(nsurf);
-
-   return EGL_TRUE;
-}
-
-static EGLBoolean
-egl_g3d_wait_client(_EGLDriver *drv, _EGLDisplay *dpy, _EGLContext *ctx)
-{
-   struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
-   struct egl_g3d_context *gctx = egl_g3d_context(ctx);
-   struct pipe_screen *screen = gdpy->native->screen;
-   struct pipe_fence_handle *fence = NULL;
-
-   gctx->stctxi->flush(gctx->stctxi,
-         PIPE_FLUSH_RENDER_CACHE | PIPE_FLUSH_FRAME, &fence);
-   screen->fence_finish(screen, fence, 0);
-   screen->fence_reference(screen, &fence, NULL);
-
-   return EGL_TRUE;
-}
-
-static EGLBoolean
-egl_g3d_wait_native(_EGLDriver *drv, _EGLDisplay *dpy, EGLint engine)
-{
-   _EGLContext *ctx = _eglGetCurrentContext();
-
-   if (engine != EGL_CORE_NATIVE_ENGINE)
-      return _eglError(EGL_BAD_PARAMETER, "eglWaitNative");
-
-   if (ctx && ctx->DrawSurface) {
-      struct egl_g3d_surface *gsurf = egl_g3d_surface(ctx->DrawSurface);
-      gsurf->native->wait(gsurf->native);
-   }
-
-   return EGL_TRUE;
-}
-
 static _EGLProc
 egl_g3d_get_proc_address(_EGLDriver *drv, const char *procname)
 {
@@ -906,165 +547,6 @@ egl_g3d_get_proc_address(_EGLDriver *drv, const char *procname)
 
    return (_EGLProc) NULL;
 }
-
-static EGLBoolean
-egl_g3d_bind_tex_image(_EGLDriver *drv, _EGLDisplay *dpy,
-                       _EGLSurface *surf, EGLint buffer)
-{
-   struct egl_g3d_surface *gsurf = egl_g3d_surface(surf);
-   _EGLContext *es1 = _eglGetAPIContext(EGL_OPENGL_ES_API);
-   struct egl_g3d_context *gctx;
-   enum pipe_format internal_format;
-   enum st_texture_type target;
-
-   if (!gsurf || gsurf->base.Type != EGL_PBUFFER_BIT)
-      return _eglError(EGL_BAD_SURFACE, "eglBindTexImage");
-   if (buffer != EGL_BACK_BUFFER)
-      return _eglError(EGL_BAD_PARAMETER, "eglBindTexImage");
-   if (gsurf->base.BoundToTexture)
-      return _eglError(EGL_BAD_ACCESS, "eglBindTexImage");
-
-   switch (gsurf->base.TextureFormat) {
-   case EGL_TEXTURE_RGB:
-      internal_format = PIPE_FORMAT_R8G8B8_UNORM;
-      break;
-   case EGL_TEXTURE_RGBA:
-      internal_format = PIPE_FORMAT_B8G8R8A8_UNORM;
-      break;
-   default:
-      return _eglError(EGL_BAD_MATCH, "eglBindTexImage");
-   }
-
-   switch (gsurf->base.TextureTarget) {
-   case EGL_TEXTURE_2D:
-      target = ST_TEXTURE_2D;
-      break;
-   default:
-      return _eglError(EGL_BAD_MATCH, "eglBindTexImage");
-   }
-
-   if (!es1)
-      return EGL_TRUE;
-   if (!gsurf->render_texture)
-      return EGL_FALSE;
-
-   /* flush properly if the surface is bound */
-   if (gsurf->base.CurrentContext) {
-      gctx = egl_g3d_context(gsurf->base.CurrentContext);
-      gctx->stctxi->flush(gctx->stctxi,
-            PIPE_FLUSH_RENDER_CACHE | PIPE_FLUSH_FRAME, NULL);
-   }
-
-   gctx = egl_g3d_context(es1);
-   if (gctx->stctxi->teximage) {
-      if (!gctx->stctxi->teximage(gctx->stctxi, target,
-               gsurf->base.MipmapLevel, internal_format,
-               gsurf->render_texture, gsurf->base.MipmapTexture))
-         return EGL_FALSE;
-      gsurf->base.BoundToTexture = EGL_TRUE;
-   }
-
-   return EGL_TRUE;
-}
-
-static EGLBoolean
-egl_g3d_release_tex_image(_EGLDriver *drv, _EGLDisplay *dpy,
-                          _EGLSurface *surf, EGLint buffer)
-{
-   struct egl_g3d_surface *gsurf = egl_g3d_surface(surf);
-
-   if (!gsurf || gsurf->base.Type != EGL_PBUFFER_BIT ||
-       !gsurf->base.BoundToTexture)
-      return _eglError(EGL_BAD_SURFACE, "eglReleaseTexImage");
-   if (buffer != EGL_BACK_BUFFER)
-      return _eglError(EGL_BAD_PARAMETER, "eglReleaseTexImage");
-
-   if (gsurf->render_texture) {
-      _EGLContext *ctx = _eglGetAPIContext(EGL_OPENGL_ES_API);
-      struct egl_g3d_context *gctx = egl_g3d_context(ctx);
-
-      /* what if the context the surface binds to is no longer current? */
-      if (gctx) {
-         gctx->stctxi->teximage(gctx->stctxi, ST_TEXTURE_2D,
-               gsurf->base.MipmapLevel, PIPE_FORMAT_NONE, NULL, FALSE);
-      }
-   }
-
-   gsurf->base.BoundToTexture = EGL_FALSE;
-
-   return EGL_TRUE;
-}
-
-#ifdef EGL_MESA_screen_surface
-
-static _EGLSurface *
-egl_g3d_create_screen_surface(_EGLDriver *drv, _EGLDisplay *dpy,
-                              _EGLConfig *conf, const EGLint *attribs)
-{
-   struct egl_g3d_create_surface_arg arg;
-
-   memset(&arg, 0, sizeof(arg));
-   arg.type = EGL_SCREEN_BIT_MESA;
-
-   return egl_g3d_create_surface(drv, dpy, conf, &arg, attribs);
-}
-
-static EGLBoolean
-egl_g3d_show_screen_surface(_EGLDriver *drv, _EGLDisplay *dpy,
-                            _EGLScreen *scr, _EGLSurface *surf,
-                            _EGLMode *mode)
-{
-   struct egl_g3d_display *gdpy = egl_g3d_display(dpy);
-   struct egl_g3d_screen *gscr = egl_g3d_screen(scr);
-   struct egl_g3d_surface *gsurf = egl_g3d_surface(surf);
-   struct native_surface *nsurf;
-   const struct native_mode *nmode;
-   EGLBoolean changed;
-
-   if (gsurf) {
-      EGLint idx;
-
-      if (!mode)
-         return _eglError(EGL_BAD_MATCH, "eglShowSurfaceMESA");
-      if (gsurf->base.Type != EGL_SCREEN_BIT_MESA)
-         return _eglError(EGL_BAD_SURFACE, "eglShowScreenSurfaceMESA");
-      if (gsurf->base.Width < mode->Width || gsurf->base.Height < mode->Height)
-         return _eglError(EGL_BAD_MATCH,
-               "eglShowSurfaceMESA(surface smaller than mode size)");
-
-      /* find the index of the mode */
-      for (idx = 0; idx < gscr->base.NumModes; idx++)
-         if (mode == &gscr->base.Modes[idx])
-            break;
-      if (idx >= gscr->base.NumModes) {
-         return _eglError(EGL_BAD_MODE_MESA,
-               "eglShowSurfaceMESA(unknown mode)");
-      }
-
-      nsurf = gsurf->native;
-      nmode = gscr->native_modes[idx];
-   }
-   else {
-      if (mode)
-         return _eglError(EGL_BAD_MATCH, "eglShowSurfaceMESA");
-
-      /* disable the screen */
-      nsurf = NULL;
-      nmode = NULL;
-   }
-
-   /* TODO surface panning by CRTC choosing */
-   changed = gdpy->native->modeset->program(gdpy->native, 0, nsurf,
-         gscr->base.OriginX, gscr->base.OriginY, &gscr->native, 1, nmode);
-   if (changed) {
-      gscr->base.CurrentSurface = &gsurf->base;
-      gscr->base.CurrentMode = mode;
-   }
-
-   return changed;
-}
-
-#endif /* EGL_MESA_screen_surface */
 
 static EGLint
 egl_g3d_probe(_EGLDriver *drv, _EGLDisplay *dpy)
@@ -1107,7 +589,7 @@ egl_g3d_unload(_EGLDriver *drv)
    }
 
    egl_g3d_destroy_probe(drv, NULL);
-   free(gdrv);
+   FREE(gdrv);
 }
 
 _EGLDriver *
@@ -1116,40 +598,17 @@ _eglMain(const char *args)
    static char driver_name[64];
    struct egl_g3d_driver *gdrv;
 
-   snprintf(driver_name, sizeof(driver_name),
+   util_snprintf(driver_name, sizeof(driver_name),
          "Gallium/%s", native_get_name());
 
    gdrv = CALLOC_STRUCT(egl_g3d_driver);
    if (!gdrv)
       return NULL;
 
-   _eglInitDriverFallbacks(&gdrv->base);
-
+   egl_g3d_init_driver_api(&gdrv->base);
    gdrv->base.API.Initialize = egl_g3d_initialize;
    gdrv->base.API.Terminate = egl_g3d_terminate;
-   gdrv->base.API.CreateContext = egl_g3d_create_context;
-   gdrv->base.API.DestroyContext = egl_g3d_destroy_context;
-   gdrv->base.API.CreateWindowSurface = egl_g3d_create_window_surface;
-   gdrv->base.API.CreatePixmapSurface = egl_g3d_create_pixmap_surface;
-   gdrv->base.API.CreatePbufferSurface = egl_g3d_create_pbuffer_surface;
-   gdrv->base.API.DestroySurface = egl_g3d_destroy_surface;
-   gdrv->base.API.MakeCurrent = egl_g3d_make_current;
-   gdrv->base.API.SwapBuffers = egl_g3d_swap_buffers;
-   gdrv->base.API.CopyBuffers = egl_g3d_copy_buffers;
-   gdrv->base.API.WaitClient = egl_g3d_wait_client;
-   gdrv->base.API.WaitNative = egl_g3d_wait_native;
    gdrv->base.API.GetProcAddress = egl_g3d_get_proc_address;
-
-   gdrv->base.API.BindTexImage = egl_g3d_bind_tex_image;
-   gdrv->base.API.ReleaseTexImage = egl_g3d_release_tex_image;
-
-   gdrv->base.API.CreateImageKHR = egl_g3d_create_image;
-   gdrv->base.API.DestroyImageKHR = egl_g3d_destroy_image;
-
-#ifdef EGL_MESA_screen_surface
-   gdrv->base.API.CreateScreenSurfaceMESA = egl_g3d_create_screen_surface;
-   gdrv->base.API.ShowScreenSurfaceMESA = egl_g3d_show_screen_surface;
-#endif
 
    gdrv->base.Name = driver_name;
    gdrv->base.Probe = egl_g3d_probe;

@@ -30,6 +30,7 @@
 
 
 #include "pipe/p_state.h"
+#include "util/u_debug.h"
 
 
 #define LP_MAX_TEXTURE_2D_LEVELS 12  /* 2K x 2K for now */
@@ -78,16 +79,24 @@ struct llvmpipe_texture_image
 };
 
 
-struct llvmpipe_texture
+/**
+ * llvmpipe subclass of pipe_resource.  A texture, drawing surface,
+ * vertex buffer, const buffer, etc.
+ * Textures are stored differently than othere types of objects such as
+ * vertex buffers and const buffers.
+ * The former are tiled and have per-tile layout flags.
+ * The later are simple malloc'd blocks of memory.
+ */
+struct llvmpipe_resource
 {
-   struct pipe_texture base;
+   struct pipe_resource base;
 
    /** Row stride in bytes */
    unsigned stride[LP_MAX_TEXTURE_LEVELS];
    unsigned tiles_per_row[LP_MAX_TEXTURE_LEVELS];
 
    /**
-    * Display target, for textures with the PIPE_TEXTURE_USAGE_DISPLAY_TARGET
+    * Display target, for textures with the PIPE_BIND_DISPLAY_TARGET
     * usage.
     */
    struct sw_displaytarget *dt;
@@ -98,9 +107,15 @@ struct llvmpipe_texture
    struct llvmpipe_texture_image tiled[LP_MAX_TEXTURE_LEVELS];
    struct llvmpipe_texture_image linear[LP_MAX_TEXTURE_LEVELS];
 
+   /**
+    * Data for non-texture resources.
+    */
+   void *data;
+
    /** per-tile layout info */
    enum lp_texture_layout *layout[PIPE_TEX_FACE_MAX][LP_MAX_TEXTURE_LEVELS];
 
+   boolean userBuffer;  /** Is this a user-space buffer? */
    unsigned timestamp;
 
    unsigned id;  /**< temporary, for debugging */
@@ -116,17 +131,17 @@ struct llvmpipe_transfer
 
 
 /** cast wrappers */
-static INLINE struct llvmpipe_texture *
-llvmpipe_texture(struct pipe_texture *pt)
+static INLINE struct llvmpipe_resource *
+llvmpipe_resource(struct pipe_resource *pt)
 {
-   return (struct llvmpipe_texture *) pt;
+   return (struct llvmpipe_resource *) pt;
 }
 
 
-static INLINE const struct llvmpipe_texture *
-llvmpipe_texture_const(const struct pipe_texture *pt)
+static INLINE const struct llvmpipe_resource *
+llvmpipe_resource_const(const struct pipe_resource *pt)
 {
-   return (const struct llvmpipe_texture *) pt;
+   return (const struct llvmpipe_resource *) pt;
 }
 
 
@@ -137,53 +152,61 @@ llvmpipe_transfer(struct pipe_transfer *pt)
 }
 
 
+void llvmpipe_init_screen_resource_funcs(struct pipe_screen *screen);
+void llvmpipe_init_context_resource_funcs(struct pipe_context *pipe);
+
 static INLINE unsigned
-llvmpipe_texture_stride(struct pipe_texture *texture,
+llvmpipe_resource_stride(struct pipe_resource *texture,
                         unsigned level)
 {
-   struct llvmpipe_texture *lpt = llvmpipe_texture(texture);
+   struct llvmpipe_resource *lpt = llvmpipe_resource(texture);
    assert(level < LP_MAX_TEXTURE_2D_LEVELS);
    return lpt->stride[level];
 }
 
 
 void *
-llvmpipe_texture_map(struct pipe_texture *texture,
-                     unsigned face,
-                     unsigned level,
-                     unsigned zslice,
-                     enum lp_texture_usage usage,
-                     enum lp_texture_layout layout);
+llvmpipe_resource_map(struct pipe_resource *texture,
+		      unsigned face,
+		      unsigned level,
+		      unsigned zslice,
+                      enum lp_texture_usage tex_usage,
+                      enum lp_texture_layout layout);
 
 void
-llvmpipe_texture_unmap(struct pipe_texture *texture,
+llvmpipe_resource_unmap(struct pipe_resource *texture,
                        unsigned face,
                        unsigned level,
                        unsigned zslice);
 
-void *
-llvmpipe_get_texture_image_address(struct llvmpipe_texture *lpt,
-                                   unsigned face, unsigned level,
-                                   enum lp_texture_layout layout);
 
 void *
-llvmpipe_get_texture_image(struct llvmpipe_texture *texture,
+llvmpipe_resource_data(struct pipe_resource *resource);
+
+
+void *
+llvmpipe_get_texture_image_address(struct llvmpipe_resource *lpt,
+                                    unsigned face, unsigned level,
+                                    enum lp_texture_layout layout);
+
+void *
+llvmpipe_get_texture_image(struct llvmpipe_resource *resource,
+                            unsigned face, unsigned level,
+                            enum lp_texture_usage usage,
+                            enum lp_texture_layout layout);
+
+
+ubyte *
+llvmpipe_get_texture_tile_linear(struct llvmpipe_resource *lpt,
+                                  unsigned face, unsigned level,
+                                  enum lp_texture_usage usage,
+                                  unsigned x, unsigned y);
+
+ubyte *
+llvmpipe_get_texture_tile(struct llvmpipe_resource *lpt,
                            unsigned face, unsigned level,
                            enum lp_texture_usage usage,
-                           enum lp_texture_layout layout);
-
-
-ubyte *
-llvmpipe_get_texture_tile_linear(struct llvmpipe_texture *lpt,
-                                 unsigned face, unsigned level,
-                                 enum lp_texture_usage usage,
-                                 unsigned x, unsigned y);
-
-ubyte *
-llvmpipe_get_texture_tile(struct llvmpipe_texture *lpt,
-                          unsigned face, unsigned level,
-                          enum lp_texture_usage usage,
-                          unsigned x, unsigned y);
+                           unsigned x, unsigned y);
 
 
 

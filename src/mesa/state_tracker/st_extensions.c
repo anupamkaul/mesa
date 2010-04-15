@@ -183,6 +183,7 @@ void st_init_extensions(struct st_context *st)
    ctx->Extensions.EXT_framebuffer_object = GL_TRUE;
    ctx->Extensions.EXT_framebuffer_multisample = GL_TRUE;
    ctx->Extensions.EXT_fog_coord = GL_TRUE;
+   ctx->Extensions.EXT_gpu_program_parameters = GL_TRUE;
    ctx->Extensions.EXT_multi_draw_arrays = GL_TRUE;
    ctx->Extensions.EXT_pixel_buffer_object = GL_TRUE;
    ctx->Extensions.EXT_point_parameters = GL_TRUE;
@@ -209,6 +210,9 @@ void st_init_extensions(struct st_context *st)
    ctx->Extensions.NV_vertex_program1_1 = GL_TRUE;
 #endif
 
+#if FEATURE_OES_EGL_image
+   ctx->Extensions.OES_EGL_image = GL_TRUE;
+#endif
 #if FEATURE_OES_draw_texture
    ctx->Extensions.OES_draw_texture = GL_TRUE;
 #endif
@@ -241,6 +245,7 @@ void st_init_extensions(struct st_context *st)
 
    if (screen->get_param(screen, PIPE_CAP_TEXTURE_MIRROR_CLAMP) > 0) {
       ctx->Extensions.EXT_texture_mirror_clamp = GL_TRUE;
+      ctx->Extensions.ATI_texture_mirror_once = GL_TRUE;
    }
 
    if (screen->get_param(screen, PIPE_CAP_NPOT_TEXTURES)) {
@@ -283,39 +288,39 @@ void st_init_extensions(struct st_context *st)
     */
    if (screen->is_format_supported(screen, PIPE_FORMAT_S8_USCALED_Z24_UNORM,
                                    PIPE_TEXTURE_2D, 
-                                   PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0) &&
+                                   PIPE_BIND_DEPTH_STENCIL, 0) &&
        screen->is_format_supported(screen, PIPE_FORMAT_S8_USCALED_Z24_UNORM,
                                    PIPE_TEXTURE_2D, 
-                                   PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                   PIPE_BIND_SAMPLER_VIEW, 0)) {
       ctx->Extensions.EXT_packed_depth_stencil = GL_TRUE;
    }
    else if (screen->is_format_supported(screen, PIPE_FORMAT_Z24_UNORM_S8_USCALED,
                                         PIPE_TEXTURE_2D, 
-                                        PIPE_TEXTURE_USAGE_DEPTH_STENCIL, 0) &&
+                                        PIPE_BIND_DEPTH_STENCIL, 0) &&
             screen->is_format_supported(screen, PIPE_FORMAT_Z24_UNORM_S8_USCALED,
                                         PIPE_TEXTURE_2D, 
-                                        PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                        PIPE_BIND_SAMPLER_VIEW, 0)) {
       ctx->Extensions.EXT_packed_depth_stencil = GL_TRUE;
    }
 
    /* sRGB support */
    if (screen->is_format_supported(screen, PIPE_FORMAT_A8B8G8R8_SRGB,
                                    PIPE_TEXTURE_2D, 
-                                   PIPE_TEXTURE_USAGE_SAMPLER, 0) ||
+                                   PIPE_BIND_SAMPLER_VIEW, 0) ||
       screen->is_format_supported(screen, PIPE_FORMAT_B8G8R8A8_SRGB,
                                    PIPE_TEXTURE_2D, 
-                                   PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                   PIPE_BIND_SAMPLER_VIEW, 0)) {
       ctx->Extensions.EXT_texture_sRGB = GL_TRUE;
    }
 
    /* s3tc support */
    if (screen->is_format_supported(screen, PIPE_FORMAT_DXT5_RGBA,
                                    PIPE_TEXTURE_2D,
-                                   PIPE_TEXTURE_USAGE_SAMPLER, 0) &&
+                                   PIPE_BIND_SAMPLER_VIEW, 0) &&
        (ctx->Mesa_DXTn ||
         screen->is_format_supported(screen, PIPE_FORMAT_DXT5_RGBA,
                                     PIPE_TEXTURE_2D,
-                                    PIPE_TEXTURE_USAGE_RENDER_TARGET, 0))) {
+                                    PIPE_BIND_RENDER_TARGET, 0))) {
       ctx->Extensions.EXT_texture_compression_s3tc = GL_TRUE;
       ctx->Extensions.S3_s3tc = GL_TRUE;
    }
@@ -323,10 +328,10 @@ void st_init_extensions(struct st_context *st)
    /* ycbcr support */
    if (screen->is_format_supported(screen, PIPE_FORMAT_UYVY, 
                                    PIPE_TEXTURE_2D, 
-                                   PIPE_TEXTURE_USAGE_SAMPLER, 0) ||
+                                   PIPE_BIND_SAMPLER_VIEW, 0) ||
        screen->is_format_supported(screen, PIPE_FORMAT_YUYV, 
                                    PIPE_TEXTURE_2D, 
-                                   PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                   PIPE_BIND_SAMPLER_VIEW, 0)) {
       ctx->Extensions.MESA_ycbcr_texture = GL_TRUE;
    }
 

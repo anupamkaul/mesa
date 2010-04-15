@@ -138,6 +138,142 @@ int r500_transform_TEX(
 		}
 	}
 
+	/* Texture wrap modes don't work on NPOT textures or texrects.
+	 *
+	 * The game plan is simple. We have two flags, fake_npot and
+	 * non_normalized_coords, as well as a tex target. The RECT tex target
+	 * will make the emitted code use non-scaled texcoords.
+	 *
+	 * Non-wrapped/clamped texcoords with NPOT are free in HW. Repeat and
+	 * mirroring are not. If we need to repeat, we do:
+	 *
+	 * MUL temp, texcoord, <scaling factor constant>
+	 * FRC temp, temp ; Discard integer portion of coords
+	 *
+	 * This gives us coords in [0, 1].
+	 *
+	 * Mirroring is trickier. We're going to start out like repeat:
+	 *
+	 * MUL temp0, texcoord, <scaling factor constant> ; De-mirror across axes
+	 * MUL temp0, abs(temp0), 0.5 ; Pattern repeats in [0, 2]
+	 *                            ; so scale to [0, 1]
+	 * FRC temp0, temp0 ; Make the pattern repeat
+	 * SGE temp1, temp0, 0.5 ; Select components that need to be "reflected"
+	 *                       ; across the mirror
+	 * MAD temp0, neg(0.5), temp1, temp0 ; Add -0.5 to the
+	 *                                   ; selected components
+	 * ADD temp0, temp0, temp0 ; Poor man's 2x to undo earlier MUL
+	 *
+	 * This gives us coords in [0, 1].
+	 *
+	 * ~ C.
+	 */
+	if (inst->U.I.Opcode != RC_OPCODE_KIL &&
+		(inst->U.I.TexSrcTarget == RC_TEXTURE_RECT ||
+			compiler->state.unit[inst->U.I.TexSrcUnit].fake_npot ||
+			compiler->state.unit[inst->U.I.TexSrcUnit].non_normalized_coords)) {
+		rc_wrap_mode wrapmode = compiler->state.unit[inst->U.I.TexSrcUnit].wrap_mode;
+		struct rc_instruction *inst_rect = NULL;
+		unsigned temp = rc_find_free_temporary(c);
+
+		if (compiler->state.unit[inst->U.I.TexSrcUnit].fake_npot &&
+			wrapmode != RC_WRAP_NONE && wrapmode != RC_WRAP_CLAMP) {
+
+			if ((inst->U.I.TexSrcTarget == RC_TEXTURE_RECT ||
+				compiler->state.unit[inst->U.I.TexSrcUnit].non_normalized_coords)) {
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_MUL;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0] = inst->U.I.SrcReg[0];
+				inst_rect->U.I.SrcReg[1].File = RC_FILE_CONSTANT;
+				inst_rect->U.I.SrcReg[1].Index =
+					rc_constants_add_state(&c->Program.Constants,
+						RC_STATE_R300_TEXRECT_FACTOR, inst->U.I.TexSrcUnit);
+
+				reset_srcreg(&inst->U.I.SrcReg[0]);
+				inst->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst->U.I.SrcReg[0].Index = temp;
+
+				inst->U.I.TexSrcTarget = RC_TEXTURE_2D;
+			}
+
+			if (wrapmode == RC_WRAP_REPEAT) {
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_FRC;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0] = inst->U.I.SrcReg[0];
+
+				reset_srcreg(&inst->U.I.SrcReg[0]);
+				inst->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst->U.I.SrcReg[0].Index = temp;
+			} else if (wrapmode == RC_WRAP_MIRROR) {
+				unsigned temp1;
+				/*
+				 * MUL temp0, abs(temp0), 0.5
+				 * FRC temp0, temp0
+				 * SGE temp1, temp0, 0.5
+				 * MAD temp0, neg(0.5), temp1, temp0
+				 * ADD temp0, temp0, temp0
+				 */
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_MUL;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0] = inst->U.I.SrcReg[0];
+				inst_rect->U.I.SrcReg[1].Swizzle = RC_MAKE_SWIZZLE_SMEAR(RC_SWIZZLE_HALF);
+
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_FRC;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[0].Index = temp;
+
+				temp1 = rc_find_free_temporary(c);
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_SGE;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp1;
+				inst_rect->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[0].Index = temp;
+				inst_rect->U.I.SrcReg[1].Swizzle = RC_MAKE_SWIZZLE_SMEAR(RC_SWIZZLE_HALF);
+
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_MAD;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[0].Index = temp1;
+				inst_rect->U.I.SrcReg[1].Swizzle = RC_MAKE_SWIZZLE_SMEAR(RC_SWIZZLE_HALF);
+				inst_rect->U.I.SrcReg[1].Negate = 1;
+				inst_rect->U.I.SrcReg[2].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[2].Index = temp;
+
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_ADD;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[0].Index = temp;
+				inst_rect->U.I.SrcReg[1].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[1].Index = temp;
+
+				reset_srcreg(&inst->U.I.SrcReg[0]);
+				inst->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst->U.I.SrcReg[0].Index = temp;
+			}
+		}
+	}
+
 	/* Cannot write texture to output registers */
 	if (inst->U.I.Opcode != RC_OPCODE_KIL && inst->U.I.DstReg.File != RC_FILE_TEMPORARY) {
 		struct rc_instruction * inst_mov = rc_insert_new_instruction(c, inst);
@@ -433,19 +569,20 @@ void r500FragmentProgramDump(struct rX00_fragment_program_code *c)
 	      (inst >> 30));
       fprintf(stderr,"\t3 RGB_INST:  0x%08x:", code->inst[n].inst3);
       inst = code->inst[n].inst3;
-      fprintf(stderr,"rgb_A_src:%d %s/%s/%s %d rgb_B_src:%d %s/%s/%s %d\n",
+      fprintf(stderr,"rgb_A_src:%d %s/%s/%s %d rgb_B_src:%d %s/%s/%s %d targ: %d\n",
 	      (inst) & 0x3, toswiz((inst >> 2) & 0x7), toswiz((inst >> 5) & 0x7), toswiz((inst >> 8) & 0x7),
 	      (inst >> 11) & 0x3,
 	      (inst >> 13) & 0x3, toswiz((inst >> 15) & 0x7), toswiz((inst >> 18) & 0x7), toswiz((inst >> 21) & 0x7),
-	      (inst >> 24) & 0x3);
+	      (inst >> 24) & 0x3, (inst >> 29) & 0x3);
 
 
       fprintf(stderr,"\t4 ALPHA_INST:0x%08x:", code->inst[n].inst4);
       inst = code->inst[n].inst4;
-      fprintf(stderr,"%s dest:%d%s alp_A_src:%d %s %d alp_B_src:%d %s %d w:%d\n", to_alpha_op(inst & 0xf),
+      fprintf(stderr,"%s dest:%d%s alp_A_src:%d %s %d alp_B_src:%d %s %d targ %d w:%d\n", to_alpha_op(inst & 0xf),
 	      (inst >> 4) & 0x7f, inst & (1<<11) ? "(rel)":"",
 	      (inst >> 12) & 0x3, toswiz((inst >> 14) & 0x7), (inst >> 17) & 0x3,
 	      (inst >> 19) & 0x3, toswiz((inst >> 21) & 0x7), (inst >> 24) & 0x3,
+	      (inst >> 29) & 0x3,
 	      (inst >> 31) & 0x1);
 
       fprintf(stderr,"\t5 RGBA_INST: 0x%08x:", code->inst[n].inst5);

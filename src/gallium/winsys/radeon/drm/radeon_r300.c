@@ -42,10 +42,10 @@ radeon_r300_winsys_buffer_create(struct r300_winsys_screen *rws,
     desc.alignment = alignment;
     desc.usage = usage;
 
-    if (usage & PIPE_BUFFER_USAGE_CONSTANT)
+    if (usage & PIPE_BIND_CONSTANT_BUFFER)
         provider = ws->mman;
-    else if ((usage & PIPE_BUFFER_USAGE_VERTEX) ||
-	     (usage & PIPE_BUFFER_USAGE_INDEX))
+    else if ((usage & PIPE_BIND_VERTEX_BUFFER) ||
+	     (usage & PIPE_BIND_INDEX_BUFFER))
 	provider = ws->cman;
     else
         provider = ws->kman;
@@ -70,6 +70,15 @@ static void radeon_r300_winsys_buffer_set_tiling(struct r300_winsys_screen *rws,
 {
     struct pb_buffer *_buf = radeon_pb_buffer(buf);
     radeon_drm_bufmgr_set_tiling(_buf, microtiled, macrotiled, pitch);
+}
+
+static void radeon_r300_winsys_buffer_get_tiling(struct r300_winsys_screen *rws,
+						  struct r300_winsys_buffer *buf,
+						  enum r300_buffer_tiling *microtiled,
+						  enum r300_buffer_tiling *macrotiled)
+{
+    struct pb_buffer *_buf = radeon_pb_buffer(buf);
+    radeon_drm_bufmgr_get_tiling(_buf, microtiled, macrotiled);
 }
 
 static void *radeon_r300_winsys_buffer_map(struct r300_winsys_screen *ws,
@@ -255,6 +264,8 @@ static uint32_t radeon_get_value(struct r300_winsys_screen *rws,
 	return ws->z_pipes;
     case R300_VID_SQUARE_TILING_SUPPORT:
         return ws->squaretiling;
+    case R300_VID_TEX3D_MIP_BUG:
+        return ws->tex3d_mip_bug;
     }
     return 0;
 }
@@ -320,6 +331,7 @@ radeon_setup_winsys(int fd, struct radeon_libdrm_winsys* ws)
     ws->base.buffer_create = radeon_r300_winsys_buffer_create;
     ws->base.buffer_destroy = radeon_r300_winsys_buffer_destroy;
     ws->base.buffer_set_tiling = radeon_r300_winsys_buffer_set_tiling;
+    ws->base.buffer_get_tiling = radeon_r300_winsys_buffer_get_tiling;
     ws->base.buffer_map = radeon_r300_winsys_buffer_map;
     ws->base.buffer_unmap = radeon_r300_winsys_buffer_unmap;
     ws->base.buffer_reference = radeon_r300_winsys_buffer_reference;

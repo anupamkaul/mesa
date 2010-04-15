@@ -81,13 +81,6 @@ debug = env['debug']
 dri = env['dri']
 machine = env['machine']
 platform = env['platform']
-drawllvm = 'llvmpipe' in env['drivers']
-
-# LLVM support in the Draw module
-if drawllvm:
-        env.Tool('llvm')
-        if not env.has_key('LLVM_VERSION'):
-           drawllvm = False
 
 # derived options
 x86 = machine == 'x86'
@@ -100,7 +93,6 @@ Export([
 	'x86', 
 	'ppc', 
 	'dri', 
-	'drawllvm',
 	'platform',
 	'gcc',
 	'msvc',
@@ -110,11 +102,15 @@ Export([
 #######################################################################
 # Environment setup
 
-# Always build trace and identity drivers
+# Always build trace, identity, softpipe, and llvmpipe (where possible)
 if 'trace' not in env['drivers']:
     env['drivers'].append('trace')
 if 'identity' not in env['drivers']:
     env['drivers'].append('identity')
+if 'softpipe' not in env['drivers']:
+    env['drivers'].append('softpipe')
+if env['llvm'] and 'llvmpipe' not in env['drivers']:
+    env['drivers'].append('llvmpipe')
 
 # Includes
 env.Append(CPPPATH = [
@@ -164,20 +160,6 @@ if platform in ('posix', 'linux', 'freebsd', 'darwin'):
 		'pthread',
 		'dl',
 	])
-
-# DRI
-if dri:
-	env.ParseConfig('pkg-config --cflags --libs libdrm')
-	env.Append(CPPDEFINES = [
-		('USE_EXTERNAL_DXTN_LIB', '1'), 
-		'IN_DRI_DRIVER',
-		'GLX_DIRECT_RENDERING',
-		'GLX_INDIRECT_RENDERING',
-	])
-
-# LLVM support in the Draw module
-if drawllvm:
-    env.Append(CPPDEFINES = ['DRAW_LLVM'])
 
 # for debugging
 #print env.Dump()

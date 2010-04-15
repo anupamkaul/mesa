@@ -3,6 +3,7 @@
 
 #include "pipe/p_state.h"
 #include "tgsi/tgsi_scan.h"
+#include "nouveau/nouveau_statebuf.h"
 
 struct nvfx_vertex_program_exec {
 	uint32_t data[4];
@@ -38,12 +39,17 @@ struct nvfx_vertex_program {
 	uint32_t ir;
 	uint32_t or;
 	uint32_t clip_ctrl;
-	struct nouveau_stateobj *so;
 };
 
 struct nvfx_fragment_program_data {
 	unsigned offset;
 	unsigned index;
+};
+
+struct nvfx_fragment_program_bo {
+	struct nvfx_fragment_program_bo* next;
+	struct nouveau_bo* bo;
+	char insn[] __attribute__((aligned(16)));
 };
 
 struct nvfx_fragment_program {
@@ -59,25 +65,13 @@ struct nvfx_fragment_program {
 	struct nvfx_fragment_program_data *consts;
 	unsigned nr_consts;
 
-	struct pipe_buffer *buffer;
-
 	uint32_t fp_control;
-	struct nouveau_stateobj *so;
+
+	unsigned bo_prog_idx;
+	unsigned prog_size;
+	unsigned progs_per_bo;
+	struct nvfx_fragment_program_bo* fpbo;
 };
 
-#define NVFX_MAX_TEXTURE_LEVELS  16
-
-struct nvfx_miptree {
-	struct pipe_texture base;
-	struct nouveau_bo *bo;
-
-	struct pipe_buffer *buffer;
-	uint total_size;
-
-	struct {
-		uint pitch;
-		uint *image_offset;
-	} level[NVFX_MAX_TEXTURE_LEVELS];
-};
 
 #endif

@@ -39,17 +39,19 @@ struct pipe_screen* r300_create_screen(struct r300_winsys_screen *rws);
 
 struct r300_winsys_buffer;
 
+/* XXX: this is just a bandaid on larger problems in
+ * r300_screen_buffer.h which doesn't seem to be fully ported to
+ * gallium-resources.
+ */
+#define R300_BIND_OQBO  (1<<21)
 
-boolean r300_get_texture_buffer(struct pipe_screen* screen,
-                                struct pipe_texture* texture,
-                                struct r300_winsys_buffer** buffer,
-                                unsigned *stride);
 
 enum r300_value_id {
     R300_VID_PCI_ID,
     R300_VID_GB_PIPES,
     R300_VID_Z_PIPES,
-    R300_VID_SQUARE_TILING_SUPPORT
+    R300_VID_SQUARE_TILING_SUPPORT,
+    R300_VID_TEX3D_MIP_BUG,
 };
 
 struct r300_winsys_screen {
@@ -100,7 +102,7 @@ struct r300_winsys_screen {
 			       unsigned offset,
 			       unsigned length);
 
-    /* Add a pipe_buffer to the list of buffer objects to validate. */
+    /* Add a pipe_resource to the list of buffer objects to validate. */
     boolean (*add_buffer)(struct r300_winsys_screen *winsys,
                           struct r300_winsys_buffer *buf,
                           uint32_t rd,
@@ -145,6 +147,11 @@ struct r300_winsys_screen {
 			 void (*flush_cb)(void *), void *data);
 
     void (*reset_bos)(struct r300_winsys_screen *winsys);
+
+    void (*buffer_get_tiling)(struct r300_winsys_screen *winsys,
+                              struct r300_winsys_buffer *buffer,
+                              enum r300_buffer_tiling *microtiled,
+                              enum r300_buffer_tiling *macrotiled);
 
     void (*buffer_set_tiling)(struct r300_winsys_screen *winsys,
                               struct r300_winsys_buffer *buffer,

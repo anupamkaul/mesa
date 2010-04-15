@@ -181,7 +181,7 @@ lp_scene_reset(struct lp_scene *scene )
       struct texture_ref *ref, *next, *ref_list = &scene->textures;
       for (ref = ref_list->next; ref != ref_list; ref = next) {
          next = next_elem(ref);
-         pipe_texture_reference(&ref->texture, NULL);
+         pipe_resource_reference(&ref->texture, NULL);
          FREE(ref);
       }
       make_empty_list(ref_list);
@@ -251,12 +251,12 @@ lp_scene_bin_size( const struct lp_scene *scene, unsigned x, unsigned y )
  */
 void
 lp_scene_texture_reference( struct lp_scene *scene,
-                            struct pipe_texture *texture )
+                            struct pipe_resource *texture )
 {
    struct texture_ref *ref = CALLOC_STRUCT(texture_ref);
    if (ref) {
       struct texture_ref *ref_list = &scene->textures;
-      pipe_texture_reference(&ref->texture, texture);
+      pipe_resource_reference(&ref->texture, texture);
       insert_at_tail(ref_list, ref);
    }
 }
@@ -266,8 +266,8 @@ lp_scene_texture_reference( struct lp_scene *scene,
  * Does this scene have a reference to the given texture?
  */
 boolean
-lp_scene_is_texture_referenced( const struct lp_scene *scene,
-                                const struct pipe_texture *texture )
+lp_scene_is_resource_referenced( const struct lp_scene *scene,
+                                const struct pipe_resource *texture )
 {
    const struct texture_ref *ref_list = &scene->textures;
    const struct texture_ref *ref;
@@ -426,7 +426,7 @@ lp_scene_unmap_buffers( struct lp_scene *scene )
    for (i = 0; i < scene->fb.nr_cbufs; i++) {
       if (scene->cbuf_map[i]) {
          struct pipe_surface *cbuf = scene->fb.cbufs[i];
-         llvmpipe_texture_unmap(cbuf->texture,
+         llvmpipe_resource_unmap(cbuf->texture,
                                 cbuf->face,
                                 cbuf->level,
                                 cbuf->zslice);
@@ -436,7 +436,7 @@ lp_scene_unmap_buffers( struct lp_scene *scene )
 
    if (scene->zsbuf_map) {
       struct pipe_surface *zsbuf = scene->fb.zsbuf;
-      llvmpipe_texture_unmap(zsbuf->texture,
+      llvmpipe_resource_unmap(zsbuf->texture,
                              zsbuf->face,
                              zsbuf->level,
                              zsbuf->zslice);

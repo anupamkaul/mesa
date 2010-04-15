@@ -1,11 +1,10 @@
 Import('*')
 
-env = env.Clone()
-
-env.Tool('llvm')
-if not env.has_key('LLVM_VERSION'):
-    print 'warning: LLVM not found: not building llvmpipe'
+if not env['llvm']:
+    print 'warning: LLVM disabled: not building llvmpipe'
     Return()
+
+env = env.Clone()
 
 env.Tool('udis86')
 
@@ -27,7 +26,6 @@ env.Depends('lp_tile_soa.c', [
 llvmpipe = env.ConvenienceLibrary(
 	target = 'llvmpipe',
 	source = [
-		'lp_buffer.c',
 		'lp_clear.c',
 		'lp_context.c',
 		'lp_draw_arrays.c',

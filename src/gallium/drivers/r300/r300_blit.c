@@ -32,7 +32,7 @@ static void r300_blitter_save_states(struct r300_context* r300)
     util_blitter_save_depth_stencil_alpha(r300->blitter, r300->dsa_state.state);
     util_blitter_save_stencil_ref(r300->blitter, &(r300->stencil_ref));
     util_blitter_save_rasterizer(r300->blitter, r300->rs_state.state);
-    util_blitter_save_fragment_shader(r300->blitter, r300->fs);
+    util_blitter_save_fragment_shader(r300->blitter, r300->fs.state);
     util_blitter_save_vertex_shader(r300->blitter, r300->vs_state.state);
     util_blitter_save_viewport(r300->blitter, &r300->viewport);
     util_blitter_save_clip(r300->blitter, &r300->clip);
@@ -111,11 +111,12 @@ static void r300_hw_copy(struct pipe_context* pipe,
     util_blitter_save_framebuffer(r300->blitter, r300->fb_state.state);
 
     util_blitter_save_fragment_sampler_states(
-        r300->blitter, state->sampler_count, (void**)state->sampler_states);
+        r300->blitter, state->sampler_state_count,
+        (void**)state->sampler_states);
 
     util_blitter_save_fragment_sampler_views(
-        r300->blitter, state->texture_count,
-        state->fragment_sampler_views);
+        r300->blitter, state->sampler_view_count,
+        (struct pipe_sampler_view**)state->sampler_views);
 
     /* Do a copy */
     util_blitter_copy(r300->blitter,
@@ -137,8 +138,8 @@ void r300_surface_copy(struct pipe_context* pipe,
 
     if (!pipe->screen->is_format_supported(pipe->screen,
                                            old_format, src->texture->target,
-                                           PIPE_TEXTURE_USAGE_RENDER_TARGET |
-                                           PIPE_TEXTURE_USAGE_SAMPLER, 0)) {
+                                           PIPE_BIND_RENDER_TARGET |
+                                           PIPE_BIND_SAMPLER_VIEW, 0)) {
         switch (util_format_get_blocksize(old_format)) {
             case 1:
                 new_format = PIPE_FORMAT_I8_UNORM;

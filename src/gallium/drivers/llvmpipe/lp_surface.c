@@ -74,8 +74,8 @@ lp_surface_copy(struct pipe_context *pipe,
     * to a linear image.
     */
    {
-      struct llvmpipe_texture *src_tex = llvmpipe_texture(src->texture);
-      struct llvmpipe_texture *dst_tex = llvmpipe_texture(dst->texture);
+      struct llvmpipe_resource *src_tex = llvmpipe_resource(src->texture);
+      struct llvmpipe_resource *dst_tex = llvmpipe_resource(dst->texture);
       enum pipe_format format = src_tex->base.format;
 
       /*

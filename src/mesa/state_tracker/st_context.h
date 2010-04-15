@@ -46,12 +46,6 @@ struct blit_state;
 struct bitmap_cache;
 
 
-/** XXX we'd like to get rid of these */
-#define FRONT_STATUS_UNDEFINED    0
-#define FRONT_STATUS_DIRTY        1
-#define FRONT_STATUS_COPY_OF_BACK 2
-
-
 #define ST_NEW_MESA                    0x1 /* Mesa state has changed */
 #define ST_NEW_FRAGMENT_PROGRAM        0x2
 #define ST_NEW_VERTEX_PROGRAM          0x4
@@ -95,7 +89,7 @@ struct st_context
       struct pipe_sampler_state             samplers[PIPE_MAX_SAMPLERS];
       struct pipe_sampler_state             *sampler_list[PIPE_MAX_SAMPLERS];
       struct pipe_clip_state clip;
-      struct pipe_buffer *constants[2];
+      struct pipe_resource *constants[2];
       struct pipe_framebuffer_state framebuffer;
       struct pipe_sampler_view *sampler_views[PIPE_MAX_SAMPLERS];
       struct pipe_scissor_state scissor;
@@ -115,8 +109,6 @@ struct st_context
    struct {
       struct gl_fragment_program *fragment_program;
    } cb;
-
-   GLuint frontbuffer_status;  /**< one of FRONT_STATUS_ (XXX to be removed) */
 
    char vendor[100];
    char renderer[100];
@@ -143,7 +135,7 @@ struct st_context
       GLuint user_prog_sn;  /**< user fragment program serial no. */
       struct st_fragment_program *combined_prog;
       GLuint combined_prog_sn;
-      struct pipe_texture *pixelmap_texture;
+      struct pipe_resource *pixelmap_texture;
       struct pipe_sampler_view *pixelmap_sampler_view;
       boolean pixelmap_enabled;  /**< use the pixelmap texture? */
    } pixel_xfer;
@@ -155,7 +147,7 @@ struct st_context
       enum pipe_format tex_format;
       void *vs;
       float vertices[4][3][4];  /**< vertex pos + color + texcoord */
-      struct pipe_buffer *vbuf;
+      struct pipe_resource *vbuf;
       unsigned vbuf_slot;       /* next free slot in vbuf */
       struct bitmap_cache *cache;
    } bitmap;
@@ -174,7 +166,7 @@ struct st_context
       void *vs;
       void *fs;
       float vertices[4][2][4];  /**< vertex pos + color */
-      struct pipe_buffer *vbuf;
+      struct pipe_resource *vbuf;
       unsigned vbuf_slot;
    } clear;
 
@@ -258,6 +250,13 @@ st_fb_orientation(const struct gl_framebuffer *fb)
 
 extern int
 st_get_msaa(void);
+
+extern struct st_context *
+st_create_context(struct pipe_context *pipe, const __GLcontextModes *visual,
+                  struct st_context *share);
+
+extern void
+st_destroy_context(struct st_context *st);
 
 
 #endif

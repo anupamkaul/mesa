@@ -142,20 +142,113 @@ int r300_transform_TEX(
 	/* Hardware uses [0..1]x[0..1] range for rectangle textures
 	 * instead of [0..Width]x[0..Height].
 	 * Add a scaling instruction.
+	 *
+	 * See also comments in this same section in r500_fragprog.c
 	 */
-	if (inst->U.I.Opcode != RC_OPCODE_KIL && inst->U.I.TexSrcTarget == RC_TEXTURE_RECT) {
-		struct rc_instruction * inst_mul = rc_insert_new_instruction(c, inst->Prev);
+	if (inst->U.I.Opcode != RC_OPCODE_KIL &&
+		(inst->U.I.TexSrcTarget == RC_TEXTURE_RECT ||
+			compiler->state.unit[inst->U.I.TexSrcUnit].fake_npot ||
+			compiler->state.unit[inst->U.I.TexSrcUnit].non_normalized_coords)) {
+		rc_wrap_mode wrapmode = compiler->state.unit[inst->U.I.TexSrcUnit].wrap_mode;
+		struct rc_instruction *inst_rect = NULL;
+		unsigned temp = rc_find_free_temporary(c);
 
-		inst_mul->U.I.Opcode = RC_OPCODE_MUL;
-		inst_mul->U.I.DstReg.File = RC_FILE_TEMPORARY;
-		inst_mul->U.I.DstReg.Index = rc_find_free_temporary(c);
-		inst_mul->U.I.SrcReg[0] = inst->U.I.SrcReg[0];
-		inst_mul->U.I.SrcReg[1].File = RC_FILE_CONSTANT;
-		inst_mul->U.I.SrcReg[1].Index = rc_constants_add_state(&c->Program.Constants, RC_STATE_R300_TEXRECT_FACTOR, inst->U.I.TexSrcUnit);
+		if (inst->U.I.TexSrcTarget == RC_TEXTURE_RECT ||
+			compiler->state.unit[inst->U.I.TexSrcUnit].non_normalized_coords) {
+			inst_rect = rc_insert_new_instruction(c, inst->Prev);
 
-		reset_srcreg(&inst->U.I.SrcReg[0]);
-		inst->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
-		inst->U.I.SrcReg[0].Index = inst_mul->U.I.DstReg.Index;
+			inst_rect->U.I.Opcode = RC_OPCODE_MUL;
+			inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+			inst_rect->U.I.DstReg.Index = temp;
+			inst_rect->U.I.SrcReg[0] = inst->U.I.SrcReg[0];
+			inst_rect->U.I.SrcReg[1].File = RC_FILE_CONSTANT;
+			inst_rect->U.I.SrcReg[1].Index =
+				rc_constants_add_state(&c->Program.Constants,
+					RC_STATE_R300_TEXRECT_FACTOR, inst->U.I.TexSrcUnit);
+
+			reset_srcreg(&inst->U.I.SrcReg[0]);
+			inst->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+			inst->U.I.SrcReg[0].Index = temp;
+
+			inst->U.I.TexSrcTarget = RC_TEXTURE_2D;
+		}
+
+		if (compiler->state.unit[inst->U.I.TexSrcUnit].fake_npot &&
+			wrapmode != RC_WRAP_NONE && wrapmode != RC_WRAP_CLAMP) {
+			if (wrapmode == RC_WRAP_REPEAT) {
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_FRC;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0] = inst->U.I.SrcReg[0];
+
+				reset_srcreg(&inst->U.I.SrcReg[0]);
+				inst->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst->U.I.SrcReg[0].Index = temp;
+			} else if (wrapmode == RC_WRAP_MIRROR) {
+				unsigned temp1;
+				/*
+				 * MUL temp0, abs(temp0), 0.5
+				 * FRC temp0, temp0
+				 * SGE temp1, temp0, 0.5
+				 * MAD temp0, neg(0.5), temp1, temp0
+				 * ADD temp0, temp0, temp0
+				 */
+
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_MUL;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0] = inst->U.I.SrcReg[0];
+				inst_rect->U.I.SrcReg[1].Swizzle = RC_MAKE_SWIZZLE_SMEAR(RC_SWIZZLE_HALF);
+
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_FRC;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[0].Index = temp;
+
+				temp1 = rc_find_free_temporary(c);
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_SGE;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp1;
+				inst_rect->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[0].Index = temp;
+				inst_rect->U.I.SrcReg[1].Swizzle = RC_MAKE_SWIZZLE_SMEAR(RC_SWIZZLE_HALF);
+
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_MAD;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[0].Index = temp1;
+				inst_rect->U.I.SrcReg[1].Swizzle = RC_MAKE_SWIZZLE_SMEAR(RC_SWIZZLE_HALF);
+				inst_rect->U.I.SrcReg[1].Negate = 1;
+				inst_rect->U.I.SrcReg[2].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[2].Index = temp;
+
+				inst_rect = rc_insert_new_instruction(c, inst->Prev);
+
+				inst_rect->U.I.Opcode = RC_OPCODE_ADD;
+				inst_rect->U.I.DstReg.File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.DstReg.Index = temp;
+				inst_rect->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[0].Index = temp;
+				inst_rect->U.I.SrcReg[1].File = RC_FILE_TEMPORARY;
+				inst_rect->U.I.SrcReg[1].Index = temp;
+
+				reset_srcreg(&inst->U.I.SrcReg[0]);
+				inst->U.I.SrcReg[0].File = RC_FILE_TEMPORARY;
+				inst->U.I.SrcReg[0].Index = temp;
+			}
+		}
 	}
 
 	/* Cannot write texture to output registers or with masks */

@@ -479,6 +479,9 @@ nvfx_vertprog_parse_instruction(struct nvfx_context* nvfx, struct nvfx_vpc *vpc,
 	case TGSI_OPCODE_ARL:
 		arith(vpc, VEC, ARL, dst, mask, src[0], none, none);
 		break;
+	case TGSI_OPCODE_COS:
+		arith(vpc, SCA, COS, dst, mask, none, none, src[0]);
+		break;
 	case TGSI_OPCODE_DP3:
 		arith(vpc, VEC, DP3, dst, mask, src[0], src[1], none);
 		break;
@@ -512,6 +515,11 @@ nvfx_vertprog_parse_instruction(struct nvfx_context* nvfx, struct nvfx_vpc *vpc,
 	case TGSI_OPCODE_LOG:
 		arith(vpc, SCA, LOG, dst, mask, none, none, src[0]);
 		break;
+	case TGSI_OPCODE_LRP:
+		tmp = temp(vpc);
+		arith(vpc, VEC, MAD, tmp, mask, neg(src[0]), src[2], src[2]);
+		arith(vpc, VEC, MAD, dst, mask, src[0], src[1], tmp);
+		break;
 	case TGSI_OPCODE_MAD:
 		arith(vpc, VEC, MAD, dst, mask, src[0], src[1], src[2]);
 		break;
@@ -544,14 +552,35 @@ nvfx_vertprog_parse_instruction(struct nvfx_context* nvfx, struct nvfx_vpc *vpc,
 	case TGSI_OPCODE_RSQ:
 		arith(vpc, SCA, RSQ, dst, mask, none, none, abs(src[0]));
 		break;
+	case TGSI_OPCODE_SEQ:
+		arith(vpc, VEC, SEQ, dst, mask, src[0], src[1], none);
+		break;
+	case TGSI_OPCODE_SFL:
+		arith(vpc, VEC, SFL, dst, mask, src[0], src[1], none);
+		break;
 	case TGSI_OPCODE_SGE:
 		arith(vpc, VEC, SGE, dst, mask, src[0], src[1], none);
 		break;
 	case TGSI_OPCODE_SGT:
 		arith(vpc, VEC, SGT, dst, mask, src[0], src[1], none);
 		break;
+	case TGSI_OPCODE_SIN:
+		arith(vpc, SCA, SIN, dst, mask, none, none, src[0]);
+		break;
+	case TGSI_OPCODE_SLE:
+		arith(vpc, VEC, SLE, dst, mask, src[0], src[1], none);
+		break;
 	case TGSI_OPCODE_SLT:
 		arith(vpc, VEC, SLT, dst, mask, src[0], src[1], none);
+		break;
+	case TGSI_OPCODE_SNE:
+		arith(vpc, VEC, SNE, dst, mask, src[0], src[1], none);
+		break;
+	case TGSI_OPCODE_SSG:
+		arith(vpc, VEC, SSG, dst, mask, src[0], src[1], none);
+		break;
+	case TGSI_OPCODE_STR:
+		arith(vpc, VEC, STR, dst, mask, src[0], src[1], none);
 		break;
 	case TGSI_OPCODE_SUB:
 		arith(vpc, VEC, ADD, dst, mask, src[0], none, neg(src[1]));
@@ -830,15 +859,16 @@ out_err:
 	FREE(vpc);
 }
 
-static boolean
+boolean
 nvfx_vertprog_validate(struct nvfx_context *nvfx)
 {
-	struct pipe_screen *pscreen = nvfx->pipe.screen;
+	struct pipe_context *pipe = &nvfx->pipe;
 	struct nvfx_screen *screen = nvfx->screen;
 	struct nouveau_channel *chan = screen->base.channel;
 	struct nouveau_grobj *eng3d = screen->eng3d;
 	struct nvfx_vertex_program *vp;
-	struct pipe_buffer *constbuf;
+	struct pipe_resource *constbuf;
+	struct pipe_transfer *transfer = NULL;
 	boolean upload_code = FALSE, upload_data = FALSE;
 	int i;
 
@@ -846,6 +876,7 @@ nvfx_vertprog_validate(struct nvfx_context *nvfx)
 		vp = nvfx->vertprog;
 		constbuf = nvfx->constbuf[PIPE_SHADER_VERTEX];
 
+		// TODO: ouch! can't we just use constant slots for these?!
 		if ((nvfx->dirty & NVFX_NEW_UCP) ||
 		    memcmp(&nvfx->clip, &vp->ucp, sizeof(vp->ucp))) {
 			nvfx_vertprog_destroy(nvfx, vp);
@@ -857,21 +888,19 @@ nvfx_vertprog_validate(struct nvfx_context *nvfx)
 	}
 
 	/* Translate TGSI shader into hw bytecode */
-	if (vp->translated)
-		goto check_gpu_resources;
-
-	nvfx->fallback_swtnl &= ~NVFX_NEW_VERTPROG;
+	if (!vp->translated)
+	{
+		nvfx->fallback_swtnl &= ~NVFX_NEW_VERTPROG;
 		nvfx_vertprog_translate(nvfx, vp);
-	if (!vp->translated) {
-		nvfx->fallback_swtnl |= NVFX_NEW_VERTPROG;
+		if (!vp->translated) {
+			nvfx->fallback_swtnl |= NVFX_NEW_VERTPROG;
 			return FALSE;
+		}
 	}
 
-check_gpu_resources:
 	/* Allocate hw vtxprog exec slots */
 	if (!vp->exec) {
 		struct nouveau_resource *heap = nvfx->screen->vp_exec_heap;
-		struct nouveau_stateobj *so;
 		uint vplen = vp->nr_insns;
 
 		if (nouveau_resource_alloc(heap, vplen, vp, &vp->exec)) {
@@ -885,19 +914,6 @@ check_gpu_resources:
 			if (nouveau_resource_alloc(heap, vplen, vp, &vp->exec))
 				assert(0);
 		}
-
-		so = so_new(3, 4, 0);
-		so_method(so, eng3d, NV34TCL_VP_START_FROM_ID, 1);
-		so_data  (so, vp->exec->start);
-		if(nvfx->is_nv4x) {
-			so_method(so, eng3d, NV40TCL_VP_ATTRIB_EN, 2);
-			so_data  (so, vp->ir);
-			so_data  (so, vp->or);
-		}
-		so_method(so, eng3d,  NV34TCL_VP_CLIP_PLANES_ENABLE, 1);
-		so_data  (so, vp->clip_ctrl);
-		so_ref(so, &vp->so);
-		so_ref(NULL, &so);
 
 		upload_code = TRUE;
 	}
@@ -962,8 +978,9 @@ check_gpu_resources:
 		float *map = NULL;
 
 		if (constbuf) {
-			map = pipe_buffer_map(pscreen, constbuf,
-					      PIPE_BUFFER_USAGE_CPU_READ);
+			map = pipe_buffer_map(pipe, constbuf,
+					      PIPE_TRANSFER_READ,
+					      &transfer);
 		}
 
 		for (i = 0; i < vp->nr_consts; i++) {
@@ -984,7 +1001,7 @@ check_gpu_resources:
 		}
 
 		if (constbuf)
-			pipe_buffer_unmap(pscreen, constbuf);
+			pipe_buffer_unmap(pipe, constbuf, transfer);
 	}
 
 	/* Upload vtxprog */
@@ -1005,12 +1022,21 @@ check_gpu_resources:
 		}
 	}
 
-	if (vp->so != nvfx->state.hw[NVFX_STATE_VERTPROG]) {
-		so_ref(vp->so, &nvfx->state.hw[NVFX_STATE_VERTPROG]);
-		return TRUE;
+	if(nvfx->dirty & (NVFX_NEW_VERTPROG | NVFX_NEW_UCP))
+	{
+		WAIT_RING(chan, 7);
+		OUT_RING(chan, RING_3D(NV34TCL_VP_START_FROM_ID, 1));
+		OUT_RING(chan, vp->exec->start);
+		if(nvfx->is_nv4x) {
+			OUT_RING(chan, RING_3D(NV40TCL_VP_ATTRIB_EN, 2));
+			OUT_RING(chan, vp->ir);
+			OUT_RING(chan, vp->or);
+		}
+		OUT_RING(chan, RING_3D(NV34TCL_VP_CLIP_PLANES_ENABLE, 1));
+		OUT_RING(chan, vp->clip_ctrl);
 	}
 
-	return FALSE;
+	return TRUE;
 }
 
 void
@@ -1037,13 +1063,4 @@ nvfx_vertprog_destroy(struct nvfx_context *nvfx, struct nvfx_vertex_program *vp)
 	vp->data_start_min = 0;
 
 	vp->ir = vp->or = vp->clip_ctrl = 0;
-	so_ref(NULL, &vp->so);
 }
-
-struct nvfx_state_entry nvfx_state_vertprog = {
-	.validate = nvfx_vertprog_validate,
-	.dirty = {
-		.pipe = NVFX_NEW_VERTPROG | NVFX_NEW_UCP,
-		.hw = NVFX_STATE_VERTPROG,
-	}
-};

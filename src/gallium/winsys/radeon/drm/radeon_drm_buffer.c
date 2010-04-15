@@ -72,9 +72,9 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
     struct radeon_drm_buffer *buf = radeon_drm_buffer(_buf);
     int write = 0;
 
-    if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
-	if ((_buf->base.usage & PIPE_BUFFER_USAGE_VERTEX) ||
-	    (_buf->base.usage & PIPE_BUFFER_USAGE_INDEX))
+    if (flags & PIPE_TRANSFER_DONTBLOCK) {
+	if ((_buf->base.usage & PIPE_BIND_VERTEX_BUFFER) ||
+	    (_buf->base.usage & PIPE_BIND_INDEX_BUFFER))
 	    if (radeon_bo_is_referenced_by_cs(buf->bo, buf->mgr->rws->cs))
 		return NULL;
     }
@@ -82,7 +82,7 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
     if (buf->bo->ptr != NULL)
 	return buf->bo->ptr;
 
-    if (flags & PIPE_BUFFER_USAGE_DONTBLOCK) {
+    if (flags & PIPE_TRANSFER_DONTBLOCK) {
         uint32_t domain;
         if (radeon_bo_is_busy(buf->bo, &domain))
             return NULL;
@@ -92,7 +92,7 @@ radeon_drm_buffer_map(struct pb_buffer *_buf,
         buf->mgr->rws->flush_cb(buf->mgr->rws->flush_data);
     }
 
-    if (flags & PIPE_BUFFER_USAGE_CPU_WRITE) {
+    if (flags & PIPE_TRANSFER_WRITE) {
         write = 1;
     }
 
@@ -148,16 +148,20 @@ static uint32_t radeon_domain_from_usage(unsigned usage)
 {
     uint32_t domain = 0;
 
-    if (usage & PIPE_BUFFER_USAGE_GPU_WRITE) {
+    if (usage & PIPE_BIND_RENDER_TARGET) {
         domain |= RADEON_GEM_DOMAIN_VRAM;
     }
-    if (usage & PIPE_BUFFER_USAGE_PIXEL) {
+    if (usage & PIPE_BIND_DEPTH_STENCIL) {
         domain |= RADEON_GEM_DOMAIN_VRAM;
     }
-    if (usage & PIPE_BUFFER_USAGE_VERTEX) {
+    if (usage & PIPE_BIND_SAMPLER_VIEW) {
+        domain |= RADEON_GEM_DOMAIN_VRAM;
+    }
+    /* also need BIND_BLIT_SOURCE/DESTINATION ? */
+    if (usage & PIPE_BIND_VERTEX_BUFFER) {
         domain |= RADEON_GEM_DOMAIN_GTT;
     }
-    if (usage & PIPE_BUFFER_USAGE_INDEX) {
+    if (usage & PIPE_BIND_INDEX_BUFFER) {
         domain |= RADEON_GEM_DOMAIN_GTT;
     }
 
@@ -187,7 +191,7 @@ struct pb_buffer *radeon_drm_bufmgr_create_buffer_from_handle(struct pb_manager 
 
     pipe_reference_init(&buf->base.base.reference, 1);
     buf->base.base.alignment = 0;
-    buf->base.base.usage = PIPE_BUFFER_USAGE_PIXEL;
+    buf->base.base.usage = PIPE_BIND_SAMPLER_VIEW;
     buf->base.base.size = 0;
     buf->base.vtbl = &radeon_drm_buffer_vtbl;
     buf->mgr = mgr;
@@ -304,7 +308,24 @@ boolean radeon_drm_bufmgr_get_handle(struct pb_buffer *_buf,
     }
     return TRUE;
 }
-					   
+
+void radeon_drm_bufmgr_get_tiling(struct pb_buffer *_buf,
+                                  enum r300_buffer_tiling *microtiled,
+                                  enum r300_buffer_tiling *macrotiled)
+{
+    struct radeon_drm_buffer *buf = get_drm_buffer(_buf);
+    uint32_t flags = 0, pitch;
+
+    radeon_bo_get_tiling(buf->bo, &flags, &pitch);
+
+    *microtiled = R300_BUFFER_LINEAR;
+    *macrotiled = R300_BUFFER_LINEAR;
+    if (flags & RADEON_BO_FLAGS_MICRO_TILE)
+	*microtiled = R300_BUFFER_TILED;
+
+    if (flags & RADEON_BO_FLAGS_MACRO_TILE)
+	*macrotiled = R300_BUFFER_TILED;
+}
 
 void radeon_drm_bufmgr_set_tiling(struct pb_buffer *_buf,
                                   enum r300_buffer_tiling microtiled,

@@ -77,16 +77,32 @@ dri2_set_tex_buffer2(__DRIcontext *pDRICtx, GLint target,
 {
    struct dri_context *ctx = dri_context(pDRICtx);
    struct dri_drawable *drawable = dri_drawable(dPriv);
-   struct pipe_texture *pt;
+   struct pipe_resource *pt;
 
    dri_st_framebuffer_validate_att(drawable->stfb, ST_ATTACHMENT_FRONT_LEFT);
 
    pt = drawable->textures[ST_ATTACHMENT_FRONT_LEFT];
 
    if (pt) {
+      enum pipe_format internal_format = pt->format;
+
+      if (format == __DRI_TEXTURE_FORMAT_RGB)  {
+         /* only need to cover the formats recognized by dri_fill_st_visual */
+         switch (internal_format) {
+         case PIPE_FORMAT_B8G8R8A8_UNORM:
+            internal_format = PIPE_FORMAT_B8G8R8X8_UNORM;
+            break;
+         case PIPE_FORMAT_A8R8G8B8_UNORM:
+            internal_format = PIPE_FORMAT_X8R8G8B8_UNORM;
+            break;
+         default:
+            break;
+         }
+      }
+
       ctx->st->teximage(ctx->st,
             (target == GL_TEXTURE_2D) ? ST_TEXTURE_2D : ST_TEXTURE_RECT,
-            0, drawable->stvis.color_format, pt, FALSE);
+            0, internal_format, pt, FALSE);
    }
 }
 
@@ -129,6 +145,7 @@ dri2_drawable_get_format(struct dri_drawable *drawable,
 
    return format;
 }
+
 
 /**
  * Retrieve __DRIbuffer from the DRI loader.
@@ -235,7 +252,7 @@ dri2_drawable_get_buffers(struct dri_drawable *drawable,
 }
 
 /**
- * Process __DRIbuffer and convert them into pipe_textures.
+ * Process __DRIbuffer and convert them into pipe_resources.
  */
 static void
 dri2_drawable_process_buffers(struct dri_drawable *drawable,
@@ -243,7 +260,7 @@ dri2_drawable_process_buffers(struct dri_drawable *drawable,
 {
    struct dri_screen *screen = dri_screen(drawable->sPriv);
    __DRIdrawable *dri_drawable = drawable->dPriv;
-   struct pipe_texture templ;
+   struct pipe_resource templ;
    struct winsys_handle whandle;
    boolean have_depth = FALSE;
    unsigned i;
@@ -255,10 +272,10 @@ dri2_drawable_process_buffers(struct dri_drawable *drawable,
       return;
 
    for (i = 0; i < ST_ATTACHMENT_COUNT; i++)
-      pipe_texture_reference(&drawable->textures[i], NULL);
+      pipe_resource_reference(&drawable->textures[i], NULL);
 
    memset(&templ, 0, sizeof(templ));
-   templ.tex_usage = PIPE_TEXTURE_USAGE_RENDER_TARGET;
+   templ.bind = PIPE_BIND_RENDER_TARGET;
    templ.target = PIPE_TEXTURE_2D;
    templ.last_level = 0;
    templ.width0 = dri_drawable->w;
@@ -311,7 +328,7 @@ dri2_drawable_process_buffers(struct dri_drawable *drawable,
       whandle.stride = buf->pitch;
 
       drawable->textures[statt] =
-         screen->pipe_screen->texture_from_handle(screen->pipe_screen,
+         screen->pipe_screen->resource_from_handle(screen->pipe_screen,
                &templ, &whandle);
    }
 
@@ -352,6 +369,110 @@ dri2_flush_frontbuffer(struct dri_drawable *drawable,
    }
 }
 
+__DRIimage *
+dri2_lookup_egl_image(struct dri_context *ctx, void *handle)
+{
+   __DRIimageLookupExtension *loader = ctx->sPriv->dri2.image;
+   __DRIimage *img;
+
+   if (!loader->lookupEGLImage)
+      return NULL;
+
+   img = loader->lookupEGLImage(ctx->cPriv, handle, ctx->cPriv->loaderPrivate);
+
+   return img;
+}
+
+static __DRIimage *
+dri2_create_image_from_name(__DRIcontext *context,
+                            int width, int height, int format,
+                            int name, int pitch, void *loaderPrivate)
+{
+   struct dri_screen *screen = dri_screen(context->driScreenPriv);
+   __DRIimage *img;
+   struct pipe_resource templ;
+   struct winsys_handle whandle;
+   unsigned tex_usage;
+   enum pipe_format pf;
+
+   tex_usage = PIPE_BIND_RENDER_TARGET | PIPE_BIND_SAMPLER_VIEW;
+
+   switch (format) {
+   case __DRI_IMAGE_FORMAT_RGB565:
+      pf = PIPE_FORMAT_B5G6R5_UNORM;
+      break;
+   case __DRI_IMAGE_FORMAT_XRGB8888:
+      pf = PIPE_FORMAT_B8G8R8X8_UNORM;
+      break;
+   case __DRI_IMAGE_FORMAT_ARGB8888:
+      pf = PIPE_FORMAT_B8G8R8A8_UNORM;
+      break;
+   default:
+      pf = PIPE_FORMAT_NONE;
+      break;
+   }
+   if (pf == PIPE_FORMAT_NONE)
+      return NULL;
+
+   img = CALLOC_STRUCT(__DRIimageRec);
+   if (!img)
+      return NULL;
+
+   memset(&templ, 0, sizeof(templ));
+   templ.bind = tex_usage;
+   templ.format = pf;
+   templ.target = PIPE_TEXTURE_2D;
+   templ.last_level = 0;
+   templ.width0 = width;
+   templ.height0 = height;
+   templ.depth0 = 1;
+
+   memset(&whandle, 0, sizeof(whandle));
+   whandle.handle = name;
+   whandle.stride = pitch * util_format_get_blocksize(pf);
+
+   img->texture = screen->pipe_screen->resource_from_handle(screen->pipe_screen,
+         &templ, &whandle);
+   if (!img->texture) {
+      FREE(img);
+      return NULL;
+   }
+
+   img->face = 0;
+   img->level = 0;
+   img->zslice = 0;
+   img->loader_private = loaderPrivate;
+
+   return img;
+}
+
+static __DRIimage *
+dri2_create_image_from_renderbuffer(__DRIcontext *context,
+				    int renderbuffer, void *loaderPrivate)
+{
+   struct dri_context *ctx = dri_context(context->driverPrivate);
+
+   if (!ctx->st->get_resource_for_egl_image)
+      return NULL;
+
+   /* TODO */
+   return NULL;
+}
+
+static void
+dri2_destroy_image(__DRIimage *img)
+{
+   pipe_resource_reference(&img->texture, NULL);
+   FREE(img);
+}
+
+static struct __DRIimageExtensionRec dri2ImageExtension = {
+    { __DRI_IMAGE, __DRI_IMAGE_VERSION },
+    dri2_create_image_from_name,
+    dri2_create_image_from_renderbuffer,
+    dri2_destroy_image,
+};
+
 /*
  * Backend function init_screen.
  */
@@ -364,6 +485,7 @@ static const __DRIextension *dri_screen_extensions[] = {
    &driMediaStreamCounterExtension.base,
    &dri2TexBufferExtension.base,
    &dri2FlushExtension.base,
+   &dri2ImageExtension.base,
    NULL
 };
 

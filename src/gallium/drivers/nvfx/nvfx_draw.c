@@ -234,28 +234,31 @@ nvfx_draw_render_stage(struct nvfx_context *nvfx)
 
 void
 nvfx_draw_elements_swtnl(struct pipe_context *pipe,
-			 struct pipe_buffer *idxbuf, unsigned idxbuf_size,
+			 struct pipe_resource *idxbuf, unsigned idxbuf_size,
 			 unsigned mode, unsigned start, unsigned count)
 {
 	struct nvfx_context *nvfx = nvfx_context(pipe);
-	struct pipe_screen *pscreen = pipe->screen;
+	struct pipe_transfer *vb_transfer[PIPE_MAX_ATTRIBS];
+	struct pipe_transfer *ib_transfer = NULL;
+	struct pipe_transfer *cb_transfer = NULL;
 	unsigned i;
 	void *map;
 
 	if (!nvfx_state_validate_swtnl(nvfx))
 		return;
-	nvfx->state.dirty &= ~(1ULL << NVFX_STATE_VTXBUF);
 	nvfx_state_emit(nvfx);
 
 	for (i = 0; i < nvfx->vtxbuf_nr; i++) {
-		map = pipe_buffer_map(pscreen, nvfx->vtxbuf[i].buffer,
-                                      PIPE_BUFFER_USAGE_CPU_READ);
+		map = pipe_buffer_map(pipe, nvfx->vtxbuf[i].buffer,
+                                      PIPE_TRANSFER_READ,
+				      &vb_transfer[i]);
 		draw_set_mapped_vertex_buffer(nvfx->draw, i, map);
 	}
 
 	if (idxbuf) {
-		map = pipe_buffer_map(pscreen, idxbuf,
-				      PIPE_BUFFER_USAGE_CPU_READ);
+		map = pipe_buffer_map(pipe, idxbuf,
+				      PIPE_TRANSFER_READ,
+				      &ib_transfer);
 		draw_set_mapped_element_buffer(nvfx->draw, idxbuf_size, map);
 	} else {
 		draw_set_mapped_element_buffer(nvfx->draw, 0, NULL);
@@ -264,9 +267,10 @@ nvfx_draw_elements_swtnl(struct pipe_context *pipe,
 	if (nvfx->constbuf[PIPE_SHADER_VERTEX]) {
 		const unsigned nr = nvfx->constbuf_nr[PIPE_SHADER_VERTEX];
 
-		map = pipe_buffer_map(pscreen,
+		map = pipe_buffer_map(pipe,
 				      nvfx->constbuf[PIPE_SHADER_VERTEX],
-				      PIPE_BUFFER_USAGE_CPU_READ);
+				      PIPE_TRANSFER_READ,
+				      &cb_transfer);
 		draw_set_mapped_constant_buffer(nvfx->draw, PIPE_SHADER_VERTEX, 0,
                                                 map, nr);
 	}
@@ -274,13 +278,14 @@ nvfx_draw_elements_swtnl(struct pipe_context *pipe,
 	draw_arrays(nvfx->draw, mode, start, count);
 
 	for (i = 0; i < nvfx->vtxbuf_nr; i++)
-		pipe_buffer_unmap(pscreen, nvfx->vtxbuf[i].buffer);
+		pipe_buffer_unmap(pipe, nvfx->vtxbuf[i].buffer, vb_transfer[i]);
 
 	if (idxbuf)
-		pipe_buffer_unmap(pscreen, idxbuf);
+		pipe_buffer_unmap(pipe, idxbuf, ib_transfer);
 
 	if (nvfx->constbuf[PIPE_SHADER_VERTEX])
-		pipe_buffer_unmap(pscreen, nvfx->constbuf[PIPE_SHADER_VERTEX]);
+		pipe_buffer_unmap(pipe, nvfx->constbuf[PIPE_SHADER_VERTEX],
+				  cb_transfer);
 
 	draw_flush(nvfx->draw);
 	pipe->flush(pipe, 0, NULL);
@@ -298,8 +303,8 @@ emit_attrib(struct nvfx_context *nvfx, unsigned hw, unsigned emit,
 	nvfx->swtnl.draw[a] = draw_out;
 }
 
-static boolean
-nvfx_state_vtxfmt_validate(struct nvfx_context *nvfx)
+void
+nvfx_vtxfmt_validate(struct nvfx_context *nvfx)
 {
 	struct nvfx_fragment_program *fp = nvfx->fragprog;
 	unsigned colour = 0, texcoords = 0, fog = 0, i;
@@ -343,14 +348,4 @@ nvfx_state_vtxfmt_validate(struct nvfx_context *nvfx)
 	}
 
 	emit_attrib(nvfx, 0, 0xff, TGSI_SEMANTIC_POSITION, 0);
-
-	return FALSE;
 }
-
-struct nvfx_state_entry nvfx_state_vtxfmt = {
-	.validate = nvfx_state_vtxfmt_validate,
-	.dirty = {
-		.pipe = NVFX_NEW_ARRAYS | NVFX_NEW_FRAGPROG,
-		.hw = 0
-	}
-};

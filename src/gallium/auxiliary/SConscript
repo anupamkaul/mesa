@@ -24,6 +24,13 @@ env.CodeGenerate(
 )
 
 env.CodeGenerate(
+    target = 'util/u_format_srgb.c', 
+    script = 'util/u_format_srgb.py', 
+    source = [],
+    command = python_cmd + ' $SCRIPT > $TARGET'
+)
+
+env.CodeGenerate(
     target = 'util/u_format_table.c',
     script = 'util/u_format_table.py',
     source = ['util/u_format.csv'],
@@ -148,9 +155,13 @@ source = [
     'util/u_dl.c',
     'util/u_draw_quad.c',
     'util/u_format.c',
+    'util/u_format_other.c',
     'util/u_format_s3tc.c',
+    'util/u_format_srgb.c',
     'util/u_format_table.c',
     'util/u_format_tests.c',
+    'util/u_format_yuv.c',
+    'util/u_format_zs.c',
     'util/u_gen_mipmap.c',
     'util/u_half.c',
     'util/u_handle_table.c',
@@ -161,6 +172,7 @@ source = [
     'util/u_math.c',
     'util/u_mm.c',
     'util/u_rect.c',
+    'util/u_resource.c',
     'util/u_ringbuffer.c',
     'util/u_sampler.c',
     'util/u_simple_shaders.c',
@@ -168,9 +180,8 @@ source = [
     'util/u_surface.c',
     'util/u_texture.c',
     'util/u_tile.c',
-    'util/u_timed_winsys.c',
+    'util/u_transfer.c',
     'util/u_upload_mgr.c',
-    'util/u_simple_screen.c',
     # Disabling until pipe-video branch gets merged in
     #'vl/vl_bitstream_parser.c',
     #'vl/vl_mpeg12_mc_renderer.c',
@@ -180,7 +191,7 @@ source = [
     'target-helpers/wrap_screen.c',
 ]
 
-if drawllvm:
+if env['llvm']:
     source += [
     'gallivm/lp_bld_alpha.c',
     'gallivm/lp_bld_arit.c',
@@ -196,7 +207,7 @@ if drawllvm:
     'gallivm/lp_bld_interp.c',
     'gallivm/lp_bld_intr.c',
     'gallivm/lp_bld_logic.c',
-    'gallivm/lp_bld_init.cpp',
+    'gallivm/lp_bld_init.c',
     'gallivm/lp_bld_pack.c',
     'gallivm/lp_bld_printf.c',
     'gallivm/lp_bld_sample.c',
@@ -205,6 +216,9 @@ if drawllvm:
     'gallivm/lp_bld_swizzle.c',
     'gallivm/lp_bld_tgsi_soa.c',
     'gallivm/lp_bld_type.c',
+    'draw/draw_llvm.c',
+    'draw/draw_pt_fetch_shade_pipeline_llvm.c',
+    'draw/draw_llvm_translate.c'
     ]
 
 gallium = env.ConvenienceLibrary(

@@ -14,12 +14,13 @@
  * The above copyright notice and this permission notice shall be included
  * in all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
- * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  *
  * Authors:
  *    Chia-I Wu <olv@lunarg.com>
@@ -39,7 +40,7 @@ struct xmesa_st_framebuffer {
    struct st_visual stvis;
 
    unsigned texture_width, texture_height, texture_mask;
-   struct pipe_texture *textures[ST_ATTACHMENT_COUNT];
+   struct pipe_resource *textures[ST_ATTACHMENT_COUNT];
 
    struct pipe_surface *display_surface;
 };
@@ -58,7 +59,7 @@ xmesa_st_framebuffer_display(struct st_framebuffer_iface *stfbi,
                              enum st_attachment_type statt)
 {
    struct xmesa_st_framebuffer *xstfb = xmesa_st_framebuffer(stfbi);
-   struct pipe_texture *ptex = xstfb->textures[statt];
+   struct pipe_resource *ptex = xstfb->textures[statt];
    struct pipe_surface *psurf;
 
    if (!ptex)
@@ -70,7 +71,7 @@ xmesa_st_framebuffer_display(struct st_framebuffer_iface *stfbi,
       pipe_surface_reference(&xstfb->display_surface, NULL);
 
       psurf = xstfb->screen->get_tex_surface(xstfb->screen,
-            ptex, 0, 0, 0, PIPE_BUFFER_USAGE_CPU_READ);
+            ptex, 0, 0, 0, PIPE_BIND_DISPLAY_TARGET);
       if (!psurf)
          return FALSE;
 
@@ -93,8 +94,8 @@ xmesa_st_framebuffer_copy_textures(struct st_framebuffer_iface *stfbi,
                                    unsigned width, unsigned height)
 {
    struct xmesa_st_framebuffer *xstfb = xmesa_st_framebuffer(stfbi);
-   struct pipe_texture *src_ptex = xstfb->textures[src_statt];
-   struct pipe_texture *dst_ptex = xstfb->textures[dst_statt];
+   struct pipe_resource *src_ptex = xstfb->textures[src_statt];
+   struct pipe_resource *dst_ptex = xstfb->textures[dst_statt];
    struct pipe_surface *src, *dst;
    struct pipe_context *pipe;
 
@@ -110,9 +111,9 @@ xmesa_st_framebuffer_copy_textures(struct st_framebuffer_iface *stfbi,
    }
 
    src = xstfb->screen->get_tex_surface(xstfb->screen,
-         src_ptex, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_READ);
+         src_ptex, 0, 0, 0, PIPE_BIND_BLIT_SOURCE);
    dst = xstfb->screen->get_tex_surface(xstfb->screen,
-         dst_ptex, 0, 0, 0, PIPE_BUFFER_USAGE_GPU_WRITE);
+         dst_ptex, 0, 0, 0, PIPE_BIND_BLIT_DESTINATION);
 
    if (src && dst)
       pipe->surface_copy(pipe, dst, x, y, src, x, y, width, height);
@@ -130,13 +131,13 @@ xmesa_st_framebuffer_validate_textures(struct st_framebuffer_iface *stfbi,
                                        unsigned mask)
 {
    struct xmesa_st_framebuffer *xstfb = xmesa_st_framebuffer(stfbi);
-   struct pipe_texture templ;
+   struct pipe_resource templ;
    unsigned i;
 
    /* remove outdated textures */
    if (xstfb->texture_width != width || xstfb->texture_height != height) {
       for (i = 0; i < ST_ATTACHMENT_COUNT; i++)
-         pipe_texture_reference(&xstfb->textures[i], NULL);
+         pipe_resource_reference(&xstfb->textures[i], NULL);
    }
 
    memset(&templ, 0, sizeof(templ));
@@ -148,7 +149,7 @@ xmesa_st_framebuffer_validate_textures(struct st_framebuffer_iface *stfbi,
 
    for (i = 0; i < ST_ATTACHMENT_COUNT; i++) {
       enum pipe_format format;
-      unsigned tex_usage;
+      unsigned bind;
 
       /* the texture already exists or not requested */
       if (xstfb->textures[i] || !(mask & (1 << i))) {
@@ -164,12 +165,12 @@ xmesa_st_framebuffer_validate_textures(struct st_framebuffer_iface *stfbi,
       case ST_ATTACHMENT_FRONT_RIGHT:
       case ST_ATTACHMENT_BACK_RIGHT:
          format = xstfb->stvis.color_format;
-         tex_usage = PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                     PIPE_TEXTURE_USAGE_RENDER_TARGET;
+         bind = PIPE_BIND_DISPLAY_TARGET |
+                     PIPE_BIND_RENDER_TARGET;
          break;
       case ST_ATTACHMENT_DEPTH_STENCIL:
          format = xstfb->stvis.depth_stencil_format;
-         tex_usage = PIPE_TEXTURE_USAGE_DEPTH_STENCIL;
+         bind = PIPE_BIND_DEPTH_STENCIL;
          break;
       default:
          format = PIPE_FORMAT_NONE;
@@ -178,10 +179,10 @@ xmesa_st_framebuffer_validate_textures(struct st_framebuffer_iface *stfbi,
 
       if (format != PIPE_FORMAT_NONE) {
          templ.format = format;
-         templ.tex_usage = tex_usage;
+         templ.bind = bind;
 
          xstfb->textures[i] =
-            xstfb->screen->texture_create(xstfb->screen, &templ);
+            xstfb->screen->resource_create(xstfb->screen, &templ);
       }
    }
 
@@ -194,7 +195,7 @@ static boolean
 xmesa_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
                               const enum st_attachment_type *statts,
                               unsigned count,
-                              struct pipe_texture **out)
+                              struct pipe_resource **out)
 {
    struct xmesa_st_framebuffer *xstfb = xmesa_st_framebuffer(stfbi);
    unsigned statt_mask, new_mask, i;
@@ -231,7 +232,7 @@ xmesa_st_framebuffer_validate(struct st_framebuffer_iface *stfbi,
 
    for (i = 0; i < count; i++) {
       out[i] = NULL;
-      pipe_texture_reference(&out[i], xstfb->textures[statts[i]]);
+      pipe_resource_reference(&out[i], xstfb->textures[statts[i]]);
    }
 
    return TRUE;
@@ -291,7 +292,7 @@ xmesa_destroy_st_framebuffer(struct st_framebuffer_iface *stfbi)
    pipe_surface_reference(&xstfb->display_surface, NULL);
 
    for (i = 0; i < ST_ATTACHMENT_COUNT; i++)
-      pipe_texture_reference(&xstfb->textures[i], NULL);
+      pipe_resource_reference(&xstfb->textures[i], NULL);
 
    FREE(xstfb);
    FREE(stfbi);
@@ -305,7 +306,7 @@ xmesa_swap_st_framebuffer(struct st_framebuffer_iface *stfbi)
 
    ret = xmesa_st_framebuffer_display(stfbi, ST_ATTACHMENT_BACK_LEFT);
    if (ret) {
-      struct pipe_texture **front, **back, *tmp;
+      struct pipe_resource **front, **back, *tmp;
 
       front = &xstfb->textures[ST_ATTACHMENT_FRONT_LEFT];
       back = &xstfb->textures[ST_ATTACHMENT_BACK_LEFT];

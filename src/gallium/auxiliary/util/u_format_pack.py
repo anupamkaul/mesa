@@ -3,7 +3,7 @@
 '''
 /**************************************************************************
  *
- * Copyright 2009 VMware, Inc.
+ * Copyright 2009-2010 VMware, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -46,21 +46,32 @@ from u_format_parse import *
 def generate_format_type(format):
     '''Generate a structure that describes the format.'''
 
+    assert format.layout == PLAIN
+    
     print 'union util_format_%s {' % format.short_name()
-    if format.is_bitmask() or format.short_name() == "r11g11b10_float":
+    
+    if format.block_size() in (8, 16, 32, 64):
         print '   uint%u_t value;' % (format.block_size(),)
+
+    use_bitfields = False
+    for channel in format.channels:
+        if channel.size % 8 or not is_pot(channel.size):
+            use_bitfields = True
+
     print '   struct {'
     for channel in format.channels:
-        if (format.is_bitmask() or format.is_mixed()) and not format.is_array() or format.short_name() == "r11g11b10_float":
+        if use_bitfields:
             if channel.type == VOID:
                 if channel.size:
                     print '      unsigned %s:%u;' % (channel.name, channel.size)
             elif channel.type == UNSIGNED:
                 print '      unsigned %s:%u;' % (channel.name, channel.size)
-            elif channel.type == SIGNED:
+            elif channel.type in (SIGNED, FIXED):
                 print '      int %s:%u;' % (channel.name, channel.size)
             elif channel.type == FLOAT:
-                if channel.size == 32:
+                if channel.size == 64:
+                    print '      double %s;' % (channel.name)
+                elif channel.size == 32:
                     print '      float %s;' % (channel.name)
                 else:
                     print '      unsigned %s:%u;' % (channel.name, channel.size)
@@ -91,20 +102,6 @@ def generate_format_type(format):
     print
 
 
-def generate_srgb_tables():
-    print 'static ubyte srgb_to_linear[256] = {'
-    for i in range(256):
-        print '   %s,' % (int(math.pow((i / 255.0 + 0.055) / 1.055, 2.4) * 255))
-    print '};'
-    print
-    print 'static ubyte linear_to_srgb[256] = {'
-    print '   0,'
-    for i in range(1, 256):
-        print '   %s,' % (int((1.055 * math.pow(i / 255.0, 0.41666) - 0.055) * 255))
-    print '};'
-    print
-
-
 def bswap_format(format):
     '''Generate a structure that describes the format.'''
 
@@ -125,12 +122,10 @@ def is_format_supported(format):
 
     for i in range(4):
         channel = format.channels[i]
-        if channel.type not in (VOID, UNSIGNED, SIGNED, FLOAT):
+        if channel.type not in (VOID, UNSIGNED, SIGNED, FLOAT, FIXED):
             return False
-
-    # We can only read a color from a depth/stencil format if the depth channel is present
-    if format.colorspace == 'zs' and format.swizzles[0] == SWIZZLE_NONE:
-        return False
+        if channel.type == FLOAT and channel.size not in (16, 32, 64):
+            return False
 
     return True
 
@@ -147,7 +142,7 @@ def native_type(format):
             channel = format.channels[0]
             if channel.type in (UNSIGNED, VOID):
                 return 'uint%u_t' % channel.size
-            elif channel.type == SIGNED:
+            elif channel.type in (SIGNED, FIXED):
                 return 'int%u_t' % channel.size
             elif channel.type == FLOAT:
                 if channel.size == 16:
@@ -193,12 +188,35 @@ def get_one_shift(type):
     assert False
 
 
+def value_to_native(type, value):
+    '''Get the value of unity for this type.'''
+    if type.type == FLOAT:
+        return value
+    if type.type == FIXED:
+        return int(value * (1 << (type.size/2)))
+    if not type.norm:
+        return int(value)
+    if type.type == UNSIGNED:
+        return int(value * ((1 << type.size) - 1))
+    if type.type == SIGNED:
+        return int(value * ((1 << (type.size - 1)) - 1))
+    assert False
+
+
+def native_to_constant(type, value):
+    '''Get the value of unity for this type.'''
+    if type.type == FLOAT:
+        if type.size <= 32:
+            return "%ff" % value 
+        else:
+            return "%ff" % value 
+    else:
+        return str(int(value))
+
+
 def get_one(type):
     '''Get the value of unity for this type.'''
-    if type.type == 'FLOAT' or not type.norm:
-        return 1
-    else:
-        return (1 << get_one_shift(type)) - 1
+    return value_to_native(type, 1)
 
 
 def clamp_expr(src_channel, dst_channel, dst_native_type, value):
@@ -212,21 +230,62 @@ def clamp_expr(src_channel, dst_channel, dst_native_type, value):
     src_max = src_channel.max()
     dst_min = dst_channel.min()
     dst_max = dst_channel.max()
+    
+    # Translate the destination range to the src native value
+    dst_min_native = value_to_native(src_channel, dst_min)
+    dst_max_native = value_to_native(src_channel, dst_max)
 
     if src_min < dst_min and src_max > dst_max:
-        return 'CLAMP(%s, %s, %s)' % (value, dst_min, dst_max)
+        return 'CLAMP(%s, %s, %s)' % (value, dst_min_native, dst_max_native)
 
     if src_max > dst_max:
-        return 'MIN2(%s, %s)' % (value, dst_max)
+        return 'MIN2(%s, %s)' % (value, dst_max_native)
         
     if src_min < dst_min:
-        return 'MAX2(%s, %s)' % (value, dst_min)
+        return 'MAX2(%s, %s)' % (value, dst_min_native)
 
     return value
 
 
-def conversion_expr(src_channel, dst_channel, dst_native_type, value, clamp=True):
+def conversion_expr(src_channel, 
+                    dst_channel, dst_native_type, 
+                    value, 
+                    clamp=True, 
+                    src_colorspace = RGB, 
+                    dst_colorspace = RGB):
     '''Generate the expression to convert a value between two types.'''
+
+    if src_colorspace != dst_colorspace:
+        if src_colorspace == SRGB:
+            assert src_channel.type == UNSIGNED
+            assert src_channel.norm
+            assert src_channel.size == 8
+            assert dst_colorspace == RGB
+            if dst_channel.type == FLOAT:
+                return 'util_format_srgb_8unorm_to_linear_float(%s)' % value
+            else:
+                assert dst_channel.type == UNSIGNED
+                assert dst_channel.norm
+                assert dst_channel.size == 8
+                return 'util_format_srgb_to_linear_8unorm(%s)' % value
+        elif dst_colorspace == SRGB:
+            assert dst_channel.type == UNSIGNED
+            assert dst_channel.norm
+            assert dst_channel.size == 8
+            assert src_colorspace == RGB
+            if src_channel.type == FLOAT:
+                return 'util_format_linear_float_to_srgb_8unorm(%s)' % value
+            else:
+                assert src_channel.type == UNSIGNED
+                assert src_channel.norm
+                assert src_channel.size == 8
+                return 'util_format_linear_to_srgb_8unorm(%s)' % value
+        elif src_colorspace == ZS:
+            pass
+        elif dst_colorspace == ZS:
+            pass
+        else:
+            assert 0
 
     if src_channel == dst_channel:
         return value
@@ -239,6 +298,13 @@ def conversion_expr(src_channel, dst_channel, dst_native_type, value, clamp=True
     if src_type == FLOAT and src_size == 16:
         value = 'util_half_to_float(%s)' % value
         src_size = 32
+
+    # Special case for float <-> ubytes for more accurate results
+    # Done before clamping since these functions already take care of that
+    if src_type == UNSIGNED and src_norm and src_size == 8 and dst_channel.type == FLOAT and dst_channel.size == 32:
+        return 'ubyte_to_float(%s)' % value
+    if src_type == FLOAT and src_size == 32 and dst_channel.type == UNSIGNED and dst_channel.norm and dst_channel.size == 8:
+        return 'float_to_ubyte(%s)' % value
 
     if clamp:
         if dst_channel.type != FLOAT or src_type != FLOAT:
@@ -267,7 +333,7 @@ def conversion_expr(src_channel, dst_channel, dst_native_type, value, clamp=True
 
     # Promote to either float or double
     if src_type != FLOAT:
-        if src_norm:
+        if src_norm or src_type == FIXED:
             one = get_one(src_channel)
             if src_size <= 23:
                 value = '(%s * (1.0f/0x%x))' % (value, one)
@@ -291,7 +357,7 @@ def conversion_expr(src_channel, dst_channel, dst_native_type, value, clamp=True
 
     # Convert double or float to non-float
     if dst_channel.type != FLOAT:
-        if dst_channel.norm:
+        if dst_channel.norm or dst_channel.type == FIXED:
             dst_one = get_one(dst_channel)
             if dst_channel.size <= 23:
                 value = '(%s * 0x%x)' % (value, dst_one)
@@ -324,7 +390,7 @@ def generate_unpack_kernel(format, dst_channel, dst_native_type):
 
     if format.is_bitmask():
         depth = format.block_size()
-        print '         uint%u_t value = *(uint%u_t *)src;' % (depth, depth) 
+        print '         uint%u_t value = *(const uint%u_t *)src;' % (depth, depth) 
 
         # Declare the intermediate variables
         for i in range(format.nr_channels()):
@@ -373,8 +439,15 @@ def generate_unpack_kernel(format, dst_channel, dst_native_type):
             swizzle = format.swizzles[i]
             if swizzle < 4:
                 src_channel = format.channels[swizzle]
+                src_colorspace = format.colorspace
+                if src_colorspace == SRGB and i == 3:
+                    # Alpha channel is linear
+                    src_colorspace = RGB
                 value = src_channel.name 
-                value = conversion_expr(src_channel, dst_channel, dst_native_type, value)
+                value = conversion_expr(src_channel, 
+                                        dst_channel, dst_native_type, 
+                                        value,
+                                        src_colorspace = src_colorspace)
             elif swizzle == SWIZZLE_0:
                 value = '0'
             elif swizzle == SWIZZLE_1:
@@ -383,11 +456,6 @@ def generate_unpack_kernel(format, dst_channel, dst_native_type):
                 value = '0'
             else:
                 assert False
-            if format.colorspace == ZS:
-                if i == 3:
-                    value = get_one(dst_channel)
-                elif i >= 1:
-                    value = 'dst[0]'
             print '         dst[%u] = %s; /* %s */' % (i, value, 'rgba'[i])
         
     else:
@@ -399,8 +467,15 @@ def generate_unpack_kernel(format, dst_channel, dst_native_type):
             swizzle = format.swizzles[i]
             if swizzle < 4:
                 src_channel = format.channels[swizzle]
+                src_colorspace = format.colorspace
+                if src_colorspace == SRGB and i == 3:
+                    # Alpha channel is linear
+                    src_colorspace = RGB
                 value = 'pixel.chan.%s' % src_channel.name 
-                value = conversion_expr(src_channel, dst_channel, dst_native_type, value)
+                value = conversion_expr(src_channel, 
+                                        dst_channel, dst_native_type, 
+                                        value,
+                                        src_colorspace = src_colorspace)
             elif swizzle == SWIZZLE_0:
                 value = '0'
             elif swizzle == SWIZZLE_1:
@@ -409,11 +484,6 @@ def generate_unpack_kernel(format, dst_channel, dst_native_type):
                 value = '0'
             else:
                 assert False
-            if format.colorspace == ZS:
-                if i == 3:
-                    value = get_one(dst_channel)
-                elif i >= 1:
-                    value = 'dst[0]'
             print '         dst[%u] = %s; /* %s */' % (i, value, 'rgba'[i])
     
 
@@ -437,12 +507,14 @@ def generate_pack_kernel(format, src_channel, src_native_type):
             dst_channel = format.channels[i]
             if inv_swizzle[i] is not None:
                 value ='src[%u]' % inv_swizzle[i]
-                value = conversion_expr(src_channel, dst_channel, dst_native_type, value)
-                if format.colorspace == ZS:
-                    if i == 3:
-                        value = get_one(dst_channel)
-                    elif i >= 1:
-                        value = '0'
+                dst_colorspace = format.colorspace
+                if dst_colorspace == SRGB and inv_swizzle[i] == 3:
+                    # Alpha channel is linear
+                    dst_colorspace = RGB
+                value = conversion_expr(src_channel, 
+                                        dst_channel, dst_native_type, 
+                                        value,
+                                        dst_colorspace = dst_colorspace)
                 if dst_channel.type in (UNSIGNED, SIGNED):
                     if shift + dst_channel.size < depth:
                         value = '(%s) & 0x%x' % (value, (1 << dst_channel.size) - 1)
@@ -473,13 +545,15 @@ def generate_pack_kernel(format, src_channel, src_native_type):
             width = dst_channel.size
             if inv_swizzle[i] is None:
                 continue
+            dst_colorspace = format.colorspace
+            if dst_colorspace == SRGB and inv_swizzle[i] == 3:
+                # Alpha channel is linear
+                dst_colorspace = RGB
             value ='src[%u]' % inv_swizzle[i]
-            value = conversion_expr(src_channel, dst_channel, dst_native_type, value)
-            if format.colorspace == ZS:
-                if i == 3:
-                    value = get_one(dst_channel)
-                elif i >= 1:
-                    value = '0'
+            value = conversion_expr(src_channel, 
+                                    dst_channel, dst_native_type, 
+                                    value, 
+                                    dst_colorspace = dst_colorspace)
             print '         pixel.chan.%s = %s;' % (dst_channel.name, value)
     
         bswap_format(format)
@@ -560,34 +634,40 @@ def generate_format_fetch(format, dst_channel, dst_native_type, dst_suffix):
     print
 
 
+def is_format_hand_written(format):
+    return format.layout in ('s3tc', 'subsampled', 'other') or format.colorspace == ZS
+
+
 def generate(formats):
     print
     print '#include "pipe/p_compiler.h"'
     print '#include "u_math.h"'
-    print '#include "u_format.h"'
     print '#include "u_half.h"'
+    print '#include "u_format.h"'
+    print '#include "u_format_other.h"'
+    print '#include "u_format_srgb.h"'
+    print '#include "u_format_yuv.h"'
+    print '#include "u_format_zs.h"'
     print
 
     for format in formats:
-        if is_format_supported(format):
-            generate_format_type(format)
+        if not is_format_hand_written(format):
+            
+            if is_format_supported(format):
+                generate_format_type(format)
 
-    channel = Channel(FLOAT, False, 32)
-    native_type = 'float'
-    suffix = 'float'
+            channel = Channel(FLOAT, False, 32)
+            native_type = 'float'
+            suffix = 'rgba_float'
 
-    for format in formats:
-        if format.layout != 's3tc':
             generate_format_unpack(format, channel, native_type, suffix)
             generate_format_pack(format, channel, native_type, suffix)
             generate_format_fetch(format, channel, native_type, suffix)
 
-    channel = Channel(UNSIGNED, True, 8)
-    native_type = 'uint8_t'
-    suffix = '8unorm'
+            channel = Channel(UNSIGNED, True, 8)
+            native_type = 'uint8_t'
+            suffix = 'rgba_8unorm'
 
-    for format in formats:
-        if format.layout != 's3tc':
             generate_format_unpack(format, channel, native_type, suffix)
             generate_format_pack(format, channel, native_type, suffix)
 

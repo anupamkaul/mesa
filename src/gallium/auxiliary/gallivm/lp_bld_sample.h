@@ -38,7 +38,8 @@
 
 #include "gallivm/lp_bld.h"
 
-struct pipe_texture;
+struct pipe_resource;
+struct pipe_sampler_view;
 struct pipe_sampler_state;
 struct util_format_description;
 struct lp_type;
@@ -48,14 +49,14 @@ struct lp_build_context;
 /**
  * Sampler static state.
  *
- * These are the bits of state from pipe_texture and pipe_sampler_state that
+ * These are the bits of state from pipe_resource and pipe_sampler_state that
  * are embedded in the generated code.
  */
 struct lp_sampler_static_state
 {
    /* pipe_texture's state */
    enum pipe_format format;
-   unsigned target:2;
+   unsigned target:3;
    unsigned pot_width:1;
    unsigned pot_height:1;
    unsigned pot_depth:1;
@@ -78,7 +79,7 @@ struct lp_sampler_static_state
 /**
  * Sampler dynamic state.
  *
- * These are the bits of state from pipe_texture and pipe_sampler_state that
+ * These are the bits of state from pipe_resource and pipe_sampler_state that
  * are computed in runtime.
  *
  * There are obtained through callbacks, as we don't want to tie the texture
@@ -130,7 +131,7 @@ struct lp_sampler_dynamic_state
  */
 void
 lp_sampler_static_state(struct lp_sampler_static_state *state,
-                        const struct pipe_texture *texture,
+                        const struct pipe_sampler_view *view,
                         const struct pipe_sampler_state *sampler);
 
 

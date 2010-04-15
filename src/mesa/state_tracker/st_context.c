@@ -31,7 +31,6 @@
 #include "shader/shader_api.h"
 #include "glapi/glapi.h"
 #include "st_context.h"
-#include "st_public.h"
 #include "st_debug.h"
 #include "st_cb_accum.h"
 #include "st_cb_bitmap.h"
@@ -46,6 +45,7 @@
 #if FEATURE_OES_draw_texture
 #include "st_cb_drawtex.h"
 #endif
+#include "st_cb_eglimage.h"
 #include "st_cb_fbo.h"
 #if FEATURE_feedback
 #include "st_cb_feedback.h"
@@ -239,7 +239,7 @@ static void st_destroy_context_priv( struct st_context *st )
 
    for (i = 0; i < Elements(st->state.constants); i++) {
       if (st->state.constants[i]) {
-         pipe_buffer_reference(&st->state.constants[i], NULL);
+         pipe_resource_reference(&st->state.constants[i], NULL);
       }
    }
 
@@ -287,56 +287,6 @@ void st_destroy_context( struct st_context *st )
 }
 
 
-GLboolean
-st_make_current(struct st_context *st,
-                struct st_framebuffer *draw,
-                struct st_framebuffer *read,
-                void *winsys_drawable_handle )
-{
-   /* Call this periodically to detect when the user has begun using
-    * GL rendering from multiple threads.
-    */
-   _glapi_check_multithread();
-
-   if (st) {
-      if (!_mesa_make_current(st->ctx, &draw->Base, &read->Base)) {
-         st->pipe->priv = NULL;
-         return GL_FALSE;
-      }
-
-      _mesa_check_init_viewport(st->ctx, draw->InitWidth, draw->InitHeight);
-      st->winsys_drawable_handle = winsys_drawable_handle;
-
-      return GL_TRUE;
-   }
-   else {
-      return _mesa_make_current(NULL, NULL, NULL);
-   }
-}
-
-struct st_context *st_get_current(void)
-{
-   GET_CURRENT_CONTEXT(ctx);
-
-   return (ctx == NULL) ? NULL : ctx->st;
-}
-
-void st_copy_context_state(struct st_context *dst,
-                           struct st_context *src,
-                           uint mask)
-{
-   _mesa_copy_context(dst->ctx, src->ctx, mask);
-}
-
-
-
-st_proc st_get_proc_address(const char *procname)
-{
-   return (st_proc) _glapi_get_proc_address(procname);
-}
-
-
-
 void st_init_driver_functions(struct dd_function_table *functions)
 {
    _mesa_init_glsl_driver_functions(functions);
@@ -358,6 +308,8 @@ void st_init_driver_functions(struct dd_function_table *functions)
 #if FEATURE_OES_draw_texture
    st_init_drawtex_functions(functions);
 #endif
+
+   st_init_eglimage_functions(functions);
 
    st_init_fbo_functions(functions);
 #if FEATURE_feedback

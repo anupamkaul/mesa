@@ -14,12 +14,13 @@
  * The above copyright notice and this permission notice shall be included
  * in all copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * BRIAN PAUL BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
- * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
- * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
  *
  * Authors:
  *    Chia-I Wu <olv@lunarg.com>
@@ -149,7 +150,7 @@ static void
 st_framebuffer_validate(struct st_framebuffer *stfb, struct st_context *st)
 {
    struct pipe_screen *screen = st->pipe->screen;
-   struct pipe_texture *textures[ST_ATTACHMENT_COUNT];
+   struct pipe_resource *textures[ST_ATTACHMENT_COUNT];
    uint width, height;
    unsigned i;
    boolean changed = FALSE;
@@ -174,22 +175,22 @@ st_framebuffer_validate(struct st_framebuffer *stfb, struct st_context *st)
 
       idx = attachment_to_buffer_index(stfb->statts[i]);
       if (idx >= BUFFER_COUNT) {
-         pipe_texture_reference(&textures[i], NULL);
+         pipe_resource_reference(&textures[i], NULL);
          continue;
       }
 
       strb = st_renderbuffer(stfb->Base.Attachment[idx].Renderbuffer);
       assert(strb);
       if (strb->texture == textures[i]) {
-         pipe_texture_reference(&textures[i], NULL);
+         pipe_resource_reference(&textures[i], NULL);
          continue;
       }
 
       ps = screen->get_tex_surface(screen, textures[i], 0, 0, 0,
-            PIPE_BUFFER_USAGE_GPU_READ | PIPE_BUFFER_USAGE_GPU_WRITE);
+				   PIPE_BIND_RENDER_TARGET);
       if (ps) {
          pipe_surface_reference(&strb->surface, ps);
-         pipe_texture_reference(&strb->texture, ps->texture);
+         pipe_resource_reference(&strb->texture, ps->texture);
          /* ownership transfered */
          pipe_surface_reference(&ps, NULL);
 
@@ -202,7 +203,7 @@ st_framebuffer_validate(struct st_framebuffer *stfb, struct st_context *st)
          height = strb->Base.Height;
       }
 
-      pipe_texture_reference(&textures[i], NULL);
+      pipe_resource_reference(&textures[i], NULL);
    }
 
    if (changed) {
@@ -497,7 +498,7 @@ st_context_flush(struct st_context_iface *stctxi, unsigned flags,
 static boolean
 st_context_teximage(struct st_context_iface *stctxi, enum st_texture_type target,
                     int level, enum pipe_format internal_format,
-                    struct pipe_texture *tex, boolean mipmap)
+                    struct pipe_resource *tex, boolean mipmap)
 {
    struct st_context *st = (struct st_context *) stctxi;
    GLcontext *ctx = st->ctx;
@@ -556,7 +557,7 @@ st_context_teximage(struct st_context_iface *stctxi, enum st_texture_type target
    }
 
    stObj->pipe = st->pipe;
-   pipe_texture_reference(&stImage->pt, tex);
+   pipe_resource_reference(&stImage->pt, tex);
 
    _mesa_dirty_texobj(ctx, texObj, GL_TRUE);
    _mesa_unlock_texture(ctx, texObj);
@@ -709,15 +710,35 @@ st_manager_flush_frontbuffer(struct st_context *st)
    if (!strb)
       return;
 
-   /* st_public.h */
-   if (!stfb->iface) {
-      struct pipe_surface *front_surf = strb->surface;
-      st->pipe->screen->flush_frontbuffer(st->pipe->screen,
-            front_surf, st->winsys_drawable_handle);
-      return;
-   }
-
    stfb->iface->flush_front(stfb->iface, ST_ATTACHMENT_FRONT_LEFT);
+}
+
+/**
+ * Return the surface of an EGLImage.
+ */
+struct pipe_surface *
+st_manager_get_egl_image_surface(struct st_context *st,
+                                 void *eglimg, unsigned usage)
+{
+   struct st_manager *smapi =
+      (struct st_manager *) st->iface.st_context_private;
+   struct st_egl_image stimg;
+   struct pipe_surface *ps;
+
+   if (!smapi || !smapi->get_egl_image)
+      return NULL;
+
+   memset(&stimg, 0, sizeof(stimg));
+   stimg.stctxi = &st->iface;
+   stimg.egl_image = eglimg;
+   if (!smapi->get_egl_image(smapi, &stimg))
+      return NULL;
+
+   ps = smapi->screen->get_tex_surface(smapi->screen,
+         stimg.texture, stimg.face, stimg.level, stimg.zslice, usage);
+   pipe_resource_reference(&stimg.texture, NULL);
+
+   return ps;
 }
 
 /**
@@ -728,14 +749,6 @@ st_manager_validate_framebuffers(struct st_context *st)
 {
    struct st_framebuffer *stdraw = st_ws_framebuffer(st->ctx->DrawBuffer);
    struct st_framebuffer *stread = st_ws_framebuffer(st->ctx->ReadBuffer);
-
-   /* st_public.h */
-   if ((stdraw && !stdraw->iface) || (stread && !stread->iface)) {
-      struct pipe_screen *screen = st->pipe->screen;
-      if (screen->update_buffer)
-         screen->update_buffer(screen, st->pipe->priv);
-      return;
-   }
 
    if (stdraw)
       st_framebuffer_validate(stdraw, st);
@@ -752,8 +765,8 @@ st_manager_add_color_renderbuffer(struct st_context *st, GLframebuffer *fb,
 {
    struct st_framebuffer *stfb = st_ws_framebuffer(fb);
 
-   /* FBO or st_public.h */
-   if (!stfb || !stfb->iface)
+   /* FBO */
+   if (!stfb)
       return FALSE;
 
    if (stfb->Base.Attachment[idx].Renderbuffer)

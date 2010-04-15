@@ -28,11 +28,11 @@
 
 #include "util/u_memory.h"
 #include "util/u_format.h"
+#include "util/u_format_s3tc.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_screen.h"
 
 #include "lp_texture.h"
-#include "lp_buffer.h"
 #include "lp_fence.h"
 #include "lp_jit.h"
 #include "lp_screen.h"
@@ -186,48 +186,42 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
    case PIPE_FORMAT_DXT1_RGBA:
    case PIPE_FORMAT_DXT3_RGBA:
    case PIPE_FORMAT_DXT5_RGBA:
+      return util_format_s3tc_enabled;
+   case PIPE_FORMAT_R16_FLOAT:
+   case PIPE_FORMAT_R16G16_FLOAT:
+   case PIPE_FORMAT_R16G16B16_FLOAT:
+   case PIPE_FORMAT_R16G16B16A16_FLOAT:
       return FALSE;
    default:
       break;
    }
 
-   if(format_desc->block.width != 1 ||
-      format_desc->block.height != 1)
-      return FALSE;
+   if(tex_usage & PIPE_BIND_RENDER_TARGET) {
+      if(format_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN)
+         return FALSE;
 
-   if(format_desc->layout != UTIL_FORMAT_LAYOUT_PLAIN)
-      return FALSE;
+      if(format_desc->block.width != 1 ||
+         format_desc->block.height != 1)
+         return FALSE;
 
-   if(tex_usage & PIPE_TEXTURE_USAGE_RENDER_TARGET) {
       if(format_desc->colorspace != UTIL_FORMAT_COLORSPACE_RGB &&
          format_desc->colorspace != UTIL_FORMAT_COLORSPACE_SRGB)
          return FALSE;
    }
 
-   if(tex_usage & (PIPE_TEXTURE_USAGE_DISPLAY_TARGET |
-                   PIPE_TEXTURE_USAGE_SCANOUT |
-                   PIPE_TEXTURE_USAGE_SHARED)) {
+   if(tex_usage & (PIPE_BIND_DISPLAY_TARGET |
+                   PIPE_BIND_SCANOUT |
+                   PIPE_BIND_SHARED)) {
       if(!winsys->is_displaytarget_format_supported(winsys, tex_usage, format))
          return FALSE;
    }
 
-   if(tex_usage & PIPE_TEXTURE_USAGE_DEPTH_STENCIL) {
+   if(tex_usage & PIPE_BIND_DEPTH_STENCIL) {
       if(format_desc->colorspace != UTIL_FORMAT_COLORSPACE_ZS)
          return FALSE;
 
       /* FIXME: Temporary restriction. See lp_state_fs.c. */
       if(format_desc->block.bits != 32)
-         return FALSE;
-   }
-
-   /* FIXME: Temporary restrictions. See lp_bld_sample_soa.c */
-   if(tex_usage & PIPE_TEXTURE_USAGE_SAMPLER) {
-      if(!format_desc->is_bitmask &&
-         format != PIPE_FORMAT_R32_FLOAT)
-         return FALSE;
-
-      if(format_desc->colorspace != UTIL_FORMAT_COLORSPACE_RGB &&
-         format_desc->colorspace != UTIL_FORMAT_COLORSPACE_ZS)
          return FALSE;
    }
 
@@ -244,7 +238,7 @@ llvmpipe_flush_frontbuffer(struct pipe_screen *_screen,
 {
    struct llvmpipe_screen *screen = llvmpipe_screen(_screen);
    struct sw_winsys *winsys = screen->winsys;
-   struct llvmpipe_texture *texture = llvmpipe_texture(surface->texture);
+   struct llvmpipe_resource *texture = llvmpipe_resource(surface->texture);
 
    assert(texture->dt);
    if (texture->dt)
@@ -297,8 +291,9 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
    screen->base.context_create = llvmpipe_create_context;
    screen->base.flush_frontbuffer = llvmpipe_flush_frontbuffer;
 
-   llvmpipe_init_screen_texture_funcs(&screen->base);
-   llvmpipe_init_screen_buffer_funcs(&screen->base);
+   util_format_s3tc_init();
+
+   llvmpipe_init_screen_resource_funcs(&screen->base);
    llvmpipe_init_screen_fence_funcs(&screen->base);
 
    lp_jit_screen_init(screen);

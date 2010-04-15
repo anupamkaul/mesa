@@ -15,32 +15,31 @@ nvfx_blend_state_create(struct pipe_context *pipe,
 			const struct pipe_blend_state *cso)
 {
 	struct nvfx_context *nvfx = nvfx_context(pipe);
-	struct nouveau_grobj *eng3d = nvfx->screen->eng3d;
 	struct nvfx_blend_state *bso = CALLOC(1, sizeof(*bso));
-	struct nouveau_stateobj *so = so_new(5, 8, 0);
+	struct nouveau_statebuf_builder sb = sb_init(bso->sb);
 
 	if (cso->rt[0].blend_enable) {
-		so_method(so, eng3d, NV34TCL_BLEND_FUNC_ENABLE, 3);
-		so_data  (so, 1);
-		so_data  (so, (nvgl_blend_func(cso->rt[0].alpha_src_factor) << 16) |
+		sb_method(sb, NV34TCL_BLEND_FUNC_ENABLE, 3);
+		sb_data(sb, 1);
+		sb_data(sb, (nvgl_blend_func(cso->rt[0].alpha_src_factor) << 16) |
 			       nvgl_blend_func(cso->rt[0].rgb_src_factor));
-		so_data  (so, nvgl_blend_func(cso->rt[0].alpha_dst_factor) << 16 |
+		sb_data(sb, nvgl_blend_func(cso->rt[0].alpha_dst_factor) << 16 |
 			      nvgl_blend_func(cso->rt[0].rgb_dst_factor));
 		if(nvfx->screen->base.device->chipset < 0x40) {
-			so_method(so, eng3d, NV34TCL_BLEND_EQUATION, 1);
-			so_data  (so, nvgl_blend_eqn(cso->rt[0].rgb_func));
+			sb_method(sb, NV34TCL_BLEND_EQUATION, 1);
+			sb_data(sb, nvgl_blend_eqn(cso->rt[0].rgb_func));
 		} else {
-			so_method(so, eng3d, NV40TCL_BLEND_EQUATION, 1);
-			so_data  (so, nvgl_blend_eqn(cso->rt[0].alpha_func) << 16 |
+			sb_method(sb, NV40TCL_BLEND_EQUATION, 1);
+			sb_data(sb, nvgl_blend_eqn(cso->rt[0].alpha_func) << 16 |
 			      nvgl_blend_eqn(cso->rt[0].rgb_func));
 		}
 	} else {
-		so_method(so, eng3d, NV34TCL_BLEND_FUNC_ENABLE, 1);
-		so_data  (so, 0);
+		sb_method(sb, NV34TCL_BLEND_FUNC_ENABLE, 1);
+		sb_data(sb, 0);
 	}
 
-	so_method(so, eng3d, NV34TCL_COLOR_MASK, 1);
-	so_data  (so, (((cso->rt[0].colormask & PIPE_MASK_A) ? (0x01 << 24) : 0) |
+	sb_method(sb, NV34TCL_COLOR_MASK, 1);
+	sb_data(sb, (((cso->rt[0].colormask & PIPE_MASK_A) ? (0x01 << 24) : 0) |
 	       ((cso->rt[0].colormask & PIPE_MASK_R) ? (0x01 << 16) : 0) |
 	       ((cso->rt[0].colormask & PIPE_MASK_G) ? (0x01 <<  8) : 0) |
 	       ((cso->rt[0].colormask & PIPE_MASK_B) ? (0x01 <<  0) : 0)));
@@ -48,19 +47,18 @@ nvfx_blend_state_create(struct pipe_context *pipe,
 	/* TODO: add NV40 MRT color mask */
 
 	if (cso->logicop_enable) {
-		so_method(so, eng3d, NV34TCL_COLOR_LOGIC_OP_ENABLE, 2);
-		so_data  (so, 1);
-		so_data  (so, nvgl_logicop_func(cso->logicop_func));
+		sb_method(sb, NV34TCL_COLOR_LOGIC_OP_ENABLE, 2);
+		sb_data(sb, 1);
+		sb_data(sb, nvgl_logicop_func(cso->logicop_func));
 	} else {
-		so_method(so, eng3d, NV34TCL_COLOR_LOGIC_OP_ENABLE, 1);
-		so_data  (so, 0);
+		sb_method(sb, NV34TCL_COLOR_LOGIC_OP_ENABLE, 1);
+		sb_data(sb, 0);
 	}
 
-	so_method(so, eng3d, NV34TCL_DITHER_ENABLE, 1);
-	so_data  (so, cso->dither ? 1 : 0);
+	sb_method(sb, NV34TCL_DITHER_ENABLE, 1);
+	sb_data(sb, cso->dither ? 1 : 0);
 
-	so_ref(so, &bso->so);
-	so_ref(NULL, &so);
+	bso->sb_len = sb_len(sb, bso->sb);
 	bso->pipe = *cso;
 	return (void *)bso;
 }
@@ -79,7 +77,6 @@ nvfx_blend_state_delete(struct pipe_context *pipe, void *hwcso)
 {
 	struct nvfx_blend_state *bso = hwcso;
 
-	so_ref(NULL, &bso->so);
 	FREE(bso);
 }
 
@@ -163,7 +160,7 @@ nvfx_set_fragment_sampler_views(struct pipe_context *pipe,
 
 static struct pipe_sampler_view *
 nvfx_create_sampler_view(struct pipe_context *pipe,
-			 struct pipe_texture *texture,
+			 struct pipe_resource *texture,
 			 const struct pipe_sampler_view *templ)
 {
 	struct pipe_sampler_view *view = CALLOC_STRUCT(pipe_sampler_view);
@@ -172,7 +169,7 @@ nvfx_create_sampler_view(struct pipe_context *pipe,
 		*view = *templ;
 		view->reference.count = 1;
 		view->texture = NULL;
-		pipe_texture_reference(&view->texture, texture);
+		pipe_resource_reference(&view->texture, texture);
 		view->context = pipe;
 	}
 
@@ -184,7 +181,7 @@ static void
 nvfx_sampler_view_destroy(struct pipe_context *pipe,
 			  struct pipe_sampler_view *view)
 {
-	pipe_texture_reference(&view->texture, NULL);
+	pipe_resource_reference(&view->texture, NULL);
 	FREE(view);
 }
 
@@ -192,99 +189,99 @@ static void *
 nvfx_rasterizer_state_create(struct pipe_context *pipe,
 			     const struct pipe_rasterizer_state *cso)
 {
-	struct nvfx_context *nvfx = nvfx_context(pipe);
 	struct nvfx_rasterizer_state *rsso = CALLOC(1, sizeof(*rsso));
-	struct nouveau_stateobj *so = so_new(9, 19, 0);
-	struct nouveau_grobj *eng3d = nvfx->screen->eng3d;
+	struct nouveau_statebuf_builder sb = sb_init(rsso->sb);
 
 	/*XXX: ignored:
-	 * 	light_twoside
 	 * 	point_smooth -nohw
 	 * 	multisample
 	 */
 
-	so_method(so, eng3d, NV34TCL_SHADE_MODEL, 1);
-	so_data  (so, cso->flatshade ? NV34TCL_SHADE_MODEL_FLAT :
+	sb_method(sb, NV34TCL_SHADE_MODEL, 1);
+	sb_data(sb, cso->flatshade ? NV34TCL_SHADE_MODEL_FLAT :
 				       NV34TCL_SHADE_MODEL_SMOOTH);
 
-	so_method(so, eng3d, NV34TCL_LINE_WIDTH, 2);
-	so_data  (so, (unsigned char)(cso->line_width * 8.0) & 0xff);
-	so_data  (so, cso->line_smooth ? 1 : 0);
-	so_method(so, eng3d, NV34TCL_LINE_STIPPLE_ENABLE, 2);
-	so_data  (so, cso->line_stipple_enable ? 1 : 0);
-	so_data  (so, (cso->line_stipple_pattern << 16) |
+	sb_method(sb, NV34TCL_VERTEX_TWO_SIDE_ENABLE, 1);
+	sb_data(sb, cso->light_twoside);
+
+	sb_method(sb, NV34TCL_LINE_WIDTH, 2);
+	sb_data(sb, (unsigned char)(cso->line_width * 8.0) & 0xff);
+	sb_data(sb, cso->line_smooth ? 1 : 0);
+	sb_method(sb, NV34TCL_LINE_STIPPLE_ENABLE, 2);
+	sb_data(sb, cso->line_stipple_enable ? 1 : 0);
+	sb_data(sb, (cso->line_stipple_pattern << 16) |
 		       cso->line_stipple_factor);
 
-	so_method(so, eng3d, NV34TCL_POINT_SIZE, 1);
-	so_data  (so, fui(cso->point_size));
+	sb_method(sb, NV34TCL_POINT_SIZE, 1);
+	sb_data(sb, fui(cso->point_size));
 
-	so_method(so, eng3d, NV34TCL_POLYGON_MODE_FRONT, 6);
+	sb_method(sb, NV34TCL_POLYGON_MODE_FRONT, 6);
 	if (cso->front_winding == PIPE_WINDING_CCW) {
-		so_data(so, nvgl_polygon_mode(cso->fill_ccw));
-		so_data(so, nvgl_polygon_mode(cso->fill_cw));
+		sb_data(sb, nvgl_polygon_mode(cso->fill_ccw));
+		sb_data(sb, nvgl_polygon_mode(cso->fill_cw));
 		switch (cso->cull_mode) {
 		case PIPE_WINDING_CCW:
-			so_data(so, NV34TCL_CULL_FACE_FRONT);
+			sb_data(sb, NV34TCL_CULL_FACE_FRONT);
 			break;
 		case PIPE_WINDING_CW:
-			so_data(so, NV34TCL_CULL_FACE_BACK);
+			sb_data(sb, NV34TCL_CULL_FACE_BACK);
 			break;
 		case PIPE_WINDING_BOTH:
-			so_data(so, NV34TCL_CULL_FACE_FRONT_AND_BACK);
+			sb_data(sb, NV34TCL_CULL_FACE_FRONT_AND_BACK);
 			break;
 		default:
-			so_data(so, NV34TCL_CULL_FACE_BACK);
+			sb_data(sb, NV34TCL_CULL_FACE_BACK);
 			break;
 		}
-		so_data(so, NV34TCL_FRONT_FACE_CCW);
+		sb_data(sb, NV34TCL_FRONT_FACE_CCW);
 	} else {
-		so_data(so, nvgl_polygon_mode(cso->fill_cw));
-		so_data(so, nvgl_polygon_mode(cso->fill_ccw));
+		sb_data(sb, nvgl_polygon_mode(cso->fill_cw));
+		sb_data(sb, nvgl_polygon_mode(cso->fill_ccw));
 		switch (cso->cull_mode) {
 		case PIPE_WINDING_CCW:
-			so_data(so, NV34TCL_CULL_FACE_BACK);
+			sb_data(sb, NV34TCL_CULL_FACE_BACK);
 			break;
 		case PIPE_WINDING_CW:
-			so_data(so, NV34TCL_CULL_FACE_FRONT);
+			sb_data(sb, NV34TCL_CULL_FACE_FRONT);
 			break;
 		case PIPE_WINDING_BOTH:
-			so_data(so, NV34TCL_CULL_FACE_FRONT_AND_BACK);
+			sb_data(sb, NV34TCL_CULL_FACE_FRONT_AND_BACK);
 			break;
 		default:
-			so_data(so, NV34TCL_CULL_FACE_BACK);
+			sb_data(sb, NV34TCL_CULL_FACE_BACK);
 			break;
 		}
-		so_data(so, NV34TCL_FRONT_FACE_CW);
+		sb_data(sb, NV34TCL_FRONT_FACE_CW);
 	}
-	so_data(so, cso->poly_smooth ? 1 : 0);
-	so_data(so, (cso->cull_mode != PIPE_WINDING_NONE) ? 1 : 0);
+	sb_data(sb, cso->poly_smooth ? 1 : 0);
+	sb_data(sb, (cso->cull_mode != PIPE_WINDING_NONE) ? 1 : 0);
 
-	so_method(so, eng3d, NV34TCL_POLYGON_STIPPLE_ENABLE, 1);
-	so_data  (so, cso->poly_stipple_enable ? 1 : 0);
+	sb_method(sb, NV34TCL_POLYGON_STIPPLE_ENABLE, 1);
+	sb_data(sb, cso->poly_stipple_enable ? 1 : 0);
 
-	so_method(so, eng3d, NV34TCL_POLYGON_OFFSET_POINT_ENABLE, 3);
+	sb_method(sb, NV34TCL_POLYGON_OFFSET_POINT_ENABLE, 3);
 	if ((cso->offset_cw && cso->fill_cw == PIPE_POLYGON_MODE_POINT) ||
 	    (cso->offset_ccw && cso->fill_ccw == PIPE_POLYGON_MODE_POINT))
-		so_data(so, 1);
+		sb_data(sb, 1);
 	else
-		so_data(so, 0);
+		sb_data(sb, 0);
 	if ((cso->offset_cw && cso->fill_cw == PIPE_POLYGON_MODE_LINE) ||
 	    (cso->offset_ccw && cso->fill_ccw == PIPE_POLYGON_MODE_LINE))
-		so_data(so, 1);
+		sb_data(sb, 1);
 	else
-		so_data(so, 0);
+		sb_data(sb, 0);
 	if ((cso->offset_cw && cso->fill_cw == PIPE_POLYGON_MODE_FILL) ||
 	    (cso->offset_ccw && cso->fill_ccw == PIPE_POLYGON_MODE_FILL))
-		so_data(so, 1);
+		sb_data(sb, 1);
 	else
-		so_data(so, 0);
+		sb_data(sb, 0);
 	if (cso->offset_cw || cso->offset_ccw) {
-		so_method(so, eng3d, NV34TCL_POLYGON_OFFSET_FACTOR, 2);
-		so_data  (so, fui(cso->offset_scale));
-		so_data  (so, fui(cso->offset_units * 2));
+		sb_method(sb, NV34TCL_POLYGON_OFFSET_FACTOR, 2);
+		sb_data(sb, fui(cso->offset_scale));
+		sb_data(sb, fui(cso->offset_units * 2));
 	}
 
-	so_method(so, eng3d, NV34TCL_POINT_SPRITE, 1);
+	sb_method(sb, NV34TCL_POINT_SPRITE, 1);
 	if (cso->point_quad_rasterization) {
 		unsigned psctl = (1 << 0), i;
 
@@ -293,14 +290,13 @@ nvfx_rasterizer_state_create(struct pipe_context *pipe,
 				psctl |= (1 << (8 + i));
 		}
 
-		so_data(so, psctl);
+		sb_data(sb, psctl);
 	} else {
-		so_data(so, 0);
+		sb_data(sb, 0);
 	}
 
-	so_ref(so, &rsso->so);
-	so_ref(NULL, &so);
 	rsso->pipe = *cso;
+	rsso->sb_len = sb_len(sb, rsso->sb);
 	return (void *)rsso;
 }
 
@@ -308,6 +304,23 @@ static void
 nvfx_rasterizer_state_bind(struct pipe_context *pipe, void *hwcso)
 {
 	struct nvfx_context *nvfx = nvfx_context(pipe);
+
+	if(nvfx->rasterizer && hwcso)
+	{
+		if(!nvfx->rasterizer || ((struct nvfx_rasterizer_state*)hwcso)->pipe.scissor
+					!= nvfx->rasterizer->pipe.scissor)
+		{
+			nvfx->dirty |= NVFX_NEW_SCISSOR;
+			nvfx->draw_dirty |= NVFX_NEW_SCISSOR;
+		}
+
+		if(((struct nvfx_rasterizer_state*)hwcso)->pipe.poly_stipple_enable
+					!= nvfx->rasterizer->pipe.poly_stipple_enable)
+		{
+			nvfx->dirty |= NVFX_NEW_STIPPLE;
+			nvfx->draw_dirty |= NVFX_NEW_STIPPLE;
+		}
+	}
 
 	nvfx->rasterizer = hwcso;
 	nvfx->dirty |= NVFX_NEW_RAST;
@@ -319,7 +332,6 @@ nvfx_rasterizer_state_delete(struct pipe_context *pipe, void *hwcso)
 {
 	struct nvfx_rasterizer_state *rsso = hwcso;
 
-	so_ref(NULL, &rsso->so);
 	FREE(rsso);
 }
 
@@ -327,54 +339,51 @@ static void *
 nvfx_depth_stencil_alpha_state_create(struct pipe_context *pipe,
 			const struct pipe_depth_stencil_alpha_state *cso)
 {
-	struct nvfx_context *nvfx = nvfx_context(pipe);
 	struct nvfx_zsa_state *zsaso = CALLOC(1, sizeof(*zsaso));
-	struct nouveau_stateobj *so = so_new(6, 20, 0);
-	struct nouveau_grobj *eng3d = nvfx->screen->eng3d;
+	struct nouveau_statebuf_builder sb = sb_init(zsaso->sb);
 
-	so_method(so, eng3d, NV34TCL_DEPTH_FUNC, 3);
-	so_data  (so, nvgl_comparison_op(cso->depth.func));
-	so_data  (so, cso->depth.writemask ? 1 : 0);
-	so_data  (so, cso->depth.enabled ? 1 : 0);
+	sb_method(sb, NV34TCL_DEPTH_FUNC, 3);
+	sb_data  (sb, nvgl_comparison_op(cso->depth.func));
+	sb_data  (sb, cso->depth.writemask ? 1 : 0);
+	sb_data  (sb, cso->depth.enabled ? 1 : 0);
 
-	so_method(so, eng3d, NV34TCL_ALPHA_FUNC_ENABLE, 3);
-	so_data  (so, cso->alpha.enabled ? 1 : 0);
-	so_data  (so, nvgl_comparison_op(cso->alpha.func));
-	so_data  (so, float_to_ubyte(cso->alpha.ref_value));
+	sb_method(sb, NV34TCL_ALPHA_FUNC_ENABLE, 3);
+	sb_data  (sb, cso->alpha.enabled ? 1 : 0);
+	sb_data  (sb, nvgl_comparison_op(cso->alpha.func));
+	sb_data  (sb, float_to_ubyte(cso->alpha.ref_value));
 
 	if (cso->stencil[0].enabled) {
-		so_method(so, eng3d, NV34TCL_STENCIL_FRONT_ENABLE, 3);
-		so_data  (so, cso->stencil[0].enabled ? 1 : 0);
-		so_data  (so, cso->stencil[0].writemask);
-		so_data  (so, nvgl_comparison_op(cso->stencil[0].func));
-		so_method(so, eng3d, NV34TCL_STENCIL_FRONT_FUNC_MASK, 4);
-		so_data  (so, cso->stencil[0].valuemask);
-		so_data  (so, nvgl_stencil_op(cso->stencil[0].fail_op));
-		so_data  (so, nvgl_stencil_op(cso->stencil[0].zfail_op));
-		so_data  (so, nvgl_stencil_op(cso->stencil[0].zpass_op));
+		sb_method(sb, NV34TCL_STENCIL_FRONT_ENABLE, 3);
+		sb_data  (sb, cso->stencil[0].enabled ? 1 : 0);
+		sb_data  (sb, cso->stencil[0].writemask);
+		sb_data  (sb, nvgl_comparison_op(cso->stencil[0].func));
+		sb_method(sb, NV34TCL_STENCIL_FRONT_FUNC_MASK, 4);
+		sb_data  (sb, cso->stencil[0].valuemask);
+		sb_data  (sb, nvgl_stencil_op(cso->stencil[0].fail_op));
+		sb_data  (sb, nvgl_stencil_op(cso->stencil[0].zfail_op));
+		sb_data  (sb, nvgl_stencil_op(cso->stencil[0].zpass_op));
 	} else {
-		so_method(so, eng3d, NV34TCL_STENCIL_FRONT_ENABLE, 1);
-		so_data  (so, 0);
+		sb_method(sb, NV34TCL_STENCIL_FRONT_ENABLE, 1);
+		sb_data  (sb, 0);
 	}
 
 	if (cso->stencil[1].enabled) {
-		so_method(so, eng3d, NV34TCL_STENCIL_BACK_ENABLE, 3);
-		so_data  (so, cso->stencil[1].enabled ? 1 : 0);
-		so_data  (so, cso->stencil[1].writemask);
-		so_data  (so, nvgl_comparison_op(cso->stencil[1].func));
-		so_method(so, eng3d, NV34TCL_STENCIL_BACK_FUNC_MASK, 4);
-		so_data  (so, cso->stencil[1].valuemask);
-		so_data  (so, nvgl_stencil_op(cso->stencil[1].fail_op));
-		so_data  (so, nvgl_stencil_op(cso->stencil[1].zfail_op));
-		so_data  (so, nvgl_stencil_op(cso->stencil[1].zpass_op));
+		sb_method(sb, NV34TCL_STENCIL_BACK_ENABLE, 3);
+		sb_data  (sb, cso->stencil[1].enabled ? 1 : 0);
+		sb_data  (sb, cso->stencil[1].writemask);
+		sb_data  (sb, nvgl_comparison_op(cso->stencil[1].func));
+		sb_method(sb, NV34TCL_STENCIL_BACK_FUNC_MASK, 4);
+		sb_data  (sb, cso->stencil[1].valuemask);
+		sb_data  (sb, nvgl_stencil_op(cso->stencil[1].fail_op));
+		sb_data  (sb, nvgl_stencil_op(cso->stencil[1].zfail_op));
+		sb_data  (sb, nvgl_stencil_op(cso->stencil[1].zpass_op));
 	} else {
-		so_method(so, eng3d, NV34TCL_STENCIL_BACK_ENABLE, 1);
-		so_data  (so, 0);
+		sb_method(sb, NV34TCL_STENCIL_BACK_ENABLE, 1);
+		sb_data  (sb, 0);
 	}
 
-	so_ref(so, &zsaso->so);
-	so_ref(NULL, &so);
 	zsaso->pipe = *cso;
+	zsaso->sb_len = sb_len(sb, zsaso->sb);
 	return (void *)zsaso;
 }
 
@@ -392,7 +401,6 @@ nvfx_depth_stencil_alpha_state_delete(struct pipe_context *pipe, void *hwcso)
 {
 	struct nvfx_zsa_state *zsaso = hwcso;
 
-	so_ref(NULL, &zsaso->so);
 	FREE(zsaso);
 }
 
@@ -499,18 +507,18 @@ nvfx_set_clip_state(struct pipe_context *pipe,
 
 static void
 nvfx_set_constant_buffer(struct pipe_context *pipe, uint shader, uint index,
-			 struct pipe_buffer *buf )
+			 struct pipe_resource *buf )
 {
 	struct nvfx_context *nvfx = nvfx_context(pipe);
 
 	nvfx->constbuf[shader] = buf;
-	nvfx->constbuf_nr[shader] = buf->size / (4 * sizeof(float));
+	nvfx->constbuf_nr[shader] = buf->width0 / (4 * sizeof(float));
 
 	if (shader == PIPE_SHADER_VERTEX) {
-		nvfx->dirty |= NVFX_NEW_VERTPROG;
+		nvfx->dirty |= NVFX_NEW_VERTCONST;
 	} else
 	if (shader == PIPE_SHADER_FRAGMENT) {
-		nvfx->dirty |= NVFX_NEW_FRAGPROG;
+		nvfx->dirty |= NVFX_NEW_FRAGCONST;
 	}
 }
 
