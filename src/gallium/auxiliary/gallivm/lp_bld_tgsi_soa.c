@@ -332,6 +332,8 @@ static LLVMValueRef lp_get_function(struct lp_build_tgsi_soa_context *bld,
 
 static void lp_exec_mask_init(struct lp_exec_mask *mask, struct lp_build_context *bld)
 {
+   LLVMValueRef ones;
+
    mask->bld = bld;
    mask->has_mask = FALSE;
    mask->cond_stack_size = 0;
@@ -339,8 +341,12 @@ static void lp_exec_mask_init(struct lp_exec_mask *mask, struct lp_build_context
    mask->ret_mask = 0;
 
    mask->int_vec_type = lp_build_int_vec_type(mask->bld->type);
-   mask->break_mask = mask->cont_mask = mask->cond_mask =
-         LLVMConstAllOnes(mask->int_vec_type);
+   ones = LLVMConstAllOnes(mask->int_vec_type);
+   mask->cond_mask = ones;
+   mask->cont_mask = ones;
+   mask->break_mask = ones;
+   mask->ret_mask = ones;
+   mask->exec_mask = ones;
 }
 
 static void lp_exec_mask_update(struct lp_exec_mask *mask)
