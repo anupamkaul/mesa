@@ -283,7 +283,7 @@ static LLVMValueRef lp_get_function(struct lp_build_tgsi_soa_context *bld,
 
    if (cso_hash_iter_is_null(iter)) {
       LLVMTypeRef func_type;
-      LLVMTypeRef arg_types[6];
+      LLVMTypeRef arg_types[7];
       LLVMTypeRef vec_type = lp_build_vec_type(bld->base.type);
       int i;
       char func_name[32];
@@ -296,6 +296,7 @@ static LLVMValueRef lp_get_function(struct lp_build_tgsi_soa_context *bld,
       arg_types[3] = LLVMPointerType(vec_type, 0);  /* temps */
       arg_types[4] = LLVMPointerType(vec_type, 0);  /* addrs */
       arg_types[5] = LLVMPointerType(vec_type, 0);  /* preds */
+      arg_types[6] = bld->exec_mask.int_vec_type;  /* exec_mask */
 
       func_type = LLVMFunctionType(LLVMVoidType(), arg_types, Elements(arg_types), 0);
 
@@ -328,7 +329,6 @@ static void lp_exec_mask_init(struct lp_exec_mask *mask, struct lp_build_context
    mask->cond_mask = ones;
    mask->cont_mask = ones;
    mask->break_mask = ones;
-   mask->ret_mask = ones;
    mask->exec_mask = ones;
 }
 
@@ -356,6 +356,7 @@ static void lp_exec_mask_update(struct lp_exec_mask *mask)
                                      "retmask");
    }
 
+   assert(LLVMTypeOf(mask->exec_mask) == mask->int_vec_type);
 
    mask->has_mask = (mask->cond_stack_size > 0 ||
                      mask->loop_stack_size > 0 ||
@@ -403,10 +404,10 @@ static void lp_exec_mask_cond_pop(struct lp_exec_mask *mask)
 }
 
 
-static void lp_exec_bgnsub(struct lp_exec_mask *mask)
+static void lp_exec_bgnsub(struct lp_exec_mask *mask, LLVMValueRef ret_mask)
 {
-   mask->exec_mask = LLVMConstAllOnes(mask->int_vec_type);
-   mask->ret_mask = LLVMConstAllOnes(mask->int_vec_type);
+   mask->ret_mask = ret_mask;
+   lp_exec_mask_update(mask);
 }
 
 static void lp_exec_bgnloop(struct lp_exec_mask *mask)
@@ -633,7 +634,7 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    LLVMValueRef func = lp_get_function(bld, bld->instno);
    LLVMBasicBlockRef block;
    LLVMValueRef inputs_ptr, outputs_ptr,
-      consts_ptr, temps_ptr, addrs_ptr, preds_ptr;
+      consts_ptr, temps_ptr, addrs_ptr, preds_ptr, exec_mask;
 
    inputs_ptr  = LLVMGetParam(func, 0);
    outputs_ptr  = LLVMGetParam(func, 1);
@@ -641,6 +642,7 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    temps_ptr  = LLVMGetParam(func, 3);
    addrs_ptr  = LLVMGetParam(func, 4);
    preds_ptr  = LLVMGetParam(func, 5);
+   exec_mask = LLVMGetParam(func, 6);
 
    lp_build_name(inputs_ptr, "inputs");
    lp_build_name(outputs_ptr, "outputs");
@@ -648,6 +650,7 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    lp_build_name(temps_ptr, "temps");
    lp_build_name(addrs_ptr, "addrs");
    lp_build_name(preds_ptr, "preds");
+   lp_build_name(exec_mask, "exec_mask");
 
    bld->inputs_array = inputs_ptr;
    bld->outputs_array = outputs_ptr;
@@ -655,13 +658,14 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    bld->temps_array = temps_ptr;
    bld->addrs_array = addrs_ptr;
    bld->preds_array = preds_ptr;
+   bld->preds_array = preds_ptr;
 
    bld->main_block = LLVMGetInsertBlock(bld->base.builder);
 
    block = LLVMAppendBasicBlock(func, "entry");
    LLVMPositionBuilderAtEnd(bld->base.builder, block);
 
-   lp_exec_bgnsub(&bld->exec_mask);
+   lp_exec_bgnsub(&bld->exec_mask, exec_mask);
 }
 
 static void
@@ -1882,7 +1886,7 @@ emit_instruction(
       break;
 
    case TGSI_OPCODE_CAL: {
-      LLVMValueRef args[6];
+      LLVMValueRef args[7];
       LLVMValueRef func = lp_get_function(bld, inst->Label.Label);
       args[0] = bld->inputs_array;
       args[1] = bld->outputs_array;
@@ -1890,6 +1894,7 @@ emit_instruction(
       args[3] = bld->temps_array;
       args[4] = bld->addrs_array;
       args[5] = bld->preds_array;
+      args[6] = bld->exec_mask.exec_mask;
       LLVMBuildCall(bld->base.builder, func, args, Elements(args), "");
    }
       break;
