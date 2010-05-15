@@ -136,7 +136,6 @@ struct lp_build_tgsi_soa_context
 
    LLVMValueRef inputs_array;
    LLVMValueRef outputs_array;
-   LLVMValueRef immediates_array;
    LLVMValueRef addrs_array;
    LLVMValueRef preds_array;
 
@@ -238,21 +237,6 @@ get_output_ptr(struct lp_build_tgsi_soa_context *bld,
 }
 
 static LLVMValueRef
-get_immediates_ptr(struct lp_build_tgsi_soa_context *bld,
-                   unsigned index,
-                   unsigned swizzle,
-                   boolean is_indirect,
-                   LLVMValueRef addr)
-{
-   LLVMValueRef lindex =
-      LLVMConstInt(LLVMInt32Type(), index*4 + swizzle, 0);
-   assert(bld->has_function_calls);
-   if (is_indirect)
-      lindex = lp_build_add(&bld->base, lindex, addr);
-   return LLVMBuildGEP(bld->base.builder, bld->immediates_array, &lindex, 1, "immediates_ptr");
-}
-
-static LLVMValueRef
 get_addr_ptr(struct lp_build_tgsi_soa_context *bld,
              unsigned index,
              unsigned swizzle,
@@ -299,12 +283,12 @@ static LLVMValueRef lp_get_function(struct lp_build_tgsi_soa_context *bld,
 
    if (cso_hash_iter_is_null(iter)) {
       LLVMTypeRef func_type;
-      LLVMTypeRef arg_types[7];
+      LLVMTypeRef arg_types[6];
       LLVMTypeRef vec_type = lp_build_vec_type(bld->base.type);
       int i;
       char func_name[32];
 
-      util_snprintf(func_name, 31, "func%d", label);
+      util_snprintf(func_name, sizeof func_name, "func%d", label);
 
       arg_types[0] = LLVMPointerType(vec_type, 0);  /* inputs */
       arg_types[1] = LLVMPointerType(vec_type, 0);  /* outpus */
@@ -312,7 +296,6 @@ static LLVMValueRef lp_get_function(struct lp_build_tgsi_soa_context *bld,
       arg_types[3] = LLVMPointerType(vec_type, 0);  /* temps */
       arg_types[4] = LLVMPointerType(vec_type, 0);  /* addrs */
       arg_types[5] = LLVMPointerType(vec_type, 0);  /* preds */
-      arg_types[6] = LLVMPointerType(vec_type, 0);  /* immediates */
 
       func_type = LLVMFunctionType(LLVMVoidType(), arg_types, Elements(arg_types), 0);
 
@@ -602,22 +585,6 @@ emit_preamble(struct lp_build_tgsi_soa_context *bld, uint num_immediates)
       int size = bld->full_range.outputs.Last + 1;
       bld->outputs_array  = emit_vec_alloca_array(bld, vec_type, size);
 
-      /* we need to insert the created immediates into our array */
-      size = num_immediates;
-      if (size > 0)
-         bld->immediates_array  = emit_vec_alloca_array(bld, vec_type, size);
-      for (i = 0; i < size; ++i) {
-         int j;
-         for (j = 0; j < NUM_CHANNELS; ++j) {
-            LLVMValueRef ptr = get_immediates_ptr(bld,
-                                                  i, j,
-                                                  FALSE, 0);
-            LLVMBuildStore(bld->base.builder,
-                           bld->immediates[i][j],
-                           ptr);
-         }
-      }
-
       size = bld->full_range.addrs.Last + 1;
       bld->addrs_array  = emit_vec_alloca_array(bld, vec_type, size);
 
@@ -668,7 +635,7 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    LLVMValueRef func = lp_get_function(bld, bld->instno);
    LLVMBasicBlockRef block;
    LLVMValueRef inputs_ptr, outputs_ptr,
-      consts_ptr, temps_ptr, addrs_ptr, preds_ptr, imms_ptr;
+      consts_ptr, temps_ptr, addrs_ptr, preds_ptr;
 
    inputs_ptr  = LLVMGetParam(func, 0);
    outputs_ptr  = LLVMGetParam(func, 1);
@@ -676,7 +643,6 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    temps_ptr  = LLVMGetParam(func, 3);
    addrs_ptr  = LLVMGetParam(func, 4);
    preds_ptr  = LLVMGetParam(func, 5);
-   imms_ptr  = LLVMGetParam(func, 6);
 
    lp_build_name(inputs_ptr, "inputs");
    lp_build_name(outputs_ptr, "outputs");
@@ -684,7 +650,6 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    lp_build_name(temps_ptr, "temps");
    lp_build_name(addrs_ptr, "addrs");
    lp_build_name(preds_ptr, "preds");
-   lp_build_name(imms_ptr, "immediates");
 
    bld->inputs_array = inputs_ptr;
    bld->outputs_array = outputs_ptr;
@@ -692,7 +657,6 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    bld->temps_array = temps_ptr;
    bld->addrs_array = addrs_ptr;
    bld->preds_array = preds_ptr;
-   bld->immediates_array = imms_ptr;
 
    block = LLVMAppendBasicBlock(func, "entry");
    LLVMPositionBuilderAtEnd(bld->base.builder, block);
@@ -782,14 +746,7 @@ emit_fetch(
       break;
 
    case TGSI_FILE_IMMEDIATE:
-      if (bld->has_function_calls) {
-         LLVMValueRef ptr = get_immediates_ptr(bld,
-                                               reg->Register.Index,
-                                               swizzle,
-                                               FALSE, 0);
-         res = LLVMBuildLoad(bld->base.builder, ptr, "");
-      } else
-         res = bld->immediates[reg->Register.Index][swizzle];
+      res = bld->immediates[reg->Register.Index][swizzle];
       assert(res);
       break;
 
@@ -1919,7 +1876,7 @@ emit_instruction(
       break;
 
    case TGSI_OPCODE_CAL: {
-      LLVMValueRef args[7];
+      LLVMValueRef args[6];
       LLVMValueRef func = lp_get_function(bld, inst->Label.Label);
       args[0] = bld->inputs_array;
       args[1] = bld->outputs_array;
@@ -1927,7 +1884,6 @@ emit_instruction(
       args[3] = bld->temps_array;
       args[4] = bld->addrs_array;
       args[5] = bld->preds_array;
-      args[6] = bld->immediates_array;
       LLVMBuildCall(bld->base.builder, func, args, Elements(args), "");
    }
       break;
