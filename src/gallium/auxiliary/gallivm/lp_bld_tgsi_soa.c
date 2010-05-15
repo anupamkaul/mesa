@@ -613,8 +613,6 @@ emit_end(struct lp_build_tgsi_soa_context *bld)
 {
    int i, j;
 
-   bld->main_block = LLVMGetInsertBlock(bld->base.builder);
-
    /* if we had function calls we want to propagate the
     * outputs from the array to the values */
    if (bld->has_function_calls) {
@@ -658,6 +656,8 @@ emit_bgnsub(struct lp_build_tgsi_soa_context *bld)
    bld->addrs_array = addrs_ptr;
    bld->preds_array = preds_ptr;
 
+   bld->main_block = LLVMGetInsertBlock(bld->base.builder);
+
    block = LLVMAppendBasicBlock(func, "entry");
    LLVMPositionBuilderAtEnd(bld->base.builder, block);
 
@@ -668,6 +668,12 @@ static void
 emit_endsub(struct lp_build_tgsi_soa_context *bld)
 {
    LLVMBuildRetVoid(bld->base.builder);
+
+   /* we have to make sure we're at the end of the main block
+    * (which won't be the case if we had more than one TGSI function
+    * in the given shader) to let the calling function append
+    * whatever it needs at the end of the main function */
+   LLVMPositionBuilderAtEnd(bld->base.builder, bld->main_block);
 }
 
 static LLVMValueRef
@@ -1888,12 +1894,30 @@ emit_instruction(
    }
       break;
 
+   /*
+    * XXX: Mesa state tracker emits RET/END opcodes that don't follow the
+    * neither NV_gpu_program4 nor D3D semantics, so we try to accommodate both
+    * usages here.
+    */
+
    case TGSI_OPCODE_RET:
-      lp_exec_ret(&bld->exec_mask);
+      if (bld->main_block) {
+         /* Inside a sub-routine */
+         lp_exec_ret(&bld->exec_mask);
+      } else {
+         /* Main function */
+         emit_end(bld);
+      }
+
       break;
 
    case TGSI_OPCODE_END:
-      emit_end(bld);
+      if (bld->main_block) {
+         /* After sub-routines */
+      } else {
+         /* Main function */
+         emit_end(bld);
+      }
       break;
 
    case TGSI_OPCODE_SSG:
@@ -2288,11 +2312,6 @@ lp_build_tgsi_soa(LLVMBuilderRef builder,
          assert( 0 );
       }
    }
-   /* we have to make sure we're at the end of the main block
-    * (which won't be the case if we had more than one TGSI function
-    * in the given shader) to let the calling function append
-    * whatever it needs at the end of the main function */
-   LLVMPositionBuilderAtEnd(bld.base.builder, bld.main_block);
 
    if (0) {
       LLVMBasicBlockRef block = LLVMGetInsertBlock(builder);
