@@ -130,18 +130,6 @@ struct pipe_screen {
    void (*resource_destroy)(struct pipe_screen *,
 			    struct pipe_resource *pt);
 
-   /** Get a 2D surface which is a "view" into a texture
-    * \param usage  bitmaks of PIPE_BIND_* flags
-    */
-   struct pipe_surface *(*get_tex_surface)(struct pipe_screen *,
-                                           struct pipe_resource *resource,
-                                           unsigned face, unsigned level,
-                                           unsigned zslice,
-                                           unsigned usage );
-
-   void (*tex_surface_destroy)(struct pipe_surface *);
-   
-
 
    /**
     * Create a buffer that wraps user-space data.

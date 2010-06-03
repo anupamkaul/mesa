@@ -137,11 +137,13 @@ enum pipe_error {
 
 /** Texture types */
 enum pipe_texture_target {
-   PIPE_BUFFER       = 0,
-   PIPE_TEXTURE_1D   = 1,
-   PIPE_TEXTURE_2D   = 2,
-   PIPE_TEXTURE_3D   = 3,
-   PIPE_TEXTURE_CUBE = 4,
+   PIPE_BUFFER           = 0,
+   PIPE_TEXTURE_1D       = 1,
+   PIPE_TEXTURE_2D       = 2,
+   PIPE_TEXTURE_3D       = 3,
+   PIPE_TEXTURE_CUBE     = 4,
+   PIPE_TEXTURE_1D_ARRAY = 5,
+   PIPE_TEXTURE_2D_ARRAY = 6,
    PIPE_MAX_TEXTURE_TYPES
 };
 
@@ -455,6 +457,7 @@ enum pipe_cap {
    /** different blend funcs per rendertarget */
    PIPE_CAP_INDEP_BLEND_FUNC,
    PIPE_CAP_DEPTHSTENCIL_CLEAR_SEPARATE,
+   PIPE_CAP_ARRAY_TEXTURES,
    PIPE_CAP_TGSI_FS_COORD_ORIGIN_UPPER_LEFT,
    PIPE_CAP_TGSI_FS_COORD_ORIGIN_LOWER_LEFT,
    PIPE_CAP_TGSI_FS_COORD_PIXEL_CENTER_HALF_INTEGER,
