@@ -236,7 +236,8 @@ static const char *file_names[TGSI_FILE_COUNT] =
    "ADDR",
    "IMM",
    "PRED",
-   "SV"
+   "SV",
+   "RES"
 };
 
 static boolean

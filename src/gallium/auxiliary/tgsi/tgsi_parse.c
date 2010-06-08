@@ -117,6 +117,10 @@ tgsi_parse_token(
          next_token( ctx, &decl->Semantic );
       }
 
+      if (decl->Declaration.File == TGSI_FILE_RESOURCE) {
+         next_token(ctx, &decl->Resource);
+      }
+
       break;
    }
 

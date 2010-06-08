@@ -60,6 +60,7 @@ struct tgsi_full_declaration
    struct tgsi_declaration_range Range;
    struct tgsi_declaration_dimension Dim;
    struct tgsi_declaration_semantic Semantic;
+   struct tgsi_declaration_resource Resource;
 };
 
 struct tgsi_full_immediate
@@ -75,7 +76,7 @@ struct tgsi_full_property
 };
 
 #define TGSI_FULL_MAX_DST_REGISTERS 2
-#define TGSI_FULL_MAX_SRC_REGISTERS 4 /* TXD has 4 */
+#define TGSI_FULL_MAX_SRC_REGISTERS 5 /* SAMPLE_D has 5 */
 
 struct tgsi_full_instruction
 {

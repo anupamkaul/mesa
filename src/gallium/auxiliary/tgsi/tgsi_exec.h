@@ -312,7 +312,6 @@ struct tgsi_exec_machine
 
    struct tgsi_full_declaration *Declarations;
    uint NumDeclarations;
-
 };
 
 struct tgsi_exec_machine *

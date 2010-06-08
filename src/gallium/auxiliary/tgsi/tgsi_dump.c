@@ -101,7 +101,8 @@ static const char *file_names[TGSI_FILE_COUNT] =
    "ADDR",
    "IMM",
    "PRED",
-   "SV"
+   "SV",
+   "RES"
 };
 
 static const char *interpolate_names[] =
@@ -152,6 +153,15 @@ static const char *texture_names[] =
    "SHADOW1D",
    "SHADOW2D",
    "SHADOWRECT"
+};
+
+static const char *type_names[] =
+{
+   "UNORM",
+   "SNORM",
+   "SINT",
+   "UINT",
+   "FLOAT"
 };
 
 static const char *property_names[] =
@@ -324,6 +334,28 @@ iter_declaration(
          UID( decl->Semantic.Index );
          CHR( ']' );
       }
+   }
+
+   if (decl->Declaration.File == TGSI_FILE_RESOURCE) {
+      TXT(", ");
+      ENM(decl->Resource.Resource, texture_names);
+      TXT(", ");
+      if (decl->Resource.ReturnTypeX ==
+          decl->Resource.ReturnTypeY ==
+          decl->Resource.ReturnTypeZ ==
+          decl->Resource.ReturnTypeW)
+         ENM(decl->Resource.ReturnTypeX, type_names);
+      else {
+         TXT(", ");
+         ENM(decl->Resource.ReturnTypeX, type_names);
+         TXT(", ");
+         ENM(decl->Resource.ReturnTypeY, type_names);
+         TXT(", ");
+         ENM(decl->Resource.ReturnTypeZ, type_names);
+         TXT(", ");
+         ENM(decl->Resource.ReturnTypeW, type_names);
+      }
+
    }
 
    if (iter->processor.Processor == TGSI_PROCESSOR_FRAGMENT &&

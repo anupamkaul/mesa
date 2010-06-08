@@ -109,6 +109,19 @@ tgsi_build_declaration_semantic(
    struct tgsi_declaration *declaration,
    struct tgsi_header *header );
 
+struct tgsi_declaration_resource
+tgsi_default_declaration_resource(void);
+
+struct tgsi_declaration_resource
+tgsi_build_declaration_resource(unsigned resource,
+                                unsigned return_type_x,
+                                unsigned return_type_y,
+                                unsigned return_type_z,
+                                unsigned return_type_w,
+                                struct tgsi_declaration *declaration,
+                                struct tgsi_header *header);
+
+
 /*
  * immediate
  */
