@@ -340,13 +340,11 @@ iter_declaration(
       TXT(", ");
       ENM(decl->Resource.Resource, texture_names);
       TXT(", ");
-      if (decl->Resource.ReturnTypeX ==
-          decl->Resource.ReturnTypeY ==
-          decl->Resource.ReturnTypeZ ==
-          decl->Resource.ReturnTypeW)
+      if ((decl->Resource.ReturnTypeX == decl->Resource.ReturnTypeY) &&
+          (decl->Resource.ReturnTypeX == decl->Resource.ReturnTypeZ) &&
+          (decl->Resource.ReturnTypeX == decl->Resource.ReturnTypeW)) {
          ENM(decl->Resource.ReturnTypeX, type_names);
-      else {
-         TXT(", ");
+      } else {
          ENM(decl->Resource.ReturnTypeX, type_names);
          TXT(", ");
          ENM(decl->Resource.ReturnTypeY, type_names);

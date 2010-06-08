@@ -1044,7 +1044,6 @@ static boolean parse_declaration( struct translate_ctx *ctx )
       cur++;
       eat_opt_white( &cur );
       if (file == TGSI_FILE_RESOURCE) {
-         debug_printf("RESOURCE!!!!!!!!\n");
          for (i = 0; i < TGSI_TEXTURE_COUNT; i++) {
             if (str_match_no_case(&cur, texture_names[i])) {
                if (!is_digit_alpha_underscore(cur)) {
@@ -1058,10 +1057,11 @@ static boolean parse_declaration( struct translate_ctx *ctx )
             return FALSE;
          }
          eat_opt_white( &cur );
-         if (*ctx->cur != ',') {
+         if (*cur != ',') {
             report_error( ctx, "Expected `,'" );
             return FALSE;
          }
+         ++cur;
          eat_opt_white( &cur );
          for (j = 0; j < 4; ++j) {
             for (i = 0; i < PIPE_TYPE_COUNT; ++i) {
@@ -1094,13 +1094,15 @@ static boolean parse_declaration( struct translate_ctx *ctx )
                }
                break;
             } else {
-               eat_opt_white( &ctx->cur );
-               if (*ctx->cur != ',') {
-                  report_error( ctx, "Expected `,'" );
-                  return FALSE;
-               }
-               ctx->cur++;
-               eat_opt_white( &ctx->cur );
+               const char *cur2 = cur;
+               eat_opt_white( &cur2 );
+               if (*cur2 == ',') {
+                  cur2++;
+                  eat_opt_white( &cur2 );
+                  cur = cur2;
+                  continue;
+               } else
+                  break;
             }
          }
          if (j < 4) {
