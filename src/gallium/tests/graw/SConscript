@@ -19,6 +19,7 @@ progs = [
     'vs-test',
     'gs-test',
     'tri-gs',
+    'quad-sample',
 ]
 
 for prog in progs:
