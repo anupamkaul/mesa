@@ -3640,11 +3640,11 @@ exec_instruction(
       break;
 
    case TGSI_OPCODE_SAMPLE_C:
-      assert(0);
+      exec_sample(mach, inst, TEX_MODIFIER_NONE);
       break;
 
    case TGSI_OPCODE_SAMPLE_C_LZ:
-      assert(0);
+      exec_sample(mach, inst, TEX_MODIFIER_LOD_BIAS);
       break;
 
    case TGSI_OPCODE_SAMPLE_D:
