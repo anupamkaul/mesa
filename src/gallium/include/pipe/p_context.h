@@ -249,11 +249,11 @@ struct pipe_context {
     */
    void (*resource_copy_region)(struct pipe_context *pipe,
                                 struct pipe_resource *dst,
-                                unsigned level,
+                                unsigned dst_level,
                                 unsigned dstx, unsigned dsty, unsigned dstz,
                                 struct pipe_resource *src,
-                                unsigned level,
-                                const struct pipe_box *);
+                                unsigned src_level,
+                                const struct pipe_box *src_box);
 
    /**
     * Resolve a multisampled resource into a non-multisampled one.
@@ -344,14 +344,15 @@ struct pipe_context {
     * render target / depth stencil stages.
     * \param usage  bitmaks of PIPE_BIND_* flags
     */
-   struct pipe_surface *(*create_surface)(struct pipe_screen *,
+   struct pipe_surface *(*create_surface)(struct pipe_context *ctx,
                                           struct pipe_resource *resource,
                                           unsigned level,
                                           unsigned first_layer,
                                           unsigned last_layer,
                                           unsigned usage );
 
-   void (*surface_destroy)(struct pipe_surface *);
+   void (*surface_destroy)(struct pipe_context *ctx,
+                           struct pipe_surface *);
 
    /**
     * Get a transfer object for transferring data to/from a texture.

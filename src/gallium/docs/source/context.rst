@@ -136,8 +136,7 @@ used by GL), and always clears the whole surfaces (no scissoring as used by
 GL clear or explicit rectangles like d3d9 uses). It can, however, also clear
 only depth or stencil in a combined depth/stencil surface, if the driver
 supports PIPE_CAP_DEPTHSTENCIL_CLEAR_SEPARATE.
-If a surface includes several layers/slices (XXX: not yet...) then all layers
-will be cleared.
+If a surface includes several layers then all layers will be cleared.
 
 ``clear_render_target`` clears a single color rendertarget with the specified
 color value. While it is only possible to clear one surface at a time (which can

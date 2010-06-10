@@ -269,13 +269,14 @@ struct pipe_sampler_state
 
 
 /**
- * 2D surface.  This is basically a view into a memory buffer.
- * May be a renderbuffer, texture mipmap level, etc.
+ * A view into a texture that can be bound to a color render target /
+ * depth stencil attachment point.
  */
 struct pipe_surface
 {
    struct pipe_reference reference;
    struct pipe_resource *texture; /**< resource into which this is a view  */
+   struct pipe_context *context; /**< context this view belongs to */
    enum pipe_format format;
 
    unsigned width;               /**< logical width in pixels */
