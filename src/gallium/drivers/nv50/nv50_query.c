@@ -128,12 +128,18 @@ nv50_query_result(struct pipe_context *pipe, struct pipe_query *pq,
 
 static void
 nv50_render_condition(struct pipe_context *pipe,
-		      struct pipe_query *pq, uint mode)
+		      struct pipe_query *pq,
+                      boolean predicate,
+                      uint mode)
 {
 	struct nv50_context *nv50 = nv50_context(pipe);
 	struct nouveau_channel *chan = nv50->screen->base.channel;
 	struct nouveau_grobj *tesla = nv50->screen->tesla;
 	struct nv50_query *q;
+
+        /* Mesa state tracker only uses FALSE so far:
+         */
+        assert(predicate == FALSE);
 
 	if (!pq) {
 		BEGIN_RING(chan, tesla, NV50TCL_COND_MODE, 1);

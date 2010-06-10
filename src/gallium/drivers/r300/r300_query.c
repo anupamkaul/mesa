@@ -172,6 +172,7 @@ static boolean r300_get_query_result(struct pipe_context* pipe,
 
 static void r300_render_condition(struct pipe_context *pipe,
                                   struct pipe_query *query,
+                                  boolean predicate,
                                   uint mode)
 {
     struct r300_context *r300 = r300_context(pipe);
@@ -186,7 +187,7 @@ static void r300_render_condition(struct pipe_context *pipe,
             r300->skip_rendering = FALSE;
         }
 
-        r300->skip_rendering = result == 0;
+        r300->skip_rendering = (result > 0) == predicate;
     } else {
         r300->skip_rendering = FALSE;
     }

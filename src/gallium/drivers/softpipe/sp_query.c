@@ -168,8 +168,15 @@ softpipe_check_render_cond(struct softpipe_context *sp)
            sp->render_cond_mode == PIPE_RENDER_COND_BY_REGION_WAIT);
 
    b = pipe->get_query_result(pipe, sp->render_cond_query, wait, &result);
-   if (b)
-      return result > 0;
+   if (b) {
+      /* Consider the condition TRUE if any fragments were rasterized.
+       */
+      boolean predicate = (result > 0);
+      
+      /* Permit rendering if condition does not match render_cond_predicate.
+       */
+      return predicate != sp->render_cond_predicate;
+   }
    else
       return TRUE;
 }

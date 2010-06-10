@@ -72,7 +72,7 @@ st_BeginConditionalRender(GLcontext *ctx, struct gl_query_object *q,
       m = PIPE_RENDER_COND_WAIT;
    }
 
-   pipe->render_condition(pipe, stq->pq, m);
+   pipe->render_condition(pipe, stq->pq, FALSE, m);
 }
 
 

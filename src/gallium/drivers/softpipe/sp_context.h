@@ -135,6 +135,7 @@ struct softpipe_context {
 
    /** Conditional query object and mode */
    struct pipe_query *render_cond_query;
+   boolean render_cond_predicate;
    uint render_cond_mode;
 
    /** Software quad rendering pipeline */
