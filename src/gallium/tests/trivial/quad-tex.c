@@ -157,7 +157,6 @@ static void init_prog(struct program *p)
 		struct pipe_transfer *t;
 		struct pipe_resource t_tmplt;
 		struct pipe_sampler_view v_tmplt;
-		struct pipe_subresource sub;
 		struct pipe_box box;
 
 		memset(&t_tmplt, 0, sizeof(t_tmplt));
@@ -171,12 +170,11 @@ static void init_prog(struct program *p)
 
 		p->tex = p->screen->resource_create(p->screen, &t_tmplt);
 
-		memset(&sub, 0, sizeof(sub));
 		memset(&box, 0, sizeof(box));
 		box.width = 2;
 		box.height = 2;
 
-		t = p->pipe->get_transfer(p->pipe, p->tex, sub, PIPE_TRANSFER_WRITE, &box);
+		t = p->pipe->get_transfer(p->pipe, p->tex, 0, PIPE_TRANSFER_WRITE, &box);
 
 		ptr = p->pipe->transfer_map(p->pipe, t);
 		ptr[0] = 0xffff0000;
@@ -219,7 +217,7 @@ static void init_prog(struct program *p)
 	p->framebuffer.width = WIDTH;
 	p->framebuffer.height = HEIGHT;
 	p->framebuffer.nr_cbufs = 1;
-	p->framebuffer.cbufs[0] = p->screen->get_tex_surface(p->screen, p->target, 0, 0, 0, PIPE_BIND_RENDER_TARGET);
+	p->framebuffer.cbufs[0] = p->pipe->create_surface(p->pipe, p->target, 0, 0, 0, PIPE_BIND_RENDER_TARGET);
 
 	/* viewport, depth isn't really needed */
 	{
@@ -271,7 +269,7 @@ static void init_prog(struct program *p)
 	}
 
 	/* fragment shader */
-	p->fs = util_make_fragment_tex_shader(p->pipe, TGSI_TEXTURE_2D);
+	p->fs = util_make_fragment_tex_shader(p->pipe, TGSI_TEXTURE_2D, TGSI_INTERPOLATE_PERSPECTIVE);
 }
 
 static void close_prog(struct program *p)

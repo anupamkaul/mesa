@@ -23,6 +23,7 @@ static const int HEIGHT = 300;
 struct pipe_screen *screen;
 struct pipe_context *ctx;
 struct pipe_surface *surf;
+struct pipe_resource *tex;
 static void *window = NULL;
 
 static void draw( void )
@@ -44,13 +45,13 @@ static void draw( void )
    debug_dump_surface_bmp(ctx, "result.bmp", surf);
 #endif
 
-   screen->flush_frontbuffer(screen, surf, window);
+   screen->flush_frontbuffer(screen, tex, 0, 0, window);
 }
 
 static void init( void )
 {
    struct pipe_framebuffer_state fb;
-   struct pipe_resource *tex, templat;
+   struct pipe_resource templat;
    int i;
 
    /* It's hard to say whether window or screen should be created
@@ -89,9 +90,9 @@ static void init( void )
    if (tex == NULL)
       exit(4);
 
-   surf = screen->get_tex_surface(screen, tex, 0, 0, 0,
-                                  PIPE_BIND_RENDER_TARGET |
-                                  PIPE_BIND_DISPLAY_TARGET);
+   surf = ctx->create_surface(screen, tex, 0, 0, 0,
+                              PIPE_BIND_RENDER_TARGET |
+                              PIPE_BIND_DISPLAY_TARGET);
    if (surf == NULL)
       exit(5);
 

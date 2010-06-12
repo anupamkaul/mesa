@@ -159,7 +159,7 @@ static void init_prog(struct program *p)
 	p->framebuffer.width = WIDTH;
 	p->framebuffer.height = HEIGHT;
 	p->framebuffer.nr_cbufs = 1;
-	p->framebuffer.cbufs[0] = p->screen->get_tex_surface(p->screen, p->target, 0, 0, 0, PIPE_BIND_RENDER_TARGET);
+	p->framebuffer.cbufs[0] = p->pipe->create_surface(p->pipe, p->target, 0, 0, 0, PIPE_BIND_RENDER_TARGET);
 
 	/* viewport, depth isn't really needed */
 	{

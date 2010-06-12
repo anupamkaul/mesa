@@ -162,7 +162,7 @@ static void draw( void )
    debug_dump_surface_bmp(ctx, "result.bmp", surf);
 #endif
 
-   screen->flush_frontbuffer(screen, surf, window);
+   screen->flush_frontbuffer(screen, tex, 0, 0, window);
 }
 
 #define SIZE 16
@@ -236,7 +236,7 @@ static void init_tex( void )
 
    ctx->transfer_inline_write(ctx,
                               samptex,
-                              u_subresource(0,0),
+                              0,
                               PIPE_TRANSFER_WRITE,
                               &box,
                               tex2d,
@@ -250,7 +250,7 @@ static void init_tex( void )
       struct pipe_transfer *t;
       uint32_t *ptr;
       t = pipe_get_transfer(ctx, samptex,
-                            0, 0, 0, /* face, level, zslice */
+                            0, 0, /* level, layer */
                             PIPE_TRANSFER_READ,
                             0, 0, SIZE, SIZE); /* x, y, width, height */
 
@@ -271,6 +271,8 @@ static void init_tex( void )
    sv_template.texture = samptex;
    sv_template.first_level = 0;
    sv_template.last_level = 0;
+   sv_template.first_layer = 0;
+   sv_template.last_layer = 0;
    sv_template.swizzle_r = 0;
    sv_template.swizzle_g = 1;
    sv_template.swizzle_b = 2;
@@ -342,9 +344,9 @@ static void init( void )
    if (rttex == NULL)
       exit(4);
 
-   surf = screen->get_tex_surface(screen, rttex, 0, 0, 0,
-                                  PIPE_BIND_RENDER_TARGET |
-                                  PIPE_BIND_DISPLAY_TARGET);
+   surf = ctx->create_surface(ctx, rttex, 0, 0, 0,
+                              PIPE_BIND_RENDER_TARGET |
+                              PIPE_BIND_DISPLAY_TARGET);
    if (surf == NULL)
       exit(5);
 
