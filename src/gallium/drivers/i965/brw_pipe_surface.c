@@ -35,6 +35,7 @@
 
 #include "pipe/p_screen.h"
 #include "brw_screen.h"
+#include "brw_context.h"
 #include "brw_defines.h"
 #include "brw_resource.h"
 #include "brw_winsys.h"
@@ -108,9 +109,10 @@ void brw_update_texture( struct brw_screen *brw_screen,
  * where it would be illegal (perhaps due to tiling constraints) to do
  * this in-place.
  * 
- * Currently not implmented, not sure if it's needed.
+ * Currently not implemented, not sure if it's needed.
  */
 static struct brw_surface *create_linear_view( struct brw_screen *brw_screen,
+                                               struct pipe_context *pipe,
 					       struct brw_texture *tex,
 					       union brw_surface_id id,
 					       unsigned usage )
@@ -123,9 +125,10 @@ static struct brw_surface *create_linear_view( struct brw_screen *brw_screen,
  * texture's storage.
  */
 static struct brw_surface *create_in_place_view( struct brw_screen *brw_screen,
-						  struct brw_texture *tex,
-						  union brw_surface_id id,
-						  unsigned usage )
+                                                 struct pipe_context *pipe,
+                                                 struct brw_texture *tex,
+                                                 union brw_surface_id id,
+                                                 unsigned usage )
 {
    struct brw_surface *surface;
 
@@ -137,15 +140,16 @@ static struct brw_surface *create_in_place_view( struct brw_screen *brw_screen,
 
    /* XXX: ignoring render-to-slice-of-3d-texture
     */
-   assert(id.bits.zslice == 0);
+   assert(tex->b.b.target != PIPE_TEXTURE_3D || id.bits.layer == 0);
 
+   surface->base.context = pipe;
    surface->base.format = tex->b.b.format;
    surface->base.width = u_minify(tex->b.b.width0, id.bits.level);
    surface->base.height = u_minify(tex->b.b.height0, id.bits.level);
-   surface->base.offset = tex->image_offset[id.bits.level][id.bits.face];
+   surface->base.offset = tex->image_offset[id.bits.level][id.bits.layer];
    surface->base.usage = usage;
-   surface->base.zslice = id.bits.zslice;
-   surface->base.face = id.bits.face;
+   surface->base.first_layer = id.bits.layer;
+   surface->base.last_layer = surface->base.first_layer;
    surface->base.level = id.bits.level;
    surface->id = id;
    surface->cpp = tex->cpp;
@@ -198,21 +202,21 @@ static struct brw_surface *create_in_place_view( struct brw_screen *brw_screen,
 
 /* Get a surface which is view into a texture 
  */
-static struct pipe_surface *brw_get_tex_surface(struct pipe_screen *screen,
-						struct pipe_resource *pt,
-						unsigned face, unsigned level,
-						unsigned zslice,
-						unsigned usage )
+static struct pipe_surface *brw_create_surface(struct pipe_context *pipe,
+                                               struct pipe_resource *pt,
+                                               unsigned level, unsigned first_layer,
+                                               unsigned last_layer,
+                                               unsigned usage )
 {
    struct brw_texture *tex = brw_texture(pt);
-   struct brw_screen *bscreen = brw_screen(screen);
+   struct brw_screen *bscreen = brw_screen(pipe->screen);
    struct brw_surface *surface;
    union brw_surface_id id;
    int type;
 
-   id.bits.face = face;
+   assert(first_layer == last_layer);
    id.bits.level = level;
-   id.bits.zslice = zslice;
+   id.bits.layer = first_layer;
 
    if (need_linear_view(bscreen, tex, id, usage)) 
       type = BRW_VIEW_LINEAR;
@@ -227,10 +231,10 @@ static struct pipe_surface *brw_get_tex_surface(struct pipe_screen *screen,
 
    switch (type) {
    case BRW_VIEW_LINEAR:
-      surface = create_linear_view( bscreen, tex, id, usage );
+      surface = create_linear_view( bscreen, pipe, tex, id, usage );
       break;
    case BRW_VIEW_IN_PLACE:
-      surface = create_in_place_view( bscreen, tex, id, usage );
+      surface = create_in_place_view( bscreen, pipe, tex, id, usage );
       break;
    }
 
@@ -239,7 +243,8 @@ static struct pipe_surface *brw_get_tex_surface(struct pipe_screen *screen,
 }
 
 
-static void brw_tex_surface_destroy( struct pipe_surface *surf )
+static void brw_surface_destroy( struct pipe_context *pipe,
+                                 struct pipe_surface *surf )
 {
    struct brw_surface *surface = brw_surface(surf);
 
@@ -249,13 +254,12 @@ static void brw_tex_surface_destroy( struct pipe_surface *surf )
    bo_reference(&surface->bo, NULL);
    pipe_resource_reference( &surface->base.texture, NULL );
 
-
    FREE(surface);
 }
 
 
-void brw_screen_tex_surface_init( struct brw_screen *brw_screen )
+void brw_pipe_surface_init( struct brw_context *brw )
 {
-   brw_screen->base.get_tex_surface = brw_get_tex_surface;
-   brw_screen->base.tex_surface_destroy = brw_tex_surface_destroy;
+   brw->base.create_surface = brw_create_surface;
+   brw->base.surface_destroy = brw_surface_destroy;
 }
