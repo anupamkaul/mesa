@@ -92,9 +92,9 @@ wsw_dt_get_stride(struct wrapper_sw_displaytarget *wdt, unsigned *stride)
    struct pipe_resource *tex = wdt->tex;
    struct pipe_transfer *tr;
 
-   tr = pipe_get_transfer(pipe, tex, 0, 0, 0,
-			  PIPE_TRANSFER_READ_WRITE,
-			  0, 0, wdt->width, wdt->height);
+   tr = pipe_get_transfer(pipe, tex, 0, 0,
+                          PIPE_TRANSFER_READ_WRITE,
+                          0, 0, wdt->width, wdt->height);
    if (!tr)
       return FALSE;
 
@@ -203,9 +203,9 @@ wsw_dt_map(struct sw_winsys *ws,
 
       assert(!wdt->transfer);
 
-      tr = pipe_get_transfer(pipe, tex, 0, 0, 0,
-			     PIPE_TRANSFER_READ_WRITE,
-			     0, 0, wdt->width, wdt->height);
+      tr = pipe_get_transfer(pipe, tex, 0, 0,
+                             PIPE_TRANSFER_READ_WRITE,
+                             0, 0, wdt->width, wdt->height);
       if (!tr)
          return NULL;
 
