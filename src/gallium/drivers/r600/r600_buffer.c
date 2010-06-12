@@ -186,7 +186,7 @@ static void r600_buffer_transfer_flush_region(struct pipe_context *pipe,
 
 unsigned r600_buffer_is_referenced_by_cs(struct pipe_context *context,
 					 struct pipe_resource *buf,
-					 unsigned face, unsigned level)
+					 unsigned level, int layer)
 {
 	/* XXX */
 	return PIPE_REFERENCED_FOR_READ | PIPE_REFERENCED_FOR_WRITE;

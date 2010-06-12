@@ -32,22 +32,20 @@
 #include "state_tracker/drm_api.h"
 #include "r600_screen.h"
 #include "r600_texture.h"
+#include "r600_context.h"
 
 extern struct u_resource_vtbl r600_texture_vtbl;
 
-unsigned long r600_texture_get_offset(struct r600_texture *rtex, unsigned level, unsigned zslice, unsigned face)
+unsigned long r600_texture_get_offset(struct r600_texture *rtex, unsigned level, unsigned layer)
 {
 	unsigned long offset = rtex->offset[level];
 
 	switch (rtex->b.b.target) {
 	case PIPE_TEXTURE_3D:
-		assert(face == 0);
-		return offset + zslice * rtex->layer_size[level];
 	case PIPE_TEXTURE_CUBE:
-		assert(zslice == 0);
-		return offset + face * rtex->layer_size[level];
+		return offset + layer * rtex->layer_size[level];
 	default:
-		assert(zslice == 0 && face == 0);
+		assert(layer == 0);
 		return offset;
 	}
 }
@@ -116,33 +114,36 @@ static void r600_texture_destroy(struct pipe_screen *screen,
 	FREE(rtex);
 }
 
-static struct pipe_surface *r600_get_tex_surface(struct pipe_screen *screen,
+static struct pipe_surface *r600_create_surface(struct pipe_context *pipe,
 						struct pipe_resource *texture,
-						unsigned face, unsigned level,
-						unsigned zslice, unsigned flags)
+						unsigned level, unsigned first_layer,
+						unsigned last_layer, unsigned flags)
 {
 	struct r600_texture *rtex = (struct r600_texture*)texture;
 	struct pipe_surface *surface = CALLOC_STRUCT(pipe_surface);
 	unsigned long offset;
 
+	assert(first_layer == last_layer);
 	if (surface == NULL)
 		return NULL;
-	offset = r600_texture_get_offset(rtex, level, zslice, face);
+	offset = r600_texture_get_offset(rtex, level, first_layer);
 	pipe_reference_init(&surface->reference, 1);
 	pipe_resource_reference(&surface->texture, texture);
+	surface->context = pipe;
 	surface->format = texture->format;
 	surface->width = u_minify(texture->width0, level);
 	surface->height = u_minify(texture->height0, level);
 	surface->offset = offset;
 	surface->usage = flags;
-	surface->zslice = zslice;
 	surface->texture = texture;
-	surface->face = face;
+	surface->first_layer = first_layer;
+	surface->last_layer = last_layer;
 	surface->level = level;
 	return surface;
 }
 
-static void r600_tex_surface_destroy(struct pipe_surface *surface)
+static void r600_surface_destroy(struct pipe_context *pipe,
+				 struct pipe_surface *surface)
 {
 	pipe_resource_reference(&surface->texture, NULL);
 	FREE(surface);
@@ -204,11 +205,11 @@ static boolean r600_texture_get_handle(struct pipe_screen* screen,
 
 static unsigned int r600_texture_is_referenced(struct pipe_context *context,
 						struct pipe_resource *texture,
-						unsigned face, unsigned level)
+						unsigned level, int layer)
 {
 	struct r600_texture *rtex = (struct r600_texture*)texture;
 
-	return r600_buffer_is_referenced_by_cs(context, rtex->buffer, face, level);
+	return r600_buffer_is_referenced_by_cs(context, rtex->buffer, level, layer);
 }
 
 struct u_resource_vtbl r600_texture_vtbl =
@@ -224,8 +225,8 @@ struct u_resource_vtbl r600_texture_vtbl =
 	u_default_transfer_inline_write	/* transfer_inline_write */
 };
 
-void r600_init_screen_texture_functions(struct pipe_screen *screen)
+void r600_init_surface_functions(struct r600_context *r600)
 {
-	screen->get_tex_surface = r600_get_tex_surface;
-	screen->tex_surface_destroy = r600_tex_surface_destroy;
+	r600->context.create_surface = r600_create_surface;
+	r600->context.surface_destroy = r600_surface_destroy;
 }

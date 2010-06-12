@@ -63,14 +63,14 @@ struct pipe_resource *r600_user_buffer_create(struct pipe_screen *screen,
 					      unsigned bind);
 unsigned r600_buffer_is_referenced_by_cs(struct pipe_context *context,
 					 struct pipe_resource *buf,
-					 unsigned face, unsigned level);
+					 unsigned level, int layer);
 struct pipe_resource *r600_buffer_from_handle(struct pipe_screen *screen,
 					      struct winsys_handle *whandle);
 
 /* Texture transfer functions. */
 struct pipe_transfer* r600_texture_get_transfer(struct pipe_context *ctx,
 						struct pipe_resource *texture,
-						struct pipe_subresource sr,
+						unsigned level,
 						unsigned usage,
 						const struct pipe_box *box);
 void r600_texture_transfer_destroy(struct pipe_context *ctx,
@@ -101,12 +101,11 @@ void r300_clear_depth_stencil(struct pipe_context *pipe,
 			      unsigned width, unsigned height);
 void r600_resource_copy_region(struct pipe_context *pipe,
 			       struct pipe_resource *dst,
-			       struct pipe_subresource subdst,
+			       unsigned dst_level,
 			       unsigned dstx, unsigned dsty, unsigned dstz,
 			       struct pipe_resource *src,
-			       struct pipe_subresource subsrc,
-			       unsigned srcx, unsigned srcy, unsigned srcz,
-			       unsigned width, unsigned height);
+			       unsigned src_level,
+			       const struct pipe_box *src_box);
 
 /* helpers */
 int r600_conv_pipe_format(unsigned pformat, unsigned *format);

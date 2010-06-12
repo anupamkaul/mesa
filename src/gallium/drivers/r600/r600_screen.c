@@ -175,7 +175,7 @@ static boolean r600_is_format_supported(struct pipe_screen* screen,
 
 struct pipe_transfer* r600_texture_get_transfer(struct pipe_context *ctx,
 						struct pipe_resource *texture,
-						struct pipe_subresource sr,
+						unsigned level,
 						unsigned usage,
 						const struct pipe_box *box)
 {
@@ -186,11 +186,11 @@ struct pipe_transfer* r600_texture_get_transfer(struct pipe_context *ctx,
 	if (trans == NULL)
 		return NULL;
 	pipe_resource_reference(&trans->transfer.resource, texture);
-	trans->transfer.sr = sr;
+	trans->transfer.level = level;
 	trans->transfer.usage = usage;
 	trans->transfer.box = *box;
-	trans->transfer.stride = rtex->stride[sr.level];
-	trans->offset = r600_texture_get_offset(rtex, sr.level, box->z, sr.face);
+	trans->transfer.stride = rtex->stride[level];
+	trans->offset = r600_texture_get_offset(rtex, level, box->z);
 	return &trans->transfer;
 }
 
@@ -257,7 +257,6 @@ struct pipe_screen *radeon_create_screen(struct radeon *rw)
 	rscreen->screen.get_paramf = r600_get_paramf;
 	rscreen->screen.is_format_supported = r600_is_format_supported;
 	rscreen->screen.context_create = r600_create_context;
-	r600_init_screen_texture_functions(&rscreen->screen);
 	r600_init_screen_resource_functions(rscreen);
 	return &rscreen->screen;
 }

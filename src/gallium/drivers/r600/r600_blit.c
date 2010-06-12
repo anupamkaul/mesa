@@ -84,11 +84,10 @@ void r300_clear_depth_stencil(struct pipe_context *pipe,
 
 void r600_resource_copy_region(struct pipe_context *pipe,
 			       struct pipe_resource *dst,
-			       struct pipe_subresource subdst,
+			       unsigned dst_level,
 			       unsigned dstx, unsigned dsty, unsigned dstz,
 			       struct pipe_resource *src,
-			       struct pipe_subresource subsrc,
-			       unsigned srcx, unsigned srcy, unsigned srcz,
-			       unsigned width, unsigned height)
+			       unsigned src_level,
+			       const struct pipe_box *src_box)
 {
 }

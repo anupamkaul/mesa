@@ -79,6 +79,7 @@ void r600_draw_range_elements(struct pipe_context *ctx,
 
 void r600_init_state_functions(struct r600_context *rctx);
 void r600_init_query_functions(struct r600_context* rctx);
+void r600_init_surface_functions(struct r600_context *rctx);
 struct pipe_context *r600_create_context(struct pipe_screen *screen, void *priv);
 
 void r600_pipe_shader_destroy(struct pipe_context *ctx, struct r600_pipe_shader *rpshader);

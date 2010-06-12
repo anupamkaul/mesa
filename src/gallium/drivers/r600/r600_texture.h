@@ -38,11 +38,10 @@ struct r600_texture {
 
 struct pipe_resource *r600_texture_create(struct pipe_screen *screen,
 					  const struct pipe_resource *templ);
-unsigned long r600_texture_get_offset(struct r600_texture *rtex, unsigned level, unsigned zslice, unsigned face);
+unsigned long r600_texture_get_offset(struct r600_texture *rtex, unsigned level, unsigned layer);
 struct pipe_resource *r600_texture_from_handle(struct pipe_screen *screen,
 					       const struct pipe_resource *base,
 					       struct winsys_handle *whandle);
-void r600_init_screen_texture_functions(struct pipe_screen *screen);
 
 /* This should be implemented by winsys. */
 boolean r600_buffer_get_handle(struct radeon *rw,
