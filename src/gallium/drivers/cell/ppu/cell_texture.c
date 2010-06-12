@@ -304,39 +304,36 @@ untwiddle_image_uint(uint w, uint h, uint tile_size, uint *dst,
 
 
 static struct pipe_surface *
-cell_get_tex_surface(struct pipe_screen *screen,
-                     struct pipe_resource *pt,
-                     unsigned face, unsigned level, unsigned zslice,
-                     unsigned usage)
+cell_create_surface(struct pipe_context *ctx,
+                    struct pipe_resource *pt,
+                    unsigned level, unsigned first_layer, unsigned last_layer,
+                    unsigned usage)
 {
    struct cell_resource *ct = cell_resource(pt);
    struct pipe_surface *ps;
 
+   assert(first_layer == last_layer);
    ps = CALLOC_STRUCT(pipe_surface);
    if (ps) {
       pipe_reference_init(&ps->reference, 1);
       pipe_resource_reference(&ps->texture, pt);
+      ps->context = ctx;
       ps->format = pt->format;
       ps->width = u_minify(pt->width0, level);
       ps->height = u_minify(pt->height0, level);
       ps->offset = ct->level_offset[level];
       /* XXX may need to override usage flags (see sp_texture.c) */
       ps->usage = usage;
-      ps->face = face;
       ps->level = level;
-      ps->zslice = zslice;
+      ps->first_layer = first_layer;
+      ps->last_layer = last_layer;
 
-      if (pt->target == PIPE_TEXTURE_CUBE) {
+      if (pt->target == PIPE_TEXTURE_CUBE || pt->target == PIPE_TEXTURE_3D) {
          unsigned h_tile = align(ps->height, TILE_SIZE);
-         ps->offset += face * util_format_get_nblocksy(ps->format, h_tile) * ct->stride[level];
-      }
-      else if (pt->target == PIPE_TEXTURE_3D) {
-         unsigned h_tile = align(ps->height, TILE_SIZE);
-         ps->offset += zslice * util_format_get_nblocksy(ps->format, h_tile) * ct->stride[level];
+         ps->offset += first_layer * util_format_get_nblocksy(ps->format, h_tile) * ct->stride[level];
       }
       else {
-         assert(face == 0);
-         assert(zslice == 0);
+         assert(first_layer == 0);
       }
    }
    return ps;
@@ -344,7 +341,7 @@ cell_get_tex_surface(struct pipe_screen *screen,
 
 
 static void 
-cell_tex_surface_destroy(struct pipe_surface *surf)
+cell_surface_destroy(struct pipe_context *ctx, struct pipe_surface *surf)
 {
    pipe_resource_reference(&surf->texture, NULL);
    FREE(surf);
@@ -358,44 +355,40 @@ cell_tex_surface_destroy(struct pipe_surface *surf)
  */
 static struct pipe_transfer *
 cell_get_transfer(struct pipe_context *ctx,
-		  struct pipe_resource *resource,
-		  struct pipe_subresource sr,
-		  unsigned usage,
-		  const struct pipe_box *box)
+                  struct pipe_resource *resource,
+                  unsigned level,
+                  unsigned usage,
+                  const struct pipe_box *box)
 {
    struct cell_resource *ct = cell_resource(resource);
    struct cell_transfer *ctrans;
    enum pipe_format format = resource->format;
 
    assert(resource);
-   assert(sr.level <= resource->last_level);
+   assert(level <= resource->last_level);
 
    /* make sure the requested region is in the image bounds */
-   assert(box->x + box->width <= u_minify(resource->width0, sr.level));
-   assert(box->y + box->height <= u_minify(resource->height0, sr.level));
-   assert(box->z + box->depth <= u_minify(resource->depth0, sr.level));
+   assert(box->x + box->width <= u_minify(resource->width0, level));
+   assert(box->y + box->height <= u_minify(resource->height0, level));
+   assert(box->z + box->depth <= (resource->target == PIPE_TEXTURE_3D ?
+                                  u_minify(resource->depth0, level) : resource->depth0));
 
    ctrans = CALLOC_STRUCT(cell_transfer);
    if (ctrans) {
       struct pipe_transfer *pt = &ctrans->base;
       pipe_resource_reference(&pt->resource, resource);
-      pt->sr = sr;
+      pt->level = level;
       pt->usage = usage;
       pt->box = *box;
-      pt->stride = ct->stride[sr.level];
+      pt->stride = ct->stride[level];
 
-      ctrans->offset = ct->level_offset[sr.level];
+      ctrans->offset = ct->level_offset[level];
 
-      if (resource->target == PIPE_TEXTURE_CUBE) {
-         unsigned h_tile = align(u_minify(resource->height0, sr.level), TILE_SIZE);
-         ctrans->offset += sr.face * util_format_get_nblocksy(format, h_tile) * pt->stride;
-      }
-      else if (resource->target == PIPE_TEXTURE_3D) {
-         unsigned h_tile = align(u_minify(resource->height0, sr.level), TILE_SIZE);
+      if (resource->target == PIPE_TEXTURE_CUBE || resource->target == PIPE_TEXTURE_3D) {
+         unsigned h_tile = align(u_minify(resource->height0, level), TILE_SIZE);
          ctrans->offset += box->z * util_format_get_nblocksy(format, h_tile) * pt->stride;
       }
       else {
-         assert(sr.face == 0);
          assert(box->z == 0);
       }
 
@@ -439,7 +432,7 @@ cell_transfer_map(struct pipe_context *ctx, struct pipe_transfer *transfer)
    /* Better test would be resource->is_linear
     */
    if (transfer->resource->target != PIPE_BUFFER) {
-      const uint level = ctrans->base.sr.level;
+      const uint level = ctrans->base.level;
       const uint texWidth = u_minify(pt->width0, level);
       const uint texHeight = u_minify(pt->height0, level);
       unsigned size;
@@ -500,7 +493,7 @@ cell_transfer_unmap(struct pipe_context *ctx,
    struct cell_transfer *ctrans = cell_transfer(transfer);
    struct pipe_resource *pt = transfer->resource;
    struct cell_resource *ct = cell_resource(pt);
-   const uint level = ctrans->base.sr.level;
+   const uint level = ctrans->base.level;
    const uint texWidth = u_minify(pt->width0, level);
    const uint texHeight = u_minify(pt->height0, level);
    const uint stride = ct->stride[level];
@@ -548,12 +541,13 @@ cell_transfer_unmap(struct pipe_context *ctx,
  */
 static void
 cell_flush_frontbuffer(struct pipe_screen *_screen,
-                       struct pipe_surface *surface,
+                       struct pipe_resource *resource,
+                       unsigned level, unsigned layer,
                        void *context_private)
 {
    struct cell_screen *screen = cell_screen(_screen);
    struct sw_winsys *winsys = screen->winsys;
-   struct cell_resource *ct = cell_resource(surface->texture);
+   struct cell_resource *ct = cell_resource(resource);
 
    if (!ct->dt)
       return;
@@ -564,10 +558,10 @@ cell_flush_frontbuffer(struct pipe_screen *_screen,
       unsigned *map = winsys->displaytarget_map(winsys, ct->dt,
                                                 (PIPE_TRANSFER_READ |
                                                  PIPE_TRANSFER_WRITE));
-      unsigned *src = (unsigned *)(ct->data + ct->level_offset[surface->level]);
+      unsigned *src = (unsigned *)(ct->data + ct->level_offset[level]);
 
-      untwiddle_image_uint(surface->width,
-                           surface->height,
+      untwiddle_image_uint(u_minify(resource->width0, level),
+                           u_minify(resource->height0, level),
                            TILE_SIZE,
                            map,
                            ct->dt_stride,
@@ -641,9 +635,6 @@ cell_init_screen_texture_funcs(struct pipe_screen *screen)
    screen->resource_get_handle = cell_resource_get_handle;
    screen->user_buffer_create = cell_user_buffer_create;
 
-   screen->get_tex_surface = cell_get_tex_surface;
-   screen->tex_surface_destroy = cell_tex_surface_destroy;
-
    screen->flush_frontbuffer = cell_flush_frontbuffer;
 }
 
@@ -657,4 +648,7 @@ cell_init_texture_transfer_funcs(struct cell_context *cell)
 
    cell->pipe.transfer_flush_region = u_default_transfer_flush_region;
    cell->pipe.transfer_inline_write = u_default_transfer_inline_write;
+
+   cell->pipe.create_surface = cell_create_surface;
+   cell->pipe.surface_destroy = cell_surface_destroy;
 }
