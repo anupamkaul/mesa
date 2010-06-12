@@ -54,7 +54,7 @@ static unsigned nvfx_transfer_bind_flags( unsigned transfer_usage )
 struct pipe_transfer *
 nvfx_miptree_transfer_new(struct pipe_context *pipe,
 			  struct pipe_resource *pt,
-			  struct pipe_subresource sr,
+			  unsigned level,
 			  unsigned usage,
 			  const struct pipe_box *box)
 {
@@ -77,10 +77,10 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 	assert(box->depth == 1);
 
 	pipe_resource_reference(&tx->base.resource, pt);
-	tx->base.sr = sr;
+	tx->base.level = level;
 	tx->base.usage = usage;
 	tx->base.box = *box;
-	tx->base.stride = mt->level[sr.level].pitch;
+	tx->base.stride = mt->level[level].pitch;
 
 	/* Direct access to texture */
 	if ((pt->usage == PIPE_USAGE_DYNAMIC ||
@@ -91,10 +91,11 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 
 		/* XXX: just call the internal nvfx function.  
 		 */
-		tx->surface = pscreen->get_tex_surface(pscreen, pt,
-	                                               sr.face, sr.level,
-						       box->z,
-	                                               bind);
+		tx->surface = pipe->create_surface(pipe, pt,
+						   level,
+						   box->z,
+						   box->z,
+						   bind);
 		return &tx->base;
 	}
 
@@ -111,9 +112,9 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 
 	tx->base.stride = ((struct nvfx_miptree*)tx_tex)->level[0].pitch;
 
-	tx->surface = pscreen->get_tex_surface(pscreen, tx_tex,
-	                                       0, 0, 0,
-	                                       bind);
+	tx->surface = pipe->create_surface(pipe, tx_tex,
+	                                   0, 0, 0,
+	                                   bind);
 
 	pipe_resource_reference(&tx_tex, NULL);
 
@@ -128,9 +129,9 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 		struct nvfx_screen *nvscreen = nvfx_screen(pscreen);
 		struct pipe_surface *src;
 
-		src = pscreen->get_tex_surface(pscreen, pt,
-	                                       sr.face, sr.level, box->z,
-	                                       0 /*PIPE_BIND_BLIT_SOURCE*/);
+		src = pipe->create_surface(pipe, pt,
+	                                   level, box->z, box->z,
+	                                   0 /*PIPE_BIND_BLIT_SOURCE*/);
 
 		/* TODO: Check if SIFM can deal with x,y,w,h when swizzling */
 		/* TODO: Check if SIFM can un-swizzle */
@@ -157,12 +158,12 @@ nvfx_miptree_transfer_del(struct pipe_context *pipe,
 		struct nvfx_screen *nvscreen = nvfx_screen(pscreen);
 		struct pipe_surface *dst;
 
-		dst = pscreen->get_tex_surface(pscreen,
-					       ptx->resource,
-	                                       ptx->sr.face,
-					       ptx->sr.level,
-					       ptx->box.z,
-	                                       0 /*PIPE_BIND_BLIT_DESTINATION*/);
+		dst = pipe->create_surface(pipe,
+					   ptx->resource,
+					   ptx->level,
+					   ptx->box.z,
+					   ptx->box.z,
+	                                   0 /*PIPE_BIND_BLIT_DESTINATION*/);
 
 		/* TODO: Check if SIFM can deal with x,y,w,h when swizzling */
 		nvscreen->eng2d->copy(nvscreen->eng2d,

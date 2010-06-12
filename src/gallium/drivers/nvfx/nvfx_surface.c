@@ -34,25 +34,27 @@
 
 static void
 nvfx_surface_copy(struct pipe_context *pipe,
-		  struct pipe_resource *dest, struct pipe_subresource subdst,
+		  struct pipe_resource *dest, unsigned dst_level,
 		  unsigned destx, unsigned desty, unsigned destz,
-		  struct pipe_resource *src, struct pipe_subresource subsrc,
-		  unsigned srcx, unsigned srcy, unsigned srcz,
-		  unsigned width, unsigned height)
+		  struct pipe_resource *src, unsigned src_level,
+		  const struct pipe_box *src_box)
 {
 	struct nvfx_context *nvfx = nvfx_context(pipe);
 	struct nv04_surface_2d *eng2d = nvfx->screen->eng2d;
 	struct pipe_surface *ps_dst, *ps_src;
 
-	ps_src = nvfx_miptree_surface_new(pipe->screen, dest, subsrc.face,
-					  subsrc.level, srcz, 0 /* bind flags */);
-	ps_dst = nvfx_miptree_surface_new(pipe->screen, dest, subdst.face,
-					  subdst.level, destz, 0 /* bindflags */);
+	assert(src_box->depth == 1);
+	/* XXX really need surfaces here? */
+	ps_src = nvfx_miptree_surface_new(pipe, src, src_level,
+					  src_box->z, src_box->z, 0 /* bind flags */);
+	ps_dst = nvfx_miptree_surface_new(pipe, dest, dst_level,
+					  destz, destz, 0 /* bindflags */);
 
-	eng2d->copy(eng2d, ps_dst, destx, desty, ps_src, srcx, srcy, width, height);
+	eng2d->copy(eng2d, ps_dst, destx, desty, ps_src, src_box->x, src_box->y,
+		    src_box->width, src_box->height);
 
-	nvfx_miptree_surface_del(ps_src);
-	nvfx_miptree_surface_del(ps_dst);
+	nvfx_miptree_surface_del(pipe, ps_src);
+	nvfx_miptree_surface_del(pipe, ps_dst);
 }
 
 static void

@@ -494,9 +494,10 @@ nv04_surface_2d_init(struct nouveau_screen *screen)
 }
 
 struct nv04_surface*
-nv04_surface_wrap_for_render(struct pipe_screen *pscreen,
+nv04_surface_wrap_for_render(struct pipe_context *pipe,
 			     struct nv04_surface_2d* eng2d, struct nv04_surface* ns)
 {
+	struct pipe_screen *pscreen = pipe->screen;
 	struct pipe_resource templ;
 	struct pipe_resource* temp_tex;
 	struct nv04_surface* temp_ns;
@@ -520,7 +521,7 @@ nv04_surface_wrap_for_render(struct pipe_screen *pscreen,
 	templ.bind = ns->base.texture->bind | PIPE_BIND_RENDER_TARGET;
 
 	temp_tex = pscreen->resource_create(pscreen, &templ);
-	temp_ns = (struct nv04_surface*)pscreen->get_tex_surface(pscreen, temp_tex, 0, 0, 0, temp_flags);
+	temp_ns = (struct nv04_surface*)pipe->create_surface(pipe, temp_tex, 0, 0, 0, temp_flags);
 	temp_ns->backing = ns;
 
 	if(1) /* hmm */

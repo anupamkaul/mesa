@@ -29,13 +29,12 @@ nvfx_miptree_layout(struct nvfx_miptree *mt)
 				      PIPE_BIND_SCANOUT);
 
 	if (pt->target == PIPE_TEXTURE_CUBE) {
-		nr_faces = 6;
+		assert(pt->depth0 == 6);
 	} else
-	if (pt->target == PIPE_TEXTURE_3D) {
-		nr_faces = pt->depth0;
-	} else {
-		nr_faces = 1;
+	if (pt->target != PIPE_TEXTURE_3D) {
+		assert(pt->depth0 == 1);
 	}
+	nr_faces = pt->depth0;
 
 	for (l = 0; l <= pt->last_level; l++) {
 		if (wide_pitch && (pt->flags & NVFX_RESOURCE_FLAG_LINEAR))
@@ -243,35 +242,34 @@ nvfx_miptree_from_handle(struct pipe_screen *pscreen,
 /* Surface helpers, not strictly required to implement the resource vtbl:
  */
 struct pipe_surface *
-nvfx_miptree_surface_new(struct pipe_screen *pscreen, struct pipe_resource *pt,
-			 unsigned face, unsigned level, unsigned zslice,
+nvfx_miptree_surface_new(struct pipe_context *pipe, struct pipe_resource *pt,
+			 unsigned level, unsigned first_layer, unsigned last_layer,
 			 unsigned flags)
 {
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)pt;
 	struct nv04_surface *ns;
+	struct pipe_screen *pscreen = pipe->screen;
 
+	assert(first_layer == last_layer);
 	ns = CALLOC_STRUCT(nv04_surface);
 	if (!ns)
 		return NULL;
 	pipe_resource_reference(&ns->base.texture, pt);
+	ns->base.context = pipe;
 	ns->base.format = pt->format;
 	ns->base.width = u_minify(pt->width0, level);
 	ns->base.height = u_minify(pt->height0, level);
 	ns->base.usage = flags;
 	pipe_reference_init(&ns->base.reference, 1);
-	ns->base.face = face;
 	ns->base.level = level;
-	ns->base.zslice = zslice;
+	ns->base.first_layer = first_layer;
+	ns->base.last_layer = last_layer;
 	ns->pitch = mt->level[level].pitch;
 
-	if (pt->target == PIPE_TEXTURE_CUBE) {
-		ns->base.offset = mt->level[level].image_offset[face];
-	} else
-	if (pt->target == PIPE_TEXTURE_3D) {
-		ns->base.offset = mt->level[level].image_offset[zslice];
-	} else {
-		ns->base.offset = mt->level[level].image_offset[0];
+	if (pt->target != PIPE_TEXTURE_CUBE && pt->target != PIPE_TEXTURE_3D) {
+		assert(first_layer == 0);
 	}
+	ns->base.offset = mt->level[level].image_offset[first_layer];
 
 	/* create a linear temporary that we can render into if
 	 * necessary.
@@ -287,14 +285,14 @@ nvfx_miptree_surface_new(struct pipe_screen *pscreen, struct pipe_resource *pt,
 		struct nv04_surface_2d* eng2d  =
 			((struct nvfx_screen*)pscreen)->eng2d;
 
-		ns = nv04_surface_wrap_for_render(pscreen, eng2d, ns);
+		ns = nv04_surface_wrap_for_render(pipe, eng2d, ns);
 	}
 
 	return &ns->base;
 }
 
 void
-nvfx_miptree_surface_del(struct pipe_surface *ps)
+nvfx_miptree_surface_del(struct pipe_context *pipe, struct pipe_surface *ps)
 {
 	struct nv04_surface* ns = (struct nv04_surface*)ps;
 	if(ns->backing)
@@ -302,7 +300,7 @@ nvfx_miptree_surface_del(struct pipe_surface *ps)
 		struct nvfx_screen* screen = (struct nvfx_screen*)ps->texture->screen;
 		if(1 /*ns->backing->base.usage & PIPE_BIND_BLIT_DESTINATION*/)
 			screen->eng2d->copy(screen->eng2d, &ns->backing->base, 0, 0, ps, 0, 0, ns->base.width, ns->base.height);
-		nvfx_miptree_surface_del(&ns->backing->base);
+		nvfx_miptree_surface_del(pipe, &ns->backing->base);
 	}
 
 	pipe_resource_reference(&ps->texture, NULL);
