@@ -441,9 +441,8 @@ dri2_create_image_from_name(__DRIcontext *context,
       return NULL;
    }
 
-   img->face = 0;
    img->level = 0;
-   img->zslice = 0;
+   img->layer = 0;
    img->loader_private = loaderPrivate;
 
    return img;

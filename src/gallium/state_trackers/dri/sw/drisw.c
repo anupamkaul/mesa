@@ -93,13 +93,8 @@ drisw_present_texture(__DRIdrawable *dPriv,
 {
    struct dri_drawable *drawable = dri_drawable(dPriv);
    struct dri_screen *screen = dri_screen(drawable->sPriv);
-   struct pipe_surface *psurf;
 
-   psurf = dri1_get_pipe_surface(drawable, ptex);
-   if (!psurf)
-      return;
-
-   screen->base.screen->flush_frontbuffer(screen->base.screen, psurf, drawable);
+   screen->base.screen->flush_frontbuffer(screen->base.screen, ptex, 0, 0, drawable);
 }
 
 static INLINE void

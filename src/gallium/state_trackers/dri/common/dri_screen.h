@@ -93,9 +93,8 @@ dri_screen(__DRIscreen * sPriv)
 
 struct __DRIimageRec {
    struct pipe_resource *texture;
-   unsigned face;
    unsigned level;
-   unsigned zslice;
+   unsigned layer;
 
    void *loader_private;
 };

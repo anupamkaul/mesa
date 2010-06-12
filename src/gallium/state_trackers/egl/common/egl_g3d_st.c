@@ -241,9 +241,8 @@ egl_g3d_st_manager_get_egl_image(struct st_manager *smapi,
 
    out->texture = NULL;
    pipe_resource_reference(&out->texture, gimg->texture);
-   out->face = gimg->face;
    out->level = gimg->level;
-   out->zslice = gimg->zslice;
+   out->layer = gimg->layer;
 
    _eglUnlockMutex(&gsmapi->display->Mutex);
 

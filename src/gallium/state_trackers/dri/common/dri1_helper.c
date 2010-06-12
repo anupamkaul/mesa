@@ -90,9 +90,10 @@ dri1_get_pipe_surface(struct dri_drawable *drawable, struct pipe_resource *ptex)
    struct pipe_surface *psurf = drawable->dri1_surface;
 
    if (!psurf || psurf->texture != ptex) {
+      struct pipe_context *pipe = dri1_get_pipe_context(dri_screen(drawable->sPriv));
       pipe_surface_reference(&drawable->dri1_surface, NULL);
 
-      drawable->dri1_surface = pipe_screen->get_tex_surface(pipe_screen,
+      drawable->dri1_surface = pipe->create_surface(pipe,
             ptex, 0, 0, 0, 0/* no bind flag???*/);
 
       psurf = drawable->dri1_surface;
