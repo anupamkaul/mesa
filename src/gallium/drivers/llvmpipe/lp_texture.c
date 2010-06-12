@@ -327,17 +327,17 @@ llvmpipe_resource_destroy(struct pipe_screen *pscreen,
  */
 void *
 llvmpipe_resource_map(struct pipe_resource *resource,
-		      unsigned face,
-		      unsigned level,
-		      unsigned zslice,
+                      unsigned level,
+                      unsigned layer,
                       enum lp_texture_usage tex_usage,
                       enum lp_texture_layout layout)
 {
    struct llvmpipe_resource *lpr = llvmpipe_resource(resource);
    uint8_t *map;
 
-   assert(face < 6);
    assert(level < LP_MAX_TEXTURE_LEVELS);
+   assert(resource->target == PIPE_TEXTURE_3D ?
+      layer < u_minify(resource->depth0, level) : layer < resource->depth0);
 
    assert(tex_usage == LP_TEX_USAGE_READ ||
           tex_usage == LP_TEX_USAGE_READ_WRITE ||
@@ -361,9 +361,8 @@ llvmpipe_resource_map(struct pipe_resource *resource,
          dt_usage = PIPE_TRANSFER_READ_WRITE;
       }
 
-      assert(face == 0);
       assert(level == 0);
-      assert(zslice == 0);
+      assert(layer == 0);
 
       /* FIXME: keep map count? */
       map = winsys->displaytarget_map(winsys, lpr->dt, dt_usage);
@@ -379,15 +378,8 @@ llvmpipe_resource_map(struct pipe_resource *resource,
       return map2;
    }
    else if (resource_is_texture(resource)) {
-      /* regular texture */
-      if (resource->target != PIPE_TEXTURE_CUBE) {
-         assert(face == 0);
-      }
-      if (resource->target != PIPE_TEXTURE_3D) {
-         assert(zslice == 0);
-      }
 
-      map = llvmpipe_get_texture_image(lpr, face + zslice, level,
+      map = llvmpipe_get_texture_image(lpr, layer, level,
                                        tex_usage, layout);
       assert(map);
       return map;
@@ -403,9 +395,8 @@ llvmpipe_resource_map(struct pipe_resource *resource,
  */
 void
 llvmpipe_resource_unmap(struct pipe_resource *resource,
-                       unsigned face,
                        unsigned level,
-                       unsigned zslice)
+                       unsigned layer)
 {
    struct llvmpipe_resource *lpr = llvmpipe_resource(resource);
 
@@ -414,12 +405,11 @@ llvmpipe_resource_unmap(struct pipe_resource *resource,
       struct llvmpipe_screen *lp_screen = llvmpipe_screen(resource->screen);
       struct sw_winsys *winsys = lp_screen->winsys;
 
-      assert(face == 0);
       assert(level == 0);
-      assert(zslice == 0);
+      assert(layer == 0);
 
       /* make sure linear image is up to date */
-      (void) llvmpipe_get_texture_image(lpr, face + zslice, level,
+      (void) llvmpipe_get_texture_image(lpr, layer, level,
                                         LP_TEX_USAGE_READ,
                                         LP_TEX_LAYOUT_LINEAR);
 
@@ -485,10 +475,10 @@ llvmpipe_resource_get_handle(struct pipe_screen *screen,
 
 
 static struct pipe_surface *
-llvmpipe_get_tex_surface(struct pipe_screen *screen,
-                         struct pipe_resource *pt,
-                         unsigned face, unsigned level, unsigned zslice,
-                         unsigned usage)
+llvmpipe_create_surface(struct pipe_context *pipe,
+                        struct pipe_resource *pt,
+                        unsigned level, unsigned first_layer, unsigned last_layer,
+                        unsigned usage)
 {
    struct pipe_surface *ps;
 
@@ -498,21 +488,23 @@ llvmpipe_get_tex_surface(struct pipe_screen *screen,
    if (ps) {
       pipe_reference_init(&ps->reference, 1);
       pipe_resource_reference(&ps->texture, pt);
+      ps->context = pipe;
       ps->format = pt->format;
       ps->width = u_minify(pt->width0, level);
       ps->height = u_minify(pt->height0, level);
       ps->usage = usage;
 
-      ps->face = face;
       ps->level = level;
-      ps->zslice = zslice;
+      ps->first_layer = first_layer;
+      ps->last_layer = last_layer;
    }
    return ps;
 }
 
 
 static void 
-llvmpipe_tex_surface_destroy(struct pipe_surface *surf)
+llvmpipe_surface_destroy(struct pipe_context *pipe,
+                         struct pipe_surface *surf)
 {
    /* Effectively do the texture_update work here - if texture images
     * needed post-processing to put them into hardware layout, this is
@@ -526,16 +518,16 @@ llvmpipe_tex_surface_destroy(struct pipe_surface *surf)
 
 static struct pipe_transfer *
 llvmpipe_get_transfer(struct pipe_context *pipe,
-		      struct pipe_resource *resource,
-		      struct pipe_subresource sr,
-		      unsigned usage,
-		      const struct pipe_box *box)
+                      struct pipe_resource *resource,
+                      unsigned level,
+                      unsigned usage,
+                      const struct pipe_box *box)
 {
    struct llvmpipe_resource *lprex = llvmpipe_resource(resource);
    struct llvmpipe_transfer *lpr;
 
    assert(resource);
-   assert(sr.level <= resource->last_level);
+   assert(level <= resource->last_level);
 
    /*
     * Transfers, like other pipe operations, must happen in order, so flush the
@@ -545,7 +537,8 @@ llvmpipe_get_transfer(struct pipe_context *pipe,
       boolean read_only = !(usage & PIPE_TRANSFER_WRITE);
       boolean do_not_block = !!(usage & PIPE_TRANSFER_DONTBLOCK);
       if (!llvmpipe_flush_resource(pipe, resource,
-                                   sr.face, sr.level,
+                                   level,
+                                   box->depth > 1 ? -1 : box->z,
                                    0, /* flush_flags */
                                    read_only,
                                    TRUE, /* cpu_access */
@@ -563,9 +556,9 @@ llvmpipe_get_transfer(struct pipe_context *pipe,
       struct pipe_transfer *pt = &lpr->base;
       pipe_resource_reference(&pt->resource, resource);
       pt->box = *box;
-      pt->sr = sr;
-      pt->stride = lprex->row_stride[sr.level];
-      pt->slice_stride = lprex->img_stride[sr.level];
+      pt->level = level;
+      pt->stride = lprex->row_stride[level];
+      pt->layer_stride = lprex->img_stride[level];
       pt->usage = usage;
 
       return pt;
@@ -599,8 +592,7 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
    enum lp_texture_usage tex_usage;
    const char *mode;
 
-   assert(transfer->sr.face < 6);
-   assert(transfer->sr.level < LP_MAX_TEXTURE_LEVELS);
+   assert(transfer->level < LP_MAX_TEXTURE_LEVELS);
 
    /*
    printf("tex_transfer_map(%d, %d  %d x %d of %d x %d,  usage %d )\n",
@@ -630,9 +622,8 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
    format = lpr->base.format;
 
    map = llvmpipe_resource_map(transfer->resource,
-			       transfer->sr.face,
-			       transfer->sr.level,
-			       transfer->box.z,
+                               transfer->level,
+                               transfer->box.z,
                                tex_usage, LP_TEX_LAYOUT_LINEAR);
 
 
@@ -644,7 +635,7 @@ llvmpipe_transfer_map( struct pipe_context *pipe,
        */
       screen->timestamp++;
    }
-   
+
    map +=
       transfer->box.y / util_format_get_blockheight(format) * transfer->stride +
       transfer->box.x / util_format_get_blockwidth(format) * util_format_get_blocksize(format);
@@ -660,21 +651,20 @@ llvmpipe_transfer_unmap(struct pipe_context *pipe,
    assert(transfer->resource);
 
    llvmpipe_resource_unmap(transfer->resource,
-			   transfer->sr.face,
-			   transfer->sr.level,
-			   transfer->box.z);
+                           transfer->level,
+                           transfer->box.z);
 }
 
 static unsigned int
 llvmpipe_is_resource_referenced( struct pipe_context *pipe,
-				struct pipe_resource *presource,
-				unsigned face, unsigned level)
+                                 struct pipe_resource *presource,
+                                 unsigned level, int layer)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context( pipe );
 
    if (presource->target == PIPE_BUFFER)
       return PIPE_UNREFERENCED;
-   
+
    return lp_setup_is_resource_referenced(llvmpipe->setup, presource);
 }
 
@@ -1269,8 +1259,6 @@ llvmpipe_init_screen_resource_funcs(struct pipe_screen *screen)
    screen->resource_get_handle = llvmpipe_resource_get_handle;
    screen->user_buffer_create = llvmpipe_user_buffer_create;
 
-   screen->get_tex_surface = llvmpipe_get_tex_surface;
-   screen->tex_surface_destroy = llvmpipe_tex_surface_destroy;
 }
 
 
@@ -1285,4 +1273,7 @@ llvmpipe_init_context_resource_funcs(struct pipe_context *pipe)
  
    pipe->transfer_flush_region = u_default_transfer_flush_region;
    pipe->transfer_inline_write = u_default_transfer_inline_write;
+
+   pipe->create_surface = llvmpipe_create_surface;
+   pipe->surface_destroy = llvmpipe_surface_destroy;
 }

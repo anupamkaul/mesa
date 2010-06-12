@@ -58,27 +58,27 @@ lp_rast_begin( struct lp_rasterizer *rast,
    LP_DBG(DEBUG_RAST, "%s\n", __FUNCTION__);
 
    rast->state.nr_cbufs = scene->fb.nr_cbufs;
-   
+
    for (i = 0; i < rast->state.nr_cbufs; i++) {
       struct pipe_surface *cbuf = scene->fb.cbufs[i];
+      assert(cbuf->first_layer == cbuf->last_layer);
       llvmpipe_resource_map(cbuf->texture,
-                            cbuf->face,
                             cbuf->level,
-                            cbuf->zslice,
+                            cbuf->first_layer,
                             LP_TEX_USAGE_READ_WRITE,
                             LP_TEX_LAYOUT_NONE);
    }
 
    if (fb->zsbuf) {
       struct pipe_surface *zsbuf = scene->fb.zsbuf;
+      assert(zsbuf->first_layer == zsbuf->last_layer);
       rast->zsbuf.stride = llvmpipe_resource_stride(zsbuf->texture, zsbuf->level);
       rast->zsbuf.blocksize = 
          util_format_get_blocksize(zsbuf->texture->format);
 
       rast->zsbuf.map = llvmpipe_resource_map(zsbuf->texture,
-                                             zsbuf->face,
                                              zsbuf->level,
-                                             zsbuf->zslice,
+                                             zsbuf->first_layer,
                                              LP_TEX_USAGE_READ_WRITE,
                                              LP_TEX_LAYOUT_NONE);
       assert(rast->zsbuf.map);
@@ -98,18 +98,16 @@ lp_rast_end( struct lp_rasterizer *rast )
    for (i = 0; i < rast->state.nr_cbufs; i++) {
       struct pipe_surface *cbuf = scene->fb.cbufs[i];
       llvmpipe_resource_unmap(cbuf->texture,
-                             cbuf->face,
                              cbuf->level,
-                             cbuf->zslice);
+                             cbuf->first_layer);
    }
 
    /* Unmap z/stencil buffer */
    if (rast->zsbuf.map) {
       struct pipe_surface *zsbuf = scene->fb.zsbuf;
       llvmpipe_resource_unmap(zsbuf->texture,
-                             zsbuf->face,
                              zsbuf->level,
-                             zsbuf->zslice);
+                             zsbuf->first_layer);
       rast->zsbuf.map = NULL;
    }
 
@@ -159,7 +157,7 @@ lp_rast_tile_begin(struct lp_rasterizer_task *task,
       assert(cbuf);
       lpt = llvmpipe_resource(cbuf->texture);
       task->color_tiles[buf] = llvmpipe_get_texture_tile(lpt,
-                                                         cbuf->face + cbuf->zslice,
+                                                         cbuf->first_layer,
                                                          cbuf->level,
                                                          usage,
                                                          x, y);
@@ -181,7 +179,7 @@ lp_rast_tile_begin(struct lp_rasterizer_task *task,
           * and update the tile's layout info.
           */
          (void) llvmpipe_get_texture_tile(lpt,
-                                          zsbuf->face + zsbuf->zslice,
+                                          zsbuf->first_layer,
                                           zsbuf->level,
                                           usage,
                                           x, y);
@@ -356,7 +354,7 @@ lp_rast_load_color(struct lp_rasterizer_task *task,
       assert(cbuf);
       lpt = llvmpipe_texture(cbuf->texture);
       task->color_tiles[buf] = llvmpipe_get_texture_tile(lpt,
-                                                         cbuf->face + cbuf->zslice,
+                                                         cbuf->first_layer,
                                                          cbuf->level,
                                                          usage,
                                                          task->x, task->y);
@@ -385,10 +383,11 @@ lp_rast_store_color( struct lp_rasterizer_task *task,
 
    for (buf = 0; buf < rast->state.nr_cbufs; buf++) {
       struct pipe_surface *cbuf = scene->fb.cbufs[buf];
-      const unsigned face = cbuf->face, level = cbuf->level;
+      /* XXX this used to ignore zslice only used face */
+      const unsigned layer = cbuf->first_layer, level = cbuf->level;
       struct llvmpipe_resource *lpt = llvmpipe_resource(cbuf->texture);
       /* this will convert the tiled data to linear if needed */
-      (void) llvmpipe_get_texture_tile_linear(lpt, face, level,
+      (void) llvmpipe_get_texture_tile_linear(lpt, layer, level,
                                               LP_TEX_USAGE_READ,
                                               task->x, task->y);
    }
