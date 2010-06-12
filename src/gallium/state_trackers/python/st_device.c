@@ -253,7 +253,7 @@ st_context_create(struct st_device *st_dev)
 
 	 pipe->transfer_inline_write(pipe,
 				     st_ctx->default_texture,
-				     u_subresource(0,0),
+				     0,
 				     PIPE_TRANSFER_WRITE,
 				     &box,
 				     &zero,
