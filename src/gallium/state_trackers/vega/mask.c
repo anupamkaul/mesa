@@ -51,12 +51,12 @@ struct vg_mask_layer {
 static INLINE struct pipe_surface *
 alpha_mask_surface(struct vg_context *ctx, int usage)
 {
-   struct pipe_screen *screen = ctx->pipe->screen;
+   struct pipe_context *pipe = ctx->pipe;
    struct st_framebuffer *stfb = ctx->draw_buffer;
-   return screen->get_tex_surface(screen,
-                                  stfb->alpha_mask_view->texture,
-                                  0, 0, 0,
-                                  usage);
+   return pipe->create_surface(pipe,
+                               stfb->alpha_mask_view->texture,
+                               0, 0, 0,
+                               usage);
 }
 
 static INLINE VGboolean
@@ -110,7 +110,6 @@ static void read_alpha_mask(void * data, VGint dataStride,
 {
    struct vg_context *ctx = vg_current_context();
    struct pipe_context *pipe = ctx->pipe;
-   struct pipe_screen *screen = pipe->screen;
 
    struct st_framebuffer *stfb = ctx->draw_buffer;
    struct st_renderbuffer *strb = stfb->alpha_mask;
@@ -142,8 +141,8 @@ static void read_alpha_mask(void * data, VGint dataStride,
    {
       struct pipe_surface *surf;
 
-      surf = screen->get_tex_surface(screen, strb->texture,  0, 0, 0,
-                                     PIPE_BIND_TRANSFER_READ);
+      surf = pipe->create_surface(pipe, strb->texture,  0, 0, 0,
+                                  PIPE_BIND_TRANSFER_READ);
 
       /* Do a row at a time to flip image data vertically */
       for (i = 0; i < height; i++) {
@@ -534,8 +533,8 @@ void mask_layer_fill(struct vg_mask_layer *layer,
 
    alpha_color[3] = value;
 
-   surface = ctx->pipe->screen->get_tex_surface(
-      ctx->pipe->screen, layer->sampler_view->texture,
+   surface = ctx->pipe->create_surface(
+      ctx->pipe, layer->sampler_view->texture,
       0, 0, 0,
       PIPE_BIND_RENDER_TARGET);
 
@@ -543,7 +542,7 @@ void mask_layer_fill(struct vg_mask_layer *layer,
                 layer->width, layer->height,
                 x, y, width, height, alpha_color);
 
-   ctx->pipe->screen->tex_surface_release(ctx->pipe->screen, &surface);
+   ctx->pipe->surface_destroy(ctx->pipe, &surface);
 }
 
 void mask_copy(struct vg_mask_layer *layer,
@@ -569,11 +568,11 @@ static void mask_layer_render_to(struct vg_mask_layer *layer,
 {
    struct vg_context *ctx = vg_current_context();
    const VGfloat fill_color[4] = {1.f, 1.f, 1.f, 1.f};
-   struct pipe_screen *screen = ctx->pipe->screen;
+   struct pipe_context *pipe = ctx->pipe;
    struct pipe_surface *surface;
 
-   surface = screen->get_tex_surface(screen, layer->sampler_view->texture,  0, 0, 0,
-                                     PIPE_BIND_RENDER_TARGET);
+   surface = pipe->create_surface(pipe, layer->sampler_view->texture, 0, 0, 0,
+                                  PIPE_BIND_RENDER_TARGET);
 
    cso_save_framebuffer(ctx->cso_context);
    cso_save_fragment_shader(ctx->cso_context);
@@ -602,7 +601,7 @@ static void mask_layer_render_to(struct vg_mask_layer *layer,
    cso_restore_viewport(ctx->cso_context);
    ctx->state.dirty |= BLEND_DIRTY;
 
-   screen->tex_surface_release(ctx->pipe->screen, &surface);
+   pipe->surface_destroy(pipe, &surface);
 }
 
 void mask_render_to(struct path *path,

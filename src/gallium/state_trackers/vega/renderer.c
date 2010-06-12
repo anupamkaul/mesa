@@ -280,8 +280,8 @@ void renderer_copy_texture(struct renderer *ctx,
    struct pipe_screen *screen = pipe->screen;
    struct pipe_resource *tex = src->texture;
    struct pipe_resource *buf;
-   struct pipe_surface *dst_surf = screen->get_tex_surface(
-      screen, dst, 0, 0, 0,
+   struct pipe_surface *dst_surf = pipe->create_surface(
+      pipe, dst, 0, 0, 0,
       PIPE_BIND_RENDER_TARGET);
    struct pipe_framebuffer_state fb;
    float s0, t0, s1, t1;
@@ -415,8 +415,8 @@ void renderer_copy_surface(struct renderer *ctx,
    struct pipe_resource *buf;
    struct pipe_sampler_view view_templ;
    struct pipe_sampler_view *view;
+   struct pipe_box src_box;
    struct pipe_resource texTemp, *tex;
-   struct pipe_subresource subsrc, subdst;
    struct pipe_framebuffer_state fb;
    struct st_framebuffer *stfb = ctx->owner->draw_buffer;
    const int srcW = abs(srcX1 - srcX0);
@@ -473,15 +473,11 @@ void renderer_copy_surface(struct renderer *ctx,
    if (!view)
       return;
 
-   subdst.face = 0;
-   subdst.level = 0;
-   subsrc.face = src->face;
-   subsrc.level = src->level;
+   u_box_2d_zslice(srcLeft, srcTop, src->first_layer, srcW, srcH, &src_box);
 
    pipe->resource_copy_region(pipe,
-                              tex, subdst, 0, 0, 0,  /* dest */
-                              src->texture, subsrc, srcLeft, srcTop, src->zslice, /* src */
-                              srcW, srcH);     /* size */
+                              tex, 0, 0, 0, 0,  /* dest */
+                              src->texture, 0, &src_box);
 
    /* save state (restored below) */
    cso_save_blend(ctx->cso);

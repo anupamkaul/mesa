@@ -41,45 +41,47 @@
 #include "util/u_inlines.h"
 #include "pipe/p_state.h"
 
+/* FIXME: hmm the no_flush/cond_flush versions all identical?
+ * and only 2 have out of 6 (st_no_flush_pipe_buffer_write and
+ * st_no_flush_get_transfer) have callers anyway? */
+
 static INLINE struct pipe_transfer *
 st_cond_flush_get_transfer(struct vg_context *st,
-			       struct pipe_resource *pt,
-			       unsigned int face,
-			       unsigned int level,
-			       unsigned int zslice,
-			       enum pipe_transfer_usage usage,
-			       unsigned int x, unsigned int y,
-			       unsigned int w, unsigned int h)
+                           struct pipe_resource *pt,
+                           unsigned int level,
+                           unsigned int layer,
+                           enum pipe_transfer_usage usage,
+                           unsigned int x, unsigned int y,
+                           unsigned int w, unsigned int h)
 {
    struct pipe_context *pipe = st->pipe;
 
-   return pipe_get_transfer(pipe, pt, face, level, zslice, usage,
-			    x, y, w, h);
+   return pipe_get_transfer(pipe, pt, level, layer, usage,
+                            x, y, w, h);
 }
 
 static INLINE struct pipe_transfer *
 st_no_flush_get_transfer(struct vg_context *st,
-			     struct pipe_resource *pt,
-			     unsigned int face,
-			     unsigned int level,
-			     unsigned int zslice,
-			     enum pipe_transfer_usage usage,
-			     unsigned int x, unsigned int y,
-			     unsigned int w, unsigned int h)
+                         struct pipe_resource *pt,
+                         unsigned int level,
+                         unsigned int layer,
+                         enum pipe_transfer_usage usage,
+                         unsigned int x, unsigned int y,
+                         unsigned int w, unsigned int h)
 {
    struct pipe_context *pipe = st->pipe;
 
-   return pipe_get_transfer(pipe, pt, face, level,
-			    zslice, usage, x, y, w, h);
+   return pipe_get_transfer(pipe, pt, level, layer, usage,
+                            x, y, w, h);
 }
 
 
 static INLINE void
 st_cond_flush_pipe_buffer_write(struct vg_context *st,
-				struct pipe_resource *buf,
-				unsigned int offset,
-				unsigned int size,
-				const void * data)
+                                struct pipe_resource *buf,
+                                unsigned int offset,
+                                unsigned int size,
+                                const void * data)
 {
    struct pipe_context *pipe = st->pipe;
 
@@ -88,20 +90,20 @@ st_cond_flush_pipe_buffer_write(struct vg_context *st,
 
 static INLINE void
 st_no_flush_pipe_buffer_write(struct vg_context *st,
-			      struct pipe_resource *buf,
-			      unsigned int offset,
-			      unsigned int size,
-			      const void * data)
+                              struct pipe_resource *buf,
+                              unsigned int offset,
+                              unsigned int size,
+                              const void * data)
 {
    pipe_buffer_write(st->pipe, buf, offset, size, data);
 }
 
 static INLINE void
 st_cond_flush_pipe_buffer_read(struct vg_context *st,
-			       struct pipe_resource *buf,
-			       unsigned int offset,
-			       unsigned int size,
-			       void * data)
+                               struct pipe_resource *buf,
+                               unsigned int offset,
+                               unsigned int size,
+                               void * data)
 {
    struct pipe_context *pipe = st->pipe;
 
@@ -110,10 +112,10 @@ st_cond_flush_pipe_buffer_read(struct vg_context *st,
 
 static INLINE void
 st_no_flush_pipe_buffer_read(struct vg_context *st,
-			     struct pipe_resource *buf,
-			     unsigned int offset,
-			     unsigned int size,
-			     void * data)
+                             struct pipe_resource *buf,
+                             unsigned int offset,
+                             unsigned int size,
+                             void * data)
 {
    pipe_buffer_read(st->pipe, buf, offset, size, data);
 }

@@ -82,9 +82,9 @@ static INLINE struct pipe_resource *create_texture_1d(struct vg_context *ctx,
    { /* upload color_data */
       struct pipe_transfer *transfer =
          pipe_get_transfer(pipe, tex,
-				0, 0, 0,
-				PIPE_TRANSFER_READ_WRITE ,
-				0, 0, tex->width0, tex->height0);
+                           0, 0,
+                           PIPE_TRANSFER_READ_WRITE ,
+                           0, 0, tex->width0, tex->height0);
       void *map = pipe->transfer_map(pipe, transfer);
       memcpy(map, color_data, sizeof(VGint)*color_data_len);
       pipe->transfer_unmap(pipe, transfer);
@@ -121,8 +121,8 @@ static INLINE struct pipe_surface * setup_framebuffer(struct vg_image *dst)
    struct vg_context *ctx = vg_current_context();
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_framebuffer_state fb;
-   struct pipe_surface *dst_surf = pipe->screen->get_tex_surface(
-      pipe->screen, dst->sampler_view->texture, 0, 0, 0,
+   struct pipe_surface *dst_surf = pipe->create_surface(
+      pipe, dst->sampler_view->texture, 0, 0, 0,
       PIPE_BIND_RENDER_TARGET);
 
    /* drawing dest */

@@ -454,10 +454,10 @@ void vg_prepare_blend_surface(struct vg_context *ctx)
    u_sampler_view_default_template(&view_templ, strb->texture, strb->texture->format);
    view = pipe->create_sampler_view(pipe, strb->texture, &view_templ);
 
-   dest_surface = pipe->screen->get_tex_surface(pipe->screen,
-                                                stfb->blend_texture_view->texture,
-                                                0, 0, 0,
-                                                PIPE_BIND_RENDER_TARGET);
+   dest_surface = pipe->create_surface(pipe,
+                                       stfb->blend_texture_view->texture,
+                                       0, 0, 0,
+                                       PIPE_BIND_RENDER_TARGET);
    /* flip it, because we want to use it as a sampler */
    util_blit_pixels_tex(ctx->blit,
                         view,
@@ -490,10 +490,10 @@ void vg_prepare_blend_surface_from_mask(struct vg_context *ctx)
    /* first finish all pending rendering */
    vgFinish();
 
-   dest_surface = pipe->screen->get_tex_surface(pipe->screen,
-                                                stfb->blend_texture_view->texture,
-                                                0, 0, 0,
-                                                PIPE_BIND_RENDER_TARGET);
+   dest_surface = pipe->create_surface(pipe,
+                                       stfb->blend_texture_view->texture,
+                                       0, 0, 0,
+                                       PIPE_BIND_RENDER_TARGET);
 
    /* flip it, because we want to use it as a sampler */
    util_blit_pixels_tex(ctx->blit,
