@@ -80,25 +80,6 @@ void trace_dump_resource_template(const struct pipe_resource *templat)
 }
 
 
-void trace_dump_subresource(const struct pipe_subresource *subresource)
-{
-   if (!trace_dumping_enabled_locked())
-      return;
-
-   if(!subresource) {
-      trace_dump_null();
-      return;
-   }
-
-   trace_dump_struct_begin("pipe_subresource");
-
-   trace_dump_member(uint, subresource, face);
-   trace_dump_member(uint, subresource, level);
-
-   trace_dump_struct_end();
-}
-
-
 void trace_dump_box(const struct pipe_box *box)
 {
    if (!trace_dumping_enabled_locked())
@@ -447,6 +428,8 @@ void trace_dump_sampler_view_template(const struct pipe_sampler_view *state)
    trace_dump_member(format, state, format);
    trace_dump_member(uint, state, first_level);
    trace_dump_member(uint, state, last_level);
+   trace_dump_member(uint, state, first_layer);
+   trace_dump_member(uint, state, last_layer);
    trace_dump_member(uint, state, swizzle_r);
    trace_dump_member(uint, state, swizzle_g);
    trace_dump_member(uint, state, swizzle_b);
@@ -477,9 +460,9 @@ void trace_dump_surface(const struct pipe_surface *state)
    trace_dump_member(uint, state, usage);
 
    trace_dump_member(ptr, state, texture);
-   trace_dump_member(uint, state, face);
    trace_dump_member(uint, state, level);
-   trace_dump_member(uint, state, zslice);
+   trace_dump_member(uint, state, first_layer);
+   trace_dump_member(uint, state, last_layer);
 
    trace_dump_struct_end();
 }
@@ -497,16 +480,18 @@ void trace_dump_transfer(const struct pipe_transfer *state)
 
    trace_dump_struct_begin("pipe_transfer");
 
+   trace_dump_member(uint, state, box.x);
+   trace_dump_member(uint, state, box.y);
+   trace_dump_member(uint, state, box.z);
    trace_dump_member(uint, state, box.width);
    trace_dump_member(uint, state, box.height);
+   trace_dump_member(uint, state, box.depth);
 
    trace_dump_member(uint, state, stride);
+   trace_dump_member(uint, state, layer_stride);
    trace_dump_member(uint, state, usage);
 
    trace_dump_member(ptr, state, resource);
-   trace_dump_member(uint, state, sr.face);
-   trace_dump_member(uint, state, sr.level);
-   trace_dump_member(uint, state, box.z);
 
    trace_dump_struct_end();
 }
