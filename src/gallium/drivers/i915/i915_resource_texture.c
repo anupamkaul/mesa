@@ -647,7 +647,7 @@ i915_texture_get_handle(struct pipe_screen * screen,
 
 static void
 i915_texture_destroy(struct pipe_screen *screen,
-		     struct pipe_resource *pt)
+                     struct pipe_resource *pt)
 {
    struct i915_texture *tex = i915_texture(pt);
    struct i915_winsys *iws = i915_screen(screen)->iws;
@@ -664,10 +664,10 @@ i915_texture_destroy(struct pipe_screen *screen,
 
 static struct pipe_transfer * 
 i915_texture_get_transfer(struct pipe_context *context,
-			  struct pipe_resource *resource,
-			  struct pipe_subresource sr,
-			  unsigned usage,
-			  const struct pipe_box *box)
+                          struct pipe_resource *resource,
+                          unsigned level,
+                          unsigned usage,
+                          const struct pipe_box *box)
 {
    struct i915_texture *tex = i915_texture(resource);
    struct pipe_transfer *transfer = CALLOC_STRUCT(pipe_transfer);
@@ -675,10 +675,11 @@ i915_texture_get_transfer(struct pipe_context *context,
       return NULL;
 
    transfer->resource = resource;
-   transfer->sr = sr;
+   transfer->level = level;
    transfer->usage = usage;
    transfer->box = *box;
    transfer->stride = tex->stride;
+   /* FIXME: layer_stride */
 
    return transfer;
 }
@@ -686,26 +687,20 @@ i915_texture_get_transfer(struct pipe_context *context,
 
 static void *
 i915_texture_transfer_map(struct pipe_context *pipe,
-			  struct pipe_transfer *transfer)
+                          struct pipe_transfer *transfer)
 {
    struct pipe_resource *resource = transfer->resource;
    struct i915_texture *tex = i915_texture(resource);
    struct i915_winsys *iws = i915_screen(pipe->screen)->iws;
-   struct pipe_subresource sr = transfer->sr;
    struct pipe_box *box = &transfer->box;
    enum pipe_format format = resource->format;
    unsigned offset;
    char *map;
 
-   if (resource->target == PIPE_TEXTURE_CUBE) {
-      offset = tex->image_offset[sr.level][sr.face];
-   } else if (resource->target == PIPE_TEXTURE_3D) {
-      offset = tex->image_offset[sr.level][box->z];
-   } else {
-      offset = tex->image_offset[sr.level][0];
-      assert(sr.face == 0);
+   if (resource->target != PIPE_TEXTURE_3D &&
+       resource->target != PIPE_TEXTURE_CUBE)
       assert(box->z == 0);
-   }
+   offset = tex->image_offset[transfer->level][box->z];
 
    map = iws->buffer_map(iws, tex->buffer,
                          (transfer->usage & PIPE_TRANSFER_WRITE) ? TRUE : FALSE);
