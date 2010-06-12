@@ -627,21 +627,17 @@ void r300_texture_reinterpret_format(struct pipe_screen *screen,
 }
 
 unsigned r300_texture_get_offset(struct r300_texture* tex, unsigned level,
-                                 unsigned zslice, unsigned face)
+                                 unsigned layer)
 {
     unsigned offset = tex->offset[level];
 
     switch (tex->b.b.target) {
         case PIPE_TEXTURE_3D:
-            assert(face == 0);
-            return offset + zslice * tex->layer_size[level];
-
         case PIPE_TEXTURE_CUBE:
-            assert(zslice == 0);
-            return offset + face * tex->layer_size[level];
+            return offset + layer * tex->layer_size[level];
 
         default:
-            assert(zslice == 0 && face == 0);
+            assert(layer == 0);
             return offset;
     }
 }
@@ -869,8 +865,8 @@ static void r300_setup_tiling(struct pipe_screen *screen,
 }
 
 static unsigned r300_texture_is_referenced(struct pipe_context *context,
-					 struct pipe_resource *texture,
-					 unsigned face, unsigned level)
+                                           struct pipe_resource *texture,
+                                           unsigned level, int layer)
 {
     struct r300_context *r300 = r300_context(context);
     struct r300_texture *rtex = (struct r300_texture *)texture;
@@ -882,7 +878,7 @@ static unsigned r300_texture_is_referenced(struct pipe_context *context,
 }
 
 static void r300_texture_destroy(struct pipe_screen *screen,
-				 struct pipe_resource* texture)
+                                 struct pipe_resource* texture)
 {
     struct r300_texture* tex = (struct r300_texture*)texture;
     struct r300_winsys_screen *rws = (struct r300_winsys_screen *)texture->screen->winsys;
@@ -992,31 +988,33 @@ struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
 
 /* Not required to implement u_resource_vtbl, consider moving to another file:
  */
-struct pipe_surface* r300_get_tex_surface(struct pipe_screen* screen,
-					  struct pipe_resource* texture,
-					  unsigned face,
-					  unsigned level,
-					  unsigned zslice,
-					  unsigned flags)
+struct pipe_surface* r300_create_surface(struct pipe_context * ctx,
+                                         struct pipe_resource* texture,
+                                         unsigned level,
+                                         unsigned first_layer,
+                                         unsigned last_layer,
+                                         unsigned flags)
 {
     struct r300_texture* tex = r300_texture(texture);
     struct pipe_surface* surface = CALLOC_STRUCT(pipe_surface);
     unsigned offset;
 
-    offset = r300_texture_get_offset(tex, level, zslice, face);
+    assert(first_layer == last_layer);
+    offset = r300_texture_get_offset(tex, level, first_layer);
 
     if (surface) {
         pipe_reference_init(&surface->reference, 1);
         pipe_resource_reference(&surface->texture, texture);
+        surface->context = ctx;
         surface->format = texture->format;
         surface->width = u_minify(texture->width0, level);
         surface->height = u_minify(texture->height0, level);
         surface->offset = offset;
         surface->usage = flags;
-        surface->zslice = zslice;
         surface->texture = texture;
-        surface->face = face;
         surface->level = level;
+        surface->first_layer = first_layer;
+        surface->last_layer = last_layer;
     }
 
     return surface;
@@ -1024,7 +1022,7 @@ struct pipe_surface* r300_get_tex_surface(struct pipe_screen* screen,
 
 /* Not required to implement u_resource_vtbl, consider moving to another file:
  */
-void r300_tex_surface_destroy(struct pipe_surface* s)
+void r300_surface_destroy(struct pipe_context *ctx, struct pipe_surface* s)
 {
     pipe_resource_reference(&s->texture, NULL);
     FREE(s);

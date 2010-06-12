@@ -51,7 +51,7 @@ unsigned r300_buffer_is_referenced(struct pipe_context *context,
 
 static unsigned r300_buffer_is_referenced_by_cs(struct pipe_context *context,
                                                 struct pipe_resource *buf,
-                                                unsigned face, unsigned level)
+                                                unsigned level, int layer)
 {
     return r300_buffer_is_referenced(context, buf, R300_REF_CS);
 }

@@ -562,14 +562,14 @@ static void r300_print_fb_surf_info(struct pipe_surface *surf, unsigned index,
     struct r300_texture *rtex = r300_texture(tex);
 
     fprintf(stderr,
-            "r300:   %s[%i] Dim: %ix%i, Offset: %i, ZSlice: %i, "
-            "Face: %i, Level: %i, Format: %s\n"
+            "r300:   %s[%i] Dim: %ix%i, Offset: %i, Firstlayer: %i, "
+            "Lastlayer: %i, Level: %i, Format: %s\n"
 
             "r300:     TEX: Macro: %s, Micro: %s, Pitch: %i, "
             "Dim: %ix%ix%i, LastLevel: %i, Format: %s\n",
 
             binding, index, surf->width, surf->height, surf->offset,
-            surf->zslice, surf->face, surf->level,
+            surf->first_layer, surf->last_layer, surf->level,
             util_format_short_name(surf->format),
 
             rtex->macrotile ? "YES" : " NO", rtex->microtile ? "YES" : " NO",

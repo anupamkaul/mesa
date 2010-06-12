@@ -40,7 +40,7 @@ unsigned r300_texture_get_stride(struct r300_screen* screen,
                                  struct r300_texture* tex, unsigned level);
 
 unsigned r300_texture_get_offset(struct r300_texture* tex, unsigned level,
-                                 unsigned zslice, unsigned face);
+                                 unsigned layer);
 
 void r300_texture_reinterpret_format(struct pipe_screen *screen,
                                      struct pipe_resource *tex,
@@ -63,13 +63,13 @@ r300_texture_create(struct pipe_screen* screen,
 		    const struct pipe_resource* templ);
 
 
-struct pipe_surface* r300_get_tex_surface(struct pipe_screen* screen,
-					  struct pipe_resource* texture,
-					  unsigned face,
-					  unsigned level,
-					  unsigned zslice,
-					  unsigned flags);
+struct pipe_surface* r300_create_surface(struct pipe_context *ctx,
+                                         struct pipe_resource* texture,
+                                         unsigned level,
+                                         unsigned first_layer,
+                                         unsigned last_layer,
+                                         unsigned flags);
 
-void r300_tex_surface_destroy(struct pipe_surface* s);
+void r300_surface_destroy(struct pipe_context *ctx, struct pipe_surface* s);
 
 #endif /* R300_TEXTURE_H */

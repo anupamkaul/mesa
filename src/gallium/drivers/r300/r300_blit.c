@@ -86,12 +86,11 @@ static void r300_clear(struct pipe_context* pipe,
 /* Copy a block of pixels from one surface to another using HW. */
 static void r300_hw_copy_region(struct pipe_context* pipe,
                                 struct pipe_resource *dst,
-                                struct pipe_subresource subdst,
+                                unsigned dst_level,
                                 unsigned dstx, unsigned dsty, unsigned dstz,
                                 struct pipe_resource *src,
-                                struct pipe_subresource subsrc,
-                                unsigned srcx, unsigned srcy, unsigned srcz,
-                                unsigned width, unsigned height)
+                                unsigned src_level,
+                                const struct pipe_box *src_box)
 {
     struct r300_context* r300 = r300_context(pipe);
     struct r300_textures_state* state =
@@ -112,20 +111,18 @@ static void r300_hw_copy_region(struct pipe_context* pipe,
         (struct pipe_sampler_view**)state->sampler_views);
 
     /* Do a copy */
-    util_blitter_copy_region(r300->blitter, dst, subdst, dstx, dsty, dstz,
-                             src, subsrc, srcx, srcy, srcz, width, height,
-                             TRUE);
+    util_blitter_copy_region(r300->blitter, dst, dst_level, dstx, dsty, dstz,
+                             src, src_level, src_box, TRUE);
 }
 
 /* Copy a block of pixels from one surface to another. */
 static void r300_resource_copy_region(struct pipe_context *pipe,
                                       struct pipe_resource *dst,
-                                      struct pipe_subresource subdst,
+                                      unsigned dst_level,
                                       unsigned dstx, unsigned dsty, unsigned dstz,
                                       struct pipe_resource *src,
-                                      struct pipe_subresource subsrc,
-                                      unsigned srcx, unsigned srcy, unsigned srcz,
-                                      unsigned width, unsigned height)
+                                      unsigned src_level,
+                                      const struct pipe_box *src_box)
 {
     enum pipe_format old_format = dst->format;
     enum pipe_format new_format = old_format;
@@ -174,8 +171,8 @@ static void r300_resource_copy_region(struct pipe_context *pipe,
                                         src, new_format);
     }
 
-    r300_hw_copy_region(pipe, dst, subdst, dstx, dsty, dstz,
-                        src, subsrc, srcx, srcy, srcz, width, height);
+    r300_hw_copy_region(pipe, dst, dst_level, dstx, dsty, dstz,
+                        src, src_level, src_box);
 
     if (old_format != new_format) {
         dst->format = old_format;

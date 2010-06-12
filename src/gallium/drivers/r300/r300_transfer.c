@@ -27,6 +27,7 @@
 
 #include "util/u_memory.h"
 #include "util/u_format.h"
+#include "util/u_box.h"
 
 struct r300_transfer {
     /* Parent class */
@@ -52,10 +53,6 @@ static void r300_copy_from_tiled_texture(struct pipe_context *ctx,
 {
     struct pipe_transfer *transfer = (struct pipe_transfer*)r300transfer;
     struct pipe_resource *tex = transfer->resource;
-    struct pipe_subresource subdst;
-
-    subdst.face = 0;
-    subdst.level = 0;
 
     /* XXX if we don't flush before copying the texture and mapping it,
      * we get wrong pixels, i.e. it's like latest draw calls didn't happen,
@@ -66,11 +63,9 @@ static void r300_copy_from_tiled_texture(struct pipe_context *ctx,
      * 2 flushes. That sucks. */
     ctx->flush(ctx, 0, NULL);
 
-    ctx->resource_copy_region(ctx, &r300transfer->detiled_texture->b.b, subdst,
-			      0, 0, 0,
-			      tex, transfer->sr,
-			      transfer->box.x, transfer->box.y, transfer->box.z,
-			      transfer->box.width, transfer->box.height);
+    ctx->resource_copy_region(ctx, &r300transfer->detiled_texture->b.b, 0,
+                              0, 0, 0,
+                              tex, transfer->level, &transfer->box);
 
     /* Flushing after the copy is implicit, issued by winsys. */
 }
@@ -81,16 +76,12 @@ static void r300_copy_into_tiled_texture(struct pipe_context *ctx,
 {
     struct pipe_transfer *transfer = (struct pipe_transfer*)r300transfer;
     struct pipe_resource *tex = transfer->resource;
-    struct pipe_subresource subsrc;
+    struct pipe_box src_box;
+    u_box_origin_2d(transfer->box.width, transfer->box.height, &src_box);
 
-    subsrc.face = 0;
-    subsrc.level = 0;
-
-    ctx->resource_copy_region(ctx, tex, transfer->sr,
-			      transfer->box.x, transfer->box.y, transfer->box.z,
-			      &r300transfer->detiled_texture->b.b, subsrc,
-			      0, 0, 0,
-			      transfer->box.width, transfer->box.height);
+    ctx->resource_copy_region(ctx, tex, transfer->level,
+                              transfer->box.x, transfer->box.y, transfer->box.z,
+                              &r300transfer->detiled_texture->b.b, 0, &src_box);
 
     /* XXX this flush fixes a few piglit tests (e.g. glean/pixelFormats). */
     ctx->flush(ctx, 0, NULL);
@@ -98,10 +89,10 @@ static void r300_copy_into_tiled_texture(struct pipe_context *ctx,
 
 struct pipe_transfer*
 r300_texture_get_transfer(struct pipe_context *ctx,
-			  struct pipe_resource *texture,
-			  struct pipe_subresource sr,
-			  unsigned usage,
-			  const struct pipe_box *box)
+                          struct pipe_resource *texture,
+                          unsigned level,
+                          unsigned usage,
+                          const struct pipe_box *box)
 {
     struct r300_texture *tex = r300_texture(texture);
     struct r300_screen *r300screen = r300_screen(ctx->screen);
@@ -122,7 +113,7 @@ r300_texture_get_transfer(struct pipe_context *ctx,
     if (trans) {
         /* Initialize the transfer object. */
         pipe_resource_reference(&trans->transfer.resource, texture);
-        trans->transfer.sr = sr;
+        trans->transfer.level = level;
         trans->transfer.usage = usage;
         trans->transfer.box = *box;
 
@@ -140,7 +131,7 @@ r300_texture_get_transfer(struct pipe_context *ctx,
             base.nr_samples = 0;
             base.usage = PIPE_USAGE_DYNAMIC;
             base.bind = 0;
-	    base.flags = R300_RESOURCE_FLAG_TRANSFER;
+            base.flags = R300_RESOURCE_FLAG_TRANSFER;
 
             /* For texture reading, the temporary (detiled) texture is used as
              * a render target when blitting from a tiled texture. */
@@ -164,7 +155,7 @@ r300_texture_get_transfer(struct pipe_context *ctx,
             /* Set the stride.
 	     *
 	     * Even though we are using an internal texture for this,
-	     * the transfer sr, box and usage parameters still reflect
+	     * the transfer level, box and usage parameters still reflect
 	     * the arguments received to get_transfer.  We just do the
 	     * right thing internally.
 	     */
@@ -181,8 +172,8 @@ r300_texture_get_transfer(struct pipe_context *ctx,
             }
         } else {
             trans->transfer.stride =
-                r300_texture_get_stride(r300screen, tex, sr.level);
-            trans->offset = r300_texture_get_offset(tex, sr.level, box->z, sr.face);
+                r300_texture_get_stride(r300screen, tex, level);
+            trans->offset = r300_texture_get_offset(tex, level, box->z);
 
             if (referenced_cs && (usage & PIPE_TRANSFER_READ))
                 ctx->flush(ctx, PIPE_FLUSH_RENDER_CACHE, NULL);
