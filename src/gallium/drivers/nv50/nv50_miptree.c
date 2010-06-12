@@ -133,7 +133,7 @@ nv50_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *tmp
 	struct nv50_miptree *mt = CALLOC_STRUCT(nv50_miptree);
 	struct pipe_resource *pt = &mt->base.base;
 	unsigned width = tmp->width0, height = tmp->height0;
-	unsigned depth = tmp->depth0, image_alignment;
+	unsigned depth_fix = tmp->depth0, image_alignment, depth;
 	uint32_t tile_flags;
 	int ret, i, l;
 
@@ -173,7 +173,16 @@ nv50_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *tmp
 	}
 
 	/* XXX: texture arrays */
-	mt->image_nr = (pt->target == PIPE_TEXTURE_CUBE) ? 6 : 1;
+	if (pt->target == PIPE_TEXTURE_3D)
+		mt->image_nr = 1;
+	else {
+		/* should handle both array and cube textures */
+		if (pt->target == PIPE_TEXTURE_CUBE)
+			assert(depth_fix == 6);
+		mt->image_nr = depth_fix;
+		depth_fix = 1;
+	}
+	depth = depth_fix;
 
 	for (l = 0; l <= pt->last_level; l++) {
 		struct nv50_miptree_level *lvl = &mt->level[l];
@@ -203,7 +212,7 @@ nv50_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *tmp
 
 			size  = lvl->pitch;
 			size *= align(util_format_get_nblocksy(pt->format, u_minify(pt->height0, l)), tile_h);
-			size *= align(u_minify(pt->depth0, l), tile_d);
+			size *= align(u_minify(depth_fix, l), tile_d);
 
 			lvl->image_offset[i] = mt->total_size;
 
@@ -272,30 +281,36 @@ nv50_miptree_from_handle(struct pipe_screen *pscreen,
  */
 
 struct pipe_surface *
-nv50_miptree_surface_new(struct pipe_screen *pscreen, struct pipe_resource *pt,
-			 unsigned face, unsigned level, unsigned zslice,
+nv50_miptree_surface_new(struct pipe_context *pipe, struct pipe_resource *pt,
+			 unsigned level, unsigned first_layer, unsigned last_layer,
 			 unsigned flags)
 {
 	struct nv50_miptree *mt = nv50_miptree(pt);
 	struct nv50_miptree_level *lvl = &mt->level[level];
 	struct pipe_surface *ps;
-	unsigned img = 0;
+	unsigned img = 0, zslice = 0;
 
+	assert(first_layer == last_layer);
+
+	/* XXX can't unify these here? */
 	if (pt->target == PIPE_TEXTURE_CUBE)
-		img = face;
+		img = first_layer;
+	else if (pt->target == PIPE_TEXTURE_3D)
+		zslice = first_layer;
 
 	ps = CALLOC_STRUCT(pipe_surface);
 	if (!ps)
 		return NULL;
 	pipe_resource_reference(&ps->texture, pt);
+	ps->context = pipe;
 	ps->format = pt->format;
 	ps->width = u_minify(pt->width0, level);
 	ps->height = u_minify(pt->height0, level);
 	ps->usage = flags;
 	pipe_reference_init(&ps->reference, 1);
-	ps->face = face;
 	ps->level = level;
-	ps->zslice = zslice;
+	ps->first_layer = first_layer;
+	ps->last_layer = last_layer;
 	ps->offset = lvl->image_offset[img];
 
 	if (pt->target == PIPE_TEXTURE_3D) {
@@ -308,7 +323,8 @@ nv50_miptree_surface_new(struct pipe_screen *pscreen, struct pipe_resource *pt,
 }
 
 void
-nv50_miptree_surface_del(struct pipe_surface *ps)
+nv50_miptree_surface_del(struct pipe_context *pipe,
+			 struct pipe_surface *ps)
 {
 	struct nv50_surface *s = nv50_surface(ps);
 
