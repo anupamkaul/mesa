@@ -223,9 +223,9 @@ crtc_load_cursor_argb_ga3d(xf86CrtcPtr crtc, CARD32 * image)
     }
 
     transfer = pipe_get_transfer(ms->ctx, crtcp->cursor_tex,
-                                         0, 0, 0,
-                                         PIPE_TRANSFER_WRITE,
-                                         0, 0, 64, 64);
+                                 0, 0,
+                                 PIPE_TRANSFER_WRITE,
+                                 0, 0, 64, 64);
     ptr = ms->ctx->transfer_map(ms->ctx, transfer);
     util_copy_rect(ptr, crtcp->cursor_tex->format,
 		   transfer->stride, 0, 0,

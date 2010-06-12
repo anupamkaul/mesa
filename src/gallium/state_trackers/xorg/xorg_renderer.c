@@ -10,6 +10,7 @@
 #include "util/u_sampler.h"
 
 #include "util/u_inlines.h"
+#include "util/u_box.h"
 
 #include <math.h>
 
@@ -546,19 +547,15 @@ renderer_clone_texture(struct xorg_renderer *r,
 
    {
       /* copy source framebuffer surface into texture */
-      struct pipe_subresource subsrc, subdst;
-      subsrc.face = 0;
-      subsrc.level = 0;
-      subdst.face = 0;
-      subdst.level = 0;
+      struct pipe_box src_box;
+      u_box_origin_2d(src->width0, src->height0, &src_box);
+
       pipe->resource_copy_region(pipe,
                                  pt, /* dest */
-                                 subdst,
+                                 0, /* dest_level */
                                  0, 0, 0, /* destx/y/z */
                                  src,
-                                 subsrc,
-                                 0, 0, 0,
-                                 src->width0, src->height0);
+                                 0, &src_box);
    }
 
    return pt;
