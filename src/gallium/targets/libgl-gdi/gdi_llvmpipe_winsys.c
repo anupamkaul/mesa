@@ -70,7 +70,7 @@ no_winsys:
 
 static void
 gdi_llvmpipe_present(struct pipe_screen *screen,
-                     struct pipe_surface *surface,
+                     struct pipe_resource *res,
                      HDC hDC)
 {
    /* This will fail if any interposing layer (trace, debug, etc) has
@@ -83,7 +83,7 @@ gdi_llvmpipe_present(struct pipe_screen *screen,
     * other structs such as this stw_winsys as well...
     */
    gdi_sw_display(llvmpipe_screen(screen)->winsys,
-                  llvmpipe_resource(surface->texture)->dt,
+                  llvmpipe_resource(res)->dt,
                   hDC);
 }
 
