@@ -276,7 +276,7 @@ regions_overlap(int srcX0, int srcY0,
 void
 util_blit_pixels_writemask(struct blit_state *ctx,
                            struct pipe_resource *src_tex,
-                           struct pipe_subresource srcsub,
+                           unsigned src_level,
                            int srcX0, int srcY0,
                            int srcX1, int srcY1,
                            int srcZ0,
@@ -300,13 +300,12 @@ util_blit_pixels_writemask(struct blit_state *ctx,
    assert(filter == PIPE_TEX_MIPFILTER_NEAREST ||
           filter == PIPE_TEX_MIPFILTER_LINEAR);
 
-   assert(srcsub.level <= src_tex->last_level);
+   assert(src_level <= src_tex->last_level);
 
    /* do the regions overlap? */
    overlap = src_tex == dst->texture &&
-             dst->face == srcsub.face &&
-             dst->level == srcsub.level &&
-             dst->zslice == srcZ0 &&
+             dst->level == src_level &&
+             dst->first_layer == srcZ0 &&
       regions_overlap(srcX0, srcY0, srcX1, srcY1,
                       dstX0, dstY0, dstX1, dstY1);
 
@@ -323,16 +322,19 @@ util_blit_pixels_writemask(struct blit_state *ctx,
        (dstX1 - dstX0) == (srcX1 - srcX0) &&
        (dstY1 - dstY0) == (srcY1 - srcY0) &&
        !overlap) {
-      struct pipe_subresource subdst;
-      subdst.face = dst->face;
-      subdst.level = dst->level;
+      struct pipe_box src_box;
+      src_box.x = srcX0;
+      src_box.y = srcY0;
+      src_box.z = srcZ0;
+      src_box.width = srcW;
+      src_box.height = srcH;
+      src_box.depth = 1;
       pipe->resource_copy_region(pipe,
-                                 dst->texture, subdst,
-                                 dstX0, dstY0, dst->zslice,/* dest */
-                                 src_tex, srcsub,
-                                 srcX0, srcY0, srcZ0,/* src */
-                                 srcW, srcH);       /* size */
-      return;
+                                 dst->texture, dst->level,
+                                 dstX0, dstY0, dst->first_layer,/* dest */
+                                 src_tex, src_level,
+                                 &src_box);
+       return;
    }
 
 
@@ -344,15 +346,14 @@ util_blit_pixels_writemask(struct blit_state *ctx,
     * This can still be improved upon.
     */
    if ((src_tex == dst->texture &&
-       dst->face == srcsub.face &&
-       dst->level == srcsub.level &&
-       dst->zslice == srcZ0) ||
+       dst->level == src_level &&
+       dst->first_layer == srcZ0) ||
        src_tex->target != PIPE_TEXTURE_2D)
    {
       struct pipe_resource texTemp;
       struct pipe_resource *tex;
       struct pipe_sampler_view sv_templ;
-      struct pipe_subresource texsub;
+      struct pipe_box src_box;
       const int srcLeft = MIN2(srcX0, srcX1);
       const int srcTop = MIN2(srcY0, srcY1);
 
@@ -384,13 +385,16 @@ util_blit_pixels_writemask(struct blit_state *ctx,
       if (!tex)
          return;
 
-      texsub.face = 0;
-      texsub.level = 0;
+      src_box.x = srcLeft;
+      src_box.y = srcTop;
+      src_box.z = srcZ0;
+      src_box.width = srcW;
+      src_box.height = srcH;
+      src_box.depth = 1;
       /* load temp texture */
       pipe->resource_copy_region(pipe,
-                                 tex, texsub, 0, 0, 0,  /* dest */
-                                 src_tex, srcsub, srcLeft, srcTop, srcZ0, /* src */
-                                 srcW, srcH);     /* size */
+                                 tex, 0, 0, 0, 0,  /* dest */
+                                 src_tex, src_level, &src_box);
 
       s0 = 0.0f; 
       s1 = 1.0f;
@@ -408,17 +412,17 @@ util_blit_pixels_writemask(struct blit_state *ctx,
    }
    else {
       u_sampler_view_default_template(&sv_templ, src_tex, src_tex->format);
-      sv_templ.first_level = sv_templ.last_level = srcsub.level;
+      sv_templ.first_level = sv_templ.last_level = src_level;
       sampler_view = pipe->create_sampler_view(pipe, src_tex, &sv_templ);
 
       if (!sampler_view) {
          return;
       }
 
-      s0 = srcX0 / (float)(u_minify(sampler_view->texture->width0, srcsub.level));
-      s1 = srcX1 / (float)(u_minify(sampler_view->texture->width0, srcsub.level));
-      t0 = srcY0 / (float)(u_minify(sampler_view->texture->height0, srcsub.level));
-      t1 = srcY1 / (float)(u_minify(sampler_view->texture->height0, srcsub.level));
+      s0 = srcX0 / (float)(u_minify(sampler_view->texture->width0, src_level));
+      s1 = srcX1 / (float)(u_minify(sampler_view->texture->width0, src_level));
+      t0 = srcY0 / (float)(u_minify(sampler_view->texture->height0, src_level));
+      t1 = srcY1 / (float)(u_minify(sampler_view->texture->height0, src_level));
    }
 
 
@@ -453,8 +457,8 @@ util_blit_pixels_writemask(struct blit_state *ctx,
    ctx->sampler.min_img_filter = filter;
    ctx->sampler.mag_img_filter = filter;
    /* we've limited this already with the sampler view but you never know... */
-   ctx->sampler.min_lod = srcsub.level;
-   ctx->sampler.max_lod = srcsub.level;
+   ctx->sampler.min_lod = src_level;
+   ctx->sampler.max_lod = src_level;
    cso_single_sampler(ctx->cso, 0, &ctx->sampler);
    cso_single_sampler_done(ctx->cso);
 
@@ -525,7 +529,7 @@ util_blit_pixels_writemask(struct blit_state *ctx,
 void
 util_blit_pixels(struct blit_state *ctx,
                  struct pipe_resource *src_tex,
-                 struct pipe_subresource srcsub,
+                 unsigned src_level,
                  int srcX0, int srcY0,
                  int srcX1, int srcY1,
                  int srcZ,
@@ -535,7 +539,7 @@ util_blit_pixels(struct blit_state *ctx,
                  float z, uint filter )
 {
    util_blit_pixels_writemask( ctx, src_tex,
-                               srcsub,
+                               src_level,
                                srcX0, srcY0,
                                srcX1, srcY1,
                                srcZ,

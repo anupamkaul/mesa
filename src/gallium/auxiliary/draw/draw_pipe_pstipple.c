@@ -389,8 +389,8 @@ pstip_update_texture(struct pstip_stage *pstip)
     */
    pipe->flush( pipe, PIPE_FLUSH_TEXTURE_CACHE, NULL );
 
-   transfer = pipe_get_transfer(pipe, pstip->texture, 0, 0, 0,
-				    PIPE_TRANSFER_WRITE, 0, 0, 32, 32);
+   transfer = pipe_get_transfer(pipe, pstip->texture, 0, 0,
+                                PIPE_TRANSFER_WRITE, 0, 0, 32, 32);
    data = pipe->transfer_map(pipe, transfer);
 
    /*

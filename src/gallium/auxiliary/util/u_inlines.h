@@ -96,7 +96,7 @@ pipe_surface_reference(struct pipe_surface **ptr, struct pipe_surface *surf)
    struct pipe_surface *old_surf = *ptr;
 
    if (pipe_reference(&(*ptr)->reference, &surf->reference))
-      old_surf->texture->screen->tex_surface_destroy(old_surf);
+      old_surf->context->surface_destroy(old_surf->context, old_surf);
    *ptr = surf;
 }
 
@@ -124,25 +124,24 @@ pipe_sampler_view_reference(struct pipe_sampler_view **ptr, struct pipe_sampler_
 
 static INLINE void
 pipe_surface_reset(struct pipe_surface* ps, struct pipe_resource *pt,
-		unsigned face, unsigned level, unsigned zslice, unsigned flags)
+                   unsigned level, unsigned layer, unsigned flags)
 {
    pipe_resource_reference(&ps->texture, pt);
    ps->format = pt->format;
    ps->width = u_minify(pt->width0, level);
    ps->height = u_minify(pt->height0, level);
    ps->usage = flags;
-   ps->face = face;
    ps->level = level;
-   ps->zslice = zslice;
+   ps->first_layer = ps->last_layer = layer;
 }
 
 static INLINE void
 pipe_surface_init(struct pipe_surface* ps, struct pipe_resource *pt,
-                unsigned face, unsigned level, unsigned zslice, unsigned flags)
+                  unsigned level, unsigned layer, unsigned flags)
 {
    ps->texture = 0;
    pipe_reference_init(&ps->reference, 1);
-   pipe_surface_reset(ps, pt, face, level, zslice, flags);
+   pipe_surface_reset(ps, pt, level, layer, flags);
 }
 
 /*
@@ -189,15 +188,15 @@ pipe_buffer_map_range(struct pipe_context *pipe,
    assert(offset < buffer->width0);
    assert(offset + length <= buffer->width0);
    assert(length);
-   
+
    u_box_1d(offset, length, &box);
 
    *transfer = pipe->get_transfer( pipe,
-				   buffer,
-				   u_subresource(0, 0),
-				   usage,
-				   &box);
-   
+                                   buffer,
+                                   0,
+                                   usage,
+                                   &box);
+
    if (*transfer == NULL)
       return NULL;
 
@@ -218,7 +217,7 @@ static INLINE void *
 pipe_buffer_map(struct pipe_context *pipe,
                 struct pipe_resource *buffer,
                 unsigned usage,
-		struct pipe_transfer **transfer)
+                struct pipe_transfer **transfer)
 {
    return pipe_buffer_map_range(pipe, buffer, 0, buffer->width0, usage, transfer);
 }
@@ -227,7 +226,7 @@ pipe_buffer_map(struct pipe_context *pipe,
 static INLINE void
 pipe_buffer_unmap(struct pipe_context *pipe,
                   struct pipe_resource *buf,
-		  struct pipe_transfer *transfer)
+                  struct pipe_transfer *transfer)
 {
    if (transfer) {
       pipe->transfer_unmap(pipe, transfer);
@@ -237,7 +236,7 @@ pipe_buffer_unmap(struct pipe_context *pipe,
 
 static INLINE void
 pipe_buffer_flush_mapped_range(struct pipe_context *pipe,
-			       struct pipe_transfer *transfer,
+                               struct pipe_transfer *transfer,
                                unsigned offset,
                                unsigned length)
 {
@@ -253,7 +252,7 @@ pipe_buffer_flush_mapped_range(struct pipe_context *pipe,
     * mapped range.
     */
    transfer_offset = offset - transfer->box.x;
-   
+
    u_box_1d(transfer_offset, length, &box);
 
    pipe->transfer_flush_region(pipe, transfer, &box);
@@ -263,7 +262,7 @@ static INLINE void
 pipe_buffer_write(struct pipe_context *pipe,
                   struct pipe_resource *buf,
                   unsigned offset,
-		  unsigned size,
+                  unsigned size,
                   const void *data)
 {
    struct pipe_box box;
@@ -271,13 +270,13 @@ pipe_buffer_write(struct pipe_context *pipe,
    u_box_1d(offset, size, &box);
 
    pipe->transfer_inline_write( pipe,
-				buf,
-				u_subresource(0,0),
-				PIPE_TRANSFER_WRITE,
-				&box,
-				data,
-				size,
-				0);
+                                buf,
+                                0,
+                                PIPE_TRANSFER_WRITE,
+                                &box,
+                                data,
+                                size,
+                                0);
 }
 
 /**
@@ -296,21 +295,21 @@ pipe_buffer_write_nooverlap(struct pipe_context *pipe,
 
    u_box_1d(offset, size, &box);
 
-   pipe->transfer_inline_write(pipe, 
-			       buf,
-			       u_subresource(0,0),
-			       (PIPE_TRANSFER_WRITE |
-				PIPE_TRANSFER_NOOVERWRITE),
-			       &box,
-			       data,
-			       0, 0);
+   pipe->transfer_inline_write(pipe,
+                               buf,
+                               0,
+                               (PIPE_TRANSFER_WRITE |
+                                PIPE_TRANSFER_NOOVERWRITE),
+                               &box,
+                               data,
+                               0, 0);
 }
 
 static INLINE void
 pipe_buffer_read(struct pipe_context *pipe,
                  struct pipe_resource *buf,
                  unsigned offset,
-		 unsigned size,
+                 unsigned size,
                  void *data)
 {
    struct pipe_transfer *src_transfer;
@@ -330,20 +329,19 @@ pipe_buffer_read(struct pipe_context *pipe,
 
 static INLINE struct pipe_transfer *
 pipe_get_transfer( struct pipe_context *context,
-		       struct pipe_resource *resource,
-		       unsigned face, unsigned level,
-		       unsigned zslice,
-		       enum pipe_transfer_usage usage,
-		       unsigned x, unsigned y,
-		       unsigned w, unsigned h)
+                   struct pipe_resource *resource,
+                   unsigned level, unsigned layer,
+                   enum pipe_transfer_usage usage,
+                   unsigned x, unsigned y,
+                   unsigned w, unsigned h)
 {
    struct pipe_box box;
-   u_box_2d_zslice( x, y, zslice, w, h, &box );
+   u_box_2d_zslice( x, y, layer, w, h, &box );
    return context->get_transfer( context,
-				 resource,
-				 u_subresource(face, level),
-				 usage,
-				 &box );
+                                 resource,
+                                 level,
+                                 usage,
+                                 &box );
 }
 
 static INLINE void *
@@ -363,7 +361,7 @@ pipe_transfer_unmap( struct pipe_context *context,
 
 static INLINE void
 pipe_transfer_destroy( struct pipe_context *context, 
-		       struct pipe_transfer *transfer )
+                       struct pipe_transfer *transfer )
 {
    context->transfer_destroy(context, transfer);
 }

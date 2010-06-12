@@ -53,7 +53,7 @@ util_destroy_blit(struct blit_state *ctx);
 extern void
 util_blit_pixels(struct blit_state *ctx,
                  struct pipe_resource *src_tex,
-                 struct pipe_subresource srcsub,
+                 unsigned src_level,
                  int srcX0, int srcY0,
                  int srcX1, int srcY1,
                  int srcZ0,
@@ -65,7 +65,7 @@ util_blit_pixels(struct blit_state *ctx,
 void
 util_blit_pixels_writemask(struct blit_state *ctx,
                            struct pipe_resource *src_tex,
-                           struct pipe_subresource srcsub,
+                           unsigned src_level,
                            int srcX0, int srcY0,
                            int srcX1, int srcY1,
                            int srcZ0,

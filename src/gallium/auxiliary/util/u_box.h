@@ -60,14 +60,5 @@ void u_box_2d_zslice( unsigned x,
    box->depth = 1;
 }
 
-static INLINE
-struct pipe_subresource u_subresource( unsigned face,
-				       unsigned level )
-{
-   struct pipe_subresource subresource;
-   subresource.face = face;
-   subresource.level = level;
-   return subresource;
-}
 
 #endif

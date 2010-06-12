@@ -441,10 +441,10 @@ aaline_create_texture(struct aaline_stage *aaline)
       /* This texture is new, no need to flush. 
        */
       transfer = pipe->get_transfer(pipe,
-				    aaline->texture,
-				    u_subresource(0, level), 
-				    PIPE_TRANSFER_WRITE,
-				    &box);
+                                    aaline->texture,
+                                    level,
+                                    PIPE_TRANSFER_WRITE,
+                                    &box);
 
       data = pipe->transfer_map(pipe, transfer);
       if (data == NULL)

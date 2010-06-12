@@ -19,7 +19,9 @@ compare(void *key1, void *key2)
 }
 
 struct pipe_surface *
-util_surfaces_do_get(struct util_surfaces *us, unsigned surface_struct_size, struct pipe_screen *pscreen, struct pipe_resource *pt, unsigned face, unsigned level, unsigned zslice, unsigned flags)
+util_surfaces_do_get(struct util_surfaces *us, unsigned surface_struct_size,
+                     struct pipe_screen *pscreen, struct pipe_resource *pt,
+                     unsigned face, unsigned level, unsigned zslice, unsigned flags)
 {
    struct pipe_surface *ps;
    void *key = NULL;
@@ -50,7 +52,7 @@ util_surfaces_do_get(struct util_surfaces *us, unsigned surface_struct_size, str
    if(!ps)
       return NULL;
 
-   pipe_surface_init(ps, pt, face, level, zslice, flags);
+   pipe_surface_init(ps, pt, level, zslice + face, flags);
    ps->offset = ~0;
 
    if(pt->target == PIPE_TEXTURE_3D || pt->target == PIPE_TEXTURE_CUBE)
@@ -67,7 +69,7 @@ util_surfaces_do_detach(struct util_surfaces *us, struct pipe_surface *ps)
    struct pipe_resource *pt = ps->texture;
    if(pt->target == PIPE_TEXTURE_3D || pt->target == PIPE_TEXTURE_CUBE)
    {	/* or 2D array */
-      void* key = (void*)(uintptr_t)(((ps->zslice + ps->face) << 8) | ps->level);
+      void* key = (void*)(uintptr_t)(((ps->first_layer) << 8) | ps->level);
       util_hash_table_remove(us->u.table, key);
    }
    else
