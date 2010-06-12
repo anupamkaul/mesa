@@ -111,7 +111,7 @@ struct pipe_screen {
    /**
     * Create a texture from a winsys_handle. The handle is often created in
     * another process by first creating a pipe texture and then calling
-    * texture_get_handle.
+    * resource_get_handle.
     */
    struct pipe_resource * (*resource_from_handle)(struct pipe_screen *,
 						  const struct pipe_resource *templat,
@@ -164,7 +164,8 @@ struct pipe_screen {
     *                                gets out-of-band
     */
    void (*flush_frontbuffer)( struct pipe_screen *screen,
-                              struct pipe_surface *surf,
+                              struct pipe_resource *resource,
+                              unsigned level, unsigned layer,
                               void *winsys_drawable_handle );
 
 
