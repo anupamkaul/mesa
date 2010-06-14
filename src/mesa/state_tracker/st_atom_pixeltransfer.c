@@ -150,8 +150,8 @@ load_color_map_texture(GLcontext *ctx, struct pipe_resource *pt)
    uint i, j;
 
    transfer = pipe_get_transfer(st_context(ctx)->pipe,
-					     pt, 0, 0, 0, PIPE_TRANSFER_WRITE,
-					     0, 0, texSize, texSize);
+                                pt, 0, 0, PIPE_TRANSFER_WRITE,
+                                0, 0, texSize, texSize);
    dest = (uint *) pipe_transfer_map(pipe, transfer);
 
    /* Pack four 1D maps into a 2D texture:

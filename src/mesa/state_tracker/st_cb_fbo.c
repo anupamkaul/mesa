@@ -65,6 +65,7 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
                               GLuint width, GLuint height)
 {
    struct st_context *st = st_context(ctx);
+   struct pipe_context *pipe = st->pipe;
    struct pipe_screen *screen = st->pipe->screen;
    struct st_renderbuffer *strb = st_renderbuffer(rb);
    enum pipe_format format;
@@ -120,7 +121,7 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
       }
       else {
          template.bind = (PIPE_BIND_DISPLAY_TARGET |
-			  PIPE_BIND_RENDER_TARGET);
+                          PIPE_BIND_RENDER_TARGET);
       }
 
       strb->texture = screen->resource_create(screen, &template);
@@ -128,10 +129,10 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
       if (!strb->texture) 
          return FALSE;
 
-      strb->surface = screen->get_tex_surface(screen,
-                                              strb->texture,
-                                              0, 0, 0,
-                                              template.bind);
+      strb->surface = pipe->create_surface(pipe,
+                                           strb->texture,
+                                           0, 0, 0,
+                                           template.bind);
       if (strb->surface) {
          assert(strb->surface->texture);
          assert(strb->surface->format);
@@ -315,7 +316,6 @@ st_render_texture(GLcontext *ctx,
 {
    struct st_context *st = st_context(ctx);
    struct pipe_context *pipe = st->pipe;
-   struct pipe_screen *screen = pipe->screen;
    struct st_renderbuffer *strb;
    struct gl_renderbuffer *rb;
    struct pipe_resource *pt = st_get_texobj_resource(att->Texture);
@@ -369,12 +369,12 @@ st_render_texture(GLcontext *ctx,
    assert(strb->rtt_level <= strb->texture->last_level);
 
    /* new surface for rendering into the texture */
-   strb->surface = screen->get_tex_surface(screen,
-                                           strb->texture,
-                                           strb->rtt_face,
-                                           strb->rtt_level,
-                                           strb->rtt_slice,
-                                           PIPE_BIND_RENDER_TARGET);
+   strb->surface = pipe->create_surface(pipe,
+                                        strb->texture,
+                                        strb->rtt_level,
+                                        strb->rtt_face + strb->rtt_slice,
+                                        strb->rtt_face + strb->rtt_slice,
+                                        PIPE_BIND_RENDER_TARGET);
 
    strb->format = pt->format;
 

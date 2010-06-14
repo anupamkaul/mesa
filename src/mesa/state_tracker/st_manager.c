@@ -149,7 +149,7 @@ buffer_index_to_attachment(gl_buffer_index index)
 static void
 st_framebuffer_validate(struct st_framebuffer *stfb, struct st_context *st)
 {
-   struct pipe_screen *screen = st->pipe->screen;
+   struct pipe_context *pipe = st->pipe;
    struct pipe_resource *textures[ST_ATTACHMENT_COUNT];
    uint width, height;
    unsigned i;
@@ -186,8 +186,8 @@ st_framebuffer_validate(struct st_framebuffer *stfb, struct st_context *st)
          continue;
       }
 
-      ps = screen->get_tex_surface(screen, textures[i], 0, 0, 0,
-				   PIPE_BIND_RENDER_TARGET);
+      ps = pipe->create_surface(pipe, textures[i], 0, 0, 0,
+                                PIPE_BIND_RENDER_TARGET);
       if (ps) {
          pipe_surface_reference(&strb->surface, ps);
          pipe_resource_reference(&strb->texture, ps->texture);
@@ -742,6 +742,7 @@ st_manager_flush_frontbuffer(struct st_context *st)
 
 /**
  * Return the surface of an EGLImage.
+ * FIXME: I think this should operate on resources, not surfaces
  */
 struct pipe_surface *
 st_manager_get_egl_image_surface(struct st_context *st,
@@ -759,8 +760,8 @@ st_manager_get_egl_image_surface(struct st_context *st,
    if (!smapi->get_egl_image(smapi, &st->iface, eglimg, &stimg))
       return NULL;
 
-   ps = smapi->screen->get_tex_surface(smapi->screen,
-         stimg.texture, stimg.face, stimg.level, stimg.zslice, usage);
+   ps = st->pipe->create_surface(st->pipe,
+         stimg.texture, stimg.level, stimg.layer, stimg.layer, usage);
    pipe_resource_reference(&stimg.texture, NULL);
 
    return ps;

@@ -61,7 +61,7 @@
 #include "util/u_surface.h"
 #include "util/u_sampler.h"
 #include "util/u_math.h"
-
+#include "util/u_box.h"
 
 #define DBG if (0) printf
 
@@ -431,9 +431,9 @@ compress_with_blit(GLcontext * ctx,
    }
 
    /* get destination surface (in the compressed texture) */
-   dst_surface = screen->get_tex_surface(screen, stImage->pt,
-                                         stImage->face, stImage->level, 0,
-                                         0 /* flags */);
+   dst_surface = pipe->create_surface(pipe, stImage->pt, stImage->level,
+                                      stImage->face, stImage->face,
+                                      PIPE_BIND_RENDER_TARGET /* flags */);
    if (!dst_surface) {
       /* can't render into this format (or other problem) */
       return GL_FALSE;
@@ -465,9 +465,9 @@ compress_with_blit(GLcontext * ctx,
    /* Put user's tex data into the temporary texture
     */
    tex_xfer = pipe_get_transfer(st_context(ctx)->pipe, src_tex,
-					     0, 0, 0, /* face, level are zero */
-					     PIPE_TRANSFER_WRITE,
-					     0, 0, width, height); /* x, y, w, h */
+                                0, 0, /* layer, level are zero */
+                                PIPE_TRANSFER_WRITE,
+                                0, 0, width, height); /* x, y, w, h */
    map = pipe_transfer_map(pipe, tex_xfer);
 
    _mesa_texstore(ctx, 2, GL_RGBA, mesa_format,
@@ -841,7 +841,6 @@ decompress_with_blit(GLcontext * ctx, GLenum target, GLint level,
 {
    struct st_context *st = st_context(ctx);
    struct pipe_context *pipe = st->pipe;
-   struct pipe_screen *screen = pipe->screen;
    struct st_texture_image *stImage = st_texture_image(texImage);
    struct st_texture_object *stObj = st_texture_object(texObj);
    struct pipe_sampler_view *src_view =
@@ -855,7 +854,7 @@ decompress_with_blit(GLcontext * ctx, GLenum target, GLint level,
 		    PIPE_BIND_TRANSFER_READ);
 
    /* create temp / dest surface */
-   if (!util_create_rgba_surface(screen, width, height, bind,
+   if (!util_create_rgba_surface(pipe, width, height, bind,
                                  &dst_texture, &dst_surface)) {
       _mesa_problem(ctx, "util_create_rgba_surface() failed "
                     "in decompress_with_blit()");
@@ -875,9 +874,9 @@ decompress_with_blit(GLcontext * ctx, GLenum target, GLint level,
 
    /* map the dst_surface so we can read from it */
    tex_xfer = pipe_get_transfer(st_context(ctx)->pipe,
-					     dst_texture, 0, 0, 0,
-					     PIPE_TRANSFER_READ,
-					     0, 0, width, height);
+                                dst_texture, 0, 0,
+                                PIPE_TRANSFER_READ,
+                                0, 0, width, height);
 
    pixels = _mesa_map_pbo_dest(ctx, &ctx->Pack, pixels);
 
@@ -1294,7 +1293,7 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
    struct pipe_transfer *src_trans;
    GLvoid *texDest;
    enum pipe_transfer_usage transfer_usage;
-   
+
    if (ST_DEBUG & DEBUG_FALLBACK)
       debug_printf("%s: fallback processing\n", __FUNCTION__);
 
@@ -1305,11 +1304,11 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
    }
 
    src_trans = pipe_get_transfer(st_context(ctx)->pipe,
-					       strb->texture,
-					       0, 0, 0,
-					       PIPE_TRANSFER_READ,
-					       srcX, srcY,
-					       width, height);
+                                 strb->texture,
+                                 0, 0,
+                                 PIPE_TRANSFER_READ,
+                                 srcX, srcY,
+                                 width, height);
 
    if ((baseFormat == GL_DEPTH_COMPONENT ||
         baseFormat == GL_DEPTH_STENCIL) &&
@@ -1318,7 +1317,8 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
    else
       transfer_usage = PIPE_TRANSFER_WRITE;
 
-   texDest = st_texture_image_map(st, stImage, 0, transfer_usage,
+   /* XXX this used to ignore destZ param */
+   texDest = st_texture_image_map(st, stImage, destZ, transfer_usage,
                                   destX, destY, width, height);
 
    if (baseFormat == GL_DEPTH_COMPONENT ||
@@ -1576,27 +1576,23 @@ st_copy_texsubimage(GLcontext *ctx,
 
       if (matching_base_formats &&
           src_format == dest_format &&
-          !do_flip) 
+          !do_flip)
       {
          /* use surface_copy() / blit */
-         struct pipe_subresource subdst, subsrc;
-         subdst.face = stImage->face;
-         subdst.level = stImage->level;
-         subsrc.face = strb->surface->face;
-         subsrc.level = strb->surface->level;
+         struct pipe_box src_box;
+         u_box_2d_zslice(srcX, srcY, strb->surface->first_layer,
+                         width, height, &src_box);
 
          /* for resource_copy_region(), y=0=top, always */
          pipe->resource_copy_region(pipe,
                                     /* dest */
                                     stImage->pt,
-                                    subdst,
-                                    destX, destY, destZ,
+                                    stImage->level,
+                                    destX, destY, destZ + stImage->face,
                                     /* src */
                                     strb->texture,
-                                    subsrc,
-                                    srcX, srcY, strb->surface->zslice,
-                                    /* size */
-                                    width, height);
+                                    strb->surface->level,
+                                    &src_box);
          use_fallback = GL_FALSE;
       }
       else if (format_writemask &&
@@ -1612,12 +1608,12 @@ st_copy_texsubimage(GLcontext *ctx,
                                            0)) {
          /* draw textured quad to do the copy */
          GLint srcY0, srcY1;
-         struct pipe_subresource subsrc;
 
-         dest_surface = screen->get_tex_surface(screen, stImage->pt,
-                                                stImage->face, stImage->level,
-                                                destZ,
-                                                PIPE_BIND_RENDER_TARGET);
+         dest_surface = pipe->create_surface(pipe, stImage->pt,
+                                             stImage->level,
+                                             stImage->face + destZ,
+                                             stImage->face + destZ,
+                                             PIPE_BIND_RENDER_TARGET);
 
          if (do_flip) {
             srcY1 = strb->Base.Height - srcY - height;
@@ -1627,15 +1623,13 @@ st_copy_texsubimage(GLcontext *ctx,
             srcY0 = srcY;
             srcY1 = srcY0 + height;
          }
-         subsrc.face = strb->surface->face;
-         subsrc.level = strb->surface->level;
 
          util_blit_pixels_writemask(st->blit,
                                     strb->texture,
-                                    subsrc,
+                                    strb->surface->level,
                                     srcX, srcY0,
                                     srcX + width, srcY1,
-                                    strb->surface->zslice,
+                                    strb->surface->first_layer,
                                     dest_surface,
                                     destX, destY,
                                     destX + width, destY + height,
