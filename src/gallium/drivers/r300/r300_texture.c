@@ -139,7 +139,7 @@ uint32_t r300_translate_texformat(enum pipe_format format,
                     return R300_TX_FORMAT_X16;
                 case PIPE_FORMAT_X8Z24_UNORM:
                 case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
-                    return R300_TX_FORMAT_W24_FP;
+                    return R500_TX_FORMAT_Y8X24;
                 default:
                     return ~0; /* Unsupported. */
             }
@@ -339,6 +339,8 @@ uint32_t r500_tx_format_msb_bit(enum pipe_format format)
     switch (format) {
         case PIPE_FORMAT_RGTC1_UNORM:
         case PIPE_FORMAT_RGTC1_SNORM:
+        case PIPE_FORMAT_X8Z24_UNORM:
+        case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
             return R500_TXFORMAT_MSB;
         default:
             return 0;
@@ -594,21 +596,21 @@ static void r300_texture_setup_fb_state(struct r300_screen* screen,
     /* Set framebuffer state. */
     if (util_format_is_depth_or_stencil(tex->b.b.format)) {
         for (i = 0; i <= tex->b.b.last_level; i++) {
-            tex->fb_state.depthpitch[i] =
+            tex->fb_state.pitch[i] =
                 tex->hwpitch[i] |
                 R300_DEPTHMACROTILE(tex->mip_macrotile[i]) |
                 R300_DEPTHMICROTILE(tex->microtile);
         }
-        tex->fb_state.zb_format = r300_translate_zsformat(tex->b.b.format);
+        tex->fb_state.format = r300_translate_zsformat(tex->b.b.format);
     } else {
         for (i = 0; i <= tex->b.b.last_level; i++) {
-            tex->fb_state.colorpitch[i] =
+            tex->fb_state.pitch[i] =
                 tex->hwpitch[i] |
                 r300_translate_colorformat(tex->b.b.format) |
                 R300_COLOR_TILE(tex->mip_macrotile[i]) |
                 R300_COLOR_MICROTILE(tex->microtile);
         }
-        tex->fb_state.us_out_fmt = r300_translate_out_fmt(tex->b.b.format);
+        tex->fb_state.format = r300_translate_out_fmt(tex->b.b.format);
     }
 }
 
@@ -960,11 +962,12 @@ struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
 
     SCREEN_DBG(rscreen, DBG_TEX,
                "r300: texture_create: Macro: %s, Micro: %s, Pitch: %i, "
-               "Dim: %ix%ix%i, LastLevel: %i, Format: %s\n",
+               "Dim: %ix%ix%i, LastLevel: %i, Size: %i, Format: %s\n",
                tex->macrotile ? "YES" : " NO",
                tex->microtile ? "YES" : " NO",
                tex->hwpitch[0],
                base->width0, base->height0, base->depth0, base->last_level,
+               tex->size,
                util_format_short_name(base->format));
 
     tex->domain = base->flags & R300_RESOURCE_FLAG_TRANSFER ? R300_DOMAIN_GTT :
@@ -973,15 +976,15 @@ struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
     tex->buffer = rws->buffer_create(rws, 2048, base->bind, tex->domain,
                                      tex->size);
 
+    if (!tex->buffer) {
+	FREE(tex);
+	return NULL;
+    }
+
     rws->buffer_set_tiling(rws, tex->buffer,
             tex->pitch[0] * util_format_get_blocksize(tex->b.b.format),
             tex->microtile,
             tex->macrotile);
-
-    if (!tex->buffer) {
-        FREE(tex);
-        return NULL;
-    }
 
     return (struct pipe_resource*)tex;
 }
@@ -996,28 +999,31 @@ struct pipe_surface* r300_create_surface(struct pipe_context * ctx,
                                          unsigned flags)
 {
     struct r300_texture* tex = r300_texture(texture);
-    struct pipe_surface* surface = CALLOC_STRUCT(pipe_surface);
-    unsigned offset;
+    struct r300_surface* surface = CALLOC_STRUCT(r300_surface);
 
     assert(first_layer == last_layer);
     offset = r300_texture_get_offset(tex, level, first_layer);
 
     if (surface) {
-        pipe_reference_init(&surface->reference, 1);
-        pipe_resource_reference(&surface->texture, texture);
-        surface->context = ctx;
-        surface->format = texture->format;
-        surface->width = u_minify(texture->width0, level);
-        surface->height = u_minify(texture->height0, level);
-        surface->offset = offset;
-        surface->usage = flags;
-        surface->texture = texture;
-        surface->level = level;
-        surface->first_layer = first_layer;
-        surface->last_layer = last_layer;
+       pipe_reference_init(&surface->base.reference, 1);
+       pipe_resource_reference(&surface->base.texture, texture);
+       surface->context = ctx;
+       surface->base.format = texture->format;
+       surface->base.width = u_minify(texture->width0, level);
+       surface->base.height = u_minify(texture->height0, level);
+       surface->base.usage = flags;
+       surface->base.level = level;
+       surface->base.first_layer = first_layer;
+       surface->base.last_layer = last_layer;
+
+       surface->buffer = tex->buffer;
+       surface->domain = tex->domain;
+       surface->offset = r300_texture_get_offset(tex, level, first_layer);
+       surface->pitch = tex->fb_state.pitch[level];
+       surface->format = tex->fb_state.format;
     }
 
-    return surface;
+    return &surface->base;
 }
 
 /* Not required to implement u_resource_vtbl, consider moving to another file:

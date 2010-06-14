@@ -104,9 +104,8 @@ static void upload_sf_vp(struct brw_context *brw)
       sfv.scissor.ymax = ctx->DrawBuffer->Height - ctx->DrawBuffer->_Ymin - 1;
    }
 
-   dri_bo_unreference(brw->sf.vp_bo);
-   brw->sf.vp_bo = brw_cache_data(&brw->cache, BRW_SF_VP, &sfv, sizeof(sfv),
-				  NULL, 0);
+   drm_intel_bo_unreference(brw->sf.vp_bo);
+   brw->sf.vp_bo = brw_cache_data(&brw->cache, BRW_SF_VP, &sfv, sizeof(sfv));
 }
 
 const struct brw_tracked_state brw_sf_vp = {
@@ -173,13 +172,13 @@ sf_unit_populate_key(struct brw_context *brw, struct brw_sf_unit_key *key)
    key->render_to_fbo = brw->intel.ctx.DrawBuffer->Name != 0;
 }
 
-static dri_bo *
+static drm_intel_bo *
 sf_unit_create_from_key(struct brw_context *brw, struct brw_sf_unit_key *key,
-			dri_bo **reloc_bufs)
+			drm_intel_bo **reloc_bufs)
 {
    struct intel_context *intel = &brw->intel;
    struct brw_sf_unit_state sf;
-   dri_bo *bo;
+   drm_intel_bo *bo;
    int chipset_max_threads;
    memset(&sf, 0, sizeof(sf));
 
@@ -327,18 +326,15 @@ sf_unit_create_from_key(struct brw_context *brw, struct brw_sf_unit_key *key,
     * something loaded through the GPE (L2 ISC), so it's INSTRUCTION domain.
     */
    /* Emit SF program relocation */
-   dri_bo_emit_reloc(bo,
-		     I915_GEM_DOMAIN_INSTRUCTION, 0,
-		     sf.thread0.grf_reg_count << 1,
-		     offsetof(struct brw_sf_unit_state, thread0),
-		     brw->sf.prog_bo);
+   drm_intel_bo_emit_reloc(bo, offsetof(struct brw_sf_unit_state, thread0),
+			   brw->sf.prog_bo, sf.thread0.grf_reg_count << 1,
+			   I915_GEM_DOMAIN_INSTRUCTION, 0);
 
    /* Emit SF viewport relocation */
-   dri_bo_emit_reloc(bo,
-		     I915_GEM_DOMAIN_INSTRUCTION, 0,
-		     sf.sf5.front_winding | (sf.sf5.viewport_transform << 1),
-		     offsetof(struct brw_sf_unit_state, sf5),
-		     brw->sf.vp_bo);
+   drm_intel_bo_emit_reloc(bo, offsetof(struct brw_sf_unit_state, sf5),
+			   brw->sf.vp_bo, (sf.sf5.front_winding |
+					   (sf.sf5.viewport_transform << 1)),
+			   I915_GEM_DOMAIN_INSTRUCTION, 0);
 
    return bo;
 }
@@ -346,14 +342,14 @@ sf_unit_create_from_key(struct brw_context *brw, struct brw_sf_unit_key *key,
 static void upload_sf_unit( struct brw_context *brw )
 {
    struct brw_sf_unit_key key;
-   dri_bo *reloc_bufs[2];
+   drm_intel_bo *reloc_bufs[2];
 
    sf_unit_populate_key(brw, &key);
 
    reloc_bufs[0] = brw->sf.prog_bo;
    reloc_bufs[1] = brw->sf.vp_bo;
 
-   dri_bo_unreference(brw->sf.state_bo);
+   drm_intel_bo_unreference(brw->sf.state_bo);
    brw->sf.state_bo = brw_search_cache(&brw->cache, BRW_SF_UNIT,
 				       &key, sizeof(key),
 				       reloc_bufs, 2,

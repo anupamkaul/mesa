@@ -40,13 +40,15 @@ struct llvm_middle_end {
    struct draw_context *draw;
 
    struct pt_emit *emit;
+   struct pt_so_emit *so_emit;
    struct pt_fetch *fetch;
    struct pt_post_vs *post_vs;
 
 
    unsigned vertex_data_offset;
    unsigned vertex_size;
-   unsigned prim;
+   unsigned input_prim;
+   unsigned output_prim;
    unsigned opt;
 
    struct draw_llvm *llvm;
@@ -58,7 +60,8 @@ struct llvm_middle_end {
 
 static void
 llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
-                         unsigned prim,
+                         unsigned in_prim,
+                         unsigned out_prim,
                          unsigned opt,
                          unsigned *max_vertices )
 {
@@ -85,7 +88,8 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
       }
    }
 
-   fpme->prim = prim;
+   fpme->input_prim = in_prim;
+   fpme->output_prim = out_prim;
    fpme->opt = opt;
 
    /* Always leave room for the vertex header whether we need it or
@@ -104,9 +108,10 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
 			    (boolean)draw->rasterizer->gl_rasterization_rules,
 			    (draw->vs.edgeflag_output ? true : false) );
 
+   draw_pt_so_emit_prepare( fpme->so_emit, out_prim );
    if (!(opt & PT_PIPELINE)) {
       draw_pt_emit_prepare( fpme->emit,
-			    prim,
+			    out_prim,
                             max_vertices );
 
       *max_vertices = MAX2( *max_vertices,
@@ -175,6 +180,12 @@ static void llvm_middle_end_run( struct draw_pt_middle_end *middle,
                                          fpme->vertex_size,
                                          draw->pt.vertex_buffer );
 
+   /* stream output needs to be done before clipping */
+   draw_pt_so_emit( fpme->so_emit,
+		    (const float (*)[4])pipeline_verts->data,
+		    fetch_count,
+		    fpme->vertex_size );
+
    if (draw_pt_post_vs_run( fpme->post_vs,
 			    pipeline_verts,
 			    fetch_count,
@@ -187,7 +198,7 @@ static void llvm_middle_end_run( struct draw_pt_middle_end *middle,
     */
    if (opt & PT_PIPELINE) {
       draw_pipeline_run( fpme->draw,
-                         fpme->prim,
+                         fpme->output_prim,
                          pipeline_verts,
                          fetch_count,
                          fpme->vertex_size,
@@ -239,6 +250,12 @@ static void llvm_middle_end_linear_run( struct draw_pt_middle_end *middle,
                                     fpme->vertex_size,
                                     draw->pt.vertex_buffer );
 
+   /* stream output needs to be done before clipping */
+   draw_pt_so_emit( fpme->so_emit,
+		    (const float (*)[4])pipeline_verts->data,
+		    count,
+		    fpme->vertex_size );
+
    if (draw_pt_post_vs_run( fpme->post_vs,
 			    pipeline_verts,
 			    count,
@@ -251,7 +268,7 @@ static void llvm_middle_end_linear_run( struct draw_pt_middle_end *middle,
     */
    if (opt & PT_PIPELINE) {
       draw_pipeline_run_linear( fpme->draw,
-                                fpme->prim,
+                                fpme->output_prim,
                                 pipeline_verts,
                                 count,
                                 fpme->vertex_size);
@@ -294,6 +311,12 @@ llvm_middle_end_linear_run_elts( struct draw_pt_middle_end *middle,
                                     fpme->vertex_size,
                                     draw->pt.vertex_buffer );
 
+   /* stream output needs to be done before clipping */
+   draw_pt_so_emit( fpme->so_emit,
+		    (const float (*)[4])pipeline_verts->data,
+		    count,
+		    fpme->vertex_size );
+
    if (draw_pt_post_vs_run( fpme->post_vs,
 			    pipeline_verts,
 			    count,
@@ -306,7 +329,7 @@ llvm_middle_end_linear_run_elts( struct draw_pt_middle_end *middle,
     */
    if (opt & PT_PIPELINE) {
       draw_pipeline_run( fpme->draw,
-                         fpme->prim,
+                         fpme->output_prim,
                          pipeline_verts,
                          count,
                          fpme->vertex_size,
@@ -367,6 +390,9 @@ static void llvm_middle_end_destroy( struct draw_pt_middle_end *middle )
    if (fpme->emit)
       draw_pt_emit_destroy( fpme->emit );
 
+   if (fpme->so_emit)
+      draw_pt_so_emit_destroy( fpme->so_emit );
+
    if (fpme->post_vs)
       draw_pt_post_vs_destroy( fpme->post_vs );
 
@@ -407,6 +433,10 @@ struct draw_pt_middle_end *draw_pt_fetch_pipeline_or_emit_llvm( struct draw_cont
 
    fpme->emit = draw_pt_emit_create( draw );
    if (!fpme->emit)
+      goto fail;
+
+   fpme->so_emit = draw_pt_so_emit_create( draw );
+   if (!fpme->so_emit)
       goto fail;
 
    fpme->llvm = draw_llvm_create(draw);

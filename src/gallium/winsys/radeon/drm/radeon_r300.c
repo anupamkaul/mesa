@@ -192,25 +192,12 @@ static boolean radeon_validate(struct r300_winsys_screen *rws)
     return TRUE;
 }
 
-static void radeon_get_cs_info(struct r300_winsys_screen *rws,
-                               struct r300_cs_info *info)
+static unsigned radeon_get_cs_free_dwords(struct r300_winsys_screen *rws)
 {
     struct radeon_libdrm_winsys *ws = radeon_winsys_screen(rws);
     struct radeon_cs *cs = ws->cs;
 
-    info->capacity = cs->ndw;
-    info->used = cs->cdw;
-    info->free = cs->ndw - cs->cdw;
-}
-
-static void radeon_begin_cs(struct r300_winsys_screen *rws,
-                            int size,
-                            const char* file,
-                            const char* function,
-                            int line)
-{
-    struct radeon_libdrm_winsys *ws = radeon_winsys_screen(rws);
-    radeon_cs_begin(ws->cs, size, file, function, line);
+    return cs->ndw - cs->cdw;
 }
 
 static void radeon_write_cs_dword(struct r300_winsys_screen *rws,
@@ -241,15 +228,6 @@ static void radeon_reset_bos(struct r300_winsys_screen *rws)
 {
     struct radeon_libdrm_winsys *ws = radeon_winsys_screen(rws);
     radeon_cs_space_reset_bos(ws->cs);
-}
-
-static void radeon_end_cs(struct r300_winsys_screen *rws,
-                          const char* file,
-                          const char* function,
-                          int line)
-{
-    struct radeon_libdrm_winsys *ws = radeon_winsys_screen(rws);
-    radeon_cs_end(ws->cs, file, function, line);
 }
 
 static void radeon_flush_cs(struct r300_winsys_screen *rws)
@@ -345,12 +323,10 @@ radeon_setup_winsys(int fd, struct radeon_libdrm_winsys* ws)
     ws->base.add_buffer = radeon_add_buffer;
     ws->base.validate = radeon_validate;
     ws->base.destroy = radeon_winsys_destroy;
-    ws->base.get_cs_info = radeon_get_cs_info;
-    ws->base.begin_cs = radeon_begin_cs;
+    ws->base.get_cs_free_dwords = radeon_get_cs_free_dwords;
     ws->base.write_cs_dword = radeon_write_cs_dword;
     ws->base.write_cs_table = radeon_write_cs_table;
     ws->base.write_cs_reloc = radeon_write_cs_reloc;
-    ws->base.end_cs = radeon_end_cs;
     ws->base.flush_cs = radeon_flush_cs;
     ws->base.reset_bos = radeon_reset_bos;
     ws->base.set_flush_cb = radeon_set_flush_cb;

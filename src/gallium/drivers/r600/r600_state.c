@@ -43,7 +43,7 @@ static void r600_delete_state(struct pipe_context *ctx, void *state)
 static void *r600_create_blend_state(struct pipe_context *ctx,
 					const struct pipe_blend_state *state)
 {
-	struct r600_screen *rscreen = (struct r600_screen*)ctx->screen;
+	struct r600_screen *rscreen = r600_screen(ctx->screen);
 	struct radeon_state *rstate;
 
 	rstate = radeon_state(rscreen->rw, R600_BLEND_TYPE, R600_BLEND);
@@ -71,7 +71,7 @@ static void *r600_create_blend_state(struct pipe_context *ctx,
 
 static void r600_bind_blend_state(struct pipe_context *ctx, void *state)
 {
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_context *rctx = r600_context(ctx);
 	radeon_draw_set(rctx->draw, state);
 }
 
@@ -88,8 +88,8 @@ static void r600_set_clip_state(struct pipe_context *ctx,
 static void r600_set_framebuffer_state(struct pipe_context *ctx,
 					const struct pipe_framebuffer_state *state)
 {
-	struct r600_screen *rscreen = (struct r600_screen*)ctx->screen;
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_screen *rscreen = r600_screen(ctx->screen);
+	struct r600_context *rctx = r600_context(ctx);
 	struct r600_texture *rtex;
 	struct r600_buffer *rbuffer;
 	struct radeon_state *rstate;
@@ -124,10 +124,27 @@ static void r600_set_framebuffer_state(struct pipe_context *ctx,
 	}
 	radeon_draw_set_new(rctx->draw, rstate);
 	rctx->db = radeon_state_decref(rctx->db);
-	rctx->db = radeon_state(rscreen->rw, R600_DB_TYPE, R600_DB);
-	rctx->db->bo[0] = radeon_bo_incref(rscreen->rw, rstate->bo[0]);
-	rctx->db->nbo = 1;
-	rctx->db->placement[0] = RADEON_GEM_DOMAIN_GTT;
+	if(state->zsbuf) {
+		rtex = (struct r600_texture*)state->zsbuf->texture;
+		rbuffer = (struct r600_buffer*)rtex->buffer;
+		rctx->db = radeon_state(rscreen->rw, R600_DB_TYPE, R600_DB);
+		if(rctx->db == NULL)
+		     return;
+		rctx->db->bo[0] = radeon_bo_incref(rscreen->rw, rbuffer->bo);
+		rctx->db->nbo = 1;
+		rctx->db->placement[0] = RADEON_GEM_DOMAIN_VRAM;
+		level = state->zsbuf->level;
+		pitch = rtex->pitch[level] / 8 - 1;
+		slice = rtex->pitch[level] * state->zsbuf->height / 64 - 1;
+
+		rctx->db->states[R600_DB__DB_DEPTH_BASE] = 0x00000000;
+		rctx->db->states[R600_DB__DB_DEPTH_INFO] = 0x00010006;
+		rctx->db->states[R600_DB__DB_DEPTH_VIEW] = 0x00000000;
+		rctx->db->states[R600_DB__DB_PREFETCH_LIMIT] = (state->zsbuf->height / 8) -1;
+		rctx->db->states[R600_DB__DB_DEPTH_SIZE] = S_028000_PITCH_TILE_MAX(pitch) |
+						S_028000_SLICE_TILE_MAX(slice);
+	} else 
+		rctx->db = NULL;
 	rctx->fb_state = *state;
 }
 
@@ -139,7 +156,7 @@ static void *r600_create_fs_state(struct pipe_context *ctx,
 
 static void r600_bind_fs_state(struct pipe_context *ctx, void *state)
 {
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_context *rctx = r600_context(ctx);
 
 	rctx->ps_shader = state;
 }
@@ -152,7 +169,7 @@ static void *r600_create_vs_state(struct pipe_context *ctx,
 
 static void r600_bind_vs_state(struct pipe_context *ctx, void *state)
 {
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_context *rctx = r600_context(ctx);
 
 	rctx->vs_shader = state;
 }
@@ -165,8 +182,8 @@ static void r600_set_polygon_stipple(struct pipe_context *ctx,
 static void *r600_create_rs_state(struct pipe_context *ctx,
 					const struct pipe_rasterizer_state *state)
 {
-	struct r600_screen *rscreen = (struct r600_screen*)ctx->screen;
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_screen *rscreen = r600_screen(ctx->screen);
+	struct r600_context *rctx = r600_context(ctx);
 	struct radeon_state *rstate;
 
 	rctx->flat_shade = state->flatshade;
@@ -203,7 +220,7 @@ static void *r600_create_rs_state(struct pipe_context *ctx,
 
 static void r600_bind_rs_state(struct pipe_context *ctx, void *state)
 {
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_context *rctx = r600_context(ctx);
 	radeon_draw_set(rctx->draw, state);
 }
 
@@ -249,8 +266,8 @@ static void r600_set_vertex_sampler_views(struct pipe_context *ctx,
 static void r600_set_scissor_state(struct pipe_context *ctx,
 					const struct pipe_scissor_state *state)
 {
-	struct r600_screen *rscreen = (struct r600_screen*)ctx->screen;
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_screen *rscreen = r600_screen(ctx->screen);
+	struct r600_context *rctx = r600_context(ctx);
 	struct radeon_state *rstate;
 	u32 tl, br;
 
@@ -288,8 +305,8 @@ static void r600_set_scissor_state(struct pipe_context *ctx,
 static void r600_set_viewport_state(struct pipe_context *ctx,
 					const struct pipe_viewport_state *state)
 {
-	struct r600_screen *rscreen = (struct r600_screen*)ctx->screen;
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_screen *rscreen = r600_screen(ctx->screen);
+	struct r600_context *rctx = r600_context(ctx);
 	struct radeon_state *rstate;
 
 	rstate = radeon_state(rscreen->rw, R600_VIEWPORT_TYPE, R600_VIEWPORT);
@@ -316,7 +333,7 @@ static void r600_set_vertex_buffers(struct pipe_context *ctx,
 					unsigned count,
 					const struct pipe_vertex_buffer *buffers)
 {
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_context *rctx = r600_context(ctx);
 
 	memcpy(rctx->vertex_buffer, buffers, sizeof(struct pipe_vertex_buffer) * count);
 	rctx->nvertex_buffer = count;
@@ -337,7 +354,7 @@ static void *r600_create_vertex_elements_state(struct pipe_context *ctx,
 
 static void r600_bind_vertex_elements_state(struct pipe_context *ctx, void *state)
 {
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_context *rctx = r600_context(ctx);
 	struct r600_vertex_elements_state *v = (struct r600_vertex_elements_state*)state;
 
 	rctx->vertex_elements = v;
@@ -351,12 +368,15 @@ static void r600_delete_vertex_elements_state(struct pipe_context *ctx, void *st
 static void *r600_create_dsa_state(struct pipe_context *ctx,
 					const struct pipe_depth_stencil_alpha_state *state)
 {
-	struct r600_screen *rscreen = (struct r600_screen*)ctx->screen;
+	struct r600_screen *rscreen = r600_screen(ctx->screen);
 	struct radeon_state *rstate;
+	unsigned db_depth_control;
 
 	rstate = radeon_state(rscreen->rw, R600_DSA_TYPE, R600_DSA);
 	if (rstate == NULL)
 		return NULL;
+	db_depth_control = 0x00700700 | S_028800_Z_ENABLE(state->depth.enabled) | S_028800_Z_WRITE_ENABLE(state->depth.writemask) | S_028800_ZFUNC(state->depth.func);
+	
 	rstate->states[R600_DSA__DB_STENCIL_CLEAR] = 0x00000000;
 	rstate->states[R600_DSA__DB_DEPTH_CLEAR] = 0x3F800000;
 	rstate->states[R600_DSA__SX_ALPHA_TEST_CONTROL] = 0x00000000;
@@ -366,7 +386,7 @@ static void *r600_create_dsa_state(struct pipe_context *ctx,
 	rstate->states[R600_DSA__SPI_FOG_FUNC_SCALE] = 0x00000000;
 	rstate->states[R600_DSA__SPI_FOG_FUNC_BIAS] = 0x00000000;
 	rstate->states[R600_DSA__SPI_FOG_CNTL] = 0x00000000;
-	rstate->states[R600_DSA__DB_DEPTH_CONTROL] = 0x00700700;
+	rstate->states[R600_DSA__DB_DEPTH_CONTROL] = db_depth_control;
 	rstate->states[R600_DSA__DB_SHADER_CONTROL] = 0x00000210;
 	rstate->states[R600_DSA__DB_RENDER_CONTROL] = 0x00000060;
 	rstate->states[R600_DSA__DB_RENDER_OVERRIDE] = 0x0000002A;
@@ -382,7 +402,7 @@ static void *r600_create_dsa_state(struct pipe_context *ctx,
 
 static void r600_bind_dsa_state(struct pipe_context *ctx, void *state)
 {
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_context *rctx = r600_context(ctx);
 	radeon_draw_set(rctx->draw, state);
 }
 
@@ -390,8 +410,8 @@ static void r600_set_constant_buffer(struct pipe_context *ctx,
 				     uint shader, uint index,
 				     struct pipe_resource *buffer)
 {
-	struct r600_screen *rscreen = (struct r600_screen*)ctx->screen;
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_screen *rscreen = r600_screen(ctx->screen);
+	struct r600_context *rctx = r600_context(ctx);
 	unsigned nconstant = 0, i, type, id;
 	struct radeon_state *rstate;
 	struct pipe_transfer *transfer;
@@ -435,7 +455,7 @@ static void r600_set_constant_buffer(struct pipe_context *ctx,
 static void r600_set_stencil_ref(struct pipe_context *ctx,
 				const struct pipe_stencil_ref *sr)
 {
-	struct r600_context *rctx = (struct r600_context*)ctx;
+	struct r600_context *rctx = r600_context(ctx);
 	rctx->stencil_ref = *sr;
 }
 

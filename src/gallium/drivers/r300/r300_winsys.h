@@ -47,13 +47,6 @@ enum r300_reference_domain { /* bitfield */
     R300_REF_HW = 2
 };
 
-struct r300_cs_info {
-    /* In DWORDs. */
-    unsigned used;
-    unsigned free;
-    unsigned capacity;
-};
-
 struct r300_winsys_screen {
     void (*destroy)(struct r300_winsys_screen *ws);
     
@@ -109,16 +102,8 @@ struct r300_winsys_screen {
      * Returns TRUE if a flush is required. */
     boolean (*validate)(struct r300_winsys_screen* winsys);
 
-    /* Return current CS info. */
-    void (*get_cs_info)(struct r300_winsys_screen *winsys,
-                        struct r300_cs_info *info);
-
-    /* Start a command emit. */
-    void (*begin_cs)(struct r300_winsys_screen* winsys,
-                     int size,
-                     const char* file,
-                     const char* function,
-                     int line);
+    /* Return the number of free dwords in CS. */
+    unsigned (*get_cs_free_dwords)(struct r300_winsys_screen *winsys);
 
     /* Write a dword to the command buffer. */
     void (*write_cs_dword)(struct r300_winsys_screen* winsys, uint32_t dword);
@@ -133,12 +118,6 @@ struct r300_winsys_screen {
                            enum r300_buffer_domain rd,
                            enum r300_buffer_domain wd,
                            uint32_t flags);
-
-    /* Finish a command emit. */
-    void (*end_cs)(struct r300_winsys_screen* winsys,
-                   const char* file,
-                   const char* function,
-                   int line);
 
     /* Flush the CS. */
     void (*flush_cs)(struct r300_winsys_screen* winsys);

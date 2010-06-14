@@ -435,13 +435,18 @@ draw_num_shader_outputs(const struct draw_context *draw)
  */
 void
 draw_texture_samplers(struct draw_context *draw,
+                      uint shader,
                       uint num_samplers,
                       struct tgsi_sampler **samplers)
 {
-   draw->vs.num_samplers = num_samplers;
-   draw->vs.samplers = samplers;
-   draw->gs.num_samplers = num_samplers;
-   draw->gs.samplers = samplers;
+   if (shader == PIPE_SHADER_VERTEX) {
+      draw->vs.num_samplers = num_samplers;
+      draw->vs.samplers = samplers;
+   } else {
+      debug_assert(shader == PIPE_SHADER_GEOMETRY);
+      draw->gs.num_samplers = num_samplers;
+      draw->gs.samplers = samplers;
+   }
 }
 
 
@@ -573,4 +578,26 @@ draw_get_rasterizer_no_cull( struct draw_context *draw,
          pipe->create_rasterizer_state(pipe, &rast);
    }
    return draw->rasterizer_no_cull[scissor][flatshade];
+}
+
+void
+draw_set_mapped_so_buffers(struct draw_context *draw,
+                           void *buffers[PIPE_MAX_SO_BUFFERS],
+                           unsigned num_buffers)
+{
+   int i;
+
+   for (i = 0; i < num_buffers; ++i) {
+      draw->so.buffers[i] = buffers[i];
+   }
+   draw->so.num_buffers = num_buffers;
+}
+
+void
+draw_set_so_state(struct draw_context *draw,
+                  struct pipe_stream_output_state *state)
+{
+   memcpy(&draw->so.state,
+          state,
+          sizeof(struct pipe_stream_output_state));
 }

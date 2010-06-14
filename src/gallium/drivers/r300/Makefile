@@ -14,6 +14,8 @@ C_SOURCES = \
 	r300_hyperz.c \
 	r300_query.c \
 	r300_render.c \
+	r300_render_stencilref.c \
+	r300_render_translate.c \
 	r300_resource.c \
 	r300_screen.c \
 	r300_screen_buffer.c \

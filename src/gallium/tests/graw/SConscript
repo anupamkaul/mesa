@@ -9,12 +9,16 @@ except NameError:
 env = env.Clone()
 
 env.Prepend(LIBPATH = [graw.dir])
-env.Prepend(LIBS = ['graw'])
+env.Prepend(LIBS = ['graw'] + gallium)
 
 progs = [
     'clear',
     'tri',
     'quad-tex',
+    'fs-test',
+    'vs-test',
+    'gs-test',
+    'tri-gs',
 ]
 
 for prog in progs:

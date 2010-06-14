@@ -219,6 +219,8 @@ void st_init_extensions(struct st_context *st)
 
    ctx->Extensions.APPLE_vertex_array_object = GL_TRUE;
 
+   ctx->Extensions.ATI_texture_env_combine3 = GL_TRUE;
+
    ctx->Extensions.MESA_pack_invert = GL_TRUE;
 
    ctx->Extensions.NV_blend_square = GL_TRUE;
@@ -246,6 +248,10 @@ void st_init_extensions(struct st_context *st)
     */
    if (screen->get_param(screen, PIPE_CAP_MAX_RENDER_TARGETS) > 0) {
       ctx->Extensions.ARB_draw_buffers = GL_TRUE;
+   }
+
+   if (screen->get_param(screen, PIPE_CAP_TEXTURE_SWIZZLE) > 0) {
+      ctx->Extensions.EXT_texture_swizzle = GL_TRUE;
    }
 
    if (screen->get_param(screen, PIPE_CAP_GLSL)) {
@@ -302,6 +308,7 @@ void st_init_extensions(struct st_context *st)
 
    if (screen->get_param(screen, PIPE_CAP_TEXTURE_SHADOW_MAP)) {
       ctx->Extensions.ARB_depth_texture = GL_TRUE;
+      ctx->Extensions.ARB_fragment_program_shadow = GL_TRUE;
       ctx->Extensions.ARB_shadow = GL_TRUE;
       ctx->Extensions.EXT_shadow_funcs = GL_TRUE;
       /*ctx->Extensions.ARB_shadow_ambient = GL_TRUE;*/

@@ -290,6 +290,7 @@ enum pipe_transfer_usage {
 #define PIPE_BIND_DISPLAY_TARGET       (1 << 8) /* flush_front_buffer */
 #define PIPE_BIND_TRANSFER_WRITE       (1 << 9) /* get_transfer */
 #define PIPE_BIND_TRANSFER_READ        (1 << 10) /* get_transfer */
+#define PIPE_BIND_STREAM_OUTPUT        (1 << 11) /* set_stream_output_buffers */
 #define PIPE_BIND_CUSTOM               (1 << 16) /* state-tracker/winsys usages */
 
 /* The first two flags above were previously part of the amorphous
@@ -324,6 +325,7 @@ enum pipe_transfer_usage {
 #define PIPE_USAGE_STATIC         2 /* same as immutable?? */
 #define PIPE_USAGE_IMMUTABLE      3 /* no change after first upload */
 #define PIPE_USAGE_STREAM         4 /* upload, draw, upload, draw */
+#define PIPE_USAGE_STAGING        5 /* supports data transfers from the GPU to the CPU */
 
 
 /* These are intended to be used in calls to is_format_supported, but
@@ -381,7 +383,8 @@ enum pipe_transfer_usage {
 #define PIPE_QUERY_PRIMITIVES_GENERATED  1
 #define PIPE_QUERY_PRIMITIVES_EMITTED    2
 #define PIPE_QUERY_TIME_ELAPSED          3
-#define PIPE_QUERY_TYPES                 4
+#define PIPE_QUERY_SO_STATISTICS         5
+#define PIPE_QUERY_TYPES                 6
 
 
 /**
@@ -427,6 +430,7 @@ enum pipe_cap {
    PIPE_CAP_OCCLUSION_QUERY,
    PIPE_CAP_TIMER_QUERY,
    PIPE_CAP_TEXTURE_SHADOW_MAP,
+   PIPE_CAP_TEXTURE_SWIZZLE,
    PIPE_CAP_MAX_TEXTURE_2D_LEVELS,
    PIPE_CAP_MAX_TEXTURE_3D_LEVELS,
    PIPE_CAP_MAX_TEXTURE_CUBE_LEVELS,
@@ -446,6 +450,7 @@ enum pipe_cap {
    PIPE_CAP_TGSI_CONT_SUPPORTED,
    PIPE_CAP_BLEND_EQUATION_SEPARATE,
    PIPE_CAP_SM3,  /*< Shader Model, supported */
+   PIPE_CAP_STREAM_OUTPUT,
    PIPE_CAP_MAX_PREDICATE_REGISTERS,
    /** Maximum texture image units accessible from vertex and fragment shaders
     * combined */
@@ -497,6 +502,14 @@ enum pipe_cap {
 #define PIPE_REFERENCED_FOR_READ  (1 << 0)
 #define PIPE_REFERENCED_FOR_WRITE (1 << 1)
 
+/**
+ * Composite query types
+ */
+struct pipe_query_data_so_statistics
+{
+   uint64_t num_primitives_written;
+   uint64_t primitives_storage_needed;
+};
 
 #ifdef __cplusplus
 }

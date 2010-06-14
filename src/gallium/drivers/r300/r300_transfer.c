@@ -98,7 +98,7 @@ r300_texture_get_transfer(struct pipe_context *ctx,
     struct r300_screen *r300screen = r300_screen(ctx->screen);
     struct r300_transfer *trans;
     struct pipe_resource base;
-    boolean referenced_cs, referenced_hw;
+    boolean referenced_cs, referenced_hw, blittable;
 
     referenced_cs = r300screen->rws->is_buffer_referenced(
                                 r300screen->rws, tex->buffer, R300_REF_CS);
@@ -108,6 +108,10 @@ r300_texture_get_transfer(struct pipe_context *ctx,
         referenced_hw = r300screen->rws->is_buffer_referenced(
                                 r300screen->rws, tex->buffer, R300_REF_HW);
     }
+
+    blittable = ctx->screen->is_format_supported(
+            ctx->screen, texture->format, texture->target, 0,
+            PIPE_BIND_SAMPLER_VIEW | PIPE_BIND_RENDER_TARGET, 0);
 
     trans = CALLOC_STRUCT(r300_transfer);
     if (trans) {
@@ -121,7 +125,7 @@ r300_texture_get_transfer(struct pipe_context *ctx,
          * for this transfer.
          * Also make write transfers pipelined. */
         if (tex->microtile || tex->macrotile ||
-            (referenced_hw & !(usage & PIPE_TRANSFER_READ))) {
+            ((referenced_hw & !(usage & PIPE_TRANSFER_READ)) && blittable)) {
             base.target = PIPE_TEXTURE_2D;
             base.format = texture->format;
             base.width0 = box->width;
@@ -149,6 +153,30 @@ r300_texture_get_transfer(struct pipe_context *ctx,
                ctx->screen->resource_create(ctx->screen,
                                             &base));
 
+            if (!trans->detiled_texture) {
+                /* Oh crap, the thing can't create the texture.
+                 * Let's flush and try again. */
+                ctx->flush(ctx, 0, NULL);
+
+                trans->detiled_texture = r300_texture(
+                   ctx->screen->resource_create(ctx->screen,
+                                                &base));
+
+                if (!trans->detiled_texture) {
+                    /* For linear textures, it's safe to fallback to
+                     * an unpipelined transfer. */
+                    if (!tex->microtile && !tex->macrotile) {
+                        goto unpipelined;
+                    }
+
+                    /* Otherwise, go to hell. */
+                    fprintf(stderr,
+                        "r300: Failed to create a transfer object, praise.\n");
+                    FREE(trans);
+                    return NULL;
+                }
+            }
+
             assert(!trans->detiled_texture->microtile &&
                    !trans->detiled_texture->macrotile);
 
@@ -170,16 +198,20 @@ r300_texture_get_transfer(struct pipe_context *ctx,
                 /* Always referenced in the blit. */
                 ctx->flush(ctx, 0, NULL);
             }
-        } else {
-            trans->transfer.stride =
-                r300_texture_get_stride(r300screen, tex, level);
-            trans->offset = r300_texture_get_offset(tex, level, box->z);
-
-            if (referenced_cs && (usage & PIPE_TRANSFER_READ))
-                ctx->flush(ctx, PIPE_FLUSH_RENDER_CACHE, NULL);
+            return &trans->transfer;
         }
+
+    unpipelined:
+        /* Unpipelined transfer. */
+        trans->transfer.stride =
+            r300_texture_get_stride(r300screen, tex, level);
+        trans->offset = r300_texture_get_offset(tex, level, box->z);
+
+        if (referenced_cs && (usage & PIPE_TRANSFER_READ))
+            ctx->flush(ctx, PIPE_FLUSH_RENDER_CACHE, NULL);
+        return &trans->transfer;
     }
-    return &trans->transfer;
+    return NULL;
 }
 
 void r300_texture_transfer_destroy(struct pipe_context *ctx,

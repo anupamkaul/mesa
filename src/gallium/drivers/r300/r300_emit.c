@@ -43,21 +43,11 @@ void r300_emit_blend_state(struct r300_context* r300,
         (struct pipe_framebuffer_state*)r300->fb_state.state;
     CS_LOCALS(r300);
 
-    BEGIN_CS(size);
-    OUT_CS_REG(R300_RB3D_ROPCNTL, blend->rop);
-    OUT_CS_REG_SEQ(R300_RB3D_CBLEND, 3);
     if (fb->nr_cbufs) {
-        OUT_CS(blend->blend_control);
-        OUT_CS(blend->alpha_blend_control);
-        OUT_CS(blend->color_channel_mask);
+        WRITE_CS_TABLE(blend->cb, size);
     } else {
-        OUT_CS(0);
-        OUT_CS(0);
-        OUT_CS(0);
-        /* XXX also disable fastfill here once it's supported */
+        WRITE_CS_TABLE(blend->cb_no_readwrite, size);
     }
-    OUT_CS_REG(R300_RB3D_DITHER_CTL, blend->dither);
-    END_CS;
 }
 
 void r300_emit_blend_color_state(struct r300_context* r300,
@@ -66,40 +56,16 @@ void r300_emit_blend_color_state(struct r300_context* r300,
     struct r300_blend_color_state* bc = (struct r300_blend_color_state*)state;
     CS_LOCALS(r300);
 
-    if (r300->screen->caps.is_r500) {
-        BEGIN_CS(size);
-        OUT_CS_REG_SEQ(R500_RB3D_CONSTANT_COLOR_AR, 2);
-        OUT_CS(bc->blend_color_red_alpha);
-        OUT_CS(bc->blend_color_green_blue);
-        END_CS;
-    } else {
-        BEGIN_CS(size);
-        OUT_CS_REG(R300_RB3D_BLEND_COLOR, bc->blend_color);
-        END_CS;
-    }
+    WRITE_CS_TABLE(bc->cb, size);
 }
 
 void r300_emit_clip_state(struct r300_context* r300,
                           unsigned size, void* state)
 {
-    struct pipe_clip_state* clip = (struct pipe_clip_state*)state;
+    struct r300_clip_state* clip = (struct r300_clip_state*)state;
     CS_LOCALS(r300);
 
-    if (r300->screen->caps.has_tcl) {
-        BEGIN_CS(size);
-        OUT_CS_REG(R300_VAP_PVS_VECTOR_INDX_REG,
-                (r300->screen->caps.is_r500 ?
-                 R500_PVS_UCP_START : R300_PVS_UCP_START));
-        OUT_CS_ONE_REG(R300_VAP_PVS_UPLOAD_DATA, 6 * 4);
-        OUT_CS_TABLE(clip->ucp, 6 * 4);
-        OUT_CS_REG(R300_VAP_CLIP_CNTL, ((1 << clip->nr) - 1) |
-                R300_PS_UCP_MODE_CLIP_AS_TRIFAN);
-        END_CS;
-    } else {
-        BEGIN_CS(size);
-        OUT_CS_REG(R300_VAP_CLIP_CNTL, R300_CLIP_DISABLE);
-        END_CS;
-    }
+    WRITE_CS_TABLE(clip->cb, size);
 }
 
 void r300_emit_dsa_state(struct r300_context* r300, unsigned size, void* state)
@@ -107,27 +73,13 @@ void r300_emit_dsa_state(struct r300_context* r300, unsigned size, void* state)
     struct r300_dsa_state* dsa = (struct r300_dsa_state*)state;
     struct pipe_framebuffer_state* fb =
         (struct pipe_framebuffer_state*)r300->fb_state.state;
-    struct pipe_stencil_ref stencil_ref = r300->stencil_ref;
     CS_LOCALS(r300);
 
-    BEGIN_CS(size);
-    OUT_CS_REG(R300_FG_ALPHA_FUNC, dsa->alpha_function);
-    OUT_CS_REG_SEQ(R300_ZB_CNTL, 3);
-
     if (fb->zsbuf) {
-        OUT_CS(dsa->z_buffer_control);
-        OUT_CS(dsa->z_stencil_control);
+        WRITE_CS_TABLE(&dsa->cb_begin, size);
     } else {
-        OUT_CS(0);
-        OUT_CS(0);
+        WRITE_CS_TABLE(dsa->cb_no_readwrite, size);
     }
-
-    OUT_CS(dsa->stencil_ref_mask | stencil_ref.ref_value[0]);
-
-    if (r300->screen->caps.is_r500) {
-        OUT_CS_REG(R500_ZB_STENCILREFMASK_BF, dsa->stencil_ref_bf | stencil_ref.ref_value[1]);
-    }
-    END_CS;
 }
 
 static const float * get_rc_constant_state(
@@ -175,7 +127,7 @@ static const float * get_rc_constant_state(
 /* Convert a normal single-precision float into the 7.16 format
  * used by the R300 fragment shader.
  */
-static uint32_t pack_float24(float f)
+uint32_t pack_float24(float f)
 {
     union {
         float fl;
@@ -206,101 +158,27 @@ static uint32_t pack_float24(float f)
     return float24;
 }
 
-unsigned r300_get_fs_atom_size(struct r300_context *r300)
-{
-    struct r300_fragment_shader *fs = r300_fs(r300);
-    unsigned imm_count = fs->shader->immediates_count;
-    struct r300_fragment_program_code *code = &fs->shader->code.code.r300;
-
-    return 19 +
-           code->alu.length * 4 +
-           (code->tex.length ? (1 + code->tex.length) : 0) +
-           (imm_count ? imm_count * 5 : 0);
-}
-
 void r300_emit_fs(struct r300_context* r300, unsigned size, void *state)
 {
     struct r300_fragment_shader *fs = r300_fs(r300);
-    struct rX00_fragment_program_code* generic_code = &fs->shader->code;
-    struct r300_fragment_program_code * code = &generic_code->code.r300;
-    unsigned i;
-    unsigned imm_count = fs->shader->immediates_count;
-    unsigned imm_first = fs->shader->externals_count;
-    unsigned imm_end = generic_code->constants.Count;
-    struct rc_constant *constants = generic_code->constants.Constants;
     CS_LOCALS(r300);
 
-    BEGIN_CS(size);
-    OUT_CS_REG(R300_US_CONFIG, code->config);
-    OUT_CS_REG(R300_US_PIXSIZE, code->pixsize);
-    OUT_CS_REG(R300_US_CODE_OFFSET, code->code_offset);
-
-    OUT_CS_REG_SEQ(R300_US_CODE_ADDR_0, 4);
-    OUT_CS_TABLE(code->code_addr, 4);
-
-    OUT_CS_REG_SEQ(R300_US_ALU_RGB_INST_0, code->alu.length);
-    for (i = 0; i < code->alu.length; i++)
-        OUT_CS(code->alu.inst[i].rgb_inst);
-
-    OUT_CS_REG_SEQ(R300_US_ALU_RGB_ADDR_0, code->alu.length);
-    for (i = 0; i < code->alu.length; i++)
-        OUT_CS(code->alu.inst[i].rgb_addr);
-
-    OUT_CS_REG_SEQ(R300_US_ALU_ALPHA_INST_0, code->alu.length);
-    for (i = 0; i < code->alu.length; i++)
-        OUT_CS(code->alu.inst[i].alpha_inst);
-
-    OUT_CS_REG_SEQ(R300_US_ALU_ALPHA_ADDR_0, code->alu.length);
-    for (i = 0; i < code->alu.length; i++)
-        OUT_CS(code->alu.inst[i].alpha_addr);
-
-    if (code->tex.length) {
-        OUT_CS_REG_SEQ(R300_US_TEX_INST_0, code->tex.length);
-        OUT_CS_TABLE(code->tex.inst, code->tex.length);
-    }
-
-    /* Emit immediates. */
-    if (imm_count) {
-        for(i = imm_first; i < imm_end; ++i) {
-            if (constants[i].Type == RC_CONSTANT_IMMEDIATE) {
-                const float *data = constants[i].u.Immediate;
-
-                OUT_CS_REG_SEQ(R300_PFS_PARAM_0_X + i * 16, 4);
-                OUT_CS(pack_float24(data[0]));
-                OUT_CS(pack_float24(data[1]));
-                OUT_CS(pack_float24(data[2]));
-                OUT_CS(pack_float24(data[3]));
-            }
-        }
-    }
-
-    OUT_CS_REG(R300_FG_DEPTH_SRC, fs->shader->fg_depth_src);
-    OUT_CS_REG(R300_US_W_FMT, fs->shader->us_out_w);
-    END_CS;
+    WRITE_CS_TABLE(fs->shader->cb_code, fs->shader->cb_code_size);
 }
 
 void r300_emit_fs_constants(struct r300_context* r300, unsigned size, void *state)
 {
     struct r300_fragment_shader *fs = r300_fs(r300);
-    struct rc_constant_list *constants = &fs->shader->code.constants;
     struct r300_constant_buffer *buf = (struct r300_constant_buffer*)state;
-    unsigned i, count = fs->shader->externals_count;
+    unsigned count = fs->shader->externals_count * 4;
     CS_LOCALS(r300);
 
     if (count == 0)
         return;
 
     BEGIN_CS(size);
-    OUT_CS_REG_SEQ(R300_PFS_PARAM_0_X, count * 4);
-    for(i = 0; i < count; ++i) {
-        const float *data;
-        assert(constants->Constants[i].Type == RC_CONSTANT_EXTERNAL);
-        data = buf->constants[i];
-        OUT_CS(pack_float24(data[0]));
-        OUT_CS(pack_float24(data[1]));
-        OUT_CS(pack_float24(data[2]));
-        OUT_CS(pack_float24(data[3]));
-    }
+    OUT_CS_REG_SEQ(R300_PFS_PARAM_0_X, count);
+    OUT_CS_TABLE(buf->constants, count);
     END_CS;
 }
 
@@ -312,6 +190,8 @@ void r300_emit_fs_rc_constant_state(struct r300_context* r300, unsigned size, vo
     unsigned count = fs->shader->rc_state_count;
     unsigned first = fs->shader->externals_count;
     unsigned end = constants->Count;
+    uint32_t cdata[4];
+    unsigned j;
     CS_LOCALS(r300);
 
     if (count == 0)
@@ -323,85 +203,29 @@ void r300_emit_fs_rc_constant_state(struct r300_context* r300, unsigned size, vo
             const float *data =
                     get_rc_constant_state(r300, &constants->Constants[i]);
 
+            for (j = 0; j < 4; j++)
+                cdata[j] = pack_float24(data[j]);
+
             OUT_CS_REG_SEQ(R300_PFS_PARAM_0_X + i * 16, 4);
-            OUT_CS(pack_float24(data[0]));
-            OUT_CS(pack_float24(data[1]));
-            OUT_CS(pack_float24(data[2]));
-            OUT_CS(pack_float24(data[3]));
+            OUT_CS_TABLE(cdata, 4);
         }
     }
     END_CS;
-}
-
-unsigned r500_get_fs_atom_size(struct r300_context *r300)
-{
-    struct r300_fragment_shader *fs = r300_fs(r300);
-    unsigned imm_count = fs->shader->immediates_count;
-    struct r500_fragment_program_code *code = &fs->shader->code.code.r500;
-
-    return 17 +
-           ((code->inst_end + 1) * 6) +
-           (imm_count ? imm_count * 7 : 0);
 }
 
 void r500_emit_fs(struct r300_context* r300, unsigned size, void *state)
 {
     struct r300_fragment_shader *fs = r300_fs(r300);
-    struct rX00_fragment_program_code* generic_code = &fs->shader->code;
-    struct r500_fragment_program_code * code = &generic_code->code.r500;
-    unsigned i;
-    unsigned imm_count = fs->shader->immediates_count;
-    unsigned imm_first = fs->shader->externals_count;
-    unsigned imm_end = generic_code->constants.Count;
-    struct rc_constant *constants = generic_code->constants.Constants;
     CS_LOCALS(r300);
 
-    BEGIN_CS(size);
-    OUT_CS_REG(R500_US_CONFIG, R500_ZERO_TIMES_ANYTHING_EQUALS_ZERO);
-    OUT_CS_REG(R500_US_PIXSIZE, code->max_temp_idx);
-    OUT_CS_REG(R500_US_CODE_RANGE,
-               R500_US_CODE_RANGE_ADDR(0) | R500_US_CODE_RANGE_SIZE(code->inst_end));
-    OUT_CS_REG(R500_US_CODE_OFFSET, 0);
-    OUT_CS_REG(R500_US_CODE_ADDR,
-               R500_US_CODE_START_ADDR(0) | R500_US_CODE_END_ADDR(code->inst_end));
-
-    OUT_CS_REG(R500_GA_US_VECTOR_INDEX, R500_GA_US_VECTOR_INDEX_TYPE_INSTR);
-    OUT_CS_ONE_REG(R500_GA_US_VECTOR_DATA, (code->inst_end + 1) * 6);
-    for (i = 0; i <= code->inst_end; i++) {
-        OUT_CS(code->inst[i].inst0);
-        OUT_CS(code->inst[i].inst1);
-        OUT_CS(code->inst[i].inst2);
-        OUT_CS(code->inst[i].inst3);
-        OUT_CS(code->inst[i].inst4);
-        OUT_CS(code->inst[i].inst5);
-    }
-
-    /* Emit immediates. */
-    if (imm_count) {
-        for(i = imm_first; i < imm_end; ++i) {
-            if (constants[i].Type == RC_CONSTANT_IMMEDIATE) {
-                const float *data = constants[i].u.Immediate;
-
-                OUT_CS_REG(R500_GA_US_VECTOR_INDEX,
-                           R500_GA_US_VECTOR_INDEX_TYPE_CONST |
-                           (i & R500_GA_US_VECTOR_INDEX_MASK));
-                OUT_CS_ONE_REG(R500_GA_US_VECTOR_DATA, 4);
-                OUT_CS_TABLE(data, 4);
-            }
-        }
-    }
-
-    OUT_CS_REG(R300_FG_DEPTH_SRC, fs->shader->fg_depth_src);
-    OUT_CS_REG(R300_US_W_FMT, fs->shader->us_out_w);
-    END_CS;
+    WRITE_CS_TABLE(fs->shader->cb_code, fs->shader->cb_code_size);
 }
 
 void r500_emit_fs_constants(struct r300_context* r300, unsigned size, void *state)
 {
     struct r300_fragment_shader *fs = r300_fs(r300);
-    struct rc_constant_list *constants = &fs->shader->code.constants;
     struct r300_constant_buffer *buf = (struct r300_constant_buffer*)state;
-    unsigned i, count = fs->shader->externals_count;
+    unsigned count = fs->shader->externals_count * 4;
     CS_LOCALS(r300);
 
     if (count == 0)
@@ -409,11 +233,8 @@ void r500_emit_fs_constants(struct r300_context* r300, unsigned size, void *stat
 
     BEGIN_CS(size);
     OUT_CS_REG(R500_GA_US_VECTOR_INDEX, R500_GA_US_VECTOR_INDEX_TYPE_CONST);
-    OUT_CS_ONE_REG(R500_GA_US_VECTOR_DATA, count * 4);
-    for(i = 0; i < count; ++i) {
-        assert(constants->Constants[i].Type == RC_CONSTANT_EXTERNAL);
-    }
-    OUT_CS_TABLE(buf->constants, count * 4);
+    OUT_CS_ONE_REG(R500_GA_US_VECTOR_DATA, count);
+    OUT_CS_TABLE(buf->constants, count);
     END_CS;
 }
 
@@ -449,9 +270,8 @@ void r500_emit_fs_rc_constant_state(struct r300_context* r300, unsigned size, vo
 void r300_emit_fb_state(struct r300_context* r300, unsigned size, void* state)
 {
     struct pipe_framebuffer_state* fb = (struct pipe_framebuffer_state*)state;
-    struct r300_texture* tex;
-    struct pipe_surface* surf;
-    int i;
+    struct r300_surface* surf;
+    unsigned i;
     CS_LOCALS(r300);
 
     BEGIN_CS(size);
@@ -464,34 +284,26 @@ void r300_emit_fb_state(struct r300_context* r300, unsigned size, void* state)
         R300_ZB_ZCACHE_CTLSTAT_ZC_FLUSH_FLUSH_AND_FREE |
         R300_ZB_ZCACHE_CTLSTAT_ZC_FREE_FREE);
 
-    /* Set the number of colorbuffers. */
-    if (fb->nr_cbufs > 1) {
-        if (r300->screen->caps.is_r500) {
-            OUT_CS_REG(R300_RB3D_CCTL,
-                R300_RB3D_CCTL_NUM_MULTIWRITES(fb->nr_cbufs) |
-                R300_RB3D_CCTL_INDEPENDENT_COLORFORMAT_ENABLE_ENABLE);
-        } else {
-            OUT_CS_REG(R300_RB3D_CCTL,
-                R300_RB3D_CCTL_NUM_MULTIWRITES(fb->nr_cbufs));
-        }
+    /* NUM_MULTIWRITES replicates COLOR[0] to all colorbuffers, which is not
+     * what we usually want. */
+    if (r300->screen->caps.is_r500) {
+        OUT_CS_REG(R300_RB3D_CCTL,
+            R300_RB3D_CCTL_INDEPENDENT_COLORFORMAT_ENABLE_ENABLE);
     } else {
-        OUT_CS_REG(R300_RB3D_CCTL, 0x0);
+        OUT_CS_REG(R300_RB3D_CCTL, 0);
     }
 
     /* Set up colorbuffers. */
     for (i = 0; i < fb->nr_cbufs; i++) {
-        surf = fb->cbufs[i];
-        tex = r300_texture(surf->texture);
-        assert(tex && tex->buffer && "cbuf is marked, but NULL!");
+        surf = r300_surface(fb->cbufs[i]);
 
         OUT_CS_REG_SEQ(R300_RB3D_COLOROFFSET0 + (4 * i), 1);
-        OUT_CS_TEX_RELOC(tex, surf->offset, 0, tex->domain, 0);
+        OUT_CS_RELOC(surf->buffer, surf->offset, 0, surf->domain, 0);
 
         OUT_CS_REG_SEQ(R300_RB3D_COLORPITCH0 + (4 * i), 1);
-        OUT_CS_TEX_RELOC(tex, tex->fb_state.colorpitch[surf->level],
-                     0, tex->domain, 0);
+        OUT_CS_RELOC(surf->buffer, surf->pitch, 0, surf->domain, 0);
 
-        OUT_CS_REG(R300_US_OUT_FMT_0 + (4 * i), tex->fb_state.us_out_fmt);
+        OUT_CS_REG(R300_US_OUT_FMT_0 + (4 * i), surf->format);
     }
     for (; i < 4; i++) {
         OUT_CS_REG(R300_US_OUT_FMT_0 + (4 * i), R300_US_OUT_FMT_UNUSED);
@@ -499,18 +311,15 @@ void r300_emit_fb_state(struct r300_context* r300, unsigned size, void* state)
 
     /* Set up a zbuffer. */
     if (fb->zsbuf) {
-        surf = fb->zsbuf;
-        tex = r300_texture(surf->texture);
-        assert(tex && tex->buffer && "zsbuf is marked, but NULL!");
+        surf = r300_surface(fb->zsbuf);
 
         OUT_CS_REG_SEQ(R300_ZB_DEPTHOFFSET, 1);
-        OUT_CS_TEX_RELOC(tex, surf->offset, 0, tex->domain, 0);
+        OUT_CS_RELOC(surf->buffer, surf->offset, 0, surf->domain, 0);
 
-        OUT_CS_REG(R300_ZB_FORMAT, tex->fb_state.zb_format);
+        OUT_CS_REG(R300_ZB_FORMAT, surf->format);
 
         OUT_CS_REG_SEQ(R300_ZB_DEPTHPITCH, 1);
-        OUT_CS_TEX_RELOC(tex, tex->fb_state.depthpitch[surf->level],
-                     0, tex->domain, 0);
+        OUT_CS_RELOC(surf->buffer, surf->pitch, 0, surf->domain, 0);
     }
 
     OUT_CS_REG_SEQ(R300_SC_SCISSORS_TL, 2);
@@ -544,13 +353,14 @@ void r300_emit_query_start(struct r300_context *r300, unsigned size, void*state)
     OUT_CS_REG(R300_ZB_ZPASS_DATA, 0);
     END_CS;
     query->begin_emitted = TRUE;
+    query->flushed = FALSE;
 }
-
 
 static void r300_emit_query_end_frag_pipes(struct r300_context *r300,
                                            struct r300_query *query)
 {
     struct r300_capabilities* caps = &r300->screen->caps;
+    struct r300_winsys_buffer *buf = r300->query_current->buffer;
     CS_LOCALS(r300);
 
     assert(caps->num_frag_pipes);
@@ -569,28 +379,28 @@ static void r300_emit_query_end_frag_pipes(struct r300_context *r300,
             /* pipe 3 only */
             OUT_CS_REG(R300_SU_REG_DEST, 1 << 3);
             OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-            OUT_CS_BUF_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 3),
-                    0, r300_buffer(r300->oqbo)->domain, 0);
+            OUT_CS_RELOC(buf, (query->num_results + 3) * 4,
+                    0, query->domain, 0);
         case 3:
             /* pipe 2 only */
             OUT_CS_REG(R300_SU_REG_DEST, 1 << 2);
             OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-            OUT_CS_BUF_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 2),
-                    0, r300_buffer(r300->oqbo)->domain, 0);
+            OUT_CS_RELOC(buf, (query->num_results + 2) * 4,
+                    0, query->domain, 0);
         case 2:
             /* pipe 1 only */
             /* As mentioned above, accomodate RV380 and older. */
             OUT_CS_REG(R300_SU_REG_DEST,
                     1 << (caps->high_second_pipe ? 3 : 1));
             OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-            OUT_CS_BUF_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 1),
-                    0, r300_buffer(r300->oqbo)->domain, 0);
+            OUT_CS_RELOC(buf, (query->num_results + 1) * 4,
+                    0, query->domain, 0);
         case 1:
             /* pipe 0 only */
             OUT_CS_REG(R300_SU_REG_DEST, 1 << 0);
             OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-            OUT_CS_BUF_RELOC(r300->oqbo, query->offset + (sizeof(uint32_t) * 0),
-                    0, r300_buffer(r300->oqbo)->domain, 0);
+            OUT_CS_RELOC(buf, (query->num_results + 0) * 4,
+                    0, query->domain, 0);
             break;
         default:
             fprintf(stderr, "r300: Implementation error: Chipset reports %d"
@@ -606,12 +416,13 @@ static void r300_emit_query_end_frag_pipes(struct r300_context *r300,
 static void rv530_emit_query_end_single_z(struct r300_context *r300,
                                           struct r300_query *query)
 {
+    struct r300_winsys_buffer *buf = r300->query_current->buffer;
     CS_LOCALS(r300);
 
     BEGIN_CS(8);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_0);
     OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-    OUT_CS_BUF_RELOC(r300->oqbo, query->offset, 0, r300_buffer(r300->oqbo)->domain, 0);
+    OUT_CS_RELOC(buf, query->num_results * 4, 0, query->domain, 0);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_ALL);
     END_CS;
 }
@@ -619,15 +430,16 @@ static void rv530_emit_query_end_single_z(struct r300_context *r300,
 static void rv530_emit_query_end_double_z(struct r300_context *r300,
                                           struct r300_query *query)
 {
+    struct r300_winsys_buffer *buf = r300->query_current->buffer;
     CS_LOCALS(r300);
 
     BEGIN_CS(14);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_0);
     OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-    OUT_CS_BUF_RELOC(r300->oqbo, query->offset, 0, r300_buffer(r300->oqbo)->domain, 0);
+    OUT_CS_RELOC(buf, (query->num_results + 0) * 4, 0, query->domain, 0);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_1);
     OUT_CS_REG_SEQ(R300_ZB_ZPASS_ADDR, 1);
-    OUT_CS_BUF_RELOC(r300->oqbo, query->offset + sizeof(uint32_t), 0, r300_buffer(r300->oqbo)->domain, 0);
+    OUT_CS_RELOC(buf, (query->num_results + 1) * 4, 0, query->domain, 0);
     OUT_CS_REG(RV530_FG_ZBREG_DEST, RV530_FG_ZBREG_DEST_PIPE_SELECT_ALL);
     END_CS;
 }
@@ -652,6 +464,13 @@ void r300_emit_query_end(struct r300_context* r300)
         r300_emit_query_end_frag_pipes(r300, query);
 
     query->begin_emitted = FALSE;
+    query->num_results += query->num_pipes;
+
+    /* XXX grab all the results and reset the counter. */
+    if (query->num_results >= query->buffer_size / 4 - 4) {
+        query->num_results = (query->buffer_size / 4) / 2;
+        fprintf(stderr, "r300: Rewinding OQBO...\n");
+    }
 }
 
 void r300_emit_rs_state(struct r300_context* r300, unsigned size, void* state)
@@ -815,24 +634,16 @@ void r300_emit_textures_state(struct r300_context *r300,
     END_CS;
 }
 
-void r300_emit_aos(struct r300_context* r300, unsigned offset, boolean indexed)
+void r300_emit_aos(struct r300_context* r300, int offset, boolean indexed)
 {
     struct pipe_vertex_buffer *vb1, *vb2, *vbuf = r300->vertex_buffer;
     struct pipe_vertex_element *velem = r300->velems->velem;
     struct r300_buffer *buf;
     int i;
+    unsigned *hw_format_size = r300->velems->hw_format_size;
     unsigned size1, size2, aos_count = r300->velems->count;
     unsigned packet_size = (aos_count * 3 + 1) / 2;
     CS_LOCALS(r300);
-
-    for (i = 0; i < aos_count; i++) {
-        if ((vbuf[velem[i].vertex_buffer_index].buffer_offset + velem[i].src_offset) % 4 != 0) {
-            /* XXX We must align the buffer. */
-            assert(0);
-            fprintf(stderr, "r300: Unaligned vertex buffer offsets aren't supported, aborting..\n");
-            abort();
-        }
-    }
 
     BEGIN_CS(2 + packet_size + aos_count * 2);
     OUT_CS_PKT3(R300_PACKET3_3D_LOAD_VBPNTR, packet_size);
@@ -841,8 +652,8 @@ void r300_emit_aos(struct r300_context* r300, unsigned offset, boolean indexed)
     for (i = 0; i < aos_count - 1; i += 2) {
         vb1 = &vbuf[velem[i].vertex_buffer_index];
         vb2 = &vbuf[velem[i+1].vertex_buffer_index];
-        size1 = util_format_get_blocksize(velem[i].src_format);
-        size2 = util_format_get_blocksize(velem[i+1].src_format);
+        size1 = hw_format_size[i];
+        size2 = hw_format_size[i+1];
 
         OUT_CS(R300_VBPNTR_SIZE0(size1) | R300_VBPNTR_STRIDE0(vb1->stride) |
                R300_VBPNTR_SIZE1(size2) | R300_VBPNTR_STRIDE1(vb2->stride));
@@ -852,7 +663,7 @@ void r300_emit_aos(struct r300_context* r300, unsigned offset, boolean indexed)
 
     if (aos_count & 1) {
         vb1 = &vbuf[velem[i].vertex_buffer_index];
-        size1 = util_format_get_blocksize(velem[i].src_format);
+        size1 = hw_format_size[i];
 
         OUT_CS(R300_VBPNTR_SIZE0(size1) | R300_VBPNTR_STRIDE0(vb1->stride));
         OUT_CS(vb1->buffer_offset + velem[i].src_offset + offset * vb1->stride);
@@ -1012,12 +823,7 @@ void r300_emit_viewport_state(struct r300_context* r300,
 
     BEGIN_CS(size);
     OUT_CS_REG_SEQ(R300_SE_VPORT_XSCALE, 6);
-    OUT_CS_32F(viewport->xscale);
-    OUT_CS_32F(viewport->xoffset);
-    OUT_CS_32F(viewport->yscale);
-    OUT_CS_32F(viewport->yoffset);
-    OUT_CS_32F(viewport->zscale);
-    OUT_CS_32F(viewport->zoffset);
+    OUT_CS_TABLE(&viewport->xscale, 6);
     OUT_CS_REG(R300_VAP_VTE_CNTL, viewport->vte_control);
     END_CS;
 }
@@ -1099,10 +905,9 @@ validate:
         }
     }
     /* ...occlusion query buffer... */
-    if (r300->query_start.dirty ||
-        (r300->query_current && r300->query_current->begin_emitted)) {
-        if (!r300_add_buffer(r300->rws, r300->oqbo,
-			     0, r300_buffer(r300->oqbo)->domain)) {
+    if (r300->query_current) {
+        if (!r300->rws->add_buffer(r300->rws, r300->query_current->buffer,
+                                   0, r300->query_current->domain)) {
             r300->context.flush(&r300->context, 0, NULL);
             goto validate;
         }

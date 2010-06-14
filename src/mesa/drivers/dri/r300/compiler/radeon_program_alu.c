@@ -600,6 +600,60 @@ static void transform_r300_vertex_fix_LIT(struct radeon_compiler* c,
 	inst->U.I.SrcReg[0] = srcreg(RC_FILE_TEMPORARY, tempreg);
 }
 
+static void transform_r300_vertex_SEQ(struct radeon_compiler *c,
+	struct rc_instruction *inst)
+{
+	/* x = y  <==>  x >= y && y >= x */
+	int tmp = rc_find_free_temporary(c);
+
+	/* x <= y */
+	emit2(c, inst->Prev, RC_OPCODE_SGE, 0,
+	      dstregtmpmask(tmp, inst->U.I.DstReg.WriteMask),
+	      inst->U.I.SrcReg[0],
+	      inst->U.I.SrcReg[1]);
+
+	/* y <= x */
+	emit2(c, inst->Prev, RC_OPCODE_SGE, 0,
+	      inst->U.I.DstReg,
+	      inst->U.I.SrcReg[1],
+	      inst->U.I.SrcReg[0]);
+
+	/* x && y  =  x * y */
+	emit2(c, inst->Prev, RC_OPCODE_MUL, 0,
+	      inst->U.I.DstReg,
+	      srcreg(RC_FILE_TEMPORARY, tmp),
+	      srcreg(inst->U.I.DstReg.File, inst->U.I.DstReg.Index));
+
+	rc_remove_instruction(inst);
+}
+
+static void transform_r300_vertex_SNE(struct radeon_compiler *c,
+	struct rc_instruction *inst)
+{
+	/* x != y  <==>  x < y || y < x */
+	int tmp = rc_find_free_temporary(c);
+
+	/* x < y */
+	emit2(c, inst->Prev, RC_OPCODE_SLT, 0,
+	      dstregtmpmask(tmp, inst->U.I.DstReg.WriteMask),
+	      inst->U.I.SrcReg[0],
+	      inst->U.I.SrcReg[1]);
+
+	/* y < x */
+	emit2(c, inst->Prev, RC_OPCODE_SLT, 0,
+	      inst->U.I.DstReg,
+	      inst->U.I.SrcReg[1],
+	      inst->U.I.SrcReg[0]);
+
+	/* x || y  =  max(x, y) */
+	emit2(c, inst->Prev, RC_OPCODE_MAX, 0,
+	      inst->U.I.DstReg,
+	      srcreg(RC_FILE_TEMPORARY, tmp),
+	      srcreg(inst->U.I.DstReg.File, inst->U.I.DstReg.Index));
+
+	rc_remove_instruction(inst);
+}
+
 static void transform_r300_vertex_SGT(struct radeon_compiler* c,
 	struct rc_instruction* inst)
 {
@@ -636,11 +690,24 @@ int r300_transform_vertex_alu(
 	case RC_OPCODE_FLR: transform_FLR(c, inst); return 1;
 	case RC_OPCODE_LIT: transform_r300_vertex_fix_LIT(c, inst); return 1;
 	case RC_OPCODE_LRP: transform_LRP(c, inst); return 1;
+	case RC_OPCODE_SEQ:
+		if (!c->is_r500) {
+			transform_r300_vertex_SEQ(c, inst);
+			return 1;
+		}
+		return 0;
+	case RC_OPCODE_SFL: transform_SFL(c, inst); return 1;
+	case RC_OPCODE_SGT: transform_r300_vertex_SGT(c, inst); return 1;
+	case RC_OPCODE_SLE: transform_r300_vertex_SLE(c, inst); return 1;
+	case RC_OPCODE_SNE:
+		if (!c->is_r500) {
+			transform_r300_vertex_SNE(c, inst);
+			return 1;
+		}
+		return 0;
 	case RC_OPCODE_SUB: transform_SUB(c, inst); return 1;
 	case RC_OPCODE_SWZ: transform_SWZ(c, inst); return 1;
 	case RC_OPCODE_XPD: transform_XPD(c, inst); return 1;
-	case RC_OPCODE_SLE: transform_r300_vertex_SLE(c, inst); return 1;
-	case RC_OPCODE_SGT: transform_r300_vertex_SGT(c, inst); return 1;
 	default:
 		return 0;
 	}
@@ -781,6 +848,34 @@ int radeonTransformTrigSimple(struct radeon_compiler* c,
 	return 1;
 }
 
+static void r300_transform_SIN_COS_SCS(struct radeon_compiler *c,
+	struct rc_instruction *inst,
+	unsigned srctmp)
+{
+	if (inst->U.I.Opcode == RC_OPCODE_COS) {
+		emit1(c, inst->Prev, RC_OPCODE_COS, inst->U.I.SaturateMode, inst->U.I.DstReg,
+			srcregswz(RC_FILE_TEMPORARY, srctmp, RC_SWIZZLE_WWWW));
+	} else if (inst->U.I.Opcode == RC_OPCODE_SIN) {
+		emit1(c, inst->Prev, RC_OPCODE_SIN, inst->U.I.SaturateMode,
+			inst->U.I.DstReg, srcregswz(RC_FILE_TEMPORARY, srctmp, RC_SWIZZLE_WWWW));
+	} else if (inst->U.I.Opcode == RC_OPCODE_SCS) {
+		struct rc_dst_register moddst = inst->U.I.DstReg;
+
+		if (inst->U.I.DstReg.WriteMask & RC_MASK_X) {
+			moddst.WriteMask = RC_MASK_X;
+			emit1(c, inst->Prev, RC_OPCODE_COS, inst->U.I.SaturateMode, moddst,
+				srcregswz(RC_FILE_TEMPORARY, srctmp, RC_SWIZZLE_WWWW));
+		}
+		if (inst->U.I.DstReg.WriteMask & RC_MASK_Y) {
+			moddst.WriteMask = RC_MASK_Y;
+			emit1(c, inst->Prev, RC_OPCODE_SIN, inst->U.I.SaturateMode, moddst,
+				srcregswz(RC_FILE_TEMPORARY, srctmp, RC_SWIZZLE_WWWW));
+		}
+	}
+
+	rc_remove_instruction(inst);
+}
+
 
 /**
  * Transform the trigonometric functions COS, SIN, and SCS
@@ -813,29 +908,48 @@ int radeonTransformTrigScale(struct radeon_compiler* c,
 	emit1(c, inst->Prev, RC_OPCODE_FRC, 0, dstregtmpmask(temp, RC_MASK_W),
 		srcreg(RC_FILE_TEMPORARY, temp));
 
-	if (inst->U.I.Opcode == RC_OPCODE_COS) {
-		emit1(c, inst->Prev, RC_OPCODE_COS, inst->U.I.SaturateMode, inst->U.I.DstReg,
-			srcregswz(RC_FILE_TEMPORARY, temp, RC_SWIZZLE_WWWW));
-	} else if (inst->U.I.Opcode == RC_OPCODE_SIN) {
-		emit1(c, inst->Prev, RC_OPCODE_SIN, inst->U.I.SaturateMode,
-			inst->U.I.DstReg, srcregswz(RC_FILE_TEMPORARY, temp, RC_SWIZZLE_WWWW));
-	} else if (inst->U.I.Opcode == RC_OPCODE_SCS) {
-		struct rc_dst_register moddst = inst->U.I.DstReg;
+	r300_transform_SIN_COS_SCS(c, inst, temp);
+	return 1;
+}
 
-		if (inst->U.I.DstReg.WriteMask & RC_MASK_X) {
-			moddst.WriteMask = RC_MASK_X;
-			emit1(c, inst->Prev, RC_OPCODE_COS, inst->U.I.SaturateMode, moddst,
-				srcregswz(RC_FILE_TEMPORARY, temp, RC_SWIZZLE_WWWW));
-		}
-		if (inst->U.I.DstReg.WriteMask & RC_MASK_Y) {
-			moddst.WriteMask = RC_MASK_Y;
-			emit1(c, inst->Prev, RC_OPCODE_SIN, inst->U.I.SaturateMode, moddst,
-				srcregswz(RC_FILE_TEMPORARY, temp, RC_SWIZZLE_WWWW));
-		}
-	}
+/**
+ * Transform the trigonometric functions COS, SIN, and SCS
+ * so that the input to COS and SIN is always in the range [-PI, PI].
+ * SCS is replaced by one COS and one SIN instruction.
+ */
+int r300_transform_trig_scale_vertex(struct radeon_compiler *c,
+	struct rc_instruction *inst,
+	void *unused)
+{
+	if (inst->U.I.Opcode != RC_OPCODE_COS &&
+	    inst->U.I.Opcode != RC_OPCODE_SIN &&
+	    inst->U.I.Opcode != RC_OPCODE_SCS)
+		return 0;
 
-	rc_remove_instruction(inst);
+	/* Repeat x in the range [-PI, PI]:
+	 *
+	 *   repeat(x) = frac(x / 2PI + 0.5) * 2PI - PI
+	 */
 
+	static const float cons[4] = {0.15915494309189535, 0.5, 6.28318530717959, -3.14159265358979};
+	unsigned int temp;
+	unsigned int constant;
+
+	temp = rc_find_free_temporary(c);
+	constant = rc_constants_add_immediate_vec4(&c->Program.Constants, cons);
+
+	emit3(c, inst->Prev, RC_OPCODE_MAD, 0, dstregtmpmask(temp, RC_MASK_W),
+		swizzle_xxxx(inst->U.I.SrcReg[0]),
+		srcregswz(RC_FILE_CONSTANT, constant, RC_SWIZZLE_XXXX),
+		srcregswz(RC_FILE_CONSTANT, constant, RC_SWIZZLE_YYYY));
+	emit1(c, inst->Prev, RC_OPCODE_FRC, 0, dstregtmpmask(temp, RC_MASK_W),
+		srcreg(RC_FILE_TEMPORARY, temp));
+	emit3(c, inst->Prev, RC_OPCODE_MAD, 0, dstregtmpmask(temp, RC_MASK_W),
+		srcreg(RC_FILE_TEMPORARY, temp),
+		srcregswz(RC_FILE_CONSTANT, constant, RC_SWIZZLE_ZZZZ),
+		srcregswz(RC_FILE_CONSTANT, constant, RC_SWIZZLE_WWWW));
+
+	r300_transform_SIN_COS_SCS(c, inst, temp);
 	return 1;
 }
 

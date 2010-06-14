@@ -570,7 +570,7 @@ intelFinish(GLcontext * ctx)
        irb = intel_renderbuffer(fb->_ColorDrawBuffers[i]);
 
        if (irb && irb->region)
-	  dri_bo_wait_rendering(irb->region->buffer);
+	  drm_intel_bo_wait_rendering(irb->region->buffer);
    }
    if (fb->_DepthBuffer) {
       /* XXX: Wait on buffer idle */
@@ -635,6 +635,7 @@ intelInitContext(struct intel_context *intel,
    intel->driContext = driContextPriv;
    intel->driFd = sPriv->fd;
 
+   intel->has_xrgb_textures = GL_TRUE;
    if (IS_GEN6(intel->intelScreen->deviceID)) {
       intel->gen = 6;
       intel->needs_ff_sync = GL_TRUE;
@@ -656,6 +657,10 @@ intelInitContext(struct intel_context *intel,
       }
    } else {
       intel->gen = 2;
+      if (intel->intelScreen->deviceID == PCI_CHIP_I830_M ||
+	  intel->intelScreen->deviceID == PCI_CHIP_845_G) {
+	 intel->has_xrgb_textures = GL_FALSE;
+      }
    }
 
    driParseConfigFiles(&intel->optionCache, &intelScreen->optionCache,
@@ -845,9 +850,9 @@ intelDestroyContext(__DRIcontext * driContextPriv)
 
       free(intel->prim.vb);
       intel->prim.vb = NULL;
-      dri_bo_unreference(intel->prim.vb_bo);
+      drm_intel_bo_unreference(intel->prim.vb_bo);
       intel->prim.vb_bo = NULL;
-      dri_bo_unreference(intel->first_post_swapbuffers_batch);
+      drm_intel_bo_unreference(intel->first_post_swapbuffers_batch);
       intel->first_post_swapbuffers_batch = NULL;
 
       if (release_texture_heaps) {

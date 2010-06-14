@@ -113,6 +113,7 @@ static int r300_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
         case PIPE_CAP_TEXTURE_MIRROR_CLAMP:
         case PIPE_CAP_TEXTURE_MIRROR_REPEAT:
         case PIPE_CAP_BLEND_EQUATION_SEPARATE:
+        case PIPE_CAP_TEXTURE_SWIZZLE:
             return 1;
 
         /* Unsupported features (boolean caps). */
@@ -317,6 +318,12 @@ static boolean r300_is_format_supported(struct pipe_screen* screen,
         r300_translate_vertex_data_type(format) != R300_INVALID_FORMAT) {
         retval |= PIPE_BIND_VERTEX_BUFFER;
     }
+
+    /* Transfers are always supported. */
+    if (usage & PIPE_BIND_TRANSFER_READ)
+        retval |= PIPE_BIND_TRANSFER_READ;
+    if (usage & PIPE_BIND_TRANSFER_WRITE)
+        retval |= PIPE_BIND_TRANSFER_WRITE;
 
     return retval == usage;
 }

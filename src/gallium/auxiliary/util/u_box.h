@@ -60,5 +60,21 @@ void u_box_2d_zslice( unsigned x,
    box->depth = 1;
 }
 
+static INLINE
+void u_box_3d( unsigned x,
+	       unsigned y,
+	       unsigned z,
+	       unsigned w,
+	       unsigned h,
+	       unsigned d,
+	       struct pipe_box *box )
+{
+   box->x = x;
+   box->y = y;
+   box->z = z;
+   box->width = w;
+   box->height = h;
+   box->depth = d;
+}
 
 #endif

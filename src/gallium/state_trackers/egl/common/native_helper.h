@@ -29,6 +29,7 @@
 #include "native.h"
 
 struct resource_surface;
+struct sw_winsys;
 
 struct resource_surface *
 resource_surface_create(struct pipe_screen *screen,
@@ -68,3 +69,6 @@ boolean
 resource_surface_present(struct resource_surface *rsurf,
                          enum native_attachment which,
                          void *winsys_drawable_handle);
+
+struct pipe_screen *
+native_create_sw_screen(struct sw_winsys *ws);

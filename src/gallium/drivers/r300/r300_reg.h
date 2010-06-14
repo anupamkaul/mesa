@@ -1575,6 +1575,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #       define R500_TX_FORMAT_Y10X10                0x3
 #       define R500_TX_FORMAT_W10Z10Y10X10          0x4
 #       define R500_TX_FORMAT_ATI1N                 0x5
+#       define R500_TX_FORMAT_Y8X24                 0x6
 
 
 #       define R300_TX_FORMAT_SIGNED_W             (1 << 5)
@@ -3436,9 +3437,18 @@ enum {
 #       define RADEON_WAIT_3D_IDLECLEAN     (1 << 17)
 #       define RADEON_WAIT_HOST_IDLECLEAN   (1 << 18)
 
+#define R200_3D_DRAW_IMMD_2      0xC0003500
+
+#define RADEON_CP_PACKET0 0x0 /* XXX stolen from radeon_reg.h */
 #define RADEON_CP_PACKET3                           0xC0000000
 
-#define R200_3D_DRAW_IMMD_2      0xC0003500
+#define RADEON_ONE_REG_WR        (1 << 15)
+
+#define CP_PACKET0(register, count) \
+    (RADEON_CP_PACKET0 | ((count) << 16) | ((register) >> 2))
+
+#define CP_PACKET3(op, count) \
+    (RADEON_CP_PACKET3 | (op) | ((count) << 16))
 
 #endif /* _R300_REG_H */
 

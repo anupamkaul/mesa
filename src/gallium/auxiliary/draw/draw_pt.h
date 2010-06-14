@@ -60,7 +60,8 @@ struct draw_context;
  */
 struct draw_pt_front_end {
    void (*prepare)( struct draw_pt_front_end *,
-                    unsigned prim,
+                    unsigned input_prim,
+                    unsigned output_prim,
                     struct draw_pt_middle_end *,
 		    unsigned opt );
 
@@ -84,7 +85,8 @@ struct draw_pt_front_end {
  */
 struct draw_pt_middle_end {
    void (*prepare)( struct draw_pt_middle_end *,
-                    unsigned prim,
+                    unsigned input_prim,
+                    unsigned output_prim,
 		    unsigned opt,
                     unsigned *max_vertices );
 
@@ -177,6 +179,22 @@ void draw_pt_emit_destroy( struct pt_emit *emit );
 
 struct pt_emit *draw_pt_emit_create( struct draw_context *draw );
 
+/*******************************************************************************
+ * HW stream output emit:
+ */
+struct pt_so_emit;
+
+void draw_pt_so_emit_prepare( struct pt_so_emit *emit,
+                              unsigned prim );
+
+void draw_pt_so_emit( struct pt_so_emit *emit,
+                      const float (*vertex_data)[4],
+                      unsigned vertex_count,
+                      unsigned stride );
+
+void draw_pt_so_emit_destroy( struct pt_so_emit *emit );
+
+struct pt_so_emit *draw_pt_so_emit_create( struct draw_context *draw );
 
 /*******************************************************************************
  * API vertex fetch:

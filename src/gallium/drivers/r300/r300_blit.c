@@ -25,8 +25,23 @@
 
 #include "util/u_format.h"
 
-static void r300_blitter_save_states(struct r300_context* r300)
+enum r300_blitter_op
 {
+    R300_CLEAR,
+    R300_CLEAR_SURFACE,
+    R300_COPY
+};
+
+static void r300_blitter_begin(struct r300_context* r300, enum r300_blitter_op op)
+{
+    if (r300->query_current) {
+        r300->blitter_saved_query = r300->query_current;
+        r300_stop_query(r300);
+    }
+
+    /* Yeah we have to save all those states to ensure the blitter operation
+     * is really transparent. The states will be restored by the blitter once
+     * copying is done. */
     util_blitter_save_blend(r300->blitter, r300->blend_state.state);
     util_blitter_save_depth_stencil_alpha(r300->blitter, r300->dsa_state.state);
     util_blitter_save_stencil_ref(r300->blitter, &(r300->stencil_ref));
@@ -34,11 +49,34 @@ static void r300_blitter_save_states(struct r300_context* r300)
     util_blitter_save_fragment_shader(r300->blitter, r300->fs.state);
     util_blitter_save_vertex_shader(r300->blitter, r300->vs_state.state);
     util_blitter_save_viewport(r300->blitter, &r300->viewport);
-    util_blitter_save_clip(r300->blitter, &r300->clip);
+    util_blitter_save_clip(r300->blitter, (struct pipe_clip_state*)r300->clip_state.state);
     util_blitter_save_vertex_elements(r300->blitter, r300->velems);
-    /* XXX this crashes the driver
     util_blitter_save_vertex_buffers(r300->blitter, r300->vertex_buffer_count,
-                                     r300->vertex_buffer); */
+                                     r300->vertex_buffer);
+
+    if (op & (R300_CLEAR_SURFACE | R300_COPY))
+        util_blitter_save_framebuffer(r300->blitter, r300->fb_state.state);
+
+    if (op & R300_COPY) {
+        struct r300_textures_state* state =
+            (struct r300_textures_state*)r300->textures_state.state;
+
+        util_blitter_save_fragment_sampler_states(
+            r300->blitter, state->sampler_state_count,
+            (void**)state->sampler_states);
+
+        util_blitter_save_fragment_sampler_views(
+            r300->blitter, state->sampler_view_count,
+            (struct pipe_sampler_view**)state->sampler_views);
+    }
+}
+
+static void r300_blitter_end(struct r300_context *r300)
+{
+    if (r300->blitter_saved_query) {
+        r300_resume_query(r300, r300->blitter_saved_query);
+        r300->blitter_saved_query = NULL;
+    }
 }
 
 /* Clear currently bound buffers. */
@@ -74,13 +112,45 @@ static void r300_clear(struct pipe_context* pipe,
     struct pipe_framebuffer_state* fb =
         (struct pipe_framebuffer_state*)r300->fb_state.state;
 
-    r300_blitter_save_states(r300);
-
+    r300_blitter_begin(r300, R300_CLEAR);
     util_blitter_clear(r300->blitter,
                        fb->width,
                        fb->height,
                        fb->nr_cbufs,
                        buffers, rgba, depth, stencil);
+    r300_blitter_end(r300);
+}
+
+/* Clear a region of a color surface to a constant value. */
+static void r300_clear_render_target(struct pipe_context *pipe,
+                                     struct pipe_surface *dst,
+                                     const float *rgba,
+                                     unsigned dstx, unsigned dsty,
+                                     unsigned width, unsigned height)
+{
+    struct r300_context *r300 = r300_context(pipe);
+
+    r300_blitter_begin(r300, R300_CLEAR_SURFACE);
+    util_blitter_clear_render_target(r300->blitter, dst, rgba,
+                                     dstx, dsty, width, height);
+    r300_blitter_end(r300);
+}
+
+/* Clear a region of a depth stencil surface. */
+static void r300_clear_depth_stencil(struct pipe_context *pipe,
+                                     struct pipe_surface *dst,
+                                     unsigned clear_flags,
+                                     double depth,
+                                     unsigned stencil,
+                                     unsigned dstx, unsigned dsty,
+                                     unsigned width, unsigned height)
+{
+    struct r300_context *r300 = r300_context(pipe);
+
+    r300_blitter_begin(r300, R300_CLEAR_SURFACE);
+    util_blitter_clear_depth_stencil(r300->blitter, dst, clear_flags, depth, stencil,
+                                     dstx, dsty, width, height);
+    r300_blitter_end(r300);
 }
 
 /* Copy a block of pixels from one surface to another using HW. */
@@ -93,26 +163,13 @@ static void r300_hw_copy_region(struct pipe_context* pipe,
                                 const struct pipe_box *src_box)
 {
     struct r300_context* r300 = r300_context(pipe);
-    struct r300_textures_state* state =
-        (struct r300_textures_state*)r300->textures_state.state;
 
-    /* Yeah we have to save all those states to ensure this blitter operation
-     * is really transparent. The states will be restored by the blitter once
-     * copying is done. */
-    r300_blitter_save_states(r300);
-    util_blitter_save_framebuffer(r300->blitter, r300->fb_state.state);
-
-    util_blitter_save_fragment_sampler_states(
-        r300->blitter, state->sampler_state_count,
-        (void**)state->sampler_states);
-
-    util_blitter_save_fragment_sampler_views(
-        r300->blitter, state->sampler_view_count,
-        (struct pipe_sampler_view**)state->sampler_views);
+    r300_blitter_begin(r300, R300_COPY);
 
     /* Do a copy */
     util_blitter_copy_region(r300->blitter, dst, dst_level, dstx, dsty, dstz,
                              src, src_level, src_box, TRUE);
+    r300_blitter_end(r300);
 }
 
 /* Copy a block of pixels from one surface to another. */
@@ -183,40 +240,6 @@ static void r300_resource_copy_region(struct pipe_context *pipe,
         r300_texture_reinterpret_format(pipe->screen,
                                         src, old_format);
     }
-}
-
-/* Clear a region of a color surface to a constant value. */
-static void r300_clear_render_target(struct pipe_context *pipe,
-                                     struct pipe_surface *dst,
-                                     const float *rgba,
-                                     unsigned dstx, unsigned dsty,
-                                     unsigned width, unsigned height)
-{
-    struct r300_context *r300 = r300_context(pipe);
-
-    r300_blitter_save_states(r300);
-    util_blitter_save_framebuffer(r300->blitter, r300->fb_state.state);
-
-    util_blitter_clear_render_target(r300->blitter, dst, rgba,
-                                     dstx, dsty, width, height);
-}
-
-/* Clear a region of a depth stencil surface. */
-static void r300_clear_depth_stencil(struct pipe_context *pipe,
-                                     struct pipe_surface *dst,
-                                     unsigned clear_flags,
-                                     double depth,
-                                     unsigned stencil,
-                                     unsigned dstx, unsigned dsty,
-                                     unsigned width, unsigned height)
-{
-    struct r300_context *r300 = r300_context(pipe);
-
-    r300_blitter_save_states(r300);
-    util_blitter_save_framebuffer(r300->blitter, r300->fb_state.state);
-
-    util_blitter_clear_depth_stencil(r300->blitter, dst, clear_flags, depth, stencil,
-                                     dstx, dsty, width, height);
 }
 
 void r300_init_blit_functions(struct r300_context *r300)

@@ -145,6 +145,7 @@ struct intel_context
    GLboolean is_g4x;
    GLboolean is_945;
    GLboolean has_luminance_srgb;
+   GLboolean has_xrgb_textures;
 
    int urb_size;
 
@@ -159,7 +160,7 @@ struct intel_context
       uint32_t primitive;	/**< Current hardware primitive type */
       void (*flush) (struct intel_context *);
       GLubyte *start_ptr; /**< for i8xx */
-      dri_bo *vb_bo;
+      drm_intel_bo *vb_bo;
       uint8_t *vb;
       unsigned int start_offset; /**< Byte offset of primitive sequence */
       unsigned int current_offset; /**< Byte offset of next vertex */
@@ -260,6 +261,8 @@ extern char *__progname;
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 #define ALIGN(value, alignment)  ((value + alignment - 1) & ~(alignment - 1))
+#define ROUND_DOWN_TO(value, alignment) (ALIGN(value - alignment - 1, \
+					       alignment))
 #define IS_POWER_OF_TWO(val) (((val) & (val - 1)) == 0)
 
 static INLINE uint32_t

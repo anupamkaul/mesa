@@ -8,7 +8,6 @@
 #include "pipe/p_shader_tokens.h"
 #include "pipe/p_state.h"
 #include "pipe/p_defines.h"
-#include <unistd.h>             /* for sleep() */
 
 #include "util/u_debug.h"       /* debug_dump_surface_bmp() */
 #include "util/u_inlines.h"
@@ -162,7 +161,7 @@ static void draw( void )
    debug_dump_surface_bmp(ctx, "result.bmp", surf);
 #endif
 
-   screen->flush_frontbuffer(screen, tex, 0, 0, window);
+   screen->flush_frontbuffer(screen, rttex, 0, 0, window);
 }
 
 #define SIZE 16

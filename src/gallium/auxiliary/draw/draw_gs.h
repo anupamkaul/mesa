@@ -54,23 +54,37 @@ struct draw_geometry_shader {
    unsigned input_primitive;
    unsigned output_primitive;
 
-   /* Extracted from shader:
-    */
-   const float (*immediates)[4];
+   unsigned emitted_vertices;
+   unsigned emitted_primitives;
+
+   float (*tmp_output)[4];
+   unsigned vertex_size;
+
+   unsigned in_prim_idx;
+   unsigned input_vertex_stride;
+   const float (*input)[4];
 };
 
-void draw_geometry_shader_run(struct draw_geometry_shader *shader,
-                              const float (*input)[4],
-                              float (*output)[4],
-                              const void *constants[PIPE_MAX_CONSTANT_BUFFERS],
-                              unsigned count,
-                              unsigned input_stride,
-                              unsigned output_stride);
+/*
+ * Returns the number of vertices emitted.
+ * The vertex shader can emit any number of vertices as long as it's
+ * smaller than the GS_MAX_OUTPUT_VERTICES shader property.
+ */
+int draw_geometry_shader_run(struct draw_geometry_shader *shader,
+                             unsigned pipe_prim,
+                             const float (*input)[4],
+                             float (*output)[4],
+                             const void *constants[PIPE_MAX_CONSTANT_BUFFERS],
+                             unsigned count,
+                             unsigned input_stride,
+                             unsigned output_stride);
 
 void draw_geometry_shader_prepare(struct draw_geometry_shader *shader,
                                   struct draw_context *draw);
 
 void draw_geometry_shader_delete(struct draw_geometry_shader *shader);
 
+int draw_gs_max_output_vertices(struct draw_geometry_shader *shader,
+                                unsigned pipe_prim);
 
 #endif

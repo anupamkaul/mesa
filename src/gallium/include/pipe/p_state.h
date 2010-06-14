@@ -60,9 +60,11 @@ extern "C" {
 #define PIPE_MAX_CONSTANT_BUFFERS 32
 #define PIPE_MAX_SAMPLERS         16
 #define PIPE_MAX_VERTEX_SAMPLERS  16
+#define PIPE_MAX_GEOMETRY_SAMPLERS  16
 #define PIPE_MAX_SHADER_INPUTS    16
 #define PIPE_MAX_SHADER_OUTPUTS   16
 #define PIPE_MAX_TEXTURE_LEVELS   16
+#define PIPE_MAX_SO_BUFFERS        4
 
 
 struct pipe_reference
@@ -346,6 +348,22 @@ struct pipe_resource
 
    unsigned bind;            /**< bitmask of PIPE_BIND_x */
    unsigned flags;           /**< bitmask of PIPE_RESOURCE_FLAG_x */
+};
+
+struct pipe_stream_output_state
+{
+   /**< number of the output buffer to insert each element into */
+   int output_buffer[PIPE_MAX_SHADER_OUTPUTS];
+   /**< which register to grab each output from */
+   int register_index[PIPE_MAX_SHADER_OUTPUTS];
+   /**< TGSI_WRITEMASK signifying which components to output */
+   ubyte register_mask[PIPE_MAX_SHADER_OUTPUTS];
+   /**< number of outputs */
+   int num_outputs;
+
+   /**< stride for an entire vertex, only used if all output_buffers
+    * are 0 */
+   unsigned stride;
 };
 
 

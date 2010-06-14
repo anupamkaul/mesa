@@ -31,12 +31,12 @@
 
 #include "pipe/p_config.h"
 
+#include "r300_cb.h"
 #include "r300_context.h"
 #include "r300_emit.h"
 #include "r300_reg.h"
 #include "r300_screen.h"
 #include "r300_screen_buffer.h"
-#include "r300_state.h"
 #include "r300_state_inlines.h"
 #include "r300_fs.h"
 #include "r300_texture.h"
@@ -183,6 +183,12 @@ static void* r300_create_blend_state(struct pipe_context* pipe,
 {
     struct r300_screen* r300screen = r300_screen(pipe->screen);
     struct r300_blend_state* blend = CALLOC_STRUCT(r300_blend_state);
+    uint32_t blend_control = 0;       /* R300_RB3D_CBLEND: 0x4e04 */
+    uint32_t alpha_blend_control = 0; /* R300_RB3D_ABLEND: 0x4e08 */
+    uint32_t color_channel_mask = 0;  /* R300_RB3D_COLOR_CHANNEL_MASK: 0x4e0c */
+    uint32_t rop = 0;                 /* R300_RB3D_ROPCNTL: 0x4e18 */
+    uint32_t dither = 0;              /* R300_RB3D_DITHER_CTL: 0x4e50 */
+    CB_LOCALS;
 
     if (state->rt[0].blend_enable)
     {
@@ -196,7 +202,7 @@ static void* r300_create_blend_state(struct pipe_context* pipe,
 
         /* despite the name, ALPHA_BLEND_ENABLE has nothing to do with alpha,
          * this is just the crappy D3D naming */
-        blend->blend_control = R300_ALPHA_BLEND_ENABLE |
+        blend_control = R300_ALPHA_BLEND_ENABLE |
             r300_translate_blend_function(eqRGB) |
             ( r300_translate_blend_factor(srcRGB) << R300_SRC_BLEND_SHIFT) |
             ( r300_translate_blend_factor(dstRGB) << R300_DST_BLEND_SHIFT);
@@ -220,7 +226,7 @@ static void* r300_create_blend_state(struct pipe_context* pipe,
             srcA == PIPE_BLENDFACTOR_INV_DST_ALPHA ||
             srcRGB == PIPE_BLENDFACTOR_SRC_ALPHA_SATURATE) {
             /* Enable reading from the colorbuffer. */
-            blend->blend_control |= R300_READ_ENABLE;
+            blend_control |= R300_READ_ENABLE;
 
             if (r300screen->caps.is_r500) {
                 /* Optimization: Depending on incoming pixels, we can
@@ -233,7 +239,7 @@ static void* r300_create_blend_state(struct pipe_context* pipe,
                         (dstA == PIPE_BLENDFACTOR_SRC_COLOR ||
                          dstA == PIPE_BLENDFACTOR_SRC_ALPHA ||
                          dstA == PIPE_BLENDFACTOR_ZERO)) {
-                         blend->blend_control |= R500_SRC_ALPHA_0_NO_READ;
+                         blend_control |= R500_SRC_ALPHA_0_NO_READ;
                     }
 
                     /* Disable reading if SRC_ALPHA == 1. */
@@ -242,7 +248,7 @@ static void* r300_create_blend_state(struct pipe_context* pipe,
                         (dstA == PIPE_BLENDFACTOR_INV_SRC_COLOR ||
                          dstA == PIPE_BLENDFACTOR_INV_SRC_ALPHA ||
                          dstA == PIPE_BLENDFACTOR_ZERO)) {
-                         blend->blend_control |= R500_SRC_ALPHA_1_NO_READ;
+                         blend_control |= R500_SRC_ALPHA_1_NO_READ;
                     }
                 }
             }
@@ -272,31 +278,31 @@ static void* r300_create_blend_state(struct pipe_context* pipe,
              * pixels.
              */
             if (blend_discard_if_src_alpha_0(srcRGB, srcA, dstRGB, dstA)) {
-                blend->blend_control |= R300_DISCARD_SRC_PIXELS_SRC_ALPHA_0;
+                blend_control |= R300_DISCARD_SRC_PIXELS_SRC_ALPHA_0;
             } else if (blend_discard_if_src_alpha_1(srcRGB, srcA,
                                                     dstRGB, dstA)) {
-                blend->blend_control |= R300_DISCARD_SRC_PIXELS_SRC_ALPHA_1;
+                blend_control |= R300_DISCARD_SRC_PIXELS_SRC_ALPHA_1;
             } else if (blend_discard_if_src_color_0(srcRGB, srcA,
                                                     dstRGB, dstA)) {
-                blend->blend_control |= R300_DISCARD_SRC_PIXELS_SRC_COLOR_0;
+                blend_control |= R300_DISCARD_SRC_PIXELS_SRC_COLOR_0;
             } else if (blend_discard_if_src_color_1(srcRGB, srcA,
                                                     dstRGB, dstA)) {
-                blend->blend_control |= R300_DISCARD_SRC_PIXELS_SRC_COLOR_1;
+                blend_control |= R300_DISCARD_SRC_PIXELS_SRC_COLOR_1;
             } else if (blend_discard_if_src_alpha_color_0(srcRGB, srcA,
                                                           dstRGB, dstA)) {
-                blend->blend_control |=
+                blend_control |=
                     R300_DISCARD_SRC_PIXELS_SRC_ALPHA_COLOR_0;
             } else if (blend_discard_if_src_alpha_color_1(srcRGB, srcA,
                                                           dstRGB, dstA)) {
-                blend->blend_control |=
+                blend_control |=
                     R300_DISCARD_SRC_PIXELS_SRC_ALPHA_COLOR_1;
             }
         }
 
         /* separate alpha */
         if (srcA != srcRGB || dstA != dstRGB || eqA != eqRGB) {
-            blend->blend_control |= R300_SEPARATE_ALPHA_ENABLE;
-            blend->alpha_blend_control =
+            blend_control |= R300_SEPARATE_ALPHA_ENABLE;
+            alpha_blend_control =
                 r300_translate_blend_function(eqA) |
                 (r300_translate_blend_factor(srcA) << R300_SRC_BLEND_SHIFT) |
                 (r300_translate_blend_factor(dstA) << R300_DST_BLEND_SHIFT);
@@ -305,21 +311,21 @@ static void* r300_create_blend_state(struct pipe_context* pipe,
 
     /* PIPE_LOGICOP_* don't need to be translated, fortunately. */
     if (state->logicop_enable) {
-        blend->rop = R300_RB3D_ROPCNTL_ROP_ENABLE |
+        rop = R300_RB3D_ROPCNTL_ROP_ENABLE |
                 (state->logicop_func) << R300_RB3D_ROPCNTL_ROP_SHIFT;
     }
 
     /* Color channel masks for all MRTs. */
-    blend->color_channel_mask = bgra_cmask(state->rt[0].colormask);
+    color_channel_mask = bgra_cmask(state->rt[0].colormask);
     if (r300screen->caps.is_r500 && state->independent_blend_enable) {
         if (state->rt[1].blend_enable) {
-            blend->color_channel_mask |= bgra_cmask(state->rt[1].colormask) << 4;
+            color_channel_mask |= bgra_cmask(state->rt[1].colormask) << 4;
         }
         if (state->rt[2].blend_enable) {
-            blend->color_channel_mask |= bgra_cmask(state->rt[2].colormask) << 8;
+            color_channel_mask |= bgra_cmask(state->rt[2].colormask) << 8;
         }
         if (state->rt[3].blend_enable) {
-            blend->color_channel_mask |= bgra_cmask(state->rt[3].colormask) << 12;
+            color_channel_mask |= bgra_cmask(state->rt[3].colormask) << 12;
         }
     }
 
@@ -330,10 +336,30 @@ static void* r300_create_blend_state(struct pipe_context* pipe,
      * This could be revisited if we ever get quality or conformance hints.
      *
     if (state->dither) {
-        blend->dither = R300_RB3D_DITHER_CTL_DITHER_MODE_LUT |
+        dither = R300_RB3D_DITHER_CTL_DITHER_MODE_LUT |
                         R300_RB3D_DITHER_CTL_ALPHA_DITHER_MODE_LUT;
     }
     */
+
+    /* Build a command buffer. */
+    BEGIN_CB(blend->cb, 8);
+    OUT_CB_REG(R300_RB3D_ROPCNTL, rop);
+    OUT_CB_REG_SEQ(R300_RB3D_CBLEND, 3);
+    OUT_CB(blend_control);
+    OUT_CB(alpha_blend_control);
+    OUT_CB(color_channel_mask);
+    OUT_CB_REG(R300_RB3D_DITHER_CTL, dither);
+    END_CB;
+
+    /* The same as above, but with no colorbuffer reads and writes. */
+    BEGIN_CB(blend->cb_no_readwrite, 8);
+    OUT_CB_REG(R300_RB3D_ROPCNTL, rop);
+    OUT_CB_REG_SEQ(R300_RB3D_CBLEND, 3);
+    OUT_CB(0);
+    OUT_CB(0);
+    OUT_CB(0);
+    OUT_CB_REG(R300_RB3D_DITHER_CTL, dither);
+    END_CB;
 
     return (void*)blend;
 }
@@ -368,20 +394,26 @@ static void r300_set_blend_color(struct pipe_context* pipe,
     struct r300_context* r300 = r300_context(pipe);
     struct r300_blend_color_state* state =
         (struct r300_blend_color_state*)r300->blend_color_state.state;
-    union util_color uc;
+    CB_LOCALS;
 
-    util_pack_color(color->color, PIPE_FORMAT_B8G8R8A8_UNORM, &uc);
-    state->blend_color = uc.ui;
+    if (r300->screen->caps.is_r500) {
+        /* XXX if FP16 blending is enabled, we should use the FP16 format */
+        BEGIN_CB(state->cb, 3);
+        OUT_CB_REG_SEQ(R500_RB3D_CONSTANT_COLOR_AR, 2);
+        OUT_CB(float_to_fixed10(color->color[0]) |
+               (float_to_fixed10(color->color[3]) << 16));
+        OUT_CB(float_to_fixed10(color->color[2]) |
+               (float_to_fixed10(color->color[1]) << 16));
+        END_CB;
+    } else {
+        union util_color uc;
+        util_pack_color(color->color, PIPE_FORMAT_B8G8R8A8_UNORM, &uc);
 
-    /* XXX if FP16 blending is enabled, we should use the FP16 format */
-    state->blend_color_red_alpha =
-        float_to_fixed10(color->color[0]) |
-        (float_to_fixed10(color->color[3]) << 16);
-    state->blend_color_green_blue =
-        float_to_fixed10(color->color[2]) |
-        (float_to_fixed10(color->color[1]) << 16);
+        BEGIN_CB(state->cb, 2);
+        OUT_CB_REG(R300_RB3D_BLEND_COLOR, uc.ui);
+        END_CB;
+    }
 
-    r300->blend_color_state.size = r300->screen->caps.is_r500 ? 3 : 2;
     r300->blend_color_state.dirty = TRUE;
 }
 
@@ -389,18 +421,27 @@ static void r300_set_clip_state(struct pipe_context* pipe,
                                 const struct pipe_clip_state* state)
 {
     struct r300_context* r300 = r300_context(pipe);
+    struct r300_clip_state *clip =
+            (struct r300_clip_state*)r300->clip_state.state;
+    CB_LOCALS;
 
-    r300->clip = *state;
+    clip->clip = *state;
 
     if (r300->screen->caps.has_tcl) {
-        memcpy(r300->clip_state.state, state, sizeof(struct pipe_clip_state));
-        r300->clip_state.size = 29;
+        BEGIN_CB(clip->cb, 29);
+        OUT_CB_REG(R300_VAP_PVS_VECTOR_INDX_REG,
+                (r300->screen->caps.is_r500 ?
+                 R500_PVS_UCP_START : R300_PVS_UCP_START));
+        OUT_CB_ONE_REG(R300_VAP_PVS_UPLOAD_DATA, 6 * 4);
+        OUT_CB_TABLE(state->ucp, 6 * 4);
+        OUT_CB_REG(R300_VAP_CLIP_CNTL, ((1 << state->nr) - 1) |
+                R300_PS_UCP_MODE_CLIP_AS_TRIFAN);
+        END_CB;
 
         r300->clip_state.dirty = TRUE;
     } else {
         draw_flush(r300->draw);
         draw_set_clip_state(r300->draw, state);
-        r300->clip_state.size = 2;
     }
 }
 
@@ -422,6 +463,7 @@ static void*
 {
     struct r300_capabilities *caps = &r300_screen(pipe->screen)->caps;
     struct r300_dsa_state* dsa = CALLOC_STRUCT(r300_dsa_state);
+    CB_LOCALS;
 
     /* Depth test setup. */
     if (state->depth.enabled) {
@@ -494,7 +536,41 @@ static void*
             dsa->alpha_function |= R500_FG_ALPHA_FUNC_8BIT;
     }
 
+    BEGIN_CB(&dsa->cb_begin, 8);
+    OUT_CB_REG(R300_FG_ALPHA_FUNC, dsa->alpha_function);
+    OUT_CB_REG_SEQ(R300_ZB_CNTL, 3);
+    OUT_CB(dsa->z_buffer_control);
+    OUT_CB(dsa->z_stencil_control);
+    OUT_CB(dsa->stencil_ref_mask);
+    OUT_CB_REG(R500_ZB_STENCILREFMASK_BF, dsa->stencil_ref_bf);
+    END_CB;
+
+    BEGIN_CB(dsa->cb_no_readwrite, 8);
+    OUT_CB_REG(R300_FG_ALPHA_FUNC, dsa->alpha_function);
+    OUT_CB_REG_SEQ(R300_ZB_CNTL, 3);
+    OUT_CB(0);
+    OUT_CB(0);
+    OUT_CB(0);
+    OUT_CB_REG(R500_ZB_STENCILREFMASK_BF, 0);
+    END_CB;
+
     return (void*)dsa;
+}
+
+static void r300_dsa_inject_stencilref(struct r300_context *r300)
+{
+    struct r300_dsa_state *dsa =
+            (struct r300_dsa_state*)r300->dsa_state.state;
+
+    if (!dsa)
+        return;
+
+    dsa->stencil_ref_mask =
+        (dsa->stencil_ref_mask & ~R300_STENCILREF_MASK) |
+        r300->stencil_ref.ref_value[0];
+    dsa->stencil_ref_bf =
+        (dsa->stencil_ref_bf & ~R300_STENCILREF_MASK) |
+        r300->stencil_ref.ref_value[1];
 }
 
 /* Bind DSA state. */
@@ -508,6 +584,8 @@ static void r300_bind_dsa_state(struct pipe_context* pipe,
     }
 
     UPDATE_STATE(state, r300->dsa_state);
+
+    r300_dsa_inject_stencilref(r300);
 }
 
 /* Free DSA state. */
@@ -523,6 +601,8 @@ static void r300_set_stencil_ref(struct pipe_context* pipe,
     struct r300_context* r300 = r300_context(pipe);
 
     r300->stencil_ref = *sr;
+
+    r300_dsa_inject_stencilref(r300);
     r300->dsa_state.dirty = TRUE;
 }
 
@@ -679,13 +759,12 @@ void r300_mark_fs_code_dirty(struct r300_context *r300)
     r300->fs.dirty = TRUE;
     r300->fs_rc_constant_state.dirty = TRUE;
     r300->fs_constants.dirty = TRUE;
+    r300->fs.size = fs->shader->cb_code_size;
 
     if (r300->screen->caps.is_r500) {
-        r300->fs.size = r500_get_fs_atom_size(r300);
         r300->fs_rc_constant_state.size = fs->shader->rc_state_count * 7;
         r300->fs_constants.size = fs->shader->externals_count * 4 + 3;
     } else {
-        r300->fs.size = r300_get_fs_atom_size(r300);
         r300->fs_rc_constant_state.size = fs->shader->rc_state_count * 5;
         r300->fs_constants.size = fs->shader->externals_count * 4 + 1;
     }
@@ -719,6 +798,7 @@ static void r300_delete_fs_state(struct pipe_context* pipe, void* shader)
         tmp = ptr;
         ptr = ptr->next;
         rc_constants_destroy(&tmp->code.constants);
+        FREE(tmp->cb_code);
         FREE(tmp);
     }
     FREE((void*)fs->state.tokens);
@@ -1167,15 +1247,15 @@ static void r300_set_vertex_buffers(struct pipe_context* pipe,
 
     if (r300->screen->caps.has_tcl) {
         /* HW TCL. */
-        /* Check if the stride is aligned to the size of DWORD. */
+        r300->incompatible_vb_layout = FALSE;
+
+        /* Check if the strides and offsets are aligned to the size of DWORD. */
         for (i = 0; i < count; i++) {
             if (buffers[i].buffer) {
-                if (buffers[i].stride % 4 != 0) {
-                    // XXX Shouldn't we align the buffer?
-                    fprintf(stderr, "r300: set_vertex_buffers: "
-                            "Unaligned buffer stride %i isn't supported.\n",
-                            buffers[i].stride);
-                    abort();
+                if (buffers[i].stride % 4 != 0 ||
+                    buffers[i].buffer_offset % 4 != 0) {
+                    r300->incompatible_vb_layout = TRUE;
+                    break;
                 }
             }
         }
@@ -1248,7 +1328,7 @@ static void r300_vertex_psc(struct r300_vertex_element_state *velems)
      * so PSC should just route stuff based on the vertex elements,
      * and not on attrib information. */
     for (i = 0; i < velems->count; i++) {
-        format = velems->velem[i].src_format;
+        format = velems->hw_format[i];
 
         type = r300_translate_vertex_data_type(format);
         if (type == R300_INVALID_FORMAT) {
@@ -1280,12 +1360,15 @@ static void r300_vertex_psc(struct r300_vertex_element_state *velems)
     vstream->count = (i >> 1) + 1;
 }
 
+#define FORMAT_REPLACE(what, withwhat) \
+    case PIPE_FORMAT_##what: *format = PIPE_FORMAT_##withwhat; break
+
 static void* r300_create_vertex_elements_state(struct pipe_context* pipe,
                                                unsigned count,
                                                const struct pipe_vertex_element* attribs)
 {
     struct r300_vertex_element_state *velems;
-    unsigned i, size;
+    unsigned i;
     enum pipe_format *format;
 
     assert(count <= PIPE_MAX_ATTRIBS);
@@ -1295,86 +1378,66 @@ static void* r300_create_vertex_elements_state(struct pipe_context* pipe,
         memcpy(velems->velem, attribs, sizeof(struct pipe_vertex_element) * count);
 
         if (r300_screen(pipe->screen)->caps.has_tcl) {
-            r300_vertex_psc(velems);
-
-            /* Check if the format is aligned to the size of DWORD.
-             * We only care about the blocksizes of the formats since
-             * swizzles are already set up. */
+            /* Set the best hw format in case the original format is not
+             * supported by hw. */
             for (i = 0; i < count; i++) {
-                format = &velems->velem[i].src_format;
+                velems->hw_format[i] = velems->velem[i].src_format;
+                format = &velems->hw_format[i];
 
-                /* Replace some formats with their aligned counterparts,
-                 * this is OK because we check for aligned strides too. */
+                /* This is basically the list of unsupported formats.
+                 * For now we don't care about the alignment, that's going to
+                 * be sorted out after the PSC setup. */
                 switch (*format) {
-                    /* Align to RGBA8. */
-                    case PIPE_FORMAT_R8_UNORM:
-                    case PIPE_FORMAT_R8G8_UNORM:
-                    case PIPE_FORMAT_R8G8B8_UNORM:
-                        *format = PIPE_FORMAT_R8G8B8A8_UNORM;
-                        continue;
-                    case PIPE_FORMAT_R8_SNORM:
-                    case PIPE_FORMAT_R8G8_SNORM:
-                    case PIPE_FORMAT_R8G8B8_SNORM:
-                        *format = PIPE_FORMAT_R8G8B8A8_SNORM;
-                        continue;
-                    case PIPE_FORMAT_R8_USCALED:
-                    case PIPE_FORMAT_R8G8_USCALED:
-                    case PIPE_FORMAT_R8G8B8_USCALED:
-                        *format = PIPE_FORMAT_R8G8B8A8_USCALED;
-                        continue;
-                    case PIPE_FORMAT_R8_SSCALED:
-                    case PIPE_FORMAT_R8G8_SSCALED:
-                    case PIPE_FORMAT_R8G8B8_SSCALED:
-                        *format = PIPE_FORMAT_R8G8B8A8_SSCALED;
-                        continue;
+                    FORMAT_REPLACE(R64_FLOAT,           R32_FLOAT);
+                    FORMAT_REPLACE(R64G64_FLOAT,        R32G32_FLOAT);
+                    FORMAT_REPLACE(R64G64B64_FLOAT,     R32G32B32_FLOAT);
+                    FORMAT_REPLACE(R64G64B64A64_FLOAT,  R32G32B32A32_FLOAT);
 
-                    /* Align to RG16. */
-                    case PIPE_FORMAT_R16_UNORM:
-                        *format = PIPE_FORMAT_R16G16_UNORM;
-                        continue;
-                    case PIPE_FORMAT_R16_SNORM:
-                        *format = PIPE_FORMAT_R16G16_SNORM;
-                        continue;
-                    case PIPE_FORMAT_R16_USCALED:
-                        *format = PIPE_FORMAT_R16G16_USCALED;
-                        continue;
-                    case PIPE_FORMAT_R16_SSCALED:
-                        *format = PIPE_FORMAT_R16G16_SSCALED;
-                        continue;
-                    case PIPE_FORMAT_R16_FLOAT:
-                        *format = PIPE_FORMAT_R16G16_FLOAT;
-                        continue;
+                    FORMAT_REPLACE(R32_UNORM,           R32_FLOAT);
+                    FORMAT_REPLACE(R32G32_UNORM,        R32G32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32_UNORM,     R32G32B32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32A32_UNORM,  R32G32B32A32_FLOAT);
 
-                    /* Align to RGBA16. */
-                    case PIPE_FORMAT_R16G16B16_UNORM:
-                        *format = PIPE_FORMAT_R16G16B16A16_UNORM;
-                        continue;
-                    case PIPE_FORMAT_R16G16B16_SNORM:
-                        *format = PIPE_FORMAT_R16G16B16A16_SNORM;
-                        continue;
-                    case PIPE_FORMAT_R16G16B16_USCALED:
-                        *format = PIPE_FORMAT_R16G16B16A16_USCALED;
-                        continue;
-                    case PIPE_FORMAT_R16G16B16_SSCALED:
-                        *format = PIPE_FORMAT_R16G16B16A16_SSCALED;
-                        continue;
-                    case PIPE_FORMAT_R16G16B16_FLOAT:
-                        *format = PIPE_FORMAT_R16G16B16A16_FLOAT;
-                        continue;
+                    FORMAT_REPLACE(R32_USCALED,         R32_FLOAT);
+                    FORMAT_REPLACE(R32G32_USCALED,      R32G32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32_USCALED,   R32G32B32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32A32_USCALED,R32G32B32A32_FLOAT);
+
+                    FORMAT_REPLACE(R32_SNORM,           R32_FLOAT);
+                    FORMAT_REPLACE(R32G32_SNORM,        R32G32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32_SNORM,     R32G32B32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32A32_SNORM,  R32G32B32A32_FLOAT);
+
+                    FORMAT_REPLACE(R32_SSCALED,         R32_FLOAT);
+                    FORMAT_REPLACE(R32G32_SSCALED,      R32G32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32_SSCALED,   R32G32B32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32A32_SSCALED,R32G32B32A32_FLOAT);
+
+                    FORMAT_REPLACE(R32_FIXED,           R32_FLOAT);
+                    FORMAT_REPLACE(R32G32_FIXED,        R32G32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32_FIXED,     R32G32B32_FLOAT);
+                    FORMAT_REPLACE(R32G32B32A32_FIXED,  R32G32B32A32_FLOAT);
 
                     default:;
                 }
 
-                size = util_format_get_blocksize(*format);
+                velems->incompatible_layout =
+                        velems->incompatible_layout ||
+                        velems->velem[i].src_format != velems->hw_format[i] ||
+                        velems->velem[i].src_offset % 4 != 0;
+            }
 
-                if (size % 4 != 0) {
-                    /* XXX Shouldn't we align the format? */
-                    fprintf(stderr, "r300_create_vertex_elements_state: "
-                            "Unaligned format %s:%i isn't supported\n",
-                            util_format_short_name(*format), size);
-                    assert(0);
-                    abort();
-                }
+            /* Now setup PSC.
+             * The unused components will be replaced by (..., 0, 1). */
+            r300_vertex_psc(velems);
+
+            /* Align the formats to the size of DWORD.
+             * We only care about the blocksizes of the formats since
+             * swizzles are already set up. */
+            for (i = 0; i < count; i++) {
+                /* This is OK because we check for aligned strides too. */
+                velems->hw_format_size[i] =
+                    align(util_format_get_blocksize(velems->hw_format[i]), 4);
             }
         }
     }
@@ -1490,7 +1553,7 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
     struct r300_context* r300 = r300_context(pipe);
     struct r300_constant_buffer *cbuf;
     struct pipe_transfer *tr;
-    void *mapped;
+    float *mapped;
     int max_size = 0, max_size_bytes = 0, clamped_size = 0;
 
     switch (shader) {
@@ -1529,10 +1592,20 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
             fprintf(stderr, "r300: Max size of the constant buffer is "
                           "%i*4 floats.\n", max_size);
         }
-        clamped_size = MIN2(buf->width0, max_size_bytes);
 
-        memcpy(cbuf->constants, mapped, clamped_size);
+        clamped_size = MIN2(buf->width0, max_size_bytes);
         cbuf->count = clamped_size / (4 * sizeof(float));
+
+        if (shader == PIPE_SHADER_FRAGMENT && !r300->screen->caps.is_r500) {
+            unsigned i,j;
+
+            /* Convert constants to float24. */
+            for (i = 0; i < cbuf->count; i++)
+                for (j = 0; j < 4; j++)
+                    cbuf->constants[i][j] = pack_float24(mapped[i*4+j]);
+        } else {
+            memcpy(cbuf->constants, mapped, clamped_size);
+        }
     }
 
     if (shader == PIPE_SHADER_VERTEX) {

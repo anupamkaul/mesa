@@ -30,13 +30,7 @@
 
 #define R300_RESOURCE_FLAG_TRANSFER     PIPE_RESOURCE_FLAG_DRV_PRIV
 
-#define R300_INVALID_FORMAT (~0)
-
-/* XXX: this is just a bandaid on larger problems in
- * r300_screen_buffer.h which doesn't seem to be fully ported to
- * gallium-resources.
- */
-#define R300_BIND_OQBO  (1<<21)
+#define R300_INVALID_FORMAT 0xffff
 
 /* Tiling flags. */
 enum r300_buffer_tiling {

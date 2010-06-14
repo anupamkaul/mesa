@@ -34,7 +34,6 @@
 #include "main/api_noop.h"
 #include "main/macros.h"
 #include "main/simple_list.h"
-#include "shader/shader_api.h"
 
 #include "brw_context.h"
 #include "brw_defines.h"
@@ -48,22 +47,15 @@
  * Mesa's Driver Functions
  ***************************************/
 
-static void brwUseProgram(GLcontext *ctx, GLuint program)
-{
-   _mesa_use_program(ctx, program);
-}
-
-static void brwInitProgFuncs( struct dd_function_table *functions )
-{
-   functions->UseProgram = brwUseProgram;
-}
 static void brwInitDriverFunctions( struct dd_function_table *functions )
 {
    intelInitDriverFunctions( functions );
 
    brwInitFragProgFuncs( functions );
-   brwInitProgFuncs( functions );
    brw_init_queryobj_functions(functions);
+
+   functions->Enable = brw_enable;
+   functions->DepthRange = brw_depth_range;
 }
 
 GLboolean brwCreateContext( int api,
@@ -184,6 +176,9 @@ GLboolean brwCreateContext( int api,
 
    brw_init_state( brw );
 
+   brw->curbe.last_buf = calloc(1, 4096);
+   brw->curbe.next_buf = calloc(1, 4096);
+
    brw->state.dirty.mesa = ~0;
    brw->state.dirty.brw = ~0;
 
@@ -193,6 +188,11 @@ GLboolean brwCreateContext( int api,
    ctx->FragmentProgram._MaintainTexEnvProgram = GL_TRUE;
 
    brw_draw_init( brw );
+
+   /* Now that most driver functions are hooked up, initialize some of the
+    * immediate state.
+    */
+   brw_update_cc_vp(brw);
 
    return GL_TRUE;
 }
