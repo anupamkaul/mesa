@@ -86,7 +86,6 @@ dri1_swap_fences_clear(struct dri_drawable *drawable)
 struct pipe_surface *
 dri1_get_pipe_surface(struct dri_drawable *drawable, struct pipe_resource *ptex)
 {
-   struct pipe_screen *pipe_screen = dri_screen(drawable->sPriv)->base.screen;
    struct pipe_surface *psurf = drawable->dri1_surface;
 
    if (!psurf || psurf->texture != ptex) {

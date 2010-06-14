@@ -70,6 +70,7 @@ xmesa_st_framebuffer_display(struct st_framebuffer_iface *stfbi,
    /* (re)allocate the surface for the texture to be displayed */
    if (!pres || pres != ptex) {
       pipe_resource_reference(&xstfb->display_resource, ptex);
+      pres = xstfb->display_resource;
    }
 
    xstfb->screen->flush_frontbuffer(xstfb->screen, pres, 0, 0, &xstfb->buffer->ws);
@@ -90,7 +91,7 @@ xmesa_st_framebuffer_copy_textures(struct st_framebuffer_iface *stfbi,
    struct xmesa_st_framebuffer *xstfb = xmesa_st_framebuffer(stfbi);
    struct pipe_resource *src_ptex = xstfb->textures[src_statt];
    struct pipe_resource *dst_ptex = xstfb->textures[dst_statt];
-   struct pipe_box *src_box;
+   struct pipe_box src_box;
    struct pipe_context *pipe;
 
    if (!src_ptex || !dst_ptex)

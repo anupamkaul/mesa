@@ -212,7 +212,7 @@ resource_surface_present(struct resource_surface *rsurf,
       return TRUE;
 
    rsurf->screen->flush_frontbuffer(rsurf->screen,
-         psurf, 0, 0, winsys_drawable_handle);
+         pres, 0, 0, winsys_drawable_handle);
 
    return TRUE;
 }
