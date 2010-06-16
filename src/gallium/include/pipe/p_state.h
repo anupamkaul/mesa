@@ -356,6 +356,7 @@ struct pipe_resource
    unsigned width0;
    unsigned height0;
    unsigned depth0;
+   unsigned array_size;
 
    unsigned last_level:8;    /**< Index of last mipmap level present/defined */
    unsigned nr_samples:8;    /**< for multisampled surfaces, nr of samples */
