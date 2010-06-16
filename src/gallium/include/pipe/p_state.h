@@ -281,16 +281,23 @@ struct pipe_surface
    struct pipe_context *context; /**< context this view belongs to */
    enum pipe_format format;
 
+   /* XXX width/height should be removed */
    unsigned width;               /**< logical width in pixels */
    unsigned height;              /**< logical height in pixels */
 
-   unsigned layout;              /**< PIPE_SURFACE_LAYOUT_x */
-   unsigned offset;              /**< offset from start of buffer, in bytes */
    unsigned usage;               /**< bitmask of PIPE_BIND_x */
 
-   unsigned level;
-   unsigned first_layer;
-   unsigned last_layer;
+   union {
+      struct {
+         unsigned level;
+         unsigned first_layer:16;
+         unsigned last_layer:16;
+      } tex;
+      struct {
+         unsigned element_offset;
+         unsigned element_width;
+      } buf;
+   } u;
 };
 
 
@@ -303,10 +310,18 @@ struct pipe_sampler_view
    enum pipe_format format;      /**< typed PIPE_FORMAT_x */
    struct pipe_resource *texture; /**< texture into which this is a view  */
    struct pipe_context *context; /**< context this view belongs to */
-   unsigned first_level:8;       /**< first mipmap level */
-   unsigned last_level:8;        /**< last mipmap level */
-   unsigned first_layer:16;      /**< first layer to use for array textures */
-   unsigned last_layer:16;       /**< last layer to use for array textures */
+   union {
+      struct {
+         unsigned first_layer:16;     /**< first layer to use for array textures */
+         unsigned last_layer:16;      /**< last layer to use for array textures */
+         unsigned first_level:8;      /**< first mipmap level to use */
+         unsigned last_level:8;       /**< last mipmap level to use */
+      } tex;
+      struct {
+         unsigned element_offset;
+         unsigned element_width;
+      } buf;
+   } u;
    unsigned swizzle_r:3;         /**< PIPE_SWIZZLE_x for red component */
    unsigned swizzle_g:3;         /**< PIPE_SWIZZLE_x for green component */
    unsigned swizzle_b:3;         /**< PIPE_SWIZZLE_x for blue component */

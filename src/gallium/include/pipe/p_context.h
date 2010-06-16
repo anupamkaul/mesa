@@ -370,10 +370,7 @@ struct pipe_context {
     */
    struct pipe_surface *(*create_surface)(struct pipe_context *ctx,
                                           struct pipe_resource *resource,
-                                          unsigned level,
-                                          unsigned first_layer,
-                                          unsigned last_layer,
-                                          unsigned usage );
+                                          const struct pipe_surface *templat);
 
    void (*surface_destroy)(struct pipe_context *ctx,
                            struct pipe_surface *);
