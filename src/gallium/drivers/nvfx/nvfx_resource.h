@@ -84,8 +84,7 @@ nvfx_miptree_surface_del(struct pipe_context *pipe, struct pipe_surface *ps);
 
 struct pipe_surface *
 nvfx_miptree_surface_new(struct pipe_context *pipe, struct pipe_resource *pt,
-			 unsigned level, unsigned first_layer, unsigned last_layer,
-			 unsigned flags);
+			 const struct pipe_surface *surf_tmpl);
 
 
 #endif

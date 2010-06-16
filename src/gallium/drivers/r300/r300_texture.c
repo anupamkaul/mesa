@@ -993,32 +993,30 @@ struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
  */
 struct pipe_surface* r300_create_surface(struct pipe_context * ctx,
                                          struct pipe_resource* texture,
-                                         unsigned level,
-                                         unsigned first_layer,
-                                         unsigned last_layer,
-                                         unsigned flags)
+                                         const struct pipe_surface *surf_tmpl)
 {
     struct r300_texture* tex = r300_texture(texture);
     struct r300_surface* surface = CALLOC_STRUCT(r300_surface);
+    unsigned level = surf_tmpl->u.tex.level;
 
-    assert(first_layer == last_layer);
-    offset = r300_texture_get_offset(tex, level, first_layer);
+    assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
 
     if (surface) {
        pipe_reference_init(&surface->base.reference, 1);
        pipe_resource_reference(&surface->base.texture, texture);
-       surface->context = ctx;
-       surface->base.format = texture->format;
+       surface->base.context = ctx;
+       surface->base.format = surf_tmpl->format;
        surface->base.width = u_minify(texture->width0, level);
        surface->base.height = u_minify(texture->height0, level);
-       surface->base.usage = flags;
-       surface->base.level = level;
-       surface->base.first_layer = first_layer;
-       surface->base.last_layer = last_layer;
+       surface->base.usage = surf_tmpl->usage;
+       surface->base.u.tex.level = level;
+       surface->base.u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+       surface->base.u.tex.last_layer = surf_tmpl->u.tex.last_layer;
 
        surface->buffer = tex->buffer;
        surface->domain = tex->domain;
-       surface->offset = r300_texture_get_offset(tex, level, first_layer);
+       surface->offset = r300_texture_get_offset(tex, level,
+                                                 surf_tmpl->u.tex.first_layer);
        surface->pitch = tex->fb_state.pitch[level];
        surface->format = tex->fb_state.format;
     }

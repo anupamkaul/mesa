@@ -93,7 +93,7 @@ static void r600_set_framebuffer_state(struct pipe_context *ctx,
 	struct r600_texture *rtex;
 	struct r600_buffer *rbuffer;
 	struct radeon_state *rstate;
-	unsigned level = state->cbufs[0]->level;
+	unsigned level = state->cbufs[0]->u.tex.level;
 	unsigned pitch, slice;
 
 	rstate = radeon_state(rscreen->rw, R600_CB0_TYPE, R600_CB0);
@@ -133,7 +133,7 @@ static void r600_set_framebuffer_state(struct pipe_context *ctx,
 		rctx->db->bo[0] = radeon_bo_incref(rscreen->rw, rbuffer->bo);
 		rctx->db->nbo = 1;
 		rctx->db->placement[0] = RADEON_GEM_DOMAIN_VRAM;
-		level = state->zsbuf->level;
+		level = state->zsbuf->u.tex.level;
 		pitch = rtex->pitch[level] / 8 - 1;
 		slice = rtex->pitch[level] * state->zsbuf->height / 64 - 1;
 

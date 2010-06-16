@@ -62,8 +62,9 @@ union brw_surface_id {
 struct brw_surface
 {
    struct pipe_surface base;
-   
+
    union brw_surface_id id;
+   unsigned offset;
    unsigned cpp;
    unsigned pitch;
    unsigned draw_offset;

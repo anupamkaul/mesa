@@ -42,7 +42,7 @@ util_surfaces_detach(struct util_surfaces *us, struct pipe_surface *ps)
 {
    if(likely(ps->texture->target == PIPE_TEXTURE_2D))
    {
-      us->u.array[ps->level] = 0;
+      us->u.array[ps->u.tex.level] = 0;
       return;
    }
 

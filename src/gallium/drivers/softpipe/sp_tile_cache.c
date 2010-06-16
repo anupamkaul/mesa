@@ -154,7 +154,7 @@ sp_tile_cache_set_surface(struct softpipe_tile_cache *tc,
 
    if (ps) {
       tc->transfer = pipe_get_transfer(pipe, ps->texture,
-                                       ps->level, ps->first_layer,
+                                       ps->u.tex.level, ps->u.tex.first_layer,
                                        PIPE_TRANSFER_READ_WRITE |
                                        PIPE_TRANSFER_UNSYNCHRONIZED,
                                        0, 0, ps->width, ps->height);

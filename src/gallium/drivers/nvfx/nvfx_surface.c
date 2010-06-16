@@ -41,14 +41,24 @@ nvfx_surface_copy(struct pipe_context *pipe,
 {
 	struct nvfx_context *nvfx = nvfx_context(pipe);
 	struct nv04_surface_2d *eng2d = nvfx->screen->eng2d;
-	struct pipe_surface *ps_dst, *ps_src;
+	struct pipe_surface *ps_dst, *ps_src, surf_tmpl;
 
 	assert(src_box->depth == 1);
+
+	memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+	surf_tmpl.format = src->format;
+	surf_tmpl.usage = 0; /* no bind flag - not a surface */
+	surf_tmpl.u.tex.level = src_level;
+	surf_tmpl.u.tex.first_layer = src_box->z;
+	surf_tmpl.u.tex.last_layer = src_box->z;
 	/* XXX really need surfaces here? */
-	ps_src = nvfx_miptree_surface_new(pipe, src, src_level,
-					  src_box->z, src_box->z, 0 /* bind flags */);
-	ps_dst = nvfx_miptree_surface_new(pipe, dest, dst_level,
-					  destz, destz, 0 /* bindflags */);
+	ps_src = nvfx_miptree_surface_new(pipe, src, &surf_tmpl);
+	surf_tmpl.format = dest->format;
+	surf_tmpl.usage = 0; /* no bind flag - not a surface */
+	surf_tmpl.u.tex.level = dst_level;
+	surf_tmpl.u.tex.first_layer = destz;
+	surf_tmpl.u.tex.last_layer = destz;
+	ps_dst = nvfx_miptree_surface_new(pipe, dest, &surf_tmpl);
 
 	eng2d->copy(eng2d, ps_dst, destx, desty, ps_src, src_box->x, src_box->y,
 		    src_box->width, src_box->height);

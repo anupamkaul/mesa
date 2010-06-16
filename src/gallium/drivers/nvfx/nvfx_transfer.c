@@ -4,6 +4,7 @@
 #include "util/u_format.h"
 #include "util/u_memory.h"
 #include "util/u_math.h"
+#include "util/u_surface.h"
 #include "nouveau/nouveau_winsys.h"
 #include "nvfx_context.h"
 #include "nvfx_screen.h"
@@ -62,6 +63,7 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)pt;
 	struct nvfx_transfer *tx;
 	struct pipe_resource tx_tex_template, *tx_tex;
+	struct pipe_surface surf_tmpl;
 	static int no_transfer = -1;
 	unsigned bind = nvfx_transfer_bind_flags(usage);
 	if(no_transfer < 0)
@@ -71,6 +73,8 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 	tx = CALLOC_STRUCT(nvfx_transfer);
 	if (!tx)
 		return NULL;
+
+	memset(&surf_tmpl, 0, sizeof(surf_tmpl));
 
 	/* Don't handle 3D transfers yet.
 	 */
@@ -87,15 +91,18 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 	     no_transfer) &&
 	    pt->flags & NVFX_RESOURCE_FLAG_LINEAR)
 	{
+		/* transfer shouldn't use pipe_surface anywhere */
+		surf_tmpl.format = pt->format;
+		surf_tmpl.u.tex.level = level;
+		surf_tmpl.u.tex.first_layer = box->z;
+		surf_tmpl.u.tex.last_layer = box->z;
+		surf_tmpl.usage = bind;
+
 		tx->direct = true;
 
 		/* XXX: just call the internal nvfx function.  
 		 */
-		tx->surface = pipe->create_surface(pipe, pt,
-						   level,
-						   box->z,
-						   box->z,
-						   bind);
+		tx->surface = pipe->create_surface(pipe, pt, &surf_tmpl);
 		return &tx->base;
 	}
 
@@ -112,9 +119,8 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 
 	tx->base.stride = ((struct nvfx_miptree*)tx_tex)->level[0].pitch;
 
-	tx->surface = pipe->create_surface(pipe, tx_tex,
-	                                   0, 0, 0,
-	                                   bind);
+	u_surface_default_template(&surf_tmpl, tx_tex, bind);
+	tx->surface = pipe->create_surface(pipe, tx_tex, &surf_tmpl);
 
 	pipe_resource_reference(&tx_tex, NULL);
 
@@ -129,9 +135,12 @@ nvfx_miptree_transfer_new(struct pipe_context *pipe,
 		struct nvfx_screen *nvscreen = nvfx_screen(pscreen);
 		struct pipe_surface *src;
 
-		src = pipe->create_surface(pipe, pt,
-	                                   level, box->z, box->z,
-	                                   0 /*PIPE_BIND_BLIT_SOURCE*/);
+		surf_tmpl.format = pt->format;
+		surf_tmpl.u.tex.level = level;
+		surf_tmpl.u.tex.first_layer = box->z;
+		surf_tmpl.u.tex.last_layer = box->z;
+		surf_tmpl.usage = 0; /* no bind flags - not a surface */
+		src = pipe->create_surface(pipe, pt, &surf_tmpl);
 
 		/* TODO: Check if SIFM can deal with x,y,w,h when swizzling */
 		/* TODO: Check if SIFM can un-swizzle */
@@ -156,14 +165,17 @@ nvfx_miptree_transfer_del(struct pipe_context *pipe,
 	if (!tx->direct && (ptx->usage & PIPE_TRANSFER_WRITE)) {
 		struct pipe_screen *pscreen = pipe->screen;
 		struct nvfx_screen *nvscreen = nvfx_screen(pscreen);
-		struct pipe_surface *dst;
-
+		struct pipe_surface *dst, surf_tmpl;
+		/* should not use pipe_surface here */
+		memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+		surf_tmpl.format = ptx->resource->format;
+		surf_tmpl.u.tex.level = ptx->level;
+		surf_tmpl.u.tex.first_layer = ptx->box.z;
+		surf_tmpl.u.tex.last_layer = ptx->box.z;
+		surf_tmpl.usage = 0; /* no bind flags - not a surface */
 		dst = pipe->create_surface(pipe,
 					   ptx->resource,
-					   ptx->level,
-					   ptx->box.z,
-					   ptx->box.z,
-	                                   0 /*PIPE_BIND_BLIT_DESTINATION*/);
+					   &surf_tmpl);
 
 		/* TODO: Check if SIFM can deal with x,y,w,h when swizzling */
 		nvscreen->eng2d->copy(nvscreen->eng2d,
@@ -190,9 +202,9 @@ nvfx_miptree_transfer_map(struct pipe_context *pipe, struct pipe_transfer *ptx)
 					     nouveau_screen_transfer_flags(ptx->usage));
 
 	if(!tx->direct)
-		return map + ns->base.offset;
+		return map + ns->offset;
 	else
-		return (map + ns->base.offset + 
+		return (map + ns->offset +
 			ptx->box.y * ns->pitch + 
 			ptx->box.x * util_format_get_blocksize(ptx->resource->format));
 }

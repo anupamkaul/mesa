@@ -244,28 +244,27 @@ sp_get_tex_image_offset(const struct softpipe_resource *spr,
 static struct pipe_surface *
 softpipe_create_surface(struct pipe_context *pipe,
                         struct pipe_resource *pt,
-                        unsigned level, unsigned first_layer, unsigned last_layer,
-                        unsigned usage)
+                        const struct pipe_surface *surf_tmpl)
 {
-   struct softpipe_resource *spr = softpipe_resource(pt);
    struct pipe_surface *ps;
+   unsigned level = surf_tmpl->u.tex.level;
 
    assert(level <= pt->last_level);
-   assert(first_layer == last_layer);
+   assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
 
    ps = CALLOC_STRUCT(pipe_surface);
    if (ps) {
       pipe_reference_init(&ps->reference, 1);
       pipe_resource_reference(&ps->texture, pt);
-      ps->format = pt->format;
+      ps->context = pipe;
+      ps->format = surf_tmpl->format;
       ps->width = u_minify(pt->width0, level);
       ps->height = u_minify(pt->height0, level);
-      ps->offset = sp_get_tex_image_offset(spr, level, first_layer);
-      ps->usage = usage;
+      ps->usage = surf_tmpl->usage;
 
-      ps->level = level;
-      ps->first_layer = first_layer;
-      ps->last_layer = last_layer;
+      ps->u.tex.level = level;
+      ps->u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+      ps->u.tex.last_layer = surf_tmpl->u.tex.last_layer;
    }
    return ps;
 }

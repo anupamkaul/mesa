@@ -304,8 +304,8 @@ util_blit_pixels_writemask(struct blit_state *ctx,
 
    /* do the regions overlap? */
    overlap = src_tex == dst->texture &&
-             dst->level == src_level &&
-             dst->first_layer == srcZ0 &&
+             dst->u.tex.level == src_level &&
+             dst->u.tex.first_layer == srcZ0 &&
       regions_overlap(srcX0, srcY0, srcX1, srcY1,
                       dstX0, dstY0, dstX1, dstY1);
 
@@ -330,8 +330,8 @@ util_blit_pixels_writemask(struct blit_state *ctx,
       src_box.height = srcH;
       src_box.depth = 1;
       pipe->resource_copy_region(pipe,
-                                 dst->texture, dst->level,
-                                 dstX0, dstY0, dst->first_layer,/* dest */
+                                 dst->texture, dst->u.tex.level,
+                                 dstX0, dstY0, dst->u.tex.first_layer,/* dest */
                                  src_tex, src_level,
                                  &src_box);
        return;
@@ -346,8 +346,8 @@ util_blit_pixels_writemask(struct blit_state *ctx,
     * This can still be improved upon.
     */
    if ((src_tex == dst->texture &&
-       dst->level == src_level &&
-       dst->first_layer == srcZ0) ||
+       dst->u.tex.level == src_level &&
+       dst->u.tex.first_layer == srcZ0) ||
        src_tex->target != PIPE_TEXTURE_2D)
    {
       struct pipe_resource texTemp;
@@ -412,7 +412,6 @@ util_blit_pixels_writemask(struct blit_state *ctx,
    }
    else {
       u_sampler_view_default_template(&sv_templ, src_tex, src_tex->format);
-      sv_templ.first_level = sv_templ.last_level = src_level;
       sampler_view = pipe->create_sampler_view(pipe, src_tex, &sv_templ);
 
       if (!sampler_view) {
@@ -456,7 +455,6 @@ util_blit_pixels_writemask(struct blit_state *ctx,
    /* sampler */
    ctx->sampler.min_img_filter = filter;
    ctx->sampler.mag_img_filter = filter;
-   /* we've limited this already with the sampler view but you never know... */
    ctx->sampler.min_lod = src_level;
    ctx->sampler.max_lod = src_level;
    cso_single_sampler(ctx->cso, 0, &ctx->sampler);

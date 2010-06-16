@@ -134,9 +134,9 @@ st_BlitFramebuffer(GLcontext *ctx,
          struct pipe_surface *dstSurf = dstRb->surface;
 
          util_blit_pixels(st->blit,
-                          srcRb->texture, srcSurf->level,
+                          srcRb->texture, srcSurf->u.tex.level,
                           srcX0, srcY0, srcX1, srcY1,
-                          srcSurf->first_layer,
+                          srcSurf->u.tex.first_layer,
                           dstSurf, dstX0, dstY0, dstX1, dstY1,
                           0.0, pFilter);
       }
@@ -173,9 +173,9 @@ st_BlitFramebuffer(GLcontext *ctx,
           * depth/stencil buffers.  This is the ideal case for such buffers.
           */
          util_blit_pixels(st->blit,
-                          srcDepthRb->texture, srcDepthRb->surface->level,
+                          srcDepthRb->texture, srcDepthRb->surface->u.tex.level,
                           srcX0, srcY0, srcX1, srcY1,
-                          srcDepthRb->surface->first_layer,
+                          srcDepthRb->surface->u.tex.first_layer,
                           dstDepthSurf, dstX0, dstY0, dstX1, dstY1,
                           0.0, pFilter);
       }

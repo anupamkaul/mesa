@@ -49,6 +49,7 @@
 #include "util/u_math.h"
 #include "util/u_texture.h"
 #include "util/u_half.h"
+#include "util/u_surface.h"
 
 #include "cso_cache/cso_context.h"
 
@@ -1554,7 +1555,7 @@ util_gen_mipmap(struct gen_mipmap_state *ctx,
       else nr_layers = 1;
 
       for (i = 0; i < nr_layers; i++) {
-         struct pipe_surface *surf;
+         struct pipe_surface *surf, surf_templ;
          if (pt->target == PIPE_TEXTURE_3D) {
             /* in theory with geom shaders and driver with full layer support
                could do that in one go. */
@@ -1566,8 +1567,12 @@ util_gen_mipmap(struct gen_mipmap_state *ctx,
          else
             layer = face;
 
-         surf = pipe->create_surface(pipe, pt, dstLevel, layer, layer,
-                                     PIPE_BIND_RENDER_TARGET);
+         memset(&surf_templ, 0, sizeof(surf_templ));
+         u_surface_default_template(&surf_templ, pt, PIPE_BIND_RENDER_TARGET);
+         surf_templ.u.tex.level = dstLevel;
+         surf_templ.u.tex.first_layer = layer;
+         surf_templ.u.tex.last_layer = layer;
+         surf = pipe->create_surface(pipe, pt, &surf_templ);
 
          /*
           * Setup framebuffer / dest surface

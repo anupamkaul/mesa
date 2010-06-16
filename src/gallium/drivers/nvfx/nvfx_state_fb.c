@@ -30,7 +30,7 @@ nvfx_state_framebuffer_validate(struct nvfx_context *nvfx)
 
 		rt_enable |= (NV34TCL_RT_ENABLE_COLOR0 << i);
 		nvfx->hw_rt[i].bo = nvfx_surface_buffer(fb->cbufs[i]);
-		nvfx->hw_rt[i].offset = fb->cbufs[i]->offset;
+		nvfx->hw_rt[i].offset = ((struct nv04_surface *)fb->cbufs[i])->offset;
 		nvfx->hw_rt[i].pitch = ((struct nv04_surface *)fb->cbufs[i])->pitch;
 	}
 	for(; i < 4; ++i)
@@ -43,7 +43,7 @@ nvfx_state_framebuffer_validate(struct nvfx_context *nvfx)
 	if (fb->zsbuf) {
 		zeta_format = fb->zsbuf->format;
 		nvfx->hw_zeta.bo = nvfx_surface_buffer(fb->zsbuf);
-		nvfx->hw_zeta.offset = fb->zsbuf->offset;
+		nvfx->hw_zeta.offset = ((struct nv04_surface *)fb->zsbuf)->offset;
 		nvfx->hw_zeta.pitch = ((struct nv04_surface *)fb->zsbuf)->pitch;
 	}
 	else

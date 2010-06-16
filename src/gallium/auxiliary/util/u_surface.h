@@ -32,6 +32,10 @@
 #include "pipe/p_compiler.h"
 #include "pipe/p_state.h"
 
+extern void
+u_surface_default_template(struct pipe_surface *view,
+                           const struct pipe_resource *texture,
+                           unsigned bind);
 
 extern boolean
 util_create_rgba_surface(struct pipe_context *ctx,

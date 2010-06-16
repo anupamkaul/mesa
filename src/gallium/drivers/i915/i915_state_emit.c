@@ -214,7 +214,10 @@ i915_emit_hardware_state(struct i915_context *i915 )
       if (cbuf_surface) {
          unsigned ctile = BUF_3D_USE_FENCE;
          struct i915_texture *tex = i915_texture(cbuf_surface->texture);
+         unsigned offset;
          assert(tex);
+
+         offset = tex->image_offset[cbuf_surface->u.tex.level][cbuf_surface->u.tex.first_layer];
 
          if (tex && tex->sw_tiled) {
             ctile = BUF_3D_TILED_SURFACE;
@@ -228,7 +231,7 @@ i915_emit_hardware_state(struct i915_context *i915 )
 
          OUT_RELOC(tex->buffer,
                    I915_USAGE_RENDER,
-                   cbuf_surface->offset);
+                   offset);
       }
 
       /* What happens if no zbuf??
@@ -236,8 +239,10 @@ i915_emit_hardware_state(struct i915_context *i915 )
       if (depth_surface) {
          unsigned ztile = BUF_3D_USE_FENCE;
          struct i915_texture *tex = i915_texture(depth_surface->texture);
+         unsigned offset;
          assert(tex);
 
+         offset = tex->image_offset[depth_surface->u.tex.level][depth_surface->u.tex.first_layer];
          if (tex && tex->sw_tiled) {
             ztile = BUF_3D_TILED_SURFACE;
          }
@@ -251,7 +256,7 @@ i915_emit_hardware_state(struct i915_context *i915 )
 
          OUT_RELOC(tex->buffer,
                    I915_USAGE_RENDER,
-                   depth_surface->offset);
+                   offset);
       }
    
       {

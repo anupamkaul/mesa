@@ -33,6 +33,7 @@
 
 #include "util/u_inlines.h"
 #include "pipe/p_context.h"
+#include "util/u_surface.h"
 
 #include "dri_screen.h"
 #include "dri_context.h"
@@ -83,30 +84,35 @@ dri1_swap_fences_clear(struct dri_drawable *drawable)
    }
 }
 
+#if 0
+/* all no longer used ??? */
 struct pipe_surface *
 dri1_get_pipe_surface(struct dri_drawable *drawable, struct pipe_resource *ptex)
 {
-   struct pipe_surface *psurf = drawable->dri1_surface;
+   struct pipe_surface surf_templ, *psurf = drawable->dri1_surface;
 
    if (!psurf || psurf->texture != ptex) {
+      /* FIXME: this is wrong, wrong, wrong. Do not use pipe_surface here. */
       struct pipe_context *pipe = dri1_get_pipe_context(dri_screen(drawable->sPriv));
       pipe_surface_reference(&drawable->dri1_surface, NULL);
 
-      drawable->dri1_surface = pipe->create_surface(pipe,
-            ptex, 0, 0, 0, 0/* no bind flag???*/);
+      memset(&surf_templ, 0, sizeof(surf_templ));
+      u_surface_default_template(&surf_templ, ptex, 0 /* no bind flag - not a surface...*/);
+      drawable->dri1_surface = pipe->create_surface(pipe, ptex, &surf_templ);
 
       psurf = drawable->dri1_surface;
    }
 
    return psurf;
 }
+#endif
 
 void
 dri1_destroy_pipe_surface(struct dri_drawable *drawable)
 {
    pipe_surface_reference(&drawable->dri1_surface, NULL);
 }
-
+#if 0
 struct pipe_context *
 dri1_get_pipe_context(struct dri_screen *screen)
 {
@@ -120,6 +126,7 @@ dri1_get_pipe_context(struct dri_screen *screen)
 
    return pipe;
 }
+#endif
 
 void
 dri1_destroy_pipe_context(struct dri_screen *screen)

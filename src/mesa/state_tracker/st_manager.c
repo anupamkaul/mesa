@@ -34,6 +34,7 @@
 #include "util/u_pointer.h"
 #include "util/u_inlines.h"
 #include "util/u_atomic.h"
+#include "util/u_surface.h"
 
 #include "main/mtypes.h"
 #include "main/context.h"
@@ -167,7 +168,7 @@ st_framebuffer_validate(struct st_framebuffer *stfb, struct st_context *st)
 
    for (i = 0; i < stfb->num_statts; i++) {
       struct st_renderbuffer *strb;
-      struct pipe_surface *ps;
+      struct pipe_surface *ps, surf_tmpl;
       gl_buffer_index idx;
 
       if (!textures[i])
@@ -186,8 +187,10 @@ st_framebuffer_validate(struct st_framebuffer *stfb, struct st_context *st)
          continue;
       }
 
-      ps = pipe->create_surface(pipe, textures[i], 0, 0, 0,
-                                PIPE_BIND_RENDER_TARGET);
+      memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+      u_surface_default_template(&surf_tmpl, textures[i],
+                                 PIPE_BIND_RENDER_TARGET);
+      ps = pipe->create_surface(pipe, textures[i], &surf_tmpl);
       if (ps) {
          pipe_surface_reference(&strb->surface, ps);
          pipe_resource_reference(&strb->texture, ps->texture);
@@ -753,7 +756,7 @@ st_manager_get_egl_image_surface(struct st_context *st,
    struct st_manager *smapi =
       (struct st_manager *) st->iface.st_context_private;
    struct st_egl_image stimg;
-   struct pipe_surface *ps;
+   struct pipe_surface *ps, surf_tmpl;
 
    if (!smapi || !smapi->get_egl_image)
       return NULL;
@@ -762,8 +765,13 @@ st_manager_get_egl_image_surface(struct st_context *st,
    if (!smapi->get_egl_image(smapi, &st->iface, eglimg, &stimg))
       return NULL;
 
-   ps = st->pipe->create_surface(st->pipe,
-         stimg.texture, stimg.level, stimg.layer, stimg.layer, usage);
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   surf_tmpl.format = stimg.texture->format;
+   surf_tmpl.usage = usage;
+   surf_tmpl.u.tex.level = stimg.level;
+   surf_tmpl.u.tex.first_layer = stimg.layer;
+   surf_tmpl.u.tex.last_layer = stimg.layer;
+   ps = st->pipe->create_surface(st->pipe, stimg.texture, &surf_tmpl);
    pipe_resource_reference(&stimg.texture, NULL);
 
    return ps;

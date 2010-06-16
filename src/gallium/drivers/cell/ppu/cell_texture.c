@@ -306,35 +306,25 @@ untwiddle_image_uint(uint w, uint h, uint tile_size, uint *dst,
 static struct pipe_surface *
 cell_create_surface(struct pipe_context *ctx,
                     struct pipe_resource *pt,
-                    unsigned level, unsigned first_layer, unsigned last_layer,
-                    unsigned usage)
+                    const struct pipe_surface *surf_tmpl)
 {
    struct cell_resource *ct = cell_resource(pt);
    struct pipe_surface *ps;
 
-   assert(first_layer == last_layer);
+   assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
    ps = CALLOC_STRUCT(pipe_surface);
    if (ps) {
       pipe_reference_init(&ps->reference, 1);
       pipe_resource_reference(&ps->texture, pt);
+      ps->format = surf_tmpl->format;
       ps->context = ctx;
-      ps->format = pt->format;
-      ps->width = u_minify(pt->width0, level);
-      ps->height = u_minify(pt->height0, level);
-      ps->offset = ct->level_offset[level];
+      ps->width = u_minify(pt->width0, surf_tmpl->u.tex.level);
+      ps->height = u_minify(pt->height0, surf_tmpl->u.tex.level);
       /* XXX may need to override usage flags (see sp_texture.c) */
-      ps->usage = usage;
-      ps->level = level;
-      ps->first_layer = first_layer;
-      ps->last_layer = last_layer;
-
-      if (pt->target == PIPE_TEXTURE_CUBE || pt->target == PIPE_TEXTURE_3D) {
-         unsigned h_tile = align(ps->height, TILE_SIZE);
-         ps->offset += first_layer * util_format_get_nblocksy(ps->format, h_tile) * ct->stride[level];
-      }
-      else {
-         assert(first_layer == 0);
-      }
+      ps->usage = surf_tmpl->usage;
+      ps->u.tex.level = surf_tmpl->u.tex.level;
+      ps->u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+      ps->u.tex.last_layer = surf_tmpl->u.tex.last_layer;
    }
    return ps;
 }

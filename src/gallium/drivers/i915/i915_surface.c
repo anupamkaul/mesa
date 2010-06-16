@@ -93,6 +93,7 @@ i915_clear_render_target(struct pipe_context *pipe,
    struct i915_texture *tex = i915_texture(dst->texture);
    struct pipe_resource *pt = &tex->b.b;
    union util_color uc;
+   unsigned offset = tex->image_offset[dst->u.tex.level][dst->u.tex.first_layer];
 
    assert(util_format_get_blockwidth(pt->format) == 1);
    assert(util_format_get_blockheight(pt->format) == 1);
@@ -102,7 +103,7 @@ i915_clear_render_target(struct pipe_context *pipe,
                    util_format_get_blocksize(pt->format),
                    XY_COLOR_BLT_WRITE_ALPHA | XY_COLOR_BLT_WRITE_RGB,
                    (unsigned short) tex->stride,
-                   tex->buffer, dst->offset,
+                   tex->buffer, offset,
                    (short) dstx, (short) dsty,
                    (short) width, (short) height,
                    uc.ui );
@@ -121,6 +122,7 @@ i915_clear_depth_stencil(struct pipe_context *pipe,
    struct pipe_resource *pt = &tex->b.b;
    unsigned packedds;
    unsigned mask = 0;
+   unsigned offset = tex->image_offset[dst->u.tex.level][dst->u.tex.first_layer];
 
    assert(util_format_get_blockwidth(pt->format) == 1);
    assert(util_format_get_blockheight(pt->format) == 1);
@@ -140,7 +142,7 @@ i915_clear_depth_stencil(struct pipe_context *pipe,
                    util_format_get_blocksize(pt->format),
                    mask,
                    (unsigned short) tex->stride,
-                   tex->buffer, dst->offset,
+                   tex->buffer, offset,
                    (short) dstx, (short) dsty,
                    (short) width, (short) height,
                    packedds );
@@ -154,28 +156,27 @@ i915_clear_depth_stencil(struct pipe_context *pipe,
 static struct pipe_surface *
 i915_create_surface(struct pipe_context *ctx,
                     struct pipe_resource *pt,
-                    unsigned level, unsigned first_layer, unsigned last_layer,
-                    unsigned flags)
+                    const struct pipe_surface *surf_tmpl)
 {
-   struct i915_texture *tex = i915_texture(pt);
    struct pipe_surface *ps;
-   unsigned offset;  /* in bytes */
 
-   assert(first_layer == last_layer);
+   assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
    if (pt->target != PIPE_TEXTURE_CUBE &&
        pt->target != PIPE_TEXTURE_3D)
-      assert(first_layer == 0);
-   offset = tex->image_offset[level][first_layer];
+      assert(surf_tmpl->u.tex.first_layer == 0);
 
    ps = CALLOC_STRUCT(pipe_surface);
    if (ps) {
+      /* could subclass pipe_surface and store offset as it used to do */
       pipe_reference_init(&ps->reference, 1);
       pipe_resource_reference(&ps->texture, pt);
-      ps->format = pt->format;
-      ps->width = u_minify(pt->width0, level);
-      ps->height = u_minify(pt->height0, level);
-      ps->offset = offset;
-      ps->usage = flags;
+      ps->format = surf_tmpl->format;
+      ps->width = u_minify(pt->width0, surf_tmpl->u.tex.level);
+      ps->height = u_minify(pt->height0, surf_tmpl->u.tex.level);
+      ps->u.tex.level = surf_tmpl->u.tex.level;
+      ps->u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+      ps->u.tex.last_layer = surf_tmpl->u.tex.last_layer;
+      ps->usage = surf_tmpl->usage;
       ps->context = ctx;
    }
    return ps;

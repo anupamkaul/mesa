@@ -243,33 +243,33 @@ nvfx_miptree_from_handle(struct pipe_screen *pscreen,
  */
 struct pipe_surface *
 nvfx_miptree_surface_new(struct pipe_context *pipe, struct pipe_resource *pt,
-			 unsigned level, unsigned first_layer, unsigned last_layer,
-			 unsigned flags)
+			 const struct pipe_surface *surf_tmpl)
 {
+	unsigned level = surf_tmpl->u.tex.level;
 	struct nvfx_miptree *mt = (struct nvfx_miptree *)pt;
 	struct nv04_surface *ns;
 	struct pipe_screen *pscreen = pipe->screen;
 
-	assert(first_layer == last_layer);
+	assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
 	ns = CALLOC_STRUCT(nv04_surface);
 	if (!ns)
 		return NULL;
 	pipe_resource_reference(&ns->base.texture, pt);
 	ns->base.context = pipe;
-	ns->base.format = pt->format;
+	ns->base.format = surf_tmpl->format;
 	ns->base.width = u_minify(pt->width0, level);
 	ns->base.height = u_minify(pt->height0, level);
-	ns->base.usage = flags;
+	ns->base.usage = surf_tmpl->usage;
 	pipe_reference_init(&ns->base.reference, 1);
-	ns->base.level = level;
-	ns->base.first_layer = first_layer;
-	ns->base.last_layer = last_layer;
+	ns->base.u.tex.level = level;
+	ns->base.u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+	ns->base.u.tex.last_layer = surf_tmpl->u.tex.last_layer;
 	ns->pitch = mt->level[level].pitch;
 
 	if (pt->target != PIPE_TEXTURE_CUBE && pt->target != PIPE_TEXTURE_3D) {
-		assert(first_layer == 0);
+		assert(surf_tmpl->u.tex.first_layer == 0);
 	}
-	ns->base.offset = mt->level[level].image_offset[first_layer];
+	ns->offset = mt->level[level].image_offset[surf_tmpl->u.tex.first_layer];
 
 	/* create a linear temporary that we can render into if
 	 * necessary.

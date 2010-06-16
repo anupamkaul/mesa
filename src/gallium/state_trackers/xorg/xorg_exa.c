@@ -47,6 +47,7 @@
 #include "util/u_debug.h"
 #include "util/u_format.h"
 #include "util/u_box.h"
+#include "util/u_surface.h"
 
 #define DEBUG_PRINT 0
 #define ROUND_UP_TEXTURES 1
@@ -450,6 +451,7 @@ ExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
        exa->copy.use_surface_copy = TRUE;
     }
     else {
+       struct pipe_surface surf_tmpl;
        exa->copy.use_surface_copy = FALSE;
 
        if (exa->copy.dst == exa->copy.src)
@@ -459,11 +461,13 @@ ExaPrepareCopy(PixmapPtr pSrcPixmap, PixmapPtr pDstPixmap, int xdir,
           pipe_resource_reference(&exa->copy.src_texture,
                                  exa->copy.src->tex);
 
+       memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+       u_surface_default_template(&surf_tmpl, exa->copy.dst->tex,
+                                  PIPE_BIND_RENDER_TARGET);
        exa->copy.dst_surface =
           exa->pipe->create_surface(exa->pipe,
                                     exa->copy.dst->tex,
-                                    0, 0, 0,
-                                    PIPE_BIND_RENDER_TARGET);
+                                    &surf_tmpl);
 
 
        renderer_copy_prepare(exa->renderer, 
@@ -1056,8 +1060,12 @@ out_err:
 struct pipe_surface *
 xorg_gpu_surface(struct pipe_context *pipe, struct exa_pixmap_priv *priv)
 {
-   return pipe->create_surface(pipe, priv->tex, 0, 0, 0,
-                               PIPE_BIND_RENDER_TARGET);
+   struct pipe_surface surf_tmpl;
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, priv->tex,
+                              PIPE_BIND_RENDER_TARGET);
+
+   return pipe->create_surface(pipe, priv->tex, &surf_tmpl);
 
 }
 

@@ -36,6 +36,7 @@
 #include "util/u_format.h"
 #include "util/u_sampler.h"
 #include "util/u_box.h"
+#include "util/u_surface.h"
 
 #include "vg_api.h"
 #include "vg_manager.h"
@@ -151,7 +152,7 @@ vg_context_update_depth_stencil_rb(struct vg_context * ctx,
 {
    struct st_renderbuffer *dsrb = ctx->draw_buffer->dsrb;
    struct pipe_context *pipe = ctx->pipe;
-   unsigned surface_usage;
+   struct pipe_surface surf_tmpl;
 
    if ((dsrb->width == width && dsrb->height == height) && dsrb->texture)
       return FALSE;
@@ -161,18 +162,17 @@ vg_context_update_depth_stencil_rb(struct vg_context * ctx,
    pipe_resource_reference(&dsrb->texture, NULL);
    dsrb->width = dsrb->height = 0;
 
-   /* Probably need dedicated flags for surface usage too:
-    */
-   surface_usage = PIPE_BIND_DEPTH_STENCIL; /* XXX: was: RENDER_TARGET */
-
    dsrb->texture = create_texture(pipe, dsrb->format, width, height);
    if (!dsrb->texture)
       return TRUE;
 
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, dsrb->texture,
+                              PIPE_BIND_DEPTH_STENCIL);
    dsrb->surface = pipe->create_surface(pipe,
                                         dsrb->texture,
-                                        0, 0, 0,
-                                        surface_usage);
+                                        &surf_tmpl);
+
    if (!dsrb->surface) {
       pipe_resource_reference(&dsrb->texture, NULL);
       return TRUE;
@@ -192,6 +192,7 @@ vg_context_update_color_rb(struct vg_context *ctx, struct pipe_resource *pt)
 {
    struct st_renderbuffer *strb = ctx->draw_buffer->strb;
    struct pipe_context *pipe = ctx->pipe;
+   struct pipe_surface surf_tmpl;
 
    if (strb->texture == pt) {
       pipe_resource_reference(&pt, NULL);
@@ -204,8 +205,12 @@ vg_context_update_color_rb(struct vg_context *ctx, struct pipe_resource *pt)
    strb->width = strb->height = 0;
 
    strb->texture = pt;
-   strb->surface = pipe->create_surface(pipe, strb->texture, 0, 0, 0,
-                                        PIPE_BIND_RENDER_TARGET);
+
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, strb->texture,
+                              PIPE_BIND_RENDER_TARGET);
+   strb->surface = pipe->create_surface(pipe, strb->texture, &surf_tmpl);
+
    if (!strb->surface) {
       pipe_resource_reference(&strb->texture, NULL);
       return TRUE;

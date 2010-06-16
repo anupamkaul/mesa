@@ -915,10 +915,7 @@ rbug_context_sampler_view_destroy(struct pipe_context *_pipe,
 static struct pipe_surface *
 rbug_context_create_surface(struct pipe_context *_pipe,
                             struct pipe_resource *_resource,
-                            unsigned level,
-                            unsigned first_layer,
-                            unsigned last_layer,
-                            unsigned usage)
+                            const struct pipe_surface *surf_tmpl)
 {
    struct rbug_context *rb_pipe = rbug_context(_pipe);
    struct rbug_resource *rb_resource = rbug_resource(_resource);
@@ -928,10 +925,7 @@ rbug_context_create_surface(struct pipe_context *_pipe,
 
    result = pipe->create_surface(pipe,
                                  resource,
-                                 level,
-                                 first_layer,
-                                 last_layer,
-                                 usage);
+                                 surf_tmpl);
 
    if (result)
       return rbug_surface_create(rb_pipe, rb_resource, result);

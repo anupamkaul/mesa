@@ -600,9 +600,9 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
             } else {
                 /* determine min/max levels */
                 /* the MAX_MIP level is the largest (finest) one */
-                max_level = MIN3(sampler->max_lod + view->base.first_level,
-                                 tex->b.b.last_level, view->base.last_level);
-                min_level = MIN2(sampler->min_lod + view->base.first_level,
+                max_level = MIN3(sampler->max_lod + view->base.u.tex.first_level,
+                                 tex->b.b.last_level, view->base.u.tex.last_level);
+                min_level = MIN2(sampler->min_lod + view->base.u.tex.first_level,
                                  max_level);
                 texstate->format.format0 |= R300_TX_NUM_LEVELS(max_level);
                 texstate->filter0 |= R300_TX_MAX_MIP_LEVEL(min_level);

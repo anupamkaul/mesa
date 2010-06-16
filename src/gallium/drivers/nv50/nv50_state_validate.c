@@ -61,10 +61,10 @@ validate_fb(struct nv50_context *nv50)
 		so_data  (so, fb->cbufs[i]->height);
 
 		so_method(so, tesla, NV50TCL_RT_ADDRESS_HIGH(i), 5);
-		so_reloc (so, bo, fb->cbufs[i]->offset, NOUVEAU_BO_VRAM |
-			      NOUVEAU_BO_HIGH | NOUVEAU_BO_RDWR, 0, 0);
-		so_reloc (so, bo, fb->cbufs[i]->offset, NOUVEAU_BO_VRAM |
-			      NOUVEAU_BO_LOW | NOUVEAU_BO_RDWR, 0, 0);
+		so_reloc (so, bo, ((struct nv50_surface *)(fb->cbufs[i]))->offset,
+			      NOUVEAU_BO_VRAM | NOUVEAU_BO_HIGH | NOUVEAU_BO_RDWR, 0, 0);
+		so_reloc (so, bo, ((struct nv50_surface *)(fb->cbufs[i]))->offset,
+			      NOUVEAU_BO_VRAM | NOUVEAU_BO_LOW | NOUVEAU_BO_RDWR, 0, 0);
 		switch (fb->cbufs[i]->format) {
 		case PIPE_FORMAT_B8G8R8A8_UNORM:
 			so_data(so, NV50TCL_RT_FORMAT_A8R8G8B8_UNORM);
@@ -97,7 +97,7 @@ validate_fb(struct nv50_context *nv50)
 			break;
 		}
 		so_data(so, nv50_miptree(pt)->
-				level[fb->cbufs[i]->level].tile_mode << 4);
+				level[fb->cbufs[i]->u.tex.level].tile_mode << 4);
 		so_data(so, 0x00000000);
 
 		so_method(so, tesla, NV50TCL_RT_ARRAY_MODE, 1);
@@ -118,9 +118,9 @@ validate_fb(struct nv50_context *nv50)
 		}
 
 		so_method(so, tesla, NV50TCL_ZETA_ADDRESS_HIGH, 5);
-		so_reloc (so, bo, fb->zsbuf->offset, NOUVEAU_BO_VRAM |
+		so_reloc (so, bo, ((struct nv50_surface *)(fb->zsbuf))->offset, NOUVEAU_BO_VRAM |
 			      NOUVEAU_BO_HIGH | NOUVEAU_BO_RDWR, 0, 0);
-		so_reloc (so, bo, fb->zsbuf->offset, NOUVEAU_BO_VRAM |
+		so_reloc (so, bo, ((struct nv50_surface *)(fb->zsbuf))->offset, NOUVEAU_BO_VRAM |
 			      NOUVEAU_BO_LOW | NOUVEAU_BO_RDWR, 0, 0);
 		switch (fb->zsbuf->format) {
 		case PIPE_FORMAT_Z24_UNORM_S8_USCALED:
@@ -142,7 +142,7 @@ validate_fb(struct nv50_context *nv50)
 			break;
 		}
 		so_data(so, nv50_miptree(pt)->
-				level[fb->zsbuf->level].tile_mode << 4);
+				level[fb->zsbuf->u.tex.level].tile_mode << 4);
 		so_data(so, 0x00000000);
 
 		so_method(so, tesla, NV50TCL_ZETA_ENABLE, 1);

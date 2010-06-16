@@ -146,12 +146,12 @@ static struct brw_surface *create_in_place_view( struct brw_screen *brw_screen,
    surface->base.format = tex->b.b.format;
    surface->base.width = u_minify(tex->b.b.width0, id.bits.level);
    surface->base.height = u_minify(tex->b.b.height0, id.bits.level);
-   surface->base.offset = tex->image_offset[id.bits.level][id.bits.layer];
    surface->base.usage = usage;
-   surface->base.first_layer = id.bits.layer;
-   surface->base.last_layer = surface->base.first_layer;
-   surface->base.level = id.bits.level;
+   surface->base.u.tex.first_layer = id.bits.layer;
+   surface->base.u.tex.last_layer = surface->base.u.tex.first_layer;
+   surface->base.u.tex.level = id.bits.level;
    surface->id = id;
+   surface->offset = tex->image_offset[id.bits.level][id.bits.layer];
    surface->cpp = tex->cpp;
    surface->pitch = tex->pitch;
    surface->tiling = tex->tiling;
@@ -163,11 +163,11 @@ static struct brw_surface *create_in_place_view( struct brw_screen *brw_screen,
    surface->ss.ss0.surface_type = BRW_SURFACE_2D;
 
    if (tex->tiling == BRW_TILING_NONE) {
-      surface->ss.ss1.base_addr = surface->base.offset;
+      surface->ss.ss1.base_addr = surface->offset;
    } else {
-      uint32_t tile_offset = surface->base.offset % 4096;
+      uint32_t tile_offset = surface->offset % 4096;
 
-      surface->ss.ss1.base_addr = surface->base.offset - tile_offset;
+      surface->ss.ss1.base_addr = surface->offset - tile_offset;
 
       if (brw_screen->chipset.is_g4x) {
 	 if (tex->tiling == BRW_TILING_X) {
@@ -204,9 +204,7 @@ static struct brw_surface *create_in_place_view( struct brw_screen *brw_screen,
  */
 static struct pipe_surface *brw_create_surface(struct pipe_context *pipe,
                                                struct pipe_resource *pt,
-                                               unsigned level, unsigned first_layer,
-                                               unsigned last_layer,
-                                               unsigned usage )
+                                               const struct pipe_surface *surf_tmpl)
 {
    struct brw_texture *tex = brw_texture(pt);
    struct brw_screen *bscreen = brw_screen(pipe->screen);
@@ -214,11 +212,11 @@ static struct pipe_surface *brw_create_surface(struct pipe_context *pipe,
    union brw_surface_id id;
    int type;
 
-   assert(first_layer == last_layer);
-   id.bits.level = level;
-   id.bits.layer = first_layer;
+   assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
+   id.bits.level = surf_tmpl->u.tex.level;
+   id.bits.layer = surf_tmpl->u.tex.first_layer;
 
-   if (need_linear_view(bscreen, tex, id, usage)) 
+   if (need_linear_view(bscreen, tex, id, surf_tmpl->usage))
       type = BRW_VIEW_LINEAR;
    else
       type = BRW_VIEW_IN_PLACE;
@@ -231,10 +229,10 @@ static struct pipe_surface *brw_create_surface(struct pipe_context *pipe,
 
    switch (type) {
    case BRW_VIEW_LINEAR:
-      surface = create_linear_view( bscreen, pipe, tex, id, usage );
+      surface = create_linear_view( bscreen, pipe, tex, id, surf_tmpl->usage );
       break;
    case BRW_VIEW_IN_PLACE:
-      surface = create_in_place_view( bscreen, pipe, tex, id, usage );
+      surface = create_in_place_view( bscreen, pipe, tex, id, surf_tmpl->usage );
       break;
    }
 

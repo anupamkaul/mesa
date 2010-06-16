@@ -764,10 +764,7 @@ identity_context_sampler_view_destroy(struct pipe_context *_pipe,
 static struct pipe_surface *
 identity_context_create_surface(struct pipe_context *_pipe,
                                 struct pipe_resource *_resource,
-                                unsigned level,
-                                unsigned first_layer,
-                                unsigned last_layer,
-                                unsigned usage)
+                                const struct pipe_surface *templ)
 {
    struct identity_context *id_context = identity_context(_pipe);
    struct identity_resource *id_resource = identity_resource(_resource);
@@ -777,10 +774,7 @@ identity_context_create_surface(struct pipe_context *_pipe,
 
    result = pipe->create_surface(pipe,
                                  resource,
-                                 level,
-                                 first_layer,
-                                 last_layer,
-                                 usage);
+                                 templ);
 
    if (result)
       return identity_surface_create(id_context, id_resource, result);

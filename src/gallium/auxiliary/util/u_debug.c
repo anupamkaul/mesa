@@ -40,7 +40,8 @@
 #include "util/u_string.h" 
 #include "util/u_math.h" 
 #include "util/u_tile.h" 
-#include "util/u_prim.h" 
+#include "util/u_prim.h"
+#include "util/u_surface.h"
 
 #include <limits.h> /* CHAR_BIT */
 
@@ -453,6 +454,7 @@ void debug_dump_image(const char *prefix,
 #endif
 }
 
+/* FIXME: dump resources, not surfaces... */
 void debug_dump_surface(struct pipe_context *pipe,
                         const char *prefix,
                         struct pipe_surface *surface)
@@ -472,8 +474,8 @@ void debug_dump_surface(struct pipe_context *pipe,
     */
    texture = surface->texture;
 
-   transfer = pipe_get_transfer(pipe, texture, surface->level,
-                                surface->first_layer,
+   transfer = pipe_get_transfer(pipe, texture, surface->u.tex.level,
+                                surface->u.tex.first_layer,
                                 PIPE_TRANSFER_READ,
                                 0, 0, surface->width, surface->height);
 
@@ -499,15 +501,15 @@ void debug_dump_texture(struct pipe_context *pipe,
                         const char *prefix,
                         struct pipe_resource *texture)
 {
-   struct pipe_surface *surface;
+   struct pipe_surface *surface, surf_tmpl;
 
    if (!texture)
       return;
 
-
    /* XXX for now, just dump image for layer=0, level=0 */
-   surface = pipe->create_surface(pipe, texture, 0, 0, 0,
-                                  PIPE_BIND_SAMPLER_VIEW);
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, texture, 0 /* no bind flag - not a surface */);
+   surface = pipe->create_surface(pipe, texture, &surf_tmpl);
    if (surface) {
       debug_dump_surface(pipe, prefix, surface);
       pipe->surface_destroy(pipe, surface);
@@ -555,8 +557,8 @@ debug_dump_surface_bmp(struct pipe_context *pipe,
    struct pipe_transfer *transfer;
    struct pipe_resource *texture = surface->texture;
 
-   transfer = pipe_get_transfer(pipe, texture, surface->level,
-                                surface->first_layer, PIPE_TRANSFER_READ,
+   transfer = pipe_get_transfer(pipe, texture, surface->u.tex.level,
+                                surface->u.tex.first_layer, PIPE_TRANSFER_READ,
                                 0, 0, surface->width, surface->height);
 
    debug_dump_transfer_bmp(pipe, filename, transfer);

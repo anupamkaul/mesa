@@ -426,10 +426,13 @@ void trace_dump_sampler_view_template(const struct pipe_sampler_view *state)
    trace_dump_struct_begin("pipe_sampler_view");
 
    trace_dump_member(format, state, format);
-   trace_dump_member(uint, state, first_level);
-   trace_dump_member(uint, state, last_level);
-   trace_dump_member(uint, state, first_layer);
-   trace_dump_member(uint, state, last_layer);
+   /* XXX */
+   trace_dump_member(uint, state, u.tex.first_level);
+   trace_dump_member(uint, state, u.tex.last_level);
+   trace_dump_member(uint, state, u.tex.first_layer);
+   trace_dump_member(uint, state, u.tex.last_layer);
+   trace_dump_member(uint, state, u.buf.element_offset);
+   trace_dump_member(uint, state, u.buf.element_width);
    trace_dump_member(uint, state, swizzle_r);
    trace_dump_member(uint, state, swizzle_g);
    trace_dump_member(uint, state, swizzle_b);
@@ -455,14 +458,14 @@ void trace_dump_surface(const struct pipe_surface *state)
    trace_dump_member(uint, state, width);
    trace_dump_member(uint, state, height);
 
-   trace_dump_member(uint, state, layout);
-   trace_dump_member(uint, state, offset);
    trace_dump_member(uint, state, usage);
 
    trace_dump_member(ptr, state, texture);
-   trace_dump_member(uint, state, level);
-   trace_dump_member(uint, state, first_layer);
-   trace_dump_member(uint, state, last_layer);
+   trace_dump_member(uint, state, u.tex.level);
+   trace_dump_member(uint, state, u.tex.first_layer);
+   trace_dump_member(uint, state, u.tex.last_layer);
+   trace_dump_member(uint, state, u.buf.element_offset);
+   trace_dump_member(uint, state, u.buf.element_width);
 
    trace_dump_struct_end();
 }

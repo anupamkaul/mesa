@@ -617,7 +617,7 @@ static void r300_fb_set_tiling_flags(struct r300_context *r300,
     /* Set tiling flags for new surfaces. */
     for (i = 0; i < new_state->nr_cbufs; i++) {
         tex = r300_texture(new_state->cbufs[i]->texture);
-        level = new_state->cbufs[i]->level;
+        level = new_state->cbufs[i]->u.tex.level;
 
         r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                 tex->pitch[0] * util_format_get_blocksize(tex->b.b.format),
@@ -626,7 +626,7 @@ static void r300_fb_set_tiling_flags(struct r300_context *r300,
     }
     if (new_state->zsbuf) {
         tex = r300_texture(new_state->zsbuf->texture);
-        level = new_state->zsbuf->level;
+        level = new_state->zsbuf->u.tex.level;
 
         r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
                 tex->pitch[0] * util_format_get_blocksize(tex->b.b.format),
@@ -642,14 +642,14 @@ static void r300_print_fb_surf_info(struct pipe_surface *surf, unsigned index,
     struct r300_texture *rtex = r300_texture(tex);
 
     fprintf(stderr,
-            "r300:   %s[%i] Dim: %ix%i, Offset: %i, Firstlayer: %i, "
+            "r300:   %s[%i] Dim: %ix%i, Firstlayer: %i, "
             "Lastlayer: %i, Level: %i, Format: %s\n"
 
             "r300:     TEX: Macro: %s, Micro: %s, Pitch: %i, "
             "Dim: %ix%ix%i, LastLevel: %i, Format: %s\n",
 
-            binding, index, surf->width, surf->height, surf->offset,
-            surf->first_layer, surf->last_layer, surf->level,
+            binding, index, surf->width, surf->height,
+            surf->u.tex.first_layer, surf->u.tex.last_layer, surf->u.tex.level,
             util_format_short_name(surf->format),
 
             rtex->macrotile ? "YES" : " NO", rtex->microtile ? "YES" : " NO",

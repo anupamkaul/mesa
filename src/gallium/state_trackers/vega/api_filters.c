@@ -43,6 +43,7 @@
 #include "util/u_memory.h"
 #include "util/u_sampler.h"
 #include "util/u_string.h"
+#include "util/u_surface.h"
 
 
 #include "asm_filters.h"
@@ -121,9 +122,12 @@ static INLINE struct pipe_surface * setup_framebuffer(struct vg_image *dst)
    struct vg_context *ctx = vg_current_context();
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_framebuffer_state fb;
-   struct pipe_surface *dst_surf = pipe->create_surface(
-      pipe, dst->sampler_view->texture, 0, 0, 0,
-      PIPE_BIND_RENDER_TARGET);
+   struct pipe_surface *dst_surf, surf_tmpl;
+
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, dst->sampler_view->texture,
+                              PIPE_BIND_RENDER_TARGET);
+   dst_surf = pipe->create_surface(pipe, dst->sampler_view->texture, &surf_tmpl);
 
    /* drawing dest */
    memset(&fb, 0, sizeof(fb));

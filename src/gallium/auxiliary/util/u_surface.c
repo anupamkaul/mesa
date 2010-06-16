@@ -42,6 +42,18 @@
 #include "util/u_surface.h"
 #include "util/u_pack_color.h"
 
+void
+u_surface_default_template(struct pipe_surface *view,
+                           const struct pipe_resource *texture,
+                           unsigned bind)
+{
+   view->format = texture->format;
+   view->u.tex.level = 0;
+   view->u.tex.first_layer = 0;
+   view->u.tex.last_layer = 0;
+   /* XXX should filter out all non-rt/ds bind flags ? */
+   view->usage = bind;
+}
 
 /**
  * Helper to quickly create an RGBA rendering surface of a certain size.
@@ -65,6 +77,7 @@ util_create_rgba_surface(struct pipe_context *pipe,
    const uint target = PIPE_TEXTURE_2D;
    enum pipe_format format = PIPE_FORMAT_NONE;
    struct pipe_resource templ;
+   struct pipe_surface surf_templ;
    struct pipe_screen *screen = pipe->screen;
    uint i;
 
@@ -93,11 +106,13 @@ util_create_rgba_surface(struct pipe_context *pipe,
    if (!*textureOut)
       return FALSE;
 
+   /* create surface */
+   memset(&surf_templ, 0, sizeof(surf_templ));
+   u_surface_default_template(&surf_templ, *textureOut, bind);
    /* create surface / view into texture */
    *surfaceOut = pipe->create_surface(pipe,
                                       *textureOut,
-                                      0, 0, 0,
-                                      bind);
+                                      &surf_templ);
    if (!*surfaceOut) {
       pipe_resource_reference(textureOut, NULL);
       return FALSE;
@@ -220,8 +235,8 @@ util_clear_render_target(struct pipe_context *pipe,
    /* XXX: should handle multiple layers */
    dst_trans = pipe_get_transfer(pipe,
                                  dst->texture,
-                                 dst->level,
-                                 dst->first_layer,
+                                 dst->u.tex.level,
+                                 dst->u.tex.first_layer,
                                  PIPE_TRANSFER_WRITE,
                                  dstx, dsty, width, height);
 
@@ -307,8 +322,8 @@ util_clear_depth_stencil(struct pipe_context *pipe,
       return;
    dst_trans = pipe_get_transfer(pipe,
                                  dst->texture,
-                                 dst->level,
-                                 dst->first_layer,
+                                 dst->u.tex.level,
+                                 dst->u.tex.first_layer,
                                  (need_rmw ? PIPE_TRANSFER_READ_WRITE :
                                      PIPE_TRANSFER_WRITE),
                                  dstx, dsty, width, height);

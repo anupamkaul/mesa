@@ -8,6 +8,7 @@ struct nouveau_screen;
 struct nv04_surface {
 	struct pipe_surface base;
 	unsigned pitch;
+	unsigned offset;
 	struct nv04_surface* backing;
 };
 

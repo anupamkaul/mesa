@@ -280,9 +280,7 @@ void renderer_copy_texture(struct renderer *ctx,
    struct pipe_screen *screen = pipe->screen;
    struct pipe_resource *tex = src->texture;
    struct pipe_resource *buf;
-   struct pipe_surface *dst_surf = pipe->create_surface(
-      pipe, dst, 0, 0, 0,
-      PIPE_BIND_RENDER_TARGET);
+   struct pipe_surface *dst_surf, surf_tmpl;
    struct pipe_framebuffer_state fb;
    float s0, t0, s1, t1;
 
@@ -290,6 +288,11 @@ void renderer_copy_texture(struct renderer *ctx,
    assert(tex->height0 != 0);
    assert(dst->width0 != 0);
    assert(dst->height0 != 0);
+
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, dst,
+                              PIPE_BIND_RENDER_TARGET);
+   dst_surf = pipe->create_surface(pipe, dst, &surf_tmpl);
 
 #if 0
    debug_printf("copy texture [%f, %f, %f, %f], [%f, %f, %f, %f]\n",
@@ -473,7 +476,7 @@ void renderer_copy_surface(struct renderer *ctx,
    if (!view)
       return;
 
-   u_box_2d_zslice(srcLeft, srcTop, src->first_layer, srcW, srcH, &src_box);
+   u_box_2d_zslice(srcLeft, srcTop, src->u.tex.first_layer, srcW, srcH, &src_box);
 
    pipe->resource_copy_region(pipe,
                               tex, 0, 0, 0, 0,  /* dest */

@@ -477,26 +477,25 @@ llvmpipe_resource_get_handle(struct pipe_screen *screen,
 static struct pipe_surface *
 llvmpipe_create_surface(struct pipe_context *pipe,
                         struct pipe_resource *pt,
-                        unsigned level, unsigned first_layer, unsigned last_layer,
-                        unsigned usage)
+                        const struct pipe_surface *surf_tmpl)
 {
    struct pipe_surface *ps;
 
-   assert(level <= pt->last_level);
+   assert(surf_tmpl->u.tex.level <= pt->last_level);
 
    ps = CALLOC_STRUCT(pipe_surface);
    if (ps) {
       pipe_reference_init(&ps->reference, 1);
       pipe_resource_reference(&ps->texture, pt);
       ps->context = pipe;
-      ps->format = pt->format;
-      ps->width = u_minify(pt->width0, level);
-      ps->height = u_minify(pt->height0, level);
-      ps->usage = usage;
+      ps->format = surf_tmpl->format;
+      ps->width = u_minify(pt->width0, surf_tmpl->u.tex.level);
+      ps->height = u_minify(pt->height0, surf_tmpl->u.tex.level);
+      ps->usage = surf_tmpl->usage;
 
-      ps->level = level;
-      ps->first_layer = first_layer;
-      ps->last_layer = last_layer;
+      ps->u.tex.level = surf_tmpl->u.tex.level;
+      ps->u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+      ps->u.tex.last_layer = surf_tmpl->u.tex.last_layer;
    }
    return ps;
 }

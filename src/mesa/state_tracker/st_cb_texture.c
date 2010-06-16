@@ -421,7 +421,7 @@ compress_with_blit(GLcontext * ctx,
    struct pipe_resource *src_tex;
    struct pipe_sampler_view view_templ;
    struct pipe_sampler_view *src_view;
-   struct pipe_surface *dst_surface;
+   struct pipe_surface *dst_surface, surf_tmpl;
    struct pipe_transfer *tex_xfer;
    void *map;
 
@@ -431,9 +431,13 @@ compress_with_blit(GLcontext * ctx,
    }
 
    /* get destination surface (in the compressed texture) */
-   dst_surface = pipe->create_surface(pipe, stImage->pt, stImage->level,
-                                      stImage->face, stImage->face,
-                                      PIPE_BIND_RENDER_TARGET /* flags */);
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   surf_tmpl.format = stImage->pt->format;
+   surf_tmpl.usage = PIPE_BIND_RENDER_TARGET;
+   surf_tmpl.u.tex.level = stImage->level;
+   surf_tmpl.u.tex.first_layer = stImage->face;
+   surf_tmpl.u.tex.last_layer = stImage->face;
+   dst_surface = pipe->create_surface(pipe, stImage->pt, &surf_tmpl);
    if (!dst_surface) {
       /* can't render into this format (or other problem) */
       return GL_FALSE;
@@ -1580,7 +1584,7 @@ st_copy_texsubimage(GLcontext *ctx,
       {
          /* use surface_copy() / blit */
          struct pipe_box src_box;
-         u_box_2d_zslice(srcX, srcY, strb->surface->first_layer,
+         u_box_2d_zslice(srcX, srcY, strb->surface->u.tex.first_layer,
                          width, height, &src_box);
 
          /* for resource_copy_region(), y=0=top, always */
@@ -1591,7 +1595,7 @@ st_copy_texsubimage(GLcontext *ctx,
                                     destX, destY, destZ + stImage->face,
                                     /* src */
                                     strb->texture,
-                                    strb->surface->level,
+                                    strb->surface->u.tex.level,
                                     &src_box);
          use_fallback = GL_FALSE;
       }
@@ -1608,12 +1612,16 @@ st_copy_texsubimage(GLcontext *ctx,
                                            0)) {
          /* draw textured quad to do the copy */
          GLint srcY0, srcY1;
+         struct pipe_surface surf_tmpl;
+         memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+         surf_tmpl.format = stImage->pt->format;
+         surf_tmpl.usage = PIPE_BIND_RENDER_TARGET;
+         surf_tmpl.u.tex.level = stImage->level;
+         surf_tmpl.u.tex.first_layer = stImage->face + destZ;
+         surf_tmpl.u.tex.last_layer = stImage->face + destZ;
 
          dest_surface = pipe->create_surface(pipe, stImage->pt,
-                                             stImage->level,
-                                             stImage->face + destZ,
-                                             stImage->face + destZ,
-                                             PIPE_BIND_RENDER_TARGET);
+                                             &surf_tmpl);
 
          if (do_flip) {
             srcY1 = strb->Base.Height - srcY - height;
@@ -1626,10 +1634,10 @@ st_copy_texsubimage(GLcontext *ctx,
 
          util_blit_pixels_writemask(st->blit,
                                     strb->texture,
-                                    strb->surface->level,
+                                    strb->surface->u.tex.level,
                                     srcX, srcY0,
                                     srcX + width, srcY1,
-                                    strb->surface->first_layer,
+                                    strb->surface->u.tex.first_layer,
                                     dest_surface,
                                     destX, destY,
                                     destX + width, destY + height,

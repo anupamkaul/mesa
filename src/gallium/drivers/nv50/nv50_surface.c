@@ -119,23 +119,23 @@ nv50_surface_set(struct nv50_screen *screen, struct pipe_surface *ps, int dst)
  		OUT_RING  (chan, format);
  		OUT_RING  (chan, 1);
  		BEGIN_RING(chan, eng2d, mthd + 0x14, 5);
-		OUT_RING  (chan, mt->level[ps->level].pitch);
+		OUT_RING  (chan, mt->level[ps->u.tex.level].pitch);
  		OUT_RING  (chan, ps->width);
  		OUT_RING  (chan, ps->height);
- 		OUT_RELOCh(chan, bo, ps->offset, flags);
- 		OUT_RELOCl(chan, bo, ps->offset, flags);
+ 		OUT_RELOCh(chan, bo, ((struct nv50_surface *)ps)->offset, flags);
+ 		OUT_RELOCl(chan, bo, ((struct nv50_surface *)ps)->offset, flags);
  	} else {
  		BEGIN_RING(chan, eng2d, mthd, 5);
  		OUT_RING  (chan, format);
  		OUT_RING  (chan, 0);
-		OUT_RING  (chan, mt->level[ps->level].tile_mode << 4);
+		OUT_RING  (chan, mt->level[ps->u.tex.level].tile_mode << 4);
  		OUT_RING  (chan, 1);
  		OUT_RING  (chan, 0);
  		BEGIN_RING(chan, eng2d, mthd + 0x18, 4);
  		OUT_RING  (chan, ps->width);
  		OUT_RING  (chan, ps->height);
- 		OUT_RELOCh(chan, bo, ps->offset, flags);
- 		OUT_RELOCl(chan, bo, ps->offset, flags);
+ 		OUT_RELOCh(chan, bo, ((struct nv50_surface *)ps)->offset, flags);
+ 		OUT_RELOCl(chan, bo, ((struct nv50_surface *)ps)->offset, flags);
  	}
  
 #if 0
@@ -202,18 +202,28 @@ nv50_surface_copy(struct pipe_context *pipe,
 {
 	struct nv50_context *nv50 = nv50_context(pipe);
 	struct nv50_screen *screen = nv50->screen;
-	struct pipe_surface *ps_dst, *ps_src;
+	struct pipe_surface *ps_dst, *ps_src, surf_tmpl;
+
 
 	assert((src->format == dest->format) ||
 	       (nv50_2d_format_faithful(src->format) &&
 		nv50_2d_format_faithful(dest->format)));
 	assert(src_box->depth == 1);
 
+	memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+	surf_tmpl.format = src->format;
+	surf_tmpl.usage = 0; /* no bind flag - not a surface */
+	surf_tmpl.u.tex.level = src_level;
+	surf_tmpl.u.tex.first_layer = src_box->z;
+	surf_tmpl.u.tex.last_layer = src_box->z;
 	/* XXX really need surfaces here? */
-	ps_src = nv50_miptree_surface_new(pipe, src, src_level, src_box->z,
-					  src_box->z, 0 /* bind flags */);
-	ps_dst = nv50_miptree_surface_new(pipe, dest, dst_level, destz,
-					  destz, 0 /* bindflags */);
+	ps_src = nv50_miptree_surface_new(pipe, src, &surf_tmpl);
+	surf_tmpl.format = dest->format;
+	surf_tmpl.usage = 0; /* no bind flag - not a surface */
+	surf_tmpl.u.tex.level = dst_level;
+	surf_tmpl.u.tex.first_layer = destz;
+	surf_tmpl.u.tex.last_layer = destz;
+	ps_dst = nv50_miptree_surface_new(pipe, dest, &surf_tmpl);
 
 	nv50_surface_do_copy(screen, ps_dst, destx, desty, ps_src, src_box->x,
 			     src_box->y, src_box->width, src_box->height);

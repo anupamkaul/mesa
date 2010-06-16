@@ -51,6 +51,7 @@ static void init( void )
 {
    struct pipe_framebuffer_state fb;
    struct pipe_resource templat;
+   struct pipe_surface surf_tmpl;
    int i;
 
    /* It's hard to say whether window or screen should be created
@@ -89,9 +90,12 @@ static void init( void )
    if (tex == NULL)
       exit(4);
 
-   surf = ctx->create_surface(screen, tex, 0, 0, 0,
-                              PIPE_BIND_RENDER_TARGET |
-                              PIPE_BIND_DISPLAY_TARGET);
+   surf_tmpl.format = templat.format;
+   surf_tmpl.usage = PIPE_BIND_RENDER_TARGET;
+   surf_tmpl.u.tex.level = 0;
+   surf_tmpl.u.tex.first_layer = 0;
+   surf_tmpl.u.tex.last_layer = 0;
+   surf = ctx->create_surface(ctx, tex, &surf_tmpl);
    if (surf == NULL)
       exit(5);
 

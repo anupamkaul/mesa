@@ -97,6 +97,7 @@ struct program
 
 static void init_prog(struct program *p)
 {
+	struct pipe_surface surf_tmpl;
 	/* create the software rasterizer */
 	p->screen = softpipe_create_screen(null_sw_create());
 #if USE_TRACE
@@ -212,12 +213,17 @@ static void init_prog(struct program *p)
 	p->sampler.mag_img_filter = PIPE_TEX_MIPFILTER_LINEAR;
 	p->sampler.normalized_coords = 1;
 
+	surf_tmpl.format = templat.format;
+	surf_tmpl.usage = PIPE_BIND_RENDER_TARGET;
+	surf_tmpl.u.tex.level = 0;
+	surf_tmpl.u.tex.first_layer = 0;
+	surf_tmpl.u.tex.last_layer = 0;
 	/* drawing destination */
 	memset(&p->framebuffer, 0, sizeof(p->framebuffer));
 	p->framebuffer.width = WIDTH;
 	p->framebuffer.height = HEIGHT;
 	p->framebuffer.nr_cbufs = 1;
-	p->framebuffer.cbufs[0] = p->pipe->create_surface(p->pipe, p->target, 0, 0, 0, PIPE_BIND_RENDER_TARGET);
+	p->framebuffer.cbufs[0] = p->pipe->create_surface(p->pipe, p->target, &surf_tmpl);
 
 	/* viewport, depth isn't really needed */
 	{

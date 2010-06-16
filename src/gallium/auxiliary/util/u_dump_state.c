@@ -633,14 +633,12 @@ util_dump_surface(struct os_stream *stream, const struct pipe_surface *state)
    util_dump_member(stream, uint, state, width);
    util_dump_member(stream, uint, state, height);
 
-   util_dump_member(stream, uint, state, layout);
-   util_dump_member(stream, uint, state, offset);
    util_dump_member(stream, uint, state, usage);
 
    util_dump_member(stream, ptr, state, texture);
-   util_dump_member(stream, uint, state, level);
-   util_dump_member(stream, uint, state, first_layer);
-   util_dump_member(stream, uint, state, last_layer);
+   util_dump_member(stream, uint, state, u.tex.level);
+   util_dump_member(stream, uint, state, u.tex.first_layer);
+   util_dump_member(stream, uint, state, u.tex.last_layer);
 
    util_dump_struct_end(stream);
 }

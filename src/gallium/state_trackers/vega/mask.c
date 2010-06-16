@@ -38,6 +38,7 @@
 #include "util/u_inlines.h"
 #include "util/u_format.h"
 #include "util/u_memory.h"
+#include "util/u_surface.h"
 
 struct vg_mask_layer {
    struct vg_object base;
@@ -53,10 +54,14 @@ alpha_mask_surface(struct vg_context *ctx, int usage)
 {
    struct pipe_context *pipe = ctx->pipe;
    struct st_framebuffer *stfb = ctx->draw_buffer;
+   struct pipe_surface surf_tmpl;
+
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, stfb->alpha_mask_view->texture,
+                              usage);
    return pipe->create_surface(pipe,
                                stfb->alpha_mask_view->texture,
-                               0, 0, 0,
-                               usage);
+                               &surf_tmpl);
 }
 
 static INLINE VGboolean

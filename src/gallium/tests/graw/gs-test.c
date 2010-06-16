@@ -402,10 +402,6 @@ static void init_tex( void )
    memset(&sv_template, 0, sizeof sv_template);
    sv_template.format = samptex->format;
    sv_template.texture = samptex;
-   sv_template.first_level = 0;
-   sv_template.last_level = 0;
-   sv_template.first_layer = 0;
-   sv_template.last_layer = 0;
    sv_template.swizzle_r = 0;
    sv_template.swizzle_g = 1;
    sv_template.swizzle_b = 2;
@@ -441,6 +437,7 @@ static void init( void )
 {
    struct pipe_framebuffer_state fb;
    struct pipe_resource templat;
+   struct pipe_surface surf_tmpl;
    int i;
 
    /* It's hard to say whether window or screen should be created
@@ -477,9 +474,12 @@ static void init( void )
    if (rttex == NULL)
       exit(4);
 
-   surf = ctx->create_surface(ctx, rttex, 0, 0, 0,
-                              PIPE_BIND_RENDER_TARGET |
-                              PIPE_BIND_DISPLAY_TARGET);
+   surf_tmpl.format = templat.format;
+   surf_tmpl.usage = PIPE_BIND_RENDER_TARGET;
+   surf_tmpl.u.tex.level = 0;
+   surf_tmpl.u.tex.first_layer = 0;
+   surf_tmpl.u.tex.last_layer = 0;
+   surf = ctx->create_surface(ctx, rttex, &surf_tmpl);
    if (surf == NULL)
       exit(5);
 

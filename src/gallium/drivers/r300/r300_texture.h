@@ -65,10 +65,7 @@ r300_texture_create(struct pipe_screen* screen,
 
 struct pipe_surface* r300_create_surface(struct pipe_context *ctx,
                                          struct pipe_resource* texture,
-                                         unsigned level,
-                                         unsigned first_layer,
-                                         unsigned last_layer,
-                                         unsigned flags);
+                                         const struct pipe_surface *surf_tmpl);
 
 void r300_surface_destroy(struct pipe_context *ctx, struct pipe_surface* s);
 

@@ -45,6 +45,7 @@
 #include "util/u_memory.h"
 #include "util/u_blit.h"
 #include "util/u_sampler.h"
+#include "util/u_surface.h"
 
 struct vg_context *_vg_context = 0;
 
@@ -441,7 +442,7 @@ void vg_set_error(struct vg_context *ctx,
 
 void vg_prepare_blend_surface(struct vg_context *ctx)
 {
-   struct pipe_surface *dest_surface = NULL;
+   struct pipe_surface surf_tmpl, *dest_surface = NULL;
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_sampler_view *view;
    struct pipe_sampler_view view_templ;
@@ -454,10 +455,12 @@ void vg_prepare_blend_surface(struct vg_context *ctx)
    u_sampler_view_default_template(&view_templ, strb->texture, strb->texture->format);
    view = pipe->create_sampler_view(pipe, strb->texture, &view_templ);
 
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, stfb->blend_texture_view->texture,
+                              PIPE_BIND_RENDER_TARGET);
    dest_surface = pipe->create_surface(pipe,
                                        stfb->blend_texture_view->texture,
-                                       0, 0, 0,
-                                       PIPE_BIND_RENDER_TARGET);
+                                       &surf_tmpl);
    /* flip it, because we want to use it as a sampler */
    util_blit_pixels_tex(ctx->blit,
                         view,
@@ -480,7 +483,7 @@ void vg_prepare_blend_surface(struct vg_context *ctx)
 
 void vg_prepare_blend_surface_from_mask(struct vg_context *ctx)
 {
-   struct pipe_surface *dest_surface = NULL;
+   struct pipe_surface surf_tmpl, *dest_surface = NULL;
    struct pipe_context *pipe = ctx->pipe;
    struct st_framebuffer *stfb = ctx->draw_buffer;
    struct st_renderbuffer *strb = stfb->strb;
@@ -490,10 +493,12 @@ void vg_prepare_blend_surface_from_mask(struct vg_context *ctx)
    /* first finish all pending rendering */
    vgFinish();
 
+   memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+   u_surface_default_template(&surf_tmpl, stfb->blend_texture_view->texture,
+                              PIPE_BIND_RENDER_TARGET);
    dest_surface = pipe->create_surface(pipe,
                                        stfb->blend_texture_view->texture,
-                                       0, 0, 0,
-                                       PIPE_BIND_RENDER_TARGET);
+                                       &surf_tmpl);
 
    /* flip it, because we want to use it as a sampler */
    util_blit_pixels_tex(ctx->blit,

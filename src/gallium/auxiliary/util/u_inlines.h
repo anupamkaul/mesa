@@ -131,8 +131,8 @@ pipe_surface_reset(struct pipe_surface* ps, struct pipe_resource *pt,
    ps->width = u_minify(pt->width0, level);
    ps->height = u_minify(pt->height0, level);
    ps->usage = flags;
-   ps->level = level;
-   ps->first_layer = ps->last_layer = layer;
+   ps->u.tex.level = level;
+   ps->u.tex.first_layer = ps->u.tex.last_layer = layer;
 }
 
 static INLINE void

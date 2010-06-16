@@ -282,44 +282,44 @@ nv50_miptree_from_handle(struct pipe_screen *pscreen,
 
 struct pipe_surface *
 nv50_miptree_surface_new(struct pipe_context *pipe, struct pipe_resource *pt,
-			 unsigned level, unsigned first_layer, unsigned last_layer,
-			 unsigned flags)
+			 const struct pipe_surface *surf_tmpl)
 {
+	unsigned level = surf_tmpl->u.tex.level;
 	struct nv50_miptree *mt = nv50_miptree(pt);
 	struct nv50_miptree_level *lvl = &mt->level[level];
-	struct pipe_surface *ps;
+	struct nv50_surface *ns;
 	unsigned img = 0, zslice = 0;
 
-	assert(first_layer == last_layer);
+	assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
 
 	/* XXX can't unify these here? */
 	if (pt->target == PIPE_TEXTURE_CUBE)
-		img = first_layer;
+		img = surf_tmpl->u.tex.first_layer;
 	else if (pt->target == PIPE_TEXTURE_3D)
-		zslice = first_layer;
+		zslice = surf_tmpl->u.tex.first_layer;
 
-	ps = CALLOC_STRUCT(pipe_surface);
-	if (!ps)
+	ns = CALLOC_STRUCT(nv50_surface);
+	if (!ns)
 		return NULL;
-	pipe_resource_reference(&ps->texture, pt);
-	ps->context = pipe;
-	ps->format = pt->format;
-	ps->width = u_minify(pt->width0, level);
-	ps->height = u_minify(pt->height0, level);
-	ps->usage = flags;
-	pipe_reference_init(&ps->reference, 1);
-	ps->level = level;
-	ps->first_layer = first_layer;
-	ps->last_layer = last_layer;
-	ps->offset = lvl->image_offset[img];
+	pipe_resource_reference(&ns->base.texture, pt);
+	ns->base.context = pipe;
+	ns->base.format = pt->format;
+	ns->base.width = u_minify(pt->width0, level);
+	ns->base.height = u_minify(pt->height0, level);
+	ns->base.usage = surf_tmpl->usage;
+	pipe_reference_init(&ns->base.reference, 1);
+	ns->base.u.tex.level = level;
+	ns->base.u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+	ns->base.u.tex.last_layer = surf_tmpl->u.tex.last_layer;
+	ns->offset = lvl->image_offset[img];
 
 	if (pt->target == PIPE_TEXTURE_3D) {
-		unsigned nb_h = util_format_get_nblocksy(pt->format, ps->height);
-		ps->offset += get_zslice_offset(lvl->tile_mode, zslice,
+		unsigned nb_h = util_format_get_nblocksy(pt->format, ns->base.height);
+		ns->offset += get_zslice_offset(lvl->tile_mode, zslice,
 						lvl->pitch, nb_h);
 	}
 
-	return ps;
+	return &ns->base;
 }
 
 void
@@ -328,6 +328,6 @@ nv50_miptree_surface_del(struct pipe_context *pipe,
 {
 	struct nv50_surface *s = nv50_surface(ps);
 
-	pipe_resource_reference(&ps->texture, NULL);
+	pipe_resource_reference(&s->base.texture, NULL);
 	FREE(s);
 }

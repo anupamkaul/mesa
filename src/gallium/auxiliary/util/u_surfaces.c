@@ -53,7 +53,6 @@ util_surfaces_do_get(struct util_surfaces *us, unsigned surface_struct_size,
       return NULL;
 
    pipe_surface_init(ps, pt, level, zslice + face, flags);
-   ps->offset = ~0;
 
    if(pt->target == PIPE_TEXTURE_3D || pt->target == PIPE_TEXTURE_CUBE)
       util_hash_table_set(us->u.table, key, ps);
@@ -69,11 +68,11 @@ util_surfaces_do_detach(struct util_surfaces *us, struct pipe_surface *ps)
    struct pipe_resource *pt = ps->texture;
    if(pt->target == PIPE_TEXTURE_3D || pt->target == PIPE_TEXTURE_CUBE)
    {	/* or 2D array */
-      void* key = (void*)(uintptr_t)(((ps->first_layer) << 8) | ps->level);
+      void* key = (void*)(uintptr_t)(((ps->u.tex.first_layer) << 8) | ps->u.tex.level);
       util_hash_table_remove(us->u.table, key);
    }
    else
-      us->u.array[ps->level] = 0;
+      us->u.array[ps->u.tex.level] = 0;
 }
 
 static enum pipe_error

@@ -116,29 +116,29 @@ static void r600_texture_destroy(struct pipe_screen *screen,
 
 static struct pipe_surface *r600_create_surface(struct pipe_context *pipe,
 						struct pipe_resource *texture,
-						unsigned level, unsigned first_layer,
-						unsigned last_layer, unsigned flags)
+						const struct pipe_surface *surf_tmpl)
 {
 	struct r600_texture *rtex = (struct r600_texture*)texture;
 	struct pipe_surface *surface = CALLOC_STRUCT(pipe_surface);
 	unsigned long offset;
+	unsigned level = surf_tmpl->u.tex.level;
 
-	assert(first_layer == last_layer);
+	assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
 	if (surface == NULL)
 		return NULL;
-	offset = r600_texture_get_offset(rtex, level, first_layer);
+	/* offset not used. Either drop or subclass pipe_surface */
+	offset = r600_texture_get_offset(rtex, level, surf_tmpl->u.tex.first_layer);
 	pipe_reference_init(&surface->reference, 1);
 	pipe_resource_reference(&surface->texture, texture);
 	surface->context = pipe;
-	surface->format = texture->format;
+	surface->format = surf_tmpl->format;
 	surface->width = u_minify(texture->width0, level);
 	surface->height = u_minify(texture->height0, level);
-	surface->offset = offset;
-	surface->usage = flags;
+	surface->usage = surf_tmpl->usage;
 	surface->texture = texture;
-	surface->first_layer = first_layer;
-	surface->last_layer = last_layer;
-	surface->level = level;
+	surface->u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+	surface->u.tex.last_layer = surf_tmpl->u.tex.last_layer;
+	surface->u.tex.level = level;
 	return surface;
 }
 

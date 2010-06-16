@@ -655,7 +655,7 @@ void util_blitter_copy_region(struct blitter_context *blitter,
    struct blitter_context_priv *ctx = (struct blitter_context_priv*)blitter;
    struct pipe_context *pipe = ctx->pipe;
    struct pipe_screen *screen = pipe->screen;
-   struct pipe_surface *dstsurf;
+   struct pipe_surface *dstsurf, surf_templ;
    struct pipe_framebuffer_state fb_state;
    struct pipe_sampler_view viewTempl, *view;
    unsigned bind;
@@ -700,10 +700,13 @@ void util_blitter_copy_region(struct blitter_context *blitter,
       return;
    }
 
-   /* Get surfaces. */
-   dstsurf = pipe->create_surface(pipe, dst,
-                                  dstlevel, dstz, dstz,
-                                  bind);
+   /* Get surface. */
+   memset(&surf_templ, 0, sizeof(surf_templ));
+   u_surface_default_template(&surf_templ, dst, bind);
+   surf_templ.u.tex.level = dstlevel;
+   surf_templ.u.tex.first_layer = dstz;
+   surf_templ.u.tex.last_layer = dstz;
+   dstsurf = pipe->create_surface(pipe, dst, &surf_templ);
 
    /* Check whether the states are properly saved. */
    blitter_check_saved_CSOs(ctx);

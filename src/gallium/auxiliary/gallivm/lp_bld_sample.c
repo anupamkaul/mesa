@@ -92,7 +92,7 @@ lp_sampler_static_state(struct lp_sampler_static_state *state,
    state->wrap_r            = sampler->wrap_r;
    state->min_img_filter    = sampler->min_img_filter;
    state->mag_img_filter    = sampler->mag_img_filter;
-   if (view->last_level) {
+   if (view->u.tex.last_level) {
       state->min_mip_filter = sampler->min_mip_filter;
    } else {
       state->min_mip_filter = PIPE_TEX_MIPFILTER_NONE;
@@ -105,7 +105,7 @@ lp_sampler_static_state(struct lp_sampler_static_state *state,
 
    state->normalized_coords = sampler->normalized_coords;
    state->lod_bias          = sampler->lod_bias;
-   if (!view->last_level &&
+   if (!view->u.tex.last_level &&
        sampler->min_img_filter == sampler->mag_img_filter) {
       state->min_lod        = 0.0f;
       state->max_lod        = 0.0f;

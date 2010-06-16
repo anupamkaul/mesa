@@ -960,10 +960,7 @@ trace_sampler_view_destroy(struct pipe_context *_pipe,
 static struct pipe_surface *
 trace_create_surface(struct pipe_context *_pipe,
                      struct pipe_resource *_texture,
-                     unsigned level,
-                     unsigned first_layer,
-                     unsigned last_layer,
-                     unsigned usage)
+                     const struct pipe_surface *surf_tmpl)
 {
    struct trace_context *tr_ctx = trace_context(_pipe);
    struct trace_resource *tr_tex = trace_resource(_texture);
@@ -975,12 +972,10 @@ trace_create_surface(struct pipe_context *_pipe,
 
    trace_dump_arg(ptr, pipe);
    trace_dump_arg(ptr, texture);
-   trace_dump_arg(uint, level);
-   trace_dump_arg(uint, first_layer);
-   trace_dump_arg(uint, last_layer);
-   trace_dump_arg(uint, usage);
+   /* hmm some values unitialized there */
+   trace_dump_arg(surface, surf_tmpl);
 
-   result = pipe->create_surface(pipe, texture, level, first_layer, last_layer, usage);
+   result = pipe->create_surface(pipe, texture, surf_tmpl);
 
    trace_dump_ret(ptr, result);
 
