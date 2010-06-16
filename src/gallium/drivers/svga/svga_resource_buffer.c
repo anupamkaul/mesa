@@ -337,6 +337,7 @@ svga_user_buffer_create(struct pipe_screen *screen,
    sbuf->b.b.width0 = bytes;
    sbuf->b.b.height0 = 1;
    sbuf->b.b.depth0 = 1;
+   sbuf->b.b.array_size = 1;
 
    sbuf->swbuf = ptr;
    sbuf->user = TRUE;

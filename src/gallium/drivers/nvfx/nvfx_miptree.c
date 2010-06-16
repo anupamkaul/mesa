@@ -29,12 +29,16 @@ nvfx_miptree_layout(struct nvfx_miptree *mt)
 				      PIPE_BIND_SCANOUT);
 
 	if (pt->target == PIPE_TEXTURE_CUBE) {
-		assert(pt->depth0 == 6);
+		assert(pt->array_size == 6);
+		assert(pt->depth0 == 1);
 	} else
-	if (pt->target != PIPE_TEXTURE_3D) {
+	if (pt->target == PIPE_TEXTURE_3D) {
+		assert(pt->array_size == 1);
+	} else {
+		assert(pt->array_size == 1);
 		assert(pt->depth0 == 1);
 	}
-	nr_faces = pt->depth0;
+	nr_faces = pt->depth0 + pt->array_size - 1;
 
 	for (l = 0; l <= pt->last_level; l++) {
 		if (wide_pitch && (pt->flags & NVFX_RESOURCE_FLAG_LINEAR))

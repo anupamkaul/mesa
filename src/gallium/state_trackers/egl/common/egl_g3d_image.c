@@ -108,7 +108,7 @@ egl_g3d_create_image(_EGLDriver *drv, _EGLDisplay *dpy, _EGLContext *ctx,
       FREE(gimg);
       return NULL;
    }
-   if (layer > ptex->depth0) {
+   if (layer >= (u_minify(ptex->depth0, level) + ptex->array_size - 1)) {
       _eglError(EGL_BAD_PARAMETER, "eglCreateEGLImageKHR");
       pipe_resource_reference(&gimg->texture, NULL);
       FREE(gimg);

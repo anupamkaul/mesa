@@ -536,6 +536,7 @@ renderer_clone_texture(struct xorg_renderer *r,
    templ.width0 = src->width0;
    templ.height0 = src->height0;
    templ.depth0 = 1;
+   templ.array_size = 1;
    templ.bind = PIPE_BIND_SAMPLER_VIEW;
 
    pt = screen->resource_create(screen, &templ);

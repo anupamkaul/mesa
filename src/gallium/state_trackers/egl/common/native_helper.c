@@ -130,6 +130,7 @@ resource_surface_add_resources(struct resource_surface *rsurf,
    templ.width0 = rsurf->width;
    templ.height0 = rsurf->height;
    templ.depth0 = 1;
+   templ.array_size = 1;
 
    for (i = 0; i < NUM_NATIVE_ATTACHMENTS; i++) {
       if (resource_mask & (1 <<i)) {

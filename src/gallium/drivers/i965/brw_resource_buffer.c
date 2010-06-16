@@ -194,6 +194,7 @@ brw_user_buffer_create(struct pipe_screen *screen,
    buf->b.b.width0 = bytes;
    buf->b.b.height0 = 1;
    buf->b.b.depth0 = 1;
+   buf->b.b.array_size = 1;
 
    buf->user_buffer = ptr;
    

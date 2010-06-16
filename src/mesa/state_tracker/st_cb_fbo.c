@@ -116,6 +116,7 @@ st_renderbuffer_alloc_storage(GLcontext * ctx, struct gl_renderbuffer *rb,
       template.width0 = width;
       template.height0 = height;
       template.depth0 = 1;
+      template.array_size = 1;
       template.last_level = 0;
       template.nr_samples = rb->NumSamples;
       if (util_format_is_depth_or_stencil(format)) {

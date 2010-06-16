@@ -130,7 +130,9 @@ r300_texture_get_transfer(struct pipe_context *ctx,
             base.format = texture->format;
             base.width0 = box->width;
             base.height0 = box->height;
-            base.depth0 = 0;
+            /* XXX: was depth0 = 0 */
+            base.depth0 = 1;
+            base.array_size = 1;
             base.last_level = 0;
             base.nr_samples = 0;
             base.usage = PIPE_USAGE_DYNAMIC;

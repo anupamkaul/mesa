@@ -280,6 +280,7 @@ struct vg_image * image_create(VGImageFormat format,
    pt.width0 = width;
    pt.height0 = height;
    pt.depth0 = 1;
+   pt.array_size = 1;
    pt.bind = PIPE_BIND_SAMPLER_VIEW;
 
    newtex = screen->resource_create(screen, &pt);

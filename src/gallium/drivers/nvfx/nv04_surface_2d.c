@@ -518,6 +518,7 @@ nv04_surface_wrap_for_render(struct pipe_context *pipe,
 	templ.width0 = ns->base.width;
 	templ.height0 = ns->base.height;
 	templ.depth0 = 1;
+	templ.array_size = 1;
 	templ.last_level = 0;
 
 	// TODO: this is probably wrong and we should specifically handle multisampling somehow once it is implemented

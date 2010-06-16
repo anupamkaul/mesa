@@ -874,6 +874,7 @@ ExaModifyPixmapHeader(PixmapPtr pPixmap, int width, int height,
         }
 
 	template.depth0 = 1;
+	template.array_size = 1;
 	template.last_level = 0;
 	template.bind = PIPE_BIND_RENDER_TARGET | priv->flags;
 	priv->tex_flags = priv->flags;
@@ -943,6 +944,7 @@ xorg_exa_create_root_texture(ScrnInfoPtr pScrn,
     template.width0 = width;
     template.height0 = height;
     template.depth0 = 1;
+    template.array_size = 1;
     template.last_level = 0;
     template.bind |= PIPE_BIND_RENDER_TARGET;
     template.bind |= PIPE_BIND_SCANOUT;

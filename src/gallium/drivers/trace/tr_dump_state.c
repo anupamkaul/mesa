@@ -71,6 +71,10 @@ void trace_dump_resource_template(const struct pipe_resource *templat)
    trace_dump_uint(templat->depth0);
    trace_dump_member_end();
 
+   trace_dump_member_begin("array_size");
+   trace_dump_uint(templat->array_size);
+   trace_dump_member_end();
+
    trace_dump_member(uint, templat, last_level);
    trace_dump_member(uint, templat, usage);
    trace_dump_member(uint, templat, bind);

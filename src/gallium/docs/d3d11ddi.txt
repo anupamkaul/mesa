@@ -224,7 +224,6 @@ CreateResource -> texture_create or buffer_create
 	! D3D11 specifies mapping flags (i.e. read/write/discard);:it's unclear what they are used for here
 	- D3D11 supports odd things in the D3D10_DDI_RESOURCE_MISC_FLAG enum (D3D10_DDI_RESOURCE_MISC_DISCARD_ON_PRESENT, D3D11_DDI_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS, D3D11_DDI_RESOURCE_MISC_BUFFER_STRUCTURED)
 	- Gallium does not support indirect draw call parameter buffers
-	- Gallium lacks array textures
 	! D3D11 supports specifying hardware modes and other stuff here for scanout resources
 	+ Gallium allows specifying minimum buffer alignment
 	! D3D11 implements cube maps as 2D array textures

@@ -97,6 +97,7 @@ struct pipe_resource *r600_texture_create(struct pipe_screen *screen,
 	templ_buf.width0 = rtex->size;
 	templ_buf.height0 = 1;
 	templ_buf.depth0 = 1;
+	templ_buf.array_size = 1;
 
 	rtex->buffer = screen->resource_create(screen, &templ_buf);
 	if (!rtex->buffer) {

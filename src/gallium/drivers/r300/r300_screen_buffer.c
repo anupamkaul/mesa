@@ -304,6 +304,7 @@ struct pipe_resource *r300_user_buffer_create(struct pipe_screen *screen,
     rbuf->b.b.width0 = bytes;
     rbuf->b.b.height0 = 1;
     rbuf->b.b.depth0 = 1;
+    rbuf->b.b.array_size = 1;
     rbuf->domain = R300_DOMAIN_GTT;
 
     rbuf->user_buffer = ptr;

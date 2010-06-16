@@ -146,6 +146,7 @@ static void init_prog(struct program *p)
 		tmplt.width0 = WIDTH;
 		tmplt.height0 = HEIGHT;
 		tmplt.depth0 = 1;
+		tmplt.array_size = 1;
 		tmplt.last_level = 0;
 		tmplt.bind = PIPE_BIND_RENDER_TARGET;
 
@@ -166,6 +167,7 @@ static void init_prog(struct program *p)
 		t_tmplt.width0 = 2;
 		t_tmplt.height0 = 2;
 		t_tmplt.depth0 = 1;
+		t_tmplt.array_size = 1;
 		t_tmplt.last_level = 0;
 		t_tmplt.bind = PIPE_BIND_RENDER_TARGET;
 

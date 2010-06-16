@@ -517,10 +517,7 @@ svga_texture_create(struct pipe_screen *screen,
    tex->key.flags = 0;
    tex->key.size.width = template->width0;
    tex->key.size.height = template->height0;
-   /* can't cope with new style depth which also serves as
-      array size, and is 6 for cube maps */
-   tex->key.size.depth = template->target == PIPE_TEXTURE_3D ?
-                                             template->depth0 : 1;
+   tex->key.size.depth = template->depth0;
 
    if(template->target == PIPE_TEXTURE_CUBE) {
       tex->key.flags |= SVGA3D_SURFACE_CUBEMAP;

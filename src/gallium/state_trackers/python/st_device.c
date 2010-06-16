@@ -241,6 +241,7 @@ st_context_create(struct st_device *st_dev)
       templat.width0 = 1;
       templat.height0 = 1;
       templat.depth0 = 1;
+      templat.array_size = 1;
       templat.last_level = 0;
       templat.bind = PIPE_BIND_SAMPLER_VIEW;
    

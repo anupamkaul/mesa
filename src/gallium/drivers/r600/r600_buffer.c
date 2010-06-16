@@ -115,6 +115,7 @@ struct pipe_resource *r600_user_buffer_create(struct pipe_screen *screen,
 	templ.width0 = bytes;
 	templ.height0 = 1;
 	templ.depth0 = 1;
+	templ.array_size = 1;
 
 	rbuffer = (struct r600_buffer*)r600_buffer_create(screen, &templ);
 	if (rbuffer == NULL) {

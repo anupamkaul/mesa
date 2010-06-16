@@ -133,7 +133,7 @@ nv50_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *tmp
 	struct nv50_miptree *mt = CALLOC_STRUCT(nv50_miptree);
 	struct pipe_resource *pt = &mt->base.base;
 	unsigned width = tmp->width0, height = tmp->height0;
-	unsigned depth_fix = tmp->depth0, image_alignment, depth;
+	unsigned depth = tmp->depth0, image_alignment;
 	uint32_t tile_flags;
 	int ret, i, l;
 
@@ -173,16 +173,7 @@ nv50_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *tmp
 	}
 
 	/* XXX: texture arrays */
-	if (pt->target == PIPE_TEXTURE_3D)
-		mt->image_nr = 1;
-	else {
-		/* should handle both array and cube textures */
-		if (pt->target == PIPE_TEXTURE_CUBE)
-			assert(depth_fix == 6);
-		mt->image_nr = depth_fix;
-		depth_fix = 1;
-	}
-	depth = depth_fix;
+	mt->image_nr = (pt->target == PIPE_TEXTURE_CUBE) ? 6 : 1;
 
 	for (l = 0; l <= pt->last_level; l++) {
 		struct nv50_miptree_level *lvl = &mt->level[l];
@@ -212,7 +203,7 @@ nv50_miptree_create(struct pipe_screen *pscreen, const struct pipe_resource *tmp
 
 			size  = lvl->pitch;
 			size *= align(util_format_get_nblocksy(pt->format, u_minify(pt->height0, l)), tile_h);
-			size *= align(u_minify(depth_fix, l), tile_d);
+			size *= align(u_minify(pt->depth0, l), tile_d);
 
 			lvl->image_offset[i] = mt->total_size;
 

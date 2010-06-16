@@ -87,6 +87,7 @@ static void init_fs_constbuf( void )
    templat.width0 = sizeof(constants);
    templat.height0 = 1;
    templat.depth0 = 1;
+   templat.array_size = 1;
    templat.last_level = 0;
    templat.nr_samples = 1;
    templat.bind = PIPE_BIND_CONSTANT_BUFFER;
@@ -301,6 +302,7 @@ static void init_tex( void )
    templat.width0 = SIZE;
    templat.height0 = SIZE;
    templat.depth0 = 1;
+   templat.array_size = 1;
    templat.last_level = 0;
    templat.nr_samples = 1;
    templat.bind = PIPE_BIND_SAMPLER_VIEW;
@@ -410,6 +412,7 @@ static void init( void )
    templat.width0 = WIDTH;
    templat.height0 = HEIGHT;
    templat.depth0 = 1;
+   templat.array_size = 1;
    templat.last_level = 0;
    templat.nr_samples = 1;
    templat.bind = (PIPE_BIND_RENDER_TARGET |

@@ -312,8 +312,7 @@ softpipe_get_transfer(struct pipe_context *pipe,
    /* make sure the requested region is in the image bounds */
    assert(box->x + box->width <= u_minify(resource->width0, level));
    assert(box->y + box->height <= u_minify(resource->height0, level));
-   assert(box->z + box->depth <= (resource->target == PIPE_TEXTURE_3D ?
-                                  u_minify(resource->depth0, level) : resource->depth0));
+   assert(box->z + box->depth <= (u_minify(resource->depth0, level) + resource->array_size - 1));
 
    /*
     * Transfers, like other pipe operations, must happen in order, so flush the
@@ -451,6 +450,7 @@ softpipe_user_buffer_create(struct pipe_screen *screen,
    spr->base.width0 = bytes;
    spr->base.height0 = 1;
    spr->base.depth0 = 1;
+   spr->base.array_size = 1;
    spr->userBuffer = TRUE;
    spr->data = ptr;
 

@@ -360,8 +360,7 @@ cell_get_transfer(struct pipe_context *ctx,
    /* make sure the requested region is in the image bounds */
    assert(box->x + box->width <= u_minify(resource->width0, level));
    assert(box->y + box->height <= u_minify(resource->height0, level));
-   assert(box->z + box->depth <= (resource->target == PIPE_TEXTURE_3D ?
-                                  u_minify(resource->depth0, level) : resource->depth0));
+   assert(box->z + box->depth <= (u_minify(resource->depth0, level) + resource->array_size - 1));
 
    ctrans = CALLOC_STRUCT(cell_transfer);
    if (ctrans) {
@@ -589,6 +588,7 @@ cell_user_buffer_create(struct pipe_screen *screen,
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
    buffer->base.depth0 = 1;
+   buffer->base.array_size = 1;
    buffer->userBuffer = TRUE;
    buffer->data = ptr;
 

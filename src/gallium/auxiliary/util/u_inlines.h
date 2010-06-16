@@ -163,6 +163,7 @@ pipe_buffer_create( struct pipe_screen *screen,
    buffer.width0 = size;
    buffer.height0 = 1;
    buffer.depth0 = 1;
+   buffer.array_size = 1;
    return screen->resource_create(screen, &buffer);
 }
 

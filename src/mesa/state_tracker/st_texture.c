@@ -84,6 +84,7 @@ st_texture_create(struct st_context *st,
    pt.width0 = width0;
    pt.height0 = height0;
    pt.depth0 = depth0;
+   pt.array_size = (target == PIPE_TEXTURE_CUBE ? 6 : 1);
    pt.usage = PIPE_USAGE_DEFAULT;
    pt.bind = bind;
    pt.flags = 0;
@@ -211,8 +212,7 @@ st_texture_image_data(struct st_context *st,
                       GLuint src_row_stride, GLuint src_image_stride)
 {
    struct pipe_context *pipe = st->pipe;
-   GLuint depth = dst->target == PIPE_TEXTURE_3D ?
-                  u_minify(dst->depth0, level) : 1;
+   GLuint depth = u_minify(dst->depth0, level);
    GLuint i;
    const GLubyte *srcUB = src;
    struct pipe_transfer *dst_transfer;
@@ -231,7 +231,7 @@ st_texture_image_data(struct st_context *st,
 		      src_row_stride,
 		      0, 0,                             /* source x, y */
 		      u_minify(dst->width0, level),
-                      u_minify(dst->height0, level));      /* width, height */
+                      u_minify(dst->height0, level));    /* width, height */
 
       pipe->transfer_destroy(pipe, dst_transfer);
 
@@ -281,15 +281,13 @@ st_texture_image_copy(struct pipe_context *pipe,
 {
    GLuint width = u_minify(dst->width0, dstLevel);
    GLuint height = u_minify(dst->height0, dstLevel);
-   GLuint depth = dst->target == PIPE_TEXTURE_3D ?
-                  u_minify(dst->depth0, dstLevel) : 1;
+   GLuint depth = u_minify(dst->depth0, dstLevel);
    struct pipe_box src_box;
    GLuint i;
 
    assert(u_minify(src->width0, srcLevel) == width);
    assert(u_minify(src->height0, srcLevel) == height);
-   assert((src->target == PIPE_TEXTURE_3D ?
-          u_minify(src->depth0, srcLevel) : 1) == depth);
+   assert(u_minify(src->depth0, srcLevel) == depth);
 
    src_box.x = 0;
    src_box.y = 0;

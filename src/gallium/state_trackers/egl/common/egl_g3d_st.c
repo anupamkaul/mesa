@@ -307,6 +307,7 @@ pbuffer_allocate_render_texture(struct egl_g3d_surface *gsurf)
    templ.width0 = gsurf->base.Width;
    templ.height0 = gsurf->base.Height;
    templ.depth0 = 1;
+   templ.array_size = 1;
    templ.format = gsurf->stvis.color_format;
    templ.bind = PIPE_BIND_RENDER_TARGET;
 

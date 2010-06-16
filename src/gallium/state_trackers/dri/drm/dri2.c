@@ -283,6 +283,7 @@ dri2_drawable_process_buffers(struct dri_drawable *drawable,
    templ.width0 = dri_drawable->w;
    templ.height0 = dri_drawable->h;
    templ.depth0 = 1;
+   templ.array_size = 1;
 
    memset(&whandle, 0, sizeof(whandle));
 
@@ -429,6 +430,7 @@ dri2_create_image_from_name(__DRIcontext *context,
    templ.width0 = width;
    templ.height0 = height;
    templ.depth0 = 1;
+   templ.array_size = 1;
 
    memset(&whandle, 0, sizeof(whandle));
    whandle.handle = name;

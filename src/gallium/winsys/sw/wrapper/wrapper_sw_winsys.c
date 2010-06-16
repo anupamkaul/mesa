@@ -148,6 +148,8 @@ wsw_dt_create(struct sw_winsys *ws,
    templ.target = PIPE_TEXTURE_2D;
    templ.width0 = width;
    templ.height0 = height;
+   templ.depth0 = 1;
+   templ.array_size = 1;
    templ.format = format;
    templ.bind = bind;
 

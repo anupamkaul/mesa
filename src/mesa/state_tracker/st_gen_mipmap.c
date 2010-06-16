@@ -194,12 +194,10 @@ fallback_generate_mipmap(GLcontext *ctx, GLenum target,
       const uint srcLevel = dstLevel - 1;
       const uint srcWidth = u_minify(pt->width0, srcLevel);
       const uint srcHeight = u_minify(pt->height0, srcLevel);
-      const uint srcDepth = pt->target == PIPE_TEXTURE_3D ?
-                            u_minify(pt->depth0, srcLevel) : 1;
+      const uint srcDepth = u_minify(pt->depth0, srcLevel);
       const uint dstWidth = u_minify(pt->width0, dstLevel);
       const uint dstHeight = u_minify(pt->height0, dstLevel);
-      const uint dstDepth = pt->target == PIPE_TEXTURE_3D ?
-                            u_minify(pt->depth0, dstLevel) : 1;
+      const uint dstDepth = u_minify(pt->depth0, dstLevel);
       struct pipe_transfer *srcTrans, *dstTrans;
       const ubyte *srcData;
       ubyte *dstData;

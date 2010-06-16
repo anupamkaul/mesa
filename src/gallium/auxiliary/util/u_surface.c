@@ -100,6 +100,7 @@ util_create_rgba_surface(struct pipe_context *pipe,
    templ.width0 = width;
    templ.height0 = height;
    templ.depth0 = 1;
+   templ.array_size = 1;
    templ.bind = bind;
 
    *textureOut = screen->resource_create(screen, &templ);

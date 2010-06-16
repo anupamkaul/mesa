@@ -76,6 +76,7 @@ static INLINE struct pipe_resource *create_texture_1d(struct vg_context *ctx,
    templ.width0 = color_data_len;
    templ.height0 = 1;
    templ.depth0 = 1;
+   templ.array_size = 1;
    templ.bind = PIPE_BIND_SAMPLER_VIEW;
 
    tex = screen->resource_create(screen, &templ);

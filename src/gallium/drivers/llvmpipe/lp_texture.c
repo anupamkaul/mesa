@@ -240,6 +240,7 @@ llvmpipe_resource_create(struct pipe_screen *_screen,
       /* other data (vertex buffer, const buffer, etc) */
       const enum pipe_format format = templat->format;
       const uint w = templat->width0 / util_format_get_blockheight(format);
+      /* XXX buffers should only have one dimension, those values should be 1 */
       const uint h = templat->height0 / util_format_get_blockwidth(format);
       const uint d = templat->depth0;
       const uint bpp = util_format_get_blocksize(format);
@@ -336,8 +337,7 @@ llvmpipe_resource_map(struct pipe_resource *resource,
    uint8_t *map;
 
    assert(level < LP_MAX_TEXTURE_LEVELS);
-   assert(resource->target == PIPE_TEXTURE_3D ?
-      layer < u_minify(resource->depth0, level) : layer < resource->depth0);
+   assert(layer < (u_minify(resource->depth0, level) + resource->array_size - 1));
 
    assert(tex_usage == LP_TEX_USAGE_READ ||
           tex_usage == LP_TEX_USAGE_READ_WRITE ||
@@ -693,6 +693,7 @@ llvmpipe_user_buffer_create(struct pipe_screen *screen,
    buffer->base.width0 = bytes;
    buffer->base.height0 = 1;
    buffer->base.depth0 = 1;
+   buffer->base.array_size = 1;
    buffer->userBuffer = TRUE;
    buffer->data = ptr;
 

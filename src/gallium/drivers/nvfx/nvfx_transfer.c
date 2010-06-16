@@ -29,6 +29,7 @@ nvfx_compatible_transfer_tex(struct pipe_resource *pt, unsigned width, unsigned 
 	template->width0 = width;
 	template->height0 = height;
 	template->depth0 = 1;
+	template->array_size = 1;
 	template->last_level = 0;
 	template->nr_samples = pt->nr_samples;
 	template->bind = bind;
