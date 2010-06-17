@@ -161,6 +161,9 @@ get_present_surface_locked(struct st_framebuffer_iface *stfb,
                            enum st_attachment_type statt)
 {
    struct stw_st_framebuffer *stwfb = stw_st_framebuffer(stfb);
+#if 0
+   /* since we don't really have to get a surface for this we
+      no longer need a cache? */
    struct pipe_resource *ptex;
    struct pipe_resource *pres, **cache;
 
@@ -189,7 +192,10 @@ get_present_surface_locked(struct st_framebuffer_iface *stfb,
    if (pres != *cache)
       pipe_resource_reference(&pres, *cache);
 
-   return psurf;
+   return pres;
+#else
+   return stwfb->textures[statt];
+#endif
 }
 
 /**
@@ -203,7 +209,7 @@ stw_st_framebuffer_present_locked(struct st_framebuffer_iface *stfb,
    struct pipe_resource *pres;
 
    pres = get_present_surface_locked(&stwfb->base, statt);
-   if (psurf) {
+   if (pres) {
       stw_framebuffer_present_locked(stwfb->fb->hDC, stwfb->fb, pres);
       pipe_resource_reference(&pres, NULL);
    }

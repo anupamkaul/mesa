@@ -143,7 +143,7 @@ stw_framebuffer_from_hdc(
 BOOL
 stw_framebuffer_present_locked(HDC hdc,
                                struct stw_framebuffer *fb,
-                               struct pipe_context *res);
+                               struct pipe_resource *res);
 
 void
 stw_framebuffer_update(

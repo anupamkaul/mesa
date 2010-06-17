@@ -535,7 +535,7 @@ stw_framebuffer_present_locked(HDC hdc,
       data.magic2 = 0;
       data.AdapterLuid = stw_dev->AdapterLuid;
       data.rect = fb->client_rect;
-      data.pPrivateData = (void *)stw_surf;
+      data.pPrivateData = (void *)res;
 
       stw_notify_current_locked(fb);
       stw_framebuffer_release(fb);
