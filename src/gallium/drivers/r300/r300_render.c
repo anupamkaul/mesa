@@ -1013,6 +1013,55 @@ struct draw_stage* r300_draw_stage(struct r300_context* r300)
     return stage;
 }
 
+/****************************************************************************
+ *                         End of SW TCL functions                          *
+ ***************************************************************************/
+
+static void r300_resource_resolve(struct pipe_context* pipe,
+                                  struct pipe_resource* dest,
+                                  unsigned dst_layer,
+                                  struct pipe_resource* src,
+                                  unsigned src_layer)
+{
+    struct r300_context* r300 = r300_context(pipe);
+    struct r300_surface* destsurf;
+    struct pipe_surface* srcsurf, surf_tmpl;
+    float color[] = {0, 0, 0, 0};
+    CS_LOCALS(r300);
+
+    memset(&surf_tmpl, 0, sizeof(surf_tmpl));
+    surf_tmpl.format = src->format;
+    surf_tmpl.usage = 0; /* not really a surface hence no bind flags */
+    surf_tmpl.u.tex.level = 0; /* msaa resources cannot have mipmaps */
+    surf_tmpl.u.tex.first_layer = src_layer;
+    surf_tmpl.u.tex.last_layer = src_layer;
+    srcsurf = pipe->create_surface(pipe, src, &surf_tmpl);
+    surf_tmpl.format = dest->format;
+    surf_tmpl.u.tex.first_layer = dst_layer;
+    surf_tmpl.u.tex.last_layer = dst_layer;
+    destsurf = r300_surface(pipe->create_surface(pipe, dest, &surf_tmpl));
+
+    DBG(r300, DBG_DRAW, "r300: Resolving resource...\n");
+
+    OUT_CS_REG_SEQ(R300_RB3D_AARESOLVE_OFFSET, 1);
+    OUT_CS_RELOC(destsurf->buffer, destsurf->offset, 0, destsurf->domain, 0);
+
+    OUT_CS_REG_SEQ(R300_RB3D_AARESOLVE_PITCH, 1);
+    OUT_CS_RELOC(destsurf->buffer, destsurf->pitch, 0, destsurf->domain, 0);
+
+    OUT_CS_REG(R300_RB3D_AARESOLVE_CTL,
+        R300_RB3D_AARESOLVE_CTL_AARESOLVE_MODE_RESOLVE |
+        R300_RB3D_AARESOLVE_CTL_AARESOLVE_ALPHA_AVERAGE);
+
+    r300->context.clear_render_target(pipe,
+        srcsurf, color, 0, 0, src->width0, src->height0);
+
+    OUT_CS_REG(R300_RB3D_AARESOLVE_CTL, 0x0);
+
+    pipe_surface_reference((struct pipe_surface**)&srcsurf, NULL);
+    pipe_surface_reference((struct pipe_surface**)&destsurf, NULL);
+}
+
 void r300_init_render_functions(struct r300_context *r300)
 {
     /* Set generic functions. */
@@ -1026,6 +1075,8 @@ void r300_init_render_functions(struct r300_context *r300)
         r300->context.draw_arrays = r300_swtcl_draw_arrays;
         r300->context.draw_range_elements = r300_swtcl_draw_range_elements;
     }
+
+    r300->context.resource_resolve = r300_resource_resolve;
 
     /* Plug in the two-sided stencil reference value fallback if needed. */
     if (!r300->screen->caps.is_r500)

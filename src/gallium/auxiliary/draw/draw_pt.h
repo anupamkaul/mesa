@@ -39,6 +39,8 @@ typedef unsigned (*pt_elt_func)( const void *elts, unsigned idx );
 
 struct draw_pt_middle_end;
 struct draw_context;
+struct draw_prim_info;
+struct draw_vertex_info;
 
 
 #define PT_SHADE      0x1
@@ -164,16 +166,12 @@ void draw_pt_emit_prepare( struct pt_emit *emit,
                            unsigned *max_vertices );
 
 void draw_pt_emit( struct pt_emit *emit,
-		   const float (*vertex_data)[4],
-		   unsigned vertex_count,
-		   unsigned stride,
-		   const ushort *elts,
-		   unsigned count );
+                   const struct draw_vertex_info *vert_info,
+                   const struct draw_prim_info *prim_info);
 
 void draw_pt_emit_linear( struct pt_emit *emit,
-                          const float (*vertex_data)[4],
-                          unsigned stride,
-                          unsigned count );
+                          const struct draw_vertex_info *vert_info,
+                          const struct draw_prim_info *prim_info);
 
 void draw_pt_emit_destroy( struct pt_emit *emit );
 
@@ -184,13 +182,11 @@ struct pt_emit *draw_pt_emit_create( struct draw_context *draw );
  */
 struct pt_so_emit;
 
-void draw_pt_so_emit_prepare( struct pt_so_emit *emit,
-                              unsigned prim );
+void draw_pt_so_emit_prepare( struct pt_so_emit *emit );
 
 void draw_pt_so_emit( struct pt_so_emit *emit,
-                      const float (*vertex_data)[4],
-                      unsigned vertex_count,
-                      unsigned stride );
+                      const struct draw_vertex_info *vert_info,
+                      const struct draw_prim_info *prim_info );
 
 void draw_pt_so_emit_destroy( struct pt_so_emit *emit );
 
@@ -226,9 +222,7 @@ struct pt_fetch *draw_pt_fetch_create( struct draw_context *draw );
 struct pt_post_vs;
 
 boolean draw_pt_post_vs_run( struct pt_post_vs *pvs,
-			     struct vertex_header *pipeline_verts,
-			     unsigned stride,
-			     unsigned count );
+			     struct draw_vertex_info *info );
 
 void draw_pt_post_vs_prepare( struct pt_post_vs *pvs,
 			      boolean bypass_clipping,

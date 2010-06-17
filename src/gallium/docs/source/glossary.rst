@@ -29,3 +29,7 @@ Glossary
       Since the functions only take one parameter no matter what type of
       resource is used, use the term "layer" instead of a resource type
       specific one.
+
+   GLSL
+      GL Shading Language. The official, common high-level shader language used
+      in GL 2.0 and above.

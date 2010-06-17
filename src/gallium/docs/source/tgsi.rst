@@ -26,9 +26,11 @@ each of the components of *dst*. When this happens, the result is said to be
 Instruction Set
 ---------------
 
-From GL_NV_vertex_program
+Core ISA
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
+These opcodes are guaranteed to be available regardless of the driver being
+used.
 
 .. opcode:: ARL - Address Register Load
 
@@ -637,10 +639,6 @@ This instruction replicates its result.
    Considered for removal.
 
 
-From GL_NV_vertex_program2
-^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-
 .. opcode:: ARA - Address Register Add
 
   TBD
@@ -827,10 +825,13 @@ This instruction replicates its result.
    Considered for removal.
 
 
-From GL_NV_gpu_program4
+Compute ISA
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
+These opcodes are primarily provided for special-use computational shaders.
 Support for these opcodes indicated by a special pipe capability bit (TBD).
+
+XXX so let's discuss it, yeah?
 
 .. opcode:: CEIL - Ceiling
 
@@ -989,10 +990,17 @@ Support for these opcodes indicated by a special pipe capability bit (TBD).
 
   TBD
 
+.. note::
 
-From GL_NV_geometry_program4
+   Support for CONT is determined by a special capability bit,
+   ``TGSI_CONT_SUPPORTED``. See :ref:`Screen` for more information.
+
+
+Geometry ISA
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+These opcodes are only supported in geometry shaders; they have no meaning
+in any other type of shader.
 
 .. opcode:: EMIT - Emit
 
@@ -1004,9 +1012,11 @@ From GL_NV_geometry_program4
   TBD
 
 
-From GLSL
+GLSL ISA
 ^^^^^^^^^^
 
+These opcodes are part of :term:`GLSL`'s opcode set. Support for these
+opcodes is determined by a special capability bit, ``GLSL``.
 
 .. opcode:: BGNLOOP - Begin a Loop
 
@@ -1045,6 +1055,7 @@ This instruction replicates its result.
 ps_2_x
 ^^^^^^^^^^^^
 
+XXX wait what
 
 .. opcode:: CALLNZ - Subroutine Call If Not Zero
 
@@ -1062,10 +1073,15 @@ ps_2_x
 
 .. _doubleopcodes:
 
-Double Opcodes
+Double ISA
 ^^^^^^^^^^^^^^^
 
-.. opcode:: DADD - Add Double
+The double-precision opcodes reinterpret four-component vectors into
+two-component vectors with doubled precision in each component.
+
+Support for these opcodes is XXX undecided. :T
+
+.. opcode:: DADD - Add
 
 .. math::
 
@@ -1074,7 +1090,7 @@ Double Opcodes
   dst.zw = src0.zw + src1.zw
 
 
-.. opcode:: DDIV - Divide Double
+.. opcode:: DDIV - Divide
 
 .. math::
 
@@ -1082,7 +1098,7 @@ Double Opcodes
 
   dst.zw = src0.zw / src1.zw
 
-.. opcode:: DSEQ - Set Double on Equal
+.. opcode:: DSEQ - Set on Equal
 
 .. math::
 
@@ -1090,7 +1106,7 @@ Double Opcodes
 
   dst.zw = src0.zw == src1.zw ? 1.0F : 0.0F
 
-.. opcode:: DSLT - Set Double on Less than
+.. opcode:: DSLT - Set on Less than
 
 .. math::
 
@@ -1098,7 +1114,7 @@ Double Opcodes
 
   dst.zw = src0.zw < src1.zw ? 1.0F : 0.0F
 
-.. opcode:: DFRAC - Double Fraction
+.. opcode:: DFRAC - Fraction
 
 .. math::
 
@@ -1107,23 +1123,33 @@ Double Opcodes
   dst.zw = src.zw - \lfloor src.zw\rfloor
 
 
-.. opcode:: DFRACEXP - Convert Double Number to Fractional and Integral Components
+.. opcode:: DFRACEXP - Convert Number to Fractional and Integral Components
+
+Like the ``frexp()`` routine in many math libraries, this opcode stores the
+exponent of its source to ``dst0``, and the significand to ``dst1``, such that
+:math:`dst1 \times 2^{dst0} = src` .
 
 .. math::
 
-  dst0.xy = frexp(src.xy, dst1.xy)
+  dst0.xy = exp(src.xy)
 
-  dst0.zw = frexp(src.zw, dst1.zw)
+  dst1.xy = frac(src.xy)
 
-.. opcode:: DLDEXP - Multiple Double Number by Integral Power of 2
+  dst0.zw = exp(src.zw)
+
+  dst1.zw = frac(src.zw)
+
+.. opcode:: DLDEXP - Multiply Number by Integral Power of 2
+
+This opcode is the inverse of :opcode:`DFRACEXP`.
 
 .. math::
 
-  dst.xy = ldexp(src0.xy, src1.xy)
+  dst.xy = src0.xy \times 2^{src1.xy}
 
-  dst.zw = ldexp(src0.zw, src1.zw)
+  dst.zw = src0.zw \times 2^{src1.zw}
 
-.. opcode:: DMIN - Minimum Double
+.. opcode:: DMIN - Minimum
 
 .. math::
 
@@ -1131,7 +1157,7 @@ Double Opcodes
 
   dst.zw = min(src0.zw, src1.zw)
 
-.. opcode:: DMAX - Maximum Double
+.. opcode:: DMAX - Maximum
 
 .. math::
 
@@ -1139,7 +1165,7 @@ Double Opcodes
 
   dst.zw = max(src0.zw, src1.zw)
 
-.. opcode:: DMUL - Multiply Double
+.. opcode:: DMUL - Multiply
 
 .. math::
 
@@ -1148,7 +1174,7 @@ Double Opcodes
   dst.zw = src0.zw \times src1.zw
 
 
-.. opcode:: DMAD - Multiply And Add Doubles
+.. opcode:: DMAD - Multiply And Add
 
 .. math::
 
@@ -1157,7 +1183,7 @@ Double Opcodes
   dst.zw = src0.zw \times src1.zw + src2.zw
 
 
-.. opcode:: DRCP - Reciprocal Double
+.. opcode:: DRCP - Reciprocal
 
 .. math::
 
@@ -1165,7 +1191,7 @@ Double Opcodes
 
    dst.zw = \frac{1}{src.zw}
 
-.. opcode:: DSQRT - Square root double
+.. opcode:: DSQRT - Square Root
 
 .. math::
 
@@ -1420,9 +1446,9 @@ well.
 +--------------------+--------------+--------------------+--------------+
 | Texture Components | Gallium      | OpenGL             | Direct3D 9   |
 +====================+==============+====================+==============+
-| R                  | XXX TBD      | (r, 0, 0, 1)       | (r, 1, 1, 1) |
+| R                  | (r, 0, 0, 1) | (r, 0, 0, 1)       | (r, 1, 1, 1) |
 +--------------------+--------------+--------------------+--------------+
-| RG                 | XXX TBD      | (r, g, 0, 1)       | (r, g, 1, 1) |
+| RG                 | (r, g, 0, 1) | (r, g, 0, 1)       | (r, g, 1, 1) |
 +--------------------+--------------+--------------------+--------------+
 | RGB                | (r, g, b, 1) | (r, g, b, 1)       | (r, g, b, 1) |
 +--------------------+--------------+--------------------+--------------+

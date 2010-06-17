@@ -38,14 +38,6 @@ void r300_emit_invariant_state(struct r300_context* r300,
 {
     CS_LOCALS(r300);
 
-    if (r300->rws->get_value(r300->rws, R300_VID_DRM_2_3_0)) {
-        /* Subpixel multisampling for AA. */
-        BEGIN_CS(4);
-        OUT_CS_REG(R300_GB_MSPOS0, 0x66666666);
-        OUT_CS_REG(R300_GB_MSPOS1, 0x6666666);
-        END_CS;
-    }
-
     BEGIN_CS(12 + (r300->screen->caps.has_tcl ? 2 : 0));
 
     /*** Graphics Backend (GB) ***/
@@ -71,7 +63,8 @@ void r300_emit_invariant_state(struct r300_context* r300,
 
     /* XXX unsorted stuff from surface_fill */
     BEGIN_CS(38 + (r300->screen->caps.has_tcl ? 7 : 0) +
-             (r300->screen->caps.is_rv350 ? 4 : 0));
+             (r300->screen->caps.is_rv350 ? 4 : 0) +
+             (r300->screen->caps.is_r400 ? 2 : 0));
 
     if (r300->screen->caps.has_tcl) {
         /*Flushing PVS is required before the VAP_GB registers can be changed*/
@@ -112,5 +105,7 @@ void r300_emit_invariant_state(struct r300_context* r300,
     OUT_CS_REG(R300_ZB_DEPTHCLEARVALUE, 0x00000000);
     OUT_CS_REG(R300_ZB_HIZ_OFFSET, 0x00000000);
     OUT_CS_REG(R300_ZB_HIZ_PITCH, 0x00000000);
+    if (r300->screen->caps.is_r400)
+        OUT_CS_REG(R400_US_CODE_BANK, 0);
     END_CS;
 }

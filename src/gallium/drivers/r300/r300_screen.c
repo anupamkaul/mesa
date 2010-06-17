@@ -275,8 +275,23 @@ static boolean r300_is_format_supported(struct pipe_screen* screen,
         return FALSE;
     }
 
-   if (sample_count > 1)
-      return FALSE;
+    switch (sample_count) {
+        case 0:
+        case 1:
+            break;
+        case 2:
+        case 3:
+        case 4:
+        case 6:
+            if (usage != PIPE_BIND_RENDER_TARGET ||
+                !util_format_is_rgba8_variant(
+                    util_format_description(format))) {
+                return FALSE;
+            }
+            break;
+        default:
+            return FALSE;
+    }
 
     /* Check sampler format support. */
     if ((usage & PIPE_BIND_SAMPLER_VIEW) &&

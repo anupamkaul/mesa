@@ -54,6 +54,7 @@ struct draw_geometry_shader {
    unsigned input_primitive;
    unsigned output_primitive;
 
+   unsigned *primitive_lengths;
    unsigned emitted_vertices;
    unsigned emitted_primitives;
 
@@ -71,13 +72,11 @@ struct draw_geometry_shader {
  * smaller than the GS_MAX_OUTPUT_VERTICES shader property.
  */
 int draw_geometry_shader_run(struct draw_geometry_shader *shader,
-                             unsigned pipe_prim,
-                             const float (*input)[4],
-                             float (*output)[4],
-                             const void *constants[PIPE_MAX_CONSTANT_BUFFERS],
-                             unsigned count,
-                             unsigned input_stride,
-                             unsigned output_stride);
+                             const void *constants[PIPE_MAX_CONSTANT_BUFFERS], 
+                             const struct draw_vertex_info *input_verts,
+                             const struct draw_prim_info *input_prim,
+                             struct draw_vertex_info *output_verts,
+                             struct draw_prim_info *output_prims );
 
 void draw_geometry_shader_prepare(struct draw_geometry_shader *shader,
                                   struct draw_context *draw);

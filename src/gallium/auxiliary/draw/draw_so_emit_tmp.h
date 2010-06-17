@@ -1,16 +1,15 @@
 
-static void FUNC( struct draw_geometry_shader *shader,
+static void FUNC( struct pt_so_emit *so,
                   const struct draw_prim_info *input_prims,
                   const struct draw_vertex_info *input_verts,
-                  struct draw_prim_info *output_prims,
-                  struct draw_vertex_info *output_verts)
+                  unsigned start,
+                  unsigned count)
 {
-   struct draw_context *draw = shader->draw;
+   struct draw_context *draw = so->draw;
 
    boolean flatfirst = (draw->rasterizer->flatshade &&
                         draw->rasterizer->flatshade_first);
    unsigned i;
-   unsigned count = input_prims->count;
    LOCAL_VARS
 
    if (0) debug_printf("%s %d\n", __FUNCTION__, count);
@@ -20,13 +19,13 @@ static void FUNC( struct draw_geometry_shader *shader,
    switch (input_prims->prim) {
    case PIPE_PRIM_POINTS:
       for (i = 0; i < count; i++) {
-	 POINT( shader, i + 0 );
+	 POINT( so, start + i + 0 );
       }
       break;
 
    case PIPE_PRIM_LINES:
       for (i = 0; i+1 < count; i += 2) {
-         LINE( shader , i + 0 , i + 1 );
+         LINE( so , start + i + 0 , start + i + 1 );
       }
       break;
 
@@ -34,40 +33,40 @@ static void FUNC( struct draw_geometry_shader *shader,
       if (count >= 2) {
 
          for (i = 1; i < count; i++) {
-            LINE( shader, i - 1, i );
+            LINE( so, start + i - 1, start + i );
          }
 
-	 LINE( shader, i - 1, 0 );
+	 LINE( so, start + i - 1, start );
       }
       break;
 
    case PIPE_PRIM_LINE_STRIP:
       for (i = 1; i < count; i++) {
-         LINE( shader, i - 1, i );
+         LINE( so, start + i - 1, start + i );
       }
       break;
 
    case PIPE_PRIM_TRIANGLES:
       for (i = 0; i+2 < count; i += 3) {
-         TRIANGLE( shader, i + 0, i + 1, i + 2 );
+         TRIANGLE( so, start + i + 0, start + i + 1, start + i + 2 );
       }
       break;
 
    case PIPE_PRIM_TRIANGLE_STRIP:
       if (flatfirst) {
          for (i = 0; i+2 < count; i++) {
-            TRIANGLE( shader,
-                      i + 0,
-                      i + 1 + (i&1),
-                      i + 2 - (i&1) );
+            TRIANGLE( so,
+                      start + i + 0,
+                      start + i + 1 + (i&1),
+                      start + i + 2 - (i&1) );
          }
       }
       else {
          for (i = 0; i+2 < count; i++) {
-            TRIANGLE( shader,
-                      i + 0 + (i&1),
-                      i + 1 - (i&1),
-                      i + 2 );
+            TRIANGLE( so,
+                      start + i + 0 + (i&1),
+                      start + i + 1 - (i&1),
+                      start + i + 2 );
          }
       }
       break;
@@ -76,18 +75,18 @@ static void FUNC( struct draw_geometry_shader *shader,
       if (count >= 3) {
          if (flatfirst) {
             for (i = 0; i+2 < count; i++) {
-               TRIANGLE( shader,
-                         i + 1,
-                         i + 2,
-                         0 );
+               TRIANGLE( so,
+                         start + i + 1,
+                         start + i + 2,
+                         start );
             }
          }
          else {
             for (i = 0; i+2 < count; i++) {
-               TRIANGLE( shader,
-                         0,
-                         i + 1,
-                         i + 2 );
+               TRIANGLE( so,
+                         start,
+                         start + i + 1,
+                         start + i + 2 );
             }
          }
       }
@@ -102,17 +101,17 @@ static void FUNC( struct draw_geometry_shader *shader,
 	 for (i = 0; i+2 < count; i++) {
 
             if (flatfirst) {
-               TRIANGLE( shader, 0, i + 1, i + 2 );
+               TRIANGLE( so, start + 0, start + i + 1, start + i + 2 );
             }
             else {
-               TRIANGLE( shader, i + 1, i + 2, 0 );
+               TRIANGLE( so, start + i + 1, start + i + 2, start + 0 );
             }
 	 }
       }
       break;
 
    default:
-      debug_assert(!"Unsupported primitive in geometry shader");
+      debug_assert(!"Unsupported primitive in stream output");
       break;
    }
 }
