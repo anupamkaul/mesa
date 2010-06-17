@@ -178,14 +178,6 @@ enum pipe_texture_target {
 #define PIPE_TEX_COMPARE_NONE          0
 #define PIPE_TEX_COMPARE_R_TO_TEXTURE  1
 
-
-/**
- * Surface layout -- a hint?  Or some driver-internal poking out into
- * the interface?
- */
-#define PIPE_SURFACE_LAYOUT_LINEAR  0
-
-
 /**
  * Clear buffer bits
  */
