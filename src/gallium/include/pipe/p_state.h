@@ -294,8 +294,8 @@ struct pipe_surface
          unsigned last_layer:16;
       } tex;
       struct {
-         unsigned element_offset;
-         unsigned element_width;
+         unsigned first_element;
+         unsigned last_element;
       } buf;
    } u;
 };
@@ -318,8 +318,8 @@ struct pipe_sampler_view
          unsigned last_level:8;       /**< last mipmap level to use */
       } tex;
       struct {
-         unsigned element_offset;
-         unsigned element_width;
+         unsigned first_element;
+         unsigned last_element;
       } buf;
    } u;
    unsigned swizzle_r:3;         /**< PIPE_SWIZZLE_x for red component */
