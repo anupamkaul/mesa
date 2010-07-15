@@ -60,6 +60,12 @@ static void update_clip( struct st_context *st )
       st->state.clip = clip;
       cso_set_clip(st->cso_context, &clip);
    }
+
+   /* Handle primitive restart here since it's also signed by _NEW_TRANSFORM
+    */
+   if (st->pipe->primitive_restart)
+      st->pipe->primitive_restart(st->pipe, st->ctx->Array.PrimitiveRestart,
+                                  st->ctx->Array.RestartIndex);
 }
 
 
