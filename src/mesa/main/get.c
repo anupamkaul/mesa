@@ -1259,6 +1259,16 @@ static const struct value_desc values[] = {
    { GL_MINOR_VERSION, CONTEXT_INT(VersionMinor), extra_version_30  },
    { GL_CONTEXT_FLAGS, CONTEXT_INT(Const.ContextFlags), extra_version_30  },
 
+   /* GL 3.1 */
+   /* NOTE: different enum values for GL_PRIMITIVE_RESTART_NV
+    * vs. GL_PRIMITIVE_RESTART!
+    */
+   { GL_PRIMITIVE_RESTART, CONTEXT_BOOL(Array.PrimitiveRestart),
+     extra_version_31 },
+   { GL_PRIMITIVE_RESTART_INDEX, CONTEXT_INT(Array.RestartIndex),
+     extra_version_31 },
+ 
+
    /* GL 3.2 */
    { GL_CONTEXT_PROFILE_MASK, CONTEXT_INT(Const.ProfileMask),
      extra_version_32 },

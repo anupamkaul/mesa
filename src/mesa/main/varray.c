@@ -1322,7 +1322,8 @@ _mesa_PrimitiveRestartIndex(GLuint index)
 {
    GET_CURRENT_CONTEXT(ctx);
 
-   if (!ctx->Extensions.NV_primitive_restart) {
+   if (!ctx->Extensions.NV_primitive_restart &&
+       ctx->VersionMajor * 10 + ctx->VersionMinor < 31) {
       _mesa_error(ctx, GL_INVALID_OPERATION, "glPrimitiveRestartIndexNV()");
       return;
    }
