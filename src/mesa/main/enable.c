@@ -124,6 +124,14 @@ client_state(GLcontext *ctx, GLenum cap, GLboolean state)
          break;
 #endif /* FEATURE_NV_vertex_program */
 
+      /* GL_NV_primitive_restart */
+      case GL_PRIMITIVE_RESTART_NV:
+	 if (!ctx->Extensions.NV_primitive_restart) {
+            goto invalid_enum_error;
+         }
+         var = &ctx->Array.PrimitiveRestart;
+         break;
+
       default:
          goto invalid_enum_error;
    }
@@ -1009,17 +1017,6 @@ _mesa_set_enable(GLcontext *ctx, GLenum cap, GLboolean state)
          break;
 #endif
 
-      /* GL 3.1 primitive restart */
-      case GL_PRIMITIVE_RESTART:
-	 if (ctx->VersionMajor * 10 + ctx->VersionMinor < 31) {
-            goto invalid_enum_error;
-         }
-         if (ctx->Array.PrimitiveRestart != state) {
-            FLUSH_VERTICES(ctx, _NEW_TRANSFORM);
-            ctx->Array.PrimitiveRestart = state;
-         }
-         break;
-
       default:
          goto invalid_enum_error;
    }
@@ -1548,9 +1545,9 @@ _mesa_IsEnabled( GLenum cap )
          return ctx->TransformFeedback.RasterDiscard;
 #endif
 
-      /* GL 3.1 primitive restart */
-      case GL_PRIMITIVE_RESTART:
-	 if (ctx->VersionMajor * 10 + ctx->VersionMinor < 31) {
+      /* GL_NV_primitive_restart */
+      case GL_PRIMITIVE_RESTART_NV:
+	 if (!ctx->Extensions.NV_primitive_restart) {
             goto invalid_enum_error;
          }
          return ctx->Array.PrimitiveRestart;

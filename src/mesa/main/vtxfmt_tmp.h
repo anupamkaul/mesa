@@ -315,6 +315,12 @@ static void GLAPIENTRY TAG(End)( void )
    CALL_End(GET_DISPATCH(), ());
 }
 
+static void GLAPIENTRY TAG(PrimitiveRestartNV)( void )
+{
+   PRE_LOOPBACK( PrimitiveRestartNV );
+   CALL_PrimitiveRestartNV(GET_DISPATCH(), ());
+}
+
 static void GLAPIENTRY TAG(Rectf)( GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2 )
 {
    PRE_LOOPBACK( Rectf );
@@ -569,6 +575,7 @@ static GLvertexformat TAG(vtxfmt) = {
    TAG(CallLists),
    TAG(Begin),
    TAG(End),
+   TAG(PrimitiveRestartNV),
    TAG(VertexAttrib1fNV),
    TAG(VertexAttrib1fvNV),
    TAG(VertexAttrib2fNV),
