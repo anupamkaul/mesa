@@ -34,6 +34,7 @@
 #include "main/glheader.h"
 #include "main/mtypes.h"
 #include "main/imports.h"
+#include "main/arbprogram.h"
 #include "main/arrayobj.h"
 #include "main/blend.h"
 #include "main/bufferobj.h"
@@ -51,7 +52,7 @@
 #include "main/polygon.h"
 #include "main/readpix.h"
 #include "main/scissor.h"
-#include "main/shaders.h"
+#include "main/shaderapi.h"
 #include "main/state.h"
 #include "main/stencil.h"
 #include "main/texobj.h"
@@ -61,8 +62,7 @@
 #include "main/texstate.h"
 #include "main/varray.h"
 #include "main/viewport.h"
-#include "shader/program.h"
-#include "shader/arbprogram.h"
+#include "program/program.h"
 #include "swrast/swrast.h"
 #include "drivers/common/meta.h"
 
@@ -2399,6 +2399,9 @@ _mesa_meta_GenerateMipmap(GLcontext *ctx, GLenum target,
          /* all done */
          break;
       }
+
+      /* Set MaxLevel large enough to hold the new level when we allocate it  */
+      _mesa_TexParameteri(target, GL_TEXTURE_MAX_LEVEL, dstLevel);
 
       /* Create empty dest image */
       if (target == GL_TEXTURE_1D) {

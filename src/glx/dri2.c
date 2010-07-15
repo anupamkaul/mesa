@@ -33,7 +33,6 @@
 
 #ifdef GLX_DIRECT_RENDERING
 
-#define NEED_REPLIES
 #include <stdio.h>
 #include <X11/Xlibint.h>
 #include <X11/extensions/Xext.h>
@@ -100,6 +99,12 @@ DRI2WireToEvent(Display *dpy, XEvent *event, xEvent *wire)
    {
       GLXBufferSwapComplete *aevent = (GLXBufferSwapComplete *)event;
       xDRI2BufferSwapComplete *awire = (xDRI2BufferSwapComplete *)wire;
+      __GLXDRIdrawable *pdraw = GetGLXDRIDrawable(dpy, awire->drawable, NULL);
+
+      /* Ignore swap events if we're not looking for them */
+      if (!(pdraw->eventMask & GLX_BUFFER_SWAP_COMPLETE_INTEL_MASK))
+	 return False;
+
       aevent->serial = _XSetLastRequestRead(dpy, (xGenericReply *) wire);
       aevent->type = glx_info->codes->first_event + GLX_BufferSwapComplete;
       aevent->send_event = (awire->type & 0x80) != 0;

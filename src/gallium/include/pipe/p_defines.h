@@ -376,7 +376,9 @@ enum pipe_transfer_usage {
 #define PIPE_QUERY_PRIMITIVES_EMITTED    2
 #define PIPE_QUERY_TIME_ELAPSED          3
 #define PIPE_QUERY_SO_STATISTICS         5
-#define PIPE_QUERY_TYPES                 6
+#define PIPE_QUERY_GPU_FINISHED          6
+#define PIPE_QUERY_TIMESTAMP_DISJOINT    7
+#define PIPE_QUERY_TYPES                 8
 
 
 /**
@@ -482,7 +484,9 @@ enum pipe_cap {
    PIPE_CAP_MAX_VS_CONSTS,
    PIPE_CAP_MAX_VS_TEMPS,
    PIPE_CAP_MAX_VS_ADDRS,
-   PIPE_CAP_MAX_VS_PREDS
+   PIPE_CAP_MAX_VS_PREDS,
+
+   PIPE_CAP_GEOMETRY_SHADER4
 };
 
 
@@ -501,6 +505,11 @@ struct pipe_query_data_so_statistics
 {
    uint64_t num_primitives_written;
    uint64_t primitives_storage_needed;
+};
+struct pipe_query_data_timestamp_disjoint
+{
+   uint64_t frequency;
+   boolean  disjoint;
 };
 
 #ifdef __cplusplus

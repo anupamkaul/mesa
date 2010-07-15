@@ -23,8 +23,12 @@
 #ifndef R300_TEXTURE_H
 #define R300_TEXTURE_H
 
-#include "util/u_format.h"
+#include "pipe/p_format.h"
 
+struct pipe_screen;
+struct pipe_context;
+struct pipe_resource;
+struct winsys_handle;
 struct r300_texture;
 struct r300_screen;
 

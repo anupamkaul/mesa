@@ -21,43 +21,71 @@
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
  * USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-
-#include "r300_hyperz.h"
 #include "r300_context.h"
+#include "r300_hyperz.h"
 #include "r300_reg.h"
 #include "r300_fs.h"
+
+/*****************************************************************************/
+/* The HyperZ setup                                                          */
+/*****************************************************************************/
+
+static void r300_update_hyperz(struct r300_context* r300)
+{
+    struct r300_hyperz_state *z =
+        (struct r300_hyperz_state*)r300->hyperz_state.state;
+
+    z->zb_bw_cntl = 0;
+    z->sc_hyperz = R300_SC_HYPERZ_ADJ_2;
+
+    if (r300->cbzb_clear)
+        z->zb_bw_cntl |= R300_ZB_CB_CLEAR_CACHE_LINE_WRITE_ONLY;
+}
 
 /*****************************************************************************/
 /* The ZTOP state                                                            */
 /*****************************************************************************/
 
-static boolean r300_dsa_writes_depth_stencil(struct r300_dsa_state* dsa)
+static boolean r300_dsa_writes_stencil(
+        struct pipe_stencil_state *s)
 {
-    /* We are interested only in the cases when a new depth or stencil value
-     * can be written and changed. */
-
-    /* We might optionally check for [Z func: never] and inspect the stencil
-     * state in a similar fashion, but it's not terribly important. */
-    return (dsa->z_buffer_control & R300_Z_WRITE_ENABLE) ||
-           (dsa->stencil_ref_mask & R300_STENCILWRITEMASK_MASK) ||
-           ((dsa->z_buffer_control & R500_STENCIL_REFMASK_FRONT_BACK) &&
-            (dsa->stencil_ref_bf & R300_STENCILWRITEMASK_MASK));
+    return s->enabled && s->writemask &&
+           (s->fail_op  != PIPE_STENCIL_OP_KEEP ||
+            s->zfail_op != PIPE_STENCIL_OP_KEEP ||
+            s->zpass_op != PIPE_STENCIL_OP_KEEP);
 }
 
-static boolean r300_dsa_alpha_test_enabled(struct r300_dsa_state* dsa)
+static boolean r300_dsa_writes_depth_stencil(
+        struct pipe_depth_stencil_alpha_state *dsa)
+{
+    /* We are interested only in the cases when a depth or stencil value
+     * can be changed. */
+
+    if (dsa->depth.enabled && dsa->depth.writemask &&
+        dsa->depth.func != PIPE_FUNC_NEVER)
+        return TRUE;
+
+    if (r300_dsa_writes_stencil(&dsa->stencil[0]) ||
+        r300_dsa_writes_stencil(&dsa->stencil[1]))
+        return TRUE;
+
+    return FALSE;
+}
+
+static boolean r300_dsa_alpha_test_enabled(
+        struct pipe_depth_stencil_alpha_state *dsa)
 {
     /* We are interested only in the cases when alpha testing can kill
      * a fragment. */
-    uint32_t af = dsa->alpha_function;
 
-    return (af & R300_FG_ALPHA_FUNC_ENABLE) &&
-           (af & R300_FG_ALPHA_FUNC_ALWAYS) != R300_FG_ALPHA_FUNC_ALWAYS;
+    return dsa->alpha.enabled && dsa->alpha.func != PIPE_FUNC_ALWAYS;
 }
 
 static void r300_update_ztop(struct r300_context* r300)
 {
     struct r300_ztop_state* ztop_state =
         (struct r300_ztop_state*)r300->ztop_state.state;
+    uint32_t old_ztop = ztop_state->z_buffer_top;
 
     /* This is important enough that I felt it warranted a comment.
      *
@@ -99,10 +127,14 @@ static void r300_update_ztop(struct r300_context* r300)
         ztop_state->z_buffer_top = R300_ZTOP_ENABLE;
     }
 
-    r300->ztop_state.dirty = TRUE;
+    if (ztop_state->z_buffer_top != old_ztop)
+        r300->ztop_state.dirty = TRUE;
 }
 
 void r300_update_hyperz_state(struct r300_context* r300)
 {
     r300_update_ztop(r300);
+    if (r300->hyperz_state.dirty) {
+        r300_update_hyperz(r300);
+    }
 }

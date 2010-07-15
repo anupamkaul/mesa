@@ -38,7 +38,14 @@ struct pt_post_vs {
                    struct draw_vertex_info *info );
 };
 
-
+static INLINE void
+initialize_vertex_header(struct vertex_header *header)
+{
+   header->clipmask = 0;
+   header->edgeflag = 1;
+   header->pad = 0;
+   header->vertex_id = UNDEFINED_VERTEX_ID;
+}
 
 static INLINE float
 dot4(const float *a, const float *b)
@@ -48,8 +55,6 @@ dot4(const float *a, const float *b)
            a[2]*b[2] +
            a[3]*b[3]);
 }
-
-
 
 static INLINE unsigned
 compute_clipmask_gl(const float *clip, /*const*/ float plane[][4], unsigned nr)
@@ -103,6 +108,7 @@ static boolean post_vs_cliptest_viewport_gl( struct pt_post_vs *pvs,
    for (j = 0; j < info->count; j++) {
       float *position = out->data[pos];
 
+      initialize_vertex_header(out);
 #if 0
       debug_printf("%d) io = %p, data = %p = [%f, %f, %f, %f]\n",
                    j, out, position, position[0], position[1], position[2], position[3]);
@@ -192,6 +198,7 @@ static boolean post_vs_viewport( struct pt_post_vs *pvs,
    for (j = 0; j < info->count; j++) {
       float *position = out->data[pos];
 
+      initialize_vertex_header(out);
       /* Viewport mapping only, no cliptest/rhw divide
        */
       position[0] = position[0] * scale[0] + trans[0];
@@ -211,7 +218,16 @@ static boolean post_vs_viewport( struct pt_post_vs *pvs,
 static boolean post_vs_none( struct pt_post_vs *pvs,
 			     struct draw_vertex_info *info )
 {
+   struct vertex_header *out = info->verts;
+   unsigned j;
+
    if (0) debug_printf("%s\n", __FUNCTION__);
+   /* just initialize the vertex_id in all headers */
+   for (j = 0; j < info->count; j++) {
+      initialize_vertex_header(out);
+
+      out = (struct vertex_header *)((char *)out + info->stride);
+   }
    return FALSE;
 }
 

@@ -112,7 +112,7 @@ st_NewTextureObject(GLcontext * ctx, GLuint name, GLenum target)
    return &obj->base;
 }
 
-/** called via ctx->Driver.DeleteTextureImage() */
+/** called via ctx->Driver.DeleteTextureObject() */
 static void 
 st_DeleteTextureObject(GLcontext *ctx,
                        struct gl_texture_object *texObj)
@@ -1246,8 +1246,6 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
 
    assert(xoffset % util_format_get_blockwidth(pformat) == 0);
    assert(yoffset % util_format_get_blockheight(pformat) == 0);
-   assert(width % util_format_get_blockwidth(pformat) == 0);
-   assert(height % util_format_get_blockheight(pformat) == 0);
 
    for (y = 0; y < height; y += util_format_get_blockheight(pformat)) {
       /* don't need to adjust for xoffset and yoffset as st_texture_image_map does that */

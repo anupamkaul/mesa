@@ -36,6 +36,7 @@
 #include "util/u_inlines.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
+#include "util/u_simple_list.h"
 #include "lp_clear.h"
 #include "lp_context.h"
 #include "lp_flush.h"
@@ -94,6 +95,8 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
 
    memset(llvmpipe, 0, sizeof *llvmpipe);
 
+   make_empty_list(&llvmpipe->fs_variants_list);
+
    llvmpipe->pipe.winsys = screen->winsys;
    llvmpipe->pipe.screen = screen;
    llvmpipe->pipe.priv = priv;
@@ -110,6 +113,7 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    llvmpipe_init_sampler_funcs(llvmpipe);
    llvmpipe_init_query_funcs( llvmpipe );
    llvmpipe_init_vertex_funcs(llvmpipe);
+   llvmpipe_init_so_funcs(llvmpipe);
    llvmpipe_init_fs_funcs(llvmpipe);
    llvmpipe_init_vs_funcs(llvmpipe);
    llvmpipe_init_gs_funcs(llvmpipe);

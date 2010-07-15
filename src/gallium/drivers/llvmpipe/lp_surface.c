@@ -71,14 +71,14 @@ lp_resource_copy(struct pipe_context *pipe,
                            dst, dst_level, dstz,
                            0, /* flush_flags */
                            FALSE, /* read_only */
-                           FALSE, /* cpu_access */
+                           TRUE, /* cpu_access */
                            FALSE); /* do_not_block */
 
    llvmpipe_flush_resource(pipe,
                            src, src_level, src_box->z,
                            0, /* flush_flags */
                            TRUE, /* read_only */
-                           FALSE, /* cpu_access */
+                           TRUE, /* cpu_access */
                            FALSE); /* do_not_block */
 
    /*
@@ -112,20 +112,27 @@ lp_resource_copy(struct pipe_context *pipe,
       unsigned x, y;
       enum lp_texture_usage usage;
 
-      /* XXX for the tiles which are completely contained by the
-       * dest rectangle, we could set the usage mode to WRITE_ALL.
-       * Just test for the case of replacing the whole dest region for now.
-       */
-      if (width == dst_tex->base.width0 && height == dst_tex->base.height0)
-         usage = LP_TEX_USAGE_WRITE_ALL;
-      else
-         usage = LP_TEX_USAGE_READ_WRITE;
-
-      adjust_to_tile_bounds(dstx, dsty, width, height,
-                            &tx, &ty, &tw, &th);
+      adjust_to_tile_bounds(dstx, dsty, width, height, &tx, &ty, &tw, &th);
 
       for (y = 0; y < th; y += TILE_SIZE) {
+         boolean contained_y = ty + y >= dsty &&
+                               ty + y + TILE_SIZE <= dsty + height ?
+                               TRUE : FALSE;
+
          for (x = 0; x < tw; x += TILE_SIZE) {
+            boolean contained_x = tx + x >= dstx &&
+                                  tx + x + TILE_SIZE <= dstx + width ?
+                                  TRUE : FALSE;
+
+            /*
+             * Set the usage mode to WRITE_ALL for the tiles which are
+             * completely contained by the dest rectangle.
+             */
+            if (contained_y && contained_x)
+               usage = LP_TEX_USAGE_WRITE_ALL;
+            else
+               usage = LP_TEX_USAGE_READ_WRITE;
+
             (void) llvmpipe_get_texture_tile_linear(dst_tex,
                                                     dstz, dst_level,
                                                     usage,
@@ -145,13 +152,15 @@ lp_resource_copy(struct pipe_context *pipe,
                                               dst_level,
                                               LP_TEX_LAYOUT_LINEAR);
 
-      util_copy_rect(dst_linear_ptr, format,
-                     llvmpipe_resource_stride(&dst_tex->base, dst_level),
-                     dstx, dsty,
-                     width, height,
-                     src_linear_ptr,
-                     llvmpipe_resource_stride(&src_tex->base, src_level),
-                     src_box->x, src_box->y);
+      if (dst_linear_ptr && src_linear_ptr) {
+         util_copy_rect(dst_linear_ptr, format,
+                        llvmpipe_resource_stride(&dst_tex->base, dst_level),
+                        dstx, dsty,
+                        width, height,
+                        src_linear_ptr,
+                        llvmpipe_resource_stride(&src_tex->base, src_level),
+                        src_box->x, src_box->y);
+      }
    }
 }
 

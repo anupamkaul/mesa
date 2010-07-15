@@ -25,7 +25,7 @@
 
 #include "radeon_bo_gem.h"
 #include "radeon_cs_gem.h"
-#include "state_tracker/drm_api.h"
+#include "state_tracker/drm_driver.h"
 
 static struct r300_winsys_buffer *
 radeon_r300_winsys_buffer_create(struct r300_winsys_screen *rws,
@@ -136,29 +136,26 @@ static boolean radeon_r300_winsys_is_buffer_referenced(struct r300_winsys_screen
 }
 
 static struct r300_winsys_buffer *radeon_r300_winsys_buffer_from_handle(struct r300_winsys_screen *rws,
-									struct pipe_screen *screen,
-									struct winsys_handle *whandle,
-									unsigned *stride)
+                                                                        struct winsys_handle *whandle,
+                                                                        unsigned *stride)
 {
     struct radeon_libdrm_winsys *ws = radeon_winsys_screen(rws);
     struct pb_buffer *_buf;
 
-    _buf = radeon_drm_bufmgr_create_buffer_from_handle(ws->kman, whandle->handle);
     *stride = whandle->stride;
+
+    _buf = radeon_drm_bufmgr_create_buffer_from_handle(ws->kman, whandle->handle);
     return radeon_libdrm_winsys_buffer(_buf);
 }
 
 static boolean radeon_r300_winsys_buffer_get_handle(struct r300_winsys_screen *rws,
 						    struct r300_winsys_buffer *buffer,
-						    unsigned stride,
-						    struct winsys_handle *whandle)
+                                                    struct winsys_handle *whandle,
+                                                    unsigned stride)
 {
     struct pb_buffer *_buf = radeon_pb_buffer(buffer);
-    boolean ret;
-    ret = radeon_drm_bufmgr_get_handle(_buf, whandle);
-    if (ret)
-	whandle->stride = stride;
-    return ret;
+    whandle->stride = stride;
+    return radeon_drm_bufmgr_get_handle(_buf, whandle);
 }
 
 static void radeon_set_flush_cb(struct r300_winsys_screen *rws,
@@ -198,6 +195,17 @@ static unsigned radeon_get_cs_free_dwords(struct r300_winsys_screen *rws)
     struct radeon_cs *cs = ws->cs;
 
     return cs->ndw - cs->cdw;
+}
+
+static uint32_t *radeon_get_cs_pointer(struct r300_winsys_screen *rws,
+                                       unsigned count)
+{
+    struct radeon_libdrm_winsys *ws = radeon_winsys_screen(rws);
+    struct radeon_cs *cs = ws->cs;
+    uint32_t *ptr = cs->packets + cs->cdw;
+
+    cs->cdw += count;
+    return ptr;
 }
 
 static void radeon_write_cs_dword(struct r300_winsys_screen *rws,
@@ -244,8 +252,13 @@ static void radeon_flush_cs(struct r300_winsys_screen *rws)
     /* Emit the CS. */
     retval = radeon_cs_emit(ws->cs);
     if (retval) {
-        debug_printf("radeon: Bad CS, dumping...\n");
-        radeon_cs_print(ws->cs, stderr);
+        if (debug_get_bool_option("RADEON_DUMP_CS", FALSE)) {
+            fprintf(stderr, "radeon: The kernel rejected CS, dumping...\n");
+            radeon_cs_print(ws->cs, stderr);
+        } else {
+            fprintf(stderr, "radeon: The kernel rejected CS, "
+                            "see dmesg for more information.\n");
+        }
     }
 
     /* Reset CS.
@@ -324,6 +337,7 @@ radeon_setup_winsys(int fd, struct radeon_libdrm_winsys* ws)
     ws->base.validate = radeon_validate;
     ws->base.destroy = radeon_winsys_destroy;
     ws->base.get_cs_free_dwords = radeon_get_cs_free_dwords;
+    ws->base.get_cs_pointer = radeon_get_cs_pointer;
     ws->base.write_cs_dword = radeon_write_cs_dword;
     ws->base.write_cs_table = radeon_write_cs_table;
     ws->base.write_cs_reloc = radeon_write_cs_reloc;

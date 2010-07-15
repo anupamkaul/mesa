@@ -21,30 +21,25 @@
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
  * USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
-#include "pipe/p_screen.h"
+/* Always include headers in the reverse order!! ~ M. */
+#include "r300_texture.h"
+
+#include "r300_context.h"
+#include "r300_reg.h"
+#include "r300_transfer.h"
+#include "r300_screen.h"
+#include "r300_winsys.h"
 
 #include "util/u_format.h"
 #include "util/u_format_s3tc.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 
-#include "r300_context.h"
-#include "r300_reg.h"
-#include "r300_texture.h"
-#include "r300_transfer.h"
-#include "r300_screen.h"
-#include "r300_winsys.h"
+#include "pipe/p_screen.h"
 
-#define TILE_WIDTH 0
-#define TILE_HEIGHT 1
-
-static const unsigned microblock_table[5][3][2] = {
-    /*linear  tiled   square-tiled */
-    {{32, 1}, {8, 4}, {0, 0}}, /*   8 bits per pixel */
-    {{16, 1}, {8, 2}, {4, 4}}, /*  16 bits per pixel */
-    {{ 8, 1}, {4, 2}, {0, 0}}, /*  32 bits per pixel */
-    {{ 4, 1}, {0, 0}, {2, 2}}, /*  64 bits per pixel */
-    {{ 2, 1}, {0, 0}, {0, 0}}  /* 128 bits per pixel */
+enum r300_dim {
+    DIM_WIDTH  = 0,
+    DIM_HEIGHT = 1
 };
 
 unsigned r300_get_swizzle_combined(const unsigned char *swizzle_format,
@@ -646,36 +641,65 @@ unsigned r300_texture_get_offset(struct r300_texture* tex, unsigned level,
     }
 }
 
-/**
- * Return the width (dim==TILE_WIDTH) or height (dim==TILE_HEIGHT) of one tile
- * of the given texture.
- */
-static unsigned r300_texture_get_tile_size(struct r300_texture* tex,
-                                           int dim, boolean macrotile)
+/* Returns the number of pixels that the texture should be aligned to
+ * in the given dimension. */
+static unsigned r300_get_pixel_alignment(struct r300_texture *tex,
+                                         enum r300_buffer_tiling macrotile,
+                                         enum r300_dim dim)
 {
-    unsigned pixsize, tile_size;
+    static const unsigned table[2][5][3][2] =
+    {
+        {
+    /* Macro: linear    linear    linear
+       Micro: linear    tiled  square-tiled */
+            {{ 32, 1}, { 8,  4}, { 0,  0}}, /*   8 bits per pixel */
+            {{ 16, 1}, { 8,  2}, { 4,  4}}, /*  16 bits per pixel */
+            {{  8, 1}, { 4,  2}, { 0,  0}}, /*  32 bits per pixel */
+            {{  4, 1}, { 0,  0}, { 2,  2}}, /*  64 bits per pixel */
+            {{  2, 1}, { 0,  0}, { 0,  0}}  /* 128 bits per pixel */
+        },
+        {
+    /* Macro: tiled     tiled     tiled
+       Micro: linear    tiled  square-tiled */
+            {{256, 8}, {64, 32}, { 0,  0}}, /*   8 bits per pixel */
+            {{128, 8}, {64, 16}, {32, 32}}, /*  16 bits per pixel */
+            {{ 64, 8}, {32, 16}, { 0,  0}}, /*  32 bits per pixel */
+            {{ 32, 8}, { 0,  0}, {16, 16}}, /*  64 bits per pixel */
+            {{ 16, 8}, { 0,  0}, { 0,  0}}  /* 128 bits per pixel */
+        }
+    };
+    static const unsigned aa_block[2] = {4, 8};
+    unsigned res = 0;
+    unsigned pixsize = util_format_get_blocksize(tex->b.b.format);
 
-    pixsize = util_format_get_blocksize(tex->b.b.format);
-    tile_size = microblock_table[util_logbase2(pixsize)][tex->microtile][dim];
+    assert(macrotile <= R300_BUFFER_TILED);
+    assert(tex->microtile <= R300_BUFFER_SQUARETILED);
+    assert(pixsize <= 16);
+    assert(dim <= DIM_HEIGHT);
 
-    if (macrotile) {
-        tile_size *= 8;
+    if (tex->b.b.nr_samples > 1) {
+        /* Multisampled textures have their own alignment scheme. */
+        if (pixsize == 4)
+            res = aa_block[dim];
+    } else {
+        /* Standard alignment. */
+        res = table[macrotile][util_logbase2(pixsize)][tex->microtile][dim];
     }
 
-    assert(tile_size);
-    return tile_size;
+    assert(res);
+    return res;
 }
 
 /* Return true if macrotiling should be enabled on the miplevel. */
 static boolean r300_texture_macro_switch(struct r300_texture *tex,
                                          unsigned level,
                                          boolean rv350_mode,
-                                         int dim)
+                                         enum r300_dim dim)
 {
     unsigned tile, texdim;
 
-    tile = r300_texture_get_tile_size(tex, dim, TRUE);
-    if (dim == TILE_WIDTH) {
+    tile = r300_get_pixel_alignment(tex, R300_BUFFER_TILED, dim);
+    if (dim == DIM_WIDTH) {
         texdim = u_minify(tex->b.b.width0, level);
     } else {
         texdim = u_minify(tex->b.b.height0, level);
@@ -711,8 +735,8 @@ unsigned r300_texture_get_stride(struct r300_screen* screen,
     width = u_minify(tex->b.b.width0, level);
 
     if (util_format_is_plain(tex->b.b.format)) {
-        tile_width = r300_texture_get_tile_size(tex, TILE_WIDTH,
-                                                tex->mip_macrotile[level]);
+        tile_width = r300_get_pixel_alignment(tex, tex->mip_macrotile[level],
+                                              DIM_WIDTH);
         width = align(width, tile_width);
 
         stride = util_format_get_stride(tex->b.b.format, width);
@@ -741,8 +765,8 @@ static unsigned r300_texture_get_nblocksy(struct r300_texture* tex,
     height = u_minify(tex->b.b.height0, level);
 
     if (util_format_is_plain(tex->b.b.format)) {
-        tile_height = r300_texture_get_tile_size(tex, TILE_HEIGHT,
-                                                 tex->mip_macrotile[level]);
+        tile_height = r300_get_pixel_alignment(tex, tex->mip_macrotile[level],
+                                               DIM_HEIGHT);
         height = align(height, tile_height);
 
         /* This is needed for the kernel checker, unfortunately. */
@@ -790,8 +814,8 @@ static void r300_setup_miptree(struct r300_screen* screen,
         /* Let's see if this miplevel can be macrotiled. */
         tex->mip_macrotile[i] =
             (tex->macrotile == R300_BUFFER_TILED &&
-             r300_texture_macro_switch(tex, i, rv350_mode, TILE_WIDTH) &&
-             r300_texture_macro_switch(tex, i, rv350_mode, TILE_HEIGHT)) ?
+             r300_texture_macro_switch(tex, i, rv350_mode, DIM_WIDTH) &&
+             r300_texture_macro_switch(tex, i, rv350_mode, DIM_HEIGHT)) ?
              R300_BUFFER_TILED : R300_BUFFER_LINEAR;
 
         stride = r300_texture_get_stride(screen, tex, i);
@@ -867,8 +891,8 @@ static void r300_setup_tiling(struct pipe_screen *screen,
     }
 
     /* Set macrotiling. */
-    if (r300_texture_macro_switch(tex, 0, rv350_mode, TILE_WIDTH) &&
-        r300_texture_macro_switch(tex, 0, rv350_mode, TILE_HEIGHT)) {
+    if (r300_texture_macro_switch(tex, 0, rv350_mode, DIM_WIDTH) &&
+        r300_texture_macro_switch(tex, 0, rv350_mode, DIM_HEIGHT)) {
         tex->macrotile = R300_BUFFER_TILED;
     }
 }
@@ -902,17 +926,13 @@ static boolean r300_texture_get_handle(struct pipe_screen* screen,
 {
     struct r300_winsys_screen *rws = (struct r300_winsys_screen *)screen->winsys;
     struct r300_texture* tex = (struct r300_texture*)texture;
-    unsigned stride;
 
     if (!tex) {
         return FALSE;
     }
 
-    stride = r300_texture_get_stride(r300_screen(screen), tex, 0);
-
-    rws->buffer_get_handle(rws, tex->buffer, stride, whandle);
-
-    return TRUE;
+    return rws->buffer_get_handle(rws, tex->buffer, whandle,
+                    r300_texture_get_stride(r300_screen(screen), tex, 0));
 }
 
 struct u_resource_vtbl r300_texture_vtbl = 
@@ -977,8 +997,9 @@ struct pipe_resource* r300_texture_create(struct pipe_screen* screen,
                tex->size,
                util_format_short_name(base->format));
 
-    tex->domain = base->flags & R300_RESOURCE_FLAG_TRANSFER ? R300_DOMAIN_GTT :
-                                                              R300_DOMAIN_VRAM;
+    tex->domain = base->flags & R300_RESOURCE_FLAG_TRANSFER ?
+                  R300_DOMAIN_GTT :
+                  R300_DOMAIN_VRAM | R300_DOMAIN_GTT;
 
     tex->buffer = rws->buffer_create(rws, 2048, base->bind, tex->domain,
                                      tex->size);
@@ -1009,23 +1030,58 @@ struct pipe_surface* r300_create_surface(struct pipe_context * ctx,
     assert(surf_tmpl->u.tex.first_layer == surf_tmpl->u.tex.last_layer);
 
     if (surface) {
-       pipe_reference_init(&surface->base.reference, 1);
-       pipe_resource_reference(&surface->base.texture, texture);
-       surface->base.context = ctx;
-       surface->base.format = surf_tmpl->format;
-       surface->base.width = u_minify(texture->width0, level);
-       surface->base.height = u_minify(texture->height0, level);
-       surface->base.usage = surf_tmpl->usage;
-       surface->base.u.tex.level = level;
-       surface->base.u.tex.first_layer = surf_tmpl->u.tex.first_layer;
-       surface->base.u.tex.last_layer = surf_tmpl->u.tex.last_layer;
+        uint32_t stride, offset, tile_height;
 
-       surface->buffer = tex->buffer;
-       surface->domain = tex->domain;
-       surface->offset = r300_texture_get_offset(tex, level,
-                                                 surf_tmpl->u.tex.first_layer);
-       surface->pitch = tex->fb_state.pitch[level];
-       surface->format = tex->fb_state.format;
+        pipe_reference_init(&surface->base.reference, 1);
+        pipe_resource_reference(&surface->base.texture, texture);
+        surface->base.context = ctx;
+        surface->base.format = surf_tmpl->format;
+        surface->base.width = u_minify(texture->width0, level);
+        surface->base.height = u_minify(texture->height0, level);
+        surface->base.usage = surf_tmpl->usage;
+        surface->base.u.tex.level = level;
+        surface->base.u.tex.first_layer = surf_tmpl->u.tex.first_layer;
+        surface->base.u.tex.last_layer = surf_tmpl->u.tex.last_layer;
+
+        surface->buffer = tex->buffer;
+
+        /* Prefer VRAM if there are multiple domains to choose from. */
+        surface->domain = tex->domain;
+        if (surface->domain & R300_DOMAIN_VRAM)
+            surface->domain &= ~R300_DOMAIN_GTT;
+
+        surface->offset = r300_texture_get_offset(tex, level,
+                                                  surf_tmpl->u.tex.first_layer);
+        surface->pitch = tex->fb_state.pitch[level];
+        surface->format = tex->fb_state.format;
+
+        /* Parameters for the CBZB clear. */
+        surface->cbzb_width = align(surface->base.width, 64);
+
+        /* Height must be aligned to the size of a tile. */
+        tile_height = r300_get_pixel_alignment(tex, tex->mip_macrotile[level],
+                                               DIM_HEIGHT);
+        surface->cbzb_height = align((surface->base.height + 1) / 2,
+                                     tile_height);
+
+        /* Offset must be aligned to 2K and must point at the beginning
+         * of a scanline. */
+        stride = r300_texture_get_stride(r300_screen(ctx->screen), tex, level);
+        offset = surface->offset + stride * surface->cbzb_height;
+        surface->cbzb_midpoint_offset = offset & ~2047;
+
+        surface->cbzb_pitch = surface->pitch & 0x1ffffc;
+
+        if (util_format_get_blocksizebits(surface->base.format) == 32)
+            surface->cbzb_format = R300_DEPTHFORMAT_24BIT_INT_Z_8BIT_STENCIL;
+        else
+            surface->cbzb_format = R300_DEPTHFORMAT_16BIT_INT_Z;
+
+        DBG(r300_context(ctx), DBG_TEX,
+            "CBZB Dim: %ix%i, Misalignment: %i, Macro: %s\n",
+            surface->cbzb_width, surface->cbzb_height,
+            offset & 2047,
+            tex->mip_macrotile[level] ? "YES" : " NO");
     }
 
     return &surface->base;
@@ -1058,7 +1114,7 @@ r300_texture_from_handle(struct pipe_screen* screen,
         return NULL;
     }
 
-    buffer = rws->buffer_from_handle(rws, screen, whandle, &stride);
+    buffer = rws->buffer_from_handle(rws, whandle, &stride);
     if (!buffer) {
         return NULL;
     }

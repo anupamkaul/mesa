@@ -22,8 +22,6 @@ struct radeon_drm_buffer {
 
     boolean flinked;
     uint32_t flink;
-    uint32_t tileflags;
-    uint32_t pitch;
 
     struct radeon_drm_buffer *next, *prev;
 };
@@ -267,16 +265,14 @@ static struct radeon_drm_buffer *get_drm_buffer(struct pb_buffer *_buf)
 boolean radeon_drm_bufmgr_get_handle(struct pb_buffer *_buf,
 				     struct winsys_handle *whandle)
 {
-    int retval, fd;
     struct drm_gem_flink flink;
     struct radeon_drm_buffer *buf = get_drm_buffer(_buf);
+
     if (whandle->type == DRM_API_HANDLE_TYPE_SHARED) {
 	if (!buf->flinked) {
-	    fd = buf->mgr->rws->fd;
 	    flink.handle = buf->bo->handle;
 
-	    retval = ioctl(fd, DRM_IOCTL_GEM_FLINK, &flink);
-	    if (retval) {
+            if (ioctl(buf->mgr->rws->fd, DRM_IOCTL_GEM_FLINK, &flink)) {
 		return FALSE;
 	    }
 
@@ -298,9 +294,6 @@ void radeon_drm_bufmgr_get_tiling(struct pb_buffer *_buf,
     uint32_t flags = 0, pitch;
 
     radeon_bo_get_tiling(buf->bo, &flags, &pitch);
-
-    buf->tileflags = flags;
-    buf->pitch = pitch;
 
     *microtiled = R300_BUFFER_LINEAR;
     *macrotiled = R300_BUFFER_LINEAR;
@@ -328,15 +321,7 @@ void radeon_drm_bufmgr_set_tiling(struct pb_buffer *_buf,
     if (macrotiled == R300_BUFFER_TILED)
         flags |= RADEON_BO_FLAGS_MACRO_TILE;
 
-    if (flags != buf->tileflags || pitch != buf->pitch) {
-        /* Tiling determines how DRM treats the buffer data.
-         * We must flush CS when changing it if the buffer is referenced. */
-        if (radeon_bo_is_referenced_by_cs(buf->bo,  buf->mgr->rws->cs)) {
-	    buf->mgr->rws->flush_cb(buf->mgr->rws->flush_data);
-        }
-
-        radeon_bo_set_tiling(buf->bo, flags, pitch);
-    }
+    radeon_bo_set_tiling(buf->bo, flags, pitch);
 }
 
 static uint32_t gem_domain(enum r300_buffer_domain dom)
@@ -376,8 +361,8 @@ void radeon_drm_bufmgr_write_reloc(struct pb_buffer *_buf,
     retval = radeon_cs_write_reloc(buf->mgr->rws->cs,
 				   buf->bo, gem_rd, gem_wd, flags);
     if (retval) {
-        debug_printf("radeon: Relocation of %p (%d, %d, %d) failed!\n",
-		     buf, gem_rd, gem_wd, flags);
+        fprintf(stderr, "radeon: Relocation of %p (%d, %d, %d) failed!\n",
+                buf, gem_rd, gem_wd, flags);
     }
 }
 

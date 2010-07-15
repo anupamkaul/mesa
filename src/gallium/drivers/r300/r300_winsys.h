@@ -105,6 +105,11 @@ struct r300_winsys_screen {
     /* Return the number of free dwords in CS. */
     unsigned (*get_cs_free_dwords)(struct r300_winsys_screen *winsys);
 
+    /* Return the pointer to the first free dword in CS and assume a pipe
+     * driver wants to fill "count" dwords. */
+    uint32_t *(*get_cs_pointer)(struct r300_winsys_screen *winsys,
+                                unsigned count);
+
     /* Write a dword to the command buffer. */
     void (*write_cs_dword)(struct r300_winsys_screen* winsys, uint32_t dword);
 
@@ -143,13 +148,13 @@ struct r300_winsys_screen {
 			  enum r300_value_id vid);
 
     struct r300_winsys_buffer *(*buffer_from_handle)(struct r300_winsys_screen *winsys,
-						     struct pipe_screen *screen,
-						     struct winsys_handle *whandle,
-						     unsigned *stride);
+                                                     struct winsys_handle *whandle,
+                                                     unsigned *stride);
+
     boolean (*buffer_get_handle)(struct r300_winsys_screen *winsys,
 				 struct r300_winsys_buffer *buffer,
-				 unsigned stride,
-				 struct winsys_handle *whandle);
+                                 struct winsys_handle *whandle,
+                                 unsigned stride);
 
     boolean (*is_buffer_referenced)(struct r300_winsys_screen *winsys,
                                     struct r300_winsys_buffer *buffer,
@@ -158,8 +163,5 @@ struct r300_winsys_screen {
 
 struct r300_winsys_screen *
 r300_winsys_screen(struct pipe_screen *screen);
-
-/* Creates a new r300 screen. */
-struct pipe_screen* r300_create_screen(struct r300_winsys_screen *rws);
 
 #endif /* R300_WINSYS_H */

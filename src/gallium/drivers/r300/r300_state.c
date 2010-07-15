@@ -23,6 +23,7 @@
 
 #include "draw/draw_context.h"
 
+#include "util/u_blitter.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
 #include "util/u_pack_color.h"
@@ -465,6 +466,8 @@ static void*
     struct r300_dsa_state* dsa = CALLOC_STRUCT(r300_dsa_state);
     CB_LOCALS;
 
+    dsa->dsa = *state;
+
     /* Depth test setup. */
     if (state->depth.enabled) {
         dsa->z_buffer_control |= R300_Z_ENABLE;
@@ -606,32 +609,42 @@ static void r300_set_stencil_ref(struct pipe_context* pipe,
     r300->dsa_state.dirty = TRUE;
 }
 
+static void r300_tex_set_tiling_flags(struct r300_context *r300,
+                                      struct r300_texture *tex, unsigned level)
+{
+    /* Check if the macrotile flag needs to be changed.
+     * Skip changing the flags otherwise. */
+    if (tex->mip_macrotile[tex->surface_level] != tex->mip_macrotile[level]) {
+        /* Tiling determines how DRM treats the buffer data.
+         * We must flush CS when changing it if the buffer is referenced. */
+        if (r300->rws->is_buffer_referenced(r300->rws, tex->buffer, R300_REF_CS))
+            r300->context.flush(&r300->context, 0, NULL);
+
+        r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
+                tex->pitch[0] * util_format_get_blocksize(tex->b.b.format),
+                tex->microtile,
+                tex->mip_macrotile[level]);
+
+        tex->surface_level = level;
+    }
+}
+
 /* This switcheroo is needed just because of goddamned MACRO_SWITCH. */
 static void r300_fb_set_tiling_flags(struct r300_context *r300,
-                               const struct pipe_framebuffer_state *old_state,
-                               const struct pipe_framebuffer_state *new_state)
+                               const struct pipe_framebuffer_state *state)
 {
-    struct r300_texture *tex;
-    unsigned i, level;
+    unsigned i;
 
     /* Set tiling flags for new surfaces. */
-    for (i = 0; i < new_state->nr_cbufs; i++) {
-        tex = r300_texture(new_state->cbufs[i]->texture);
-        level = new_state->cbufs[i]->u.tex.level;
-
-        r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
-                tex->pitch[0] * util_format_get_blocksize(tex->b.b.format),
-                tex->microtile,
-                tex->mip_macrotile[level]);
+    for (i = 0; i < state->nr_cbufs; i++) {
+        r300_tex_set_tiling_flags(r300,
+                                  r300_texture(state->cbufs[i]->texture),
+                                  state->cbufs[i]->u.tex.level);
     }
-    if (new_state->zsbuf) {
-        tex = r300_texture(new_state->zsbuf->texture);
-        level = new_state->zsbuf->u.tex.level;
-
-        r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
-                tex->pitch[0] * util_format_get_blocksize(tex->b.b.format),
-                tex->microtile,
-                tex->mip_macrotile[level]);
+    if (state->zsbuf) {
+        r300_tex_set_tiling_flags(r300,
+                                  r300_texture(state->zsbuf->texture),
+                                  state->zsbuf->u.tex.level);
     }
 }
 
@@ -657,20 +670,41 @@ static void r300_print_fb_surf_info(struct pipe_surface *surf, unsigned index,
             tex->last_level, util_format_short_name(tex->format));
 }
 
+void r300_mark_fb_state_dirty(struct r300_context *r300,
+                              enum r300_fb_state_change change)
+{
+    struct pipe_framebuffer_state *state = r300->fb_state.state;
+
+    /* What is marked as dirty depends on the enum r300_fb_state_change. */
+    r300->gpu_flush.dirty = TRUE;
+    r300->fb_state.dirty = TRUE;
+    r300->hyperz_state.dirty = TRUE;
+
+    if (change == R300_CHANGED_FB_STATE) {
+        r300->aa_state.dirty = TRUE;
+        r300->fb_state_pipelined.dirty = TRUE;
+    }
+
+    /* Now compute the fb_state atom size. */
+    r300->fb_state.size = 2 + (8 * state->nr_cbufs);
+
+    if (r300->cbzb_clear)
+        r300->fb_state.size += 10;
+    else if (state->zsbuf)
+        r300->fb_state.size += r300->screen->caps.has_hiz ? 18 : 14;
+
+    /* The size of the rest of atoms stays the same. */
+}
+
 static void
     r300_set_framebuffer_state(struct pipe_context* pipe,
                                const struct pipe_framebuffer_state* state)
 {
     struct r300_context* r300 = r300_context(pipe);
+    struct r300_aa_state *aa = (struct r300_aa_state*)r300->aa_state.state;
     struct pipe_framebuffer_state *old_state = r300->fb_state.state;
     unsigned max_width, max_height, i;
     uint32_t zbuffer_bpp = 0;
-
-    if (state->nr_cbufs > 4) {
-        fprintf(stderr, "r300: Implementation error: Too many MRTs in %s, "
-            "refusing to bind framebuffer state!\n", __FUNCTION__);
-        return;
-    }
 
     if (r300->screen->caps.is_r500) {
         max_width = max_height = 4096;
@@ -690,8 +724,6 @@ static void
         draw_flush(r300->draw);
     }
 
-    r300->fb_state.dirty = TRUE;
-
     /* If nr_cbufs is changed from zero to non-zero or vice versa... */
     if (!!old_state->nr_cbufs != !!state->nr_cbufs) {
         r300->blend_state.dirty = TRUE;
@@ -702,12 +734,11 @@ static void
     }
 
     /* The tiling flags are dependent on the surface miplevel, unfortunately. */
-    r300_fb_set_tiling_flags(r300, r300->fb_state.state, state);
+    r300_fb_set_tiling_flags(r300, state);
 
-    memcpy(r300->fb_state.state, state, sizeof(struct pipe_framebuffer_state));
+    util_assign_framebuffer_state(r300->fb_state.state, state);
 
-    r300->fb_state.size = (10 * state->nr_cbufs) + (2 * (4 - state->nr_cbufs)) +
-                          (state->zsbuf ? 10 : 0) + 9;
+    r300_mark_fb_state_dirty(r300, R300_CHANGED_FB_STATE);
 
     /* Polygon offset depends on the zbuffer bit depth. */
     if (state->zsbuf && r300->polygon_offset_enabled) {
@@ -723,6 +754,30 @@ static void
         if (r300->zbuffer_bpp != zbuffer_bpp) {
             r300->zbuffer_bpp = zbuffer_bpp;
             r300->rs_state.dirty = TRUE;
+        }
+    }
+
+    /* Set up AA config. */
+    if (r300->rws->get_value(r300->rws, R300_VID_DRM_2_3_0)) {
+        if (state->nr_cbufs && state->cbufs[0]->texture->nr_samples > 1) {
+            aa->aa_config = R300_GB_AA_CONFIG_AA_ENABLE;
+
+            switch (state->cbufs[0]->texture->nr_samples) {
+                case 2:
+                    aa->aa_config |= R300_GB_AA_CONFIG_NUM_AA_SUBSAMPLES_2;
+                    break;
+                case 3:
+                    aa->aa_config |= R300_GB_AA_CONFIG_NUM_AA_SUBSAMPLES_3;
+                    break;
+                case 4:
+                    aa->aa_config |= R300_GB_AA_CONFIG_NUM_AA_SUBSAMPLES_4;
+                    break;
+                case 6:
+                    aa->aa_config |= R300_GB_AA_CONFIG_NUM_AA_SUBSAMPLES_6;
+                    break;
+            }
+        } else {
+            aa->aa_config = 0;
         }
     }
 
@@ -824,6 +879,27 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
     struct r300_rs_state* rs = CALLOC_STRUCT(r300_rs_state);
     int i;
     float psiz;
+    uint32_t vap_control_status;    /* R300_VAP_CNTL_STATUS: 0x2140 */
+    uint32_t point_size;            /* R300_GA_POINT_SIZE: 0x421c */
+    uint32_t point_minmax;          /* R300_GA_POINT_MINMAX: 0x4230 */
+    uint32_t line_control;          /* R300_GA_LINE_CNTL: 0x4234 */
+    uint32_t polygon_offset_enable; /* R300_SU_POLY_OFFSET_ENABLE: 0x42b4 */
+    uint32_t cull_mode;             /* R300_SU_CULL_MODE: 0x42b8 */
+    uint32_t line_stipple_config;   /* R300_GA_LINE_STIPPLE_CONFIG: 0x4328 */
+    uint32_t line_stipple_value;    /* R300_GA_LINE_STIPPLE_VALUE: 0x4260 */
+    uint32_t polygon_mode;          /* R300_GA_POLY_MODE: 0x4288 */
+    uint32_t clip_rule;             /* R300_SC_CLIP_RULE: 0x43D0 */
+
+    /* Specifies top of Raster pipe specific enable controls,
+     * i.e. texture coordinates stuffing for points, lines, triangles */
+    uint32_t stuffing_enable;       /* R300_GB_ENABLE: 0x4008 */
+
+    /* Point sprites texture coordinates, 0: lower left, 1: upper right */
+    float point_texcoord_left;      /* R300_GA_POINT_S0: 0x4200 */
+    float point_texcoord_bottom = 0;/* R300_GA_POINT_T0: 0x4204 */
+    float point_texcoord_right;     /* R300_GA_POINT_S1: 0x4208 */
+    float point_texcoord_top = 0;   /* R300_GA_POINT_T1: 0x420c */
+    CB_LOCALS;
 
     /* Copy rasterizer state. */
     rs->rs = *state;
@@ -833,18 +909,18 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
     rs->rs_draw.sprite_coord_enable = 0; /* We can do this in HW. */
 
 #ifdef PIPE_ARCH_LITTLE_ENDIAN
-    rs->vap_control_status = R300_VC_NO_SWAP;
+    vap_control_status = R300_VC_NO_SWAP;
 #else
-    rs->vap_control_status = R300_VC_32BIT_SWAP;
+    vap_control_status = R300_VC_32BIT_SWAP;
 #endif
 
     /* If no TCL engine is present, turn off the HW TCL. */
     if (!r300_screen(pipe->screen)->caps.has_tcl) {
-        rs->vap_control_status |= R300_VAP_TCL_BYPASS;
+        vap_control_status |= R300_VAP_TCL_BYPASS;
     }
 
     /* Point size width and height. */
-    rs->point_size =
+    point_size =
         pack_float_16_6x(state->point_size) |
         (pack_float_16_6x(state->point_size) << R300_POINTSIZE_X_SHIFT);
 
@@ -854,68 +930,70 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
          * Clamp to [0, max FB size] */
         psiz = pipe->screen->get_paramf(pipe->screen,
                                         PIPE_CAP_MAX_POINT_WIDTH);
-        rs->point_minmax =
+        point_minmax =
             pack_float_16_6x(psiz) << R300_GA_POINT_MINMAX_MAX_SHIFT;
     } else {
         /* We cannot disable the point-size vertex output,
          * so clamp it. */
         psiz = state->point_size;
-        rs->point_minmax =
+        point_minmax =
             (pack_float_16_6x(psiz) << R300_GA_POINT_MINMAX_MIN_SHIFT) |
             (pack_float_16_6x(psiz) << R300_GA_POINT_MINMAX_MAX_SHIFT);
     }
 
     /* Line control. */
-    rs->line_control = pack_float_16_6x(state->line_width) |
+    line_control = pack_float_16_6x(state->line_width) |
         R300_GA_LINE_CNTL_END_TYPE_COMP;
 
     /* Enable polygon mode */
+    polygon_mode = 0;
     if (state->fill_front != PIPE_POLYGON_MODE_FILL ||
         state->fill_back != PIPE_POLYGON_MODE_FILL) {
-        rs->polygon_mode = R300_GA_POLY_MODE_DUAL;
+        polygon_mode = R300_GA_POLY_MODE_DUAL;
     }
 
     /* Front face */
     if (state->front_ccw) 
-        rs->cull_mode = R300_FRONT_FACE_CCW;
+        cull_mode = R300_FRONT_FACE_CCW;
     else
-        rs->cull_mode = R300_FRONT_FACE_CW;
+        cull_mode = R300_FRONT_FACE_CW;
 
     /* Polygon offset */
+    polygon_offset_enable = 0;
     if (util_get_offset(state, state->fill_front)) {
-       rs->polygon_offset_enable |= R300_FRONT_ENABLE;
+       polygon_offset_enable |= R300_FRONT_ENABLE;
     }
     if (util_get_offset(state, state->fill_back)) {
-       rs->polygon_offset_enable |= R300_BACK_ENABLE;
+       polygon_offset_enable |= R300_BACK_ENABLE;
     }
 
+    rs->polygon_offset_enable = polygon_offset_enable != 0;
+
     /* Polygon mode */
-    if (rs->polygon_mode) {
-       rs->polygon_mode |=
+    if (polygon_mode) {
+       polygon_mode |=
           r300_translate_polygon_mode_front(state->fill_front);
-       rs->polygon_mode |=
+       polygon_mode |=
           r300_translate_polygon_mode_back(state->fill_back);
     }
 
     if (state->cull_face & PIPE_FACE_FRONT) {
-        rs->cull_mode |= R300_CULL_FRONT;
+        cull_mode |= R300_CULL_FRONT;
     }
     if (state->cull_face & PIPE_FACE_BACK) {
-        rs->cull_mode |= R300_CULL_BACK;
-    }
-
-    if (rs->polygon_offset_enable) {
-        rs->depth_offset = state->offset_units;
-        rs->depth_scale = state->offset_scale;
+        cull_mode |= R300_CULL_BACK;
     }
 
     if (state->line_stipple_enable) {
-        rs->line_stipple_config =
+        line_stipple_config =
             R300_GA_LINE_STIPPLE_CONFIG_LINE_RESET_LINE |
             (fui((float)state->line_stipple_factor) &
                 R300_GA_LINE_STIPPLE_CONFIG_STIPPLE_SCALE_MASK);
         /* XXX this might need to be scaled up */
-        rs->line_stipple_value = state->line_stipple_pattern;
+        line_stipple_value = state->line_stipple_pattern;
+    } else {
+        line_stipple_config = 0;
+        line_stipple_value = 0;
     }
 
     if (state->flatshade) {
@@ -924,35 +1002,78 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
         rs->color_control = R300_SHADE_MODEL_SMOOTH;
     }
 
-    rs->clip_rule = state->scissor ? 0xAAAA : 0xFFFF;
+    clip_rule = state->scissor ? 0xAAAA : 0xFFFF;
 
     /* Point sprites */
+    stuffing_enable = 0;
     if (state->sprite_coord_enable) {
-        rs->stuffing_enable = R300_GB_POINT_STUFF_ENABLE;
+        stuffing_enable = R300_GB_POINT_STUFF_ENABLE;
 	for (i = 0; i < 8; i++) {
 	    if (state->sprite_coord_enable & (1 << i))
-		rs->stuffing_enable |=
+                stuffing_enable |=
 		    R300_GB_TEX_STR << (R300_GB_TEX0_SOURCE_SHIFT + (i*2));
 	}
 
-        rs->point_texcoord_left = 0.0f;
-        rs->point_texcoord_right = 1.0f;
+        point_texcoord_left = 0.0f;
+        point_texcoord_right = 1.0f;
 
         switch (state->sprite_coord_mode) {
             case PIPE_SPRITE_COORD_UPPER_LEFT:
-                rs->point_texcoord_top = 0.0f;
-                rs->point_texcoord_bottom = 1.0f;
+                point_texcoord_top = 0.0f;
+                point_texcoord_bottom = 1.0f;
                 break;
             case PIPE_SPRITE_COORD_LOWER_LEFT:
-                rs->point_texcoord_top = 1.0f;
-                rs->point_texcoord_bottom = 0.0f;
+                point_texcoord_top = 1.0f;
+                point_texcoord_bottom = 0.0f;
                 break;
         }
     }
 
-    if (state->gl_rasterization_rules) {
-        rs->multisample_position_0 = 0x66666666;
-        rs->multisample_position_1 = 0x6666666;
+    /* Build the main command buffer. */
+    BEGIN_CB(rs->cb_main, 25);
+    OUT_CB_REG(R300_VAP_CNTL_STATUS, vap_control_status);
+    OUT_CB_REG(R300_GA_POINT_SIZE, point_size);
+    OUT_CB_REG_SEQ(R300_GA_POINT_MINMAX, 2);
+    OUT_CB(point_minmax);
+    OUT_CB(line_control);
+    OUT_CB_REG_SEQ(R300_SU_POLY_OFFSET_ENABLE, 2);
+    OUT_CB(polygon_offset_enable);
+    rs->cull_mode_index = 9;
+    OUT_CB(cull_mode);
+    OUT_CB_REG(R300_GA_LINE_STIPPLE_CONFIG, line_stipple_config);
+    OUT_CB_REG(R300_GA_LINE_STIPPLE_VALUE, line_stipple_value);
+    OUT_CB_REG(R300_GA_POLY_MODE, polygon_mode);
+    OUT_CB_REG(R300_SC_CLIP_RULE, clip_rule);
+    OUT_CB_REG(R300_GB_ENABLE, stuffing_enable);
+    OUT_CB_REG_SEQ(R300_GA_POINT_S0, 4);
+    OUT_CB_32F(point_texcoord_left);
+    OUT_CB_32F(point_texcoord_bottom);
+    OUT_CB_32F(point_texcoord_right);
+    OUT_CB_32F(point_texcoord_top);
+    END_CB;
+
+    /* Build the two command buffers for polygon offset setup. */
+    if (polygon_offset_enable) {
+        float scale = state->offset_scale * 12;
+        float offset = state->offset_units * 4;
+
+        BEGIN_CB(rs->cb_poly_offset_zb16, 5);
+        OUT_CB_REG_SEQ(R300_SU_POLY_OFFSET_FRONT_SCALE, 4);
+        OUT_CB_32F(scale);
+        OUT_CB_32F(offset);
+        OUT_CB_32F(scale);
+        OUT_CB_32F(offset);
+        END_CB;
+
+        offset = state->offset_units * 2;
+
+        BEGIN_CB(rs->cb_poly_offset_zb24, 5);
+        OUT_CB_REG_SEQ(R300_SU_POLY_OFFSET_FRONT_SCALE, 4);
+        OUT_CB_32F(scale);
+        OUT_CB_32F(offset);
+        OUT_CB_32F(scale);
+        OUT_CB_32F(offset);
+        END_CB;
     }
 
     return (void*)rs;
@@ -984,8 +1105,7 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     }
 
     UPDATE_STATE(state, r300->rs_state);
-    r300->rs_state.size = 25 + (r300->polygon_offset_enabled ? 5 : 0 +
-        r300->rws->get_value(r300->rws, R300_VID_DRM_2_3_0) ? 5 : 0);
+    r300->rs_state.size = 25 + (r300->polygon_offset_enabled ? 5 : 0);
 
     if (last_sprite_coord_enable != r300->sprite_coord_enable ||
         last_two_sided_color != r300->two_sided_color) {
@@ -1011,10 +1131,34 @@ static void*
 
     sampler->state = *state;
 
+    /* r300 doesn't handle CLAMP and MIRROR_CLAMP correctly when either MAG
+     * or MIN filter is NEAREST. Since texwrap produces same results
+     * for CLAMP and CLAMP_TO_EDGE, we use them instead. */
+    if (sampler->state.min_img_filter == PIPE_TEX_FILTER_NEAREST ||
+        sampler->state.mag_img_filter == PIPE_TEX_FILTER_NEAREST) {
+        /* Wrap S. */
+        if (sampler->state.wrap_s == PIPE_TEX_WRAP_CLAMP)
+            sampler->state.wrap_s = PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+        else if (sampler->state.wrap_s == PIPE_TEX_WRAP_MIRROR_CLAMP)
+            sampler->state.wrap_s = PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+
+        /* Wrap T. */
+        if (sampler->state.wrap_t == PIPE_TEX_WRAP_CLAMP)
+            sampler->state.wrap_t = PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+        else if (sampler->state.wrap_t == PIPE_TEX_WRAP_MIRROR_CLAMP)
+            sampler->state.wrap_t = PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+
+        /* Wrap R. */
+        if (sampler->state.wrap_r == PIPE_TEX_WRAP_CLAMP)
+            sampler->state.wrap_r = PIPE_TEX_WRAP_CLAMP_TO_EDGE;
+        else if (sampler->state.wrap_r == PIPE_TEX_WRAP_MIRROR_CLAMP)
+            sampler->state.wrap_r = PIPE_TEX_WRAP_MIRROR_CLAMP_TO_EDGE;
+    }
+
     sampler->filter0 |=
-        (r300_translate_wrap(state->wrap_s) << R300_TX_WRAP_S_SHIFT) |
-        (r300_translate_wrap(state->wrap_t) << R300_TX_WRAP_T_SHIFT) |
-        (r300_translate_wrap(state->wrap_r) << R300_TX_WRAP_R_SHIFT);
+        (r300_translate_wrap(sampler->state.wrap_s) << R300_TX_WRAP_S_SHIFT) |
+        (r300_translate_wrap(sampler->state.wrap_t) << R300_TX_WRAP_T_SHIFT) |
+        (r300_translate_wrap(sampler->state.wrap_r) << R300_TX_WRAP_R_SHIFT);
 
     sampler->filter0 |= r300_translate_tex_filters(state->min_img_filter,
                                                    state->mag_img_filter,
@@ -1030,7 +1174,7 @@ static void*
 
     lod_bias = CLAMP((int)(state->lod_bias * 32 + 1), -(1 << 9), (1 << 9) - 1);
 
-    sampler->filter1 |= lod_bias << R300_LOD_BIAS_SHIFT;
+    sampler->filter1 |= (lod_bias << R300_LOD_BIAS_SHIFT) & R300_LOD_BIAS_MASK;
 
     /* This is very high quality anisotropic filtering for R5xx.
      * It's good for benchmarking the performance of texturing but
@@ -1081,6 +1225,31 @@ static void r300_delete_sampler_state(struct pipe_context* pipe, void* state)
     FREE(state);
 }
 
+static uint32_t r300_assign_texture_cache_region(unsigned index, unsigned num)
+{
+    /* This looks like a hack, but I believe it's suppose to work like
+     * that. To illustrate how this works, let's assume you have 5 textures.
+     * From docs, 5 and the successive numbers are:
+     *
+     * FOURTH_1     = 5
+     * FOURTH_2     = 6
+     * FOURTH_3     = 7
+     * EIGHTH_0     = 8
+     * EIGHTH_1     = 9
+     *
+     * First 3 textures will get 3/4 of size of the cache, divived evenly
+     * between them. The last 1/4 of the cache must be divided between
+     * the last 2 textures, each will therefore get 1/8 of the cache.
+     * Why not just to use "5 + texture_index" ?
+     *
+     * This simple trick works for all "num" <= 16.
+     */
+    if (num <= 1)
+        return R300_TX_CACHE(R300_TX_CACHE_WHOLE);
+    else
+        return R300_TX_CACHE(num + index);
+}
+
 static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
                                             unsigned count,
                                             struct pipe_sampler_view** views)
@@ -1089,12 +1258,18 @@ static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
     struct r300_textures_state* state =
         (struct r300_textures_state*)r300->textures_state.state;
     struct r300_texture *texture;
-    unsigned i;
+    unsigned i, real_num_views = 0, view_index = 0;
     unsigned tex_units = r300->screen->caps.num_tex_units;
     boolean dirty_tex = FALSE;
 
     if (count > tex_units) {
         return;
+    }
+
+    /* Calculate the real number of views. */
+    for (i = 0; i < count; i++) {
+        if (views[i])
+            real_num_views++;
     }
 
     for (i = 0; i < count; i++) {
@@ -1116,6 +1291,10 @@ static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
             if (texture->uses_pitch) {
                 r300->fs_rc_constant_state.dirty = TRUE;
             }
+
+            state->sampler_views[i]->texcache_region =
+                r300_assign_texture_cache_region(view_index, real_num_views);
+            view_index++;
         }
     }
 
@@ -1439,11 +1618,13 @@ static void* r300_create_vertex_elements_state(struct pipe_context* pipe,
 
             /* Align the formats to the size of DWORD.
              * We only care about the blocksizes of the formats since
-             * swizzles are already set up. */
+             * swizzles are already set up.
+             * Also compute the vertex size. */
             for (i = 0; i < count; i++) {
                 /* This is OK because we check for aligned strides too. */
                 velems->hw_format_size[i] =
                     align(util_format_get_blocksize(velems->hw_format[i]), 4);
+                velems->vertex_size_dwords += velems->hw_format_size[i] / 4;
             }
         }
     }
@@ -1481,7 +1662,6 @@ static void* r300_create_vs_state(struct pipe_context* pipe,
                                   const struct pipe_shader_state* shader)
 {
     struct r300_context* r300 = r300_context(pipe);
-
     struct r300_vertex_shader* vs = CALLOC_STRUCT(r300_vertex_shader);
 
     /* Copy state directly into shader. */

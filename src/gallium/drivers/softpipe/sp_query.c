@@ -58,7 +58,9 @@ softpipe_create_query(struct pipe_context *pipe,
 
    assert(type == PIPE_QUERY_OCCLUSION_COUNTER ||
           type == PIPE_QUERY_TIME_ELAPSED ||
-          type == PIPE_QUERY_SO_STATISTICS);
+          type == PIPE_QUERY_SO_STATISTICS ||
+          type == PIPE_QUERY_GPU_FINISHED ||
+          type == PIPE_QUERY_TIMESTAMP_DISJOINT);
    sq = CALLOC_STRUCT( softpipe_query );
    sq->type = type;
 
@@ -78,7 +80,7 @@ softpipe_begin_query(struct pipe_context *pipe, struct pipe_query *q)
 {
    struct softpipe_context *softpipe = softpipe_context( pipe );
    struct softpipe_query *sq = softpipe_query(q);
-   
+
    switch (sq->type) {
    case PIPE_QUERY_OCCLUSION_COUNTER:
       sq->start = softpipe->occlusion_count;
@@ -90,6 +92,9 @@ softpipe_begin_query(struct pipe_context *pipe, struct pipe_query *q)
       sq->so.num_primitives_written = 0;
       sq->so.primitives_storage_needed = 0;
       break;
+   case PIPE_QUERY_GPU_FINISHED:
+      break;
+   case PIPE_QUERY_TIMESTAMP_DISJOINT:
    default:
       assert(0);
       break;
@@ -119,6 +124,9 @@ softpipe_end_query(struct pipe_context *pipe, struct pipe_query *q)
       sq->so.primitives_storage_needed =
          softpipe->so_stats.primitives_storage_needed;
       break;
+   case PIPE_QUERY_GPU_FINISHED:
+   case PIPE_QUERY_TIMESTAMP_DISJOINT:
+      break;
    default:
       assert(0);
       break;
@@ -140,6 +148,18 @@ softpipe_get_query_result(struct pipe_context *pipe,
    case PIPE_QUERY_SO_STATISTICS:
       memcpy(vresult, &sq->so,
              sizeof(struct pipe_query_data_so_statistics));
+      break;
+   case PIPE_QUERY_GPU_FINISHED:
+      *result = TRUE;
+      break;
+   case PIPE_QUERY_TIMESTAMP_DISJOINT: {
+      struct pipe_query_data_timestamp_disjoint td;
+      /*os_get_time is in microseconds*/
+      td.frequency = 1000000;
+      td.disjoint = FALSE;
+      memcpy(vresult, &sq->so,
+             sizeof(struct pipe_query_data_timestamp_disjoint));
+   }
       break;
    default:
       *result = sq->end - sq->start;

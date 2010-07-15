@@ -1630,6 +1630,40 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #       define R300_TX_FORMAT_GAMMA               (1 << 21)
 #       define R300_TX_FORMAT_YUV_TO_RGB          (1 << 22)
 
+#       define R300_TX_CACHE(x)                 ((x) << 27)
+#       define R300_TX_CACHE_WHOLE              0
+/* reserved */
+#       define R300_TX_CACHE_HALF_0             2
+#       define R300_TX_CACHE_HALF_1             3
+#       define R300_TX_CACHE_FOURTH_0           4
+#       define R300_TX_CACHE_FOURTH_1           5
+#       define R300_TX_CACHE_FOURTH_2           6
+#       define R300_TX_CACHE_FOURTH_3           7
+#       define R300_TX_CACHE_EIGHTH_0           8
+#       define R300_TX_CACHE_EIGHTH_1           9
+#       define R300_TX_CACHE_EIGHTH_2           10
+#       define R300_TX_CACHE_EIGHTH_3           11
+#       define R300_TX_CACHE_EIGHTH_4           12
+#       define R300_TX_CACHE_EIGHTH_5           13
+#       define R300_TX_CACHE_EIGHTH_6           14
+#       define R300_TX_CACHE_EIGHTH_7           15
+#       define R300_TX_CACHE_SIXTEENTH_0        16
+#       define R300_TX_CACHE_SIXTEENTH_1        17
+#       define R300_TX_CACHE_SIXTEENTH_2        18
+#       define R300_TX_CACHE_SIXTEENTH_3        19
+#       define R300_TX_CACHE_SIXTEENTH_4        20
+#       define R300_TX_CACHE_SIXTEENTH_5        21
+#       define R300_TX_CACHE_SIXTEENTH_6        22
+#       define R300_TX_CACHE_SIXTEENTH_7        23
+#       define R300_TX_CACHE_SIXTEENTH_8        24
+#       define R300_TX_CACHE_SIXTEENTH_9        25
+#       define R300_TX_CACHE_SIXTEENTH_10       26
+#       define R300_TX_CACHE_SIXTEENTH_11       27
+#       define R300_TX_CACHE_SIXTEENTH_12       28
+#       define R300_TX_CACHE_SIXTEENTH_13       29
+#       define R300_TX_CACHE_SIXTEENTH_14       30
+#       define R300_TX_CACHE_SIXTEENTH_15       31
+
 #define R300_TX_FORMAT2_0		    0x4500 /* obvious missing in gap */
 #       define R300_TX_PITCHMASK_SHIFT           0
 #       define R300_TX_PITCHMASK_MASK            (2047 << 0)
@@ -2583,7 +2617,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #	define R300_WR_COMP_DISABLE                          (0 << 4)
 #	define R300_WR_COMP_ENABLE                           (1 << 4)
 #	define R300_ZB_CB_CLEAR_RMW                          (0 << 5)
-#	define R300_ZB_CB_CLEAR_CACHE_LINEAR                 (1 << 5)
+#	define R300_ZB_CB_CLEAR_CACHE_LINE_WRITE_ONLY        (1 << 5)
 #	define R300_FORCE_COMPRESSED_STENCIL_VALUE_DISABLE   (0 << 6)
 #	define R300_FORCE_COMPRESSED_STENCIL_VALUE_ENABLE    (1 << 6)
 
@@ -2638,6 +2672,24 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 /* Z Buffer Clear Value */
 #define R300_ZB_DEPTHCLEARVALUE                  0x4f28
+
+/* Z Mask RAM is a Z compression buffer.
+ * Each dword of the Z Mask contains compression info for 16 4x4 pixel blocks,
+ * that is 2 bits for each block.
+ * On chips with 2 Z pipes, every other dword maps to a different pipe.
+ */
+
+/* The dword offset into Z mask RAM (bits 18:4) */
+#define R300_ZB_ZMASK_OFFSET                     0x4f30
+
+/* Z Mask Pitch. */
+#define R300_ZB_ZMASK_PITCH                      0x4f34
+
+/* Access to Z Mask RAM in a manner similar to HiZ RAM.
+ * The indices are autoincrementing. */
+#define R300_ZB_ZMASK_WRINDEX                    0x4f38
+#define R300_ZB_ZMASK_DWORD                      0x4f3c
+#define R300_ZB_ZMASK_RDINDEX                    0x4f40
 
 /* Hierarchical Z Memory Offset */
 #define R300_ZB_HIZ_OFFSET                       0x4f44
@@ -3230,8 +3282,8 @@ enum {
 #   define R500_FC_B_OP0_NONE				(0 << 24)
 #   define R500_FC_B_OP0_DECR				(1 << 24)
 #   define R500_FC_B_OP0_INCR				(2 << 24)
-#   define R500_FC_B_OP1_DECR				(0 << 26)
-#   define R500_FC_B_OP1_NONE				(1 << 26)
+#   define R500_FC_B_OP1_NONE				(0 << 26)
+#   define R500_FC_B_OP1_DECR				(1 << 26)
 #   define R500_FC_B_OP1_INCR				(2 << 26)
 #   define R500_FC_IGNORE_UNCOVERED			(1 << 28)
 #define R500_US_FC_INT_CONST_0				0x4c00

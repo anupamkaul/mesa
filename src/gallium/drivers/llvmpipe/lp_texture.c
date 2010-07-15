@@ -36,6 +36,7 @@
 #include "pipe/p_defines.h"
 
 #include "util/u_inlines.h"
+#include "util/u_cpu_detect.h"
 #include "util/u_format.h"
 #include "util/u_math.h"
 #include "util/u_memory.h"
@@ -381,7 +382,6 @@ llvmpipe_resource_map(struct pipe_resource *resource,
 
       map = llvmpipe_get_texture_image(lpr, layer, level,
                                        tex_usage, layout);
-      assert(map);
       return map;
    }
    else {
@@ -889,13 +889,15 @@ static void
 alloc_image_data(struct llvmpipe_resource *lpr, unsigned level,
                  enum lp_texture_layout layout)
 {
+   uint alignment = MAX2(16, util_cpu_caps.cacheline);
+
    if (lpr->dt)
       assert(level == 0);
 
    if (layout == LP_TEX_LAYOUT_TILED) {
       /* tiled data is stored in regular memory */
       uint buffer_size = tex_image_size(lpr, level, layout);
-      lpr->tiled[level].data = align_malloc(buffer_size, 16);
+      lpr->tiled[level].data = align_malloc(buffer_size, alignment);
    }
    else {
       assert(layout == LP_TEX_LAYOUT_LINEAR);
@@ -911,7 +913,7 @@ alloc_image_data(struct llvmpipe_resource *lpr, unsigned level,
       else {
          /* not a display target - allocate regular memory */
          uint buffer_size = tex_image_size(lpr, level, LP_TEX_LAYOUT_LINEAR);
-         lpr->linear[level].data = align_malloc(buffer_size, 16);
+         lpr->linear[level].data = align_malloc(buffer_size, alignment);
       }
    }
 }
@@ -1025,7 +1027,7 @@ llvmpipe_get_texture_image(struct llvmpipe_resource *lpr,
 
             layout_logic(cur_layout, layout, usage, &new_layout, &convert);
 
-            if (convert) {
+            if (convert && other_data && target_data) {
                if (layout == LP_TEX_LAYOUT_TILED) {
                   lp_linear_to_tiled(other_data, target_data,
                                      x * TILE_SIZE, y * TILE_SIZE,
@@ -1056,8 +1058,6 @@ llvmpipe_get_texture_image(struct llvmpipe_resource *lpr,
       llvmpipe_set_texture_image_layout(lpr, face_slice, level,
                                         width_t, height_t, layout);
    }
-
-   assert(target_data);
 
    return target_data;
 }
@@ -1128,7 +1128,7 @@ llvmpipe_get_texture_tile_linear(struct llvmpipe_resource *lpr,
    layout_logic(cur_layout, LP_TEX_LAYOUT_LINEAR, usage,
                 &new_layout, &convert);
 
-   if (convert) {
+   if (convert && tiled_image && linear_image) {
       lp_tiled_to_linear(tiled_image, linear_image,
                          x, y, TILE_SIZE, TILE_SIZE, lpr->base.format,
                          lpr->row_stride[level],
@@ -1177,12 +1177,15 @@ llvmpipe_get_texture_tile(struct llvmpipe_resource *lpr,
    cur_layout = llvmpipe_get_texture_tile_layout(lpr, face_slice, level, tx, ty);
 
    layout_logic(cur_layout, LP_TEX_LAYOUT_TILED, usage, &new_layout, &convert);
-   if (convert) {
+   if (convert && linear_image && tiled_image) {
       lp_linear_to_tiled(linear_image, tiled_image,
                          x, y, TILE_SIZE, TILE_SIZE, lpr->base.format,
                          lpr->row_stride[level],
                          lpr->tiles_per_row[level]);
    }
+
+   if (!tiled_image)
+      return NULL;
 
    if (new_layout != cur_layout)
       llvmpipe_set_texture_tile_layout(lpr, face_slice, level, tx, ty, new_layout);
