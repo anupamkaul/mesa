@@ -48,9 +48,12 @@ vbo_get_minmax_index(GLcontext *ctx,
 		     const struct _mesa_index_buffer *ib,
 		     GLuint *min_index, GLuint *max_index)
 {
-   GLuint i;
-   GLuint count = prim->count;
+   const GLboolean restart = ctx->Array.PrimitiveRestart;
+   const GLuint restartIndex = ctx->Array.RestartIndex;
+   /*const GLuint start = prim->start;*/
+   const GLuint count = prim->count;
    const void *indices;
+   GLuint i;
 
    if (_mesa_is_bufferobj(ib->obj)) {
       const GLvoid *map =
@@ -64,11 +67,21 @@ vbo_get_minmax_index(GLcontext *ctx,
    switch (ib->type) {
    case GL_UNSIGNED_INT: {
       const GLuint *ui_indices = (const GLuint *)indices;
-      GLuint max_ui = ui_indices[count-1];
-      GLuint min_ui = ui_indices[0];
-      for (i = 0; i < count; i++) {
-	 if (ui_indices[i] > max_ui) max_ui = ui_indices[i];
-	 if (ui_indices[i] < min_ui) min_ui = ui_indices[i];
+      GLuint max_ui = 0;
+      GLuint min_ui = ~0U;
+      if (restart) {
+         for (i = 0; i < count; i++) {
+            if (ui_indices[i] != restartIndex) {
+               if (ui_indices[i] > max_ui) max_ui = ui_indices[i];
+               if (ui_indices[i] < min_ui) min_ui = ui_indices[i];
+            }
+         }
+      }
+      else {
+         for (i = 0; i < count; i++) {
+            if (ui_indices[i] > max_ui) max_ui = ui_indices[i];
+            if (ui_indices[i] < min_ui) min_ui = ui_indices[i];
+         }
       }
       *min_index = min_ui;
       *max_index = max_ui;
@@ -76,11 +89,21 @@ vbo_get_minmax_index(GLcontext *ctx,
    }
    case GL_UNSIGNED_SHORT: {
       const GLushort *us_indices = (const GLushort *)indices;
-      GLuint max_us = us_indices[count-1];
-      GLuint min_us = us_indices[0];
-      for (i = 0; i < count; i++) {
-	 if (us_indices[i] > max_us) max_us = us_indices[i];
-	 if (us_indices[i] < min_us) min_us = us_indices[i];
+      GLuint max_us = 0;
+      GLuint min_us = ~0U;
+      if (restart) {
+         for (i = 0; i < count; i++) {
+            if (us_indices[i] != restartIndex) {
+               if (us_indices[i] > max_us) max_us = us_indices[i];
+               if (us_indices[i] < min_us) min_us = us_indices[i];
+            }
+         }
+      }
+      else {
+         for (i = 0; i < count; i++) {
+            if (us_indices[i] > max_us) max_us = us_indices[i];
+            if (us_indices[i] < min_us) min_us = us_indices[i];
+         }
       }
       *min_index = min_us;
       *max_index = max_us;
@@ -88,11 +111,21 @@ vbo_get_minmax_index(GLcontext *ctx,
    }
    case GL_UNSIGNED_BYTE: {
       const GLubyte *ub_indices = (const GLubyte *)indices;
-      GLuint max_ub = ub_indices[count-1];
-      GLuint min_ub = ub_indices[0];
-      for (i = 0; i < count; i++) {
-	 if (ub_indices[i] > max_ub) max_ub = ub_indices[i];
-	 if (ub_indices[i] < min_ub) min_ub = ub_indices[i];
+      GLuint max_ub = 0;
+      GLuint min_ub = ~0U;
+      if (restart) {
+         for (i = 0; i < count; i++) {
+            if (ub_indices[i] != restartIndex) {
+               if (ub_indices[i] > max_ub) max_ub = ub_indices[i];
+               if (ub_indices[i] < min_ub) min_ub = ub_indices[i];
+            }
+         }
+      }
+      else {
+         for (i = 0; i < count; i++) {
+            if (ub_indices[i] > max_ub) max_ub = ub_indices[i];
+            if (ub_indices[i] < min_ub) min_ub = ub_indices[i];
+         }
       }
       *min_index = min_ub;
       *max_index = max_ub;
@@ -1003,6 +1036,8 @@ vbo_validated_multidrawelements(GLcontext *ctx, GLenum mode,
    /* Check if we can handle this thing as a bunch of index offsets from the
     * same index pointer.  If we can't, then we have to fall back to doing
     * a draw_prims per primitive.
+    * Check that the difference between each prim's indexes is a multiple of
+    * the index/element size.
     */
    if (index_type_size != 1) {
       for (i = 0; i < primcount; i++) {
