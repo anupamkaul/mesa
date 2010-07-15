@@ -134,14 +134,19 @@ static INLINE void
 do_line(struct draw_context *draw, ushort flags,
         char *buf, int stride, int e0, int e1)
 {
-   struct prim_header prim;
-   
-   prim.flags = flags;
-   prim.pad = 0;
-   prim.v[0] = (struct vertex_header *) (buf + stride * e0);
-   prim.v[1] = (struct vertex_header *) (buf + stride * e1);
+   /* skip this prim if any vertex index is the restart index */
+   if (!(draw->primitive_restart &&
+         (e0 == draw->restart_index ||
+          e1 == draw->restart_index))) {
+      struct prim_header prim;
 
-   draw->pipeline.first->line( draw->pipeline.first, &prim );
+      prim.flags = flags;
+      prim.pad = 0;
+      prim.v[0] = (struct vertex_header *) (buf + stride * e0);
+      prim.v[1] = (struct vertex_header *) (buf + stride * e1);
+
+      draw->pipeline.first->line( draw->pipeline.first, &prim );
+   }
 }
 
 
@@ -153,15 +158,21 @@ static INLINE void
 do_triangle(struct draw_context *draw, ushort flags,
             char *buf, int stride, int e0, int e1, int e2)
 {
-   struct prim_header prim;
+   /* skip this prim if any vertex index is the restart index */
+   if (!(draw->primitive_restart &&
+         (e0 == draw->restart_index ||
+          e1 == draw->restart_index ||
+          e2 == draw->restart_index))) {
+      struct prim_header prim;
 
-   prim.v[0] = (struct vertex_header *) (buf + stride * e0);
-   prim.v[1] = (struct vertex_header *) (buf + stride * e1);
-   prim.v[2] = (struct vertex_header *) (buf + stride * e2);
-   prim.flags = flags;
-   prim.pad = 0;
+      prim.v[0] = (struct vertex_header *) (buf + stride * e0);
+      prim.v[1] = (struct vertex_header *) (buf + stride * e1);
+      prim.v[2] = (struct vertex_header *) (buf + stride * e2);
+      prim.flags = flags;
+      prim.pad = 0;
 
-   draw->pipeline.first->tri( draw->pipeline.first, &prim );
+      draw->pipeline.first->tri( draw->pipeline.first, &prim );
+   }
 }
 
 

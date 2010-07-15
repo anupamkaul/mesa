@@ -121,6 +121,11 @@ draw_set_mapped_texture(struct draw_context *draw,
                         const void *data[DRAW_MAX_TEXTURE_LEVELS]);
 
 
+void
+draw_primitive_restart(struct draw_context *draw,
+                       boolean enabled, unsigned index);
+
+
 /*
  * Vertex shader functions
  */

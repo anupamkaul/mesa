@@ -657,3 +657,17 @@ draw_set_mapped_texture(struct draw_context *draw,
                                 row_stride, img_stride, data);
 #endif
 }
+
+
+
+/**
+ * Set the enable/disable and index state for primitive restart.
+ */
+void
+draw_primitive_restart(struct draw_context *draw,
+                       boolean enabled, unsigned index)
+{
+   draw->primitive_restart = enabled;
+   draw->restart_index = index;
+}
+

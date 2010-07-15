@@ -139,10 +139,17 @@ vcache_triangle_flags( struct vcache_frontend *vcache,
                        unsigned i1,
                        unsigned i2 )
 {
-   vcache_elt(vcache, i0, flags);
-   vcache_elt(vcache, i1, 0);
-   vcache_elt(vcache, i2, 0);
-   vcache_check_flush(vcache);
+   const struct draw_context *draw = vcache->draw;
+   /* skip this prim if any vertex index is the restart index */
+   if (!(draw->primitive_restart &&
+         (i0 == draw->restart_index ||
+          i1 == draw->restart_index ||
+          i2 == draw->restart_index))) {
+      vcache_elt(vcache, i0, flags);
+      vcache_elt(vcache, i1, 0);
+      vcache_elt(vcache, i2, 0);
+      vcache_check_flush(vcache);
+   }
 }
 
 static INLINE void 
@@ -162,9 +169,15 @@ vcache_line_flags( struct vcache_frontend *vcache,
                    unsigned i0,
                    unsigned i1 )
 {
-   vcache_elt(vcache, i0, flags);
-   vcache_elt(vcache, i1, 0);
-   vcache_check_flush(vcache);
+   const struct draw_context *draw = vcache->draw;
+   /* skip this prim if any vertex index is the restart index */
+   if (!(draw->primitive_restart &&
+         (i0 == draw->restart_index ||
+          i1 == draw->restart_index))) {
+      vcache_elt(vcache, i0, flags);
+      vcache_elt(vcache, i1, 0);
+      vcache_check_flush(vcache);
+   }
 }
 
 
@@ -256,15 +269,17 @@ rebase_uint_elts( const unsigned *src,
 {
    unsigned i;
 
-   for (i = 0; i < count; i++) 
+   for (i = 0; i < count; i++) {
+      assert(src[i] + delta < DRAW_PIPE_MAX_VERTICES);
       dest[i] = (ushort)(src[i] + delta);
+   }
 }
 
 static INLINE void 
 rebase_ushort_elts( const ushort *src,
                     unsigned count,
                     int delta,
-                                ushort *dest )
+                    ushort *dest )
 {
    unsigned i;
 
@@ -293,8 +308,10 @@ translate_uint_elts( const unsigned *src,
 {
    unsigned i;
 
-   for (i = 0; i < count; i++) 
+   for (i = 0; i < count; i++) {
+      assert(src[i] < DRAW_PIPE_MAX_VERTICES);
       dest[i] = (ushort)(src[i]);
+   }
 }
 
 static INLINE void 
@@ -359,7 +376,8 @@ vcache_check_run( struct draw_pt_front_end *frontend,
 
    if (elt_bias + max_index >= DRAW_PIPE_MAX_VERTICES ||
        fetch_count >= UNDEFINED_VERTEX_ID ||
-       fetch_count > draw_count) {
+       fetch_count > draw_count ||
+       (draw->primitive_restart && draw->restart_index >= DRAW_PIPE_MAX_VERTICES)) {
       if (0) debug_printf("fail\n");
       goto fail;
    }

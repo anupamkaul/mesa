@@ -89,6 +89,9 @@ draw_pt_arrays(struct draw_context *draw,
          opt |= PT_PIPELINE;
       }
 
+      if (draw->primitive_restart)
+         opt |= PT_PIPELINE;
+
       if (draw_need_pipeline(draw,
                              draw->rasterizer,
                              gs_out_prim)) {
