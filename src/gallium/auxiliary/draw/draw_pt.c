@@ -89,9 +89,6 @@ draw_pt_arrays(struct draw_context *draw,
          opt |= PT_PIPELINE;
       }
 
-      if (draw->primitive_restart)
-         opt |= PT_PIPELINE;
-
       if (draw_need_pipeline(draw,
                              draw->rasterizer,
                              gs_out_prim)) {
@@ -299,6 +296,92 @@ draw_print_arrays(struct draw_context *draw, uint prim, int start, uint count)
 }
 
 
+static void
+draw_elements_restart(struct draw_context *draw, unsigned prim,
+                      unsigned start, unsigned count)
+{
+   /* XXX use a macro to consolidate the redundant code below. */
+   switch (draw->pt.user.eltSize) {
+   case 1:
+      {
+         const ubyte *elt_ub = (const ubyte *) draw->pt.user.elts;
+         unsigned i, cur_start = start, cur_count = 0;
+
+         for (i = start; i < count; i++) {
+            if (elt_ub[i] == draw->restart_index) {
+               if (cur_count > 0) {
+                  /* draw elts up to prev pos */
+                  draw_pt_arrays(draw, prim, cur_start, cur_count);
+               }
+               /* begin new prim at next elt */
+               cur_start = i + 1;
+               cur_count = 0;
+            }
+            else {
+               cur_count++;
+            }
+         }
+         if (cur_count > 0) {
+            draw_pt_arrays(draw, prim, cur_start, cur_count);
+         }
+      }
+      break;
+   case 2:
+      {
+         const ushort *elt_us = (const ushort *) draw->pt.user.elts;
+         unsigned i, cur_start = start, cur_count = 0;
+
+         for (i = start; i < count; i++) {
+            if (elt_us[i] == draw->restart_index) {
+               if (cur_count > 0) {
+                  /* draw elts up to prev pos */
+                  draw_pt_arrays(draw, prim, cur_start, cur_count);
+               }
+               /* begin new prim at next elt */
+               cur_start = i + 1;
+               cur_count = 0;
+            }
+            else {
+               cur_count++;
+            }
+         }
+         if (cur_count > 0) {
+            draw_pt_arrays(draw, prim, cur_start, cur_count);
+         }
+      }
+      break;
+   case 4:
+      {
+         const uint *elt_ui = (const uint *) draw->pt.user.elts;
+         unsigned i, cur_start = start, cur_count = 0;
+
+         for (i = start; i < count; i++) {
+            if (elt_ui[i] == draw->restart_index) {
+               if (cur_count > 0) {
+                  /* draw elts up to prev pos */
+                  draw_pt_arrays(draw, prim, cur_start, cur_count);
+               }
+               /* begin new prim at next elt */
+               cur_start = i + 1;
+               cur_count = 0;
+            }
+            else {
+               cur_count++;
+            }
+         }
+         if (cur_count > 0) {
+            draw_pt_arrays(draw, prim, cur_start, cur_count);
+         }
+      }
+      break;
+   default:
+      assert(0 && "bad eltSize in draw_arrays()");
+      return;
+   }
+}
+
+
+
 /**
  * Draw vertex arrays
  * This is the main entrypoint into the drawing module.
@@ -355,6 +438,15 @@ draw_arrays_instanced(struct draw_context *draw,
 
    for (instance = 0; instance < instanceCount; instance++) {
       draw->instance_id = instance + startInstance;
-      draw_pt_arrays(draw, mode, start, count);
+
+      /* Check if primitive restart is enabled and we're drawing an
+       * indexed primitive.
+       */
+      if (draw->primitive_restart && draw->pt.user.elts) {
+         draw_elements_restart(draw, mode, start, count);
+      }
+      else {
+         draw_pt_arrays(draw, mode, start, count);
+      }
    }
 }
