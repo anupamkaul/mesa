@@ -296,82 +296,59 @@ draw_print_arrays(struct draw_context *draw, uint prim, int start, uint count)
 }
 
 
+/** Helper code for below */
+#define PRIM_RESTART_LOOP(elements) \
+   do { \
+      unsigned i, cur_start = start, cur_count = 0; \
+      for (i = start; i < count; i++) { \
+         if (elements[i] == draw->restart_index) { \
+            if (cur_count > 0) { \
+               /* draw elts up to prev pos */ \
+               draw_pt_arrays(draw, prim, cur_start, cur_count); \
+            } \
+            /* begin new prim at next elt */ \
+            cur_start = i + 1; \
+            cur_count = 0; \
+         } \
+         else { \
+            cur_count++; \
+         } \
+      } \
+      if (cur_count > 0) { \
+         draw_pt_arrays(draw, prim, cur_start, cur_count); \
+      } \
+   } while (0)
+
+
+/**
+ * For drawing indexed prims with primitive restart enabled.
+ * Scan for restart indexes and draw the runs of elements between
+ * the restarts.
+ */
 static void
 draw_elements_restart(struct draw_context *draw, unsigned prim,
                       unsigned start, unsigned count)
 {
-   /* XXX use a macro to consolidate the redundant code below. */
+   assert(draw->primitive_restart);
+   assert(draw->pt.user.elts);
+
    switch (draw->pt.user.eltSize) {
    case 1:
       {
          const ubyte *elt_ub = (const ubyte *) draw->pt.user.elts;
-         unsigned i, cur_start = start, cur_count = 0;
-
-         for (i = start; i < count; i++) {
-            if (elt_ub[i] == draw->restart_index) {
-               if (cur_count > 0) {
-                  /* draw elts up to prev pos */
-                  draw_pt_arrays(draw, prim, cur_start, cur_count);
-               }
-               /* begin new prim at next elt */
-               cur_start = i + 1;
-               cur_count = 0;
-            }
-            else {
-               cur_count++;
-            }
-         }
-         if (cur_count > 0) {
-            draw_pt_arrays(draw, prim, cur_start, cur_count);
-         }
+         PRIM_RESTART_LOOP(elt_ub);
       }
       break;
    case 2:
       {
          const ushort *elt_us = (const ushort *) draw->pt.user.elts;
-         unsigned i, cur_start = start, cur_count = 0;
-
-         for (i = start; i < count; i++) {
-            if (elt_us[i] == draw->restart_index) {
-               if (cur_count > 0) {
-                  /* draw elts up to prev pos */
-                  draw_pt_arrays(draw, prim, cur_start, cur_count);
-               }
-               /* begin new prim at next elt */
-               cur_start = i + 1;
-               cur_count = 0;
-            }
-            else {
-               cur_count++;
-            }
-         }
-         if (cur_count > 0) {
-            draw_pt_arrays(draw, prim, cur_start, cur_count);
-         }
+         PRIM_RESTART_LOOP(elt_us);
       }
       break;
    case 4:
       {
          const uint *elt_ui = (const uint *) draw->pt.user.elts;
-         unsigned i, cur_start = start, cur_count = 0;
-
-         for (i = start; i < count; i++) {
-            if (elt_ui[i] == draw->restart_index) {
-               if (cur_count > 0) {
-                  /* draw elts up to prev pos */
-                  draw_pt_arrays(draw, prim, cur_start, cur_count);
-               }
-               /* begin new prim at next elt */
-               cur_start = i + 1;
-               cur_count = 0;
-            }
-            else {
-               cur_count++;
-            }
-         }
-         if (cur_count > 0) {
-            draw_pt_arrays(draw, prim, cur_start, cur_count);
-         }
+         PRIM_RESTART_LOOP(elt_ui);
       }
       break;
    default:
