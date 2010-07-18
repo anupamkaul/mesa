@@ -299,8 +299,7 @@ draw_print_arrays(struct draw_context *draw, uint prim, int start, uint count)
 /** Helper code for below */
 #define PRIM_RESTART_LOOP(elements) \
    do { \
-      unsigned i, cur_start = start, cur_count = 0; \
-      for (i = start; i < count; i++) { \
+      for (i = start; i < end; i++) { \
          if (elements[i] == draw->restart_index) { \
             if (cur_count > 0) { \
                /* draw elts up to prev pos */ \
@@ -321,17 +320,41 @@ draw_print_arrays(struct draw_context *draw, uint prim, int start, uint count)
 
 
 /**
- * For drawing indexed prims with primitive restart enabled.
+ * For drawing prims with primitive restart enabled.
  * Scan for restart indexes and draw the runs of elements between
  * the restarts.
  */
 static void
-draw_elements_restart(struct draw_context *draw, unsigned prim,
-                      unsigned start, unsigned count)
+draw_pt_arrays_restart(struct draw_context *draw, unsigned prim,
+                       unsigned start, unsigned count)
 {
-   assert(draw->primitive_restart);
-   assert(draw->pt.user.elts);
+   const unsigned end = start + count;
+   unsigned i, cur_start, cur_count;
 
+   assert(draw->primitive_restart);
+
+   /* non-indexed prims */
+   if (!draw->pt.user.elts) {
+      cur_start = start;
+
+      /* there may be two runs of elements */
+      i = draw->restart_index;
+      if (start <= i && end > i) {
+         cur_count = i - start;
+         if (cur_count > 0)
+            draw_pt_arrays(draw, prim, cur_start, cur_count);
+         cur_start = i + 1;
+      }
+
+      cur_count = end - cur_start;
+      if (cur_count > 0)
+         draw_pt_arrays(draw, prim, cur_start, cur_count);
+
+      return;
+   }
+
+   cur_start = start;
+   cur_count = 0;
    switch (draw->pt.user.eltSize) {
    case 1:
       {
@@ -416,11 +439,9 @@ draw_arrays_instanced(struct draw_context *draw,
    for (instance = 0; instance < instanceCount; instance++) {
       draw->instance_id = instance + startInstance;
 
-      /* Check if primitive restart is enabled and we're drawing an
-       * indexed primitive.
-       */
-      if (draw->primitive_restart && draw->pt.user.elts) {
-         draw_elements_restart(draw, mode, start, count);
+      /* Check if primtive restart is enabled. */
+      if (draw->primitive_restart) {
+         draw_pt_arrays_restart(draw, mode, start, count);
       }
       else {
          draw_pt_arrays(draw, mode, start, count);
