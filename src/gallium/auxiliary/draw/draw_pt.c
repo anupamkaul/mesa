@@ -321,7 +321,7 @@ draw_print_arrays(struct draw_context *draw, uint prim, int start, uint count)
 
 /**
  * For drawing prims with primitive restart enabled.
- * Scan for restart indexes and draw the runs of elements between
+ * Scan for restart indexes and draw the runs of elements/vertices between
  * the restarts.
  */
 static void
@@ -333,8 +333,36 @@ draw_pt_arrays_restart(struct draw_context *draw, unsigned prim,
 
    assert(draw->primitive_restart);
 
-   /* non-indexed prims */
-   if (!draw->pt.user.elts) {
+   if (draw->pt.user.elts) {
+      /* indexed prims (draw_elements) */
+      cur_start = start;
+      cur_count = 0;
+
+      switch (draw->pt.user.eltSize) {
+      case 1:
+         {
+            const ubyte *elt_ub = (const ubyte *) draw->pt.user.elts;
+            PRIM_RESTART_LOOP(elt_ub);
+         }
+         break;
+      case 2:
+         {
+            const ushort *elt_us = (const ushort *) draw->pt.user.elts;
+            PRIM_RESTART_LOOP(elt_us);
+         }
+         break;
+      case 4:
+         {
+            const uint *elt_ui = (const uint *) draw->pt.user.elts;
+            PRIM_RESTART_LOOP(elt_ui);
+         }
+         break;
+      default:
+         assert(0 && "bad eltSize in draw_arrays()");
+      }
+   }
+   else {
+      /* non-indexed prims (draw_arrays) */
       cur_start = start;
 
       /* there may be two runs of elements */
@@ -349,34 +377,6 @@ draw_pt_arrays_restart(struct draw_context *draw, unsigned prim,
       cur_count = end - cur_start;
       if (cur_count > 0)
          draw_pt_arrays(draw, prim, cur_start, cur_count);
-
-      return;
-   }
-
-   cur_start = start;
-   cur_count = 0;
-   switch (draw->pt.user.eltSize) {
-   case 1:
-      {
-         const ubyte *elt_ub = (const ubyte *) draw->pt.user.elts;
-         PRIM_RESTART_LOOP(elt_ub);
-      }
-      break;
-   case 2:
-      {
-         const ushort *elt_us = (const ushort *) draw->pt.user.elts;
-         PRIM_RESTART_LOOP(elt_us);
-      }
-      break;
-   case 4:
-      {
-         const uint *elt_ui = (const uint *) draw->pt.user.elts;
-         PRIM_RESTART_LOOP(elt_ui);
-      }
-      break;
-   default:
-      assert(0 && "bad eltSize in draw_arrays()");
-      return;
    }
 }
 
