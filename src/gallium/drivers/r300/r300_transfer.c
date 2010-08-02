@@ -114,7 +114,7 @@ r300_texture_get_transfer(struct pipe_context *ctx,
         /* If the texture is tiled, we must create a temporary detiled texture
          * for this transfer.
          * Also make write transfers pipelined. */
-        if (tex->desc.microtile || tex->desc.macrotile[sr.level] ||
+        if (tex->desc.microtile || tex->desc.macrotile[level] ||
             ((referenced_hw & !(usage & PIPE_TRANSFER_READ)) && blittable)) {
             base.target = PIPE_TEXTURE_2D;
             base.format = texture->format;
@@ -157,7 +157,7 @@ r300_texture_get_transfer(struct pipe_context *ctx,
                 if (!trans->linear_texture) {
                     /* For linear textures, it's safe to fallback to
                      * an unpipelined transfer. */
-                    if (!tex->desc.microtile && !tex->desc.macrotile[sr.level]) {
+                    if (!tex->desc.microtile && !tex->desc.macrotile[level]) {
                         goto unpipelined;
                     }
 

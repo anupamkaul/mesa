@@ -464,7 +464,7 @@ unsigned r300_texture_get_offset(struct r300_texture_desc *desc,
 
     switch (desc->b.b.target) {
         case PIPE_TEXTURE_3D:
-            return offset + layer * tex->layer_size[level];
+            return offset + layer * desc->layer_size_in_bytes[level];
 
         default:
             assert(layer == 0);

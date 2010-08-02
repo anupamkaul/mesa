@@ -744,7 +744,7 @@ static struct radeon_state *r600_db(struct r600_context *rctx)
 	rstate->bo[0] = radeon_bo_incref(rscreen->rw, rbuffer->bo);
 	rstate->nbo = 1;
 	rstate->placement[0] = RADEON_GEM_DOMAIN_VRAM;
-	level = state->zsbuf->level;
+	level = state->zsbuf->u.tex.level;
 	pitch = (rtex->pitch[level] / rtex->bpt) / 8 - 1;
 	slice = (rtex->pitch[level] / rtex->bpt) * state->zsbuf->height / 64 - 1;
 	if (r600_db_format(state->zsbuf->texture->format, &format)) {
@@ -1147,9 +1147,9 @@ static struct radeon_state *r600_resource(struct r600_context *rctx,
 			S_038010_DST_SEL_Y(r600_tex_swizzle(view->swizzle_g)) |
 			S_038010_DST_SEL_Z(r600_tex_swizzle(view->swizzle_r)) |
 			S_038010_DST_SEL_W(r600_tex_swizzle(view->swizzle_a)) |
-			S_038010_BASE_LEVEL(view->first_level);
+			S_038010_BASE_LEVEL(view->u.tex.first_level);
 	rstate->states[R600_PS_RESOURCE__RESOURCE0_WORD5] =
-			S_038014_LAST_LEVEL(view->last_level) |
+			S_038014_LAST_LEVEL(view->u.tex.last_level) |
 			S_038014_BASE_ARRAY(0) |
 			S_038014_LAST_ARRAY(0);
 	rstate->states[R600_PS_RESOURCE__RESOURCE0_WORD6] =
