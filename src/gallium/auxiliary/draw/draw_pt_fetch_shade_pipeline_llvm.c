@@ -1,6 +1,6 @@
 /**************************************************************************
  *
- * Copyright 2010 VMWare, Inc.
+ * Copyright 2010 VMware, Inc.
  * All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -233,7 +233,8 @@ llvm_pipeline_generic( struct draw_pt_middle_end *middle,
                                        fetch_info->start,
                                        fetch_info->count,
                                        fpme->vertex_size,
-                                       draw->pt.vertex_buffer );
+                                       draw->pt.vertex_buffer,
+                                       draw->instance_id);
    else
       fpme->current_variant->jit_func_elts( &fpme->llvm->jit_context,
                                             llvm_vert_info.verts,
@@ -241,7 +242,8 @@ llvm_pipeline_generic( struct draw_pt_middle_end *middle,
                                             fetch_info->elts,
                                             fetch_info->count,
                                             fpme->vertex_size,
-                                            draw->pt.vertex_buffer);
+                                            draw->pt.vertex_buffer,
+                                            draw->instance_id);
 
    /* Finished with fetch and vs:
     */
@@ -252,6 +254,7 @@ llvm_pipeline_generic( struct draw_pt_middle_end *middle,
    if ((opt & PT_SHADE) && gshader) {
       draw_geometry_shader_run(gshader,
                                draw->pt.user.gs_constants,
+                               draw->pt.user.gs_constants_size,
                                vert_info,
                                prim_info,
                                &gs_vert_info,

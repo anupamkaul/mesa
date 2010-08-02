@@ -40,6 +40,34 @@
 #include "lp_limits.h"
 
 
+/* If we crash in a jitted function, we can examine jit_line and jit_state
+ * to get some info.  This is not thread-safe, however.
+ */
+#ifdef DEBUG
+
+extern int jit_line;
+extern const struct lp_rast_state *jit_state;
+
+#define BEGIN_JIT_CALL(state) \
+   do { \
+      jit_line = __LINE__; \
+      jit_state = state; \
+   } while (0)
+
+#define END_JIT_CALL() \
+   do { \
+      jit_line = 0; \
+      jit_state = NULL; \
+   } while (0)
+
+#else
+
+#define BEGIN_JIT_CALL(X)
+#define END_JIT_CALL()
+
+#endif
+
+
 struct lp_rasterizer;
 
 
@@ -148,7 +176,7 @@ lp_rast_get_depth_block_pointer(struct lp_rasterizer_task *task,
        * the oom warning as this most likely because there is no
        * zsbuf.
        */
-      return lp_get_dummy_tile_silent();
+      return lp_dummy_tile;
    }
 
    depth = (rast->zsbuf.map +
@@ -178,15 +206,14 @@ lp_rast_get_color_tile_pointer(struct lp_rasterizer_task *task,
       struct llvmpipe_resource *lpt;
       assert(cbuf);
       lpt = llvmpipe_resource(cbuf->texture);
-      task->color_tiles[buf] = llvmpipe_get_texture_tile(lpt,
-                                                         cbuf->u.tex.first_layer,
-                                                         cbuf->u.tex.level,
-                                                         usage,
-                                                         task->x,
-                                                         task->y);
-      if (!task->color_tiles[buf]) {
-         /* out of memory - use dummy tile memory */
-         return lp_get_dummy_tile();
+      task->color_tiles[buf] = lp_swizzled_cbuf[task->thread_index][buf];
+
+      if (usage != LP_TEX_USAGE_WRITE_ALL) {
+         llvmpipe_swizzle_cbuf_tile(lpt,
+                                    cbuf->u.tex.first_layer,
+                                    cbuf->level,
+                                    task->x, task->y,
+                                    task->color_tiles[buf]);
       }
    }
 
@@ -212,10 +239,7 @@ lp_rast_get_color_block_pointer(struct lp_rasterizer_task *task,
    assert((y % TILE_VECTOR_HEIGHT) == 0);
 
    color = lp_rast_get_color_tile_pointer(task, buf, LP_TEX_USAGE_READ_WRITE);
-   if (!color) {
-      /* out of memory - use dummy tile memory */
-      return lp_get_dummy_tile();
-   }
+   assert(color);
 
    px = x % TILE_SIZE;
    py = y % TILE_SIZE;
@@ -253,6 +277,7 @@ lp_rast_shade_quads_all( struct lp_rasterizer_task *task,
    depth = lp_rast_get_depth_block_pointer(task, x, y);
 
    /* run shader on 4x4 block */
+   BEGIN_JIT_CALL(state);
    variant->jit_function[RAST_WHOLE]( &state->jit_context,
                                       x, y,
                                       inputs->facing,
@@ -263,6 +288,7 @@ lp_rast_shade_quads_all( struct lp_rasterizer_task *task,
                                       depth,
                                       0xffff,
                                       &task->vis_counter );
+   END_JIT_CALL();
 }
 
 

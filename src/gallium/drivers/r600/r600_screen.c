@@ -24,15 +24,14 @@
  *      Jerome Glisse
  *      Corbin Simpson
  */
-#include <util/u_inlines.h>
-#include <util/u_format.h>
-#include <util/u_memory.h>
-#include "r600_resource.h"
+#include <stdio.h>
+#include "util/u_inlines.h"
+#include "util/u_format.h"
+#include "util/u_memory.h"
 #include "r600_screen.h"
-#include "r600_texture.h"
 #include "r600_context.h"
 #include "r600_public.h"
-#include <stdio.h>
+#include "r600_resource.h"
 
 static const char* r600_get_vendor(struct pipe_screen* pscreen)
 {
@@ -41,7 +40,13 @@ static const char* r600_get_vendor(struct pipe_screen* pscreen)
 
 static const char* r600_get_name(struct pipe_screen* pscreen)
 {
-	return "R600/R700 (HD2XXX,HD3XXX,HD4XXX)";
+	struct r600_screen *screen = r600_screen(pscreen);
+	enum radeon_family family = radeon_get_family(screen->rw);
+
+	if (family >= CHIP_R600 && family < CHIP_RV770)
+		return "R600 (HD2XXX,HD3XXX)";
+	else
+		return "R700 (HD4XXX)";
 }
 
 static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
@@ -172,64 +177,6 @@ static boolean r600_is_format_supported(struct pipe_screen* screen,
 		break;
 	}
 	return FALSE;
-}
-
-struct pipe_transfer* r600_texture_get_transfer(struct pipe_context *ctx,
-						struct pipe_resource *texture,
-						unsigned level,
-						unsigned usage,
-						const struct pipe_box *box)
-{
-	struct r600_texture *rtex = (struct r600_texture*)texture;
-	struct r600_transfer *trans;
-
-	trans = CALLOC_STRUCT(r600_transfer);
-	if (trans == NULL)
-		return NULL;
-	pipe_resource_reference(&trans->transfer.resource, texture);
-	trans->transfer.level = level;
-	trans->transfer.usage = usage;
-	trans->transfer.box = *box;
-	trans->transfer.stride = rtex->stride[level];
-	trans->offset = r600_texture_get_offset(rtex, level, box->z);
-	return &trans->transfer;
-}
-
-void r600_texture_transfer_destroy(struct pipe_context *ctx,
-				   struct pipe_transfer *trans)
-{
-	pipe_resource_reference(&trans->resource, NULL);
-	FREE(trans);
-}
-
-void* r600_texture_transfer_map(struct pipe_context *ctx,
-				struct pipe_transfer* transfer)
-{
-	struct r600_transfer *rtransfer = (struct r600_transfer*)transfer;
-	struct r600_texture *rtex = (struct r600_texture*)transfer->resource;
-	char *map;
-	enum pipe_format format = rtex->b.b.format;
-
-	map = pipe_buffer_map(ctx, rtex->buffer,
-			      transfer->usage,
-			      &rtransfer->buffer_transfer);
-
-	if (!map) {
-		return NULL;
-	}
-
-	return map + rtransfer->offset +
-		transfer->box.y / util_format_get_blockheight(format) * transfer->stride +
-		transfer->box.x / util_format_get_blockwidth(format) * util_format_get_blocksize(format);
-}
-
-void r600_texture_transfer_unmap(struct pipe_context *ctx,
-				 struct pipe_transfer* transfer)
-{
-	struct r600_transfer *rtransfer = (struct r600_transfer*)transfer;
-	struct r600_texture *rtex = (struct r600_texture*)transfer->resource;
-
-	pipe_buffer_unmap(ctx, rtex->buffer, rtransfer->buffer_transfer);
 }
 
 static void r600_destroy_screen(struct pipe_screen* pscreen)

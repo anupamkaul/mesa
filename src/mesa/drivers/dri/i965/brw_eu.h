@@ -891,11 +891,14 @@ void brw_dp_READ_4( struct brw_compile *p,
 
 void brw_dp_READ_4_vs( struct brw_compile *p,
                        struct brw_reg dest,
-                       GLuint oword,
-                       GLboolean relAddr,
-                       struct brw_reg addrReg,
                        GLuint location,
                        GLuint bind_table_index );
+
+void brw_dp_READ_4_vs_relative(struct brw_compile *p,
+			       struct brw_reg dest,
+			       struct brw_reg addrReg,
+			       GLuint offset,
+			       GLuint bind_table_index);
 
 void brw_dp_WRITE_16( struct brw_compile *p,
 		      struct brw_reg src,
@@ -981,5 +984,7 @@ void brw_set_src1( struct brw_instruction *insn,
 
 /* brw_optimize.c */
 void brw_optimize(struct brw_compile *p);
+void brw_remove_duplicate_mrf_moves(struct brw_compile *p);
+void brw_remove_grf_to_mrf_moves(struct brw_compile *p);
 
 #endif

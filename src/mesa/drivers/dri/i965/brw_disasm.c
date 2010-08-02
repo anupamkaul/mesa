@@ -598,7 +598,7 @@ static int src_da16 (FILE *file,
 	format (file, ".%d", _subreg_nr);
     string (file, "<");
     err |= control (file, "vert stride", vert_stride, _vert_stride, NULL);
-    string (file, ",1,1>");
+    string (file, ",4,1>");
     err |= control (file, "src da16 reg type", reg_encoding, _reg_type, NULL);
     /*
      * Three kinds of swizzle display:
@@ -870,6 +870,27 @@ int brw_disasm (FILE *file, struct brw_instruction *inst, int gen)
 			    inst->bits3.sampler.return_format, NULL);
 	    string (file, ")");
 	    break;
+	case BRW_MESSAGE_TARGET_DATAPORT_READ:
+	    if (gen >= 6) {
+		format (file, " (%d, %d, %d, %d, %d, %d)",
+			inst->bits3.dp_render_cache.binding_table_index,
+			inst->bits3.dp_render_cache.msg_control,
+			inst->bits3.dp_render_cache.msg_type,
+			inst->bits3.dp_render_cache.send_commit_msg,
+			inst->bits3.dp_render_cache.msg_length,
+			inst->bits3.dp_render_cache.response_length);
+	    } else if (gen >= 5) {
+		format (file, " (%d, %d, %d)",
+			inst->bits3.dp_read_gen5.binding_table_index,
+			inst->bits3.dp_read_gen5.msg_control,
+			inst->bits3.dp_read_gen5.msg_type);
+	    } else {
+		format (file, " (%d, %d, %d)",
+			inst->bits3.dp_read.binding_table_index,
+			inst->bits3.dp_read.msg_control,
+			inst->bits3.dp_read.msg_type);
+	    }
+	    break;
 	case BRW_MESSAGE_TARGET_DATAPORT_WRITE:
 	    if (gen >= 6) {
 		format (file, " (%d, %d, %d, %d, %d, %d)",
@@ -912,7 +933,7 @@ int brw_disasm (FILE *file, struct brw_instruction *inst, int gen)
 	case BRW_MESSAGE_TARGET_THREAD_SPAWNER:
 	    break;
 	default:
-	    format (file, "unsupported target %d", inst->bits3.generic.msg_target);
+	    format (file, "unsupported target %d", target);
 	    break;
 	}
 	if (space)

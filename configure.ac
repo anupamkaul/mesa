@@ -410,6 +410,7 @@ dnl Check to see if dlopen is in default libraries (like Solaris, which
 dnl has it in libc), or if libdl is needed to get it.
 AC_CHECK_FUNC([dlopen], [],
     [AC_CHECK_LIB([dl], [dlopen], [DLOPEN_LIBS="-ldl"])])
+AC_SUBST([DLOPEN_LIBS])
 
 dnl See if posix_memalign is available
 AC_CHECK_FUNC([posix_memalign], [DEFINES="$DEFINES -DHAVE_POSIX_MEMALIGN"])
@@ -642,7 +643,7 @@ AC_SUBST([GL_PC_REQ_PRIV])
 AC_SUBST([GL_PC_LIB_PRIV])
 AC_SUBST([GL_PC_CFLAGS])
 AC_SUBST([DRI_PC_REQ_PRIV])
-AC_SUBST([GLESv1_LIB_DEPS])
+AC_SUBST([GLESv1_CM_LIB_DEPS])
 AC_SUBST([GLESv1_CM_PC_LIB_PRIV])
 AC_SUBST([GLESv2_LIB_DEPS])
 AC_SUBST([GLESv2_PC_LIB_PRIV])
@@ -961,21 +962,21 @@ if test "x$enable_egl" = xyes; then
             EGL_DRIVERS_DIRS="glx"
         fi
 
-        # build egl_dri2 when xcb-dri2 is available
-        PKG_CHECK_MODULES([XCB_DRI2], [x11-xcb xcb-dri2 xcb-xfixes],
-			  [have_xcb_dri2=yes],[have_xcb_dri2=no])
-	PKG_CHECK_MODULES([LIBUDEV], [libudev > 150],
-			  [have_libudev=yes],[have_libudev=no])
-
-        if test "$have_xcb_dri2" = yes; then
-	    EGL_DRIVER_DRI2=dri2
-            DEFINES="$DEFINES -DHAVE_XCB_DRI2"
-        fi
-
-        if test "$have_libudev" = yes; then
-	    EGL_DRIVER_DRI2=dri2
-            DEFINES="$DEFINES -DHAVE_LIBUDEV"
-        fi
+        if test "$mesa_driver" = dri; then
+            # build egl_dri2 when xcb-dri2 is available
+            PKG_CHECK_MODULES([XCB_DRI2], [x11-xcb xcb-dri2 xcb-xfixes],
+            		  [have_xcb_dri2=yes],[have_xcb_dri2=no])
+            PKG_CHECK_MODULES([LIBUDEV], [libudev > 150],
+            		  [have_libudev=yes],[have_libudev=no])
+            
+            if test "$have_xcb_dri2" = yes; then
+                EGL_DRIVER_DRI2=dri2
+                DEFINES="$DEFINES -DHAVE_XCB_DRI2"
+                if test "$have_libudev" = yes; then
+                    DEFINES="$DEFINES -DHAVE_LIBUDEV"
+                fi
+            fi
+	fi
 
         EGL_DRIVERS_DIRS="$EGL_DRIVERS_DIRS $EGL_DRIVER_DRI2"
     fi

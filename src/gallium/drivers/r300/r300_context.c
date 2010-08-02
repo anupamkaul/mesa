@@ -36,6 +36,24 @@
 
 #include <inttypes.h>
 
+static void r300_update_num_contexts(struct r300_screen *r300screen,
+                                     int diff)
+{
+    if (diff > 0) {
+        p_atomic_inc(&r300screen->num_contexts);
+
+        if (r300screen->num_contexts > 1)
+            util_mempool_set_thread_safety(&r300screen->pool_buffers,
+                                           UTIL_MEMPOOL_MULTITHREADED);
+    } else {
+        p_atomic_dec(&r300screen->num_contexts);
+
+        if (r300screen->num_contexts <= 1)
+            util_mempool_set_thread_safety(&r300screen->pool_buffers,
+                                           UTIL_MEMPOOL_SINGLETHREADED);
+    }
+}
+
 static void r300_release_referenced_objects(struct r300_context *r300)
 {
     struct pipe_framebuffer_state *fb =
@@ -99,6 +117,12 @@ static void r300_destroy_context(struct pipe_context* context)
     translate_cache_destroy(r300->tran.translate_cache);
 
     r300_release_referenced_objects(r300);
+
+    r300->rws->cs_destroy(r300->cs);
+
+    util_mempool_destroy(&r300->pool_transfers);
+
+    r300_update_num_contexts(r300->screen, -1);
 
     FREE(r300->aa_state.state);
     FREE(r300->blend_color_state.state);
@@ -345,6 +369,8 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     if (!r300)
         return NULL;
 
+    r300_update_num_contexts(r300screen, 1);
+
     r300->rws = rws;
     r300->screen = r300screen;
 
@@ -353,6 +379,12 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     r300->context.priv = priv;
 
     r300->context.destroy = r300_destroy_context;
+
+    r300->cs = rws->cs_create(rws);
+
+    util_mempool_create(&r300->pool_transfers,
+                        sizeof(struct pipe_transfer), 64,
+                        UTIL_MEMPOOL_SINGLETHREADED);
 
     if (!r300screen->caps.has_tcl) {
         /* Create a Draw. This is used for SW TCL. */
@@ -381,7 +413,7 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     /* Render functions must be initialized after blitter. */
     r300_init_render_functions(r300);
 
-    rws->set_flush_cb(r300->rws, r300_flush_cb, r300);
+    rws->cs_set_flush(r300->cs, r300_flush_cb, r300);
 
     r300->upload_ib = u_upload_create(&r300->context,
 				      32 * 1024, 16,
@@ -431,11 +463,6 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
  no_upload_vb:
     FREE(r300);
     return NULL;
-}
-
-boolean r300_check_cs(struct r300_context *r300, unsigned size)
-{
-    return size <= r300->rws->get_cs_free_dwords(r300->rws);
 }
 
 void r300_finish(struct r300_context *r300)

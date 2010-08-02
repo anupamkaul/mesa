@@ -429,19 +429,23 @@ static void r300_set_clip_state(struct pipe_context* pipe,
     clip->clip = *state;
 
     if (r300->screen->caps.has_tcl) {
-        BEGIN_CB(clip->cb, 29);
-        OUT_CB_REG(R300_VAP_PVS_VECTOR_INDX_REG,
-                (r300->screen->caps.is_r500 ?
-                 R500_PVS_UCP_START : R300_PVS_UCP_START));
-        OUT_CB_ONE_REG(R300_VAP_PVS_UPLOAD_DATA, 6 * 4);
-        OUT_CB_TABLE(state->ucp, 6 * 4);
+        r300->clip_state.size = 2 + !!state->nr * 3 + state->nr * 4;
+
+        BEGIN_CB(clip->cb, r300->clip_state.size);
+        if (state->nr) {
+           OUT_CB_REG(R300_VAP_PVS_VECTOR_INDX_REG,
+                   (r300->screen->caps.is_r500 ?
+                    R500_PVS_UCP_START : R300_PVS_UCP_START));
+           OUT_CB_ONE_REG(R300_VAP_PVS_UPLOAD_DATA, state->nr * 4);
+           OUT_CB_TABLE(state->ucp, state->nr * 4);
+        }
         OUT_CB_REG(R300_VAP_CLIP_CNTL, ((1 << state->nr) - 1) |
-                R300_PS_UCP_MODE_CLIP_AS_TRIFAN);
+                R300_PS_UCP_MODE_CLIP_AS_TRIFAN |
+                (state->depth_clamp ? R300_CLIP_DISABLE : 0));
         END_CB;
 
         r300->clip_state.dirty = TRUE;
     } else {
-        draw_flush(r300->draw);
         draw_set_clip_state(r300->draw, state);
     }
 }
@@ -614,16 +618,17 @@ static void r300_tex_set_tiling_flags(struct r300_context *r300,
 {
     /* Check if the macrotile flag needs to be changed.
      * Skip changing the flags otherwise. */
-    if (tex->mip_macrotile[tex->surface_level] != tex->mip_macrotile[level]) {
+    if (tex->desc.macrotile[tex->surface_level] !=
+        tex->desc.macrotile[level]) {
         /* Tiling determines how DRM treats the buffer data.
          * We must flush CS when changing it if the buffer is referenced. */
-        if (r300->rws->is_buffer_referenced(r300->rws, tex->buffer, R300_REF_CS))
+        if (r300->rws->cs_is_buffer_referenced(r300->cs,
+                                               tex->buffer, R300_REF_CS))
             r300->context.flush(&r300->context, 0, NULL);
 
         r300->rws->buffer_set_tiling(r300->rws, tex->buffer,
-                tex->pitch[0] * util_format_get_blocksize(tex->b.b.format),
-                tex->microtile,
-                tex->mip_macrotile[level]);
+                tex->desc.microtile, tex->desc.macrotile[level],
+                tex->desc.stride_in_bytes[0]);
 
         tex->surface_level = level;
     }
@@ -665,8 +670,10 @@ static void r300_print_fb_surf_info(struct pipe_surface *surf, unsigned index,
             surf->u.tex.first_layer, surf->u.tex.last_layer, surf->u.tex.level,
             util_format_short_name(surf->format),
 
-            rtex->macrotile ? "YES" : " NO", rtex->microtile ? "YES" : " NO",
-            rtex->hwpitch[0], tex->width0, tex->height0, tex->depth0,
+            rtex->desc.macrotile[0] ? "YES" : " NO",
+            rtex->desc.microtile ? "YES" : " NO",
+            rtex->desc.stride_in_pixels[0],
+            tex->width0, tex->height0, tex->depth0,
             tex->last_level, util_format_short_name(tex->format));
 }
 
@@ -718,10 +725,6 @@ static void
         fprintf(stderr, "r300: Implementation error: Render targets are too "
         "big in %s, refusing to bind framebuffer state!\n", __FUNCTION__);
         return;
-    }
-
-    if (r300->draw) {
-        draw_flush(r300->draw);
     }
 
     /* If nr_cbufs is changed from zero to non-zero or vice versa... */
@@ -1088,7 +1091,6 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     boolean last_two_sided_color = r300->two_sided_color;
 
     if (r300->draw && rs) {
-        draw_flush(r300->draw);
         draw_set_rasterizer_state(r300->draw, &rs->rs_draw, state);
     }
 
@@ -1288,7 +1290,7 @@ static void r300_set_fragment_sampler_views(struct pipe_context* pipe,
             /* Set the texrect factor in the fragment shader.
              * Needed for RECT and NPOT fallback. */
             texture = r300_texture(views[i]->texture);
-            if (texture->uses_pitch) {
+            if (texture->desc.is_npot) {
                 r300->fs_rc_constant_state.dirty = TRUE;
             }
 
@@ -1322,6 +1324,7 @@ r300_create_sampler_view(struct pipe_context *pipe,
 {
     struct r300_sampler_view *view = CALLOC_STRUCT(r300_sampler_view);
     struct r300_texture *tex = r300_texture(texture);
+    boolean is_r500 = r300_screen(pipe->screen)->caps.is_r500;
 
     if (view) {
         view->base = *templ;
@@ -1337,8 +1340,9 @@ r300_create_sampler_view(struct pipe_context *pipe,
 
         view->format = tex->tx_format;
         view->format.format1 |= r300_translate_texformat(templ->format,
-                                                         view->swizzle);
-        if (r300_screen(pipe->screen)->caps.is_r500) {
+                                                         view->swizzle,
+                                                         is_r500);
+        if (is_r500) {
             view->format.format2 |= r500_tx_format_msb_bit(templ->format);
         }
     }
@@ -1375,7 +1379,6 @@ static void r300_set_viewport_state(struct pipe_context* pipe,
     r300->viewport = *state;
 
     if (r300->draw) {
-        draw_flush(r300->draw);
         draw_set_viewport_state(r300->draw, state);
         viewport->vte_control = R300_VTX_XY_FMT | R300_VTX_Z_FMT;
         return;
@@ -1476,7 +1479,6 @@ static void r300_set_vertex_buffers(struct pipe_context* pipe,
 
     } else {
         /* SW TCL. */
-        draw_flush(r300->draw);
         draw_set_vertex_buffers(r300->draw, count, buffers);
     }
 
@@ -1493,6 +1495,23 @@ static void r300_set_vertex_buffers(struct pipe_context* pipe,
     memcpy(r300->vertex_buffer, buffers,
         sizeof(struct pipe_vertex_buffer) * count);
     r300->vertex_buffer_count = count;
+}
+
+static void r300_set_index_buffer(struct pipe_context* pipe,
+                                  const struct pipe_index_buffer *ib)
+{
+    struct r300_context* r300 = r300_context(pipe);
+
+    if (ib) {
+        pipe_resource_reference(&r300->index_buffer.buffer, ib->buffer);
+        memcpy(&r300->index_buffer, ib, sizeof(r300->index_buffer));
+    }
+    else {
+        pipe_resource_reference(&r300->index_buffer.buffer, NULL);
+        memset(&r300->index_buffer, 0, sizeof(r300->index_buffer));
+    }
+
+    /* TODO make this more like a state */
 }
 
 /* Initialize the PSC tables. */
@@ -1644,7 +1663,6 @@ static void r300_bind_vertex_elements_state(struct pipe_context *pipe,
     r300->velems = velems;
 
     if (r300->draw) {
-        draw_flush(r300->draw);
         draw_set_vertex_elements(r300->draw, velems->count, velems->velem);
         return;
     }
@@ -1710,7 +1728,6 @@ static void r300_bind_vs_state(struct pipe_context* pipe, void* shader)
 
         r300->pvs_flush.dirty = TRUE;
     } else {
-        draw_flush(r300->draw);
         draw_bind_vertex_shader(r300->draw,
                 (struct draw_vertex_shader*)vs->draw_vs);
     }
@@ -1738,8 +1755,7 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
 {
     struct r300_context* r300 = r300_context(pipe);
     struct r300_constant_buffer *cbuf;
-    struct pipe_transfer *tr;
-    float *mapped;
+    uint32_t *mapped = r300_buffer(buf)->user_buffer;
     int max_size = 0, max_size_bytes = 0, clamped_size = 0;
 
     switch (shader) {
@@ -1762,8 +1778,7 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
     max_size_bytes = max_size * 4 * sizeof(float);
 
     if (buf == NULL || buf->width0 == 0 ||
-        (mapped = pipe_buffer_map(pipe, buf, PIPE_TRANSFER_READ, &tr)) == NULL)
-    {
+        (mapped = r300_buffer(buf)->constant_buffer) == NULL) {
         cbuf->count = 0;
         return;
     }
@@ -1781,17 +1796,7 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
 
         clamped_size = MIN2(buf->width0, max_size_bytes);
         cbuf->count = clamped_size / (4 * sizeof(float));
-
-        if (shader == PIPE_SHADER_FRAGMENT && !r300->screen->caps.is_r500) {
-            unsigned i,j;
-
-            /* Convert constants to float24. */
-            for (i = 0; i < cbuf->count; i++)
-                for (j = 0; j < 4; j++)
-                    cbuf->constants[i][j] = pack_float24(mapped[i*4+j]);
-        } else {
-            memcpy(cbuf->constants, mapped, clamped_size);
-        }
+        cbuf->ptr = mapped;
     }
 
     if (shader == PIPE_SHADER_VERTEX) {
@@ -1807,8 +1812,6 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
     } else if (shader == PIPE_SHADER_FRAGMENT) {
         r300->fs_constants.dirty = TRUE;
     }
-
-    pipe_buffer_unmap(pipe, buf, tr);
 }
 
 void r300_init_state_functions(struct r300_context* r300)
@@ -1856,6 +1859,7 @@ void r300_init_state_functions(struct r300_context* r300)
     r300->context.set_viewport_state = r300_set_viewport_state;
 
     r300->context.set_vertex_buffers = r300_set_vertex_buffers;
+    r300->context.set_index_buffer = r300_set_index_buffer;
 
     r300->context.create_vertex_elements_state = r300_create_vertex_elements_state;
     r300->context.bind_vertex_elements_state = r300_bind_vertex_elements_state;

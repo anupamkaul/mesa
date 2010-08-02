@@ -88,7 +88,6 @@ static Bool
 DRI2WireToEvent(Display *dpy, XEvent *event, xEvent *wire)
 {
    XExtDisplayInfo *info = DRI2FindDisplay(dpy);
-   XExtDisplayInfo *glx_info = __glXFindDisplay(dpy);
 
    XextCheckExtension(dpy, info, dri2ExtensionName, False);
 
@@ -99,14 +98,16 @@ DRI2WireToEvent(Display *dpy, XEvent *event, xEvent *wire)
    {
       GLXBufferSwapComplete *aevent = (GLXBufferSwapComplete *)event;
       xDRI2BufferSwapComplete *awire = (xDRI2BufferSwapComplete *)wire;
-      __GLXDRIdrawable *pdraw = GetGLXDRIDrawable(dpy, awire->drawable, NULL);
+      __GLXDRIdrawable *pdraw;
+      struct glx_display *glx_dpy = __glXInitialize(dpy);
 
       /* Ignore swap events if we're not looking for them */
+      pdraw = dri2GetGlxDrawableFromXDrawableId(dpy, awire->drawable);
       if (!(pdraw->eventMask & GLX_BUFFER_SWAP_COMPLETE_INTEL_MASK))
 	 return False;
 
       aevent->serial = _XSetLastRequestRead(dpy, (xGenericReply *) wire);
-      aevent->type = glx_info->codes->first_event + GLX_BufferSwapComplete;
+      aevent->type = glx_dpy->codes->first_event + GLX_BufferSwapComplete;
       aevent->send_event = (awire->type & 0x80) != 0;
       aevent->display = dpy;
       aevent->drawable = awire->drawable;

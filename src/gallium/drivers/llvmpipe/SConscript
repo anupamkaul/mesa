@@ -1,3 +1,6 @@
+from sys import executable as python_cmd
+import distutils.version
+
 Import('*')
 
 if not env['llvm']:
@@ -14,7 +17,7 @@ env.CodeGenerate(
 	target = 'lp_tile_soa.c',
 	script = 'lp_tile_soa.py',
 	source = ['#src/gallium/auxiliary/util/u_format.csv'],
-	command = 'python $SCRIPT $SOURCE > $TARGET'
+	command = python_cmd + ' $SCRIPT $SOURCE > $TARGET'
 )
 
 # XXX: Our dependency scanner only finds depended modules in relative dirs.
@@ -26,7 +29,9 @@ env.Depends('lp_tile_soa.c', [
 
 # Only enable SSSE3 for lp_tile_soa_sse3.c
 ssse3_env = env.Clone()
-if env['gcc'] and env['machine'] in ('x86', 'x86_64'):
+if env['gcc'] \
+   and distutils.version.LooseVersion(env['CCVERSION']) >= distutils.version.LooseVersion('4.3') \
+   and env['machine'] in ('x86', 'x86_64') :
     ssse3_env.Append(CCFLAGS = ['-mssse3'])
 lp_tile_soa_os = ssse3_env.SharedObject('lp_tile_soa.c')
 

@@ -528,15 +528,9 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
     struct r300_sampler_state *sampler;
     struct r300_sampler_view *view;
     struct r300_texture *tex;
-    unsigned min_level, max_level, i, size;
+    unsigned min_level, max_level, i, j, size;
     unsigned count = MIN2(state->sampler_view_count,
                           state->sampler_state_count);
-    unsigned char depth_swizzle[4] = {
-        UTIL_FORMAT_SWIZZLE_X,
-        UTIL_FORMAT_SWIZZLE_X,
-        UTIL_FORMAT_SWIZZLE_X,
-        UTIL_FORMAT_SWIZZLE_X
-    };
 
     /* The KIL opcode fix, see below. */
     if (!count && !r300->screen->caps.is_r500)
@@ -563,14 +557,29 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
             /* Assign a texture cache region. */
             texstate->format.format1 |= view->texcache_region;
 
-            /* If compare mode is disabled, the sampler view swizzles
-             * are stored in the format.
-             * Otherwise, swizzles must be applied after the compare mode
-             * in the fragment shader. */
-            if (util_format_is_depth_or_stencil(tex->b.b.format)) {
+            /* Depth textures are kinda special. */
+            if (util_format_is_depth_or_stencil(tex->desc.b.b.format)) {
+                unsigned char depth_swizzle[4];
+
+                if (!r300->screen->caps.is_r500 &&
+                    util_format_get_blocksizebits(tex->desc.b.b.format) == 32) {
+                    /* X24x8 is sampled as Y16X16 on r3xx-r4xx.
+                     * The depth here is at the Y component. */
+                    for (j = 0; j < 4; j++)
+                        depth_swizzle[j] = UTIL_FORMAT_SWIZZLE_Y;
+                } else {
+                    for (j = 0; j < 4; j++)
+                        depth_swizzle[j] = UTIL_FORMAT_SWIZZLE_X;
+                }
+
+                /* If compare mode is disabled, sampler view swizzles
+                 * are stored in the format.
+                 * Otherwise, the swizzles must be applied after the compare
+                 * mode in the fragment shader. */
                 if (sampler->state.compare_mode == PIPE_TEX_COMPARE_NONE) {
                     texstate->format.format1 |=
-                        r300_get_swizzle_combined(depth_swizzle, view->swizzle);
+                        r300_get_swizzle_combined(depth_swizzle,
+                                                  view->swizzle);
                 } else {
                     texstate->format.format1 |=
                         r300_get_swizzle_combined(depth_swizzle, 0);
@@ -578,12 +587,12 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
             }
 
             /* to emulate 1D textures through 2D ones correctly */
-            if (tex->b.b.target == PIPE_TEXTURE_1D) {
+            if (tex->desc.b.b.target == PIPE_TEXTURE_1D) {
                 texstate->filter0 &= ~R300_TX_WRAP_T_MASK;
                 texstate->filter0 |= R300_TX_WRAP_T(R300_TX_CLAMP_TO_EDGE);
             }
 
-            if (tex->uses_pitch) {
+            if (tex->desc.is_npot) {
                 /* NPOT textures don't support mip filter, unfortunately.
                  * This prevents incorrect rendering. */
                 texstate->filter0 &= ~R300_TX_MIN_FILTER_MIP_MASK;
@@ -610,7 +619,7 @@ static void r300_merge_textures_and_samplers(struct r300_context* r300)
                 /* determine min/max levels */
                 /* the MAX_MIP level is the largest (finest) one */
                 max_level = MIN3(sampler->max_lod + view->base.u.tex.first_level,
-                                 tex->b.b.last_level, view->base.u.tex.last_level);
+                                 tex->desc.b.b.last_level, view->base.u.tex.last_level);
                 min_level = MIN2(sampler->min_lod + view->base.u.tex.first_level,
                                  max_level);
                 texstate->format.format0 |= R300_TX_NUM_LEVELS(max_level);

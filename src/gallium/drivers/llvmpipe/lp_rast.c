@@ -43,6 +43,12 @@
 #include "lp_scene.h"
 
 
+#ifdef DEBUG
+int jit_line = 0;
+const struct lp_rast_state *jit_state = NULL;
+#endif
+
+
 /**
  * Begin rasterizing a scene.
  * Called once per scene by one thread.
@@ -67,7 +73,7 @@ lp_rast_begin( struct lp_rasterizer *rast,
                             cbuf->u.tex.level,
                             cbuf->u.tex.first_layer,
                             LP_TEX_USAGE_READ_WRITE,
-                            LP_TEX_LAYOUT_NONE);
+                            LP_TEX_LAYOUT_LINEAR);
    }
 
    if (fb->zsbuf) {
@@ -269,11 +275,6 @@ lp_rast_clear_zstencil(struct lp_rasterizer_task *task,
 
    dst = task->depth_tile;
 
-   if (lp_is_dummy_tile(dst))
-      return;
-
-   assert(dst == lp_rast_get_depth_block_pointer(task, task->x, task->y));
-
    switch (block_size) {
    case 1:
       memset(dst, (uint8_t) clear_value, height * width);
@@ -371,13 +372,18 @@ lp_rast_store_linear_color( struct lp_rasterizer_task *task,
 
    for (buf = 0; buf < rast->state.nr_cbufs; buf++) {
       struct pipe_surface *cbuf = scene->fb.cbufs[buf];
-      /* XXX this used to ignore zslice only used face */
-      const unsigned layer = cbuf->u.tex.first_layer, level = cbuf->u.tex.level;
+      const unsigned layer = cbuf->u.tex.first_layer;
+      const unsigned level = cbuf->u.tex.level;
       struct llvmpipe_resource *lpt = llvmpipe_resource(cbuf->texture);
-      /* this will convert the tiled data to linear if needed */
-      (void) llvmpipe_get_texture_tile_linear(lpt, layer, level,
-                                              LP_TEX_USAGE_READ,
-                                              task->x, task->y);
+
+      if (!task->color_tiles[buf])
+         continue;
+
+      llvmpipe_unswizzle_cbuf_tile(lpt,
+                                   layer,
+                                   level,
+                                   task->x, task->y,
+                                   task->color_tiles[buf]);
    }
 }
 
@@ -417,6 +423,7 @@ lp_rast_shade_tile(struct lp_rasterizer_task *task,
          depth = lp_rast_get_depth_block_pointer(task, tile_x + x, tile_y + y);
 
          /* run shader on 4x4 block */
+         BEGIN_JIT_CALL(state);
          variant->jit_function[RAST_WHOLE]( &state->jit_context,
                                             tile_x + x, tile_y + y,
                                             inputs->facing,
@@ -427,6 +434,7 @@ lp_rast_shade_tile(struct lp_rasterizer_task *task,
                                             depth,
                                             0xffff,
                                             &task->vis_counter);
+         END_JIT_CALL();
       }
    }
 }
@@ -496,6 +504,7 @@ lp_rast_shade_quads_mask(struct lp_rasterizer_task *task,
    assert(lp_check_alignment(state->jit_context.blend_color, 16));
 
    /* run shader on 4x4 block */
+   BEGIN_JIT_CALL(state);
    variant->jit_function[RAST_EDGE_TEST](&state->jit_context,
                                          x, y,
                                          inputs->facing,
@@ -506,6 +515,7 @@ lp_rast_shade_quads_mask(struct lp_rasterizer_task *task,
                                          depth,
                                          mask,
                                          &task->vis_counter);
+   END_JIT_CALL();
 }
 
 
@@ -587,6 +597,11 @@ lp_rast_tile_end(struct lp_rasterizer_task *task)
 #else
    (void) outline_subtiles;
 #endif
+
+   {
+      union lp_rast_cmd_arg dummy = {0};
+      lp_rast_store_linear_color(task, dummy);
+   }
 
    /* debug */
    memset(task->color_tiles, 0, sizeof(task->color_tiles));
@@ -750,30 +765,8 @@ debug_bin( const struct cmd_bin *bin )
 static boolean
 is_empty_bin( const struct cmd_bin *bin )
 {
-   const struct cmd_block *head = bin->commands.head;
-   int i;
-   
-   if (0)
-      debug_bin(bin);
-   
-   /* We emit at most two load-tile commands at the start of the first
-    * command block.  In addition we seem to emit a couple of
-    * set-state commands even in empty bins.
-    *
-    * As a heuristic, if a bin has more than 4 commands, consider it
-    * non-empty.
-    */
-   if (head->next != NULL ||
-       head->count > 4) {
-      return FALSE;
-   }
-
-   for (i = 0; i < head->count; i++)
-      if (head->cmd[i] != lp_rast_store_linear_color) {
-         return FALSE;
-      }
-
-   return TRUE;
+   if (0) debug_bin(bin);
+   return bin->commands.head->count == 0;
 }
 
 
@@ -982,6 +975,10 @@ lp_rast_create( unsigned num_threads )
 
    /* for synchronizing rasterization threads */
    pipe_barrier_init( &rast->barrier, rast->num_threads );
+
+   memset(lp_swizzled_cbuf, 0, sizeof lp_swizzled_cbuf);
+
+   memset(lp_dummy_tile, 0, sizeof lp_dummy_tile);
 
    return rast;
 }

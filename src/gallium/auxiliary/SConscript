@@ -32,20 +32,20 @@ env.CodeGenerate(
 
 env.CodeGenerate(
     target = 'util/u_format_table.c',
-    script = 'util/u_format_table.py',
-    source = ['util/u_format.csv'],
-    command = 'python $SCRIPT $SOURCE > $TARGET'
+    script = '#src/gallium/auxiliary/util/u_format_table.py',
+    source = ['#src/gallium/auxiliary/util/u_format.csv'],
+    command = python_cmd + ' $SCRIPT $SOURCE > $TARGET'
 )
 
 env.CodeGenerate(
     target = 'util/u_half.c',
     script = 'util/u_half.py',
     source = [],
-    command = 'python $SCRIPT > $TARGET'
+    command = python_cmd + ' $SCRIPT > $TARGET'
 )
 
 env.Depends('util/u_format_table.c', [
-    'util/u_format_parse.py', 
+    '#src/gallium/auxiliary/util/u_format_parse.py',
     'util/u_format_pack.py', 
 ])
 
@@ -172,6 +172,7 @@ source = [
     'util/u_keymap.c',
     'util/u_network.c',
     'util/u_math.c',
+    'util/u_mempool.c',
     'util/u_mm.c',
     'util/u_rect.c',
     'util/u_resource.c',
@@ -197,6 +198,7 @@ source = [
 if env['llvm']:
     source += [
     'gallivm/lp_bld_arit.c',
+    'gallivm/lp_bld_assert.c',
     'gallivm/lp_bld_const.c',
     'gallivm/lp_bld_conv.c',
     'gallivm/lp_bld_debug.c',
