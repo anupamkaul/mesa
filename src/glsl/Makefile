@@ -89,6 +89,14 @@ GLSL2_OBJECTS = \
 	$(GLSL2_C_SOURCES:.c=.o) \
 	$(GLSL2_CXX_SOURCES:.cpp=.o)
 
+GLSLANG_CXX_SOURCES = \
+        glslang.cpp \
+	ir_to_llvm.cpp
+
+GLSLANG_OBJECTS = \
+        $(GLSL2_C_SOURCES:.c=.o) \
+        $(GLSLANG_CXX_SOURCES:.cpp=.o)
+
 ### Basic defines ###
 
 DEFINES += \
@@ -140,11 +148,20 @@ install:
 
 ##### RULES #####
 
+glslang: $(GLSLANG_OBJECTS) libglsl.a
+	$(APP_CXX) $(INCLUDES) $(CFLAGS) $(LDFLAGS) $(GLSLANG_OBJECTS) $(LIBS) $(LLVM_LIBS) -lpthread -ldl -o $@
+
 glsl_compiler: $(GLSL2_OBJECTS) libglsl.a
 	$(APP_CXX) $(INCLUDES) $(CFLAGS) $(LDFLAGS) $(GLSL2_OBJECTS) $(LIBS) -o $@
 
 glcpp/glcpp: $(GLCPP_OBJECTS) libglsl.a
 	$(APP_CC) $(INCLUDES) $(CFLAGS) $(LDFLAGS) $(GLCPP_OBJECTS) $(LIBS) -o $@
+
+ir_to_llvm.o: ir_to_llvm.cpp
+	$(CXX) -c $(INCLUDES) $(LLVM_CFLAGS) $(CXXFLAGS) $(DEFINES) $< -o $@
+
+glslang.o: glslang.cpp
+	$(CXX) -c $(INCLUDES) $(LLVM_CFLAGS) $(CXXFLAGS) $(DEFINES) $< -o $@
 
 .cpp.o:
 	$(CXX) -c $(INCLUDES) $(CXXFLAGS) $(DEFINES) $< -o $@
