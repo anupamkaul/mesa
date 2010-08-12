@@ -80,14 +80,6 @@ struct pipe_context {
                              uint mode );
 
    /**
-    * Enable/disable primitive restart (cut index) and set the restart index.
-    * XXX this is (probably) temporary...
-    */
-   void (*primitive_restart)(struct pipe_context *,
-                             boolean enable,
-                             unsigned index);
-
-   /**
     * Query objects
     */
    /*@{*/

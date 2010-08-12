@@ -458,6 +458,9 @@ struct pipe_draw_info
    int index_bias; /**< a bias to be added to each index */
    unsigned min_index; /**< the min index */
    unsigned max_index; /**< the max index */
+
+   boolean primitive_restart;
+   unsigned restart_index;
 };
 
 

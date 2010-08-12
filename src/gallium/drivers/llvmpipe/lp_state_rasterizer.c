@@ -87,21 +87,10 @@ llvmpipe_delete_rasterizer_state(struct pipe_context *pipe,
 }
 
 
-static void
-llvmpipe_primitive_restart(struct pipe_context *pipe,
-                           boolean enabled, unsigned index)
-{
-   struct llvmpipe_context *llvmpipe = llvmpipe_context( pipe );
-   draw_primitive_restart(llvmpipe->draw, enabled, index);
-}
-
-
 void
 llvmpipe_init_rasterizer_funcs(struct llvmpipe_context *llvmpipe)
 {
    llvmpipe->pipe.create_rasterizer_state = llvmpipe_create_rasterizer_state;
    llvmpipe->pipe.bind_rasterizer_state   = llvmpipe_bind_rasterizer_state;
    llvmpipe->pipe.delete_rasterizer_state = llvmpipe_delete_rasterizer_state;
-
-   llvmpipe->pipe.primitive_restart = llvmpipe_primitive_restart;
 }

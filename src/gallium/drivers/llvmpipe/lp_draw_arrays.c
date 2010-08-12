@@ -84,9 +84,13 @@ llvmpipe_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info)
                                     lp->num_vertex_sampler_views,
                                     lp->vertex_sampler_views);
 
+   draw_primitive_restart(sp->draw,
+                          info->primitive_restart,
+                          info->restart_index);
+
    /* draw! */
    draw_arrays_instanced(draw, info->mode, info->start, info->count,
-         info->start_instance, info->instance_count);
+                         info->start_instance, info->instance_count);
 
    /*
     * unmap vertex/index buffers

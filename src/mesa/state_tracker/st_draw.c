@@ -706,6 +706,9 @@ st_draw_vbo(GLcontext *ctx,
       }
    }
 
+   info.primitive_restart = st->ctx->Array.PrimitiveRestart;
+   info.restart_index = st->ctx->Array.RestartIndex;
+
    /* do actual drawing */
    for (i = 0; i < nr_prims; i++) {
       info.mode = translate_prim( ctx, prims[i].mode );

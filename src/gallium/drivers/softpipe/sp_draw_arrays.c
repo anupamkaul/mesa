@@ -150,9 +150,13 @@ softpipe_draw_vbo(struct pipe_context *pipe,
                                         info->max_index,
                                         mapped_indices);
 
+   draw_primitive_restart(sp->draw,
+                          info->primitive_restart,
+                          info->restart_index);
+
    /* draw! */
    draw_arrays_instanced(draw, info->mode, info->start, info->count,
-         info->start_instance, info->instance_count);
+                         info->start_instance, info->instance_count);
 
    /* unmap vertex/index buffers - will cause draw module to flush */
    for (i = 0; i < sp->num_vertex_buffers; i++) {

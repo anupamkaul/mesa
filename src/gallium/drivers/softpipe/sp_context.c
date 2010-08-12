@@ -203,16 +203,6 @@ softpipe_render_condition( struct pipe_context *pipe,
 }
 
 
-static void
-softpipe_primitive_restart(struct pipe_context *pipe,
-                           boolean enabled, unsigned index)
-{
-   struct softpipe_context *softpipe = softpipe_context( pipe );
-   draw_primitive_restart(softpipe->draw, enabled, index);
-}
-
-
-
 struct pipe_context *
 softpipe_create_context( struct pipe_screen *screen,
 			 void *priv )
@@ -305,8 +295,6 @@ softpipe_create_context( struct pipe_screen *screen,
    softpipe_init_texture_funcs( &softpipe->pipe );
 
    softpipe->pipe.render_condition = softpipe_render_condition;
-
-   softpipe->pipe.primitive_restart = softpipe_primitive_restart;
 
    /*
     * Alloc caches for accessing drawing surfaces and textures.
