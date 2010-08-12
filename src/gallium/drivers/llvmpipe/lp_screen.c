@@ -43,6 +43,7 @@
 #include "lp_debug.h"
 #include "lp_public.h"
 #include "lp_limits.h"
+#include "lp_rast.h"
 
 #include "state_tracker/sw_winsys.h"
 
@@ -170,6 +171,8 @@ llvmpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
       return 1;
    case PIPE_CAP_GEOMETRY_SHADER4:
       return 1;
+   case PIPE_CAP_DEPTH_CLAMP:
+      return 0;
    default:
       assert(0);
       return 0;
@@ -298,10 +301,15 @@ llvmpipe_destroy_screen( struct pipe_screen *_screen )
    struct llvmpipe_screen *screen = llvmpipe_screen(_screen);
    struct sw_winsys *winsys = screen->winsys;
 
+   if (screen->rast)
+      lp_rast_destroy(screen->rast);
+
    lp_jit_screen_cleanup(screen);
 
    if(winsys->destroy)
       winsys->destroy(winsys);
+
+   pipe_mutex_destroy(screen->rast_mutex);
 
    FREE(screen);
 }
@@ -351,11 +359,6 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
 
    lp_jit_screen_init(screen);
 
-#ifdef PIPE_OS_WINDOWS
-   /* Multithreading not supported on windows until conditions and barriers are
-    * properly implemented. */
-   screen->num_threads = 0;
-#else
 #ifdef PIPE_OS_EMBEDDED
    screen->num_threads = 0;
 #else
@@ -363,7 +366,14 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
 #endif
    screen->num_threads = debug_get_num_option("LP_NUM_THREADS", screen->num_threads);
    screen->num_threads = MIN2(screen->num_threads, LP_MAX_THREADS);
-#endif
+
+   screen->rast = lp_rast_create(screen->num_threads);
+   if (!screen->rast) {
+      lp_jit_screen_cleanup(screen);
+      FREE(screen);
+      return NULL;
+   }
+   pipe_mutex_init(screen->rast_mutex);
 
    util_format_s3tc_init();
 

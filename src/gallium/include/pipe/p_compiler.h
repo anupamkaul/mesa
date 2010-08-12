@@ -60,6 +60,11 @@
 #include <stdbool.h>
 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
 #if !defined(__HAIKU__) && !defined(__USE_MISC)
 typedef unsigned int       uint;
 typedef unsigned short     ushort;
@@ -97,6 +102,16 @@ typedef unsigned char boolean;
 #  endif
 #endif
 
+/* Forced function inlining */
+#ifndef ALWAYS_INLINE
+#  ifdef __GNUC__
+#    define ALWAYS_INLINE inline __attribute__((always_inline))
+#  elif defined(_MSC_VER)
+#    define ALWAYS_INLINE __forceinline
+#  else
+#    define ALWAYS_INLINE INLINE
+#  endif
+#endif
 
 /* Function visibility */
 #ifndef PUBLIC
@@ -184,6 +199,25 @@ typedef unsigned char boolean;
 
 #endif
 
+
+#if defined(__GNUC__)
+
+#define PIPE_READ_WRITE_BARRIER() __asm__("":::"memory")
+
+#elif defined(_MSC_VER)
+
+void _ReadWriteBarrier(void);
+#pragma intrinsic(_ReadWriteBarrier)
+#define PIPE_READ_WRITE_BARRIER() _ReadWriteBarrier()
+
+#else
+
+#warning "Unsupported compiler"
+#define PIPE_READ_WRITE_BARRIER() /* */
+
+#endif
+
+
 /* You should use these macros to mark if blocks where the if condition
  * is either likely to be true, or unlikely to be true.
  *
@@ -223,5 +257,11 @@ typedef unsigned char boolean;
 #define likely(x) !!(x)
 #define unlikely(x) !!(x)
 #endif
+
+
+#if defined(__cplusplus)
+}
+#endif
+
 
 #endif /* P_COMPILER_H */

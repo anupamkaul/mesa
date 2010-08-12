@@ -57,8 +57,6 @@
 #include "tnl/t_context.h"
 #include "tnl/t_pipeline.h"
 #include "swrast/swrast.h"
-#include "swrast/s_context.h"
-#include "swrast/s_triangle.h"
 #include "swrast_setup/swrast_setup.h"
 #include "vbo/vbo.h"
 
@@ -127,6 +125,7 @@ CreateContext(void)
          _mesa_destroy_visual(vis);
       if (buf)
          _mesa_destroy_framebuffer(buf);
+      free(cc);
       return GL_FALSE;
    }
 
@@ -144,6 +143,7 @@ CreateContext(void)
        !_tnl_CreateContext( ctx ) ||
        !_swsetup_CreateContext( ctx )) {
       _mesa_destroy_visual(vis);
+      _mesa_destroy_framebuffer(buf);
       _mesa_free_context_data(ctx);
       free(cc);
       return GL_FALSE;
@@ -401,8 +401,12 @@ main(int argc, char *argv[])
 
    if (v_shader || f_shader || g_shader) {
       if (Options.OutputFile) {
+         FILE *f;
          fclose(stdout);
-         /*stdout =*/ freopen(Options.OutputFile, "w", stdout);
+         /*stdout =*/ f = freopen(Options.OutputFile, "w", stdout);
+         if (!f) {
+            fprintf(stderr, "freopen error\n");
+         }
       }
       if (stdout && v_shader) {
          PrintShaderInstructions(v_shader, stdout);

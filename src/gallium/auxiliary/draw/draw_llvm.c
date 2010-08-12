@@ -37,6 +37,8 @@
 #include "gallivm/lp_bld_debug.h"
 #include "gallivm/lp_bld_tgsi.h"
 #include "gallivm/lp_bld_printf.h"
+#include "gallivm/lp_bld_intr.h"
+#include "gallivm/lp_bld_init.h"
 
 #include "tgsi/tgsi_exec.h"
 #include "tgsi/tgsi_dump.h"
@@ -238,9 +240,22 @@ draw_llvm_create(struct draw_context *draw)
       /* These are the passes currently listed in llvm-c/Transforms/Scalar.h,
        * but there are more on SVN. */
       /* TODO: Add more passes */
+
       LLVMAddCFGSimplificationPass(llvm->pass);
-      LLVMAddPromoteMemoryToRegisterPass(llvm->pass);
-      LLVMAddConstantPropagationPass(llvm->pass);
+
+      if (HAVE_LLVM >= 0x207 && sizeof(void*) == 4) {
+         /* For LLVM >= 2.7 and 32-bit build, use this order of passes to
+          * avoid generating bad code.
+          * Test with piglit glsl-vs-sqrt-zero test.
+          */
+         LLVMAddConstantPropagationPass(llvm->pass);
+         LLVMAddPromoteMemoryToRegisterPass(llvm->pass);
+      }
+      else {
+         LLVMAddPromoteMemoryToRegisterPass(llvm->pass);
+         LLVMAddConstantPropagationPass(llvm->pass);
+      }
+
       if(util_cpu_caps.has_sse4_1) {
          /* FIXME: There is a bug in this pass, whereby the combination of fptosi
           * and sitofp (necessary for trunc/floor/ceil/round implementation)
@@ -368,7 +383,8 @@ generate_fetch(LLVMBuilderRef builder,
                LLVMValueRef *res,
                struct pipe_vertex_element *velem,
                LLVMValueRef vbuf,
-               LLVMValueRef index)
+               LLVMValueRef index,
+               LLVMValueRef instance_id)
 {
    LLVMValueRef indices = LLVMConstInt(LLVMInt64Type(), velem->vertex_buffer_index, 0);
    LLVMValueRef vbuffer_ptr = LLVMBuildGEP(builder, vbuffers_ptr,
@@ -379,8 +395,15 @@ generate_fetch(LLVMBuilderRef builder,
    LLVMValueRef cond;
    LLVMValueRef stride;
 
-   cond = LLVMBuildICmp(builder, LLVMIntULE, index, vb_max_index, "");
+   if (velem->instance_divisor) {
+      /* array index = instance_id / instance_divisor */
+      index = LLVMBuildUDiv(builder, instance_id,
+                            LLVMConstInt(LLVMInt32Type(), velem->instance_divisor, 0),
+                            "instance_divisor");
+   }
 
+   /* limit index to min(inex, vb_max_index) */
+   cond = LLVMBuildICmp(builder, LLVMIntULE, index, vb_max_index, "");
    index = LLVMBuildSelect(builder, cond, index, vb_max_index, "");
 
    stride = LLVMBuildMul(builder, vb_stride, index, "");
@@ -648,18 +671,18 @@ convert_to_aos(LLVMBuilderRef builder,
 static void
 draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
 {
-   LLVMTypeRef arg_types[7];
+   LLVMTypeRef arg_types[8];
    LLVMTypeRef func_type;
    LLVMValueRef context_ptr;
    LLVMBasicBlockRef block;
    LLVMBuilderRef builder;
    LLVMValueRef start, end, count, stride, step, io_itr;
    LLVMValueRef io_ptr, vbuffers_ptr, vb_ptr;
+   LLVMValueRef instance_id;
    struct draw_context *draw = llvm->draw;
    unsigned i, j;
    struct lp_build_context bld;
    struct lp_build_loop_state lp_loop;
-   struct lp_type vs_type = lp_type_float_vec(32);
    const int max_vertices = 4;
    LLVMValueRef outputs[PIPE_MAX_SHADER_OUTPUTS][NUM_CHANNELS];
    void *code;
@@ -672,6 +695,7 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    arg_types[4] = LLVMInt32Type();                  /* count */
    arg_types[5] = LLVMInt32Type();                  /* stride */
    arg_types[6] = llvm->vb_ptr_type;                /* pipe_vertex_buffer's */
+   arg_types[7] = LLVMInt32Type();                  /* instance_id */
 
    func_type = LLVMFunctionType(LLVMVoidType(), arg_types, Elements(arg_types), 0);
 
@@ -688,6 +712,7 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    count        = LLVMGetParam(variant->function, 4);
    stride       = LLVMGetParam(variant->function, 5);
    vb_ptr       = LLVMGetParam(variant->function, 6);
+   instance_id  = LLVMGetParam(variant->function, 7);
 
    lp_build_name(context_ptr, "context");
    lp_build_name(io_ptr, "io");
@@ -696,6 +721,7 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    lp_build_name(count, "count");
    lp_build_name(stride, "stride");
    lp_build_name(vb_ptr, "vb");
+   lp_build_name(instance_id, "instance_id");
 
    /*
     * Function body
@@ -705,7 +731,7 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    builder = LLVMCreateBuilder();
    LLVMPositionBuilderAtEnd(builder, block);
 
-   lp_build_context_init(&bld, builder, vs_type);
+   lp_build_context_init(&bld, builder, lp_type_int(32));
 
    end = lp_build_add(&bld, start, count);
 
@@ -745,7 +771,8 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
             LLVMValueRef vb = LLVMBuildGEP(builder, vb_ptr,
                                            &vb_index, 1, "");
             generate_fetch(builder, vbuffers_ptr,
-                           &aos_attribs[j][i], velem, vb, true_index);
+                           &aos_attribs[j][i], velem, vb, true_index,
+                           instance_id);
          }
       }
       convert_to_soa(builder, aos_attribs, inputs,
@@ -766,6 +793,11 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    lp_build_loop_end_cond(builder, end, step, LLVMIntUGE, &lp_loop);
 
    sampler->destroy(sampler);
+
+#ifdef PIPE_ARCH_X86
+   /* Avoid corrupting the FPU stack on 32bit OSes. */
+   lp_build_intrinsic(builder, "llvm.x86.mmx.emms", LLVMVoidType(), NULL, 0);
+#endif
 
    LLVMBuildRetVoid(builder);
 
@@ -794,25 +826,25 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    if (gallivm_debug & GALLIVM_DEBUG_ASM) {
       lp_disassemble(code);
    }
+   lp_func_delete_body(variant->function);
 }
 
 
 static void
 draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
 {
-   LLVMTypeRef arg_types[7];
+   LLVMTypeRef arg_types[8];
    LLVMTypeRef func_type;
    LLVMValueRef context_ptr;
    LLVMBasicBlockRef block;
    LLVMBuilderRef builder;
    LLVMValueRef fetch_elts, fetch_count, stride, step, io_itr;
    LLVMValueRef io_ptr, vbuffers_ptr, vb_ptr;
+   LLVMValueRef instance_id;
    struct draw_context *draw = llvm->draw;
    unsigned i, j;
    struct lp_build_context bld;
-   struct lp_build_context bld_int;
    struct lp_build_loop_state lp_loop;
-   struct lp_type vs_type = lp_type_float_vec(32);
    const int max_vertices = 4;
    LLVMValueRef outputs[PIPE_MAX_SHADER_OUTPUTS][NUM_CHANNELS];
    LLVMValueRef fetch_max;
@@ -826,14 +858,17 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    arg_types[4] = LLVMInt32Type();                      /* fetch_count */
    arg_types[5] = LLVMInt32Type();                      /* stride */
    arg_types[6] = llvm->vb_ptr_type;                    /* pipe_vertex_buffer's */
+   arg_types[7] = LLVMInt32Type();                      /* instance_id */
 
    func_type = LLVMFunctionType(LLVMVoidType(), arg_types, Elements(arg_types), 0);
 
-   variant->function_elts = LLVMAddFunction(llvm->module, "draw_llvm_shader_elts", func_type);
+   variant->function_elts = LLVMAddFunction(llvm->module, "draw_llvm_shader_elts",
+                                            func_type);
    LLVMSetFunctionCallConv(variant->function_elts, LLVMCCallConv);
    for(i = 0; i < Elements(arg_types); ++i)
       if(LLVMGetTypeKind(arg_types[i]) == LLVMPointerTypeKind)
-         LLVMAddAttribute(LLVMGetParam(variant->function_elts, i), LLVMNoAliasAttribute);
+         LLVMAddAttribute(LLVMGetParam(variant->function_elts, i),
+                          LLVMNoAliasAttribute);
 
    context_ptr  = LLVMGetParam(variant->function_elts, 0);
    io_ptr       = LLVMGetParam(variant->function_elts, 1);
@@ -842,6 +877,7 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    fetch_count  = LLVMGetParam(variant->function_elts, 4);
    stride       = LLVMGetParam(variant->function_elts, 5);
    vb_ptr       = LLVMGetParam(variant->function_elts, 6);
+   instance_id  = LLVMGetParam(variant->function_elts, 7);
 
    lp_build_name(context_ptr, "context");
    lp_build_name(io_ptr, "io");
@@ -850,6 +886,7 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    lp_build_name(fetch_count, "fetch_count");
    lp_build_name(stride, "stride");
    lp_build_name(vb_ptr, "vb");
+   lp_build_name(instance_id, "instance_id");
 
    /*
     * Function body
@@ -859,8 +896,7 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    builder = LLVMCreateBuilder();
    LLVMPositionBuilderAtEnd(builder, block);
 
-   lp_build_context_init(&bld, builder, vs_type);
-   lp_build_context_init(&bld_int, builder, lp_type_int(32));
+   lp_build_context_init(&bld, builder, lp_type_int(32));
 
    step = LLVMConstInt(LLVMInt32Type(), max_vertices, 0);
 
@@ -895,7 +931,7 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
          /* make sure we're not out of bounds which can happen
           * if fetch_count % 4 != 0, because on the last iteration
           * a few of the 4 vertex fetches will be out of bounds */
-         true_index = lp_build_min(&bld_int, true_index, fetch_max);
+         true_index = lp_build_min(&bld, true_index, fetch_max);
 
          fetch_ptr = LLVMBuildGEP(builder, fetch_elts,
                                   &true_index, 1, "");
@@ -908,7 +944,8 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
             LLVMValueRef vb = LLVMBuildGEP(builder, vb_ptr,
                                            &vb_index, 1, "");
             generate_fetch(builder, vbuffers_ptr,
-                           &aos_attribs[j][i], velem, vb, true_index);
+                           &aos_attribs[j][i], velem, vb, true_index,
+                           instance_id);
          }
       }
       convert_to_soa(builder, aos_attribs, inputs,
@@ -929,6 +966,11 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    lp_build_loop_end_cond(builder, fetch_count, step, LLVMIntUGE, &lp_loop);
 
    sampler->destroy(sampler);
+
+#ifdef PIPE_ARCH_X86
+   /* Avoid corrupting the FPU stack on 32bit OSes. */
+   lp_build_intrinsic(builder, "llvm.x86.mmx.emms", LLVMVoidType(), NULL, 0);
+#endif
 
    LLVMBuildRetVoid(builder);
 
@@ -957,6 +999,7 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    if (gallivm_debug & GALLIVM_DEBUG_ASM) {
       lp_disassemble(code);
    }
+   lp_func_delete_body(variant->function_elts);
 }
 
 void

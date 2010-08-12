@@ -13,7 +13,7 @@
 #include "nouveau/nouveau_resource.h"
 #include "nouveau/nouveau_pushbuf.h"
 
-static inline uint32_t
+static INLINE uint32_t
 nouveau_screen_transfer_flags(unsigned pipe)
 {
 	uint32_t flags = 0;
@@ -24,11 +24,10 @@ nouveau_screen_transfer_flags(unsigned pipe)
 		flags |= NOUVEAU_BO_WR;
 	if (pipe & PIPE_TRANSFER_DISCARD)
 		flags |= NOUVEAU_BO_INVAL;
-	if (pipe & PIPE_TRANSFER_DONTBLOCK)
-		flags |= NOUVEAU_BO_NOWAIT;
-	else
 	if (pipe & PIPE_TRANSFER_UNSYNCHRONIZED)
 		flags |= NOUVEAU_BO_NOSYNC;
+	else if (pipe & PIPE_TRANSFER_DONTBLOCK)
+		flags |= NOUVEAU_BO_NOWAIT;
 
 	return flags;
 }

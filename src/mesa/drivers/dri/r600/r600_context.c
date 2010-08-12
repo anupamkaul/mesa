@@ -59,7 +59,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_buffer_objects.h"
 #include "radeon_span.h"
 #include "r600_cmdbuf.h"
-#include "r600_emit.h"
 #include "radeon_bocs_wrapper.h"
 #include "radeon_queryobj.h"
 #include "r600_blit.h"
@@ -73,6 +72,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define R600_ENABLE_GLSL_TEST 1
 
 #define need_GL_VERSION_2_0
+#define need_GL_VERSION_2_1
 #define need_GL_ARB_occlusion_query
 #define need_GL_ARB_point_parameters
 #define need_GL_ARB_vertex_program
@@ -158,6 +158,7 @@ static const struct dri_extension mm_extensions[] = {
 static const struct dri_extension gl_20_extension[] = {
 #ifdef R600_ENABLE_GLSL_TEST
     {"GL_ARB_shading_language_100",			GL_VERSION_2_0_functions },
+    {"GL_ARB_shading_language_120",			GL_VERSION_2_1_functions },
 #else
   {"GL_VERSION_2_0",			GL_VERSION_2_0_functions },
 #endif /* R600_ENABLE_GLSL_TEST */

@@ -22,8 +22,10 @@
 
 #include "r300_context.h"
 #include "r300_texture.h"
+#include "r300_winsys.h"
 
 #include "util/u_format.h"
+#include "util/u_pack_color.h"
 
 enum r300_blitter_op /* bitmask */
 {
@@ -79,6 +81,51 @@ static void r300_blitter_end(struct r300_context *r300)
     }
 }
 
+static uint32_t r300_depth_clear_cb_value(enum pipe_format format,
+                                          const float* rgba)
+{
+    union util_color uc;
+    util_pack_color(rgba, format, &uc);
+
+    if (util_format_get_blocksizebits(format) == 32)
+        return uc.ui;
+    else
+        return uc.us | (uc.us << 16);
+}
+
+static boolean r300_cbzb_clear_allowed(struct r300_context *r300,
+                                       unsigned clear_buffers)
+{
+    struct pipe_framebuffer_state *fb =
+        (struct pipe_framebuffer_state*)r300->fb_state.state;
+
+    if (r300->z_fastfill)
+        clear_buffers &= ~(PIPE_CLEAR_DEPTH | PIPE_CLEAR_STENCIL);
+
+    /* Only color clear allowed, and only one colorbuffer. */
+    if (clear_buffers != PIPE_CLEAR_COLOR || fb->nr_cbufs != 1)
+        return FALSE;
+
+    return r300_surface(fb->cbufs[0])->cbzb_allowed;
+}
+
+static uint32_t r300_depth_clear_value(enum pipe_format format,
+                                       double depth, unsigned stencil)
+{
+    switch (format) {
+        case PIPE_FORMAT_Z16_UNORM:
+        case PIPE_FORMAT_X8Z24_UNORM:
+            return util_pack_z(format, depth);
+
+        case PIPE_FORMAT_S8_USCALED_Z24_UNORM:
+            return util_pack_z_stencil(format, depth, stencil);
+
+        default:
+            assert(0);
+            return 0;
+    }
+}
+
 /* Clear currently bound buffers. */
 static void r300_clear(struct pipe_context* pipe,
                        unsigned buffers,
@@ -124,15 +171,60 @@ static void r300_clear(struct pipe_context* pipe,
     struct r300_context* r300 = r300_context(pipe);
     struct pipe_framebuffer_state *fb =
         (struct pipe_framebuffer_state*)r300->fb_state.state;
+    struct r300_hyperz_state *hyperz =
+        (struct r300_hyperz_state*)r300->hyperz_state.state;
+    uint32_t width = fb->width;
+    uint32_t height = fb->height;
+    boolean has_hyperz = r300->rws->get_value(r300->rws, R300_CAN_HYPERZ);
+    uint32_t hyperz_dcv = 0;
+
+    /* Enable fast Z clear.
+     * The zbuffer must be in micro-tiled mode, otherwise it locks up. */
+    if ((buffers & (PIPE_CLEAR_DEPTH|PIPE_CLEAR_STENCIL)) && has_hyperz) {
+      
+        hyperz_dcv = hyperz->zb_depthclearvalue =
+            r300_depth_clear_value(fb->zsbuf->format, depth, stencil);
+
+        r300_mark_fb_state_dirty(r300, R300_CHANGED_ZCLEAR_FLAG);
+        if (r300->z_compression || r300->z_fastfill)
+            r300->zmask_clear.dirty = TRUE;
+        if (r300->hiz_enable)
+            r300->hiz_clear.dirty = TRUE;
+    }
+
+    /* Enable CBZB clear. */
+    if (r300_cbzb_clear_allowed(r300, buffers)) {
+        struct r300_surface *surf = r300_surface(fb->cbufs[0]);
+
+        hyperz->zb_depthclearvalue =
+                r300_depth_clear_cb_value(surf->base.format, rgba);
+
+        width = surf->cbzb_width;
+        height = surf->cbzb_height;
+
+        r300->cbzb_clear = TRUE;
+        r300_mark_fb_state_dirty(r300, R300_CHANGED_CBZB_FLAG);
+    }
 
     /* Clear. */
     r300_blitter_begin(r300, R300_CLEAR);
     util_blitter_clear(r300->blitter,
-                       fb->width,
-                       fb->height,
+                       width,
+                       height,
                        fb->nr_cbufs,
                        buffers, rgba, depth, stencil);
     r300_blitter_end(r300);
+
+    /* Disable CBZB clear. */
+    if (r300->cbzb_clear) {
+        r300->cbzb_clear = FALSE;
+        hyperz->zb_depthclearvalue = hyperz_dcv;
+        r300_mark_fb_state_dirty(r300, R300_CHANGED_CBZB_FLAG);
+    }
+
+    /* XXX this flush "fixes" a hardlock in the cubestorm xscreensaver */
+    if (r300->flush_counter == 0)
+        pipe->flush(pipe, 0, NULL);
 }
 
 /* Clear a region of a color surface to a constant value. */
@@ -167,6 +259,33 @@ static void r300_clear_depth_stencil(struct pipe_context *pipe,
     r300_blitter_end(r300);
 }
 
+/* Flush a depth stencil buffer. */
+void r300_flush_depth_stencil(struct pipe_context *pipe,
+                              struct pipe_resource *dst,
+                              struct pipe_subresource subdst,
+                              unsigned zslice)
+{
+    struct r300_context *r300 = r300_context(pipe);
+    struct pipe_surface *dstsurf;
+    struct r300_texture *tex = r300_texture(dst);
+
+    if (!tex->zmask_mem[subdst.level])
+        return;
+    if (!tex->dirty_zmask[subdst.level])
+        return;
+
+    dstsurf = pipe->screen->get_tex_surface(pipe->screen, dst,
+                                            subdst.face, subdst.level, zslice,
+                                            PIPE_BIND_DEPTH_STENCIL);
+    r300->z_decomp_rd = TRUE;
+    r300_blitter_begin(r300, R300_CLEAR_SURFACE);
+    util_blitter_flush_depth_stencil(r300->blitter, dstsurf);
+    r300_blitter_end(r300);
+    r300->z_decomp_rd = FALSE;
+
+    tex->dirty_zmask[subdst.level] = FALSE;
+}
+
 /* Copy a block of pixels from one surface to another using HW. */
 static void r300_hw_copy_region(struct pipe_context* pipe,
                                 struct pipe_resource *dst,
@@ -198,7 +317,7 @@ static void r300_resource_copy_region(struct pipe_context *pipe,
 {
     enum pipe_format old_format = dst->format;
     enum pipe_format new_format = old_format;
-
+    boolean is_depth;
     if (!pipe->screen->is_format_supported(pipe->screen,
                                            old_format, src->target,
                                            src->nr_samples,
@@ -225,6 +344,10 @@ static void r300_resource_copy_region(struct pipe_context *pipe,
         }
     }
 
+    is_depth = util_format_get_component_bits(src->format, UTIL_FORMAT_COLORSPACE_ZS, 0) != 0;
+    if (is_depth) {
+        r300_flush_depth_stencil(pipe, src, subsrc, srcz);
+    }
     if (old_format != new_format) {
         dst->format = new_format;
         src->format = new_format;

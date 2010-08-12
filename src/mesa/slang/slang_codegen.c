@@ -1047,8 +1047,10 @@ slang_substitute(slang_assemble_ctx *A, slang_operation *oper,
 	 GLuint i;
          v = _slang_variable_locate(oper->locals, id, GL_TRUE);
 	 if (!v) {
+#if 0
             if (strcmp((char *) oper->a_id, "__notRetFlag"))
                _mesa_problem(NULL, "var %s not found!\n", (char *) oper->a_id);
+#endif
             return;
 	 }
 
@@ -5155,7 +5157,7 @@ _slang_codegen_global_variable(slang_assemble_ctx *A, slang_variable *var,
             /* fragment program input */
             GLuint swizzle;
             GLint index = _slang_input_index(varName, GL_FRAGMENT_PROGRAM_ARB,
-                                             &swizzle);
+                                             &swizzle, NULL);
             assert(index >= 0);
             assert(index < FRAG_ATTRIB_MAX);
             store = _slang_new_ir_storage_swz(PROGRAM_INPUT, index,
@@ -5171,9 +5173,10 @@ _slang_codegen_global_variable(slang_assemble_ctx *A, slang_variable *var,
                                               size, swizzle);
          } else {
             /* geometry program input */
+            GLboolean is_array = GL_FALSE;
             GLuint swizzle;
             GLint index = _slang_input_index(varName, MESA_GEOMETRY_PROGRAM,
-                                             &swizzle);
+                                             &swizzle, &is_array);
             if (index < 0) {
                /* geometry program output */
                index = _slang_output_index(varName, MESA_GEOMETRY_PROGRAM);
@@ -5187,8 +5190,12 @@ _slang_codegen_global_variable(slang_assemble_ctx *A, slang_variable *var,
             } else {
                assert(index >= 0);
                /* assert(index < GEOM_ATTRIB_MAX); */
-               store = _slang_new_ir_storage_swz(PROGRAM_INPUT, index,
-                                                 size, swizzle);
+               if (is_array)
+                  store = _slang_new_ir_storage_2d(PROGRAM_INPUT, 0, index,
+                                                   size, swizzle);
+               else
+                  store = _slang_new_ir_storage_swz(PROGRAM_INPUT, index,
+                                                    size, swizzle);
             }
          }
          if (dbg) printf("V/F ");
@@ -5217,7 +5224,7 @@ _slang_codegen_global_variable(slang_assemble_ctx *A, slang_variable *var,
       }
       else {
          /* pre-defined vertex attrib */
-         index = _slang_input_index(varName, GL_VERTEX_PROGRAM_ARB, &swizzle);
+         index = _slang_input_index(varName, GL_VERTEX_PROGRAM_ARB, &swizzle, NULL);
          assert(index >= 0);
       }
       store = _slang_new_ir_storage_swz(PROGRAM_INPUT, index, size, swizzle);
@@ -5227,12 +5234,16 @@ _slang_codegen_global_variable(slang_assemble_ctx *A, slang_variable *var,
       GLuint swizzle = SWIZZLE_XYZW; /* silence compiler warning */
       if (type == SLANG_UNIT_FRAGMENT_BUILTIN) {
          GLint index = _slang_input_index(varName, GL_FRAGMENT_PROGRAM_ARB,
-                                          &swizzle);
+                                          &swizzle, NULL);
          store = _slang_new_ir_storage_swz(PROGRAM_INPUT, index, size, swizzle);
       } else if (type == SLANG_UNIT_GEOMETRY_BUILTIN) {
+         GLboolean is_array;
          GLint index = _slang_input_index(varName, MESA_GEOMETRY_PROGRAM,
-                                          &swizzle);
-         store = _slang_new_ir_storage_swz(PROGRAM_INPUT, index, size, swizzle);
+                                          &swizzle, &is_array);
+         if (is_array)
+            store = _slang_new_ir_storage_2d(PROGRAM_INPUT, 0, index, size, swizzle);
+         else
+            store = _slang_new_ir_storage_swz(PROGRAM_INPUT, index, size, swizzle);
       }
       if (dbg) printf("INPUT ");
    }

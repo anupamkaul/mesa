@@ -41,6 +41,7 @@
 #include "pipe/p_shader_tokens.h"
 #include "draw/draw_context.h"
 #include "tgsi/tgsi_dump.h"
+#include "tgsi/tgsi_ureg.h"
 
 #include "st_debug.h"
 #include "st_context.h"
@@ -491,6 +492,9 @@ st_translate_geometry_program(struct st_context *st,
 
    /* which vertex output goes to the first geometry input */
    vslot = 0;
+
+   memset(inputMapping, 0, sizeof(inputMapping));
+   memset(outputMapping, 0, sizeof(outputMapping));
 
    /*
     * Convert Mesa program inputs to TGSI input register semantics.

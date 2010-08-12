@@ -811,7 +811,7 @@ lp_build_minify(struct lp_build_sample_context *bld,
                 LLVMValueRef base_size,
                 LLVMValueRef level)
 {
-   LLVMValueRef size = LLVMBuildAShr(bld->builder, base_size, level, "minify");
+   LLVMValueRef size = LLVMBuildLShr(bld->builder, base_size, level, "minify");
    size = lp_build_max(&bld->int_coord_bld, size, bld->int_coord_bld.one);
    return size;
 }
@@ -888,17 +888,17 @@ lp_build_lod_selector(struct lp_build_sample_context *bld,
          /* Compute rho = max of all partial derivatives scaled by texture size.
           * XXX this could be vectorized somewhat
           */
-         rho = LLVMBuildMul(bld->builder,
+         rho = LLVMBuildFMul(bld->builder,
                             lp_build_max(float_bld, dsdx, dsdy),
                             lp_build_int_to_float(float_bld, width), "");
          if (dims > 1) {
             LLVMValueRef max;
-            max = LLVMBuildMul(bld->builder,
+            max = LLVMBuildFMul(bld->builder,
                                lp_build_max(float_bld, dtdx, dtdy),
                                lp_build_int_to_float(float_bld, height), "");
             rho = lp_build_max(float_bld, rho, max);
             if (dims > 2) {
-               max = LLVMBuildMul(bld->builder,
+               max = LLVMBuildFMul(bld->builder,
                                   lp_build_max(float_bld, drdx, drdy),
                                   lp_build_int_to_float(float_bld, depth), "");
                rho = lp_build_max(float_bld, rho, max);
@@ -912,12 +912,12 @@ lp_build_lod_selector(struct lp_build_sample_context *bld,
          if (lod_bias) {
             lod_bias = LLVMBuildExtractElement(bld->builder, lod_bias,
                                                index0, "");
-            lod = LLVMBuildAdd(bld->builder, lod, lod_bias, "shader_lod_bias");
+            lod = LLVMBuildFAdd(bld->builder, lod, lod_bias, "shader_lod_bias");
          }
       }
 
       /* add sampler lod bias */
-      lod = LLVMBuildAdd(bld->builder, lod, sampler_lod_bias, "sampler_lod_bias");
+      lod = LLVMBuildFAdd(bld->builder, lod, sampler_lod_bias, "sampler_lod_bias");
 
       /* clamp lod */
       lod = lp_build_clamp(float_bld, lod, min_lod, max_lod);
@@ -1219,8 +1219,7 @@ lp_build_cube_ima(struct lp_build_context *coord_bld, LLVMValueRef coord)
    /* ima = -0.5 / abs(coord); */
    LLVMValueRef negHalf = lp_build_const_vec(coord_bld->type, -0.5);
    LLVMValueRef absCoord = lp_build_abs(coord_bld, coord);
-   LLVMValueRef ima = lp_build_mul(coord_bld, negHalf,
-                                   lp_build_rcp(coord_bld, absCoord));
+   LLVMValueRef ima = lp_build_div(coord_bld, negHalf, absCoord);
    return ima;
 }
 
@@ -2028,6 +2027,8 @@ lp_build_sample_soa(LLVMBuilderRef builder,
       enum pipe_format fmt = static_state->format;
       debug_printf("Sample from %s\n", util_format_name(fmt));
    }
+
+   assert(type.floating);
 
    /* Setup our build context */
    memset(&bld, 0, sizeof bld);

@@ -124,12 +124,14 @@ C_SOURCES = \
 	util/u_linear.c \
 	util/u_network.c \
 	util/u_math.c \
+	util/u_mempool.c \
 	util/u_mm.c \
 	util/u_rect.c \
 	util/u_ringbuffer.c \
 	util/u_sampler.c \
 	util/u_simple_shaders.c \
 	util/u_snprintf.c \
+	util/u_staging.c \
 	util/u_surface.c \
 	util/u_surfaces.c \
 	util/u_texture.c \
@@ -148,6 +150,7 @@ C_SOURCES = \
 
 GALLIVM_SOURCES = \
         gallivm/lp_bld_arit.c \
+        gallivm/lp_bld_assert.c \
         gallivm/lp_bld_const.c \
         gallivm/lp_bld_conv.c \
         gallivm/lp_bld_debug.c \
