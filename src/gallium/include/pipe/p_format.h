@@ -186,6 +186,15 @@ enum pipe_format {
    PIPE_FORMAT_R8G8B8X8_UNORM          = 134,
    PIPE_FORMAT_B4G4R4X4_UNORM          = 135,
 
+   PIPE_FORMAT_L16A16_FLOAT            = 136,
+   PIPE_FORMAT_L16_FLOAT               = 137,
+   PIPE_FORMAT_A16_FLOAT               = 138,
+   PIPE_FORMAT_I16_FLOAT               = 139,
+   PIPE_FORMAT_L32A32_FLOAT            = 140,
+   PIPE_FORMAT_L32_FLOAT               = 141,
+   PIPE_FORMAT_A32_FLOAT               = 142,
+   PIPE_FORMAT_I32_FLOAT               = 143,
+
    PIPE_FORMAT_COUNT
 };
 
