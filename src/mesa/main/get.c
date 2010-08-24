@@ -1247,6 +1247,9 @@ static const struct value_desc values[] = {
      CONTEXT_INT(Const.GeometryProgram.MaxVertexVaryingComponents),
      extra_ARB_geometry_shader4 },
 
+   /* GL_ARB_color_buffer_float */
+   { GL_RGBA_FLOAT_MODE_ARB, BUFFER_FIELD(Visual.floatMode, TYPE_BOOLEAN), 0 },
+
    /* GL 3.0 */
    { GL_NUM_EXTENSIONS, LOC_CUSTOM, TYPE_INT, 0, extra_version_30 },
    { GL_MAJOR_VERSION, CONTEXT_INT(VersionMajor), extra_version_30 },

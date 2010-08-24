@@ -551,10 +551,21 @@ _mesa_update_framebuffer_visual(struct gl_framebuffer *fb)
             fb->Visual.alphaBits = _mesa_get_format_bits(fmt, GL_ALPHA_BITS);
             fb->Visual.rgbBits = fb->Visual.redBits
                + fb->Visual.greenBits + fb->Visual.blueBits;
-            fb->Visual.floatMode = GL_FALSE;
             fb->Visual.samples = rb->NumSamples;
             break;
          }
+      }
+   }
+
+   fb->Visual.floatMode = GL_FALSE;
+   for (i = 0; i < BUFFER_COUNT; i++) {
+      if (fb->Attachment[i].Renderbuffer) {
+         const struct gl_renderbuffer *rb = fb->Attachment[i].Renderbuffer;
+         const GLenum baseFormat = _mesa_get_format_base_format(rb->Format);
+         const gl_format fmt = rb->Format;
+
+         if(_mesa_get_format_datatype(fmt) == GL_FLOAT)
+            fb->Visual.floatMode = GL_TRUE;
       }
    }
 
