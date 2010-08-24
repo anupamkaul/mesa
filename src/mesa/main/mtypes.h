@@ -690,7 +690,9 @@ struct gl_colorbuffer_attrib
    GLboolean DitherFlag;		/**< Dither enable flag */
 
    GLenum ClampFragmentColor; /**< GL_TRUE, GL_FALSE or GL_FIXED_ONLY_ARB */
+   GLboolean _ClampFragmentColor; /** < with GL_FIXED_ONLY_ARB resolved */
    GLenum ClampReadColor;     /**< GL_TRUE, GL_FALSE or GL_FIXED_ONLY_ARB */
+   GLboolean _ClampReadColor;     /** < with GL_FIXED_ONLY_ARB resolved */
 };
 
 
@@ -894,6 +896,7 @@ struct gl_light_attrib
    GLbitfield ColorMaterialBitmask;	/**< bitmask formed from Face and Mode */
    GLboolean ColorMaterialEnabled;
    GLenum ClampVertexColor;
+   GLboolean _ClampVertexColor;
 
    struct gl_light EnabledList;         /**< List sentinel */
 
@@ -2876,8 +2879,12 @@ struct gl_matrix_stack
 #define _NEW_CURRENT_ATTRIB     0x10000000  /**< __GLcontextRec::Current */
 #define _NEW_PROGRAM_CONSTANTS  0x20000000
 #define _NEW_BUFFER_OBJECT      0x40000000
+#define _NEW_FRAG_CLAMP         0x80000000
 #define _NEW_ALL ~0
 /*@}*/
+
+/* TODO: decide whether to make this a new flag or not */
+
 
 
 /**

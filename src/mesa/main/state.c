@@ -443,6 +443,35 @@ update_color(GLcontext *ctx)
    ctx->Color._LogicOpEnabled = RGBA_LOGICOP_ENABLED(ctx);
 }
 
+static void
+update_clamp_fragment_color(GLcontext *ctx)
+{
+   if(ctx->Color.ClampFragmentColor == GL_FIXED_ONLY_ARB)
+      ctx->Color._ClampFragmentColor = !ctx->DrawBuffer || !ctx->DrawBuffer->Visual.floatMode;
+   else
+      ctx->Color._ClampFragmentColor = ctx->Color.ClampFragmentColor;
+}
+
+static void
+update_clamp_vertex_color(GLcontext *ctx)
+{
+   if(ctx->Light.ClampVertexColor == GL_FIXED_ONLY_ARB)
+      ctx->Light._ClampVertexColor = !ctx->DrawBuffer || !ctx->DrawBuffer->Visual.floatMode;
+   else
+      ctx->Light._ClampVertexColor = ctx->Light.ClampVertexColor;
+}
+
+static void
+update_clamp_read_color(GLcontext *ctx)
+{
+   if(ctx->Color.ClampReadColor == GL_FIXED_ONLY_ARB)
+      ctx->Color._ClampReadColor = !ctx->ReadBuffer || !ctx->ReadBuffer->Visual.floatMode;
+   else
+      ctx->Color._ClampReadColor = ctx->Color.ClampReadColor;
+}
+
+
+
 
 /*
  * Check polygon state and set DD_TRI_CULL_FRONT_BACK and/or DD_TRI_OFFSET
@@ -601,6 +630,9 @@ _mesa_update_state_locked( GLcontext *ctx )
    if (new_state & _NEW_LIGHT)
       _mesa_update_lighting( ctx );
 
+   if (new_state & (_NEW_LIGHT | _NEW_BUFFERS))
+      update_clamp_vertex_color(ctx);
+
    if (new_state & (_NEW_STENCIL | _NEW_BUFFERS))
       _mesa_update_stencil( ctx );
 
@@ -618,6 +650,12 @@ _mesa_update_state_locked( GLcontext *ctx )
 
    if (new_state & _NEW_COLOR)
       update_color( ctx );
+
+   if (new_state & (_NEW_COLOR | _NEW_BUFFERS))
+      update_clamp_read_color(ctx);
+
+   if(new_state & (_NEW_FRAG_CLAMP | _NEW_BUFFERS))
+      update_clamp_fragment_color(ctx);
 
 #if 0
    if (new_state & (_NEW_POINT | _NEW_LINE | _NEW_POLYGON | _NEW_LIGHT

@@ -555,7 +555,7 @@ _mesa_ColorMaskIndexed( GLuint buf, GLboolean red, GLboolean green,
 }
 
 
-extern void GLAPIENTRY
+void GLAPIENTRY
 _mesa_ClampColorARB(GLenum target, GLenum clamp)
 {
    GET_CURRENT_CONTEXT(ctx);
@@ -569,12 +569,15 @@ _mesa_ClampColorARB(GLenum target, GLenum clamp)
 
    switch (target) {
    case GL_CLAMP_VERTEX_COLOR_ARB:
+      FLUSH_VERTICES(ctx, _NEW_LIGHT);
       ctx->Light.ClampVertexColor = clamp;
       break;
    case GL_CLAMP_FRAGMENT_COLOR_ARB:
+      FLUSH_VERTICES(ctx, _NEW_FRAG_CLAMP);
       ctx->Color.ClampFragmentColor = clamp;
       break;
    case GL_CLAMP_READ_COLOR_ARB:
+      FLUSH_VERTICES(ctx, _NEW_COLOR);
       ctx->Color.ClampReadColor = clamp;
       break;
    default:
@@ -632,7 +635,9 @@ void _mesa_init_color( GLcontext * ctx )
    }
 
    ctx->Color.ClampFragmentColor = GL_FIXED_ONLY_ARB;
+   ctx->Color._ClampFragmentColor = GL_TRUE;
    ctx->Color.ClampReadColor = GL_FIXED_ONLY_ARB;
+   ctx->Color._ClampReadColor = GL_TRUE;
 }
 
 /*@}*/
