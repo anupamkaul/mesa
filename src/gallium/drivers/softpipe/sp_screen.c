@@ -234,8 +234,10 @@ softpipe_is_format_supported( struct pipe_screen *screen,
        * TODO: Unfortunately we cannot render into anything more than 32 bits
        * because we encode color clear values into a 32bit word.
        */
+      /* but we need it anyway, and the comment above might be out of date
       if (format_desc->block.bits > 32)
          return FALSE;
+      */
    }
 
    if (bind & PIPE_BIND_DEPTH_STENCIL) {
