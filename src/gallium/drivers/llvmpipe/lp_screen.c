@@ -246,6 +246,21 @@ llvmpipe_is_format_supported( struct pipe_screen *_screen,
    if (sample_count > 1)
       return FALSE;
 
+   if (bind & (PIPE_BIND_RENDER_TARGET | PIPE_BIND_SAMPLER_VIEW)) {
+      /* Reject 16-bit floating point formats because conversion is not native.
+       * The state tracker will fall back to 32-bit ones.
+       * TODO: extend this interface to allow us to return a "ok, but slow" answer
+       * TODO: fully enable this on (unreleased) CPUs supporting CVT16
+       */
+      unsigned i;
+      for(i = 0; i < format_desc->nr_channels; ++i)
+      {
+         if(format_desc->channel[0].type == UTIL_FORMAT_TYPE_FLOAT
+               && format_desc->channel[0].size < 32)
+            return FALSE;
+      }
+   }
+
    if (bind & PIPE_BIND_RENDER_TARGET) {
       if (format_desc->colorspace == UTIL_FORMAT_COLORSPACE_ZS)
          return FALSE;
