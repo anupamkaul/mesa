@@ -738,6 +738,7 @@ _mesa_create_exec_table(void)
    SET_FramebufferTextureFaceARB(exec, _mesa_FramebufferTextureFaceARB);
 #endif
 
+   SET_ClampColorARB(exec, _mesa_ClampColorARB);
 
    return exec;
 }

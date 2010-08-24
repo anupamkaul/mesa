@@ -2630,6 +2630,7 @@ struct gl_extensions
 {
    GLboolean dummy;  /* don't remove this! */
    GLboolean ARB_blend_func_extended;
+   GLboolean ARB_color_buffer_float;
    GLboolean ARB_copy_buffer;
    GLboolean ARB_depth_buffer_float;
    GLboolean ARB_depth_clamp;
