@@ -297,7 +297,8 @@ clear_with_quad(GLcontext *ctx,
 
    /* draw quad matching scissor rect (XXX verify coord round-off) */
    draw_quad(st, x0, y0, x1, y1,
-             (GLfloat) ctx->Depth.Clear, ctx->Color.ClearColor);
+             (GLfloat) ctx->Depth.Clear,
+             ctx->Color.ClearColorUnclamped);
 
    /* Restore pipe state */
    cso_restore_blend(st->cso_context);
@@ -547,8 +548,7 @@ st_Clear(GLcontext *ctx, GLbitfield mask)
           (ctx->DrawBuffer->Visual.depthBits == 0 ||
            ctx->DrawBuffer->Visual.stencilBits == 0))
          clear_buffers |= PIPE_CLEAR_DEPTHSTENCIL;
-      st->pipe->clear(st->pipe, clear_buffers, ctx->Color.ClearColor,
-                      ctx->Depth.Clear, ctx->Stencil.Clear);
+      st->pipe->clear(st->pipe, clear_buffers, ctx->Color.ClearColorUnclamped, ctx->Depth.Clear, ctx->Stencil.Clear);
    }
    if (mask & BUFFER_BIT_ACCUM)
       st_clear_accum_buffer(ctx,
