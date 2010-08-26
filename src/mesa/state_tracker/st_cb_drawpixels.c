@@ -326,11 +326,22 @@ make_texture(struct st_context *st,
    struct pipe_resource *pt;
    enum pipe_format pipeFormat;
    GLuint cpp;
-   GLenum baseFormat;
+   GLenum baseFormat, internalFormat;
 
-   baseFormat = base_format(format);
+   internalFormat = baseFormat = base_format(format);
+   /* we are going to lose precision and get clamped otherwise
+    * TODO: maybe do this even for floating-point input and non-floating point target
+    */
+   if(internalFormat == GL_RGBA
+         && st->ctx->DrawBuffer && st->ctx->DrawBuffer->Visual.floatMode)
+   {
+      if(type == GL_FLOAT || type == GL_DOUBLE)
+         internalFormat = GL_RGBA32F_ARB;
+      else if(type == GL_HALF_FLOAT_ARB)
+         internalFormat = GL_RGBA16F_ARB;
+   }
 
-   mformat = st_ChooseTextureFormat(ctx, baseFormat, format, type);
+   mformat = st_ChooseTextureFormat(ctx, internalFormat, format, type);
    assert(mformat);
 
    pipeFormat = st_mesa_format_to_pipe_format(mformat);
