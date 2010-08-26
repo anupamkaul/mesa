@@ -53,7 +53,7 @@ static int NoOp(void)
  * Create and initialize a new GL dispatch table.  The table is initialized
  * with GLX indirect rendering protocol functions.
  */
-struct _glapi_table *__glXNewIndirectAPI( void )
+struct _glapi_table * __glXNewIndirectAPI( void )
 {
     struct _glapi_table *glAPI;
     GLuint entries;
@@ -587,6 +587,10 @@ struct _glapi_table *__glXNewIndirectAPI( void )
     /*  37. GL_ARB_draw_buffers */
 
     glAPI->DrawBuffersARB = __indirect_glDrawBuffersARB;
+
+    /*  39. GL_ARB_color_buffer_float */
+
+    glAPI->ClampColorARB = __indirect_glClampColorARB;
 
     /*  45. GL_ARB_framebuffer_object */
 

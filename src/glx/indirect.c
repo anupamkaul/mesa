@@ -91,7 +91,7 @@ __glXReadReply(Display * dpy, size_t size, void *dest,
 }
 
 NOINLINE void
-__glXReadPixelReply(Display * dpy, struct glx_context * gc, unsigned max_dim,
+__glXReadPixelReply(Display * dpy, struct glx_context *gc, unsigned max_dim,
                     GLint width, GLint height, GLint depth, GLenum format,
                     GLenum type, void *dest, GLboolean dimensions_in_reply)
 {
@@ -138,7 +138,7 @@ __glXReadPixelReply(Display * dpy, struct glx_context * gc, unsigned max_dim,
 #define X_GLXSingle 0
 
 NOINLINE FASTCALL GLubyte *
-__glXSetupSingleRequest(struct glx_context * gc, GLint sop, GLint cmdlen)
+__glXSetupSingleRequest(struct glx_context *gc, GLint sop, GLint cmdlen)
 {
     xGLXSingleReq *req;
     Display *const dpy = gc->currentDpy;
@@ -153,7 +153,7 @@ __glXSetupSingleRequest(struct glx_context * gc, GLint sop, GLint cmdlen)
 }
 
 NOINLINE FASTCALL GLubyte *
-__glXSetupVendorRequest(struct glx_context * gc, GLint code, GLint vop,
+__glXSetupVendorRequest(struct glx_context *gc, GLint code, GLint vop,
                         GLint cmdlen)
 {
     xGLXVendorPrivateReq *req;
@@ -8601,6 +8601,21 @@ __indirect_glDrawBuffersARB(GLsizei n, const GLenum * bufs)
             (void) memcpy((void *) (pc + 8), (void *) (&n), 4);
             __glXSendLargeCommand(gc, pc, 12, bufs, (n * 4));
         }
+    }
+}
+
+#define X_GLrop_ClampColorARB 234
+void
+__indirect_glClampColorARB(GLenum target, GLenum clamp)
+{
+    struct glx_context *const gc = __glXGetCurrentContext();
+    const GLuint cmdlen = 12;
+    emit_header(gc->pc, X_GLrop_ClampColorARB, cmdlen);
+    (void) memcpy((void *) (gc->pc + 4), (void *) (&target), 4);
+    (void) memcpy((void *) (gc->pc + 8), (void *) (&clamp), 4);
+    gc->pc += cmdlen;
+    if (__builtin_expect(gc->pc > gc->limit, 0)) {
+        (void) __glXFlushRenderBuffer(gc, gc->pc);
     }
 }
 
