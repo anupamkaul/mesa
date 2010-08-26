@@ -180,6 +180,9 @@ llvmpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
       return 1;
    case PIPE_CAP_DEPTH_CLAMP:
       return 0;
+   case PIPE_CAP_UNCLAMPED_FRAGMENT_COLOR:
+   case PIPE_CAP_UNCLAMPED_VERTEX_COLOR:
+      return 0;
    default:
       assert(0);
       return 0;
