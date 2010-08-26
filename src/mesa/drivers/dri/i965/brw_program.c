@@ -134,7 +134,7 @@ static GLboolean brwProgramStringNotify( GLcontext *ctx,
          brw_fragment_program_const(brw->fragment_program);
 
       if (fprog->FogOption) {
-         _mesa_append_fog_code(ctx, fprog);
+         _mesa_append_fog_code(ctx, fprog, TRUE);
          fprog->FogOption = GL_NONE;
       }
 

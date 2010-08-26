@@ -100,6 +100,9 @@ struct state_key {
    GLuint inputs_available:12;
    GLuint num_draw_buffers:4;
 
+   /* enabling clamping throughout the shader, see ClampFragmentColor */
+   GLuint clamp_color:1;
+
    /* NOTE: This array of structs must be last! (see "keySize" below) */
    struct {
       GLuint enabled:1;
@@ -491,6 +494,9 @@ static GLuint make_state_key( GLcontext *ctx,  struct state_key *key )
 
    key->inputs_available = (inputs_available & inputs_referenced);
 
+   /* _NEW_BUFFERS | _NEW_FRAG_CLAMP */
+   key->clamp_color = ctx->Color._ClampFragmentColor;
+
    /* compute size of state key, ignoring unused texture units */
    keySize = sizeof(*key) - sizeof(key->unit)
       + key->nr_enabled_units * sizeof(key->unit[0]);
@@ -722,7 +728,7 @@ static struct ureg register_input( struct texenv_fragment_program *p, GLuint inp
    }
    else {
       GLuint idx = frag_to_vert_attrib( input );
-      return register_param3( p, STATE_INTERNAL, STATE_CURRENT_ATTRIB, idx );
+      return register_param3( p, STATE_INTERNAL, STATE_CURRENT_ATTRIB_MAYBE_VP_CLAMPED, idx );
    }
 }
 
@@ -824,7 +830,7 @@ static struct ureg emit_texld( struct texenv_fragment_program *p,
 {
    struct prog_instruction *inst = emit_op( p, op, 
 					  dest, destmask, 
-					  GL_TRUE, /* ARB_texture_float requires saturation here */
+					  p->state->clamp_color, /* ARB_texture_float requires saturation here */
 					  coord, 	/* arg 0? */
 					  undef,
 					  undef);
@@ -1192,14 +1198,14 @@ emit_texenv(struct texenv_fragment_program *p, GLuint unit)
    if (rgb_shift)
       rgb_saturate = GL_FALSE;  /* saturate after rgb shift */
    else if (need_saturate(key->unit[unit].ModeRGB))
-      rgb_saturate = GL_TRUE;
+      rgb_saturate = key->clamp_color;
    else
       rgb_saturate = GL_FALSE;
 
    if (alpha_shift)
       alpha_saturate = GL_FALSE;  /* saturate after alpha shift */
    else if (need_saturate(key->unit[unit].ModeA))
-      alpha_saturate = GL_TRUE;
+      alpha_saturate = key->clamp_color;
    else
       alpha_saturate = GL_FALSE;
 
@@ -1254,7 +1260,7 @@ emit_texenv(struct texenv_fragment_program *p, GLuint unit)
     */
    if (alpha_shift || rgb_shift) {
       struct ureg shift;
-      GLboolean saturate = GL_TRUE;  /* always saturate at this point */
+      GLboolean saturate = key->clamp_color;  /* always saturate at this point */
 
       if (rgb_shift == alpha_shift) {
 	 shift = register_scalar_const(p, (GLfloat)(1<<rgb_shift));
@@ -1511,14 +1517,14 @@ create_new_program(GLcontext *ctx, struct state_key *key,
 	 /* Emit specular add.
 	  */
 	 struct ureg s = register_input(&p, FRAG_ATTRIB_COL1);
-	 emit_arith( &p, OPCODE_ADD, out, WRITEMASK_XYZ, 0, cf, s, undef );
-	 emit_arith( &p, OPCODE_MOV, out, WRITEMASK_W, 0, cf, undef, undef );
+	 emit_arith( &p, OPCODE_ADD, out, WRITEMASK_XYZ, key->clamp_color, cf, s, undef );
+	 emit_arith( &p, OPCODE_MOV, out, WRITEMASK_W, key->clamp_color, cf, undef, undef );
       }
       else if (memcmp(&cf, &out, sizeof(cf)) != 0) {
 	 /* Will wind up in here if no texture enabled or a couple of
 	  * other scenarios (GL_REPLACE for instance).
 	  */
-	 emit_arith( &p, OPCODE_MOV, out, WRITEMASK_XYZW, 0, cf, undef, undef );
+	 emit_arith( &p, OPCODE_MOV, out, WRITEMASK_XYZW, key->clamp_color, cf, undef, undef );
       }
    }
    /* Finish up:
@@ -1559,7 +1565,7 @@ create_new_program(GLcontext *ctx, struct state_key *key,
                            p.program->Base.NumInstructions);
 
    if (p.program->FogOption) {
-      _mesa_append_fog_code(ctx, p.program);
+      _mesa_append_fog_code(ctx, p.program, key->clamp_color);
       p.program->FogOption = GL_NONE;
    }
 

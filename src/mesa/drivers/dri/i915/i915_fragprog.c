@@ -1294,7 +1294,7 @@ i915ProgramStringNotify(GLcontext * ctx,
        */
       if (p->FragProg.FogOption) {
          /* add extra instructions to do fog, then turn off FogOption field */
-         _mesa_append_fog_code(ctx, &p->FragProg);
+         _mesa_append_fog_code(ctx, &p->FragProg, TRUE);
          p->FragProg.FogOption = GL_NONE;
       }
    }
