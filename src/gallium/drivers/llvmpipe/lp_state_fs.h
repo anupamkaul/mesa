@@ -52,6 +52,7 @@ struct lp_fragment_shader_variant_key
    struct pipe_alpha_state alpha;
    struct pipe_blend_state blend;
 
+   unsigned clamp_fragment_color:1;
    unsigned nr_cbufs:8;
    unsigned nr_samplers:8;	/* actually derivable from just the shader */
    unsigned flatshade:1;

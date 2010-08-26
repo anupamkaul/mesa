@@ -331,6 +331,13 @@ generate_fs(struct llvmpipe_context *lp,
 
                   lp_build_name(out, "color%u.%u.%c", i, attrib, "rgba"[chan]);
 
+                  if(key->clamp_fragment_color)
+                  {
+                     struct lp_build_context bld;
+                     lp_build_context_init(&bld, builder, type);
+                     out = lp_build_clamp(&bld, out, bld.zero, bld.one);
+                  }
+
                   /* Alpha test */
                   /* XXX: should the alpha reference value be passed separately? */
 		  /* XXX: should only test the final assignment to alpha */
@@ -1092,6 +1099,8 @@ make_variant_key(struct llvmpipe_context *lp,
    if(key->alpha.enabled)
       key->alpha.func = lp->depth_stencil->alpha.func;
    /* alpha.ref_value is passed in jit_context */
+
+   key->clamp_fragment_color = lp->rasterizer->clamp_fragment_color;
 
    key->flatshade = lp->rasterizer->flatshade;
    if (lp->active_query_count) {
