@@ -328,7 +328,7 @@ st_readpixels(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
    struct st_context *st = st_context(ctx);
    struct pipe_context *pipe = st->pipe;
    GLfloat temp[MAX_WIDTH][4];
-   const GLbitfield transferOps = ctx->_ImageTransferState;
+   GLbitfield transferOps = ctx->_ImageTransferState;
    GLsizei i, j;
    GLint yStep, dfStride;
    GLfloat *df;
@@ -383,7 +383,10 @@ st_readpixels(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
       return;
    }
 
-   if (format == GL_RGBA && type == GL_FLOAT) {
+   if(ctx->Color._ClampReadColor)
+      transferOps |= IMAGE_CLAMP_BIT;
+
+   if (format == GL_RGBA && type == GL_FLOAT && !transferOps) {
       /* write tile(row) directly into user's buffer */
       df = (GLfloat *) _mesa_image_address2d(&clippedPacking, dest, width,
                                              height, format, type, 0, 0);

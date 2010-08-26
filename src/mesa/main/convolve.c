@@ -537,6 +537,7 @@ _mesa_GetConvolutionFilter(GLenum target, GLenum format, GLenum type,
 {
    struct gl_convolution_attrib *filter;
    GLuint row;
+   GLbitfield transferOps = 0;
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
@@ -577,13 +578,17 @@ _mesa_GetConvolutionFilter(GLenum target, GLenum format, GLenum type,
    if (!image)
       return;
 
+   /* TODO: is this correct? */
+   if(ctx->Color._ClampReadColor)
+      transferOps |= IMAGE_CLAMP_BIT;
+
    for (row = 0; row < filter->Height; row++) {
       GLvoid *dst = _mesa_image_address2d(&ctx->Pack, image, filter->Width,
                                           filter->Height, format, type,
                                           row, 0);
       GLfloat (*src)[4] = (GLfloat (*)[4]) (filter->Filter + row * filter->Width * 4);
       _mesa_pack_rgba_span_float(ctx, filter->Width, src,
-                                 format, type, dst, &ctx->Pack, 0x0);
+                                 format, type, dst, &ctx->Pack, transferOps);
    }
 
    _mesa_unmap_pbo_dest(ctx, &ctx->Pack);
@@ -727,6 +732,7 @@ _mesa_GetSeparableFilter(GLenum target, GLenum format, GLenum type,
 {
    const GLint colStart = MAX_CONVOLUTION_WIDTH * 4;
    struct gl_convolution_attrib *filter;
+   GLbitfield transferOps = 0;
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
@@ -756,6 +762,10 @@ _mesa_GetSeparableFilter(GLenum target, GLenum format, GLenum type,
 
    filter = &ctx->Separable2D;
 
+   /* TODO: is this correct? */
+   if(ctx->Color._ClampReadColor)
+      transferOps |= IMAGE_CLAMP_BIT;
+
    /* Get row filter */
    row = _mesa_map_validate_pbo_dest(ctx, 1, &ctx->Pack,
                                      filter->Width, 1, 1,
@@ -766,7 +776,7 @@ _mesa_GetSeparableFilter(GLenum target, GLenum format, GLenum type,
                                           format, type, 0);
       _mesa_pack_rgba_span_float(ctx, filter->Width,
                                  (GLfloat (*)[4]) filter->Filter,
-                                 format, type, dst, &ctx->Pack, 0x0);
+                                 format, type, dst, &ctx->Pack, transferOps);
       _mesa_unmap_pbo_dest(ctx, &ctx->Pack);
    }
 
@@ -780,7 +790,7 @@ _mesa_GetSeparableFilter(GLenum target, GLenum format, GLenum type,
                                           format, type, 0);
       GLfloat (*src)[4] = (GLfloat (*)[4]) (filter->Filter + colStart);
       _mesa_pack_rgba_span_float(ctx, filter->Height, src,
-                                 format, type, dst, &ctx->Pack, 0x0);
+                                 format, type, dst, &ctx->Pack, transferOps);
       _mesa_unmap_pbo_dest(ctx, &ctx->Pack);
    }
 

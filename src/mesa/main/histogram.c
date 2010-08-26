@@ -626,6 +626,7 @@ static void GLAPIENTRY _mesa_ResetMinmax(GLenum target);
 static void GLAPIENTRY
 _mesa_GetMinmax(GLenum target, GLboolean reset, GLenum format, GLenum type, GLvoid *values)
 {
+   GLbitfield transferOps = 0;
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
@@ -664,6 +665,13 @@ _mesa_GetMinmax(GLenum target, GLboolean reset, GLenum format, GLenum type, GLvo
    if (!values)
       return;
 
+   if(ctx->NewState & (_NEW_BUFFERS | _NEW_COLOR))
+      _mesa_update_state(ctx);
+
+   /* TODO: is this correct? */
+   if(ctx->Color._ClampReadColor)
+      transferOps |= IMAGE_CLAMP_BIT;
+
    {
       GLfloat minmax[2][4];
       minmax[0][RCOMP] = CLAMP(ctx->MinMax.Min[RCOMP], 0.0F, 1.0F);
@@ -675,7 +683,7 @@ _mesa_GetMinmax(GLenum target, GLboolean reset, GLenum format, GLenum type, GLvo
       minmax[1][BCOMP] = CLAMP(ctx->MinMax.Max[BCOMP], 0.0F, 1.0F);
       minmax[1][ACOMP] = CLAMP(ctx->MinMax.Max[ACOMP], 0.0F, 1.0F);
       _mesa_pack_rgba_span_float(ctx, 2, minmax,
-                                 format, type, values, &ctx->Pack, 0x0);
+                                 format, type, values, &ctx->Pack, transferOps);
    }
 
    _mesa_unmap_pbo_dest(ctx, &ctx->Pack);

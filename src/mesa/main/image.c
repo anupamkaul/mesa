@@ -2121,11 +2121,7 @@ _mesa_pack_rgba_span_float(GLcontext *ctx, GLuint n, GLfloat rgba[][4],
    const GLint comps = _mesa_components_in_format(dstFormat);
    GLuint i;
 
-   /* XXX
-    * This test should probably go away.  Have the caller set/clear the
-    * IMAGE_CLAMP_BIT as needed.
-    */
-   if (dstType != GL_FLOAT || ctx->Color.ClampReadColor == GL_TRUE) {
+   if (dstType != GL_FLOAT) {
       /* need to clamp to [0, 1] */
       transferOps |= IMAGE_CLAMP_BIT;
    }
