@@ -334,19 +334,24 @@ _mesa_BlendColor( GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha )
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
-   tmp[0] = CLAMP( red,   0.0F, 1.0F );
-   tmp[1] = CLAMP( green, 0.0F, 1.0F );
-   tmp[2] = CLAMP( blue,  0.0F, 1.0F );
-   tmp[3] = CLAMP( alpha, 0.0F, 1.0F );
+   tmp[0] = red;
+   tmp[1] = green;
+   tmp[2] = blue;
+   tmp[3] = alpha;
 
-   if (TEST_EQ_4V(tmp, ctx->Color.BlendColor))
+   if (TEST_EQ_4V(tmp, ctx->Color.BlendColorUnclamped))
       return;
 
    FLUSH_VERTICES(ctx, _NEW_COLOR);
-   COPY_4FV( ctx->Color.BlendColor, tmp );
+   COPY_4FV( ctx->Color.BlendColorUnclamped, tmp );
+
+   ctx->Color.BlendColor[0] = CLAMP(tmp[0], 0.0F, 1.0F);
+   ctx->Color.BlendColor[1] = CLAMP(tmp[1], 0.0F, 1.0F);
+   ctx->Color.BlendColor[2] = CLAMP(tmp[2], 0.0F, 1.0F);
+   ctx->Color.BlendColor[3] = CLAMP(tmp[3], 0.0F, 1.0F);
 
    if (ctx->Driver.BlendColor)
-      (*ctx->Driver.BlendColor)(ctx, tmp);
+      (*ctx->Driver.BlendColor)(ctx, ctx->Color.BlendColor);
 }
 
 
@@ -375,13 +380,13 @@ _mesa_AlphaFunc( GLenum func, GLclampf ref )
    case GL_NOTEQUAL:
    case GL_GEQUAL:
    case GL_ALWAYS:
-      ref = CLAMP(ref, 0.0F, 1.0F);
-
-      if (ctx->Color.AlphaFunc == func && ctx->Color.AlphaRef == ref)
+      if (ctx->Color.AlphaFunc == func && ctx->Color.AlphaRefUnclamped == ref)
          return; /* no change */
 
       FLUSH_VERTICES(ctx, _NEW_COLOR);
       ctx->Color.AlphaFunc = func;
+      ctx->Color.AlphaRefUnclamped = ref;
+      ref = CLAMP(ref, 0.0F, 1.0F);
       ctx->Color.AlphaRef = ref;
 
       if (ctx->Driver.AlphaFunc)
@@ -600,6 +605,7 @@ void _mesa_init_color( GLcontext * ctx )
    memset(ctx->Color.ColorMask, 0xff, sizeof(ctx->Color.ColorMask));
    ctx->Color.ClearIndex = 0;
    ASSIGN_4V( ctx->Color.ClearColor, 0, 0, 0, 0 );
+   ASSIGN_4V( ctx->Color.ClearColorUnclamped, 0, 0, 0, 0 );
    ctx->Color.AlphaEnabled = GL_FALSE;
    ctx->Color.AlphaFunc = GL_ALWAYS;
    ctx->Color.AlphaRef = 0;
@@ -611,6 +617,7 @@ void _mesa_init_color( GLcontext * ctx )
    ctx->Color.BlendEquationRGB = GL_FUNC_ADD;
    ctx->Color.BlendEquationA = GL_FUNC_ADD;
    ASSIGN_4V( ctx->Color.BlendColor, 0.0, 0.0, 0.0, 0.0 );
+   ASSIGN_4V( ctx->Color.BlendColorUnclamped, 0.0, 0.0, 0.0, 0.0 );
    ctx->Color.IndexLogicOpEnabled = GL_FALSE;
    ctx->Color.ColorLogicOpEnabled = GL_FALSE;
    ctx->Color._LogicOpEnabled = GL_FALSE;

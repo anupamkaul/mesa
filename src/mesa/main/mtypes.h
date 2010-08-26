@@ -639,7 +639,8 @@ struct gl_accum_attrib
 struct gl_colorbuffer_attrib
 {
    GLuint ClearIndex;			/**< Index to use for glClear */
-   GLclampf ClearColor[4];		/**< Color to use for glClear */
+   GLfloat ClearColorUnclamped[4];              /**< Color to use for glClear*/
+   GLclampf ClearColor[4];               /**< Color to use for glClear */
 
    GLuint IndexMask;			/**< Color index write mask */
    GLubyte ColorMask[MAX_DRAW_BUFFERS][4];/**< Each flag is 0xff or 0x0 */
@@ -652,6 +653,7 @@ struct gl_colorbuffer_attrib
    /*@{*/
    GLboolean AlphaEnabled;		/**< Alpha test enabled flag */
    GLenum AlphaFunc;			/**< Alpha test function */
+   GLfloat AlphaRefUnclamped;
    GLclampf AlphaRef;			/**< Alpha reference value */
    /*@}*/
 
@@ -666,6 +668,12 @@ struct gl_colorbuffer_attrib
    GLenum BlendDstA;			/**< GL_INGR_blend_func_separate */
    GLenum BlendEquationRGB;		/**< Blending equation */
    GLenum BlendEquationA;		/**< GL_EXT_blend_equation_separate */
+
+   /* NOTE: this does _not_ depend on fragment clamping or any other clamping control,
+    * only on the fixed-pointness of the render target.
+    * The query does however depend on fragment color clamping.
+    */
+   GLfloat BlendColorUnclamped[4];               /**< Blending color */
    GLfloat BlendColor[4];		/**< Blending color */
    /*@}*/
 
@@ -779,6 +787,7 @@ struct gl_eval_attrib
 struct gl_fog_attrib
 {
    GLboolean Enabled;		/**< Fog enabled flag */
+   GLfloat ColorUnclamped[4];            /**< Fog color */
    GLfloat Color[4];		/**< Fog color */
    GLfloat Density;		/**< Density >= 0.0 */
    GLfloat Start;		/**< Start distance in eye coords */
@@ -1389,7 +1398,8 @@ struct gl_texture_unit
    GLbitfield _ReallyEnabled;   /**< 0 or exactly one of TEXTURE_*_BIT flags */
 
    GLenum EnvMode;              /**< GL_MODULATE, GL_DECAL, GL_BLEND, etc. */
-   GLfloat EnvColor[4];
+   GLclampf EnvColor[4];
+   GLfloat EnvColorUnclamped[4];
 
    struct gl_texgen GenS;
    struct gl_texgen GenT;

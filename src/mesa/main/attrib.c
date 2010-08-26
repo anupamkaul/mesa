@@ -918,10 +918,10 @@ _mesa_PopAttrib(void)
 
                color = (const struct gl_colorbuffer_attrib *) attr->data;
                _mesa_ClearIndex((GLfloat) color->ClearIndex);
-               _mesa_ClearColor(color->ClearColor[0],
-                                color->ClearColor[1],
-                                color->ClearColor[2],
-                                color->ClearColor[3]);
+               _mesa_ClearColor(color->ClearColorUnclamped[0],
+                                color->ClearColorUnclamped[1],
+                                color->ClearColorUnclamped[2],
+                                color->ClearColorUnclamped[3]);
                _mesa_IndexMask(color->IndexMask);
                if (!ctx->Extensions.EXT_draw_buffers2) {
                   _mesa_ColorMask((GLboolean) (color->ColorMask[0][0] != 0),
@@ -969,7 +969,7 @@ _mesa_PopAttrib(void)
                      _mesa_DrawBuffer(color->DrawBuffer[0]);
                }
                _mesa_set_enable(ctx, GL_ALPHA_TEST, color->AlphaEnabled);
-               _mesa_AlphaFunc(color->AlphaFunc, color->AlphaRef);
+               _mesa_AlphaFunc(color->AlphaFunc, color->AlphaRefUnclamped);
                if (ctx->Color.BlendEnabled != color->BlendEnabled) {
                   if (ctx->Extensions.EXT_draw_buffers2) {
                      GLuint i;
@@ -996,10 +996,10 @@ _mesa_PopAttrib(void)
 		  _mesa_BlendEquationSeparateEXT(color->BlendEquationRGB,
 						 color->BlendEquationA);
 	       }
-               _mesa_BlendColor(color->BlendColor[0],
-                                color->BlendColor[1],
-                                color->BlendColor[2],
-                                color->BlendColor[3]);
+               _mesa_BlendColor(color->BlendColorUnclamped[0],
+                                color->BlendColorUnclamped[1],
+                                color->BlendColorUnclamped[2],
+                                color->BlendColorUnclamped[3]);
                _mesa_LogicOp(color->LogicOp);
                _mesa_set_enable(ctx, GL_COLOR_LOGIC_OP,
                                 color->ColorLogicOpEnabled);

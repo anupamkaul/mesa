@@ -94,14 +94,14 @@ set_env_color(GLcontext *ctx,
               const GLfloat *color)
 {
    GLfloat tmp[4];
-   tmp[0] = CLAMP(color[0], 0.0F, 1.0F);
-   tmp[1] = CLAMP(color[1], 0.0F, 1.0F);
-   tmp[2] = CLAMP(color[2], 0.0F, 1.0F);
-   tmp[3] = CLAMP(color[3], 0.0F, 1.0F);
-   if (TEST_EQ_4V(tmp, texUnit->EnvColor))
+   if (TEST_EQ_4V(color, texUnit->EnvColorUnclamped))
       return;
    FLUSH_VERTICES(ctx, _NEW_TEXTURE);
-   COPY_4FV(texUnit->EnvColor, tmp);
+   COPY_4FV(texUnit->EnvColorUnclamped, color);
+   texUnit->EnvColor[0] = CLAMP(color[0], 0.0F, 1.0F);
+   texUnit->EnvColor[1] = CLAMP(color[1], 0.0F, 1.0F);
+   texUnit->EnvColor[2] = CLAMP(color[2], 0.0F, 1.0F);
+   texUnit->EnvColor[3] = CLAMP(color[3], 0.0F, 1.0F);
 }
 
 
