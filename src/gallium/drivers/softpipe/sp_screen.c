@@ -152,6 +152,10 @@ softpipe_get_param(struct pipe_screen *screen, enum pipe_cap param)
 
    case PIPE_CAP_GEOMETRY_SHADER4:
       return 1;
+
+   case PIPE_CAP_UNCLAMPED_VERTEX_COLOR:
+   case PIPE_CAP_UNCLAMPED_FRAGMENT_COLOR:
+      return 1;
    default:
       return 0;
    }

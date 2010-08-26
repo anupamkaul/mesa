@@ -97,6 +97,24 @@ coverage_quad(struct quad_stage *qs, struct quad_header *quad)
    }
 }
 
+static void
+clamp_quad_color(struct quad_stage *qs, struct quad_header *quad)
+{
+   struct softpipe_context *softpipe = qs->softpipe;
+   uint cbuf;
+
+   /* loop over colorbuffer outputs */
+   for (cbuf = 0; cbuf < softpipe->framebuffer.nr_cbufs; cbuf++) {
+      float (*quadColor)[4] = quad->output.color[cbuf];
+      unsigned i;
+      for (i = 0; i < QUAD_SIZE; i++) {
+         unsigned j;
+         for(j = 0; j < 4; ++j)
+            quadColor[i][j] = CLAMP(quadColor[i][j], 0.0f, 1.0f);
+      }
+   }
+}
+
 
 /**
  * Shade/write an array of quads
@@ -120,6 +138,9 @@ shade_quads(struct quad_stage *qs,
    for (i = 0; i < nr; i++) {
       if (!shade_quad(qs, quads[i]))
          continue; /* quad totally culled/killed */
+
+      if(softpipe->rasterizer->clamp_fragment_color)
+         clamp_quad_color(qs, quads[i] );
 
       if (/*do_coverage*/ 0)
          coverage_quad( qs, quads[i] );
