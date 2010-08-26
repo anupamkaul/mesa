@@ -801,7 +801,12 @@ _mesa_GetTexEnvfv( GLenum target, GLenum pname, GLfloat *params )
 
    if (target == GL_TEXTURE_ENV) {
       if (pname == GL_TEXTURE_ENV_COLOR) {
-         COPY_4FV( params, texUnit->EnvColor );
+         if(ctx->NewState & (_NEW_BUFFERS | _NEW_FRAG_CLAMP))
+            _mesa_update_state(ctx);
+         if(ctx->Color._ClampFragmentColor)
+            COPY_4FV( params, texUnit->EnvColor );
+         else
+            COPY_4FV( params, texUnit->EnvColorUnclamped );
       }
       else {
          GLint val = get_texenvi(ctx, texUnit, pname);
