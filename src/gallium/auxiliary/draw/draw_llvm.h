@@ -151,8 +151,9 @@ typedef void
 
 struct draw_llvm_variant_key
 {
-   unsigned nr_vertex_elements:16;
-   unsigned nr_samplers:16;
+   unsigned nr_vertex_elements:8;
+   unsigned nr_samplers:8;
+   unsigned clamp_vertex_color:8;
 
    /* Variable number of vertex elements:
     */
