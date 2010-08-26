@@ -219,26 +219,50 @@ logicop_quad(struct quad_stage *qs,
    }
 }
 
-
-
 /**
  * Do blending for a 2x2 quad for one color buffer.
  * \param quadColor  the incoming quad colors
  * \param dest  the destination/framebuffer quad colors
  * \param blend_index  which set of blending terms to use
  * \param has_dst_alpha  does the dest color buffer have an alpha channel?
+ * \param clamp_blend_source_factors_and_results should we clamp the blend source, factors and result?
+ * \param clamp_blend_source_factors_and_results should we clamp the blend destination before using it as input?
  */
 static void
 blend_quad(struct quad_stage *qs, 
            float (*quadColor)[4],
-           float (*dest)[4],
+           float (*raw_dest)[4],
            unsigned blend_index,
-           boolean has_dst_alpha)
+           boolean has_dst_alpha,
+           boolean clamp_blend_source_factors_and_results,
+           boolean clamp_blend_dest)
 {
    static const float zero[4] = { 0, 0, 0, 0 };
    static const float one[4] = { 1, 1, 1, 1 };
    struct softpipe_context *softpipe = qs->softpipe;
    float source[4][QUAD_SIZE] = { { 0 } };
+   float clamped_dest[4][QUAD_SIZE] = { { 0 } };
+   float (*dest)[4] = raw_dest;
+
+   if(clamp_blend_source_factors_and_results)
+   {
+      unsigned i, j;
+      for (j = 0; j < QUAD_SIZE; j++)
+         for (i = 0; i < 4; i++)
+            quadColor[i][j] = CLAMP(quadColor[i][j], 0.0f, 1.0f);
+   }
+
+   /* this is only TRUE for weird cases like SNORM targets, since
+    * otherwise we either must not do this, or it superfluous to do so
+    */
+   if(clamp_blend_dest)
+   {
+      unsigned i, j;
+      for (j = 0; j < QUAD_SIZE; j++)
+         for (i = 0; i < 4; i++)
+            clamped_dest[i][j] = CLAMP(raw_dest[i][j], 0.0f, 1.0f);
+      dest = clamped_dest;
+   }
 
    /*
     * Compute src/first term RGB
@@ -299,18 +323,18 @@ blend_quad(struct quad_stage *qs,
    case PIPE_BLENDFACTOR_CONST_COLOR:
    {
       float comp[4];
-      VEC4_SCALAR(comp, softpipe->blend_color.color[0]); /* R */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[0]); /* R */
       VEC4_MUL(source[0], quadColor[0], comp); /* R */
-      VEC4_SCALAR(comp, softpipe->blend_color.color[1]); /* G */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[1]); /* G */
       VEC4_MUL(source[1], quadColor[1], comp); /* G */
-      VEC4_SCALAR(comp, softpipe->blend_color.color[2]); /* B */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[2]); /* B */
       VEC4_MUL(source[2], quadColor[2], comp); /* B */
    }
    break;
    case PIPE_BLENDFACTOR_CONST_ALPHA:
    {
       float alpha[4];
-      VEC4_SCALAR(alpha, softpipe->blend_color.color[3]);
+      VEC4_SCALAR(alpha, softpipe->blend_color[clamp_blend_source_factors_and_results].color[3]);
       VEC4_MUL(source[0], quadColor[0], alpha); /* R */
       VEC4_MUL(source[1], quadColor[1], alpha); /* G */
       VEC4_MUL(source[2], quadColor[2], alpha); /* B */
@@ -376,20 +400,20 @@ blend_quad(struct quad_stage *qs,
    {
       float inv_comp[4];
       /* R */
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[0]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[0]);
       VEC4_MUL(source[0], quadColor[0], inv_comp);
       /* G */
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[1]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[1]);
       VEC4_MUL(source[1], quadColor[1], inv_comp);
       /* B */
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[2]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[2]);
       VEC4_MUL(source[2], quadColor[2], inv_comp);
    }
    break;
    case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
    {
       float inv_alpha[4];
-      VEC4_SCALAR(inv_alpha, 1.0f - softpipe->blend_color.color[3]);
+      VEC4_SCALAR(inv_alpha, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[3]);
       VEC4_MUL(source[0], quadColor[0], inv_alpha); /* R */
       VEC4_MUL(source[1], quadColor[1], inv_alpha); /* G */
       VEC4_MUL(source[2], quadColor[2], inv_alpha); /* B */
@@ -437,7 +461,7 @@ blend_quad(struct quad_stage *qs,
    case PIPE_BLENDFACTOR_CONST_ALPHA:
    {
       float comp[4];
-      VEC4_SCALAR(comp, softpipe->blend_color.color[3]); /* A */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[3]); /* A */
       VEC4_MUL(source[3], quadColor[3], comp); /* A */
    }
    break;
@@ -471,7 +495,7 @@ blend_quad(struct quad_stage *qs,
    {
       float inv_comp[4];
       /* A */
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[3]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[3]);
       VEC4_MUL(source[3], quadColor[3], inv_comp);
    }
    break;
@@ -531,18 +555,18 @@ blend_quad(struct quad_stage *qs,
    case PIPE_BLENDFACTOR_CONST_COLOR:
    {
       float comp[4];
-      VEC4_SCALAR(comp, softpipe->blend_color.color[0]); /* R */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[0]); /* R */
       VEC4_MUL(dest[0], dest[0], comp); /* R */
-      VEC4_SCALAR(comp, softpipe->blend_color.color[1]); /* G */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[1]); /* G */
       VEC4_MUL(dest[1], dest[1], comp); /* G */
-      VEC4_SCALAR(comp, softpipe->blend_color.color[2]); /* B */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[2]); /* B */
       VEC4_MUL(dest[2], dest[2], comp); /* B */
    }
    break;
    case PIPE_BLENDFACTOR_CONST_ALPHA:
    {
       float comp[4];
-      VEC4_SCALAR(comp, softpipe->blend_color.color[3]); /* A */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[3]); /* A */
       VEC4_MUL(dest[0], dest[0], comp); /* R */
       VEC4_MUL(dest[1], dest[1], comp); /* G */
       VEC4_MUL(dest[2], dest[2], comp); /* B */
@@ -607,20 +631,20 @@ blend_quad(struct quad_stage *qs,
    {
       float inv_comp[4];
       /* R */
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[0]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[0]);
       VEC4_MUL(dest[0], dest[0], inv_comp);
       /* G */
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[1]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[1]);
       VEC4_MUL(dest[1], dest[1], inv_comp);
       /* B */
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[2]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[2]);
       VEC4_MUL(dest[2], dest[2], inv_comp);
    }
    break;
    case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
    {
       float inv_comp[4];
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[3]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[3]);
       VEC4_MUL(dest[0], dest[0], inv_comp);
       VEC4_MUL(dest[1], dest[1], inv_comp);
       VEC4_MUL(dest[2], dest[2], inv_comp);
@@ -665,7 +689,7 @@ blend_quad(struct quad_stage *qs,
    case PIPE_BLENDFACTOR_CONST_ALPHA:
    {
       float comp[4];
-      VEC4_SCALAR(comp, softpipe->blend_color.color[3]); /* A */
+      VEC4_SCALAR(comp, softpipe->blend_color[clamp_blend_source_factors_and_results].color[3]); /* A */
       VEC4_MUL(dest[3], dest[3], comp); /* A */
    }
    break;
@@ -698,7 +722,7 @@ blend_quad(struct quad_stage *qs,
    case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
    {
       float inv_comp[4];
-      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color.color[3]);
+      VEC4_SCALAR(inv_comp, 1.0f - softpipe->blend_color[clamp_blend_source_factors_and_results].color[3]);
       VEC4_MUL(dest[3], dest[3], inv_comp);
    }
    break;
@@ -706,24 +730,56 @@ blend_quad(struct quad_stage *qs,
       assert(0 && "invalid alpha dst factor");
    }
 
+   /* NOTE: we cannot rely on the float->ubyte conversion for
+    * the final clamping here, because we cache tiles, and must avoid
+    * reading back unclamped values from a cached tile
+    */
+
    /*
     * Combine RGB terms
     */
    switch (softpipe->blend->rt[blend_index].rgb_func) {
    case PIPE_BLEND_ADD:
-      VEC4_ADD_SAT(quadColor[0], source[0], dest[0]); /* R */
-      VEC4_ADD_SAT(quadColor[1], source[1], dest[1]); /* G */
-      VEC4_ADD_SAT(quadColor[2], source[2], dest[2]); /* B */
+      if(clamp_blend_source_factors_and_results)
+      {
+         VEC4_ADD_SAT(quadColor[0], source[0], dest[0]); /* R */
+         VEC4_ADD_SAT(quadColor[1], source[1], dest[1]); /* G */
+         VEC4_ADD_SAT(quadColor[2], source[2], dest[2]); /* B */
+      }
+      else
+      {
+         VEC4_ADD(quadColor[0], source[0], dest[0]); /* R */
+         VEC4_ADD(quadColor[1], source[1], dest[1]); /* G */
+         VEC4_ADD(quadColor[2], source[2], dest[2]); /* B */
+      }
       break;
    case PIPE_BLEND_SUBTRACT:
-      VEC4_SUB_SAT(quadColor[0], source[0], dest[0]); /* R */
-      VEC4_SUB_SAT(quadColor[1], source[1], dest[1]); /* G */
-      VEC4_SUB_SAT(quadColor[2], source[2], dest[2]); /* B */
+      if(clamp_blend_source_factors_and_results)
+      {
+         VEC4_SUB_SAT(quadColor[0], source[0], dest[0]); /* R */
+         VEC4_SUB_SAT(quadColor[1], source[1], dest[1]); /* G */
+         VEC4_SUB_SAT(quadColor[2], source[2], dest[2]); /* B */
+      }
+      else
+      {
+         VEC4_SUB(quadColor[0], source[0], dest[0]); /* R */
+         VEC4_SUB(quadColor[1], source[1], dest[1]); /* G */
+         VEC4_SUB(quadColor[2], source[2], dest[2]); /* B */
+      }
       break;
    case PIPE_BLEND_REVERSE_SUBTRACT:
-      VEC4_SUB_SAT(quadColor[0], dest[0], source[0]); /* R */
-      VEC4_SUB_SAT(quadColor[1], dest[1], source[1]); /* G */
-      VEC4_SUB_SAT(quadColor[2], dest[2], source[2]); /* B */
+      if(clamp_blend_source_factors_and_results)
+      {
+         VEC4_SUB_SAT(quadColor[0], dest[0], source[0]); /* R */
+         VEC4_SUB_SAT(quadColor[1], dest[1], source[1]); /* G */
+         VEC4_SUB_SAT(quadColor[2], dest[2], source[2]); /* B */
+      }
+      else
+      {
+         VEC4_SUB(quadColor[0], dest[0], source[0]); /* R */
+         VEC4_SUB(quadColor[1], dest[1], source[1]); /* G */
+         VEC4_SUB(quadColor[2], dest[2], source[2]); /* B */
+      }
       break;
    case PIPE_BLEND_MIN:
       VEC4_MIN(quadColor[0], source[0], dest[0]); /* R */
@@ -744,13 +800,22 @@ blend_quad(struct quad_stage *qs,
     */
    switch (softpipe->blend->rt[blend_index].alpha_func) {
    case PIPE_BLEND_ADD:
-      VEC4_ADD_SAT(quadColor[3], source[3], dest[3]); /* A */
+      if(clamp_blend_source_factors_and_results)
+         VEC4_ADD_SAT(quadColor[3], source[3], dest[3]); /* A */
+      else
+         VEC4_ADD(quadColor[3], source[3], dest[3]); /* A */
       break;
    case PIPE_BLEND_SUBTRACT:
-      VEC4_SUB_SAT(quadColor[3], source[3], dest[3]); /* A */
+      if(clamp_blend_source_factors_and_results)
+         VEC4_SUB_SAT(quadColor[3], source[3], dest[3]); /* A */
+      else
+         VEC4_SUB(quadColor[3], source[3], dest[3]); /* A */
       break;
    case PIPE_BLEND_REVERSE_SUBTRACT:
-      VEC4_SUB_SAT(quadColor[3], dest[3], source[3]); /* A */
+      if(clamp_blend_source_factors_and_results)
+         VEC4_SUB_SAT(quadColor[3], dest[3], source[3]); /* A */
+      else
+         VEC4_SUB(quadColor[3], dest[3], source[3]); /* A */
       break;
    case PIPE_BLEND_MIN:
       VEC4_MIN(quadColor[3], source[3], dest[3]); /* A */
@@ -804,8 +869,6 @@ blend_fallback(struct quad_stage *qs,
          = sp_get_cached_tile(softpipe->cbuf_cache[cbuf],
                               quads[0]->input.x0, 
                               quads[0]->input.y0);
-      boolean has_dst_alpha
-         = util_format_has_alpha(softpipe->framebuffer.cbufs[cbuf]->format);
       uint q, i, j;
 
       for (q = 0; q < nr; q++) {
@@ -824,12 +887,16 @@ blend_fallback(struct quad_stage *qs,
             }
          }
 
-
          if (blend->logicop_enable) {
-            logicop_quad( qs, quadColor, dest );
+            /* yes, this must disable blend even if we don't actually perform it */
+            if(softpipe->cbuf_derived[cbuf].perform_logicop)
+               logicop_quad( qs, quadColor, dest );
          }
          else if (blend->rt[blend_buf].blend_enable) {
-            blend_quad( qs, quadColor, dest, blend_buf, has_dst_alpha );
+            blend_quad( qs, quadColor, dest, blend_buf,
+                  softpipe->cbuf_derived[cbuf].has_dest_alpha,
+                  softpipe->cbuf_derived[cbuf].clamp_blend_source_factors_and_results,
+                  softpipe->cbuf_derived[cbuf].clamp_blend_dest );
          }
 
          if (blend->rt[blend_buf].colormask != 0xf)
@@ -850,115 +917,8 @@ blend_fallback(struct quad_stage *qs,
    }
 }
 
-
 static void
-blend_single_add_src_alpha_inv_src_alpha(struct quad_stage *qs, 
-                                         struct quad_header *quads[],
-                                         unsigned nr)
-{
-   static const float one[4] = { 1, 1, 1, 1 };
-   float one_minus_alpha[QUAD_SIZE];
-   float dest[4][QUAD_SIZE];
-   float source[4][QUAD_SIZE];
-   uint i, j, q;
-
-   struct softpipe_cached_tile *tile
-      = sp_get_cached_tile(qs->softpipe->cbuf_cache[0],
-                           quads[0]->input.x0, 
-                           quads[0]->input.y0);
-
-   for (q = 0; q < nr; q++) {
-      struct quad_header *quad = quads[q];
-      float (*quadColor)[4] = quad->output.color[0];
-      const float *alpha = quadColor[3];
-      const int itx = (quad->input.x0 & (TILE_SIZE-1));
-      const int ity = (quad->input.y0 & (TILE_SIZE-1));
-      
-      /* get/swizzle dest colors */
-      for (j = 0; j < QUAD_SIZE; j++) {
-         int x = itx + (j & 1);
-         int y = ity + (j >> 1);
-         for (i = 0; i < 4; i++) {
-            dest[i][j] = tile->data.color[y][x][i];
-         }
-      }
-
-      VEC4_MUL(source[0], quadColor[0], alpha); /* R */
-      VEC4_MUL(source[1], quadColor[1], alpha); /* G */
-      VEC4_MUL(source[2], quadColor[2], alpha); /* B */
-      VEC4_MUL(source[3], quadColor[3], alpha); /* A */
-
-      VEC4_SUB(one_minus_alpha, one, alpha);
-      VEC4_MUL(dest[0], dest[0], one_minus_alpha); /* R */
-      VEC4_MUL(dest[1], dest[1], one_minus_alpha); /* G */
-      VEC4_MUL(dest[2], dest[2], one_minus_alpha); /* B */
-      VEC4_MUL(dest[3], dest[3], one_minus_alpha); /* B */
-
-      VEC4_ADD_SAT(quadColor[0], source[0], dest[0]); /* R */
-      VEC4_ADD_SAT(quadColor[1], source[1], dest[1]); /* G */
-      VEC4_ADD_SAT(quadColor[2], source[2], dest[2]); /* B */
-      VEC4_ADD_SAT(quadColor[3], source[3], dest[3]); /* A */
-
-      for (j = 0; j < QUAD_SIZE; j++) {
-         if (quad->inout.mask & (1 << j)) {
-            int x = itx + (j & 1);
-            int y = ity + (j >> 1);
-            for (i = 0; i < 4; i++) { /* loop over color chans */
-               tile->data.color[y][x][i] = quadColor[i][j];
-            }
-         }
-      }
-   }
-}
-
-static void
-blend_single_add_one_one(struct quad_stage *qs, 
-                         struct quad_header *quads[],
-                         unsigned nr)
-{
-   float dest[4][QUAD_SIZE];
-   uint i, j, q;
-
-   struct softpipe_cached_tile *tile
-      = sp_get_cached_tile(qs->softpipe->cbuf_cache[0],
-                           quads[0]->input.x0, 
-                           quads[0]->input.y0);
-
-   for (q = 0; q < nr; q++) {
-      struct quad_header *quad = quads[q];
-      float (*quadColor)[4] = quad->output.color[0];
-      const int itx = (quad->input.x0 & (TILE_SIZE-1));
-      const int ity = (quad->input.y0 & (TILE_SIZE-1));
-      
-      /* get/swizzle dest colors */
-      for (j = 0; j < QUAD_SIZE; j++) {
-         int x = itx + (j & 1);
-         int y = ity + (j >> 1);
-         for (i = 0; i < 4; i++) {
-            dest[i][j] = tile->data.color[y][x][i];
-         }
-      }
-     
-      VEC4_ADD_SAT(quadColor[0], quadColor[0], dest[0]); /* R */
-      VEC4_ADD_SAT(quadColor[1], quadColor[1], dest[1]); /* G */
-      VEC4_ADD_SAT(quadColor[2], quadColor[2], dest[2]); /* B */
-      VEC4_ADD_SAT(quadColor[3], quadColor[3], dest[3]); /* A */
-
-      for (j = 0; j < QUAD_SIZE; j++) {
-         if (quad->inout.mask & (1 << j)) {
-            int x = itx + (j & 1);
-            int y = ity + (j >> 1);
-            for (i = 0; i < 4; i++) { /* loop over color chans */
-               tile->data.color[y][x][i] = quadColor[i][j];
-            }
-         }
-      }
-   }
-}
-
-
-static void
-single_output_color(struct quad_stage *qs, 
+single_output_color(struct quad_stage *qs,
                     struct quad_header *quads[],
                     unsigned nr)
 {
@@ -1004,32 +964,18 @@ choose_blend_quad(struct quad_stage *qs,
    const struct pipe_blend_state *blend = softpipe->blend;
 
    qs->run = blend_fallback;
-   
+
    if (softpipe->framebuffer.nr_cbufs == 0) {
       qs->run = blend_noop;
    }
    else if (!softpipe->blend->logicop_enable &&
             softpipe->blend->rt[0].colormask == 0xf &&
-            softpipe->framebuffer.nr_cbufs == 1)
+            softpipe->framebuffer.nr_cbufs == 1
+            )
    {
-      if (!blend->rt[0].blend_enable) {
+      if (!blend->rt[0].blend_enable)
+         /* if blending is disabled, being fixed-point does not cause any clamping */
          qs->run = single_output_color;
-      }
-      else if (blend->rt[0].rgb_src_factor == blend->rt[0].alpha_src_factor &&
-               blend->rt[0].rgb_dst_factor == blend->rt[0].alpha_dst_factor &&
-               blend->rt[0].rgb_func == blend->rt[0].alpha_func)
-      {
-         if (blend->rt[0].alpha_func == PIPE_BLEND_ADD) {
-            if (blend->rt[0].rgb_src_factor == PIPE_BLENDFACTOR_ONE &&
-                blend->rt[0].rgb_dst_factor == PIPE_BLENDFACTOR_ONE) {
-               qs->run = blend_single_add_one_one;
-            }
-            else if (blend->rt[0].rgb_src_factor == PIPE_BLENDFACTOR_SRC_ALPHA &&
-                blend->rt[0].rgb_dst_factor == PIPE_BLENDFACTOR_INV_SRC_ALPHA)
-               qs->run = blend_single_add_src_alpha_inv_src_alpha;
-
-         }
-      }
    }
 
    qs->run(qs, quads, nr);

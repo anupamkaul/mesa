@@ -100,5 +100,33 @@ softpipe_set_framebuffer_state(struct pipe_context *pipe,
    sp->framebuffer.width = fb->width;
    sp->framebuffer.height = fb->height;
 
+   /* find out how to do blending for this framebuffer, in case we want to do so */
+   for (i = 0; i < fb->nr_cbufs; i++)
+   {
+      const struct util_format_description* desc = util_format_description(fb->cbufs[i]->format);
+      unsigned chan;
+
+      sp->cbuf_derived[i].has_dest_alpha = util_format_has_alpha(fb->cbufs[i]->format);
+      sp->cbuf_derived[i].clamp_blend_source_factors_and_results = FALSE;
+      sp->cbuf_derived[i].clamp_blend_dest = FALSE;
+      sp->cbuf_derived[i].perform_logicop = TRUE;
+
+      for(chan = 0; chan < desc->nr_channels; ++chan)
+      {
+         if(desc->channel[chan].type == UTIL_FORMAT_TYPE_FLOAT)
+            sp->cbuf_derived[i].perform_logicop = FALSE;
+         else
+         {
+            sp->cbuf_derived[i].clamp_blend_source_factors_and_results = TRUE;
+            /* we can skip this for unsigned normalized, since they are
+             * already in the [0, 1] range
+             */
+            if(desc->channel[chan].type != UTIL_FORMAT_TYPE_UNSIGNED
+                  || !desc->channel[chan].normalized)
+               sp->cbuf_derived[i].clamp_blend_dest = TRUE;
+         }
+      }
+   }
+
    sp->dirty |= SP_NEW_FRAMEBUFFER;
 }

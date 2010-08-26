@@ -70,7 +70,7 @@ struct softpipe_context {
    struct sp_so_state *so;
 
    /** Other rendering state */
-   struct pipe_blend_color blend_color;
+   struct pipe_blend_color blend_color[2]; /* [0] is unclamped, [1] is clamped */
    struct pipe_stencil_ref stencil_ref;
    struct pipe_clip_state clip;
    struct pipe_resource *constants[PIPE_SHADER_TYPES][PIPE_MAX_CONSTANT_BUFFERS];
@@ -151,6 +151,16 @@ struct softpipe_context {
       struct quad_stage *pstipple;
       struct quad_stage *first; /**< points to one of the above stages */
    } quad;
+
+   /** Per-colorbuffer derived state: used for blending
+    * (but only depending on fb, not blend state) */
+   struct
+   {
+      boolean has_dest_alpha;
+      boolean clamp_blend_source_factors_and_results;
+      boolean clamp_blend_dest;
+      boolean perform_logicop;
+   } cbuf_derived[PIPE_MAX_COLOR_BUFS];
 
    /** TGSI exec things */
    struct {
