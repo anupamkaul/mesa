@@ -824,7 +824,7 @@ static struct ureg emit_texld( struct texenv_fragment_program *p,
 {
    struct prog_instruction *inst = emit_op( p, op, 
 					  dest, destmask, 
-					  GL_FALSE,	/* don't saturate? */
+					  GL_TRUE, /* ARB_texture_float requires saturation here */
 					  coord, 	/* arg 0? */
 					  undef,
 					  undef);
