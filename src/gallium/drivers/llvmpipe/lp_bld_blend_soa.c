@@ -243,9 +243,6 @@ lp_build_blend_soa(LLVMBuilderRef builder,
             unsigned func = i < 3 ? blend->rt[rt].rgb_func : blend->rt[rt].alpha_func;
             boolean func_commutative = lp_build_blend_func_commutative(func);
 
-            /* It makes no sense to blend unless values are normalized */
-            assert(type.norm);
-
             /*
              * Compute src/dst factors.
              */

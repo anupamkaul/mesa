@@ -59,7 +59,7 @@ extern unsigned lp_tile_swizzle_count;
 
 /**
  * Return offset of the given pixel (and color channel) from the start
- * of a tile, in bytes.
+ * of a tile, in pixel-sized units
  */
 static INLINE unsigned
 tile_pixel_offset(unsigned x, unsigned y, unsigned c)
@@ -85,6 +85,19 @@ lp_tile_swizzle_4ub(enum pipe_format format,
 void
 lp_tile_unswizzle_4ub(enum pipe_format format,
                   const uint8_t *src,
+                  void *dst, unsigned dst_stride,
+                  unsigned x, unsigned y);
+
+void
+lp_tile_swizzle_4f(enum pipe_format format,
+                 float *dst,
+                 const void *src, unsigned src_stride,
+                 unsigned x, unsigned y);
+
+
+void
+lp_tile_unswizzle_4f(enum pipe_format format,
+                  const float *src,
                   void *dst, unsigned dst_stride,
                   unsigned x, unsigned y);
 

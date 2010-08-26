@@ -206,10 +206,10 @@ def emit_unrolled_unswizzle_code(format, src_channel):
     print '      const unsigned py = y0 + qy;'
     print '      for (qx = 0; qx < TILE_SIZE; qx += TILE_VECTOR_WIDTH) {'
     print '         const unsigned px = x0 + qx;'
-    print '         const uint8_t *r = src + 0 * TILE_C_STRIDE;'
-    print '         const uint8_t *g = src + 1 * TILE_C_STRIDE;'
-    print '         const uint8_t *b = src + 2 * TILE_C_STRIDE;'
-    print '         const uint8_t *a = src + 3 * TILE_C_STRIDE;'
+    print '         const float *r = src + 0 * TILE_C_STRIDE;'
+    print '         const float *g = src + 1 * TILE_C_STRIDE;'
+    print '         const float *b = src + 2 * TILE_C_STRIDE;'
+    print '         const float *a = src + 3 * TILE_C_STRIDE;'
     print '         (void) r; (void) g; (void) b; (void) a; /* silence warnings */'
     print '         for (i = 0; i < TILE_C_STRIDE; i += 2) {'
     print '            const uint32_t pixel0 = %s;' % pack_rgba(format, src_channel, "r[i+0]", "g[i+0]", "b[i+0]", "a[i+0]")
@@ -477,14 +477,7 @@ def generate_swizzle(formats, dst_channel, dst_native_type, dst_suffix):
         if is_format_supported(format):
             print '   case %s:' % format.name
             func_name = 'lp_tile_%s_swizzle_%s' % (format.short_name(), dst_suffix)
-            if format.name == 'PIPE_FORMAT_B8G8R8A8_UNORM':
-                print '#ifdef PIPE_ARCH_SSE'
-                print '      func = util_cpu_caps.has_ssse3 ? %s_ssse3 : %s;' % (func_name, func_name)
-                print '#else'
-                print '      func = %s;' % (func_name,)
-                print '#endif'
-            else:
-                print '      func = %s;' % (func_name,)
+            print '      func = %s;' % (func_name,)
             print '      break;'
     print '   default:'
     print '      debug_printf("%s: unsupported format %s\\n", __FUNCTION__, util_format_name(format));'
@@ -515,14 +508,7 @@ def generate_unswizzle(formats, src_channel, src_native_type, src_suffix):
         if is_format_supported(format):
             print '   case %s:' % format.name
             func_name = 'lp_tile_%s_unswizzle_%s' % (format.short_name(), src_suffix)
-            if format.name == 'PIPE_FORMAT_B8G8R8A8_UNORM':
-                print '#ifdef PIPE_ARCH_SSE'
-                print '      func = util_cpu_caps.has_ssse3 ? %s_ssse3 : %s;' % (func_name, func_name)
-                print '#else'
-                print '      func = %s;' % (func_name,)
-                print '#endif'
-            else:
-                print '      func = %s;' % (func_name,)
+            print '      func = %s;' % (func_name,)
             print '      break;'
     print '   default:'
     print '      debug_printf("%s: unsupported format %s\\n", __FUNCTION__, util_format_name(format));'
@@ -579,13 +565,12 @@ def main():
 
     generate_ssse3()
 
-    channel = Channel(UNSIGNED, True, 8)
-    native_type = 'uint8_t'
-    suffix = '4ub'
+    channel = Channel(FLOAT, False, 32)
+    native_type = 'float'
+    suffix = '4f'
 
     generate_swizzle(formats, channel, native_type, suffix)
     generate_unswizzle(formats, channel, native_type, suffix)
-
 
 if __name__ == '__main__':
     main()

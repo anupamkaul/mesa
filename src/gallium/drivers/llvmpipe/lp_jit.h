@@ -139,7 +139,7 @@ typedef void
                     const void *a0,
                     const void *dadx,
                     const void *dady,
-                    uint8_t **color,
+                    float **color,
                     void *depth,
                     uint32_t mask,
                     uint32_t *counter);

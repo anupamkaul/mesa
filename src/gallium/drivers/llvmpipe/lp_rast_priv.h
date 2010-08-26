@@ -78,7 +78,7 @@ struct lp_rasterizer_task
 {
    unsigned x, y;          /**< Pos of this tile in framebuffer, in pixels */
 
-   uint8_t *color_tiles[PIPE_MAX_COLOR_BUFS];
+   float *color_tiles[PIPE_MAX_COLOR_BUFS];
    uint8_t *depth_tile;
 
    /** "back" pointer */
@@ -191,7 +191,7 @@ lp_rast_get_depth_block_pointer(struct lp_rasterizer_task *task,
 /**
  * Get pointer to the swizzled color tile
  */
-static INLINE uint8_t *
+static INLINE float *
 lp_rast_get_color_tile_pointer(struct lp_rasterizer_task *task,
                                unsigned buf, enum lp_texture_usage usage)
 {
@@ -228,12 +228,12 @@ lp_rast_get_color_tile_pointer(struct lp_rasterizer_task *task,
  * NULL in that case.
  * \param x, y location of 4x4 block in window coords
  */
-static INLINE uint8_t *
+static INLINE float *
 lp_rast_get_color_block_pointer(struct lp_rasterizer_task *task,
                                 unsigned buf, unsigned x, unsigned y)
 {
    unsigned px, py, pixel_offset;
-   uint8_t *color;
+   float *color;
 
    assert((x % TILE_VECTOR_WIDTH) == 0);
    assert((y % TILE_VECTOR_HEIGHT) == 0);
@@ -266,7 +266,7 @@ lp_rast_shade_quads_all( struct lp_rasterizer_task *task,
    const struct lp_rasterizer *rast = task->rast;
    const struct lp_rast_state *state = inputs->state;
    struct lp_fragment_shader_variant *variant = state->variant;
-   uint8_t *color[PIPE_MAX_COLOR_BUFS];
+   float *color[PIPE_MAX_COLOR_BUFS];
    void *depth;
    unsigned i;
 

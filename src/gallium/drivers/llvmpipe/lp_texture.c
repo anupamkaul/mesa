@@ -762,8 +762,8 @@ tex_image_face_size(const struct llvmpipe_resource *lpr, unsigned level,
           layout == LP_TEX_LAYOUT_LINEAR);
 
    if (layout == LP_TEX_LAYOUT_TILED) {
-      /* for tiled layout, force a 32bpp format */
-      const enum pipe_format format = PIPE_FORMAT_B8G8R8A8_UNORM;
+      /* for tiled layout, force a float32 format */
+      const enum pipe_format format = PIPE_FORMAT_R32G32B32A32_FLOAT;
       const unsigned block_size = util_format_get_blocksize(format);
       const unsigned nblocksy =
          util_format_get_nblocksy(format, align(height, TILE_SIZE));
@@ -1252,7 +1252,7 @@ void
 llvmpipe_unswizzle_cbuf_tile(struct llvmpipe_resource *lpr,
                              unsigned face_slice, unsigned level,
                              unsigned x, unsigned y,
-                             uint8_t *tile)
+                             float *tile)
 {
    struct llvmpipe_texture_image *linear_img = &lpr->linear[level];
    const unsigned tx = x / TILE_SIZE, ty = y / TILE_SIZE;
@@ -1273,7 +1273,7 @@ llvmpipe_unswizzle_cbuf_tile(struct llvmpipe_resource *lpr,
    {
       uint ii = x, jj = y;
       uint tile_offset = jj / TILE_SIZE + ii / TILE_SIZE;
-      uint byte_offset = tile_offset * TILE_SIZE * TILE_SIZE * 4;
+      uint subpixel_offset = tile_offset * TILE_SIZE * TILE_SIZE * 4;
       
       /* Note that lp_tiled_to_linear expects the tile parameter to
        * point at the first tile in a whole-image sized array.  In
@@ -1281,7 +1281,7 @@ llvmpipe_unswizzle_cbuf_tile(struct llvmpipe_resource *lpr,
        * pointer arithmetic to figure out where the "image" would have
        * started.
        */
-      lp_tiled_to_linear(tile - byte_offset, linear_image,
+      lp_tiled_to_linear(tile - subpixel_offset, linear_image,
                          x, y, TILE_SIZE, TILE_SIZE,
                          lpr->base.format,
                          lpr->row_stride[level],
@@ -1301,7 +1301,7 @@ void
 llvmpipe_swizzle_cbuf_tile(struct llvmpipe_resource *lpr,
                            unsigned face_slice, unsigned level,
                            unsigned x, unsigned y,
-                           uint8_t *tile)
+                           float *tile)
 {
    uint8_t *linear_image;
 
@@ -1315,7 +1315,7 @@ llvmpipe_swizzle_cbuf_tile(struct llvmpipe_resource *lpr,
    if (linear_image) {
       uint ii = x, jj = y;
       uint tile_offset = jj / TILE_SIZE + ii / TILE_SIZE;
-      uint byte_offset = tile_offset * TILE_SIZE * TILE_SIZE * 4;
+      uint subpixel_offset = tile_offset * TILE_SIZE * TILE_SIZE * 4;
 
       /* Note that lp_linear_to_tiled expects the tile parameter to
        * point at the first tile in a whole-image sized array.  In
@@ -1323,7 +1323,7 @@ llvmpipe_swizzle_cbuf_tile(struct llvmpipe_resource *lpr,
        * pointer arithmetic to figure out where the "image" would have
        * started.
        */
-      lp_linear_to_tiled(linear_image, tile - byte_offset,
+      lp_linear_to_tiled(linear_image, tile - subpixel_offset,
                          x, y, TILE_SIZE, TILE_SIZE,
                          lpr->base.format,
                          lpr->row_stride[level],

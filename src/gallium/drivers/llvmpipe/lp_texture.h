@@ -227,13 +227,13 @@ void
 llvmpipe_unswizzle_cbuf_tile(struct llvmpipe_resource *lpr,
                              unsigned face_slice, unsigned level,
                              unsigned x, unsigned y,
-                             uint8_t *tile);
+                             float *tile);
 
 void
 llvmpipe_swizzle_cbuf_tile(struct llvmpipe_resource *lpr,
                            unsigned face_slice, unsigned level,
                            unsigned x, unsigned y,
-                           uint8_t *tile);
+                           float *tile);
 
 extern void
 llvmpipe_print_resources(void);

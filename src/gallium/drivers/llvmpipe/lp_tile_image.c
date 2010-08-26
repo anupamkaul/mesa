@@ -189,7 +189,7 @@ lp_tiled_to_linear(const void *src, void *dst,
    }
    else {
       /* color image */
-      const uint bpp = 4;
+      const uint bpp = 4 * sizeof(float);
       const uint tile_w = TILE_SIZE, tile_h = TILE_SIZE;
       const uint bytes_per_tile = tile_w * tile_h * bpp;
       uint i, j;
@@ -201,8 +201,8 @@ lp_tiled_to_linear(const void *src, void *dst,
             uint byte_offset = tile_offset * bytes_per_tile;
             const uint8_t *src_tile = (uint8_t *) src + byte_offset;
 
-            lp_tile_unswizzle_4ub(format,
-                              src_tile,
+            lp_tile_unswizzle_4f(format,
+                              (float*)src_tile,
                               dst, dst_stride,
                               ii, jj);
          }
@@ -278,7 +278,7 @@ lp_linear_to_tiled(const void *src, void *dst,
       }
    }
    else {
-      const uint bpp = 4;
+      const uint bpp = 4 * sizeof(float);
       const uint tile_w = TILE_SIZE, tile_h = TILE_SIZE;
       const uint bytes_per_tile = tile_w * tile_h * bpp;
       uint i, j;
@@ -290,8 +290,8 @@ lp_linear_to_tiled(const void *src, void *dst,
             uint byte_offset = tile_offset * bytes_per_tile;
             uint8_t *dst_tile = (uint8_t *) dst + byte_offset;
 
-            lp_tile_swizzle_4ub(format,
-                             dst_tile,
+            lp_tile_swizzle_4f(format,
+                             (float*)dst_tile,
                              src, src_stride,
                              ii, jj);
          }
@@ -313,7 +313,7 @@ test_tiled_linear_conversion(void *data,
    unsigned wt = (width + TILE_SIZE - 1) / TILE_SIZE;
    unsigned ht = (height + TILE_SIZE - 1) / TILE_SIZE;
 
-   uint8_t *tiled = malloc(wt * ht * TILE_SIZE * TILE_SIZE * 4);
+   float *tiled = malloc(wt * ht * TILE_SIZE * TILE_SIZE * 4 * sizeof(float));
 
    /*unsigned tiled_stride = wt * TILE_SIZE * TILE_SIZE * 4;*/
 

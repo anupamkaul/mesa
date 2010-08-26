@@ -340,7 +340,7 @@ lp_setup_clear( struct lp_setup_context *setup,
 
    if (flags & PIPE_CLEAR_COLOR) {
       for (i = 0; i < 4; ++i)
-         setup->clear.color.clear_color[i] = float_to_ubyte(color[i]);
+         setup->clear.color.clear_color[i] = color[i];
    }
 
    if (flags & PIPE_CLEAR_DEPTHSTENCIL) {
@@ -759,15 +759,15 @@ lp_setup_update_state( struct lp_setup_context *setup )
    }
 
    if(setup->dirty & LP_SETUP_NEW_BLEND_COLOR) {
-      uint8_t *stored;
+      float *stored;
       unsigned i, j;
 
-      stored = lp_scene_alloc_aligned(scene, 4 * 16, 16);
+      stored = lp_scene_alloc_aligned(scene, 4 * 16 * sizeof(float), 16);
 
       if (stored) {
          /* smear each blend color component across 16 ubyte elements */
          for (i = 0; i < 4; ++i) {
-            uint8_t c = float_to_ubyte(setup->blend_color.current.color[i]);
+            float c = setup->blend_color.current.color[i];
             for (j = 0; j < 16; ++j)
                stored[i*16 + j] = c;
          }

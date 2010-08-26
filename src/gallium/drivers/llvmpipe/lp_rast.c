@@ -197,7 +197,7 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
                     const union lp_rast_cmd_arg arg)
 {
    struct lp_rasterizer *rast = task->rast;
-   const uint8_t *clear_color = arg.clear_color;
+   const float *clear_color = arg.clear_color;
 
    unsigned i;
 
@@ -212,9 +212,11 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
        clear_color[2] == clear_color[3]) {
       /* clear to grayscale value {x, x, x, x} */
       for (i = 0; i < rast->state.nr_cbufs; i++) {
-         uint8_t *ptr =
+         unsigned k;
+         float *ptr =
             lp_rast_get_color_tile_pointer(task, i, LP_TEX_USAGE_WRITE_ALL);
-	 memset(ptr, clear_color[0], TILE_SIZE * TILE_SIZE * 4);
+         for(k = 0; k < TILE_SIZE * TILE_SIZE * 4; ++k)
+            ptr[k] = clear_color[0];
       }
    }
    else {
@@ -223,20 +225,25 @@ lp_rast_clear_color(struct lp_rasterizer_task *task,
        * will need to change.  It'll be pretty obvious when clearing no longer
        * works.
        */
-      const unsigned chunk = TILE_SIZE / 4;
+      const unsigned chunk = TILE_VECTOR_WIDTH * TILE_VECTOR_HEIGHT;
       for (i = 0; i < rast->state.nr_cbufs; i++) {
-         uint8_t *c =
+         float *c =
             lp_rast_get_color_tile_pointer(task, i, LP_TEX_USAGE_WRITE_ALL);
          unsigned j;
 
-         for (j = 0; j < 4 * TILE_SIZE; j++) {
-            memset(c, clear_color[0], chunk);
+         for (j = 0; j <  TILE_SIZE * TILE_SIZE * 4 / (chunk * 4); j++) {
+            unsigned k;
+            for(k = 0; k < chunk; ++k)
+               c[k] = clear_color[0];
             c += chunk;
-            memset(c, clear_color[1], chunk);
+            for(k = 0; k < chunk; ++k)
+               c[k] = clear_color[1];
             c += chunk;
-            memset(c, clear_color[2], chunk);
+            for(k = 0; k < chunk; ++k)
+               c[k] = clear_color[2];
             c += chunk;
-            memset(c, clear_color[3], chunk);
+            for(k = 0; k < chunk; ++k)
+               c[k] = clear_color[3];
             c += chunk;
          }
       }
@@ -375,7 +382,7 @@ lp_rast_shade_tile(struct lp_rasterizer_task *task,
    /* render the whole 64x64 tile in 4x4 chunks */
    for (y = 0; y < TILE_SIZE; y += 4){
       for (x = 0; x < TILE_SIZE; x += 4) {
-         uint8_t *color[PIPE_MAX_COLOR_BUFS];
+         float *color[PIPE_MAX_COLOR_BUFS];
          uint32_t *depth;
          unsigned i;
 
@@ -443,7 +450,7 @@ lp_rast_shade_quads_mask(struct lp_rasterizer_task *task,
    const struct lp_rast_state *state = inputs->state;
    struct lp_fragment_shader_variant *variant = state->variant;
    struct lp_rasterizer *rast = task->rast;
-   uint8_t *color[PIPE_MAX_COLOR_BUFS];
+   float *color[PIPE_MAX_COLOR_BUFS];
    void *depth;
    unsigned i;
 
@@ -489,9 +496,9 @@ lp_rast_shade_quads_mask(struct lp_rasterizer_task *task,
  * Set top row and left column of the tile's pixels to white.  For debugging.
  */
 static void
-outline_tile(uint8_t *tile)
+outline_tile(float *tile)
 {
-   const uint8_t val = 0xff;
+   const float val = 1.0f;
    unsigned i;
 
    for (i = 0; i < TILE_SIZE; i++) {
@@ -513,9 +520,9 @@ outline_tile(uint8_t *tile)
  * show the sub-tile boundaries.  For debugging.
  */
 static void
-outline_subtiles(uint8_t *tile)
+outline_subtiles(float *tile)
 {
-   const uint8_t val = 0x80;
+   const float val = 0.5f;
    const unsigned step = 16;
    unsigned i, j;
 
@@ -550,7 +557,7 @@ lp_rast_tile_end(struct lp_rasterizer_task *task)
       unsigned buf;
 
       for (buf = 0; buf < rast->state.nr_cbufs; buf++) {
-         uint8_t *color = lp_rast_get_color_block_pointer(task, buf,
+         float *color = lp_rast_get_color_block_pointer(task, buf,
                                                           task->x, task->y);
 
          if (LP_DEBUG & DEBUG_SHOW_SUBTILES)

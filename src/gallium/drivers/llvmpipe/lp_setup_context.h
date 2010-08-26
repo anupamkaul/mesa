@@ -133,7 +133,7 @@ struct lp_setup_context
 
    struct {
       struct pipe_blend_color current;
-      uint8_t *stored;
+      float *stored;
    } blend_color;
 
 

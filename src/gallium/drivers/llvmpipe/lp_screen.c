@@ -78,7 +78,7 @@ llvmpipe_get_vendor(struct pipe_screen *screen)
 static const char *
 llvmpipe_get_name(struct pipe_screen *screen)
 {
-   return "llvmpipe";
+   return "llvmpipe<float>";
 }
 
 

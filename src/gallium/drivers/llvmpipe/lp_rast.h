@@ -149,7 +149,7 @@ union lp_rast_cmd_arg {
       unsigned plane_mask;
    } triangle;
    const struct lp_rast_state *set_state;
-   uint8_t clear_color[4];
+   float clear_color[4];
    const struct lp_rast_clearzs *clear_zstencil;
    struct lp_fence *fence;
    struct llvmpipe_query *query_obj;
