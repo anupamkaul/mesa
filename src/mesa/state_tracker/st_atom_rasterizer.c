@@ -110,6 +110,9 @@ static void update_raster_state( struct st_context *st )
       raster->light_twoside = 1;
    }
 
+   raster->clamp_fragment_color = ctx->Color._ClampFragmentColor;
+   raster->clamp_vertex_color = ctx->Light._ClampVertexColor;
+
    /* _NEW_POLYGON
     */
    if (ctx->Polygon.CullFlag) {
@@ -246,6 +249,7 @@ const struct st_tracked_state st_update_rasterizer = {
    "st_update_rasterizer",    /* name */
    {
       (_NEW_BUFFERS |
+       _NEW_FRAG_CLAMP |
        _NEW_LIGHT |
        _NEW_LINE |
        _NEW_MULTISAMPLE |
