@@ -227,7 +227,7 @@ add_blend_test(LLVMModuleRef module,
          lp_build_name(dst[i], "dst.%c", "rgba"[i]);
       }
 
-      lp_build_blend_soa(builder, blend, type, rt, src, dst, con, res);
+      lp_build_blend_soa(builder, blend, type, rt, src, dst, con, con, res, type, TRUE, TRUE);
 
       for(i = 0; i < 4; ++i) {
          LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);

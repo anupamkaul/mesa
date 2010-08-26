@@ -59,7 +59,7 @@ lp_build_blend_func(struct lp_build_context *bld,
                     LLVMValueRef term1,
                     LLVMValueRef term2);
 
-
+/* XXX: this needs fixing for correct blend clamping */
 LLVMValueRef
 lp_build_blend_aos(LLVMBuilderRef builder,
                    const struct pipe_blend_state *blend,
@@ -78,8 +78,12 @@ lp_build_blend_soa(LLVMBuilderRef builder,
                    unsigned rt,
                    LLVMValueRef src[4],
                    LLVMValueRef dst[4],
-                   LLVMValueRef const_[4],
-                   LLVMValueRef res[4]);
+                   LLVMValueRef ucon[4],
+                   LLVMValueRef ccon[4],
+                   LLVMValueRef res[4],
+                   struct lp_type physical_type,
+                   boolean clamp_blend_source_factors_and_results,
+                   boolean clamp_blend_dest);
 
 
 /**

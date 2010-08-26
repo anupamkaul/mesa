@@ -73,6 +73,7 @@
 
 #include "gallivm/lp_bld_type.h"
 #include "gallivm/lp_bld_arit.h"
+#include "gallivm/lp_bld_conv.h"
 #include "lp_bld_blend.h"
 
 
@@ -87,11 +88,13 @@ struct lp_build_blend_soa_context
 
    LLVMValueRef src[4];
    LLVMValueRef dst[4];
-   LLVMValueRef con[4];
+   LLVMValueRef ccon[4];
+   LLVMValueRef ucon[4];
 
    LLVMValueRef inv_src[4];
    LLVMValueRef inv_dst[4];
-   LLVMValueRef inv_con[4];
+   LLVMValueRef inv_ccon[4];
+   LLVMValueRef inv_ucon[4];
 
    LLVMValueRef src_alpha_saturate;
 
@@ -116,7 +119,7 @@ struct lp_build_blend_soa_context
  */
 static LLVMValueRef
 lp_build_blend_soa_factor(struct lp_build_blend_soa_context *bld,
-                          unsigned factor, unsigned i)
+                          unsigned factor, unsigned i, boolean clamp)
 {
    /*
     * Compute src/first term RGB
@@ -143,9 +146,9 @@ lp_build_blend_soa_factor(struct lp_build_blend_soa_context *bld,
          return bld->src_alpha_saturate;
       }
    case PIPE_BLENDFACTOR_CONST_COLOR:
-      return bld->con[i];
+      return clamp ? bld->ccon[i] : bld->ucon[i];
    case PIPE_BLENDFACTOR_CONST_ALPHA:
-      return bld->con[3];
+      return clamp ? bld->ccon[3] : bld->ucon[3];
    case PIPE_BLENDFACTOR_SRC1_COLOR:
       /* TODO */
       assert(0);
@@ -173,13 +176,31 @@ lp_build_blend_soa_factor(struct lp_build_blend_soa_context *bld,
          bld->inv_dst[3] = lp_build_comp(&bld->base, bld->dst[3]);
       return bld->inv_dst[3];
    case PIPE_BLENDFACTOR_INV_CONST_COLOR:
-      if(!bld->inv_con[i])
-         bld->inv_con[i] = lp_build_comp(&bld->base, bld->con[i]);
-      return bld->inv_con[i];
+      if(clamp)
+      {
+         if(!bld->inv_ccon[i])
+            bld->inv_ccon[i] = lp_build_comp(&bld->base, bld->ccon[i]);
+         return bld->inv_ccon[i];
+      }
+      else
+      {
+         if(!bld->inv_ucon[i])
+            bld->inv_ucon[i] = lp_build_comp(&bld->base, bld->ucon[i]);
+         return bld->inv_ucon[i];
+      }
    case PIPE_BLENDFACTOR_INV_CONST_ALPHA:
-      if(!bld->inv_con[3])
-         bld->inv_con[3] = lp_build_comp(&bld->base, bld->con[3]);
-      return bld->inv_con[3];
+      if(clamp)
+      {
+         if(!bld->inv_ccon[3])
+            bld->inv_ccon[3] = lp_build_comp(&bld->base, bld->ccon[3]);
+         return bld->inv_ccon[3];
+      }
+      else
+      {
+         if(!bld->inv_ucon[3])
+            bld->inv_ucon[3] = lp_build_comp(&bld->base, bld->ucon[3]);
+         return bld->inv_ucon[3];
+      }
    case PIPE_BLENDFACTOR_INV_SRC1_COLOR:
       /* TODO */
       assert(0);
@@ -200,7 +221,8 @@ lp_build_blend_soa_factor(struct lp_build_blend_soa_context *bld,
  * \param rt  render target index (to index the blend / colormask state)
  * \param src  src/fragment color
  * \param dst  dst/framebuffer color
- * \param con  constant blend color
+ * \param ucon  unclamped constant blend color
+ * \param ccon  clamped constant blend color
  * \param res  the result/output
  */
 void
@@ -210,8 +232,12 @@ lp_build_blend_soa(LLVMBuilderRef builder,
                    unsigned rt,
                    LLVMValueRef src[4],
                    LLVMValueRef dst[4],
-                   LLVMValueRef con[4],
-                   LLVMValueRef res[4])
+                   LLVMValueRef ucon[4],
+                   LLVMValueRef ccon[4],
+                   LLVMValueRef res[4],
+                   struct lp_type physical_type,
+                   boolean clamp_blend_source_factors_and_results,
+                   boolean clamp_blend_dest)
 {
    struct lp_build_blend_soa_context bld;
    unsigned i, j, k;
@@ -224,20 +250,45 @@ lp_build_blend_soa(LLVMBuilderRef builder,
    for (i = 0; i < 4; ++i) {
       bld.src[i] = src[i];
       bld.dst[i] = dst[i];
-      bld.con[i] = con[i];
+      bld.ucon[i] = ucon[i];
+      bld.ccon[i] = ccon[i];
    }
 
-   for (i = 0; i < 4; ++i) {
-      /* only compute blending for the color channels enabled for writing */
-      if (blend->rt[rt].colormask & (1 << i)) {
-         if (blend->logicop_enable) {
-            if(!type.floating) {
-               res[i] = lp_build_logicop(builder, blend->logicop_func, src[i], dst[i]);
+   if (blend->logicop_enable) {
+      for (i = 0; i < 4; ++i) {
+         if (blend->rt[rt].colormask & (1 << i)) {
+            if(!physical_type.floating)
+            {
+               LLVMValueRef srcb, dstb, resb;
+               lp_build_conv(builder, type, physical_type, &src[i], 1, &srcb, 1);
+               lp_build_conv(builder, type, physical_type, &dst[i], 1, &dstb, 1);
+               resb = lp_build_logicop(builder, blend->logicop_func, srcb, dstb);
+               lp_build_conv(builder, physical_type, type, &resb, 1, &res[i], 1);
             }
             else
-               res[i] = dst[i];
+               res[i] = src[i];
          }
-         else if (blend->rt[rt].blend_enable) {
+         else
+            res[i] = dst[i];
+      }
+   }
+   else if (blend->rt[rt].blend_enable) {
+      /* LLVM will hopefully eliminate unneeded values computed here */
+      if(clamp_blend_source_factors_and_results)
+      {
+         for (i = 0; i < 4; ++i)
+            src[i] = lp_build_clamp(&bld.base, src[i], bld.base.zero, bld.base.one);
+      }
+
+      if(clamp_blend_dest)
+      {
+         for (i = 0; i < 4; ++i)
+            dst[i] = lp_build_clamp(&bld.base, dst[i], bld.base.zero, bld.base.one);
+      }
+
+      for (i = 0; i < 4; ++i) {
+         /* only compute blending for the color channels enabled for writing */
+         if (blend->rt[rt].colormask & (1 << i)) {
             unsigned src_factor = i < 3 ? blend->rt[rt].rgb_src_factor : blend->rt[rt].alpha_src_factor;
             unsigned dst_factor = i < 3 ? blend->rt[rt].rgb_dst_factor : blend->rt[rt].alpha_dst_factor;
             unsigned func = i < 3 ? blend->rt[rt].rgb_func : blend->rt[rt].alpha_func;
@@ -248,9 +299,9 @@ lp_build_blend_soa(LLVMBuilderRef builder,
              */
 
             bld.factor[0][0][i] = src[i];
-            bld.factor[0][1][i] = lp_build_blend_soa_factor(&bld, src_factor, i);
+            bld.factor[0][1][i] = lp_build_blend_soa_factor(&bld, src_factor, i, clamp_blend_source_factors_and_results);
             bld.factor[1][0][i] = dst[i];
-            bld.factor[1][1][i] = lp_build_blend_soa_factor(&bld, dst_factor, i);
+            bld.factor[1][1][i] = lp_build_blend_soa_factor(&bld, dst_factor, i, clamp_blend_source_factors_and_results);
 
             /*
              * Compute src/dst terms
@@ -310,14 +361,27 @@ lp_build_blend_soa(LLVMBuilderRef builder,
             if(j < i)
                res[i] = res[j];
             else
+            {
+               boolean saved_norm = bld.base.type.norm;
+               /* this will cause add and sub blends to saturate properly */
+               if(clamp_blend_source_factors_and_results)
+                  bld.base.type.norm = TRUE;
                res[i] = lp_build_blend_func(&bld.base, func, bld.term[0][i], bld.term[1][i]);
+               bld.base.type.norm = saved_norm;
+            }
          }
          else {
-            res[i] = src[i];
+            res[i] = dst[i];
          }
       }
-      else {
-         res[i] = dst[i];
+   }
+   else
+   {
+      for (i = 0; i < 4; ++i) {
+         if (blend->rt[rt].colormask & (1 << i))
+            res[i] = src[i];
+         else
+            res[i] = dst[i];
       }
    }
 }

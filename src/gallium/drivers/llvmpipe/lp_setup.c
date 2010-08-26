@@ -762,14 +762,20 @@ lp_setup_update_state( struct lp_setup_context *setup )
       float *stored;
       unsigned i, j;
 
-      stored = lp_scene_alloc_aligned(scene, 4 * 16 * sizeof(float), 16);
+      stored = lp_scene_alloc_aligned(scene, 2 * 4 * 4 * sizeof(float), 16);
 
       if (stored) {
-         /* smear each blend color component across 16 ubyte elements */
+         /* smear each blend color component across 4 float elements */
          for (i = 0; i < 4; ++i) {
             float c = setup->blend_color.current.color[i];
-            for (j = 0; j < 16; ++j)
-               stored[i*16 + j] = c;
+            for (j = 0; j < 4; ++j)
+               stored[i * 4+ j] = c;
+         }
+
+         for (i = 0; i < 4; ++i) {
+            float c = CLAMP(setup->blend_color.current.color[i], 0.0f, 1.0f);
+            for (j = 0; j < 4; ++j)
+               stored[(i + 4) * 4+ j] = c;
          }
 
          setup->blend_color.stored = stored;

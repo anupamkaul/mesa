@@ -299,7 +299,7 @@ lp_build_blend_func(struct lp_build_context *bld,
    }
 }
 
-
+/* XXX: this needs fixing for correct blend clamping */
 LLVMValueRef
 lp_build_blend_aos(LLVMBuilderRef builder,
                    const struct pipe_blend_state *blend,

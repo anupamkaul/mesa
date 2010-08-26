@@ -389,14 +389,18 @@ generate_blend(const struct pipe_blend_state *blend,
                LLVMValueRef context_ptr,
                LLVMValueRef mask,
                LLVMValueRef *src,
-               LLVMValueRef dst_ptr)
+               LLVMValueRef dst_ptr,
+               struct lp_type physical_type,
+               boolean clamp_blend_source_factors_and_results,
+               boolean clamp_blend_dest)
 {
    struct lp_build_context bld;
    struct lp_build_flow_context *flow;
    struct lp_build_mask_context mask_ctx;
    LLVMTypeRef vec_type;
    LLVMValueRef const_ptr;
-   LLVMValueRef con[4];
+   LLVMValueRef ucon[4];
+   LLVMValueRef ccon[4];
    LLVMValueRef dst[4];
    LLVMValueRef res[4];
    unsigned chan;
@@ -416,17 +420,22 @@ generate_blend(const struct pipe_blend_state *blend,
 
    /* load constant blend color and colors from the dest color buffer */
    for(chan = 0; chan < 4; ++chan) {
-      LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), chan * 4, 0);
-      con[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, const_ptr, &index, 1, ""), "");
+      LLVMValueRef dindex = LLVMConstInt(LLVMInt32Type(), chan * 4, 0);
+      LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), chan, 0);
+      LLVMValueRef cindex = LLVMConstInt(LLVMInt32Type(), chan + 4, 0);
+      ucon[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, const_ptr, &index, 1, ""), "");
+      ccon[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, const_ptr, &cindex, 1, ""), "");
 
-      dst[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, dst_ptr, &index, 1, ""), "");
+      dst[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, dst_ptr, &dindex, 1, ""), "");
 
-      lp_build_name(con[chan], "con.%c", "rgba"[chan]);
+      lp_build_name(ucon[chan], "ucon.%c", "rgba"[chan]);
+      lp_build_name(ccon[chan], "ccon.%c", "rgba"[chan]);
       lp_build_name(dst[chan], "dst.%c", "rgba"[chan]);
    }
 
    /* do blend */
-   lp_build_blend_soa(builder, blend, type, rt, src, dst, con, res);
+   lp_build_blend_soa(builder, blend, type, rt, src, dst, ucon, ccon, res,
+         physical_type, clamp_blend_source_factors_and_results, clamp_blend_dest);
 
    /* store results to color buffer */
    for(chan = 0; chan < 4; ++chan) {
@@ -671,6 +680,20 @@ generate_fragment(struct llvmpipe_context *lp,
          LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
          LLVMValueRef quad_color_ptr = LLVMBuildGEP(builder, color_ptr, &index, 1, "");
 
+         /* TODO: this probably doesn't really work except for 8_UNORM and 16_UNORM */
+         struct lp_type physical_type;
+         unsigned logicop_width = 4 << ((key->logicop_width >> (i * 2)) & 3);
+         if(logicop_width >= 8)
+         {
+            physical_type = lp_type_unorm(logicop_width);
+            physical_type.length = blend_type.length;
+         }
+         else
+         {
+            physical_type = blend_type;
+            physical_type.floating = 1; /* hackish way to disable logicop */
+         }
+
          generate_blend(&key->blend,
                      rt,
 		     builder,
@@ -678,7 +701,11 @@ generate_fragment(struct llvmpipe_context *lp,
 		     context_ptr,
 		     blend_mask[i],
 		     blend_in_color[i],
-		     quad_color_ptr);
+		     quad_color_ptr,
+		     physical_type,
+		     !!(key->clamp_blend_source_factors_and_results & (1 << cbuf)),
+		     !!(key->clamp_blend_dest & (1 << cbuf))
+		     );
       }
    }
 
@@ -1080,6 +1107,8 @@ make_variant_key(struct llvmpipe_context *lp,
       enum pipe_format format = lp->framebuffer.cbufs[i]->format;
       struct pipe_rt_blend_state *blend_rt = &key->blend.rt[i];
       const struct util_format_description *format_desc;
+      unsigned chan;
+      unsigned logicop_width = 0;
 
       key->cbuf_format[i] = format;
 
@@ -1088,6 +1117,41 @@ make_variant_key(struct llvmpipe_context *lp,
              format_desc->colorspace == UTIL_FORMAT_COLORSPACE_SRGB);
 
       blend_rt->colormask = lp->blend->rt[i].colormask;
+
+      if(key->blend.logicop_enable)
+         blend_rt->blend_enable = 0;
+
+      for(chan = 0; chan < 4; ++chan) {
+         /* blend is still disabled, according to the OpenGL specification */
+         if(format_desc->channel[chan].type == UTIL_FORMAT_TYPE_FLOAT)
+            logicop_width = 0;
+         else
+         {
+            unsigned new_logicop_width = 0;
+            if(format_desc->channel[chan].size == 8)
+               new_logicop_width = 1;
+            else if(format_desc->channel[chan].size == 16)
+               new_logicop_width = 2;
+            else if(format_desc->channel[chan].size == 32)
+               new_logicop_width = 3;
+
+            if(chan == 0)
+               logicop_width = new_logicop_width;
+            else if(logicop_width != new_logicop_width)
+               logicop_width = 0;
+
+            key->clamp_blend_source_factors_and_results |= (1 << i);
+
+            /* we can skip this for unsigned normalized, since they are
+             * already in the [0, 1] range
+             */
+            if(format_desc->channel[chan].type != UTIL_FORMAT_TYPE_UNSIGNED
+                  || !format_desc->channel[chan].normalized)
+               key->clamp_blend_dest |= (1 << i);
+         }
+      }
+
+      key->logicop_width |= (logicop_width << (i * 2));
 
       /*
        * Mask out color channels not present in the color buffer.

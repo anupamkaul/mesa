@@ -60,6 +60,14 @@ struct lp_fragment_shader_variant_key
    enum pipe_format zsbuf_format;
    enum pipe_format cbuf_format[PIPE_MAX_COLOR_BUFS];
 
+   unsigned clamp_blend_source_factors_and_results : PIPE_MAX_COLOR_BUFS;
+   unsigned clamp_blend_dest : PIPE_MAX_COLOR_BUFS;
+   /* each 2 bits represent the native type to use for logic for each render target
+    * 0 = disabled, 1 = uint8_t, 2 = uint16_t, 3 = uint32_t
+    * this will need to be revisited when we really want to render to UINT render targets
+    */
+   unsigned logicop_width : (PIPE_MAX_COLOR_BUFS * 2);
+
    struct lp_sampler_static_state sampler[PIPE_MAX_SAMPLERS];
 };
 
