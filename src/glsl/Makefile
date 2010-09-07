@@ -31,6 +31,7 @@ CXX_SOURCES = \
 	glsl_symbol_table.cpp \
 	hir_field_selection.cpp \
 	ir_algebraic.cpp \
+	ir_array_index_to_cond_assign.cpp \
 	ir_basic_block.cpp \
 	ir_clone.cpp \
 	ir_constant_expression.cpp \
