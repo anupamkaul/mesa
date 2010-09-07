@@ -685,7 +685,7 @@ ast_struct_specifier::ast_struct_specifier(char *identifier,
 }
 
 bool
-do_common_optimization(exec_list *ir, bool linked, unsigned max_unroll_iterations)
+do_common_optimization(exec_list *ir, bool linked, unsigned max_unroll_iterations, bool robust_access)
 {
    GLboolean progress = GL_FALSE;
 
@@ -718,7 +718,7 @@ do_common_optimization(exec_list *ir, bool linked, unsigned max_unroll_iteration
 
    progress = optimize_redundant_jumps(ir) || progress;
 
-   loop_state *ls = analyze_loop_variables(ir);
+   loop_state *ls = analyze_loop_variables(ir, !robust_access);
    progress = set_loop_controls(ir, ls) || progress;
    progress = unroll_loops(ir, ls, max_unroll_iterations) || progress;
    delete ls;

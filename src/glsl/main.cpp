@@ -148,6 +148,7 @@ int glsl_es = 0;
 int dump_ast = 0;
 int dump_hir = 0;
 int dump_lir = 0;
+int robustness = 0;
 int do_link = 0;
 
 const struct option compiler_opts[] = {
@@ -155,6 +156,7 @@ const struct option compiler_opts[] = {
    { "dump-ast", 0, &dump_ast, 1 },
    { "dump-hir", 0, &dump_hir, 1 },
    { "dump-lir", 0, &dump_lir, 1 },
+   { "robustness", 0, &robustness, 1 },
    { "link",     0, &do_link,  1 },
    { NULL, 0, NULL, 0 }
 };
@@ -213,7 +215,7 @@ compile_shader(GLcontext *ctx, struct gl_shader *shader)
 	 progress = do_vec_index_to_cond_assign(shader->ir) || progress;
 	 progress = do_swizzle_swizzle(shader->ir) || progress;
 
-	 loop_state *ls = analyze_loop_variables(shader->ir);
+	 loop_state *ls = analyze_loop_variables(shader->ir, !robustness);
 	 progress = set_loop_controls(shader->ir, ls) || progress;
 	 progress = unroll_loops(shader->ir, ls, 32) || progress;
 	 delete ls;

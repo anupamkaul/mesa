@@ -64,6 +64,67 @@ bool contains_continue(ir_instruction* ir)
    return visitor.contains_continue;
 }
 
+struct dereference_array_visitor : public ir_hierarchical_visitor
+{
+   loop_variable_state* ls;
+
+   dereference_array_visitor(loop_variable_state* ls)
+   {
+      this->ls = ls;
+   }
+
+   ir_visitor_status visit_leave(ir_dereference_array *ir)
+   {
+      int max_index;
+      if(ir->array->type->is_array())
+         max_index = ir->array->type->length - 1;
+      else if(ir->array->type->is_vector() || ir->array->type->is_matrix())
+         max_index = ir->array->type->components() - 1;
+      else
+         assert(0);
+
+      assert(ir->array_index->type->is_integer());
+      ir_constant *const max_index_c =
+         (ir->array_index->type->base_type == GLSL_TYPE_UINT)
+           ? new(ir) ir_constant((unsigned)max_index)
+           : new(ir) ir_constant((int)max_index);
+      ir_constant *const zero_c =
+         ir_constant::zero(ir, ir->array_index->type);
+
+      ir_if* bound_if;
+
+      bound_if = new (ir) ir_if(new(ir) ir_expression(ir_binop_greater, ir->array_index->type, ir->array_index, max_index_c));
+      bound_if->self_link();
+      ls->insert(bound_if);
+
+      bound_if = new (ir) ir_if(new(ir) ir_expression(ir_binop_less, ir->array_index->type, ir->array_index, zero_c));
+      bound_if->self_link();
+      ls->insert(bound_if);
+
+      return visit_continue;
+   }
+
+   ir_visitor_status visit_enter(ir_if *ir)
+   {
+      ir->condition->accept(this);
+
+      /* do not visit conditionally executed code */
+      return visit_continue_with_parent;
+   }
+
+   ir_visitor_status visit_enter(ir_loop *ir)
+   {
+      /* FINISHME: perhaps we could allow this? */
+      return visit_continue_with_parent;
+   }
+};
+
+void visit_dereference_arrays(loop_variable_state* ls, ir_instruction* ir)
+{
+   dereference_array_visitor visitor(ls);
+   ir->accept(&visitor);
+}
+
 loop_state::loop_state()
 {
    this->ht = hash_table_ctor(0, hash_table_pointer_hash,
@@ -143,6 +204,8 @@ public:
    virtual ir_visitor_status visit_leave(ir_assignment *);
    virtual ir_visitor_status visit_enter(ir_if *);
    virtual ir_visitor_status visit_leave(ir_if *);
+
+   bool out_of_bounds_can_break;
 
    loop_state *loops;
 
@@ -248,6 +311,9 @@ loop_analysis::visit_leave(ir_loop *ir)
        */
       if(contains_continue((ir_instruction*) node))
          break;
+
+      if(out_of_bounds_can_break)
+         visit_dereference_arrays(ls, (ir_instruction*)node);
 
       ir_if *if_stmt = ((ir_instruction *) node)->as_if();
 
@@ -527,9 +593,10 @@ is_loop_terminator(ir_if *ir)
 
 
 loop_state *
-analyze_loop_variables(exec_list *instructions)
+analyze_loop_variables(exec_list *instructions, bool out_of_bounds_can_break)
 {
    loop_analysis v;
+   v.out_of_bounds_can_break = out_of_bounds_can_break;
 
    v.run(instructions);
    return v.loops;

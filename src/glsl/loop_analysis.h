@@ -33,7 +33,7 @@
  * Analyze and classify all variables used in all loops in the instruction list
  */
 extern class loop_state *
-analyze_loop_variables(exec_list *instructions);
+analyze_loop_variables(exec_list *instructions, bool out_of_bounds_can_break);
 
 
 /**

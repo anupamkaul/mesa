@@ -253,18 +253,24 @@ loop_control_visitor::visit_leave(ir_loop *ir)
 		     ir->cmp = cmp;
 
 		     max_iterations = iterations;
+
+		     this->progress = true;
 		  }
 
-		  /* Remove the conditional break statement.  The loop
-		   * controls are now set such that the exit condition will be
-		   * satisfied.
-		   */
-		  if_stmt->remove();
+		  if(if_stmt->next == if_stmt->prev && if_stmt->next == if_stmt) {
+		     /* this is a fake if with self_link() inserted to represent array bounds: ignore it */
+		  } else {
+                     /* Remove the conditional break statement.  The loop
+                      * controls are now set such that the exit condition will be
+                      * satisfied.
+                      */
+                     if_stmt->remove();
 
-		  assert(ls->num_loop_jumps > 0);
-		  ls->num_loop_jumps--;
+                     assert(ls->num_loop_jumps > 0);
+                     ls->num_loop_jumps--;
 
-		  this->progress = true;
+                     this->progress = true;
+		  }
 	       }
 
 	       break;

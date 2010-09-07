@@ -2737,7 +2737,7 @@ _mesa_ir_link_shader(GLcontext *ctx, struct gl_shader_program *prog)
 
 	 progress = do_lower_jumps(ir, true, true, options->EmitNoMainReturn, options->EmitNoCont, options->EmitNoLoops) || progress;
 
-	 progress = do_common_optimization(ir, true, options->MaxUnrollIterations) || progress;
+	 progress = do_common_optimization(ir, true, options->MaxUnrollIterations, !!(ctx->Const.ContextFlags & GL_CONTEXT_FLAG_ROBUST_ACCESS_BIT_ARB)) || progress;
 
 	 if (options->EmitNoIfs)
 	    progress = do_if_to_cond_assign(ir) || progress;
@@ -2820,7 +2820,7 @@ _mesa_glsl_compile_shader(GLcontext *ctx, struct gl_shader *shader)
       /* Do some optimization at compile time to reduce shader IR size
        * and reduce later work if the same shader is linked multiple times
        */
-      while (do_common_optimization(shader->ir, false, 32))
+      while (do_common_optimization(shader->ir, false, 32, true))
 	 ;
 
       validate_ir_tree(shader->ir);
