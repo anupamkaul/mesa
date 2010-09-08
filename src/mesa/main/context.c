@@ -869,6 +869,11 @@ _mesa_initialize_context_for_api(GLcontext *ctx,
    ctx->WinSysDrawBuffer = NULL;
    ctx->WinSysReadBuffer = NULL;
 
+   /* eventually, GLX_ARB_create_context_robustness will be usable to enable this too */
+   if (_mesa_getenv("MESA_ROBUST_ACCESS")) {
+      ctx->Const.ContextFlags |= GL_CONTEXT_FLAG_ROBUST_ACCESS_BIT_ARB;
+   }
+
    /* misc one-time initializations */
    one_time_init(ctx);
 
