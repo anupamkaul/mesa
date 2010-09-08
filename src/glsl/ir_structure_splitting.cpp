@@ -86,6 +86,7 @@ public:
    virtual ir_visitor_status visit(ir_variable *);
    virtual ir_visitor_status visit(ir_dereference_variable *);
    virtual ir_visitor_status visit_enter(ir_dereference_record *);
+   virtual ir_visitor_status visit_enter(ir_dereference_array *);
    virtual ir_visitor_status visit_enter(ir_assignment *);
    virtual ir_visitor_status visit_enter(ir_function_signature *);
 
@@ -102,7 +103,8 @@ ir_structure_reference_visitor::get_variable_entry2(ir_variable *var)
 {
    assert(var);
 
-   if (!var->type->is_record() || var->mode == ir_var_uniform)
+   if ((!var->type->is_record() && !var->type->is_array())
+         || (var->mode != ir_var_auto && var->mode != ir_var_temporary))
       return NULL;
 
    foreach_iter(exec_list_iterator, iter, this->variable_list) {
@@ -148,6 +150,25 @@ ir_structure_reference_visitor::visit_enter(ir_dereference_record *ir)
    return visit_continue_with_parent;
 }
 
+ir_visitor_status
+ir_structure_reference_visitor::visit_enter(ir_dereference_array *ir)
+{
+   ir->array_index->accept(this);
+   if(!ir->array_index->as_constant())
+   {
+      /* FINISHME: could produce and make use of information
+       * about possible values of the index
+       */
+      ir_variable *const var = ir->array->variable_referenced();
+      variable_entry2 *entry = this->get_variable_entry2(var);
+
+      if (entry)
+         entry->whole_structure_access++;
+   }
+
+   /* Don't descend into the ir_dereference_variable below. */
+   return visit_continue_with_parent;
+}
 ir_visitor_status
 ir_structure_reference_visitor::visit_enter(ir_assignment *ir)
 {
@@ -198,7 +219,7 @@ ir_structure_splitting_visitor::get_splitting_entry(ir_variable *var)
 {
    assert(var);
 
-   if (!var->type->is_record())
+   if (!var->type->is_record() && !var->type->is_array())
       return NULL;
 
    foreach_iter(exec_list_iterator, iter, *this->variable_list) {
@@ -214,27 +235,61 @@ ir_structure_splitting_visitor::get_splitting_entry(ir_variable *var)
 void
 ir_structure_splitting_visitor::split_deref(ir_dereference **deref)
 {
-   if ((*deref)->ir_type != ir_type_dereference_record)
-      return;
+   if ((*deref)->ir_type == ir_type_dereference_record)
+   {
+      ir_dereference_record *deref_record = (ir_dereference_record *)*deref;
+      ir_dereference_variable *deref_var = deref_record->record->as_dereference_variable();
+      if (!deref_var)
+         return;
 
-   ir_dereference_record *deref_record = (ir_dereference_record *)*deref;
-   ir_dereference_variable *deref_var = deref_record->record->as_dereference_variable();
-   if (!deref_var)
-      return;
+      variable_entry2 *entry = get_splitting_entry(deref_var->var);
+      if (!entry)
+         return;
 
-   variable_entry2 *entry = get_splitting_entry(deref_var->var);
-   if (!entry)
-      return;
+      unsigned int i;
+      for (i = 0; i < entry->var->type->length; i++) {
+         if (strcmp(deref_record->field,
+                    entry->var->type->fields.structure[i].name) == 0)
+            break;
+      }
+      assert(i != entry->var->type->length);
 
-   unsigned int i;
-   for (i = 0; i < entry->var->type->length; i++) {
-      if (strcmp(deref_record->field,
-		 entry->var->type->fields.structure[i].name) == 0)
-	 break;
+      *deref = new(entry->mem_ctx) ir_dereference_variable(entry->components[i]);
    }
-   assert(i != entry->var->type->length);
+   else if ((*deref)->ir_type == ir_type_dereference_array)
+   {
+      ir_dereference_array *deref_array = (ir_dereference_array*)*deref;
+      ir_dereference_variable *deref_var = deref_array->array->as_dereference_variable();
+      if (!deref_var)
+         return;
 
-   *deref = new(entry->mem_ctx) ir_dereference_variable(entry->components[i]);
+      variable_entry2 *entry = get_splitting_entry(deref_var->var);
+      if (!entry)
+         return;
+
+      ir_constant* index = deref_array->array_index->as_constant();
+      assert(index);
+      assert(index->type->is_scalar());
+      assert(index->type->base_type == GLSL_TYPE_INT || index->type->base_type == GLSL_TYPE_UINT);
+
+      unsigned i = index->value.u[0];
+      if(i < (unsigned)deref_var->var->type->length)
+      {
+         *deref = new(entry->mem_ctx) ir_dereference_variable(entry->components[i]);
+      } else {
+         /* FINISHME: is it ok to use a never-assigned variable this way? ... */
+         ir_variable* undef = new(entry->mem_ctx) ir_variable((*deref)->type, "undef", ir_var_temporary);
+         base_ir->insert_before(undef);
+         *deref = new(entry->mem_ctx) ir_dereference_variable(undef);
+#if 0
+         /* FINISHME: ... or should we do this? */
+         if(type->is_numeric() || type->is_boolean())
+            *deref = ir_constant::zero(entry->mem_ctx, (*deref)->type);
+         else
+            *deref = new(entry->mem_ctx) ir_dereference_variable(entry->components[0]);
+#endif
+      }
+   }
 }
 
 void
@@ -268,19 +323,30 @@ ir_structure_splitting_visitor::visit_leave(ir_assignment *ir)
 
 	 if (lhs_entry) {
 	    new_lhs = new(mem_ctx) ir_dereference_variable(lhs_entry->components[i]);
-	 } else {
+	 } else if(type->is_record()) {
 	    new_lhs = new(mem_ctx)
 	       ir_dereference_record(ir->lhs->clone(mem_ctx, NULL),
 				     type->fields.structure[i].name);
-	 }
+	 } else if(type->is_array()) {
+	    new_lhs = new(mem_ctx)
+               ir_dereference_array(ir->lhs->clone(mem_ctx, NULL),
+	                            new(mem_ctx) ir_constant((int)i));
+	 } else
+	    assert(0);
 
 	 if (rhs_entry) {
 	    new_rhs = new(mem_ctx) ir_dereference_variable(rhs_entry->components[i]);
-	 } else {
+	 } else if(type->is_record()){
 	    new_rhs = new(mem_ctx)
 	       ir_dereference_record(ir->rhs->clone(mem_ctx, NULL),
 				     type->fields.structure[i].name);
-	 }
+         } else if(type->is_array()) {
+            new_rhs = new(mem_ctx)
+               ir_dereference_array(ir->rhs->clone(mem_ctx, NULL),
+                                    new(mem_ctx) ir_constant((int)i));
+         } else
+            assert(0);
+
 
 	 ir->insert_before(new(mem_ctx) ir_assignment(new_lhs,
 						      new_rhs,
@@ -337,15 +403,32 @@ do_structure_splitting(exec_list *instructions)
 				       ir_variable *,
 				       type->length);
 
+      /* FINISHME: create these on demand */
       for (unsigned int i = 0; i < entry->var->type->length; i++) {
-	 const char *name = talloc_asprintf(mem_ctx, "%s_%s",
+	 const char *name;
+
+	 if(type->is_record()) {
+	    name = talloc_asprintf(mem_ctx, "%s_%s",
 					    entry->var->name,
 					    type->fields.structure[i].name);
 
-	 entry->components[i] =
-	    new(entry->mem_ctx) ir_variable(type->fields.structure[i].type,
-					    name,
-					    ir_var_temporary);
+	    entry->components[i] =
+	          new(entry->mem_ctx) ir_variable(type->fields.structure[i].type,
+	                name,
+	                ir_var_temporary);
+	 } else if(type->is_array()) {
+	    name = talloc_asprintf(mem_ctx, "%s_%i",
+	                                                entry->var->name,
+	                                                i);
+
+	    entry->components[i] =
+	          new(entry->mem_ctx) ir_variable(type->fields.array,
+	                name,
+	                ir_var_temporary);
+	 }
+	 else
+	    assert(0);
+
 	 entry->var->insert_before(entry->components[i]);
       }
 
