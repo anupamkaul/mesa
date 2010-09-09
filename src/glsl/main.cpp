@@ -217,6 +217,9 @@ compile_shader(GLcontext *ctx, struct gl_shader *shader)
 	 progress = set_loop_controls(shader->ir, ls) || progress;
 	 progress = unroll_loops(shader->ir, ls, 32) || progress;
 	 delete ls;
+
+	 progress = do_array_index_to_cond_assign(shader->ir) || progress;
+	 progress = do_structure_splitting(shader->ir) || progress;
       } while (progress);
 
       validate_ir_tree(shader->ir);
