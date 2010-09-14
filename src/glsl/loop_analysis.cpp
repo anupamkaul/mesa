@@ -32,6 +32,37 @@ static bool all_expression_operands_are_loop_constant(ir_rvalue *,
 
 static ir_rvalue *get_basic_induction_increment(ir_assignment *, hash_table *);
 
+struct contains_continue_visitor : public ir_hierarchical_visitor
+{
+   bool contains_continue;
+
+   contains_continue_visitor()
+   {
+      this->contains_continue = false;
+   }
+
+   virtual ir_visitor_status visit(ir_loop_jump *ir)
+   {
+      if(ir->is_continue()) {
+         contains_continue = true;
+         return visit_stop;
+      }
+      return visit_continue;
+   }
+
+   virtual ir_visitor_status visit_enter(class ir_loop *)
+   {
+      /* continues inside nested loops are harmless */
+      return visit_continue_with_parent;
+   }
+};
+
+bool contains_continue(ir_instruction* ir)
+{
+   contains_continue_visitor visitor;
+   ir->accept(&visitor);
+   return visitor.contains_continue;
+}
 
 loop_state::loop_state()
 {
@@ -211,6 +242,12 @@ loop_analysis::visit_leave(ir_loop *ir)
        */
       if (((ir_instruction *) node)->as_variable())
 	 continue;
+
+      /* If we find a continue, we cannot go ahead, because
+       * the following instructions may never get executed
+       */
+      if(contains_continue((ir_instruction*) node))
+         break;
 
       ir_if *if_stmt = ((ir_instruction *) node)->as_if();
 
@@ -464,6 +501,9 @@ get_basic_induction_increment(ir_assignment *ir, hash_table *var_hash)
  * Detects if-statements of the form
  *
  *  (if (expression bool ...) (break))
+ *
+ *  NOTE: if we ever extend it to allow other instructions before the break, we
+ *  need to return false if contains_continue() apply to any of those instructions.
  */
 bool
 is_loop_terminator(ir_if *ir)
