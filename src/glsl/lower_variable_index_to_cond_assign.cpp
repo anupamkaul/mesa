@@ -55,13 +55,13 @@ struct assignment_generator
        * XXX: what if it has side effects?!? ir_vector_index_to_cond_assign does this too!
        */
       void *mem_ctx = talloc_parent(base_ir);
-      ir_rvalue* element = new(base_ir) ir_dereference_array(this->array->clone(mem_ctx, NULL), new(base_ir) ir_constant(i));
-      ir_rvalue* variable = new(base_ir) ir_dereference_variable(this->var);
+      ir_rvalue* element = new(mem_ctx) ir_dereference_array(this->array->clone(mem_ctx, NULL), new(mem_ctx) ir_constant(i));
+      ir_rvalue* variable = new(mem_ctx) ir_dereference_variable(this->var);
       ir_assignment* assignment;
       if(is_write)
-         assignment = new(base_ir) ir_assignment(element, variable, condition);
+         assignment = new(mem_ctx) ir_assignment(element, variable, condition);
       else
-         assignment = new(base_ir) ir_assignment(variable, element, condition);
+         assignment = new(mem_ctx) ir_assignment(variable, element, condition);
       list->push_tail(assignment);
    }
 };
@@ -76,9 +76,17 @@ struct switch_generator
    unsigned linear_sequence_max_length;
    unsigned condition_components;
 
-   switch_generator(const TFunction& generator)
-   : generator(generator)
-   {}
+   void *mem_ctx;
+
+   switch_generator(const TFunction& generator, ir_variable *index,
+		    unsigned linear_sequence_max_length,
+		    unsigned condition_components)
+      : generator(generator), index(index),
+	linear_sequence_max_length(linear_sequence_max_length),
+	condition_components(condition_components)
+   {
+      this->mem_ctx = talloc_parent(index);
+   }
 
    void linear_sequence(unsigned begin, unsigned end, exec_list *list)
    {
@@ -94,9 +102,9 @@ struct switch_generator
       for (unsigned i = begin + 1; i < end; i += 4) {
          int comps = MIN2(condition_components, end - i);
 
-         ir_rvalue* broadcast_index = new(index) ir_dereference_variable(index);
+         ir_rvalue* broadcast_index = new(this->mem_ctx) ir_dereference_variable(index);
          if(comps)
-            broadcast_index = new(index) ir_swizzle(broadcast_index, 0, 1, 2, 3, comps);
+            broadcast_index = new(this->mem_ctx) ir_swizzle(broadcast_index, 0, 1, 2, 3, comps);
 
          ir_constant* test_indices;
          ir_constant_data test_indices_data;
@@ -105,25 +113,25 @@ struct switch_generator
          test_indices_data.i[1] = i + 1;
          test_indices_data.i[2] = i + 2;
          test_indices_data.i[3] = i + 3;
-         test_indices = new(index) ir_constant(broadcast_index->type, &test_indices_data);
+         test_indices = new(this->mem_ctx) ir_constant(broadcast_index->type, &test_indices_data);
 
-         ir_rvalue* condition_val = new(index) ir_expression(ir_binop_equal,
+         ir_rvalue* condition_val = new(this->mem_ctx) ir_expression(ir_binop_equal,
                                                 &glsl_type::bool_type[comps - 1],
                                                 broadcast_index,
                                                 test_indices);
-         ir_variable* condition = new(index) ir_variable(&glsl_type::bool_type[comps], "dereference_array_condition", ir_var_temporary);
+         ir_variable* condition = new(this->mem_ctx) ir_variable(&glsl_type::bool_type[comps], "dereference_array_condition", ir_var_temporary);
          list->push_tail(condition);
-         list->push_tail(new (index) ir_assignment(new(index) ir_dereference_variable(condition), condition_val, 0));
+         list->push_tail(new(this->mem_ctx) ir_assignment(new(this->mem_ctx) ir_dereference_variable(condition), condition_val, 0));
 
          if(comps == 1)
          {
-            this->generator.generate(i, new(index) ir_dereference_variable(condition), list);
+            this->generator.generate(i, new(this->mem_ctx) ir_dereference_variable(condition), list);
          }
          else
          {
             for(int j = 0; j < comps; ++j)
             {
-               this->generator.generate(i + j, new(index) ir_swizzle(new(index) ir_dereference_variable(condition), j, 0, 0, 0, 1), list);
+               this->generator.generate(i + j, new(this->mem_ctx) ir_swizzle(new(this->mem_ctx) ir_dereference_variable(condition), j, 0, 0, 0, 1), list);          
             }
          }
       }
@@ -135,18 +143,18 @@ struct switch_generator
       ir_constant* middle_c;
 
       if(index->type->base_type == GLSL_TYPE_UINT)
-         middle_c = new(index) ir_constant((unsigned)middle);
+         middle_c = new(this->mem_ctx) ir_constant((unsigned)middle);
       else if(index->type->base_type == GLSL_TYPE_UINT)
-         middle_c = new(index) ir_constant((int)middle);
+         middle_c = new(this->mem_ctx) ir_constant((int)middle);
       else
          assert(0);
 
-      ir_expression* less = new(index) ir_expression(
+      ir_expression* less = new(this->mem_ctx) ir_expression(
             ir_binop_less, glsl_type::bool_type,
-            new(index) ir_dereference_variable(this->index),
+            new(this->mem_ctx) ir_dereference_variable(this->index),
             middle_c);
 
-      ir_if* if_less = new(index) ir_if(less);
+      ir_if* if_less = new(this->mem_ctx) ir_if(less);
 
       generate(begin, middle, &if_less->then_instructions);
       generate(middle, end, &if_less->else_instructions);
@@ -189,16 +197,17 @@ public:
       else
          assert(0);
 
-      ir_variable* var = new(base_ir) ir_variable(orig_deref->type, "dereference_array_value", ir_var_temporary);
+      void *const mem_ctx = talloc_parent(base_ir);
+      ir_variable* var = new(mem_ctx) ir_variable(orig_deref->type, "dereference_array_value", ir_var_temporary);
       base_ir->insert_before(var);
 
       if(value)
-         base_ir->insert_before(new(base_ir) ir_assignment(new(base_ir) ir_dereference_variable(var), value, NULL));
+         base_ir->insert_before(new(mem_ctx) ir_assignment(new(mem_ctx) ir_dereference_variable(var), value, NULL));
 
       /* Store the index to a temporary to avoid reusing its tree. */
-      ir_variable *index = new(base_ir) ir_variable(orig_deref->array_index->type, "dereference_array_index", ir_var_temporary);
+      ir_variable *index = new(mem_ctx) ir_variable(orig_deref->array_index->type, "dereference_array_index", ir_var_temporary);
       base_ir->insert_before(index);
-      assign = new(base_ir) ir_assignment(new(base_ir) ir_dereference_variable(index), orig_deref->array_index, NULL);
+      assign = new(mem_ctx) ir_assignment(new(mem_ctx) ir_dereference_variable(index), orig_deref->array_index, NULL);
       base_ir->insert_before(assign);
 
       assignment_generator ag;
@@ -207,10 +216,7 @@ public:
       ag.var = var;
       ag.is_write = !!value;
 
-      switch_generator sg(ag);
-      sg.index = index;
-      sg.linear_sequence_max_length = 4;
-      sg.condition_components = 4;
+      switch_generator sg(ag, index, 4, 4);
 
       exec_list list;
       sg.generate(0, length, &list);
@@ -230,7 +236,7 @@ public:
       {
          ir_variable* var = convert_dereference_array(orig_deref, 0);
          assert(var);
-         *pir = new(base_ir) ir_dereference_variable(var);
+         *pir = new(talloc_parent(base_ir)) ir_dereference_variable(var);
          this->progress = true;
       }
    }
