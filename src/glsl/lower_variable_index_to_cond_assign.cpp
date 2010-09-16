@@ -94,13 +94,23 @@ struct switch_generator
       if (begin == end)
          return;
 
-      /* do the first one unconditionally
-       * FINISHME: may not want this in some cases
+      /* If the array access is a read, read the first element of this subregion
+       * unconditionally.  The remaining tests will possibly overwrite this
+       * value with one of the other array elements.
+       *
+       * This optimization cannot be done for writes because it will cause the
+       * first element of the subregion to be written possibly *in addition* to
+       * one of the other elements.
        */
+      unsigned first;
+      if (!this->generator.is_write) {
+	 this->generator.generate(begin, 0, list);
+	 first = begin + 1;
+      } else {
+	 first = begin;
+      }
 
-      this->generator.generate(begin, 0, list);
-
-      for (unsigned i = begin + 1; i < end; i += 4) {
+      for (unsigned i = first; i < end; i += 4) {
          const unsigned comps = MIN2(condition_components, end - i);
 
          ir_rvalue *broadcast_index =
