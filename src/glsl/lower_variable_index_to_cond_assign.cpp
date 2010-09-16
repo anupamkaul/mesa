@@ -140,7 +140,7 @@ struct switch_generator
 					     test_indices);
 
          ir_variable *const condition =
-	    new(this->mem_ctx) ir_variable(&glsl_type::bool_type[comps],
+	    new(this->mem_ctx) ir_variable(condition_val->type,
 					   "dereference_array_condition",
 					   ir_var_temporary);
          list->push_tail(condition);
