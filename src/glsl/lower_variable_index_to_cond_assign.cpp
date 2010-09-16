@@ -48,7 +48,7 @@ struct assignment_generator
    {
    }
 
-   exec_list generate(unsigned i, ir_rvalue* condition) const
+   void generate(unsigned i, ir_rvalue* condition, exec_list *list) const
    {
       /* Just clone the rest of the deref chain when trying to get at the
        * underlying variable.
@@ -57,14 +57,12 @@ struct assignment_generator
       void *mem_ctx = talloc_parent(base_ir);
       ir_rvalue* element = new(base_ir) ir_dereference_array(this->array->clone(mem_ctx, NULL), new(base_ir) ir_constant(i));
       ir_rvalue* variable = new(base_ir) ir_dereference_variable(this->var);
-      exec_list list;
       ir_assignment* assignment;
       if(is_write)
          assignment = new(base_ir) ir_assignment(element, variable, condition);
       else
          assignment = new(base_ir) ir_assignment(variable, element, condition);
-      list.push_tail(assignment);
-      return list;
+      list->push_tail(assignment);
    }
 };
 
@@ -82,18 +80,16 @@ struct switch_generator
    : generator(generator)
    {}
 
-   exec_list linear_sequence(unsigned begin, unsigned end)
+   void linear_sequence(unsigned begin, unsigned end, exec_list *list)
    {
-      exec_list list, toappend;
       if(begin == end)
-         return list;
+         return;
 
       /* do the first one unconditionally
        * FINISHME: may not want this in some cases
        */
 
-      toappend = this->generator.generate(begin, 0);
-      list.append_list(&toappend);
+      this->generator.generate(begin, 0, list);
 
       for (unsigned i = begin + 1; i < end; i += 4) {
          int comps = MIN2(condition_components, end - i);
@@ -116,28 +112,24 @@ struct switch_generator
                                                 broadcast_index,
                                                 test_indices);
          ir_variable* condition = new(index) ir_variable(&glsl_type::bool_type[comps], "dereference_array_condition", ir_var_temporary);
-         list.push_tail(condition);
-         list.push_tail(new (index) ir_assignment(new(index) ir_dereference_variable(condition), condition_val, 0));
+         list->push_tail(condition);
+         list->push_tail(new (index) ir_assignment(new(index) ir_dereference_variable(condition), condition_val, 0));
 
          if(comps == 1)
          {
-            toappend = this->generator.generate(i, new(index) ir_dereference_variable(condition));
-            list.append_list(&toappend);
+            this->generator.generate(i, new(index) ir_dereference_variable(condition), list);
          }
          else
          {
             for(int j = 0; j < comps; ++j)
             {
-               toappend = this->generator.generate(i + j, new(index) ir_swizzle(new(index) ir_dereference_variable(condition), j, 0, 0, 0, 1));
-               list.append_list(&toappend);
+               this->generator.generate(i + j, new(index) ir_swizzle(new(index) ir_dereference_variable(condition), j, 0, 0, 0, 1), list);
             }
          }
       }
-
-      return list;
    }
 
-   exec_list bisect(unsigned begin, unsigned end)
+   void bisect(unsigned begin, unsigned end, exec_list *list)
    {
       unsigned middle = (begin + end) >> 1;
       ir_constant* middle_c;
@@ -155,26 +147,20 @@ struct switch_generator
             middle_c);
 
       ir_if* if_less = new(index) ir_if(less);
-      exec_list toappend;
 
-      toappend = generate(begin, middle);
-      if_less->then_instructions.append_list(&toappend);
+      generate(begin, middle, &if_less->then_instructions);
+      generate(middle, end, &if_less->else_instructions);
 
-      toappend = generate(middle, end);
-      if_less->else_instructions.append_list(&toappend);
-
-      exec_list list;
-      list.push_tail(if_less);
-      return list;
+      list->push_tail(if_less);
    }
 
-   exec_list generate(unsigned begin, unsigned end)
+   void generate(unsigned begin, unsigned end, exec_list *list)
    {
       unsigned length = end - begin;
       if(length <= this->linear_sequence_max_length)
-         return linear_sequence(begin, end);
+         return linear_sequence(begin, end, list);
       else
-         return bisect(begin, end);
+         return bisect(begin, end, list);
    }
 };
 
@@ -226,7 +212,8 @@ public:
       sg.linear_sequence_max_length = 4;
       sg.condition_components = 4;
 
-     exec_list list = sg.generate(0, length);
+      exec_list list;
+      sg.generate(0, length, &list);
      base_ir->insert_before(&list);
 
       return var;
