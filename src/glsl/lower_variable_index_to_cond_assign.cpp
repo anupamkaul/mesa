@@ -52,16 +52,17 @@ struct assignment_generator
    {
       /* Just clone the rest of the deref chain when trying to get at the
        * underlying variable.
-       * XXX: what if it has side effects?!? ir_vector_index_to_cond_assign does this too!
        */
       void *mem_ctx = talloc_parent(base_ir);
-      ir_rvalue* element = new(mem_ctx) ir_dereference_array(this->array->clone(mem_ctx, NULL), new(mem_ctx) ir_constant(i));
-      ir_rvalue* variable = new(mem_ctx) ir_dereference_variable(this->var);
-      ir_assignment* assignment;
-      if(is_write)
-         assignment = new(mem_ctx) ir_assignment(element, variable, condition);
-      else
-         assignment = new(mem_ctx) ir_assignment(variable, element, condition);
+      ir_rvalue *element =
+	 new(mem_ctx) ir_dereference_array(this->array->clone(mem_ctx, NULL),
+					   new(mem_ctx) ir_constant(i));
+      ir_rvalue *variable = new(mem_ctx) ir_dereference_variable(this->var);
+
+      ir_assignment *assignment = (is_write)
+	 ? new(mem_ctx) ir_assignment(element, variable, condition)
+	 : new(mem_ctx) ir_assignment(variable, element, condition);
+
       list->push_tail(assignment);
    }
 };
@@ -90,7 +91,7 @@ struct switch_generator
 
    void linear_sequence(unsigned begin, unsigned end, exec_list *list)
    {
-      if(begin == end)
+      if (begin == end)
          return;
 
       /* do the first one unconditionally
@@ -100,38 +101,58 @@ struct switch_generator
       this->generator.generate(begin, 0, list);
 
       for (unsigned i = begin + 1; i < end; i += 4) {
-         int comps = MIN2(condition_components, end - i);
+         const unsigned comps = MIN2(condition_components, end - i);
 
-         ir_rvalue* broadcast_index = new(this->mem_ctx) ir_dereference_variable(index);
-         if(comps)
-            broadcast_index = new(this->mem_ctx) ir_swizzle(broadcast_index, 0, 1, 2, 3, comps);
+         ir_rvalue *broadcast_index =
+	    new(this->mem_ctx) ir_dereference_variable(index);
 
-         ir_constant* test_indices;
+         if (comps) {
+	    const ir_swizzle_mask m = { 0, 1, 2, 3, comps, false };
+	    broadcast_index = new(this->mem_ctx) ir_swizzle(broadcast_index, m);
+	 }
+
+	 /* Compare the desired index value with the next block of four indices.
+	  */
          ir_constant_data test_indices_data;
          memset(&test_indices_data, 0, sizeof(test_indices_data));
          test_indices_data.i[0] = i;
          test_indices_data.i[1] = i + 1;
          test_indices_data.i[2] = i + 2;
          test_indices_data.i[3] = i + 3;
-         test_indices = new(this->mem_ctx) ir_constant(broadcast_index->type, &test_indices_data);
+         ir_constant *const test_indices =
+	    new(this->mem_ctx) ir_constant(broadcast_index->type,
+					   &test_indices_data);
 
-         ir_rvalue* condition_val = new(this->mem_ctx) ir_expression(ir_binop_equal,
-                                                &glsl_type::bool_type[comps - 1],
-                                                broadcast_index,
-                                                test_indices);
-         ir_variable* condition = new(this->mem_ctx) ir_variable(&glsl_type::bool_type[comps], "dereference_array_condition", ir_var_temporary);
+         ir_rvalue *const condition_val =
+	    new(this->mem_ctx) ir_expression(ir_binop_equal,
+					     &glsl_type::bool_type[comps - 1],
+					     broadcast_index,
+					     test_indices);
+
+         ir_variable *const condition =
+	    new(this->mem_ctx) ir_variable(&glsl_type::bool_type[comps],
+					   "dereference_array_condition",
+					   ir_var_temporary);
          list->push_tail(condition);
-         list->push_tail(new(this->mem_ctx) ir_assignment(new(this->mem_ctx) ir_dereference_variable(condition), condition_val, 0));
 
-         if(comps == 1)
-         {
-            this->generator.generate(i, new(this->mem_ctx) ir_dereference_variable(condition), list);
-         }
-         else
-         {
-            for(int j = 0; j < comps; ++j)
-            {
-               this->generator.generate(i + j, new(this->mem_ctx) ir_swizzle(new(this->mem_ctx) ir_dereference_variable(condition), j, 0, 0, 0, 1), list);          
+	 ir_rvalue *const cond_deref =
+	    new(this->mem_ctx) ir_dereference_variable(condition);
+         list->push_tail(new(this->mem_ctx) ir_assignment(cond_deref,
+							  condition_val, 0));
+
+         if (comps == 1) {
+	    ir_rvalue *const cond_deref =
+	       new(this->mem_ctx) ir_dereference_variable(condition);
+
+            this->generator.generate(i, cond_deref, list);
+         } else {
+            for (unsigned j = 0; j < comps; j++) {
+	       ir_rvalue *const cond_deref =
+		  new(this->mem_ctx) ir_dereference_variable(condition);
+	       ir_rvalue *const cond_swiz =
+		  new(this->mem_ctx) ir_swizzle(cond_deref, j, 0, 0, 0, 1);
+
+               this->generator.generate(i + j, cond_swiz, list);
             }
          }
       }
@@ -140,21 +161,22 @@ struct switch_generator
    void bisect(unsigned begin, unsigned end, exec_list *list)
    {
       unsigned middle = (begin + end) >> 1;
-      ir_constant* middle_c;
 
-      if(index->type->base_type == GLSL_TYPE_UINT)
-         middle_c = new(this->mem_ctx) ir_constant((unsigned)middle);
-      else if(index->type->base_type == GLSL_TYPE_UINT)
-         middle_c = new(this->mem_ctx) ir_constant((int)middle);
-      else
-         assert(0);
+      assert(index->type->is_integer());
 
-      ir_expression* less = new(this->mem_ctx) ir_expression(
-            ir_binop_less, glsl_type::bool_type,
-            new(this->mem_ctx) ir_dereference_variable(this->index),
-            middle_c);
+      ir_constant *const middle_c = (index->type->base_type == GLSL_TYPE_UINT)
+	 ? new(this->mem_ctx) ir_constant((unsigned)middle)
+         : new(this->mem_ctx) ir_constant((int)middle);
 
-      ir_if* if_less = new(this->mem_ctx) ir_if(less);
+
+      ir_dereference_variable *deref =
+	 new(this->mem_ctx) ir_dereference_variable(this->index);
+
+      ir_expression *less =
+	 new(this->mem_ctx) ir_expression(ir_binop_less, glsl_type::bool_type,
+					  deref, middle_c);
+
+      ir_if *if_less = new(this->mem_ctx) ir_if(less);
 
       generate(begin, middle, &if_less->then_instructions);
       generate(middle, end, &if_less->else_instructions);
@@ -165,7 +187,7 @@ struct switch_generator
    void generate(unsigned begin, unsigned end, exec_list *list)
    {
       unsigned length = end - begin;
-      if(length <= this->linear_sequence_max_length)
+      if (length <= this->linear_sequence_max_length)
          return linear_sequence(begin, end, list);
       else
          return bisect(begin, end, list);
@@ -176,19 +198,18 @@ struct switch_generator
  * Visitor class for replacing expressions with ir_constant values.
  */
 
-class ir_array_index_to_cond_assign_visitor : public ir_rvalue_visitor {
+class variable_index_to_cond_assign_visitor : public ir_rvalue_visitor {
 public:
-   ir_array_index_to_cond_assign_visitor()
+   variable_index_to_cond_assign_visitor()
    {
-      progress = false;
+      this->progress = false;
    }
 
    bool progress;
 
-   ir_variable* convert_dereference_array(ir_dereference_array *orig_deref, ir_rvalue* value)
+   ir_variable *convert_dereference_array(ir_dereference_array *orig_deref,
+					  ir_rvalue* value)
    {
-      ir_assignment *assign;
-
       unsigned length;
       if (orig_deref->array->type->is_array())
          length = orig_deref->array->type->length;
@@ -198,16 +219,27 @@ public:
          assert(0);
 
       void *const mem_ctx = talloc_parent(base_ir);
-      ir_variable* var = new(mem_ctx) ir_variable(orig_deref->type, "dereference_array_value", ir_var_temporary);
+      ir_variable *var =
+	 new(mem_ctx) ir_variable(orig_deref->type, "dereference_array_value",
+				  ir_var_temporary);
       base_ir->insert_before(var);
 
-      if(value)
-         base_ir->insert_before(new(mem_ctx) ir_assignment(new(mem_ctx) ir_dereference_variable(var), value, NULL));
+      if (value) {
+	 ir_dereference *lhs = new(mem_ctx) ir_dereference_variable(var);
+	 ir_assignment *assign = new(mem_ctx) ir_assignment(lhs, value, NULL);
+
+         base_ir->insert_before(assign);
+      }
 
       /* Store the index to a temporary to avoid reusing its tree. */
-      ir_variable *index = new(mem_ctx) ir_variable(orig_deref->array_index->type, "dereference_array_index", ir_var_temporary);
+      ir_variable *index =
+	 new(mem_ctx) ir_variable(orig_deref->array_index->type,
+				  "dereference_array_index", ir_var_temporary);
       base_ir->insert_before(index);
-      assign = new(mem_ctx) ir_assignment(new(mem_ctx) ir_dereference_variable(index), orig_deref->array_index, NULL);
+
+      ir_dereference *lhs = new(mem_ctx) ir_dereference_variable(index);
+      ir_assignment *assign =
+	 new(mem_ctx) ir_assignment(lhs, orig_deref->array_index, NULL);
       base_ir->insert_before(assign);
 
       assignment_generator ag;
@@ -220,20 +252,20 @@ public:
 
       exec_list list;
       sg.generate(0, length, &list);
-     base_ir->insert_before(&list);
+      base_ir->insert_before(&list);
 
       return var;
    }
 
    virtual void handle_rvalue(ir_rvalue **pir)
    {
-      if(!*pir)
+      if (!*pir)
          return;
 
       ir_dereference_array* orig_deref = (*pir)->as_dereference_array();
       if (orig_deref && !orig_deref->array_index->as_constant()
-            && (orig_deref->array->type->is_array() || orig_deref->array->type->is_matrix()))
-      {
+            && (orig_deref->array->type->is_array()
+		|| orig_deref->array->type->is_matrix())) {
          ir_variable* var = convert_dereference_array(orig_deref, 0);
          assert(var);
          *pir = new(talloc_parent(base_ir)) ir_dereference_variable(var);
@@ -249,8 +281,8 @@ public:
       ir_dereference_array *orig_deref = ir->lhs->as_dereference_array();
 
       if (orig_deref && !orig_deref->array_index->as_constant()
-            && (orig_deref->array->type->is_array() || orig_deref->array->type->is_matrix()))
-      {
+            && (orig_deref->array->type->is_array()
+		|| orig_deref->array->type->is_matrix())) {
          convert_dereference_array(orig_deref, ir->rhs);
          ir->remove();
          this->progress = true;
@@ -263,7 +295,7 @@ public:
 bool
 lower_variable_index_to_cond_assign(exec_list *instructions)
 {
-   ir_array_index_to_cond_assign_visitor v;
+   variable_index_to_cond_assign_visitor v;
 
    visit_list_elements(&v, instructions);
 
