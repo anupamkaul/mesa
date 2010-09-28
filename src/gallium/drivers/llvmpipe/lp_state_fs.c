@@ -183,7 +183,7 @@ generate_quad_mask(LLVMBuilderRef builder,
                    LLVMValueRef mask_input) /* int32 */
 {
    struct lp_type mask_type;
-   LLVMTypeRef i32t = LLVMInt32Type();
+   LLVMTypeRef i32t = LLVMInt32TypeInContext(LC);
    LLVMValueRef bits[4];
    LLVMValueRef mask;
    int shift;
@@ -434,7 +434,7 @@ generate_blend(const struct pipe_blend_state *blend,
 
    /* load constant blend color and colors from the dest color buffer */
    for(chan = 0; chan < 4; ++chan) {
-      LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), chan, 0);
+      LLVMValueRef index = lp_build_const_int32(chan);
       con[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, const_ptr, &index, 1, ""), "");
 
       dst[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, dst_ptr, &index, 1, ""), "");
@@ -449,7 +449,7 @@ generate_blend(const struct pipe_blend_state *blend,
    /* store results to color buffer */
    for(chan = 0; chan < 4; ++chan) {
       if(blend->rt[rt].colormask & (1 << chan)) {
-         LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), chan, 0);
+         LLVMValueRef index = lp_build_const_int32(chan);
          lp_build_name(res[chan], "res.%c", "rgba"[chan]);
          res[chan] = lp_build_select(&bld, mask, res[chan], dst[chan]);
          LLVMBuildStore(builder, res[chan], LLVMBuildGEP(builder, dst_ptr, &index, 1, ""));
@@ -540,18 +540,18 @@ generate_fragment(struct llvmpipe_context *lp,
 		 shader->no, variant->no, partial_mask ? "partial" : "whole");
 
    arg_types[0] = screen->context_ptr_type;            /* context */
-   arg_types[1] = LLVMInt32Type();                     /* x */
-   arg_types[2] = LLVMInt32Type();                     /* y */
-   arg_types[3] = LLVMFloatType();                     /* facing */
-   arg_types[4] = LLVMPointerType(fs_elem_type, 0);    /* a0 */
-   arg_types[5] = LLVMPointerType(fs_elem_type, 0);    /* dadx */
+   arg_types[1] =                                      /* x */
+   arg_types[2] = LLVMInt32TypeInContext(LC);          /* y */
+   arg_types[3] = LLVMFloatTypeInContext(LC);          /* facing */
+   arg_types[4] =                                      /* a0 */
+   arg_types[5] =                                      /* dadx */
    arg_types[6] = LLVMPointerType(fs_elem_type, 0);    /* dady */
    arg_types[7] = LLVMPointerType(LLVMPointerType(blend_vec_type, 0), 0);  /* color */
    arg_types[8] = LLVMPointerType(fs_int_vec_type, 0); /* depth */
-   arg_types[9] = LLVMInt32Type();                     /* mask_input */
-   arg_types[10] = LLVMPointerType(LLVMInt32Type(), 0);/* counter */
+   arg_types[9] = LLVMInt32TypeInContext(LC);          /* mask_input */
+   arg_types[10] = LLVMPointerType(LLVMInt32TypeInContext(LC), 0);/* counter */
 
-   func_type = LLVMFunctionType(LLVMVoidType(), arg_types, Elements(arg_types), 0);
+   func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC), arg_types, Elements(arg_types), 0);
 
    function = LLVMAddFunction(screen->module, func_name, func_type);
    LLVMSetFunctionCallConv(function, LLVMCCallConv);
@@ -596,8 +596,8 @@ generate_fragment(struct llvmpipe_context *lp,
     * Function body
     */
 
-   block = LLVMAppendBasicBlock(function, "entry");
-   builder = LLVMCreateBuilder();
+   block = LLVMAppendBasicBlockInContext(LC, function, "entry");
+   builder = LLVMCreateBuilderInContext(LC);
    LLVMPositionBuilderAtEnd(builder, block);
 
    /*
@@ -617,7 +617,7 @@ generate_fragment(struct llvmpipe_context *lp,
 
    /* loop over quads in the block */
    for(i = 0; i < num_fs; ++i) {
-      LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+      LLVMValueRef index = lp_build_const_int32(i);
       LLVMValueRef out_color[PIPE_MAX_COLOR_BUFS][NUM_CHANNELS];
       LLVMValueRef depth_ptr_i;
 
@@ -652,7 +652,7 @@ generate_fragment(struct llvmpipe_context *lp,
     */
    for(cbuf = 0; cbuf < key->nr_cbufs; cbuf++) {
       LLVMValueRef color_ptr;
-      LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), cbuf, 0);
+      LLVMValueRef index = lp_build_const_int32(cbuf);
       LLVMValueRef blend_in_color[NUM_CHANNELS];
       unsigned rt;
 

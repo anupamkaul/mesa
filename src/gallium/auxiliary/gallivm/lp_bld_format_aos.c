@@ -167,21 +167,21 @@ lp_build_unpack_arith_rgba_aos(LLVMBuilderRef builder,
 
    /* Do the intermediate integer computations with 32bit integers since it
     * matches floating point size */
-   assert (LLVMTypeOf(packed) == LLVMInt32Type());
+   assert (LLVMTypeOf(packed) == LLVMInt32TypeInContext(LC));
 
    /* Broadcast the packed value to all four channels
     * before: packed = BGRA
     * after: packed = {BGRA, BGRA, BGRA, BGRA}
     */
    packed = LLVMBuildInsertElement(builder,
-                                   LLVMGetUndef(LLVMVectorType(LLVMInt32Type(), 4)),
+                                   LLVMGetUndef(LLVMVectorType(LLVMInt32TypeInContext(LC), 4)),
                                    packed,
-                                   LLVMConstNull(LLVMInt32Type()),
+                                   LLVMConstNull(LLVMInt32TypeInContext(LC)),
                                    "");
    packed = LLVMBuildShuffleVector(builder,
                                    packed,
-                                   LLVMGetUndef(LLVMVectorType(LLVMInt32Type(), 4)),
-                                   LLVMConstNull(LLVMVectorType(LLVMInt32Type(), 4)),
+                                   LLVMGetUndef(LLVMVectorType(LLVMInt32TypeInContext(LC), 4)),
+                                   LLVMConstNull(LLVMVectorType(LLVMInt32TypeInContext(LC), 4)),
                                    "");
 
    /* Initialize vector constants */
@@ -194,9 +194,9 @@ lp_build_unpack_arith_rgba_aos(LLVMBuilderRef builder,
       unsigned bits = desc->channel[i].size;
 
       if (desc->channel[i].type == UTIL_FORMAT_TYPE_VOID) {
-         shifts[i] = LLVMGetUndef(LLVMInt32Type());
-         masks[i] = LLVMConstNull(LLVMInt32Type());
-         scales[i] =  LLVMConstNull(LLVMFloatType());
+         shifts[i] = LLVMGetUndef(LLVMInt32TypeInContext(LC));
+         masks[i] = LLVMConstNull(LLVMInt32TypeInContext(LC));
+         scales[i] =  LLVMConstNull(LLVMFloatTypeInContext(LC));
       }
       else {
          unsigned long long mask = (1ULL << bits) - 1;
@@ -207,15 +207,15 @@ lp_build_unpack_arith_rgba_aos(LLVMBuilderRef builder,
             needs_uitofp = TRUE;
          }
 
-         shifts[i] = LLVMConstInt(LLVMInt32Type(), shift, 0);
-         masks[i] = LLVMConstInt(LLVMInt32Type(), mask, 0);
+         shifts[i] = lp_build_const_int32(shift);
+         masks[i] = lp_build_const_int32(mask);
 
          if (desc->channel[i].normalized) {
-            scales[i] = LLVMConstReal(LLVMFloatType(), 1.0/mask);
+            scales[i] = lp_build_const_float(1.0 / mask);
             normalized = TRUE;
          }
          else
-            scales[i] =  LLVMConstReal(LLVMFloatType(), 1.0);
+            scales[i] =  lp_build_const_float(1.0);
       }
 
       shift += bits;
@@ -230,9 +230,9 @@ lp_build_unpack_arith_rgba_aos(LLVMBuilderRef builder,
 
    if (!needs_uitofp) {
       /* UIToFP can't be expressed in SSE2 */
-      casted = LLVMBuildSIToFP(builder, masked, LLVMVectorType(LLVMFloatType(), 4), "");
+      casted = LLVMBuildSIToFP(builder, masked, LLVMVectorType(LLVMFloatTypeInContext(LC), 4), "");
    } else {
-      casted = LLVMBuildUIToFP(builder, masked, LLVMVectorType(LLVMFloatType(), 4), "");
+      casted = LLVMBuildUIToFP(builder, masked, LLVMVectorType(LLVMFloatTypeInContext(LC), 4), "");
    }
 
    /* At this point 'casted' may be a vector of floats such as
@@ -276,7 +276,7 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
    assert(desc->block.width == 1);
    assert(desc->block.height == 1);
 
-   type = LLVMIntType(desc->block.bits);
+   type = LLVMIntTypeInContext(LC, desc->block.bits);
 
    /* Unswizzle the color components into the source vector. */
    for (i = 0; i < 4; ++i) {
@@ -285,13 +285,13 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
             break;
       }
       if (j < 4)
-         swizzles[i] = LLVMConstInt(LLVMInt32Type(), j, 0);
+         swizzles[i] = lp_build_const_int32(j);
       else
-         swizzles[i] = LLVMGetUndef(LLVMInt32Type());
+         swizzles[i] = LLVMGetUndef(LLVMInt32TypeInContext(LC));
    }
 
    unswizzled = LLVMBuildShuffleVector(builder, rgba,
-                                       LLVMGetUndef(LLVMVectorType(LLVMFloatType(), 4)),
+                                       LLVMGetUndef(LLVMVectorType(LLVMFloatTypeInContext(LC), 4)),
                                        LLVMConstVector(swizzles, 4), "");
 
    normalized = FALSE;
@@ -300,8 +300,8 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
       unsigned bits = desc->channel[i].size;
 
       if (desc->channel[i].type == UTIL_FORMAT_TYPE_VOID) {
-         shifts[i] = LLVMGetUndef(LLVMInt32Type());
-         scales[i] =  LLVMGetUndef(LLVMFloatType());
+         shifts[i] = LLVMGetUndef(LLVMInt32TypeInContext(LC));
+         scales[i] =  LLVMGetUndef(LLVMFloatTypeInContext(LC));
       }
       else {
          unsigned mask = (1 << bits) - 1;
@@ -309,14 +309,14 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
          assert(desc->channel[i].type == UTIL_FORMAT_TYPE_UNSIGNED);
          assert(bits < 32);
 
-         shifts[i] = LLVMConstInt(LLVMInt32Type(), shift, 0);
+         shifts[i] = lp_build_const_int32(shift);
 
          if (desc->channel[i].normalized) {
-            scales[i] = LLVMConstReal(LLVMFloatType(), mask);
+            scales[i] = lp_build_const_float(mask);
             normalized = TRUE;
          }
          else
-            scales[i] =  LLVMConstReal(LLVMFloatType(), 1.0);
+            scales[i] = lp_build_const_float(1.0);
       }
 
       shift += bits;
@@ -327,14 +327,15 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
    else
       scaled = unswizzled;
 
-   casted = LLVMBuildFPToSI(builder, scaled, LLVMVectorType(LLVMInt32Type(), 4), "");
+   casted = LLVMBuildFPToSI(builder, scaled, LLVMVectorType(LLVMInt32TypeInContext(LC), 4), "");
 
    shifted = LLVMBuildShl(builder, casted, LLVMConstVector(shifts, 4), "");
    
    /* Bitwise or all components */
    for (i = 0; i < 4; ++i) {
       if (desc->channel[i].type == UTIL_FORMAT_TYPE_UNSIGNED) {
-         LLVMValueRef component = LLVMBuildExtractElement(builder, shifted, LLVMConstInt(LLVMInt32Type(), i, 0), "");
+         LLVMValueRef component = LLVMBuildExtractElement(builder, shifted,
+                                               lp_build_const_int32(i), "");
          if (packed)
             packed = LLVMBuildOr(builder, packed, component, "");
          else
@@ -343,7 +344,7 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
    }
 
    if (!packed)
-      packed = LLVMGetUndef(LLVMInt32Type());
+      packed = LLVMGetUndef(LLVMInt32TypeInContext(LC));
 
    if (desc->block.bits < 32)
       packed = LLVMBuildTrunc(builder, packed, type, "");
@@ -507,9 +508,9 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
 
       LLVMModuleRef module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
       char name[256];
-      LLVMTypeRef i8t = LLVMInt8Type();
+      LLVMTypeRef i8t = LLVMInt8TypeInContext(LC);
       LLVMTypeRef pi8t = LLVMPointerType(i8t, 0);
-      LLVMTypeRef i32t = LLVMInt32Type();
+      LLVMTypeRef i32t = LLVMInt32TypeInContext(LC);
       LLVMValueRef function;
       LLVMValueRef tmp_ptr;
       LLVMValueRef tmp;
@@ -533,10 +534,10 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
          LLVMTypeRef arg_types[4];
          LLVMTypeRef function_type;
 
-         ret_type = LLVMVoidType();
+         ret_type = LLVMVoidTypeInContext(LC);
          arg_types[0] = pi8t;
          arg_types[1] = pi8t;
-         arg_types[3] = arg_types[2] = LLVMIntType(sizeof(unsigned) * 8);
+         arg_types[3] = arg_types[2] = LLVMIntTypeInContext(LC, sizeof(unsigned) * 8);
          function_type = LLVMFunctionType(ret_type, arg_types, Elements(arg_types), 0);
          function = LLVMAddFunction(module, name, function_type);
 
@@ -559,7 +560,7 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
        */
 
       for (k = 0; k < num_pixels; ++k) {
-         LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), k, 0);
+         LLVMValueRef index = lp_build_const_int32(k);
          LLVMValueRef args[4];
 
          args[0] = LLVMBuildBitCast(builder, tmp_ptr, pi8t, "");
@@ -610,7 +611,7 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
 
       LLVMModuleRef module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
       char name[256];
-      LLVMTypeRef f32t = LLVMFloatType();
+      LLVMTypeRef f32t = LLVMFloatTypeInContext(LC);
       LLVMTypeRef f32x4t = LLVMVectorType(f32t, 4);
       LLVMTypeRef pf32t = LLVMPointerType(f32t, 0);
       LLVMValueRef function;
@@ -636,10 +637,10 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
          LLVMTypeRef arg_types[4];
          LLVMTypeRef function_type;
 
-         ret_type = LLVMVoidType();
+         ret_type = LLVMVoidTypeInContext(LC);
          arg_types[0] = pf32t;
-         arg_types[1] = LLVMPointerType(LLVMInt8Type(), 0);
-         arg_types[3] = arg_types[2] = LLVMIntType(sizeof(unsigned) * 8);
+         arg_types[1] = LLVMPointerType(LLVMInt8TypeInContext(LC), 0);
+         arg_types[3] = arg_types[2] = LLVMIntTypeInContext(LC, sizeof(unsigned) * 8);
          function_type = LLVMFunctionType(ret_type, arg_types, Elements(arg_types), 0);
          function = LLVMAddFunction(module, name, function_type);
 
@@ -671,7 +672,7 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
             args[3] = j;
          }
          else {
-            LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), k, 0);
+            LLVMValueRef index = lp_build_const_int32(k);
             args[2] = LLVMBuildExtractElement(builder, i, index, "");
             args[3] = LLVMBuildExtractElement(builder, j, index, "");
          }

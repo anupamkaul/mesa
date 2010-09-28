@@ -43,6 +43,7 @@
 #include "pipe/p_defines.h"
 #include "pipe/p_shader_tokens.h"
 #include "gallivm/lp_bld_debug.h"
+#include "gallivm/lp_bld_const.h"
 #include "gallivm/lp_bld_type.h"
 #include "gallivm/lp_bld_sample.h"
 #include "gallivm/lp_bld_tgsi.h"
@@ -104,13 +105,13 @@ lp_llvm_texture_member(const struct lp_sampler_dynamic_state *base,
    assert(unit < PIPE_MAX_SAMPLERS);
 
    /* context[0] */
-   indices[0] = LLVMConstInt(LLVMInt32Type(), 0, 0);
+   indices[0] = lp_build_const_int32(0);
    /* context[0].textures */
-   indices[1] = LLVMConstInt(LLVMInt32Type(), LP_JIT_CTX_TEXTURES, 0);
+   indices[1] = lp_build_const_int32(LP_JIT_CTX_TEXTURES);
    /* context[0].textures[unit] */
-   indices[2] = LLVMConstInt(LLVMInt32Type(), unit, 0);
+   indices[2] = lp_build_const_int32(unit);
    /* context[0].textures[unit].member */
-   indices[3] = LLVMConstInt(LLVMInt32Type(), member_index, 0);
+   indices[3] = lp_build_const_int32(member_index);
 
    ptr = LLVMBuildGEP(builder, state->context_ptr, indices, Elements(indices), "");
 

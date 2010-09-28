@@ -159,7 +159,7 @@ lp_build_lod_selector(struct lp_build_sample_context *bld,
          bld->dynamic_state->lod_bias(bld->dynamic_state, bld->builder, unit);
       LLVMValueRef max_lod =
          bld->dynamic_state->max_lod(bld->dynamic_state, bld->builder, unit);
-      LLVMValueRef index0 = LLVMConstInt(LLVMInt32Type(), 0, 0);
+      LLVMValueRef index0 = lp_build_const_int32(0);
       LLVMValueRef lod;
 
       if (explicit_lod) {
@@ -248,7 +248,7 @@ lp_build_nearest_mip_level(struct lp_build_sample_context *bld,
    struct lp_build_context *int_bld = &bld->int_bld;
    LLVMValueRef last_level, level;
 
-   LLVMValueRef zero = LLVMConstInt(LLVMInt32Type(), 0, 0);
+   LLVMValueRef zero = lp_build_const_int32(0);
 
    last_level = bld->dynamic_state->last_level(bld->dynamic_state,
                                                bld->builder, unit);
@@ -303,7 +303,7 @@ lp_build_get_mipmap_level(struct lp_build_sample_context *bld,
                           LLVMValueRef data_array, LLVMValueRef level)
 {
    LLVMValueRef indexes[2], data_ptr;
-   indexes[0] = LLVMConstInt(LLVMInt32Type(), 0, 0);
+   indexes[0] = lp_build_const_int32(0);
    indexes[1] = level;
    data_ptr = LLVMBuildGEP(bld->builder, data_array, indexes, 2, "");
    data_ptr = LLVMBuildLoad(bld->builder, data_ptr, "");
@@ -315,7 +315,7 @@ LLVMValueRef
 lp_build_get_const_mipmap_level(struct lp_build_sample_context *bld,
                                 LLVMValueRef data_array, int level)
 {
-   LLVMValueRef lvl = LLVMConstInt(LLVMInt32Type(), level, 0);
+   LLVMValueRef lvl = lp_build_const_int32(level);
    return lp_build_get_mipmap_level(bld, data_array, lvl);
 }
 
@@ -344,7 +344,7 @@ lp_build_get_level_stride_vec(struct lp_build_sample_context *bld,
                               LLVMValueRef stride_array, LLVMValueRef level)
 {
    LLVMValueRef indexes[2], stride;
-   indexes[0] = LLVMConstInt(LLVMInt32Type(), 0, 0);
+   indexes[0] = lp_build_const_int32(0);
    indexes[1] = level;
    stride = LLVMBuildGEP(bld->builder, stride_array, indexes, 2, "");
    stride = LLVMBuildLoad(bld->builder, stride, "");
@@ -481,8 +481,8 @@ lp_build_cube_face(struct lp_build_sample_context *bld,
    LLVMValueRef cmp = LLVMBuildFCmp(bld->builder, LLVMRealUGE,
                                     major_coord,
                                     bld->float_bld.zero, "");
-   LLVMValueRef pos = LLVMConstInt(LLVMInt32Type(), pos_face, 0);
-   LLVMValueRef neg = LLVMConstInt(LLVMInt32Type(), neg_face, 0);
+   LLVMValueRef pos = lp_build_const_int32(pos_face);
+   LLVMValueRef neg = lp_build_const_int32(neg_face);
    LLVMValueRef res = LLVMBuildSelect(bld->builder, cmp, pos, neg, "");
    return res;
 }
@@ -505,7 +505,7 @@ lp_build_cube_lookup(struct lp_build_sample_context *bld,
    struct lp_build_context *coord_bld = &bld->coord_bld;
    LLVMValueRef rx, ry, rz;
    LLVMValueRef arx, ary, arz;
-   LLVMValueRef c25 = LLVMConstReal(LLVMFloatType(), 0.25);
+   LLVMValueRef c25 = lp_build_const_float(0.25);
    LLVMValueRef arx_ge_ary, arx_ge_arz;
    LLVMValueRef ary_ge_arx, ary_ge_arz;
    LLVMValueRef arx_ge_ary_arz, ary_ge_arx_arz;

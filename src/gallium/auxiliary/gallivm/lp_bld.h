@@ -55,4 +55,30 @@
 #endif
 
 
+extern LLVMContextRef LC;
+
+#define LLVMInt1Type FOO
+#define LLVMInt8Type FOO
+#define LLVMInt16Type FOO
+#define LLVMInt32Type FOO
+#define LLVMInt64Type FOO
+#define LLVMIntType FOO
+#define LLVMFloatType FOO
+#define LLVMDoubleType FOO
+#define LLVMX86FP80Type FOO
+#define LLVMFP128Type FOO
+#define LLVMPPCFP128Type FOO
+#define LLVMStructType FOO
+#define LLVMVoidType FOO
+#define LLVMLabelType FOO
+#define LLVMOpaqueType FOO
+#define LLVMUnionType FOO
+#define LLVMMDString FOO
+#define LLVMMDNode FOO
+#define LLVMConstString FOO
+#define LLVMConstStruct FOO
+#define LLVMAppendBasicBlock FOO
+#define LLVMInsertBasicBlock FOO
+#define LLVMCreateBuilder FOO
+
 #endif /* LP_BLD_H */

@@ -48,13 +48,13 @@ lp_build_gather_elem_ptr(LLVMBuilderRef builder,
    LLVMValueRef offset;
    LLVMValueRef ptr;
 
-   assert(LLVMTypeOf(base_ptr) == LLVMPointerType(LLVMInt8Type(), 0));
+   assert(LLVMTypeOf(base_ptr) == LLVMPointerType(LLVMInt8TypeInContext(LC), 0));
 
    if (length == 1) {
       assert(i == 0);
       offset = offsets;
    } else {
-      LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+      LLVMValueRef index = lp_build_const_int32(i);
       offset = LLVMBuildExtractElement(builder, offsets, index, "");
    }
 
@@ -78,13 +78,13 @@ lp_build_gather_elem(LLVMBuilderRef builder,
                      LLVMValueRef offsets,
                      unsigned i)
 {
-   LLVMTypeRef src_type = LLVMIntType(src_width);
+   LLVMTypeRef src_type = LLVMIntTypeInContext(LC, src_width);
    LLVMTypeRef src_ptr_type = LLVMPointerType(src_type, 0);
-   LLVMTypeRef dst_elem_type = LLVMIntType(dst_width);
+   LLVMTypeRef dst_elem_type = LLVMIntTypeInContext(LC, dst_width);
    LLVMValueRef ptr;
    LLVMValueRef res;
 
-   assert(LLVMTypeOf(base_ptr) == LLVMPointerType(LLVMInt8Type(), 0));
+   assert(LLVMTypeOf(base_ptr) == LLVMPointerType(LLVMInt8TypeInContext(LC), 0));
 
    ptr = lp_build_gather_elem_ptr(builder, length, base_ptr, offsets, i);
    ptr = LLVMBuildBitCast(builder, ptr, src_ptr_type, "");
@@ -129,13 +129,13 @@ lp_build_gather(LLVMBuilderRef builder,
    } else {
       /* Vector */
 
-      LLVMTypeRef dst_elem_type = LLVMIntType(dst_width);
+      LLVMTypeRef dst_elem_type = LLVMIntTypeInContext(LC, dst_width);
       LLVMTypeRef dst_vec_type = LLVMVectorType(dst_elem_type, length);
       unsigned i;
 
       res = LLVMGetUndef(dst_vec_type);
       for (i = 0; i < length; ++i) {
-         LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+         LLVMValueRef index = lp_build_const_int32(i);
          LLVMValueRef elem;
          elem = lp_build_gather_elem(builder, length,
                                      src_width, dst_width,

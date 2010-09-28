@@ -92,8 +92,8 @@ lp_build_const_unpack_shuffle(unsigned n, unsigned lo_hi)
    /* TODO: cache results in a static table */
 
    for(i = 0, j = lo_hi*n/2; i < n; i += 2, ++j) {
-      elems[i + 0] = LLVMConstInt(LLVMInt32Type(), 0 + j, 0);
-      elems[i + 1] = LLVMConstInt(LLVMInt32Type(), n + j, 0);
+      elems[i + 0] = lp_build_const_int32(0 + j);
+      elems[i + 1] = lp_build_const_int32(n + j);
    }
 
    return LLVMConstVector(elems, n);
@@ -112,7 +112,7 @@ lp_build_const_pack_shuffle(unsigned n)
    assert(n <= LP_MAX_VECTOR_LENGTH);
 
    for(i = 0; i < n; ++i)
-      elems[i] = LLVMConstInt(LLVMInt32Type(), 2*i, 0);
+      elems[i] = lp_build_const_int32(2*i);
 
    return LLVMConstVector(elems, n);
 }
@@ -492,7 +492,7 @@ lp_build_resize(LLVMBuilderRef builder,
          assert(src_type.length == dst_type.length);
          tmp[0] = lp_build_undef(dst_type);
          for (i = 0; i < dst_type.length; ++i) {
-            LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+            LLVMValueRef index = lp_build_const_int32(i);
             LLVMValueRef val = LLVMBuildExtractElement(builder, src[0], index, "");
             val = LLVMBuildTrunc(builder, val, lp_build_elem_type(dst_type), "");
             tmp[0] = LLVMBuildInsertElement(builder, tmp[0], val, index, "");
@@ -520,7 +520,7 @@ lp_build_resize(LLVMBuilderRef builder,
          assert(src_type.length == dst_type.length);
          tmp[0] = lp_build_undef(dst_type);
          for (i = 0; i < dst_type.length; ++i) {
-            LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+            LLVMValueRef index = lp_build_const_int32(i);
             LLVMValueRef val = LLVMBuildExtractElement(builder, src[0], index, "");
 
             if (src_type.sign && dst_type.sign) {

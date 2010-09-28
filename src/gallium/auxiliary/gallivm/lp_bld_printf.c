@@ -29,6 +29,7 @@
 
 #include "util/u_debug.h"
 #include "util/u_memory.h"
+#include "lp_bld_const.h"
 #include "lp_bld_printf.h"
 
 
@@ -65,10 +66,10 @@ lp_get_printf_arg_count(const char *fmt)
 LLVMValueRef 
 lp_build_const_string_variable(LLVMModuleRef module, const char *str, int len)
 {
-   LLVMValueRef string = LLVMAddGlobal(module, LLVMArrayType(LLVMInt8Type(), len + 1), "");
+   LLVMValueRef string = LLVMAddGlobal(module, LLVMArrayType(LLVMInt8TypeInContext(LC), len + 1), "");
    LLVMSetGlobalConstant(string, TRUE);
    LLVMSetLinkage(string, LLVMInternalLinkage);
-   LLVMSetInitializer(string, LLVMConstString(str, len + 1, TRUE));
+   LLVMSetInitializer(string, LLVMConstStringInContext(LC, str, len + 1, TRUE));
    return string;
 }
  
@@ -89,7 +90,7 @@ lp_build_printf(LLVMBuilderRef builder, const char *fmt, ...)
    LLVMModuleRef module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
    LLVMValueRef params[50];
    LLVMValueRef fmtarg = lp_build_const_string_variable(module, fmt, strlen(fmt) + 1);
-   LLVMValueRef int0 = LLVMConstInt(LLVMInt32Type(), 0, 0);
+   LLVMValueRef int0 = lp_build_const_int32(0);
    LLVMValueRef index[2];
    LLVMValueRef func_printf = LLVMGetNamedFunction(module, "printf");
 
@@ -98,7 +99,7 @@ lp_build_printf(LLVMBuilderRef builder, const char *fmt, ...)
    index[0] = index[1] = int0;
 
    if (!func_printf) {
-      LLVMTypeRef printf_type = LLVMFunctionType(LLVMIntType(32), NULL, 0, 1);
+      LLVMTypeRef printf_type = LLVMFunctionType(LLVMIntTypeInContext(LC, 32), NULL, 0, 1);
       func_printf = LLVMAddFunction(module, "printf", printf_type);
    }
 
@@ -111,7 +112,7 @@ lp_build_printf(LLVMBuilderRef builder, const char *fmt, ...)
       /* printf wants doubles, so lets convert so that
        * we can actually print them */
       if (LLVMGetTypeKind(type) == LLVMFloatTypeKind)
-         val = LLVMBuildFPExt(builder, val, LLVMDoubleType(), "");
+         val = LLVMBuildFPExt(builder, val, LLVMDoubleTypeInContext(LC), "");
       params[i] = val;
    }
    va_end(arglist);

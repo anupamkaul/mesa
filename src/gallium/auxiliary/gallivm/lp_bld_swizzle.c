@@ -52,7 +52,7 @@ lp_build_broadcast(LLVMBuilderRef builder,
 
    res = LLVMGetUndef(vec_type);
    for(i = 0; i < n; ++i) {
-      LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+      LLVMValueRef index = lp_build_const_int32(i);
       res = LLVMBuildInsertElement(builder, res, scalar, index, "");
    }
 
@@ -83,7 +83,7 @@ lp_build_broadcast_scalar(struct lp_build_context *bld,
       i32_vec_type.length = type.length;
 
       res = LLVMBuildInsertElement(bld->builder, bld->undef, scalar,
-                                   LLVMConstInt(LLVMInt32Type(), 0, 0), "");
+                                   lp_build_const_int32(0), "");
       res = LLVMBuildShuffleVector(bld->builder, res, bld->undef,
                                    lp_build_const_int_vec(i32_vec_type, 0), "");
 #else
@@ -91,7 +91,7 @@ lp_build_broadcast_scalar(struct lp_build_context *bld,
       unsigned i;
       res = bld->undef;
       for(i = 0; i < type.length; ++i) {
-         LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+         LLVMValueRef index = lp_build_const_int32(i);
          res = LLVMBuildInsertElement(bld->builder, res, scalar, index, "");
       }
 #endif
@@ -122,7 +122,7 @@ lp_build_swizzle_scalar_aos(struct lp_build_context *bld,
       /*
        * Shuffle.
        */
-      LLVMTypeRef elem_type = LLVMInt32Type();
+      LLVMTypeRef elem_type = LLVMInt32TypeInContext(LC);
       LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH];
 
       for(j = 0; j < n; j += 4)
@@ -227,7 +227,7 @@ lp_build_swizzle_aos(struct lp_build_context *bld,
        * Shuffle.
        */
       LLVMValueRef undef = LLVMGetUndef(lp_build_elem_type(type));
-      LLVMTypeRef i32t = LLVMInt32Type();
+      LLVMTypeRef i32t = LLVMInt32TypeInContext(LC);
       LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH];
       LLVMValueRef aux[LP_MAX_VECTOR_LENGTH];
 

@@ -175,9 +175,7 @@ emit_fetch(
          LLVMValueRef scalar;
          LLVMValueRef swizzle;
 
-         index = LLVMConstInt(LLVMInt32Type(),
-                              reg->Register.Index*4 + chan,
-                              0);
+         index = lp_build_const_int32(reg->Register.Index * 4 + chan);
 
          scalar_ptr = LLVMBuildGEP(bld->base.builder, bld->consts_ptr,
                                    &index, 1, "");
@@ -190,7 +188,7 @@ emit_fetch(
           * NOTE: constants array is always assumed to be RGBA
           */
 
-         swizzle = LLVMConstInt(LLVMInt32Type(), chan, 0);
+         swizzle = lp_build_const_int32(chan);
 
          res = LLVMBuildInsertElement(bld->base.builder, res, scalar, swizzle, "");
       }
@@ -206,7 +204,7 @@ emit_fetch(
          unsigned i;
 
          for (chan = 0; chan < 4; ++chan) {
-            shuffles[chan] = LLVMConstInt(LLVMInt32Type(), chan, 0);
+            shuffles[chan] = lp_build_const_int32(chan);
          }
 
          for (i = 4; i < type.length; ++i) {
@@ -465,8 +463,7 @@ emit_declaration(
       case TGSI_FILE_TEMPORARY:
          assert(idx < LP_MAX_TGSI_TEMPS);
          if (bld->indirect_files & (1 << TGSI_FILE_TEMPORARY)) {
-            LLVMValueRef array_size = LLVMConstInt(LLVMInt32Type(),
-                                                   last + 1, 0);
+            LLVMValueRef array_size = lp_build_const_int32(last + 1);
             bld->temps_array = lp_build_array_alloca(bld->base.builder,
                                                      vec_type, array_size, "");
          } else {

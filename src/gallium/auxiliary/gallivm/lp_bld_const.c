@@ -223,9 +223,9 @@ lp_build_zero(struct lp_type type)
 {
    if (type.length == 1) {
       if (type.floating)
-         return LLVMConstReal(LLVMFloatType(), 0.0);
+         return lp_build_const_float(0.0);
       else
-         return LLVMConstInt(LLVMIntType(type.width), 0, 0);
+         return LLVMConstInt(LLVMIntTypeInContext(LC, type.width), 0, 0);
    }
    else {
       LLVMTypeRef vec_type = lp_build_vec_type(type);
@@ -389,7 +389,7 @@ LLVMValueRef
 lp_build_const_mask_aos(struct lp_type type,
                         unsigned mask)
 {
-   LLVMTypeRef elem_type = LLVMIntType(type.width);
+   LLVMTypeRef elem_type = LLVMIntTypeInContext(LC, type.width);
    LLVMValueRef masks[LP_MAX_VECTOR_LENGTH];
    unsigned i, j;
 

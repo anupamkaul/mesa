@@ -37,6 +37,7 @@
 #include "util/u_debug.h"
 #include "util/u_memory.h"
 
+#include "lp_bld_const.h"
 #include "lp_bld_debug.h"
 #include "lp_bld_struct.h"
 
@@ -51,8 +52,8 @@ lp_build_struct_get_ptr(LLVMBuilderRef builder,
    LLVMValueRef member_ptr;
    assert(LLVMGetTypeKind(LLVMTypeOf(ptr)) == LLVMPointerTypeKind);
    assert(LLVMGetTypeKind(LLVMGetElementType(LLVMTypeOf(ptr))) == LLVMStructTypeKind);
-   indices[0] = LLVMConstInt(LLVMInt32Type(), 0, 0);
-   indices[1] = LLVMConstInt(LLVMInt32Type(), member, 0);
+   indices[0] = lp_build_const_int32(0);
+   indices[1] = lp_build_const_int32(member);
    member_ptr = LLVMBuildGEP(builder, ptr, indices, Elements(indices), "");
    lp_build_name(member_ptr, "%s.%s_ptr", LLVMGetValueName(ptr), name);
    return member_ptr;
@@ -85,7 +86,7 @@ lp_build_array_get_ptr(LLVMBuilderRef builder,
    LLVMValueRef element_ptr;
    assert(LLVMGetTypeKind(LLVMTypeOf(ptr)) == LLVMPointerTypeKind);
    assert(LLVMGetTypeKind(LLVMGetElementType(LLVMTypeOf(ptr))) == LLVMArrayTypeKind);
-   indices[0] = LLVMConstInt(LLVMInt32Type(), 0, 0);
+   indices[0] = lp_build_const_int32(0);
    indices[1] = index;
    element_ptr = LLVMBuildGEP(builder, ptr, indices, Elements(indices), "");
 #ifdef DEBUG

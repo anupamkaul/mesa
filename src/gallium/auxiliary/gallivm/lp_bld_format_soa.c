@@ -402,7 +402,7 @@ lp_build_fetch_rgba_soa(LLVMBuilderRef builder,
 
       /* loop over number of pixels */
       for(k = 0; k < type.length; ++k) {
-         LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), k, 0);
+         LLVMValueRef index = lp_build_const_int32(k);
          LLVMValueRef offset_elem;
          LLVMValueRef i_elem, j_elem;
          LLVMValueRef tmp;
@@ -422,7 +422,7 @@ lp_build_fetch_rgba_soa(LLVMBuilderRef builder,
           * position = 'index'.
           */
          for (chan = 0; chan < 4; ++chan) {
-            LLVMValueRef chan_val = LLVMConstInt(LLVMInt32Type(), chan, 0),
+            LLVMValueRef chan_val = lp_build_const_int32(chan),
             tmp_chan = LLVMBuildExtractElement(builder, tmp, chan_val, "");
             rgba_out[chan] = LLVMBuildInsertElement(builder, rgba_out[chan],
                                                     tmp_chan, index, "");

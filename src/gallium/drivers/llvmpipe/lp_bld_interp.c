@@ -130,10 +130,10 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
    LLVMBuilderRef builder = coeff_bld->builder;
    LLVMValueRef zero = LLVMConstNull(coeff_bld->elem_type);
    LLVMValueRef one = LLVMConstReal(coeff_bld->elem_type, 1.0);
-   LLVMValueRef i0 = LLVMConstInt(LLVMInt32Type(), 0, 0);
-   LLVMValueRef i1 = LLVMConstInt(LLVMInt32Type(), 1, 0);
-   LLVMValueRef i2 = LLVMConstInt(LLVMInt32Type(), 2, 0);
-   LLVMValueRef i3 = LLVMConstInt(LLVMInt32Type(), 3, 0);
+   LLVMValueRef i0 = lp_build_const_int32(0);
+   LLVMValueRef i1 = lp_build_const_int32(1);
+   LLVMValueRef i2 = lp_build_const_int32(2);
+   LLVMValueRef i3 = lp_build_const_int32(3);
    unsigned attrib;
    unsigned chan;
 
@@ -144,7 +144,7 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
       const unsigned interp = bld->interp[attrib];
       for (chan = 0; chan < NUM_CHANNELS; ++chan) {
          if (mask & (1 << chan)) {
-            LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), attrib*NUM_CHANNELS + chan, 0);
+            LLVMValueRef index = lp_build_const_int32(attrib * NUM_CHANNELS + chan);
             LLVMValueRef a0 = zero;
             LLVMValueRef dadx = zero;
             LLVMValueRef dady = zero;

@@ -38,18 +38,18 @@ lp_build_elem_type(struct lp_type type)
    if (type.floating) {
       switch(type.width) {
       case 32:
-         return LLVMFloatType();
+         return LLVMFloatTypeInContext(LC);
          break;
       case 64:
-         return LLVMDoubleType();
+         return LLVMDoubleTypeInContext(LC);
          break;
       default:
          assert(0);
-         return LLVMFloatType();
+         return LLVMFloatTypeInContext(LC);
       }
    }
    else {
-      return LLVMIntType(type.width);
+      return LLVMIntTypeInContext(LC, type.width);
    }
 }
 
@@ -151,7 +151,7 @@ lp_check_value(struct lp_type type, LLVMValueRef val)
 LLVMTypeRef
 lp_build_int_elem_type(struct lp_type type)
 {
-   return LLVMIntType(type.width);
+   return LLVMIntTypeInContext(LC, type.width);
 }
 
 

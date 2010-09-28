@@ -979,7 +979,7 @@ lp_build_sample_general(struct lp_build_sample_context *bld,
          lp_build_nearest_mip_level(bld, unit, lod, &ilevel0);
       }
       else {
-         ilevel0 = LLVMConstInt(LLVMInt32Type(), 0, 0);
+         ilevel0 = lp_build_const_int32(0);
       }
    }
    else {

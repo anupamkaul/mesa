@@ -308,7 +308,7 @@ rgb_to_rgba_aos(LLVMBuilderRef builder,
    rgba = LLVMBuildOr(builder, rgba, a, "");
 
    rgba = LLVMBuildBitCast(builder, rgba,
-                           LLVMVectorType(LLVMInt8Type(), 4*n), "");
+                           LLVMVectorType(LLVMInt8TypeInContext(LC), 4*n), "");
 
    return rgba;
 }
@@ -436,7 +436,7 @@ lp_build_fetch_subsampled_rgba_aos(LLVMBuilderRef builder,
       break;
    default:
       assert(0);
-      rgba =  LLVMGetUndef(LLVMVectorType(LLVMInt8Type(), 4*n));
+      rgba =  LLVMGetUndef(LLVMVectorType(LLVMInt8TypeInContext(LC), 4*n));
       break;
    }
 

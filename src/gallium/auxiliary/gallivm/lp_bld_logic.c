@@ -142,7 +142,7 @@ lp_build_compare(LLVMBuilderRef builder,
             args[1] = b;
          }
 
-         args[2] = LLVMConstInt(LLVMInt8Type(), cc, 0);
+         args[2] = LLVMConstInt(LLVMInt8TypeInContext(LC), cc, 0);
          res = lp_build_intrinsic(builder,
                                   "llvm.x86.sse.cmp.ps",
                                   vec_type,
@@ -273,7 +273,7 @@ lp_build_compare(LLVMBuilderRef builder,
          debug_printf("%s: warning: using slow element-wise float"
                       " vector comparison\n", __FUNCTION__);
          for (i = 0; i < type.length; ++i) {
-            LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+            LLVMValueRef index = lp_build_const_int32(i);
             cond = LLVMBuildFCmp(builder, op,
                                  LLVMBuildExtractElement(builder, a, index, ""),
                                  LLVMBuildExtractElement(builder, b, index, ""),
@@ -332,7 +332,7 @@ lp_build_compare(LLVMBuilderRef builder,
          }
 
          for(i = 0; i < type.length; ++i) {
-            LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+            LLVMValueRef index = lp_build_const_int32(i);
             cond = LLVMBuildICmp(builder, op,
                                  LLVMBuildExtractElement(builder, a, index, ""),
                                  LLVMBuildExtractElement(builder, b, index, ""),
@@ -434,7 +434,7 @@ lp_build_select(struct lp_build_context *bld,
       return a;
 
    if (type.length == 1) {
-      mask = LLVMBuildTrunc(bld->builder, mask, LLVMInt1Type(), "");
+      mask = LLVMBuildTrunc(bld->builder, mask, LLVMInt1TypeInContext(LC), "");
       res = LLVMBuildSelect(bld->builder, mask, a, b, "");
    }
    else if (util_cpu_caps.has_sse4_1 &&
@@ -448,13 +448,13 @@ lp_build_select(struct lp_build_context *bld,
 
       if (type.width == 64) {
          intrinsic = "llvm.x86.sse41.blendvpd";
-         arg_type = LLVMVectorType(LLVMDoubleType(), 2);
+         arg_type = LLVMVectorType(LLVMDoubleTypeInContext(LC), 2);
       } else if (type.width == 32) {
          intrinsic = "llvm.x86.sse41.blendvps";
-         arg_type = LLVMVectorType(LLVMFloatType(), 4);
+         arg_type = LLVMVectorType(LLVMFloatTypeInContext(LC), 4);
       } else {
          intrinsic = "llvm.x86.sse41.pblendvb";
-         arg_type = LLVMVectorType(LLVMInt8Type(), 16);
+         arg_type = LLVMVectorType(LLVMInt8TypeInContext(LC), 16);
       }
 
       if (arg_type != bld->int_vec_type) {
@@ -526,7 +526,7 @@ lp_build_select_aos(struct lp_build_context *bld,
       /*
        * Shuffle.
        */
-      LLVMTypeRef elem_type = LLVMInt32Type();
+      LLVMTypeRef elem_type = LLVMInt32TypeInContext(LC);
       LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH];
 
       for(j = 0; j < n; j += 4)

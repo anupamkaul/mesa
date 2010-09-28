@@ -46,6 +46,7 @@
 
 #include "util/u_debug.h"
 
+#include "lp_bld_const.h"
 #include "lp_bld_intr.h"
 
 
@@ -151,7 +152,7 @@ lp_build_intrinsic_map(LLVMBuilderRef builder,
 
    res = LLVMGetUndef(ret_type);
    for(i = 0; i < n; ++i) {
-      LLVMValueRef index = LLVMConstInt(LLVMInt32Type(), i, 0);
+      LLVMValueRef index = lp_build_const_int32(i);
       LLVMValueRef arg_elems[LP_MAX_FUNC_ARGS];
       LLVMValueRef res_elem;
       for(j = 0; j < num_args; ++j)

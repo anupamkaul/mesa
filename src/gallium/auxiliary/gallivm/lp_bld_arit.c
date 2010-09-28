@@ -277,11 +277,11 @@ lp_build_sum_vector(struct lp_build_context *bld,
 
    assert(!bld->type.norm);
 
-   index = LLVMConstInt(LLVMInt32Type(), 0, 0);
+   index = lp_build_const_int32(0);
    res = LLVMBuildExtractElement(bld->builder, a, index, "");
 
    for (i = 1; i < type.length; i++) {
-      index = LLVMConstInt(LLVMInt32Type(), i, 0);
+      index = lp_build_const_int32(i);
       if (type.floating)
          res = LLVMBuildFAdd(bld->builder, res,
                             LLVMBuildExtractElement(bld->builder,
@@ -1010,7 +1010,7 @@ lp_build_round_sse41(struct lp_build_context *bld,
    }
 
    return lp_build_intrinsic_binary(bld->builder, intrinsic, vec_type, a,
-                                    LLVMConstInt(LLVMInt32Type(), mode, 0));
+                                    lp_build_const_int32(mode));
 }
 
 
@@ -1460,7 +1460,7 @@ lp_build_rsqrt(struct lp_build_context *bld,
 static inline LLVMValueRef
 lp_build_const_v4si(unsigned long value)
 {
-   LLVMValueRef element = LLVMConstInt(LLVMInt32Type(), value, 0);
+   LLVMValueRef element = lp_build_const_int32(value);
    LLVMValueRef elements[4] = { element, element, element, element };
    return LLVMConstVector(elements, 4);
 }
@@ -1468,7 +1468,7 @@ lp_build_const_v4si(unsigned long value)
 static inline LLVMValueRef
 lp_build_const_v4sf(float value)
 {
-   LLVMValueRef element = LLVMConstReal(LLVMFloatType(), value);
+   LLVMValueRef element = lp_build_const_float(value);
    LLVMValueRef elements[4] = { element, element, element, element };
    return LLVMConstVector(elements, 4);
 }
@@ -1483,8 +1483,8 @@ lp_build_sin(struct lp_build_context *bld,
 {
    struct lp_type int_type = lp_int_type(bld->type);
    LLVMBuilderRef b = bld->builder;
-   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatType(), 4);
-   LLVMTypeRef v4si = LLVMVectorType(LLVMInt32Type(), 4);
+   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatTypeInContext(LC), 4);
+   LLVMTypeRef v4si = LLVMVectorType(LLVMInt32TypeInContext(LC), 4);
 
    /*
     *  take the absolute value,
@@ -1701,8 +1701,8 @@ lp_build_cos(struct lp_build_context *bld,
 {
    struct lp_type int_type = lp_int_type(bld->type);
    LLVMBuilderRef b = bld->builder;
-   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatType(), 4);
-   LLVMTypeRef v4si = LLVMVectorType(LLVMInt32Type(), 4);
+   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatTypeInContext(LC), 4);
+   LLVMTypeRef v4si = LLVMVectorType(LLVMInt32TypeInContext(LC), 4);
 
    /*
     *  take the absolute value,

@@ -609,7 +609,7 @@ lp_build_sample_image_linear(struct lp_build_sample_context *bld,
       r_fpart = LLVMBuildBitCast(builder, r_fpart, h16_vec_type, "");
 
    {
-      LLVMTypeRef elem_type = LLVMInt32Type();
+      LLVMTypeRef elem_type = LLVMInt32TypeInContext(LC);
       LLVMValueRef shuffles_lo[LP_MAX_VECTOR_LENGTH];
       LLVMValueRef shuffles_hi[LP_MAX_VECTOR_LENGTH];
       LLVMValueRef shuffle_lo;
@@ -970,7 +970,7 @@ lp_build_sample_aos(struct lp_build_sample_context *bld,
          lp_build_nearest_mip_level(bld, unit, lod, &ilevel0);
       }
       else {
-         ilevel0 = LLVMConstInt(LLVMInt32Type(), 0, 0);
+         ilevel0 = lp_build_const_int32(0);
       }
       break;
    case PIPE_TEX_MIPFILTER_NEAREST:
@@ -979,9 +979,9 @@ lp_build_sample_aos(struct lp_build_sample_context *bld,
       break;
    case PIPE_TEX_MIPFILTER_LINEAR:
       {
-         LLVMValueRef f256 = LLVMConstReal(LLVMFloatType(), 256.0);
+         LLVMValueRef f256 = lp_build_const_float(256.0);
          LLVMValueRef i255 = lp_build_const_int32(255);
-         LLVMTypeRef i16_type = LLVMIntType(16);
+         LLVMTypeRef i16_type = LLVMInt16TypeInContext(LC);
 
          assert(lod);
 

@@ -110,9 +110,15 @@ lp_build_const_mask_aos(struct lp_type type,
 static INLINE LLVMValueRef
 lp_build_const_int32(int i)
 {
-   return LLVMConstInt(LLVMInt32Type(), i, 0);
+   return LLVMConstInt(LLVMInt32TypeInContext(LC), i, 0);
 }
 
+
+static INLINE LLVMValueRef
+lp_build_const_float(float x)
+{
+   return LLVMConstReal(LLVMFloatTypeInContext(LC), x);
+}
 
 
 #endif /* !LP_BLD_CONST_H */

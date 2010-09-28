@@ -68,8 +68,8 @@ lp_build_assert(LLVMBuilderRef builder, LLVMValueRef condition,
 
    msg_string = lp_build_const_string_variable(module, msg, strlen(msg) + 1);
 
-   arg_types[0] = LLVMInt32Type();
-   arg_types[1] = LLVMPointerType(LLVMInt8Type(), 0);
+   arg_types[0] = LLVMInt32TypeInContext(LC);
+   arg_types[1] = LLVMPointerType(LLVMInt8TypeInContext(LC), 0);
 
    /* lookup the lp_assert function */
    assert_func = LLVMGetNamedFunction(module, "lp_assert");
@@ -77,7 +77,7 @@ lp_build_assert(LLVMBuilderRef builder, LLVMValueRef condition,
    /* Create the assertion function if not found */
    if (!assert_func) {
       LLVMTypeRef func_type =
-         LLVMFunctionType(LLVMVoidType(), arg_types, 2, 0);
+         LLVMFunctionType(LLVMVoidTypeInContext(LC), arg_types, 2, 0);
 
       assert_func = LLVMAddFunction(module, "lp_assert", func_type);
       LLVMSetFunctionCallConv(assert_func, LLVMCCallConv);

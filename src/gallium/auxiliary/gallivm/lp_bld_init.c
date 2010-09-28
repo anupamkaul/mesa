@@ -51,6 +51,7 @@ DEBUG_GET_ONCE_FLAGS_OPTION(gallivm_debug, "GALLIVM_DEBUG", lp_bld_debug_flags, 
 #endif
 
 
+LLVMContextRef LC = NULL;
 LLVMModuleRef lp_build_module = NULL;
 LLVMExecutionEngineRef lp_build_engine = NULL;
 LLVMModuleProviderRef lp_build_provider = NULL;
@@ -101,8 +102,11 @@ lp_build_init(void)
 
    LLVMLinkInJIT();
 
+   if (!LC)
+      LC = LLVMContextCreate();
+
    if (!lp_build_module)
-      lp_build_module = LLVMModuleCreateWithName("gallivm");
+      lp_build_module = LLVMModuleCreateWithNameInContext("gallivm", LC);
 
    if (!lp_build_provider)
       lp_build_provider = LLVMCreateModuleProviderForExistingModule(lp_build_module);

@@ -63,12 +63,12 @@ typedef __m128 (*test_sincos_t)(__m128);
 static LLVMValueRef
 add_sincos_test(LLVMModuleRef module, boolean sin)
 {
-   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatType(), 4);
+   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatTypeInContext(LC), 4);
    LLVMTypeRef args[1] = { v4sf };
    LLVMValueRef func = LLVMAddFunction(module, "sincos", LLVMFunctionType(v4sf, args, 1, 0));
    LLVMValueRef arg1 = LLVMGetParam(func, 0);
-   LLVMBuilderRef builder = LLVMCreateBuilder();
-   LLVMBasicBlockRef block = LLVMAppendBasicBlock(func, "entry");
+   LLVMBuilderRef builder = LLVMCreateBuilderInContext(LC);
+   LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(LC, func, "entry");
    LLVMValueRef ret;
    struct lp_build_context bld;
 

@@ -66,12 +66,12 @@ typedef LLVMValueRef (*lp_func_t)(struct lp_build_context *, LLVMValueRef);
 static LLVMValueRef
 add_test(LLVMModuleRef module, const char *name, lp_func_t lp_func)
 {
-   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatType(), 4);
+   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatTypeInContext(LC), 4);
    LLVMTypeRef args[1] = { v4sf };
    LLVMValueRef func = LLVMAddFunction(module, name, LLVMFunctionType(v4sf, args, 1, 0));
    LLVMValueRef arg1 = LLVMGetParam(func, 0);
-   LLVMBuilderRef builder = LLVMCreateBuilder();
-   LLVMBasicBlockRef block = LLVMAppendBasicBlock(func, "entry");
+   LLVMBuilderRef builder = LLVMCreateBuilderInContext(LC);
+   LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(LC, func, "entry");
    LLVMValueRef ret;
    struct lp_build_context bld;
 

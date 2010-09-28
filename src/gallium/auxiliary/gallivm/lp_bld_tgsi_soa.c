@@ -294,8 +294,8 @@ static void lp_exec_continue(struct lp_exec_mask *mask)
 static void lp_exec_endloop(struct lp_exec_mask *mask)
 {
    LLVMBasicBlockRef endloop;
-   LLVMTypeRef reg_type = LLVMIntType(mask->bld->type.width*
-                                      mask->bld->type.length);
+   LLVMTypeRef reg_type = LLVMIntTypeInContext(LC, mask->bld->type.width *
+                                               mask->bld->type.length);
    LLVMValueRef i1cond;
 
    assert(mask->break_mask);
@@ -453,7 +453,7 @@ build_gather(struct lp_build_tgsi_soa_context *bld,
     * Loop over elements of index_vec, load scalar value, insert it into 'res'.
     */
    for (i = 0; i < bld->base.type.length; i++) {
-      LLVMValueRef ii = LLVMConstInt(LLVMInt32Type(), i, 0);
+      LLVMValueRef ii = lp_build_const_int32(i);
       LLVMValueRef index = LLVMBuildExtractElement(bld->base.builder,
                                                    indexes, ii, "");
       LLVMValueRef scalar_ptr = LLVMBuildGEP(bld->base.builder, base_ptr,
@@ -597,7 +597,7 @@ emit_fetch(
          index_vec = lp_build_mul(uint_bld, index_vec, length_vec);
 
          /* cast temps_array pointer to float* */
-         float4_ptr_type = LLVMPointerType(LLVMFloatType(), 0);
+         float4_ptr_type = LLVMPointerType(LLVMFloatTypeInContext(LC), 0);
          temps_array = LLVMBuildBitCast(uint_bld->builder, bld->temps_array,
                                         float4_ptr_type, "");
 
@@ -1006,8 +1006,7 @@ emit_declaration(
       case TGSI_FILE_TEMPORARY:
          assert(idx < LP_MAX_TGSI_TEMPS);
          if (bld->indirect_files & (1 << TGSI_FILE_TEMPORARY)) {
-            LLVMValueRef array_size = LLVMConstInt(LLVMInt32Type(),
-                                                   last*4 + 4, 0);
+            LLVMValueRef array_size = lp_build_const_int32(last * 4 + 4);
             bld->temps_array = lp_build_array_alloca(bld->base.builder,
                                                      vec_type, array_size, "");
          } else {
