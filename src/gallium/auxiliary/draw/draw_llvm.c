@@ -48,13 +48,13 @@
 #include "util/u_pointer.h"
 #include "util/u_string.h"
 
-#include <llvm-c/Transforms/Scalar.h>
 
 #define DEBUG_STORE 0
 
-/* generates the draw jit function */
+
 static void
 draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *var);
+
 static void
 draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *var);
 
@@ -258,6 +258,9 @@ create_global_types(struct draw_llvm *llvm)
 }
 
 
+/**
+ * Create per-context LLVM info.
+ */
 struct draw_llvm *
 draw_llvm_create(struct draw_context *draw)
 {
@@ -288,12 +291,20 @@ draw_llvm_create(struct draw_context *draw)
    return llvm;
 }
 
+
+/**
+ * Free per-context LLVM info.
+ */
 void
 draw_llvm_destroy(struct draw_llvm *llvm)
 {
    FREE(llvm);
 }
 
+
+/**
+ * Create LLVM-generated code for a vertex shader.
+ */
 struct draw_llvm_variant *
 draw_llvm_create_variant(struct draw_llvm *llvm,
 			 unsigned num_inputs,
