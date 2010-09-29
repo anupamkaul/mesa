@@ -180,31 +180,7 @@ lp_jit_screen_init(struct llvmpipe_screen *screen)
    screen->provider = lp_build_provider;
    screen->engine = lp_build_engine;
    screen->target = lp_build_target;
-
-   screen->pass = LLVMCreateFunctionPassManager(screen->provider);
-   LLVMAddTargetData(screen->target, screen->pass);
-
-   if ((gallivm_debug & GALLIVM_DEBUG_NO_OPT) == 0) {
-      /* These are the passes currently listed in llvm-c/Transforms/Scalar.h,
-       * but there are more on SVN. */
-      /* TODO: Add more passes */
-      LLVMAddCFGSimplificationPass(screen->pass);
-      LLVMAddPromoteMemoryToRegisterPass(screen->pass);
-      LLVMAddConstantPropagationPass(screen->pass);
-      if(util_cpu_caps.has_sse4_1) {
-         /* FIXME: There is a bug in this pass, whereby the combination of fptosi
-          * and sitofp (necessary for trunc/floor/ceil/round implementation)
-          * somehow becomes invalid code.
-          */
-         LLVMAddInstructionCombiningPass(screen->pass);
-      }
-      LLVMAddGVNPass(screen->pass);
-   } else {
-      /* We need at least this pass to prevent the backends to fail in
-       * unexpected ways.
-       */
-      LLVMAddPromoteMemoryToRegisterPass(screen->pass);
-   }
+   screen->pass = lp_build_pass;
 
    lp_jit_init_globals(screen);
 }
