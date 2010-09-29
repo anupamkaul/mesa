@@ -142,9 +142,10 @@ lp_build_init(void)
       LLVMAddTargetData(lp_build_target, lp_build_pass);
 
       if ((gallivm_debug & GALLIVM_DEBUG_NO_OPT) == 0) {
-         /* These are the passes currently listed in llvm-c/Transforms/Scalar.h,
-          * but there are more on SVN. */
-         /* TODO: Add more passes */
+         /* These are the passes currently listed in
+          * llvm-c/Transforms/Scalar.h, but there are more on SVN.
+          * TODO: Add more passes
+          */
          LLVMAddCFGSimplificationPass(lp_build_pass);
 
          if (HAVE_LLVM >= 0x207 && sizeof(void*) == 4) {
@@ -160,15 +161,16 @@ lp_build_init(void)
             LLVMAddConstantPropagationPass(lp_build_pass);
          }
 
-         if(util_cpu_caps.has_sse4_1) {
-            /* FIXME: There is a bug in this pass, whereby the combination of fptosi
-             * and sitofp (necessary for trunc/floor/ceil/round implementation)
-             * somehow becomes invalid code.
+         if (util_cpu_caps.has_sse4_1) {
+            /* FIXME: There is a bug in this pass, whereby the combination
+             * of fptosi and sitofp (necessary for trunc/floor/ceil/round
+             * implementation) somehow becomes invalid code.
              */
             LLVMAddInstructionCombiningPass(lp_build_pass);
          }
          LLVMAddGVNPass(lp_build_pass);
-      } else {
+      }
+      else {
          /* We need at least this pass to prevent the backends to fail in
           * unexpected ways.
           */
