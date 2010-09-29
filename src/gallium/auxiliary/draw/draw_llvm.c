@@ -240,13 +240,9 @@ draw_llvm_create(struct draw_context *draw)
 
    debug_assert(llvm->engine);
 
-   llvm->module = LLVMModuleCreateWithName("draw_llvm");
-   llvm->provider = LLVMCreateModuleProviderForExistingModule(llvm->module);
-
-   LLVMAddModuleProvider(llvm->engine, llvm->provider);
-
-   llvm->target = LLVMGetExecutionEngineTargetData(llvm->engine);
-
+   llvm->module = lp_build_module;
+   llvm->provider = lp_build_provider;
+   llvm->target = lp_build_target;
    llvm->pass = lp_build_pass;
 
    init_globals(llvm);
@@ -264,8 +260,6 @@ draw_llvm_create(struct draw_context *draw)
 void
 draw_llvm_destroy(struct draw_llvm *llvm)
 {
-   LLVMDisposePassManager(llvm->pass);
-
    FREE(llvm);
 }
 
