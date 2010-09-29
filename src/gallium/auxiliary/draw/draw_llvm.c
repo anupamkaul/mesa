@@ -269,8 +269,6 @@ draw_llvm_create(struct draw_context *draw)
 
    lp_build_init();
 
-   draw->engine = lp_build_engine;
-
    llvm->draw = draw;
    llvm->engine = lp_build_engine;
    llvm->module = lp_build_module;
@@ -835,7 +833,7 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
       debug_printf("\n");
    }
 
-   code = LLVMGetPointerToGlobal(llvm->draw->engine, variant->function);
+   code = LLVMGetPointerToGlobal(llvm->engine, variant->function);
    variant->jit_func = (draw_jit_vert_func)pointer_to_func(code);
 
    if (gallivm_debug & GALLIVM_DEBUG_ASM) {
@@ -1008,7 +1006,7 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
       debug_printf("\n");
    }
 
-   code = LLVMGetPointerToGlobal(llvm->draw->engine, variant->function_elts);
+   code = LLVMGetPointerToGlobal(llvm->engine, variant->function_elts);
    variant->jit_func_elts = (draw_jit_vert_func_elts)pointer_to_func(code);
 
    if (gallivm_debug & GALLIVM_DEBUG_ASM) {
@@ -1088,18 +1086,17 @@ void
 draw_llvm_destroy_variant(struct draw_llvm_variant *variant)
 {
    struct draw_llvm *llvm = variant->llvm;
-   struct draw_context *draw = llvm->draw;
 
    if (variant->function_elts) {
       if (variant->function_elts)
-         LLVMFreeMachineCodeForFunction(draw->engine,
+         LLVMFreeMachineCodeForFunction(llvm->engine,
                                         variant->function_elts);
       LLVMDeleteFunction(variant->function_elts);
    }
 
    if (variant->function) {
       if (variant->function)
-         LLVMFreeMachineCodeForFunction(draw->engine,
+         LLVMFreeMachineCodeForFunction(llvm->engine,
                                         variant->function);
       LLVMDeleteFunction(variant->function);
    }
