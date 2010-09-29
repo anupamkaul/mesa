@@ -247,43 +247,7 @@ draw_llvm_create(struct draw_context *draw)
 
    llvm->target = LLVMGetExecutionEngineTargetData(llvm->engine);
 
-   llvm->pass = LLVMCreateFunctionPassManager(llvm->provider);
-   LLVMAddTargetData(llvm->target, llvm->pass);
-
-   if ((gallivm_debug & GALLIVM_DEBUG_NO_OPT) == 0) {
-      /* These are the passes currently listed in llvm-c/Transforms/Scalar.h,
-       * but there are more on SVN. */
-      /* TODO: Add more passes */
-
-      LLVMAddCFGSimplificationPass(llvm->pass);
-
-      if (HAVE_LLVM >= 0x207 && sizeof(void*) == 4) {
-         /* For LLVM >= 2.7 and 32-bit build, use this order of passes to
-          * avoid generating bad code.
-          * Test with piglit glsl-vs-sqrt-zero test.
-          */
-         LLVMAddConstantPropagationPass(llvm->pass);
-         LLVMAddPromoteMemoryToRegisterPass(llvm->pass);
-      }
-      else {
-         LLVMAddPromoteMemoryToRegisterPass(llvm->pass);
-         LLVMAddConstantPropagationPass(llvm->pass);
-      }
-
-      if(util_cpu_caps.has_sse4_1) {
-         /* FIXME: There is a bug in this pass, whereby the combination of fptosi
-          * and sitofp (necessary for trunc/floor/ceil/round implementation)
-          * somehow becomes invalid code.
-          */
-         LLVMAddInstructionCombiningPass(llvm->pass);
-      }
-      LLVMAddGVNPass(llvm->pass);
-   } else {
-      /* We need at least this pass to prevent the backends to fail in
-       * unexpected ways.
-       */
-      LLVMAddPromoteMemoryToRegisterPass(llvm->pass);
-   }
+   llvm->pass = lp_build_pass;
 
    init_globals(llvm);
 

@@ -146,8 +146,20 @@ lp_build_init(void)
           * but there are more on SVN. */
          /* TODO: Add more passes */
          LLVMAddCFGSimplificationPass(lp_build_pass);
-         LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
-         LLVMAddConstantPropagationPass(lp_build_pass);
+
+         if (HAVE_LLVM >= 0x207 && sizeof(void*) == 4) {
+            /* For LLVM >= 2.7 and 32-bit build, use this order of passes to
+             * avoid generating bad code.
+             * Test with piglit glsl-vs-sqrt-zero test.
+             */
+            LLVMAddConstantPropagationPass(lp_build_pass);
+            LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
+         }
+         else {
+            LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
+            LLVMAddConstantPropagationPass(lp_build_pass);
+         }
+
          if(util_cpu_caps.has_sse4_1) {
             /* FIXME: There is a bug in this pass, whereby the combination of fptosi
              * and sitofp (necessary for trunc/floor/ceil/round implementation)
