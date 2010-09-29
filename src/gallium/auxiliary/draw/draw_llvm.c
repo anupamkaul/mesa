@@ -267,11 +267,12 @@ draw_llvm_create(struct draw_context *draw)
    if (!llvm)
       return NULL;
 
+   lp_build_init();
+
+   draw->engine = lp_build_engine;
+
    llvm->draw = draw;
-   llvm->engine = draw->engine;
-
-   debug_assert(llvm->engine);
-
+   llvm->engine = lp_build_engine;
    llvm->module = lp_build_module;
    llvm->provider = lp_build_provider;
    llvm->target = lp_build_target;

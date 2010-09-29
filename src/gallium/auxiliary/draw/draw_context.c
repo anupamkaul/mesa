@@ -70,13 +70,8 @@ struct draw_context *draw_create( struct pipe_context *pipe )
       goto fail;
 
 #if HAVE_LLVM
-   if(draw_get_option_use_llvm())
-   {
-      lp_build_init();
-      assert(lp_build_engine);
-      draw->engine = lp_build_engine;
+   if (draw_get_option_use_llvm())
       draw->llvm = draw_llvm_create(draw);
-   }
 #endif
 
    if (!draw_init(draw))
