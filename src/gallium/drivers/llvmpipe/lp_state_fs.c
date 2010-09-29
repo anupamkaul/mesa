@@ -553,7 +553,7 @@ generate_fragment(struct llvmpipe_context *lp,
 
    func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC), arg_types, Elements(arg_types), 0);
 
-   function = LLVMAddFunction(screen->module, func_name, func_type);
+   function = LLVMAddFunction(lp_build_module, func_name, func_type);
    LLVMSetFunctionCallConv(function, LLVMCCallConv);
 
    variant->function[partial_mask] = function;
@@ -715,7 +715,7 @@ generate_fragment(struct llvmpipe_context *lp,
 #endif
 
    /* Apply optimizations to LLVM IR */
-   LLVMRunFunctionPassManager(screen->pass, function);
+   LLVMRunFunctionPassManager(lp_build_pass, function);
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
       /* Print the LLVM IR to stderr */
@@ -727,7 +727,7 @@ generate_fragment(struct llvmpipe_context *lp,
     * Translate the LLVM IR into machine code.
     */
    {
-      void *f = LLVMGetPointerToGlobal(screen->engine, function);
+      void *f = LLVMGetPointerToGlobal(lp_build_engine, function);
 
       variant->jit_function[partial_mask] = (lp_jit_frag_func)pointer_to_func(f);
 
@@ -958,7 +958,6 @@ static void
 remove_shader_variant(struct llvmpipe_context *lp,
                       struct lp_fragment_shader_variant *variant)
 {
-   struct llvmpipe_screen *screen = llvmpipe_screen(lp->pipe.screen);
    unsigned i;
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
@@ -969,7 +968,7 @@ remove_shader_variant(struct llvmpipe_context *lp,
    for (i = 0; i < Elements(variant->function); i++) {
       if (variant->function[i]) {
          if (variant->jit_function[i])
-            LLVMFreeMachineCodeForFunction(screen->engine,
+            LLVMFreeMachineCodeForFunction(lp_build_engine,
                                            variant->function[i]);
          LLVMDeleteFunction(variant->function[i]);
       }

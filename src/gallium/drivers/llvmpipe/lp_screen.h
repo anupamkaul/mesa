@@ -51,12 +51,6 @@ struct llvmpipe_screen
 
    struct sw_winsys *winsys;
 
-   LLVMModuleRef module;
-   LLVMExecutionEngineRef engine;
-   LLVMModuleProviderRef provider;
-   LLVMTargetDataRef target;
-   LLVMPassManagerRef pass;
-
    LLVMTypeRef context_ptr_type;
 
    unsigned num_threads;
