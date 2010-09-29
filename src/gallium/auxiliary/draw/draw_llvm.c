@@ -58,135 +58,141 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *var);
 static void
 draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *var);
 
-static void
-init_globals(struct draw_llvm *llvm)
+
+/**
+ * Create LLVM type for struct draw_jit_texture
+ */
+static LLVMTypeRef
+create_jit_texture_type(LLVMTargetDataRef target)
 {
    LLVMTypeRef texture_type;
+   LLVMTypeRef elem_types[DRAW_JIT_TEXTURE_NUM_FIELDS];
 
-   /* struct draw_jit_texture */
-   {
-      LLVMTypeRef elem_types[DRAW_JIT_TEXTURE_NUM_FIELDS];
+   elem_types[DRAW_JIT_TEXTURE_WIDTH]  =
+   elem_types[DRAW_JIT_TEXTURE_HEIGHT] =
+   elem_types[DRAW_JIT_TEXTURE_DEPTH] =
+   elem_types[DRAW_JIT_TEXTURE_LAST_LEVEL] = LLVMInt32TypeInContext(LC);
+   elem_types[DRAW_JIT_TEXTURE_ROW_STRIDE] =
+   elem_types[DRAW_JIT_TEXTURE_IMG_STRIDE] =
+      LLVMArrayType(LLVMInt32TypeInContext(LC), DRAW_MAX_TEXTURE_LEVELS);
+   elem_types[DRAW_JIT_TEXTURE_DATA] =
+      LLVMArrayType(LLVMPointerType(LLVMInt8TypeInContext(LC), 0),
+                    DRAW_MAX_TEXTURE_LEVELS);
+   elem_types[DRAW_JIT_TEXTURE_MIN_LOD] =
+   elem_types[DRAW_JIT_TEXTURE_MAX_LOD] =
+   elem_types[DRAW_JIT_TEXTURE_LOD_BIAS] = LLVMFloatTypeInContext(LC);
+   elem_types[DRAW_JIT_TEXTURE_BORDER_COLOR] = 
+      LLVMArrayType(LLVMFloatTypeInContext(LC), 4);
 
-      elem_types[DRAW_JIT_TEXTURE_WIDTH]  =
-      elem_types[DRAW_JIT_TEXTURE_HEIGHT] =
-      elem_types[DRAW_JIT_TEXTURE_DEPTH] =
-      elem_types[DRAW_JIT_TEXTURE_LAST_LEVEL] = LLVMInt32TypeInContext(LC);
-      elem_types[DRAW_JIT_TEXTURE_ROW_STRIDE] =
-      elem_types[DRAW_JIT_TEXTURE_IMG_STRIDE] =
-         LLVMArrayType(LLVMInt32TypeInContext(LC), DRAW_MAX_TEXTURE_LEVELS);
-      elem_types[DRAW_JIT_TEXTURE_DATA] =
-         LLVMArrayType(LLVMPointerType(LLVMInt8TypeInContext(LC), 0),
-                       DRAW_MAX_TEXTURE_LEVELS);
-      elem_types[DRAW_JIT_TEXTURE_MIN_LOD] =
-      elem_types[DRAW_JIT_TEXTURE_MAX_LOD] =
-      elem_types[DRAW_JIT_TEXTURE_LOD_BIAS] = LLVMFloatTypeInContext(LC);
-      elem_types[DRAW_JIT_TEXTURE_BORDER_COLOR] = 
-         LLVMArrayType(LLVMFloatTypeInContext(LC), 4);
+   texture_type = LLVMStructTypeInContext(LC, elem_types,
+                                          Elements(elem_types), 0);
 
-      texture_type = LLVMStructTypeInContext(LC, elem_types,
-                                             Elements(elem_types), 0);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, width,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_WIDTH);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, height,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_HEIGHT);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, depth,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_DEPTH);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, last_level,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_LAST_LEVEL);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, row_stride,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_ROW_STRIDE);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, img_stride,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_IMG_STRIDE);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, data,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_DATA);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, min_lod,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_MIN_LOD);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, max_lod,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_MAX_LOD);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, lod_bias,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_LOD_BIAS);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, border_color,
+                          target, texture_type,
+                          DRAW_JIT_TEXTURE_BORDER_COLOR);
 
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, width,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_WIDTH);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, height,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_HEIGHT);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, depth,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_DEPTH);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, last_level,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_LAST_LEVEL);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, row_stride,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_ROW_STRIDE);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, img_stride,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_IMG_STRIDE);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, data,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_DATA);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, min_lod,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_MIN_LOD);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, max_lod,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_MAX_LOD);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, lod_bias,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_LOD_BIAS);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, border_color,
-                             llvm->target, texture_type,
-                             DRAW_JIT_TEXTURE_BORDER_COLOR);
-      LP_CHECK_STRUCT_SIZE(struct draw_jit_texture,
-                           llvm->target, texture_type);
+   LP_CHECK_STRUCT_SIZE(struct draw_jit_texture, target, texture_type);
 
-      LLVMAddTypeName(llvm->module, "texture", texture_type);
-   }
-
-
-   /* struct draw_jit_context */
-   {
-      LLVMTypeRef elem_types[3];
-      LLVMTypeRef context_type;
-
-      elem_types[0] = /* vs_constants */
-      elem_types[1] = LLVMPointerType(LLVMFloatTypeInContext(LC), 0); /* vs_constants */
-      elem_types[2] = LLVMArrayType(texture_type,
-                                    PIPE_MAX_VERTEX_SAMPLERS); /* textures */
-
-      context_type = LLVMStructTypeInContext(LC, elem_types,
-                                             Elements(elem_types), 0);
-
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, vs_constants,
-                             llvm->target, context_type, 0);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, gs_constants,
-                             llvm->target, context_type, 1);
-      LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, textures,
-                             llvm->target, context_type,
-                             DRAW_JIT_CTX_TEXTURES);
-      LP_CHECK_STRUCT_SIZE(struct draw_jit_context,
-                           llvm->target, context_type);
-
-      LLVMAddTypeName(llvm->module, "draw_jit_context", context_type);
-
-      llvm->context_ptr_type = LLVMPointerType(context_type, 0);
-   }
-   {
-      LLVMTypeRef buffer_ptr = LLVMPointerType(LLVMIntTypeInContext(LC, 8), 0);
-      llvm->buffer_ptr_type = LLVMPointerType(buffer_ptr, 0);
-   }
-   /* struct pipe_vertex_buffer */
-   {
-      LLVMTypeRef elem_types[4];
-      LLVMTypeRef vb_type;
-
-      elem_types[0] =
-      elem_types[1] =
-      elem_types[2] = LLVMInt32TypeInContext(LC);
-      elem_types[3] = LLVMPointerType(LLVMOpaqueTypeInContext(LC), 0); /* vs_constants */
-
-      vb_type = LLVMStructTypeInContext(LC, elem_types,
-                                        Elements(elem_types), 0);
-
-      LP_CHECK_MEMBER_OFFSET(struct pipe_vertex_buffer, stride,
-                             llvm->target, vb_type, 0);
-      LP_CHECK_MEMBER_OFFSET(struct pipe_vertex_buffer, buffer_offset,
-                             llvm->target, vb_type, 2);
-      LP_CHECK_STRUCT_SIZE(struct pipe_vertex_buffer,
-                           llvm->target, vb_type);
-
-      LLVMAddTypeName(llvm->module, "pipe_vertex_buffer", vb_type);
-
-      llvm->vb_ptr_type = LLVMPointerType(vb_type, 0);
-   }
+   return texture_type;
 }
 
+
+/**
+ * Create LLVM type for struct draw_jit_texture
+ */
 static LLVMTypeRef
-create_vertex_header(struct draw_llvm *llvm, int data_elems)
+create_jit_context_type(LLVMTargetDataRef target, LLVMTypeRef texture_type)
 {
-   /* struct vertex_header */
+   LLVMTypeRef elem_types[3];
+   LLVMTypeRef context_type;
+
+   elem_types[0] = /* vs_constants */
+   elem_types[1] = LLVMPointerType(LLVMFloatTypeInContext(LC), 0); /* vs_constants */
+   elem_types[2] = LLVMArrayType(texture_type,
+                                 PIPE_MAX_VERTEX_SAMPLERS); /* textures */
+
+   context_type = LLVMStructTypeInContext(LC, elem_types,
+                                          Elements(elem_types), 0);
+
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, vs_constants,
+                          target, context_type, 0);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, gs_constants,
+                          target, context_type, 1);
+   LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, textures,
+                          target, context_type,
+                          DRAW_JIT_CTX_TEXTURES);
+
+   LP_CHECK_STRUCT_SIZE(struct draw_jit_context, target, context_type);
+
+   return context_type;
+}
+
+
+/**
+ * Create LLVM type for struct pipe_vertex_buffer
+ */
+static LLVMTypeRef
+create_jit_vertex_buffer_type(LLVMTargetDataRef target)
+{
+   LLVMTypeRef elem_types[4];
+   LLVMTypeRef vb_type;
+
+   elem_types[0] =
+   elem_types[1] =
+   elem_types[2] = LLVMInt32TypeInContext(LC);
+   elem_types[3] = LLVMPointerType(LLVMOpaqueTypeInContext(LC), 0); /* vs_constants */
+
+   vb_type = LLVMStructTypeInContext(LC, elem_types,
+                                     Elements(elem_types), 0);
+
+   LP_CHECK_MEMBER_OFFSET(struct pipe_vertex_buffer, stride,
+                          target, vb_type, 0);
+   LP_CHECK_MEMBER_OFFSET(struct pipe_vertex_buffer, buffer_offset,
+                          target, vb_type, 2);
+
+   LP_CHECK_STRUCT_SIZE(struct pipe_vertex_buffer, target, vb_type);
+
+   return vb_type;
+}
+
+
+/**
+ * Create LLVM type for struct vertex_header;
+ */
+static LLVMTypeRef
+create_jit_vertex_header(LLVMTargetDataRef target,
+                         LLVMModuleRef module, int data_elems)
+{
    LLVMTypeRef elem_types[3];
    LLVMTypeRef vertex_header;
    char struct_name[24];
@@ -202,29 +208,55 @@ create_vertex_header(struct draw_llvm *llvm, int data_elems)
 
    /* these are bit-fields and we can't take address of them
       LP_CHECK_MEMBER_OFFSET(struct vertex_header, clipmask,
-      llvm->target, vertex_header,
+      target, vertex_header,
       DRAW_JIT_VERTEX_CLIPMASK);
       LP_CHECK_MEMBER_OFFSET(struct vertex_header, edgeflag,
-      llvm->target, vertex_header,
+      target, vertex_header,
       DRAW_JIT_VERTEX_EDGEFLAG);
       LP_CHECK_MEMBER_OFFSET(struct vertex_header, pad,
-      llvm->target, vertex_header,
+      target, vertex_header,
       DRAW_JIT_VERTEX_PAD);
       LP_CHECK_MEMBER_OFFSET(struct vertex_header, vertex_id,
-      llvm->target, vertex_header,
+      target, vertex_header,
       DRAW_JIT_VERTEX_VERTEX_ID);
    */
    LP_CHECK_MEMBER_OFFSET(struct vertex_header, clip,
-                          llvm->target, vertex_header,
+                          target, vertex_header,
                           DRAW_JIT_VERTEX_CLIP);
    LP_CHECK_MEMBER_OFFSET(struct vertex_header, data,
-                          llvm->target, vertex_header,
+                          target, vertex_header,
                           DRAW_JIT_VERTEX_DATA);
 
-   LLVMAddTypeName(llvm->module, struct_name, vertex_header);
+   LLVMAddTypeName(module, struct_name, vertex_header);
 
-   return LLVMPointerType(vertex_header, 0);
+   return vertex_header;
 }
+
+
+/**
+ * Create LLVM types for various structures.
+ */
+static void
+create_global_types(struct draw_llvm *llvm)
+{
+   LLVMTypeRef texture_type, context_type, buffer_type, vb_type;
+
+   texture_type = create_jit_texture_type(llvm->target);
+   LLVMAddTypeName(llvm->module, "texture", texture_type);
+
+   context_type = create_jit_context_type(llvm->target, texture_type);
+   LLVMAddTypeName(llvm->module, "draw_jit_context", context_type);
+   llvm->context_ptr_type = LLVMPointerType(context_type, 0);
+
+   buffer_type = LLVMPointerType(LLVMIntTypeInContext(LC, 8), 0);
+   LLVMAddTypeName(llvm->module, "buffer", buffer_type);
+   llvm->buffer_ptr_type = LLVMPointerType(buffer_type, 0);
+
+   vb_type = create_jit_vertex_buffer_type(llvm->target);
+   LLVMAddTypeName(llvm->module, "pipe_vertex_buffer", vb_type);
+   llvm->vb_ptr_type = LLVMPointerType(vb_type, 0);
+}
+
 
 struct draw_llvm *
 draw_llvm_create(struct draw_context *draw)
@@ -245,7 +277,7 @@ draw_llvm_create(struct draw_context *draw)
    llvm->target = lp_build_target;
    llvm->pass = lp_build_pass;
 
-   init_globals(llvm);
+   create_global_types(llvm);
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
       LLVMDumpModule(llvm->module);
@@ -271,6 +303,7 @@ draw_llvm_create_variant(struct draw_llvm *llvm,
    struct draw_llvm_variant *variant;
    struct llvm_vertex_shader *shader =
       llvm_vertex_shader(llvm->draw->vs.vertex_shader);
+   LLVMTypeRef vertex_header;
 
    variant = MALLOC(sizeof *variant +
 		    shader->variant_key_size -
@@ -282,7 +315,9 @@ draw_llvm_create_variant(struct draw_llvm *llvm,
 
    memcpy(&variant->key, key, shader->variant_key_size);
 
-   llvm->vertex_header_ptr_type = create_vertex_header(llvm, num_inputs);
+   vertex_header = create_jit_vertex_header(llvm->target, llvm->module,
+                                            num_inputs);
+   llvm->vertex_header_ptr_type = LLVMPointerType(vertex_header, 0);
 
    draw_llvm_generate(llvm, variant);
    draw_llvm_generate_elts(llvm, variant);
