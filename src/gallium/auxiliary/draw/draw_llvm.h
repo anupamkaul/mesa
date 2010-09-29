@@ -237,12 +237,6 @@ struct draw_llvm {
    struct draw_llvm_variant_list_item vs_variants_list;
    int nr_variants;
 
-   LLVMModuleRef module;
-   LLVMExecutionEngineRef engine;
-   LLVMModuleProviderRef provider;
-   LLVMTargetDataRef target;
-   LLVMPassManagerRef pass;
-
    LLVMTypeRef context_ptr_type;
    LLVMTypeRef vertex_header_ptr_type;
    LLVMTypeRef buffer_ptr_type;

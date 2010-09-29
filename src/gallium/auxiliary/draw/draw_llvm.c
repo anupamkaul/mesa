@@ -241,19 +241,19 @@ create_global_types(struct draw_llvm *llvm)
 {
    LLVMTypeRef texture_type, context_type, buffer_type, vb_type;
 
-   texture_type = create_jit_texture_type(llvm->target);
-   LLVMAddTypeName(llvm->module, "texture", texture_type);
+   texture_type = create_jit_texture_type(lp_build_target);
+   LLVMAddTypeName(lp_build_module, "texture", texture_type);
 
-   context_type = create_jit_context_type(llvm->target, texture_type);
-   LLVMAddTypeName(llvm->module, "draw_jit_context", context_type);
+   context_type = create_jit_context_type(lp_build_target, texture_type);
+   LLVMAddTypeName(lp_build_module, "draw_jit_context", context_type);
    llvm->context_ptr_type = LLVMPointerType(context_type, 0);
 
    buffer_type = LLVMPointerType(LLVMIntTypeInContext(LC, 8), 0);
-   LLVMAddTypeName(llvm->module, "buffer", buffer_type);
+   LLVMAddTypeName(lp_build_module, "buffer", buffer_type);
    llvm->buffer_ptr_type = LLVMPointerType(buffer_type, 0);
 
-   vb_type = create_jit_vertex_buffer_type(llvm->target);
-   LLVMAddTypeName(llvm->module, "pipe_vertex_buffer", vb_type);
+   vb_type = create_jit_vertex_buffer_type(lp_build_target);
+   LLVMAddTypeName(lp_build_module, "pipe_vertex_buffer", vb_type);
    llvm->vb_ptr_type = LLVMPointerType(vb_type, 0);
 }
 
@@ -273,16 +273,11 @@ draw_llvm_create(struct draw_context *draw)
    lp_build_init();
 
    llvm->draw = draw;
-   llvm->engine = lp_build_engine;
-   llvm->module = lp_build_module;
-   llvm->provider = lp_build_provider;
-   llvm->target = lp_build_target;
-   llvm->pass = lp_build_pass;
 
    create_global_types(llvm);
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
-      LLVMDumpModule(llvm->module);
+      LLVMDumpModule(lp_build_module);
    }
 
    llvm->nr_variants = 0;
@@ -325,7 +320,7 @@ draw_llvm_create_variant(struct draw_llvm *llvm,
 
    memcpy(&variant->key, key, shader->variant_key_size);
 
-   vertex_header = create_jit_vertex_header(llvm->target, llvm->module,
+   vertex_header = create_jit_vertex_header(lp_build_target, lp_build_module,
                                             num_inputs);
    llvm->vertex_header_ptr_type = LLVMPointerType(vertex_header, 0);
 
@@ -724,7 +719,7 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC),
                                 arg_types, Elements(arg_types), 0);
 
-   variant->function = LLVMAddFunction(llvm->module, "draw_llvm_shader", func_type);
+   variant->function = LLVMAddFunction(lp_build_module, "draw_llvm_shader", func_type);
    LLVMSetFunctionCallConv(variant->function, LLVMCCallConv);
    for(i = 0; i < Elements(arg_types); ++i)
       if(LLVMGetTypeKind(arg_types[i]) == LLVMPointerTypeKind)
@@ -837,14 +832,14 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    }
 #endif
 
-   LLVMRunFunctionPassManager(llvm->pass, variant->function);
+   LLVMRunFunctionPassManager(lp_build_pass, variant->function);
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
       lp_debug_dump_value(variant->function);
       debug_printf("\n");
    }
 
-   code = LLVMGetPointerToGlobal(llvm->engine, variant->function);
+   code = LLVMGetPointerToGlobal(lp_build_engine, variant->function);
    variant->jit_func = (draw_jit_vert_func)pointer_to_func(code);
 
    if (gallivm_debug & GALLIVM_DEBUG_ASM) {
@@ -887,7 +882,7 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC),
                                 arg_types, Elements(arg_types), 0);
 
-   variant->function_elts = LLVMAddFunction(llvm->module, "draw_llvm_shader_elts",
+   variant->function_elts = LLVMAddFunction(lp_build_module, "draw_llvm_shader_elts",
                                             func_type);
    LLVMSetFunctionCallConv(variant->function_elts, LLVMCCallConv);
    for(i = 0; i < Elements(arg_types); ++i)
@@ -1010,14 +1005,14 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    }
 #endif
 
-   LLVMRunFunctionPassManager(llvm->pass, variant->function_elts);
+   LLVMRunFunctionPassManager(lp_build_pass, variant->function_elts);
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
       lp_debug_dump_value(variant->function_elts);
       debug_printf("\n");
    }
 
-   code = LLVMGetPointerToGlobal(llvm->engine, variant->function_elts);
+   code = LLVMGetPointerToGlobal(lp_build_engine, variant->function_elts);
    variant->jit_func_elts = (draw_jit_vert_func_elts)pointer_to_func(code);
 
    if (gallivm_debug & GALLIVM_DEBUG_ASM) {
@@ -1100,14 +1095,14 @@ draw_llvm_destroy_variant(struct draw_llvm_variant *variant)
 
    if (variant->function_elts) {
       if (variant->function_elts)
-         LLVMFreeMachineCodeForFunction(llvm->engine,
+         LLVMFreeMachineCodeForFunction(lp_build_engine,
                                         variant->function_elts);
       LLVMDeleteFunction(variant->function_elts);
    }
 
    if (variant->function) {
       if (variant->function)
-         LLVMFreeMachineCodeForFunction(llvm->engine,
+         LLVMFreeMachineCodeForFunction(lp_build_engine,
                                         variant->function);
       LLVMDeleteFunction(variant->function);
    }

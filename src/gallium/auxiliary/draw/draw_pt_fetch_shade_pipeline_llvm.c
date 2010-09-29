@@ -34,6 +34,7 @@
 #include "draw/draw_pt.h"
 #include "draw/draw_vs.h"
 #include "draw/draw_llvm.h"
+#include "gallivm/lp_bld_init.h"
 
 
 struct llvm_middle_end {
@@ -413,7 +414,7 @@ draw_pt_fetch_pipeline_or_emit_llvm(struct draw_context *draw)
 {
    struct llvm_middle_end *fpme = 0;
 
-   if (!draw->llvm->engine)
+   if (!lp_build_engine)
       return NULL;
 
    fpme = CALLOC_STRUCT( llvm_middle_end );
