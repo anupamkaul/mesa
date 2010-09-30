@@ -89,19 +89,65 @@ extern void
 lp_set_target_options(void);
 
 
-void
-lp_build_init(void)
+
+/**
+ * Create the LLVM (optimization) pass manager and install
+ * relevant optimization passes.
+ */
+static void
+create_pass_manager(void)
 {
-#ifdef DEBUG
-   gallivm_debug = debug_get_option_gallivm_debug();
-#endif
+   assert(!lp_build_pass);
 
-   lp_set_target_options();
+   lp_build_pass = LLVMCreateFunctionPassManager(lp_build_provider);
+   LLVMAddTargetData(lp_build_target, lp_build_pass);
 
-   LLVMInitializeNativeTarget();
+   if ((gallivm_debug & GALLIVM_DEBUG_NO_OPT) == 0) {
+      /* These are the passes currently listed in llvm-c/Transforms/Scalar.h,
+       * but there are more on SVN.
+       * TODO: Add more passes.
+       */
+      LLVMAddCFGSimplificationPass(lp_build_pass);
 
-   LLVMLinkInJIT();
+      if (HAVE_LLVM >= 0x207 && sizeof(void*) == 4) {
+         /* For LLVM >= 2.7 and 32-bit build, use this order of passes to
+          * avoid generating bad code.
+          * Test with piglit glsl-vs-sqrt-zero test.
+          */
+         LLVMAddConstantPropagationPass(lp_build_pass);
+         LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
+      }
+      else {
+         LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
+         LLVMAddConstantPropagationPass(lp_build_pass);
+      }
 
+      if (util_cpu_caps.has_sse4_1) {
+         /* FIXME: There is a bug in this pass, whereby the combination
+          * of fptosi and sitofp (necessary for trunc/floor/ceil/round
+          * implementation) somehow becomes invalid code.
+          */
+         LLVMAddInstructionCombiningPass(lp_build_pass);
+      }
+      LLVMAddGVNPass(lp_build_pass);
+   }
+   else {
+      /* We need at least this pass to prevent the backends to fail in
+       * unexpected ways.
+       */
+      LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
+   }
+
+   assert(lp_build_pass);
+}
+
+
+/**
+ * Create the global LLVM resources.
+ */
+static void
+create_globals(void)
+{
    if (!LC)
       LC = LLVMContextCreate();
 
@@ -138,55 +184,142 @@ lp_build_init(void)
       lp_build_target = LLVMGetExecutionEngineTargetData(lp_build_engine);
 
    if (!lp_build_pass) {
-      lp_build_pass = LLVMCreateFunctionPassManager(lp_build_provider);
-      LLVMAddTargetData(lp_build_target, lp_build_pass);
+      create_pass_manager();
+   }
+}
 
-      if ((gallivm_debug & GALLIVM_DEBUG_NO_OPT) == 0) {
-         /* These are the passes currently listed in
-          * llvm-c/Transforms/Scalar.h, but there are more on SVN.
-          * TODO: Add more passes
-          */
-         LLVMAddCFGSimplificationPass(lp_build_pass);
 
-         if (HAVE_LLVM >= 0x207 && sizeof(void*) == 4) {
-            /* For LLVM >= 2.7 and 32-bit build, use this order of passes to
-             * avoid generating bad code.
-             * Test with piglit glsl-vs-sqrt-zero test.
-             */
-            LLVMAddConstantPropagationPass(lp_build_pass);
-            LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
-         }
-         else {
-            LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
-            LLVMAddConstantPropagationPass(lp_build_pass);
-         }
 
-         if (util_cpu_caps.has_sse4_1) {
-            /* FIXME: There is a bug in this pass, whereby the combination
-             * of fptosi and sitofp (necessary for trunc/floor/ceil/round
-             * implementation) somehow becomes invalid code.
-             */
-            LLVMAddInstructionCombiningPass(lp_build_pass);
-         }
-         LLVMAddGVNPass(lp_build_pass);
-      }
-      else {
-         /* We need at least this pass to prevent the backends to fail in
-          * unexpected ways.
-          */
-         LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
-      }
+
+/**
+ * Free all global LLVM resources.
+ */
+static void
+free_globals(void)
+{
+#if 1
+   if (lp_build_pass) {
+      LLVMDisposePassManager(lp_build_pass);
+      lp_build_pass = NULL;
+   }
+#endif
+
+#if 0
+   if (lp_build_target) {
+      LLVMDisposeExecutionEngine(lp_build_target);
+      lp_build_target = NULL;
+   }
+#endif
+
+#if 0
+   if (lp_build_engine) {
+      LLVMDisposeExecutionEngine(lp_build_engine);
+      lp_build_engine = NULL;
+   }
+#endif
+
+#if 0
+   if (lp_build_provider) {
+      LLVMDisposeModuleProvider(lp_build_provider);
+      lp_build_provider = NULL;
+   }
+#endif
+
+   if (lp_build_module) {
+      LLVMDisposeModule(lp_build_module);
+      lp_build_module = NULL;
+      lp_build_target = NULL;
+      lp_build_engine = NULL;
+      lp_build_provider = NULL;
+      lp_build_pass = NULL;
    }
 
-   util_cpu_detect();
+   if (LC) {
+      LLVMContextDispose(LC);
+      LC = NULL;
+   }
+}
 
+
+
+/**
+ * Other gallium components using gallivm should call this periodically
+ * to let us do garbage collection (or at least try to free memory
+ * accumulated by the LLVM libraries).
+ */
+boolean
+lp_build_garbage_collect(void)
+{
+   static uint counter = 0;
+
+   counter++;
+   debug_printf("%s %d\n", __FUNCTION__, counter);
+   if (0 && counter >= 3) {
+      if (1)
+         debug_printf("***** Doing LLVM garbage collection\n");
+
+      if (LC) {
+#if 0
+         LLVMDisposeExecutionEngine(lp_build_engine);
+         LLVMDisposeModuleProvider(lp_build_provider);
+#endif
+         LLVMDisposeModule(lp_build_module);
+         LLVMContextDispose(LC);
+
+         LC = NULL;
+         lp_build_engine = NULL;
+         lp_build_target = NULL;
+         lp_build_module = NULL;
+         lp_build_provider = NULL;
+         lp_build_pass = NULL;
+
+         create_globals();
+      }
+
+      counter = 0;
+      return TRUE;
+   }
+   else {
+      return FALSE;
+   }
+}
+
+
+void
+lp_build_init(void)
+{
+#ifdef DEBUG
+   gallivm_debug = debug_get_option_gallivm_debug();
+#endif
+
+   lp_set_target_options();
+
+   LLVMInitializeNativeTarget();
+
+   LLVMLinkInJIT();
+
+   create_globals();
+ 
+   util_cpu_detect();
+ 
 #if 0
    /* For simulating less capable machines */
    util_cpu_caps.has_sse3 = 0;
    util_cpu_caps.has_ssse3 = 0;
    util_cpu_caps.has_sse4_1 = 0;
 #endif
+
+   if (0)
+      atexit(lp_build_cleanup);
 }
+
+
+void
+lp_build_cleanup(void)
+{
+   free_globals();
+}
+
 
 
 /* 
