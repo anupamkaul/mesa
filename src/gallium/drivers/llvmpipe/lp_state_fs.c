@@ -473,7 +473,6 @@ generate_fragment(struct llvmpipe_context *lp,
                   struct lp_fragment_shader_variant *variant,
                   unsigned partial_mask)
 {
-   struct llvmpipe_screen *screen = llvmpipe_screen(lp->pipe.screen);
    const struct lp_fragment_shader_variant_key *key = &variant->key;
    char func_name[256];
    struct lp_type fs_type;
@@ -539,7 +538,7 @@ generate_fragment(struct llvmpipe_context *lp,
    util_snprintf(func_name, sizeof(func_name), "fs%u_variant%u_%s", 
 		 shader->no, variant->no, partial_mask ? "partial" : "whole");
 
-   arg_types[0] = screen->context_ptr_type;            /* context */
+   arg_types[0] = lp_jit_get_context_type();           /* context */
    arg_types[1] =                                      /* x */
    arg_types[2] = LLVMInt32TypeInContext(LC);          /* y */
    arg_types[3] = LLVMFloatTypeInContext(LC);          /* facing */
@@ -871,6 +870,8 @@ generate_variant(struct llvmpipe_context *lp,
 
    generate_fragment(lp, shader, variant, RAST_EDGE_TEST);
 
+   variant->engine = lp_build_engine;
+
    if (variant->opaque) {
       /* Specialized shader, which doesn't need to read the color buffer. */
       generate_fragment(lp, shader, variant, RAST_WHOLE);
@@ -968,7 +969,7 @@ remove_shader_variant(struct llvmpipe_context *lp,
    for (i = 0; i < Elements(variant->function); i++) {
       if (variant->function[i]) {
          if (variant->jit_function[i])
-            LLVMFreeMachineCodeForFunction(lp_build_engine,
+            LLVMFreeMachineCodeForFunction(variant->engine,
                                            variant->function[i]);
          LLVMDeleteFunction(variant->function[i]);
       }

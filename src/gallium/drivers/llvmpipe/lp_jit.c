@@ -44,8 +44,12 @@
 #include "lp_jit.h"
 
 
+static LLVMTypeRef lp_context_ptr_type = NULL;
+
+
+
 static void
-lp_jit_init_globals(struct llvmpipe_screen *screen)
+lp_jit_init_globals(void)
 {
    LLVMTypeRef texture_type;
 
@@ -151,7 +155,7 @@ lp_jit_init_globals(struct llvmpipe_screen *screen)
 
       LLVMAddTypeName(lp_build_module, "context", context_type);
 
-      screen->context_ptr_type = LLVMPointerType(context_type, 0);
+      lp_context_ptr_type = LLVMPointerType(context_type, 0);
    }
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
@@ -172,5 +176,23 @@ lp_jit_screen_init(struct llvmpipe_screen *screen)
 {
    lp_build_init();
 
-   lp_jit_init_globals(screen);
+   /*lp_jit_init_globals(screen);*/
+}
+
+
+LLVMTypeRef
+lp_jit_get_context_type(void)
+{
+   if (!lp_context_ptr_type) {
+      lp_jit_init_globals();
+   }
+
+   return lp_context_ptr_type;
+}
+
+
+void
+lp_jit_free_context_type(void)
+{
+   lp_context_ptr_type = NULL;
 }

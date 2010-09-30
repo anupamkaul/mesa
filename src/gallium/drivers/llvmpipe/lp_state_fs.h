@@ -33,6 +33,7 @@
 #include "pipe/p_compiler.h"
 #include "pipe/p_state.h"
 #include "tgsi/tgsi_scan.h" /* for tgsi_shader_info */
+#include "gallivm/lp_bld_init.h"
 #include "gallivm/lp_bld_sample.h" /* for struct lp_sampler_static_state */
 
 
@@ -79,6 +80,7 @@ struct lp_fragment_shader_variant
 
    boolean opaque;
 
+   LLVMExecutionEngineRef engine;
    LLVMValueRef function[2];
 
    lp_jit_frag_func jit_function[2];

@@ -162,4 +162,11 @@ void
 lp_jit_screen_init(struct llvmpipe_screen *screen);
 
 
+LLVMTypeRef
+lp_jit_get_context_type(void);
+
+void
+lp_jit_free_context_type(void);
+
+
 #endif /* LP_JIT_H */
