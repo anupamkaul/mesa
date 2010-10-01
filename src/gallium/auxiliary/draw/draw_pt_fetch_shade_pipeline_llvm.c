@@ -73,19 +73,18 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
    struct draw_llvm_variant_list_item *li;
    unsigned i;
    unsigned instance_id_index = ~0;
-
-
-   unsigned out_prim = (draw->gs.geometry_shader ? 
-                        draw->gs.geometry_shader->output_primitive :
-                        in_prim);
+   const unsigned out_prim = (draw->gs.geometry_shader ? 
+                              draw->gs.geometry_shader->output_primitive :
+                              in_prim);
 
    /* Add one to num_outputs because the pipeline occasionally tags on
     * an additional texcoord, eg for AA lines.
     */
-   unsigned nr = MAX2( shader->base.info.num_inputs,
-		       shader->base.info.num_outputs + 1 );
+   const unsigned nr = MAX2( shader->base.info.num_inputs,
+                             shader->base.info.num_outputs + 1 );
 
    /* Scan for instanceID system value.
+    * XXX but we never use instance_id_index?!
     */
    for (i = 0; i < shader->base.info.num_inputs; i++) {
       if (shader->base.info.input_semantic_name[i] == TGSI_SEMANTIC_INSTANCEID) {
@@ -134,9 +133,10 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
    
    key = draw_llvm_make_variant_key(fpme->llvm, store);
 
+   /* Search shader's list of variants for the key */
    li = first_elem(&shader->variants);
-   while(!at_end(&shader->variants, li)) {
-      if(memcmp(&li->base->key, key, shader->variant_key_size) == 0) {
+   while (!at_end(&shader->variants, li)) {
+      if (memcmp(&li->base->key, key, shader->variant_key_size) == 0) {
          variant = li->base;
          break;
       }
@@ -144,10 +144,16 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
    }
 
    if (variant) {
+      /* found the variant, move to head of global list (for LRU) */
       move_to_head(&fpme->llvm->vs_variants_list, &variant->list_item_global);
    }
    else {
+      /* Need to create new variant */
       unsigned i;
+
+      /* First check if we've created too many variants.  If so, free
+       * 25% of the LRU to avoid using too much memory.
+       */
       if (fpme->llvm->nr_variants >= DRAW_MAX_SHADER_VARIANTS) {
          /*
           * XXX: should we flush here ?
@@ -172,10 +178,8 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
    fpme->current_variant = variant;
 
    /*XXX we only support one constant buffer */
-   fpme->llvm->jit_context.vs_constants =
-      draw->pt.user.vs_constants[0];
-   fpme->llvm->jit_context.gs_constants =
-      draw->pt.user.gs_constants[0];
+   fpme->llvm->jit_context.vs_constants = draw->pt.user.vs_constants[0];
+   fpme->llvm->jit_context.gs_constants = draw->pt.user.gs_constants[0];
 }
 
 
