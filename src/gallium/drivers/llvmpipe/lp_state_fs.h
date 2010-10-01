@@ -68,11 +68,14 @@ struct lp_fragment_shader_variant_key
    struct lp_sampler_static_state sampler[PIPE_MAX_SAMPLERS];
 };
 
+
+/** doubly-linked list item */
 struct lp_fs_variant_list_item
 {
    struct lp_fragment_shader_variant *base;
    struct lp_fs_variant_list_item *next, *prev;
 };
+
 
 struct lp_fragment_shader_variant
 {
