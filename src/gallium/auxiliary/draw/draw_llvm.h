@@ -218,6 +218,9 @@ struct draw_llvm_variant
    /* key is variable-sized, must be last */
    struct draw_llvm_variant_key key;
    /* key is variable-sized, must be last */
+
+   /* to keep list of all variants */
+   struct draw_llvm_variant *prev, *next;
 };
 
 struct llvm_vertex_shader {
@@ -233,15 +236,26 @@ struct draw_llvm {
    struct draw_context *draw;
 
    struct draw_jit_context jit_context;
+};
 
+
+
+/** Global vars (though private to this file) */
+struct draw_llvm_globals
+{
+   /* list of all vertex shader variants */
    struct draw_llvm_variant_list_item vs_variants_list;
    int nr_variants;
 
+   /* LLVM JIT builder types */
    LLVMTypeRef context_ptr_type;
-   LLVMTypeRef vertex_header_ptr_type;
    LLVMTypeRef buffer_ptr_type;
    LLVMTypeRef vb_ptr_type;
+   LLVMTypeRef vertex_header_ptr_type;
 };
+
+extern struct draw_llvm_globals draw_llvm_global;
+
 
 static INLINE struct llvm_vertex_shader *
 llvm_vertex_shader(struct draw_vertex_shader *vs)

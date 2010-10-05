@@ -47,9 +47,62 @@
 #include "util/u_cpu_detect.h"
 #include "util/u_pointer.h"
 #include "util/u_string.h"
+#include "util/u_simple_list.h"
 
 
 #define DEBUG_STORE 0
+
+
+struct draw_llvm_globals draw_llvm_global;
+
+
+/**
+ * This function is called by the gallivm "garbage collector" when
+ * the LLVM global data structures are freed.  We must free all LLVM-related
+ * data.  Specifically, all JIT'd shader variants.
+ */
+static void
+draw_llvm_garbage_collect_callback(void *cb_data)
+{
+   struct draw_llvm_variant_list_item *li;
+
+   /* free all shader variants */
+   li = first_elem(&draw_llvm_global.vs_variants_list);
+   while (!at_end(&draw_llvm_global.vs_variants_list, li)) {
+      struct draw_llvm_variant_list_item *next = next_elem(li);
+      draw_llvm_destroy_variant(li->base);
+      li = next;
+   }
+
+   /* Null-out global pointers so they get remade next time they're needed.
+    * See the accessor functions below.
+    */
+   draw_llvm_global.context_ptr_type = NULL;
+   draw_llvm_global.buffer_ptr_type = NULL;
+   draw_llvm_global.vb_ptr_type = NULL;
+   draw_llvm_global.vertex_header_ptr_type = NULL;
+}
+
+
+/**
+ * One-time inits for llvm-related data.
+ */
+static void
+draw_llvm_init_globals(void)
+{
+   static boolean initialized = FALSE;
+   if (!initialized) {
+      memset(&draw_llvm_global, 0, sizeof(draw_llvm_global));
+
+      make_empty_list(&draw_llvm_global.vs_variants_list);
+
+      lp_register_garbage_collector_callback(
+                     draw_llvm_garbage_collect_callback, NULL);
+
+      initialized = TRUE;
+   }
+}
+
 
 
 static void
@@ -237,7 +290,7 @@ create_jit_vertex_header(LLVMTargetDataRef target,
  * Create LLVM types for various structures.
  */
 static void
-create_global_types(struct draw_llvm *llvm)
+create_global_types(void)
 {
    LLVMTypeRef texture_type, context_type, buffer_type, vb_type;
 
@@ -246,15 +299,51 @@ create_global_types(struct draw_llvm *llvm)
 
    context_type = create_jit_context_type(lp_build_target, texture_type);
    LLVMAddTypeName(lp_build_module, "draw_jit_context", context_type);
-   llvm->context_ptr_type = LLVMPointerType(context_type, 0);
+   draw_llvm_global.context_ptr_type = LLVMPointerType(context_type, 0);
 
    buffer_type = LLVMPointerType(LLVMIntTypeInContext(LC, 8), 0);
    LLVMAddTypeName(lp_build_module, "buffer", buffer_type);
-   llvm->buffer_ptr_type = LLVMPointerType(buffer_type, 0);
+   draw_llvm_global.buffer_ptr_type = LLVMPointerType(buffer_type, 0);
 
    vb_type = create_jit_vertex_buffer_type(lp_build_target);
    LLVMAddTypeName(lp_build_module, "pipe_vertex_buffer", vb_type);
-   llvm->vb_ptr_type = LLVMPointerType(vb_type, 0);
+   draw_llvm_global.vb_ptr_type = LLVMPointerType(vb_type, 0);
+}
+
+
+static LLVMTypeRef
+get_context_ptr_type(void)
+{
+   if (!draw_llvm_global.context_ptr_type)
+      create_global_types();
+   return draw_llvm_global.context_ptr_type;
+}
+
+
+static LLVMTypeRef
+get_buffer_ptr_type(void)
+{
+   if (!draw_llvm_global.buffer_ptr_type)
+      create_global_types();
+   return draw_llvm_global.buffer_ptr_type;
+}
+
+
+static LLVMTypeRef
+get_vb_ptr_type(void)
+{
+   if (!draw_llvm_global.vb_ptr_type)
+      create_global_types();
+   return draw_llvm_global.vb_ptr_type;
+}
+
+
+static LLVMTypeRef
+get_vertex_header_ptr_type(void)
+{
+   if (!draw_llvm_global.vertex_header_ptr_type)
+      create_global_types();
+   return draw_llvm_global.vertex_header_ptr_type;
 }
 
 
@@ -266,6 +355,8 @@ draw_llvm_create(struct draw_context *draw)
 {
    struct draw_llvm *llvm;
 
+   draw_llvm_init_globals();
+
    llvm = CALLOC_STRUCT( draw_llvm );
    if (!llvm)
       return NULL;
@@ -274,14 +365,12 @@ draw_llvm_create(struct draw_context *draw)
 
    llvm->draw = draw;
 
-   create_global_types(llvm);
-
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
       LLVMDumpModule(lp_build_module);
    }
 
-   llvm->nr_variants = 0;
-   make_empty_list(&llvm->vs_variants_list);
+   draw_llvm_global.nr_variants = 0;
+   make_empty_list(&draw_llvm_global.vs_variants_list);
 
    return llvm;
 }
@@ -322,7 +411,7 @@ draw_llvm_create_variant(struct draw_llvm *llvm,
 
    vertex_header = create_jit_vertex_header(lp_build_target, lp_build_module,
                                             num_inputs);
-   llvm->vertex_header_ptr_type = LLVMPointerType(vertex_header, 0);
+   draw_llvm_global.vertex_header_ptr_type = LLVMPointerType(vertex_header, 0);
 
    draw_llvm_generate(llvm, variant);
    draw_llvm_generate_elts(llvm, variant);
@@ -331,7 +420,6 @@ draw_llvm_create_variant(struct draw_llvm *llvm,
    variant->list_item_global.base = variant;
    variant->list_item_local.base = variant;
    /*variant->no = */shader->variants_created++;
-   variant->list_item_global.base = variant;
 
    return variant;
 }
@@ -707,13 +795,13 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    void *code;
    struct lp_build_sampler_soa *sampler = 0;
 
-   arg_types[0] = llvm->context_ptr_type;           /* context */
-   arg_types[1] = llvm->vertex_header_ptr_type;     /* vertex_header */
-   arg_types[2] = llvm->buffer_ptr_type;            /* vbuffers */
+   arg_types[0] = get_context_ptr_type();           /* context */
+   arg_types[1] = get_vertex_header_ptr_type();     /* vertex_header */
+   arg_types[2] = get_buffer_ptr_type();            /* vbuffers */
    arg_types[3] =
    arg_types[4] =
    arg_types[5] = LLVMInt32TypeInContext(LC);       /* stride */
-   arg_types[6] = llvm->vb_ptr_type;                /* pipe_vertex_buffer's */
+   arg_types[6] = get_vb_ptr_type();                /* pipe_vertex_buffer's */
    arg_types[7] = LLVMInt32TypeInContext(LC);       /* instance_id */
 
    func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC),
@@ -870,13 +958,13 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    void *code;
    struct lp_build_sampler_soa *sampler = 0;
 
-   arg_types[0] = llvm->context_ptr_type;               /* context */
-   arg_types[1] = llvm->vertex_header_ptr_type;         /* vertex_header */
-   arg_types[2] = llvm->buffer_ptr_type;                /* vbuffers */
+   arg_types[0] = get_context_ptr_type();               /* context */
+   arg_types[1] = get_vertex_header_ptr_type();         /* vertex_header */
+   arg_types[2] = get_buffer_ptr_type();                /* vbuffers */
    arg_types[3] = LLVMPointerType(LLVMInt32TypeInContext(LC), 0);  /* fetch_elts * */
    arg_types[4] = LLVMInt32TypeInContext(LC);           /* fetch_count */
    arg_types[5] = LLVMInt32TypeInContext(LC);           /* stride */
-   arg_types[6] = llvm->vb_ptr_type;                    /* pipe_vertex_buffer's */
+   arg_types[6] = get_vb_ptr_type();                    /* pipe_vertex_buffer's */
    arg_types[7] = LLVMInt32TypeInContext(LC);           /* instance_id */
 
    func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC),
@@ -1091,8 +1179,6 @@ draw_llvm_set_mapped_texture(struct draw_context *draw,
 void
 draw_llvm_destroy_variant(struct draw_llvm_variant *variant)
 {
-   struct draw_llvm *llvm = variant->llvm;
-
    if (variant->function_elts) {
       if (variant->function_elts)
          LLVMFreeMachineCodeForFunction(lp_build_engine,
@@ -1109,7 +1195,9 @@ draw_llvm_destroy_variant(struct draw_llvm_variant *variant)
 
    remove_from_list(&variant->list_item_local);
    variant->shader->variants_cached--;
+
    remove_from_list(&variant->list_item_global);
-   llvm->nr_variants--;
+   draw_llvm_global.nr_variants--;
+
    FREE(variant);
 }

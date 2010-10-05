@@ -145,7 +145,8 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
 
    if (variant) {
       /* found the variant, move to head of global list (for LRU) */
-      move_to_head(&fpme->llvm->vs_variants_list, &variant->list_item_global);
+      move_to_head(&draw_llvm_global.vs_variants_list,
+                   &variant->list_item_global);
    }
    else {
       /* Need to create new variant */
@@ -154,13 +155,13 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
       /* First check if we've created too many variants.  If so, free
        * 25% of the LRU to avoid using too much memory.
        */
-      if (fpme->llvm->nr_variants >= DRAW_MAX_SHADER_VARIANTS) {
+      if (draw_llvm_global.nr_variants >= DRAW_MAX_SHADER_VARIANTS) {
          /*
           * XXX: should we flush here ?
           */
          for (i = 0; i < DRAW_MAX_SHADER_VARIANTS / 4; i++) {
             struct draw_llvm_variant_list_item *item =
-               last_elem(&fpme->llvm->vs_variants_list);
+               last_elem(&draw_llvm_global.vs_variants_list);
             draw_llvm_destroy_variant(item->base);
          }
       }
@@ -169,8 +170,9 @@ llvm_middle_end_prepare( struct draw_pt_middle_end *middle,
 
       if (variant) {
          insert_at_head(&shader->variants, &variant->list_item_local);
-         insert_at_head(&fpme->llvm->vs_variants_list, &variant->list_item_global);
-         fpme->llvm->nr_variants++;
+         insert_at_head(&draw_llvm_global.vs_variants_list,
+                        &variant->list_item_global);
+         draw_llvm_global.nr_variants++;
          shader->variants_cached++;
       }
    }
