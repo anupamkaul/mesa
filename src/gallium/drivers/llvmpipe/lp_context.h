@@ -117,10 +117,6 @@ struct llvmpipe_context {
 
    unsigned tex_timestamp;
    boolean no_rast;
-
-   /** List of all fragment shader variants */
-   struct lp_fs_variant_list_item fs_variants_list;
-   unsigned nr_fs_variants;
 };
 
 

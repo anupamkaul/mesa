@@ -33,14 +33,14 @@
  */
 
 
-#include <llvm-c/Transforms/Scalar.h>
-
 #include "util/u_memory.h"
 #include "util/u_cpu_detect.h"
+#include "util/u_simple_list.h"
 #include "gallivm/lp_bld_init.h"
 #include "gallivm/lp_bld_debug.h"
-#include "lp_screen.h"
 #include "gallivm/lp_bld_intr.h"
+#include "lp_screen.h"
+#include "lp_global.h"
 #include "lp_jit.h"
 
 
@@ -164,6 +164,42 @@ lp_jit_init_globals(void)
 }
 
 
+/**
+ * This function is called by the gallivm "garbage collector" when
+ * the LLVM global data structures are freed.  We must free all LLVM-related
+ * data.  Specifically, all JIT'd shader variants.
+ */
+static void
+garbage_collect_callback(void *cb_data)
+{
+   struct lp_fs_variant_list_item *li;
+
+   li = first_elem(&llvmpipe_global.fs_variants_list);
+   while (!at_end(&llvmpipe_global.fs_variants_list, li)) {
+      struct lp_fs_variant_list_item *next = next_elem(li);
+      llvmpipe_remove_shader_variant(li->base);
+      li = next;
+   }
+}
+
+
+/**
+ * We need to periodically call this function to invoke gallivm's
+ * garbage collector.  It will usually be a no-op, btw.
+ */
+void
+llvmpipe_garbage_collect(void)
+{
+   if (lp_garbage_collect()) {
+      /* Iif we did do garbage collection, need to free the LLVM context
+       * type which we previously constructed.
+       */
+      lp_jit_free_context_type();
+   }
+}
+
+
+
 void
 lp_jit_screen_cleanup(struct llvmpipe_screen *screen)
 {
@@ -176,7 +212,7 @@ lp_jit_screen_init(struct llvmpipe_screen *screen)
 {
    lp_build_init();
 
-   /*lp_jit_init_globals(screen);*/
+   lp_register_garbage_collector_callback(garbage_collect_callback, screen);
 }
 
 

@@ -328,10 +328,8 @@ lp_setup_flush( struct lp_setup_context *setup,
       lp_fence_reference((struct lp_fence **)fence, setup->last_fence);
    }
 
-   if (lp_build_garbage_collect()) {
-      lp_jit_free_context_type();
-      /* XXX need to free all the jit code too */
-   }
+   /* Can only do garbage collection when there's no scene */
+   llvmpipe_garbage_collect();
 }
 
 

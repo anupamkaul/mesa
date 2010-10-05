@@ -50,6 +50,7 @@ llvmpipe = env.ConvenienceLibrary(
 		'lp_draw_arrays.c',
 		'lp_fence.c',
 		'lp_flush.c',
+		'lp_global.c',
 		'lp_jit.c',
 		'lp_memory.c',
 		'lp_perf.c',
@@ -92,6 +93,8 @@ if env['platform'] != 'embedded':
     env.Prepend(LIBS = [llvmpipe] + gallium)
 
     tests = [
+    	  ]
+    foo_tests = [
         'format',
         'blend',
         'conv',

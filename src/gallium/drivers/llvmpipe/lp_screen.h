@@ -40,6 +40,7 @@
 #include "os/os_thread.h"
 #include "pipe/p_screen.h"
 #include "pipe/p_defines.h"
+#include "lp_context.h"
 
 
 struct sw_winsys;

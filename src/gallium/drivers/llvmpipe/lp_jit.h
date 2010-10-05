@@ -161,6 +161,9 @@ lp_jit_screen_cleanup(struct llvmpipe_screen *screen);
 void
 lp_jit_screen_init(struct llvmpipe_screen *screen);
 
+void
+llvmpipe_garbage_collect(void);
+
 
 LLVMTypeRef
 lp_jit_get_context_type(void);

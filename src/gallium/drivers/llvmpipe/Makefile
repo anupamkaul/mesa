@@ -17,6 +17,7 @@ C_SOURCES = \
 	lp_draw_arrays.c \
 	lp_fence.c \
 	lp_flush.c \
+	lp_global.c \
 	lp_jit.c \
 	lp_memory.c \
 	lp_perf.c \

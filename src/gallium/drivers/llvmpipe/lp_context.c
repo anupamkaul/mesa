@@ -42,6 +42,7 @@
 #include "lp_flush.h"
 #include "lp_perf.h"
 #include "lp_state.h"
+#include "lp_screen.h"
 #include "lp_surface.h"
 #include "lp_query.h"
 #include "lp_setup.h"
@@ -106,8 +107,6 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    util_init_math();
 
    memset(llvmpipe, 0, sizeof *llvmpipe);
-
-   make_empty_list(&llvmpipe->fs_variants_list);
 
    llvmpipe->pipe.winsys = screen->winsys;
    llvmpipe->pipe.screen = screen;
@@ -176,4 +175,3 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    llvmpipe_destroy(&llvmpipe->pipe);
    return NULL;
 }
-

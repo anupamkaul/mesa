@@ -31,12 +31,14 @@
 #include "util/u_cpu_detect.h"
 #include "util/u_format.h"
 #include "util/u_format_s3tc.h"
+#include "util/u_simple_list.h"
 #include "pipe/p_defines.h"
 #include "pipe/p_screen.h"
 #include "draw/draw_context.h"
 
 #include "lp_texture.h"
 #include "lp_fence.h"
+#include "lp_global.h"
 #include "lp_jit.h"
 #include "lp_screen.h"
 #include "lp_context.h"
@@ -379,6 +381,8 @@ llvmpipe_create_screen(struct sw_winsys *winsys)
    if (!util_cpu_caps.has_sse2)
        return NULL;
 #endif
+
+   llvmpipe_init_globals();
 
    screen = CALLOC_STRUCT(llvmpipe_screen);
 

@@ -89,6 +89,7 @@
 #include "lp_bld_interp.h"
 #include "lp_context.h"
 #include "lp_debug.h"
+#include "lp_global.h"
 #include "lp_perf.h"
 #include "lp_screen.h"
 #include "lp_setup.h"
@@ -961,12 +962,11 @@ llvmpipe_bind_fs_state(struct pipe_context *pipe, void *fs)
 
 
 /**
- * Remove shader variant from two lists: the shader's variant list
- * and the context's variant list.
+ * Delete a shader variant and remove it from two lists: the shader's
+ * variant list and the context's variant list.
  */
-static void
-remove_shader_variant(struct llvmpipe_context *lp,
-                      struct lp_fragment_shader_variant *variant)
+void
+llvmpipe_remove_shader_variant(struct lp_fragment_shader_variant *variant)
 {
    unsigned i;
 
@@ -977,7 +977,7 @@ remove_shader_variant(struct llvmpipe_context *lp,
                    variant->no,
                    variant->shader->variants_created,
                    variant->shader->variants_cached,
-                   lp->nr_fs_variants);
+                   llvmpipe_global.nr_fs_variants);
    }
 
    /* free all the variant's JIT'd functions */
@@ -996,18 +996,41 @@ remove_shader_variant(struct llvmpipe_context *lp,
 
    /* remove from context's list */
    remove_from_list(&variant->list_item_global);
-   lp->nr_fs_variants--;
+   llvmpipe_global.nr_fs_variants--;
 
    FREE(variant);
 }
 
 
+
+/**
+ * Free all variants of a fragment shader.
+ */
+void
+llvmpipe_free_all_fs_variants(struct llvmpipe_context *llvmpipe,
+                              struct lp_fragment_shader *shader)
+{
+   struct lp_fs_variant_list_item *li;
+
+   li = first_elem(&shader->variants);
+   while (!at_end(&shader->variants, li)) {
+      struct lp_fs_variant_list_item *next = next_elem(li);
+      llvmpipe_remove_shader_variant(li->base);
+      li = next;
+   }
+
+   assert(is_empty_list(&shader->variants));
+}
+
+
+/**
+ * Called via pipe_context::delete_fs_state()
+ */
 static void
 llvmpipe_delete_fs_state(struct pipe_context *pipe, void *fs)
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context(pipe);
    struct lp_fragment_shader *shader = fs;
-   struct lp_fs_variant_list_item *li;
 
    assert(fs != llvmpipe->fs);
 
@@ -1018,13 +1041,7 @@ llvmpipe_delete_fs_state(struct pipe_context *pipe, void *fs)
     */
    llvmpipe_finish(pipe, __FUNCTION__);
 
-   /* Delete all the variants */
-   li = first_elem(&shader->variants);
-   while(!at_end(&shader->variants, li)) {
-      struct lp_fs_variant_list_item *next = next_elem(li);
-      remove_shader_variant(llvmpipe, li->base);
-      li = next;
-   }
+   llvmpipe_free_all_fs_variants(llvmpipe, shader);
 
    /* Delete draw module's data */
    draw_delete_fragment_shader(llvmpipe->draw, shader->draw_data);
@@ -1212,7 +1229,8 @@ llvmpipe_update_fs(struct llvmpipe_context *lp)
       /* Move this variant to the head of the list to implement LRU
        * deletion of shader's when we have too many.
        */
-      move_to_head(&lp->fs_variants_list, &variant->list_item_global);
+      move_to_head(&llvmpipe_global.fs_variants_list,
+                   &variant->list_item_global);
    }
    else {
       /* variant not found, create it now */
@@ -1222,7 +1240,7 @@ llvmpipe_update_fs(struct llvmpipe_context *lp)
       /* First, check if we've exceeded the max number of shader variants.
        * If so, free 25% of them (the least recently used ones).
        */
-      if (lp->nr_fs_variants >= LP_MAX_SHADER_VARIANTS) {
+      if (llvmpipe_global.nr_fs_variants >= LP_MAX_SHADER_VARIANTS) {
          struct pipe_context *pipe = &lp->pipe;
 
          /*
@@ -1234,8 +1252,8 @@ llvmpipe_update_fs(struct llvmpipe_context *lp)
 
          for (i = 0; i < LP_MAX_SHADER_VARIANTS / 4; i++) {
             struct lp_fs_variant_list_item *item;
-            item = last_elem(&lp->fs_variants_list);
-            remove_shader_variant(lp, item->base);
+            item = last_elem(&llvmpipe_global.fs_variants_list);
+            llvmpipe_remove_shader_variant(item->base);
          }
       }
 
@@ -1249,11 +1267,12 @@ llvmpipe_update_fs(struct llvmpipe_context *lp)
       LP_COUNT_ADD(llvm_compile_time, dt);
       LP_COUNT_ADD(nr_llvm_compiles, 2);  /* emit vs. omit in/out test */
 
-      /* Put the new variant into the list */
+      /* Put the new variant into the lists (at heads, for LRU) */
       if (variant) {
          insert_at_head(&shader->variants, &variant->list_item_local);
-         insert_at_head(&lp->fs_variants_list, &variant->list_item_global);
-         lp->nr_fs_variants++;
+         insert_at_head(&llvmpipe_global.fs_variants_list,
+                        &variant->list_item_global);
+         llvmpipe_global.nr_fs_variants++;
          shader->variants_cached++;
       }
    }
