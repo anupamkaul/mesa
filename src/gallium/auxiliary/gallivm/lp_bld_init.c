@@ -189,54 +189,83 @@ create_globals(void)
 }
 
 
-
-
 /**
  * Free all global LLVM resources.
  */
 static void
 free_globals(void)
 {
-#if 1
-   if (lp_build_pass) {
-      LLVMDisposePassManager(lp_build_pass);
-      lp_build_pass = NULL;
-   }
-#endif
+   LLVMModuleRef mod;
+   char *error;
 
-#if 0
-   if (lp_build_target) {
-      LLVMDisposeExecutionEngine(lp_build_target);
-      lp_build_target = NULL;
-   }
-#endif
+   LLVMRemoveModuleProvider(lp_build_engine, lp_build_provider,
+                            &mod, &error);
 
-#if 0
-   if (lp_build_engine) {
-      LLVMDisposeExecutionEngine(lp_build_engine);
-      lp_build_engine = NULL;
-   }
-#endif
+   LLVMDisposePassManager(lp_build_pass);
+   LLVMDisposeModule(lp_build_module);
+   LLVMDisposeExecutionEngine(lp_build_engine);
+   LLVMContextDispose(LC);
 
-#if 0
-   if (lp_build_provider) {
-      LLVMDisposeModuleProvider(lp_build_provider);
-      lp_build_provider = NULL;
-   }
-#endif
+   LC = NULL;
+   lp_build_engine = NULL;
+   lp_build_target = NULL;
+   lp_build_module = NULL;
+   lp_build_provider = NULL;
+   lp_build_pass = NULL;
+}
 
-   if (lp_build_module) {
-      LLVMDisposeModule(lp_build_module);
-      lp_build_module = NULL;
-      lp_build_target = NULL;
-      lp_build_engine = NULL;
-      lp_build_provider = NULL;
-      lp_build_pass = NULL;
+
+
+struct callback
+{
+   garbage_collect_callback_func func;
+   void *cb_data;
+};
+
+
+#define MAX_CALLBACKS 8
+static struct callback Callbacks[MAX_CALLBACKS];
+static unsigned NumCallbacks = 0;
+
+
+/**
+ * Register a function with gallivm which will be called when we
+ * do garbage collection.
+ */
+void
+lp_register_garbage_collector_callback(garbage_collect_callback_func func,
+                                       void *cb_data)
+{
+   unsigned i;
+
+   for (i = 0; i < NumCallbacks; i++) {
+      if (Callbacks[i].func == func) {
+         /* already in list, just update callback data */
+         Callbacks[i].cb_data = cb_data;
+         return;
+      }
    }
 
-   if (LC) {
-      LLVMContextDispose(LC);
-      LC = NULL;
+   assert(NumCallbacks < MAX_CALLBACKS);
+   if (NumCallbacks < MAX_CALLBACKS) {
+      Callbacks[NumCallbacks].func = func;
+      Callbacks[NumCallbacks].cb_data = cb_data;
+      NumCallbacks++;
+   }
+}
+
+
+/**
+ * Call the callback functions (which are typically in the
+ * draw module and llvmpipe driver.
+ */
+static void
+call_garbage_collector_callbacks(void)
+{
+   unsigned i;
+
+   for (i = 0; i < NumCallbacks; i++) {
+      Callbacks[i].func(Callbacks[i].cb_data);
    }
 }
 
@@ -248,31 +277,19 @@ free_globals(void)
  * accumulated by the LLVM libraries).
  */
 boolean
-lp_build_garbage_collect(void)
+lp_garbage_collect(void)
 {
    static uint counter = 0;
 
    counter++;
    debug_printf("%s %d\n", __FUNCTION__, counter);
-   if (0 && counter >= 3) {
-      if (1)
-         debug_printf("***** Doing LLVM garbage collection\n");
-
+   if (counter >= 100) {
       if (LC) {
-#if 0
-         LLVMDisposeExecutionEngine(lp_build_engine);
-         LLVMDisposeModuleProvider(lp_build_provider);
-#endif
-         LLVMDisposeModule(lp_build_module);
-         LLVMContextDispose(LC);
+         if (1)
+            debug_printf("***** Doing LLVM garbage collection\n");
 
-         LC = NULL;
-         lp_build_engine = NULL;
-         lp_build_target = NULL;
-         lp_build_module = NULL;
-         lp_build_provider = NULL;
-         lp_build_pass = NULL;
-
+         call_garbage_collector_callbacks();
+         free_globals();
          create_globals();
       }
 

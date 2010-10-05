@@ -30,6 +30,7 @@
 #define LP_BLD_INIT_H
 
 
+#include "pipe/p_compiler.h"
 #include "lp_bld.h"
 #include <llvm-c/ExecutionEngine.h>
 
@@ -44,13 +45,23 @@ extern LLVMPassManagerRef lp_build_pass;
 void
 lp_build_init(void);
 
-extern void
+void
 lp_build_cleanup(void);
 
-extern boolean
-lp_build_garbage_collect(void);
 
 extern void
 lp_func_delete_body(LLVMValueRef func);
+
+
+boolean
+lp_garbage_collect(void);
+
+
+typedef void (*garbage_collect_callback_func)(void *cb_data);
+
+void
+lp_register_garbage_collector_callback(garbage_collect_callback_func func,
+                                       void *cb_data);
+
 
 #endif /* !LP_BLD_INIT_H */
