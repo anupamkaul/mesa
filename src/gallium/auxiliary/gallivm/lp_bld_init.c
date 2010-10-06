@@ -142,7 +142,7 @@ create_pass_manager(struct gallivm_state *gallivm)
  * Create the global LLVM resources.
  */
 static void
-create_globals(struct gallivm_state *gallivm)
+init_gallivm_state(struct gallivm_state *gallivm)
 {
    if (!gallivm->context)
       gallivm->context = LLVMContextCreate();
@@ -190,7 +190,7 @@ create_globals(struct gallivm_state *gallivm)
  * Free all global LLVM resources.
  */
 static void
-free_globals(struct gallivm_state *gallivm)
+free_gallivm_state(struct gallivm_state *gallivm)
 {
    LLVMModuleRef mod;
    char *error;
@@ -287,8 +287,8 @@ lp_garbage_collect(void)
             debug_printf("***** Doing LLVM garbage collection\n");
 
          call_garbage_collector_callbacks();
-         free_globals(&gallivm);
-         create_globals(&gallivm);
+         free_gallivm_state(&gallivm);
+         init_gallivm_state(&gallivm);
       }
 
       counter = 0;
@@ -313,7 +313,7 @@ lp_build_init(void)
 
    LLVMLinkInJIT();
 
-   create_globals(&gallivm);
+   init_gallivm_state(&gallivm);
  
    util_cpu_detect();
  
@@ -332,7 +332,7 @@ lp_build_init(void)
 void
 lp_build_cleanup(void)
 {
-   free_globals(&gallivm);
+   free_gallivm_state(&gallivm);
 }
 
 
