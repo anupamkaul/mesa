@@ -53,6 +53,7 @@
 
 #include "lp_bld_type.h"
 #include "lp_bld_const.h"
+#include "lp_bld_init.h"
 #include "lp_bld_intr.h"
 #include "lp_bld_logic.h"
 #include "lp_bld_pack.h"
@@ -1483,8 +1484,8 @@ lp_build_sin(struct lp_build_context *bld,
 {
    struct lp_type int_type = lp_int_type(bld->type);
    LLVMBuilderRef b = bld->builder;
-   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatTypeInContext(LC), 4);
-   LLVMTypeRef v4si = LLVMVectorType(LLVMInt32TypeInContext(LC), 4);
+   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatTypeInContext(gallivm.context), 4);
+   LLVMTypeRef v4si = LLVMVectorType(LLVMInt32TypeInContext(gallivm.context), 4);
 
    /*
     *  take the absolute value,
@@ -1701,8 +1702,8 @@ lp_build_cos(struct lp_build_context *bld,
 {
    struct lp_type int_type = lp_int_type(bld->type);
    LLVMBuilderRef b = bld->builder;
-   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatTypeInContext(LC), 4);
-   LLVMTypeRef v4si = LLVMVectorType(LLVMInt32TypeInContext(LC), 4);
+   LLVMTypeRef v4sf = LLVMVectorType(LLVMFloatTypeInContext(gallivm.context), 4);
+   LLVMTypeRef v4si = LLVMVectorType(LLVMInt32TypeInContext(gallivm.context), 4);
 
    /*
     *  take the absolute value,

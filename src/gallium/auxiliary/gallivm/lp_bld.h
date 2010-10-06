@@ -55,8 +55,6 @@
 #endif
 
 
-extern LLVMContextRef LC;
-
 /**
  * Redefine these LLVM entrypoints as invalid macros to make sure we
  * don't accidentally use them.  We need to use the functions which

@@ -39,6 +39,7 @@
 
 #include "pipe/p_compiler.h"
 #include "gallivm/lp_bld.h"
+#include "gallivm/lp_bld_init.h"
 
 
 
@@ -110,14 +111,14 @@ lp_build_const_mask_aos(struct lp_type type,
 static INLINE LLVMValueRef
 lp_build_const_int32(int i)
 {
-   return LLVMConstInt(LLVMInt32TypeInContext(LC), i, 0);
+   return LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), i, 0);
 }
 
 
 static INLINE LLVMValueRef
 lp_build_const_float(float x)
 {
-   return LLVMConstReal(LLVMFloatTypeInContext(LC), x);
+   return LLVMConstReal(LLVMFloatTypeInContext(gallivm.context), x);
 }
 
 

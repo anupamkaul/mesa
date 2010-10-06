@@ -465,7 +465,7 @@ lp_build_occlusion_count(LLVMBuilderRef builder,
 {
    LLVMValueRef countmask = lp_build_const_int_vec(type, 1);
    LLVMValueRef countv = LLVMBuildAnd(builder, maskvalue, countmask, "countv");
-   LLVMTypeRef i8v16 = LLVMVectorType(LLVMInt8TypeInContext(LC), 16);
+   LLVMTypeRef i8v16 = LLVMVectorType(LLVMInt8TypeInContext(gallivm.context), 16);
    LLVMValueRef counti = LLVMBuildBitCast(builder, countv, i8v16, "counti");
    LLVMValueRef maskarray[4] = {
       lp_build_const_int32(0),
@@ -475,8 +475,8 @@ lp_build_occlusion_count(LLVMBuilderRef builder,
    };
    LLVMValueRef shufflemask = LLVMConstVector(maskarray, 4);
    LLVMValueRef shufflev =  LLVMBuildShuffleVector(builder, counti, LLVMGetUndef(i8v16), shufflemask, "shufflev");
-   LLVMValueRef shuffle = LLVMBuildBitCast(builder, shufflev, LLVMInt32TypeInContext(LC), "shuffle");
-   LLVMValueRef count = lp_build_intrinsic_unary(builder, "llvm.ctpop.i32", LLVMInt32TypeInContext(LC), shuffle);
+   LLVMValueRef shuffle = LLVMBuildBitCast(builder, shufflev, LLVMInt32TypeInContext(gallivm.context), "shuffle");
+   LLVMValueRef count = lp_build_intrinsic_unary(builder, "llvm.ctpop.i32", LLVMInt32TypeInContext(gallivm.context), shuffle);
    LLVMValueRef orig = LLVMBuildLoad(builder, counter, "orig");
    LLVMValueRef incr = LLVMBuildAdd(builder, orig, count, "incr");
    LLVMBuildStore(builder, incr, counter);

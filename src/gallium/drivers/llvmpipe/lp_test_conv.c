@@ -114,17 +114,17 @@ add_conv_test(LLVMModuleRef module,
    args[0] = LLVMPointerType(lp_build_vec_type(src_type), 0);
    args[1] = LLVMPointerType(lp_build_vec_type(dst_type), 0);
 
-   func = LLVMAddFunction(module, "test", LLVMFunctionType(LLVMVoidTypeInContext(LC), args, 2, 0));
+   func = LLVMAddFunction(module, "test", LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context), args, 2, 0));
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
    src_ptr = LLVMGetParam(func, 0);
    dst_ptr = LLVMGetParam(func, 1);
 
-   block = LLVMAppendBasicBlockInContext(LC, func, "entry");
-   builder = LLVMCreateBuilderInContext(LC);
+   block = LLVMAppendBasicBlockInContext(gallivm.context, func, "entry");
+   builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMPositionBuilderAtEnd(builder, block);
 
    for(i = 0; i < num_srcs; ++i) {
-      LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(LC), i, 0);
+      LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), i, 0);
       LLVMValueRef ptr = LLVMBuildGEP(builder, src_ptr, &index, 1, "");
       src[i] = LLVMBuildLoad(builder, ptr, "");
    }
@@ -132,7 +132,7 @@ add_conv_test(LLVMModuleRef module,
    lp_build_conv(builder, src_type, dst_type, src, num_srcs, dst, num_dsts);
 
    for(i = 0; i < num_dsts; ++i) {
-      LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(LC), i, 0);
+      LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), i, 0);
       LLVMValueRef ptr = LLVMBuildGEP(builder, dst_ptr, &index, 1, "");
       LLVMBuildStore(builder, dst[i], ptr);
    }

@@ -51,8 +51,6 @@ DEBUG_GET_ONCE_FLAGS_OPTION(gallivm_debug, "GALLIVM_DEBUG", lp_bld_debug_flags, 
 #endif
 
 
-LLVMContextRef LC = NULL;
-
 struct gallivm_state gallivm = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
 
@@ -146,11 +144,12 @@ create_pass_manager(struct gallivm_state *gallivm)
 static void
 create_globals(struct gallivm_state *gallivm)
 {
-   if (!LC)
-      LC = LLVMContextCreate();
+   if (!gallivm->context)
+      gallivm->context = LLVMContextCreate();
 
    if (!gallivm->module)
-      gallivm->module = LLVMModuleCreateWithNameInContext("gallivm", LC);
+      gallivm->module = LLVMModuleCreateWithNameInContext("gallivm",
+                                                          gallivm->context);
 
    if (!gallivm->provider)
       gallivm->provider = LLVMCreateModuleProviderForExistingModule(gallivm->module);
@@ -202,14 +201,15 @@ free_globals(struct gallivm_state *gallivm)
    LLVMDisposePassManager(gallivm->passmgr);
    LLVMDisposeModule(gallivm->module);
    LLVMDisposeExecutionEngine(gallivm->engine);
-   LLVMContextDispose(LC);
+   LLVMContextDispose(gallivm->context);
 
-   LC = NULL;
    gallivm->engine = NULL;
    gallivm->target = NULL;
    gallivm->module = NULL;
    gallivm->provider = NULL;
    gallivm->passmgr = NULL;
+   gallivm->context = NULL;
+   gallivm->builder = NULL;
 }
 
 
@@ -282,7 +282,7 @@ lp_garbage_collect(void)
    counter++;
    debug_printf("%s %d\n", __FUNCTION__, counter);
    if (counter >= 10) {
-      if (LC) {
+      if (gallivm.context) {
          if (1)
             debug_printf("***** Doing LLVM garbage collection\n");
 

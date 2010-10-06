@@ -86,7 +86,7 @@ add_fetch_rgba_test(unsigned verbose,
    LLVMTypeRef args[4];
    LLVMValueRef func;
    LLVMValueRef packed_ptr;
-   LLVMValueRef offset = LLVMConstNull(LLVMInt32TypeInContext(LC));
+   LLVMValueRef offset = LLVMConstNull(LLVMInt32TypeInContext(gallivm.context));
    LLVMValueRef rgba_ptr;
    LLVMValueRef i;
    LLVMValueRef j;
@@ -98,19 +98,19 @@ add_fetch_rgba_test(unsigned verbose,
                  type.floating ? "float" : "unorm8");
 
    args[0] = LLVMPointerType(lp_build_vec_type(type), 0);
-   args[1] = LLVMPointerType(LLVMInt8TypeInContext(LC), 0);
-   args[3] = args[2] = LLVMInt32TypeInContext(LC);
+   args[1] = LLVMPointerType(LLVMInt8TypeInContext(gallivm.context), 0);
+   args[3] = args[2] = LLVMInt32TypeInContext(gallivm.context);
 
    func = LLVMAddFunction(gallivm.module, name,
-                          LLVMFunctionType(LLVMVoidTypeInContext(LC), args, Elements(args), 0));
+                          LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context), args, Elements(args), 0));
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
    rgba_ptr = LLVMGetParam(func, 0);
    packed_ptr = LLVMGetParam(func, 1);
    i = LLVMGetParam(func, 2);
    j = LLVMGetParam(func, 3);
 
-   block = LLVMAppendBasicBlockInContext(LC, func, "entry");
-   builder = LLVMCreateBuilderInContext(LC);
+   block = LLVMAppendBasicBlockInContext(gallivm.context, func, "entry");
+   builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMPositionBuilderAtEnd(builder, block);
 
    rgba = lp_build_fetch_rgba_aos(builder, desc, type,

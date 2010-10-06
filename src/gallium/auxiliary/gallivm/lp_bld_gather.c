@@ -31,6 +31,7 @@
 #include "lp_bld_const.h"
 #include "lp_bld_format.h"
 #include "lp_bld_gather.h"
+#include "lp_bld_init.h"
 
 
 /**
@@ -48,7 +49,7 @@ lp_build_gather_elem_ptr(LLVMBuilderRef builder,
    LLVMValueRef offset;
    LLVMValueRef ptr;
 
-   assert(LLVMTypeOf(base_ptr) == LLVMPointerType(LLVMInt8TypeInContext(LC), 0));
+   assert(LLVMTypeOf(base_ptr) == LLVMPointerType(LLVMInt8TypeInContext(gallivm.context), 0));
 
    if (length == 1) {
       assert(i == 0);
@@ -78,13 +79,13 @@ lp_build_gather_elem(LLVMBuilderRef builder,
                      LLVMValueRef offsets,
                      unsigned i)
 {
-   LLVMTypeRef src_type = LLVMIntTypeInContext(LC, src_width);
+   LLVMTypeRef src_type = LLVMIntTypeInContext(gallivm.context, src_width);
    LLVMTypeRef src_ptr_type = LLVMPointerType(src_type, 0);
-   LLVMTypeRef dst_elem_type = LLVMIntTypeInContext(LC, dst_width);
+   LLVMTypeRef dst_elem_type = LLVMIntTypeInContext(gallivm.context, dst_width);
    LLVMValueRef ptr;
    LLVMValueRef res;
 
-   assert(LLVMTypeOf(base_ptr) == LLVMPointerType(LLVMInt8TypeInContext(LC), 0));
+   assert(LLVMTypeOf(base_ptr) == LLVMPointerType(LLVMInt8TypeInContext(gallivm.context), 0));
 
    ptr = lp_build_gather_elem_ptr(builder, length, base_ptr, offsets, i);
    ptr = LLVMBuildBitCast(builder, ptr, src_ptr_type, "");
@@ -129,7 +130,7 @@ lp_build_gather(LLVMBuilderRef builder,
    } else {
       /* Vector */
 
-      LLVMTypeRef dst_elem_type = LLVMIntTypeInContext(LC, dst_width);
+      LLVMTypeRef dst_elem_type = LLVMIntTypeInContext(gallivm.context, dst_width);
       LLVMTypeRef dst_vec_type = LLVMVectorType(dst_elem_type, length);
       unsigned i;
 

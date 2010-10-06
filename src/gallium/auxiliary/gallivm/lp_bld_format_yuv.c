@@ -43,6 +43,7 @@
 #include "lp_bld_conv.h"
 #include "lp_bld_gather.h"
 #include "lp_bld_format.h"
+#include "lp_bld_init.h"
 #include "lp_bld_logic.h"
 
 /**
@@ -308,7 +309,7 @@ rgb_to_rgba_aos(LLVMBuilderRef builder,
    rgba = LLVMBuildOr(builder, rgba, a, "");
 
    rgba = LLVMBuildBitCast(builder, rgba,
-                           LLVMVectorType(LLVMInt8TypeInContext(LC), 4*n), "");
+                           LLVMVectorType(LLVMInt8TypeInContext(gallivm.context), 4*n), "");
 
    return rgba;
 }
@@ -436,7 +437,7 @@ lp_build_fetch_subsampled_rgba_aos(LLVMBuilderRef builder,
       break;
    default:
       assert(0);
-      rgba =  LLVMGetUndef(LLVMVectorType(LLVMInt8TypeInContext(LC), 4*n));
+      rgba =  LLVMGetUndef(LLVMVectorType(LLVMInt8TypeInContext(gallivm.context), 4*n));
       break;
    }
 

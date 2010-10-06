@@ -37,6 +37,7 @@
 
 #include "lp_bld_type.h"
 #include "lp_bld_const.h"
+#include "lp_bld_init.h"
 #include "lp_bld_logic.h"
 #include "lp_bld_swizzle.h"
 
@@ -122,7 +123,7 @@ lp_build_swizzle_scalar_aos(struct lp_build_context *bld,
       /*
        * Shuffle.
        */
-      LLVMTypeRef elem_type = LLVMInt32TypeInContext(LC);
+      LLVMTypeRef elem_type = LLVMInt32TypeInContext(gallivm.context);
       LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH];
 
       for(j = 0; j < n; j += 4)
@@ -227,7 +228,7 @@ lp_build_swizzle_aos(struct lp_build_context *bld,
        * Shuffle.
        */
       LLVMValueRef undef = LLVMGetUndef(lp_build_elem_type(type));
-      LLVMTypeRef i32t = LLVMInt32TypeInContext(LC);
+      LLVMTypeRef i32t = LLVMInt32TypeInContext(gallivm.context);
       LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH];
       LLVMValueRef aux[LP_MAX_VECTOR_LENGTH];
 

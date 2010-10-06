@@ -51,6 +51,7 @@
 #include "lp_bld_flow.h"
 #include "lp_bld_gather.h"
 #include "lp_bld_format.h"
+#include "lp_bld_init.h"
 #include "lp_bld_sample.h"
 #include "lp_bld_sample_aos.h"
 #include "lp_bld_quad.h"
@@ -609,7 +610,7 @@ lp_build_sample_image_linear(struct lp_build_sample_context *bld,
       r_fpart = LLVMBuildBitCast(builder, r_fpart, h16_vec_type, "");
 
    {
-      LLVMTypeRef elem_type = LLVMInt32TypeInContext(LC);
+      LLVMTypeRef elem_type = LLVMInt32TypeInContext(gallivm.context);
       LLVMValueRef shuffles_lo[LP_MAX_VECTOR_LENGTH];
       LLVMValueRef shuffles_hi[LP_MAX_VECTOR_LENGTH];
       LLVMValueRef shuffle_lo;
@@ -981,7 +982,7 @@ lp_build_sample_aos(struct lp_build_sample_context *bld,
       {
          LLVMValueRef f256 = lp_build_const_float(256.0);
          LLVMValueRef i255 = lp_build_const_int32(255);
-         LLVMTypeRef i16_type = LLVMInt16TypeInContext(LC);
+         LLVMTypeRef i16_type = LLVMInt16TypeInContext(gallivm.context);
 
          assert(lod);
 

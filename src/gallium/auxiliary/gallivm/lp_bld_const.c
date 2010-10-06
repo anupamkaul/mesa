@@ -39,6 +39,7 @@
 
 #include "lp_bld_type.h"
 #include "lp_bld_const.h"
+#include "lp_bld_init.h"
 
 
 unsigned
@@ -225,7 +226,7 @@ lp_build_zero(struct lp_type type)
       if (type.floating)
          return lp_build_const_float(0.0);
       else
-         return LLVMConstInt(LLVMIntTypeInContext(LC, type.width), 0, 0);
+         return LLVMConstInt(LLVMIntTypeInContext(gallivm.context, type.width), 0, 0);
    }
    else {
       LLVMTypeRef vec_type = lp_build_vec_type(type);
@@ -389,7 +390,7 @@ LLVMValueRef
 lp_build_const_mask_aos(struct lp_type type,
                         unsigned mask)
 {
-   LLVMTypeRef elem_type = LLVMIntTypeInContext(LC, type.width);
+   LLVMTypeRef elem_type = LLVMIntTypeInContext(gallivm.context, type.width);
    LLVMValueRef masks[LP_MAX_VECTOR_LENGTH];
    unsigned i, j;
 

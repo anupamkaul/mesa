@@ -30,6 +30,7 @@
 
 #include "lp_bld_type.h"
 #include "lp_bld_const.h"
+#include "lp_bld_init.h"
 
 
 LLVMTypeRef
@@ -38,18 +39,18 @@ lp_build_elem_type(struct lp_type type)
    if (type.floating) {
       switch(type.width) {
       case 32:
-         return LLVMFloatTypeInContext(LC);
+         return LLVMFloatTypeInContext(gallivm.context);
          break;
       case 64:
-         return LLVMDoubleTypeInContext(LC);
+         return LLVMDoubleTypeInContext(gallivm.context);
          break;
       default:
          assert(0);
-         return LLVMFloatTypeInContext(LC);
+         return LLVMFloatTypeInContext(gallivm.context);
       }
    }
    else {
-      return LLVMIntTypeInContext(LC, type.width);
+      return LLVMIntTypeInContext(gallivm.context, type.width);
    }
 }
 
@@ -151,7 +152,7 @@ lp_check_value(struct lp_type type, LLVMValueRef val)
 LLVMTypeRef
 lp_build_int_elem_type(struct lp_type type)
 {
-   return LLVMIntTypeInContext(LC, type.width);
+   return LLVMIntTypeInContext(gallivm.context, type.width);
 }
 
 

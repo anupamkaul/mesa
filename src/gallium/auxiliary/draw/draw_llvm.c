@@ -124,20 +124,20 @@ create_jit_texture_type(LLVMTargetDataRef target)
    elem_types[DRAW_JIT_TEXTURE_WIDTH]  =
    elem_types[DRAW_JIT_TEXTURE_HEIGHT] =
    elem_types[DRAW_JIT_TEXTURE_DEPTH] =
-   elem_types[DRAW_JIT_TEXTURE_LAST_LEVEL] = LLVMInt32TypeInContext(LC);
+   elem_types[DRAW_JIT_TEXTURE_LAST_LEVEL] = LLVMInt32TypeInContext(gallivm.context);
    elem_types[DRAW_JIT_TEXTURE_ROW_STRIDE] =
    elem_types[DRAW_JIT_TEXTURE_IMG_STRIDE] =
-      LLVMArrayType(LLVMInt32TypeInContext(LC), DRAW_MAX_TEXTURE_LEVELS);
+      LLVMArrayType(LLVMInt32TypeInContext(gallivm.context), DRAW_MAX_TEXTURE_LEVELS);
    elem_types[DRAW_JIT_TEXTURE_DATA] =
-      LLVMArrayType(LLVMPointerType(LLVMInt8TypeInContext(LC), 0),
+      LLVMArrayType(LLVMPointerType(LLVMInt8TypeInContext(gallivm.context), 0),
                     DRAW_MAX_TEXTURE_LEVELS);
    elem_types[DRAW_JIT_TEXTURE_MIN_LOD] =
    elem_types[DRAW_JIT_TEXTURE_MAX_LOD] =
-   elem_types[DRAW_JIT_TEXTURE_LOD_BIAS] = LLVMFloatTypeInContext(LC);
+   elem_types[DRAW_JIT_TEXTURE_LOD_BIAS] = LLVMFloatTypeInContext(gallivm.context);
    elem_types[DRAW_JIT_TEXTURE_BORDER_COLOR] = 
-      LLVMArrayType(LLVMFloatTypeInContext(LC), 4);
+      LLVMArrayType(LLVMFloatTypeInContext(gallivm.context), 4);
 
-   texture_type = LLVMStructTypeInContext(LC, elem_types,
+   texture_type = LLVMStructTypeInContext(gallivm.context, elem_types,
                                           Elements(elem_types), 0);
 
    LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, width,
@@ -190,11 +190,11 @@ create_jit_context_type(LLVMTargetDataRef target, LLVMTypeRef texture_type)
    LLVMTypeRef context_type;
 
    elem_types[0] = /* vs_constants */
-   elem_types[1] = LLVMPointerType(LLVMFloatTypeInContext(LC), 0); /* vs_constants */
+   elem_types[1] = LLVMPointerType(LLVMFloatTypeInContext(gallivm.context), 0); /* vs_constants */
    elem_types[2] = LLVMArrayType(texture_type,
                                  PIPE_MAX_VERTEX_SAMPLERS); /* textures */
 
-   context_type = LLVMStructTypeInContext(LC, elem_types,
+   context_type = LLVMStructTypeInContext(gallivm.context, elem_types,
                                           Elements(elem_types), 0);
 
    LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, vs_constants,
@@ -222,10 +222,10 @@ create_jit_vertex_buffer_type(LLVMTargetDataRef target)
 
    elem_types[0] =
    elem_types[1] =
-   elem_types[2] = LLVMInt32TypeInContext(LC);
-   elem_types[3] = LLVMPointerType(LLVMOpaqueTypeInContext(LC), 0); /* vs_constants */
+   elem_types[2] = LLVMInt32TypeInContext(gallivm.context);
+   elem_types[3] = LLVMPointerType(LLVMOpaqueTypeInContext(gallivm.context), 0); /* vs_constants */
 
-   vb_type = LLVMStructTypeInContext(LC, elem_types,
+   vb_type = LLVMStructTypeInContext(gallivm.context, elem_types,
                                      Elements(elem_types), 0);
 
    LP_CHECK_MEMBER_OFFSET(struct pipe_vertex_buffer, stride,
@@ -252,11 +252,11 @@ create_jit_vertex_header(LLVMTargetDataRef target,
 
    util_snprintf(struct_name, 23, "vertex_header%d", data_elems);
 
-   elem_types[0]  = LLVMIntTypeInContext(LC, 32);
-   elem_types[1]  = LLVMArrayType(LLVMFloatTypeInContext(LC), 4);
+   elem_types[0]  = LLVMIntTypeInContext(gallivm.context, 32);
+   elem_types[1]  = LLVMArrayType(LLVMFloatTypeInContext(gallivm.context), 4);
    elem_types[2]  = LLVMArrayType(elem_types[1], data_elems);
 
-   vertex_header = LLVMStructTypeInContext(LC, elem_types,
+   vertex_header = LLVMStructTypeInContext(gallivm.context, elem_types,
                                            Elements(elem_types), 0);
 
    /* these are bit-fields and we can't take address of them
@@ -301,7 +301,7 @@ create_global_types(void)
    LLVMAddTypeName(gallivm.module, "draw_jit_context", context_type);
    draw_llvm_global.context_ptr_type = LLVMPointerType(context_type, 0);
 
-   buffer_type = LLVMPointerType(LLVMIntTypeInContext(LC, 8), 0);
+   buffer_type = LLVMPointerType(LLVMIntTypeInContext(gallivm.context, 8), 0);
    LLVMAddTypeName(gallivm.module, "buffer", buffer_type);
    draw_llvm_global.buffer_ptr_type = LLVMPointerType(buffer_type, 0);
 
@@ -494,7 +494,7 @@ generate_fetch(LLVMBuilderRef builder,
                LLVMValueRef index,
                LLVMValueRef instance_id)
 {
-   LLVMValueRef indices = LLVMConstInt(LLVMInt64TypeInContext(LC), velem->vertex_buffer_index, 0);
+   LLVMValueRef indices = LLVMConstInt(LLVMInt64TypeInContext(gallivm.context), velem->vertex_buffer_index, 0);
    LLVMValueRef vbuffer_ptr = LLVMBuildGEP(builder, vbuffers_ptr,
                                            &indices, 1, "");
    LLVMValueRef vb_stride = draw_jit_vbuffer_stride(builder, vbuf);
@@ -659,7 +659,7 @@ store_aos(LLVMBuilderRef builder,
    /*lp_build_printf(builder, " ---- %p storing at %d (%p)  ", io_ptr, index, data_ptr);
      print_vectorf(builder, value);*/
    data_ptr = LLVMBuildBitCast(builder, data_ptr,
-                               LLVMPointerType(LLVMArrayType(LLVMVectorType(LLVMFloatTypeInContext(LC), 4), 0), 0),
+                               LLVMPointerType(LLVMArrayType(LLVMVectorType(LLVMFloatTypeInContext(gallivm.context), 4), 0), 0),
                                "datavec");
    data_ptr = LLVMBuildGEP(builder, data_ptr, indices, 2, "");
 
@@ -800,11 +800,11 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    arg_types[2] = get_buffer_ptr_type();            /* vbuffers */
    arg_types[3] =
    arg_types[4] =
-   arg_types[5] = LLVMInt32TypeInContext(LC);       /* stride */
+   arg_types[5] = LLVMInt32TypeInContext(gallivm.context);       /* stride */
    arg_types[6] = get_vb_ptr_type();                /* pipe_vertex_buffer's */
-   arg_types[7] = LLVMInt32TypeInContext(LC);       /* instance_id */
+   arg_types[7] = LLVMInt32TypeInContext(gallivm.context);       /* instance_id */
 
-   func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC),
+   func_type = LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context),
                                 arg_types, Elements(arg_types), 0);
 
    variant->function = LLVMAddFunction(gallivm.module, "draw_llvm_shader", func_type);
@@ -835,8 +835,8 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
     * Function body
     */
 
-   block = LLVMAppendBasicBlockInContext(LC, variant->function, "entry");
-   builder = LLVMCreateBuilderInContext(LC);
+   block = LLVMAppendBasicBlockInContext(gallivm.context, variant->function, "entry");
+   builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMPositionBuilderAtEnd(builder, block);
 
    lp_build_context_init(&bld, builder, lp_type_int(32));
@@ -961,13 +961,13 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    arg_types[0] = get_context_ptr_type();               /* context */
    arg_types[1] = get_vertex_header_ptr_type();         /* vertex_header */
    arg_types[2] = get_buffer_ptr_type();                /* vbuffers */
-   arg_types[3] = LLVMPointerType(LLVMInt32TypeInContext(LC), 0);  /* fetch_elts * */
-   arg_types[4] = LLVMInt32TypeInContext(LC);           /* fetch_count */
-   arg_types[5] = LLVMInt32TypeInContext(LC);           /* stride */
+   arg_types[3] = LLVMPointerType(LLVMInt32TypeInContext(gallivm.context), 0);  /* fetch_elts * */
+   arg_types[4] = LLVMInt32TypeInContext(gallivm.context);           /* fetch_count */
+   arg_types[5] = LLVMInt32TypeInContext(gallivm.context);           /* stride */
    arg_types[6] = get_vb_ptr_type();                    /* pipe_vertex_buffer's */
-   arg_types[7] = LLVMInt32TypeInContext(LC);           /* instance_id */
+   arg_types[7] = LLVMInt32TypeInContext(gallivm.context);           /* instance_id */
 
-   func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC),
+   func_type = LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context),
                                 arg_types, Elements(arg_types), 0);
 
    variant->function_elts = LLVMAddFunction(gallivm.module, "draw_llvm_shader_elts",
@@ -1000,8 +1000,8 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
     * Function body
     */
 
-   block = LLVMAppendBasicBlockInContext(LC, variant->function_elts, "entry");
-   builder = LLVMCreateBuilderInContext(LC);
+   block = LLVMAppendBasicBlockInContext(gallivm.context, variant->function_elts, "entry");
+   builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMPositionBuilderAtEnd(builder, block);
 
    lp_build_context_init(&bld, builder, lp_type_int(32));

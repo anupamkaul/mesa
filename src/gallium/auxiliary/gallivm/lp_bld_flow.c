@@ -34,6 +34,7 @@
 #include "util/u_debug.h"
 #include "util/u_memory.h"
 
+#include "lp_bld_init.h"
 #include "lp_bld_type.h"
 #include "lp_bld_flow.h"
 
@@ -322,12 +323,12 @@ lp_build_insert_new_block(LLVMBuilderRef builder, const char *name)
    next_block = LLVMGetNextBasicBlock(current_block);
    if (next_block) {
       /* insert the new block before the next block */
-      new_block = LLVMInsertBasicBlockInContext(LC, next_block, name);
+      new_block = LLVMInsertBasicBlockInContext(gallivm.context, next_block, name);
    }
    else {
       /* append new block after current block */
       LLVMValueRef function = LLVMGetBasicBlockParent(current_block);
-      new_block = LLVMAppendBasicBlockInContext(LC, function, name);
+      new_block = LLVMAppendBasicBlockInContext(gallivm.context, function, name);
    }
 
    return new_block;
@@ -372,7 +373,7 @@ lp_build_flow_skip_begin(struct lp_build_flow_context *flow)
       return;
    }
 
-   builder = LLVMCreateBuilderInContext(LC);
+   builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMPositionBuilderAtEnd(builder, skip->block);
 
    /* create a Phi node for each variable */
@@ -484,7 +485,7 @@ lp_build_mask_begin(struct lp_build_mask_context *mask,
    memset(mask, 0, sizeof *mask);
 
    mask->flow = flow;
-   mask->reg_type = LLVMIntTypeInContext(LC, type.width * type.length);
+   mask->reg_type = LLVMIntTypeInContext(gallivm.context, type.width * type.length);
    mask->value = value;
 
    lp_build_flow_scope_begin(flow);
@@ -531,7 +532,7 @@ lp_build_loop_begin(LLVMBuilderRef builder,
    LLVMBasicBlockRef block = LLVMGetInsertBlock(builder);
    LLVMValueRef function = LLVMGetBasicBlockParent(block);
 
-   state->block = LLVMAppendBasicBlockInContext(LC, function, "loop");
+   state->block = LLVMAppendBasicBlockInContext(gallivm.context, function, "loop");
 
    LLVMBuildBr(builder, state->block);
 
@@ -563,7 +564,7 @@ lp_build_loop_end(LLVMBuilderRef builder,
 
    cond = LLVMBuildICmp(builder, LLVMIntNE, next, end, "");
 
-   after_block = LLVMAppendBasicBlockInContext(LC, function, "");
+   after_block = LLVMAppendBasicBlockInContext(gallivm.context, function, "");
 
    LLVMBuildCondBr(builder, cond, after_block, state->block);
 
@@ -592,7 +593,7 @@ lp_build_loop_end_cond(LLVMBuilderRef builder,
 
    cond = LLVMBuildICmp(builder, llvm_cond, next, end, "");
 
-   after_block = LLVMAppendBasicBlockInContext(LC, function, "");
+   after_block = LLVMAppendBasicBlockInContext(gallivm.context, function, "");
 
    LLVMBuildCondBr(builder, cond, after_block, state->block);
 
@@ -686,7 +687,7 @@ lp_build_if(struct lp_build_if_state *ctx,
    }
 
    /* create/insert true_block before merge_block */
-   ifthen->true_block = LLVMInsertBasicBlockInContext(LC, ifthen->merge_block,
+   ifthen->true_block = LLVMInsertBasicBlockInContext(gallivm.context, ifthen->merge_block,
                                                       "if-true-block");
 
    /* successive code goes into the true block */
@@ -715,7 +716,7 @@ lp_build_else(struct lp_build_if_state *ctx)
    }
 
    /* create/insert false_block before the merge block */
-   ifthen->false_block = LLVMInsertBasicBlockInContext(LC, ifthen->merge_block, "if-false-block");
+   ifthen->false_block = LLVMInsertBasicBlockInContext(gallivm.context, ifthen->merge_block, "if-false-block");
 
    /* successive code goes into the else block */
    LLVMPositionBuilderAtEnd(ctx->builder, ifthen->false_block);
@@ -822,7 +823,7 @@ lp_build_alloca(LLVMBuilderRef builder,
    LLVMValueRef function = LLVMGetBasicBlockParent(current_block);
    LLVMBasicBlockRef first_block = LLVMGetEntryBasicBlock(function);
    LLVMValueRef first_instr = LLVMGetFirstInstruction(first_block);
-   LLVMBuilderRef first_builder = LLVMCreateBuilderInContext(LC);
+   LLVMBuilderRef first_builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMValueRef res;
 
    if (first_instr) {
@@ -863,7 +864,7 @@ lp_build_array_alloca(LLVMBuilderRef builder,
    LLVMValueRef function = LLVMGetBasicBlockParent(current_block);
    LLVMBasicBlockRef first_block = LLVMGetEntryBasicBlock(function);
    LLVMValueRef first_instr = LLVMGetFirstInstruction(first_block);
-   LLVMBuilderRef first_builder = LLVMCreateBuilderInContext(LC);
+   LLVMBuilderRef first_builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMValueRef res;
 
    if (first_instr) {

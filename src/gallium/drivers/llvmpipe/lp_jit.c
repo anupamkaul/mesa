@@ -51,6 +51,7 @@ static LLVMTypeRef lp_context_ptr_type = NULL;
 static void
 lp_jit_init_globals(void)
 {
+   LLVMContextRef lc = gallivm.context;
    LLVMTypeRef texture_type;
 
    /* struct lp_jit_texture */
@@ -60,20 +61,20 @@ lp_jit_init_globals(void)
       elem_types[LP_JIT_TEXTURE_WIDTH]  =
       elem_types[LP_JIT_TEXTURE_HEIGHT] =
       elem_types[LP_JIT_TEXTURE_DEPTH] =
-      elem_types[LP_JIT_TEXTURE_LAST_LEVEL] =  LLVMInt32TypeInContext(LC);
+      elem_types[LP_JIT_TEXTURE_LAST_LEVEL] =  LLVMInt32TypeInContext(lc);
       elem_types[LP_JIT_TEXTURE_ROW_STRIDE] =
       elem_types[LP_JIT_TEXTURE_IMG_STRIDE] =
-         LLVMArrayType(LLVMInt32TypeInContext(LC), LP_MAX_TEXTURE_LEVELS);
+         LLVMArrayType(LLVMInt32TypeInContext(lc), LP_MAX_TEXTURE_LEVELS);
       elem_types[LP_JIT_TEXTURE_DATA] =
-         LLVMArrayType(LLVMPointerType(LLVMInt8TypeInContext(LC), 0),
+         LLVMArrayType(LLVMPointerType(LLVMInt8TypeInContext(lc), 0),
                        LP_MAX_TEXTURE_LEVELS);
       elem_types[LP_JIT_TEXTURE_MIN_LOD] =
       elem_types[LP_JIT_TEXTURE_MAX_LOD] =
-      elem_types[LP_JIT_TEXTURE_LOD_BIAS] = LLVMFloatTypeInContext(LC);
+      elem_types[LP_JIT_TEXTURE_LOD_BIAS] = LLVMFloatTypeInContext(lc);
       elem_types[LP_JIT_TEXTURE_BORDER_COLOR] = 
-         LLVMArrayType(LLVMFloatTypeInContext(LC), 4);
+         LLVMArrayType(LLVMFloatTypeInContext(lc), 4);
 
-      texture_type = LLVMStructTypeInContext(LC, elem_types,
+      texture_type = LLVMStructTypeInContext(lc, elem_types,
                                              Elements(elem_types), 0);
 
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, width,
@@ -121,15 +122,15 @@ lp_jit_init_globals(void)
       LLVMTypeRef elem_types[LP_JIT_CTX_COUNT];
       LLVMTypeRef context_type;
 
-      elem_types[LP_JIT_CTX_CONSTANTS] = LLVMPointerType(LLVMFloatTypeInContext(LC), 0);
-      elem_types[LP_JIT_CTX_ALPHA_REF] = LLVMFloatTypeInContext(LC);
+      elem_types[LP_JIT_CTX_CONSTANTS] = LLVMPointerType(LLVMFloatTypeInContext(lc), 0);
+      elem_types[LP_JIT_CTX_ALPHA_REF] = LLVMFloatTypeInContext(lc);
       elem_types[LP_JIT_CTX_STENCIL_REF_FRONT] =
-      elem_types[LP_JIT_CTX_STENCIL_REF_BACK] = LLVMInt32TypeInContext(LC);
-      elem_types[LP_JIT_CTX_BLEND_COLOR] = LLVMPointerType(LLVMInt8TypeInContext(LC), 0);
+      elem_types[LP_JIT_CTX_STENCIL_REF_BACK] = LLVMInt32TypeInContext(lc);
+      elem_types[LP_JIT_CTX_BLEND_COLOR] = LLVMPointerType(LLVMInt8TypeInContext(lc), 0);
       elem_types[LP_JIT_CTX_TEXTURES] = LLVMArrayType(texture_type,
                                                       PIPE_MAX_SAMPLERS);
 
-      context_type = LLVMStructTypeInContext(LC, elem_types,
+      context_type = LLVMStructTypeInContext(lc, elem_types,
                                              Elements(elem_types), 0);
 
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_context, constants,

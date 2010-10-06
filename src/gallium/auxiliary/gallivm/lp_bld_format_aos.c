@@ -167,21 +167,21 @@ lp_build_unpack_arith_rgba_aos(LLVMBuilderRef builder,
 
    /* Do the intermediate integer computations with 32bit integers since it
     * matches floating point size */
-   assert (LLVMTypeOf(packed) == LLVMInt32TypeInContext(LC));
+   assert (LLVMTypeOf(packed) == LLVMInt32TypeInContext(gallivm.context));
 
    /* Broadcast the packed value to all four channels
     * before: packed = BGRA
     * after: packed = {BGRA, BGRA, BGRA, BGRA}
     */
    packed = LLVMBuildInsertElement(builder,
-                                   LLVMGetUndef(LLVMVectorType(LLVMInt32TypeInContext(LC), 4)),
+                                   LLVMGetUndef(LLVMVectorType(LLVMInt32TypeInContext(gallivm.context), 4)),
                                    packed,
-                                   LLVMConstNull(LLVMInt32TypeInContext(LC)),
+                                   LLVMConstNull(LLVMInt32TypeInContext(gallivm.context)),
                                    "");
    packed = LLVMBuildShuffleVector(builder,
                                    packed,
-                                   LLVMGetUndef(LLVMVectorType(LLVMInt32TypeInContext(LC), 4)),
-                                   LLVMConstNull(LLVMVectorType(LLVMInt32TypeInContext(LC), 4)),
+                                   LLVMGetUndef(LLVMVectorType(LLVMInt32TypeInContext(gallivm.context), 4)),
+                                   LLVMConstNull(LLVMVectorType(LLVMInt32TypeInContext(gallivm.context), 4)),
                                    "");
 
    /* Initialize vector constants */
@@ -194,9 +194,9 @@ lp_build_unpack_arith_rgba_aos(LLVMBuilderRef builder,
       unsigned bits = desc->channel[i].size;
 
       if (desc->channel[i].type == UTIL_FORMAT_TYPE_VOID) {
-         shifts[i] = LLVMGetUndef(LLVMInt32TypeInContext(LC));
-         masks[i] = LLVMConstNull(LLVMInt32TypeInContext(LC));
-         scales[i] =  LLVMConstNull(LLVMFloatTypeInContext(LC));
+         shifts[i] = LLVMGetUndef(LLVMInt32TypeInContext(gallivm.context));
+         masks[i] = LLVMConstNull(LLVMInt32TypeInContext(gallivm.context));
+         scales[i] =  LLVMConstNull(LLVMFloatTypeInContext(gallivm.context));
       }
       else {
          unsigned long long mask = (1ULL << bits) - 1;
@@ -230,9 +230,9 @@ lp_build_unpack_arith_rgba_aos(LLVMBuilderRef builder,
 
    if (!needs_uitofp) {
       /* UIToFP can't be expressed in SSE2 */
-      casted = LLVMBuildSIToFP(builder, masked, LLVMVectorType(LLVMFloatTypeInContext(LC), 4), "");
+      casted = LLVMBuildSIToFP(builder, masked, LLVMVectorType(LLVMFloatTypeInContext(gallivm.context), 4), "");
    } else {
-      casted = LLVMBuildUIToFP(builder, masked, LLVMVectorType(LLVMFloatTypeInContext(LC), 4), "");
+      casted = LLVMBuildUIToFP(builder, masked, LLVMVectorType(LLVMFloatTypeInContext(gallivm.context), 4), "");
    }
 
    /* At this point 'casted' may be a vector of floats such as
@@ -276,7 +276,7 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
    assert(desc->block.width == 1);
    assert(desc->block.height == 1);
 
-   type = LLVMIntTypeInContext(LC, desc->block.bits);
+   type = LLVMIntTypeInContext(gallivm.context, desc->block.bits);
 
    /* Unswizzle the color components into the source vector. */
    for (i = 0; i < 4; ++i) {
@@ -287,11 +287,11 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
       if (j < 4)
          swizzles[i] = lp_build_const_int32(j);
       else
-         swizzles[i] = LLVMGetUndef(LLVMInt32TypeInContext(LC));
+         swizzles[i] = LLVMGetUndef(LLVMInt32TypeInContext(gallivm.context));
    }
 
    unswizzled = LLVMBuildShuffleVector(builder, rgba,
-                                       LLVMGetUndef(LLVMVectorType(LLVMFloatTypeInContext(LC), 4)),
+                                       LLVMGetUndef(LLVMVectorType(LLVMFloatTypeInContext(gallivm.context), 4)),
                                        LLVMConstVector(swizzles, 4), "");
 
    normalized = FALSE;
@@ -300,8 +300,8 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
       unsigned bits = desc->channel[i].size;
 
       if (desc->channel[i].type == UTIL_FORMAT_TYPE_VOID) {
-         shifts[i] = LLVMGetUndef(LLVMInt32TypeInContext(LC));
-         scales[i] =  LLVMGetUndef(LLVMFloatTypeInContext(LC));
+         shifts[i] = LLVMGetUndef(LLVMInt32TypeInContext(gallivm.context));
+         scales[i] =  LLVMGetUndef(LLVMFloatTypeInContext(gallivm.context));
       }
       else {
          unsigned mask = (1 << bits) - 1;
@@ -327,7 +327,7 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
    else
       scaled = unswizzled;
 
-   casted = LLVMBuildFPToSI(builder, scaled, LLVMVectorType(LLVMInt32TypeInContext(LC), 4), "");
+   casted = LLVMBuildFPToSI(builder, scaled, LLVMVectorType(LLVMInt32TypeInContext(gallivm.context), 4), "");
 
    shifted = LLVMBuildShl(builder, casted, LLVMConstVector(shifts, 4), "");
    
@@ -344,7 +344,7 @@ lp_build_pack_rgba_aos(LLVMBuilderRef builder,
    }
 
    if (!packed)
-      packed = LLVMGetUndef(LLVMInt32TypeInContext(LC));
+      packed = LLVMGetUndef(LLVMInt32TypeInContext(gallivm.context));
 
    if (desc->block.bits < 32)
       packed = LLVMBuildTrunc(builder, packed, type, "");
@@ -508,9 +508,9 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
 
       LLVMModuleRef module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
       char name[256];
-      LLVMTypeRef i8t = LLVMInt8TypeInContext(LC);
+      LLVMTypeRef i8t = LLVMInt8TypeInContext(gallivm.context);
       LLVMTypeRef pi8t = LLVMPointerType(i8t, 0);
-      LLVMTypeRef i32t = LLVMInt32TypeInContext(LC);
+      LLVMTypeRef i32t = LLVMInt32TypeInContext(gallivm.context);
       LLVMValueRef function;
       LLVMValueRef tmp_ptr;
       LLVMValueRef tmp;
@@ -534,10 +534,10 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
          LLVMTypeRef arg_types[4];
          LLVMTypeRef function_type;
 
-         ret_type = LLVMVoidTypeInContext(LC);
+         ret_type = LLVMVoidTypeInContext(gallivm.context);
          arg_types[0] = pi8t;
          arg_types[1] = pi8t;
-         arg_types[3] = arg_types[2] = LLVMIntTypeInContext(LC, sizeof(unsigned) * 8);
+         arg_types[3] = arg_types[2] = LLVMIntTypeInContext(gallivm.context, sizeof(unsigned) * 8);
          function_type = LLVMFunctionType(ret_type, arg_types, Elements(arg_types), 0);
          function = LLVMAddFunction(module, name, function_type);
 
@@ -611,7 +611,7 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
 
       LLVMModuleRef module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
       char name[256];
-      LLVMTypeRef f32t = LLVMFloatTypeInContext(LC);
+      LLVMTypeRef f32t = LLVMFloatTypeInContext(gallivm.context);
       LLVMTypeRef f32x4t = LLVMVectorType(f32t, 4);
       LLVMTypeRef pf32t = LLVMPointerType(f32t, 0);
       LLVMValueRef function;
@@ -637,10 +637,10 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
          LLVMTypeRef arg_types[4];
          LLVMTypeRef function_type;
 
-         ret_type = LLVMVoidTypeInContext(LC);
+         ret_type = LLVMVoidTypeInContext(gallivm.context);
          arg_types[0] = pf32t;
-         arg_types[1] = LLVMPointerType(LLVMInt8TypeInContext(LC), 0);
-         arg_types[3] = arg_types[2] = LLVMIntTypeInContext(LC, sizeof(unsigned) * 8);
+         arg_types[1] = LLVMPointerType(LLVMInt8TypeInContext(gallivm.context), 0);
+         arg_types[3] = arg_types[2] = LLVMIntTypeInContext(gallivm.context, sizeof(unsigned) * 8);
          function_type = LLVMFunctionType(ret_type, arg_types, Elements(arg_types), 0);
          function = LLVMAddFunction(module, name, function_type);
 

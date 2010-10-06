@@ -182,15 +182,15 @@ add_blend_test(LLVMModuleRef module,
    vec_type = lp_build_vec_type(type);
 
    args[3] = args[2] = args[1] = args[0] = LLVMPointerType(vec_type, 0);
-   func = LLVMAddFunction(module, "test", LLVMFunctionType(LLVMVoidTypeInContext(LC), args, 4, 0));
+   func = LLVMAddFunction(module, "test", LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context), args, 4, 0));
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
    src_ptr = LLVMGetParam(func, 0);
    dst_ptr = LLVMGetParam(func, 1);
    const_ptr = LLVMGetParam(func, 2);
    res_ptr = LLVMGetParam(func, 3);
 
-   block = LLVMAppendBasicBlockInContext(LC, func, "entry");
-   builder = LLVMCreateBuilderInContext(LC);
+   block = LLVMAppendBasicBlockInContext(gallivm.context, func, "entry");
+   builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMPositionBuilderAtEnd(builder, block);
 
    if (mode == AoS) {
@@ -218,7 +218,7 @@ add_blend_test(LLVMModuleRef module,
       unsigned i;
 
       for(i = 0; i < 4; ++i) {
-         LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(LC), i, 0);
+         LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), i, 0);
          src[i] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, src_ptr, &index, 1, ""), "");
          dst[i] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, dst_ptr, &index, 1, ""), "");
          con[i] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, const_ptr, &index, 1, ""), "");
@@ -230,7 +230,7 @@ add_blend_test(LLVMModuleRef module,
       lp_build_blend_soa(builder, blend, type, rt, src, dst, con, res);
 
       for(i = 0; i < 4; ++i) {
-         LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(LC), i, 0);
+         LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), i, 0);
          lp_build_name(res[i], "res.%c", "rgba"[i]);
          LLVMBuildStore(builder, res[i], LLVMBuildGEP(builder, res_ptr, &index, 1, ""));
       }

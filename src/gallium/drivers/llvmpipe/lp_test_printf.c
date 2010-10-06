@@ -65,20 +65,20 @@ typedef void (*test_printf_t)(int i);
 static LLVMValueRef
 add_printf_test(LLVMModuleRef module)
 {
-   LLVMTypeRef args[1] = { LLVMIntTypeInContext(LC, 32) };
-   LLVMValueRef func = LLVMAddFunction(module, "test_printf", LLVMFunctionType(LLVMVoidTypeInContext(LC), args, 1, 0));
-   LLVMBuilderRef builder = LLVMCreateBuilderInContext(LC);
-   LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(LC, func, "entry");
+   LLVMTypeRef args[1] = { LLVMIntTypeInContext(gallivm.context, 32) };
+   LLVMValueRef func = LLVMAddFunction(module, "test_printf", LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context), args, 1, 0));
+   LLVMBuilderRef builder = LLVMCreateBuilderInContext(gallivm.context);
+   LLVMBasicBlockRef block = LLVMAppendBasicBlockInContext(gallivm.context, func, "entry");
 
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
 
    LLVMPositionBuilderAtEnd(builder, block);
    lp_build_printf(builder, "hello, world\n");
-   lp_build_printf(builder, "print 5 6: %d %d\n", LLVMConstInt(LLVMInt32TypeInContext(LC), 5, 0),
-				LLVMConstInt(LLVMInt32TypeInContext(LC), 6, 0));
+   lp_build_printf(builder, "print 5 6: %d %d\n", LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), 5, 0),
+				LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), 6, 0));
 
    /* Also test lp_build_assert().  This should not fail. */
-   lp_build_assert(builder, LLVMConstInt(LLVMInt32TypeInContext(LC), 1, 0), "assert(1)");
+   lp_build_assert(builder, LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), 1, 0), "assert(1)");
 
    LLVMBuildRetVoid(builder);
    LLVMDisposeBuilder(builder);

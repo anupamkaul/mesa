@@ -39,6 +39,7 @@
 
 #include "lp_bld_type.h"
 #include "lp_bld_const.h"
+#include "lp_bld_init.h"
 #include "lp_bld_intr.h"
 #include "lp_bld_debug.h"
 #include "lp_bld_logic.h"
@@ -142,7 +143,7 @@ lp_build_compare(LLVMBuilderRef builder,
             args[1] = b;
          }
 
-         args[2] = LLVMConstInt(LLVMInt8TypeInContext(LC), cc, 0);
+         args[2] = LLVMConstInt(LLVMInt8TypeInContext(gallivm.context), cc, 0);
          res = lp_build_intrinsic(builder,
                                   "llvm.x86.sse.cmp.ps",
                                   vec_type,
@@ -434,7 +435,7 @@ lp_build_select(struct lp_build_context *bld,
       return a;
 
    if (type.length == 1) {
-      mask = LLVMBuildTrunc(bld->builder, mask, LLVMInt1TypeInContext(LC), "");
+      mask = LLVMBuildTrunc(bld->builder, mask, LLVMInt1TypeInContext(gallivm.context), "");
       res = LLVMBuildSelect(bld->builder, mask, a, b, "");
    }
    else if (util_cpu_caps.has_sse4_1 &&
@@ -448,13 +449,13 @@ lp_build_select(struct lp_build_context *bld,
 
       if (type.width == 64) {
          intrinsic = "llvm.x86.sse41.blendvpd";
-         arg_type = LLVMVectorType(LLVMDoubleTypeInContext(LC), 2);
+         arg_type = LLVMVectorType(LLVMDoubleTypeInContext(gallivm.context), 2);
       } else if (type.width == 32) {
          intrinsic = "llvm.x86.sse41.blendvps";
-         arg_type = LLVMVectorType(LLVMFloatTypeInContext(LC), 4);
+         arg_type = LLVMVectorType(LLVMFloatTypeInContext(gallivm.context), 4);
       } else {
          intrinsic = "llvm.x86.sse41.pblendvb";
-         arg_type = LLVMVectorType(LLVMInt8TypeInContext(LC), 16);
+         arg_type = LLVMVectorType(LLVMInt8TypeInContext(gallivm.context), 16);
       }
 
       if (arg_type != bld->int_vec_type) {
@@ -526,7 +527,7 @@ lp_build_select_aos(struct lp_build_context *bld,
       /*
        * Shuffle.
        */
-      LLVMTypeRef elem_type = LLVMInt32TypeInContext(LC);
+      LLVMTypeRef elem_type = LLVMInt32TypeInContext(gallivm.context);
       LLVMValueRef shuffles[LP_MAX_VECTOR_LENGTH];
 
       for(j = 0; j < n; j += 4)

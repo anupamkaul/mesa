@@ -186,7 +186,7 @@ generate_quad_mask(LLVMBuilderRef builder,
                    LLVMValueRef mask_input) /* int32 */
 {
    struct lp_type mask_type;
-   LLVMTypeRef i32t = LLVMInt32TypeInContext(LC);
+   LLVMTypeRef i32t = LLVMInt32TypeInContext(gallivm.context);
    LLVMValueRef bits[4];
    LLVMValueRef mask;
    int shift;
@@ -473,6 +473,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
                            unsigned partial_mask)
 {
    const struct lp_fragment_shader_variant_key *key = &variant->key;
+   LLVMContextRef lc = gallivm.context;
    char func_name[256];
    struct lp_type fs_type;
    struct lp_type blend_type;
@@ -539,17 +540,17 @@ generate_fragment_function(struct llvmpipe_context *lp,
 
    arg_types[0] = lp_jit_get_context_type();           /* context */
    arg_types[1] =                                      /* x */
-   arg_types[2] = LLVMInt32TypeInContext(LC);          /* y */
-   arg_types[3] = LLVMFloatTypeInContext(LC);          /* facing */
+   arg_types[2] = LLVMInt32TypeInContext(lc);          /* y */
+   arg_types[3] = LLVMFloatTypeInContext(lc);          /* facing */
    arg_types[4] =                                      /* a0 */
    arg_types[5] =                                      /* dadx */
    arg_types[6] = LLVMPointerType(fs_elem_type, 0);    /* dady */
    arg_types[7] = LLVMPointerType(LLVMPointerType(blend_vec_type, 0), 0);  /* color */
    arg_types[8] = LLVMPointerType(fs_int_vec_type, 0); /* depth */
-   arg_types[9] = LLVMInt32TypeInContext(LC);          /* mask_input */
-   arg_types[10] = LLVMPointerType(LLVMInt32TypeInContext(LC), 0);/* counter */
+   arg_types[9] = LLVMInt32TypeInContext(lc);          /* mask_input */
+   arg_types[10] = LLVMPointerType(LLVMInt32TypeInContext(lc), 0);/* counter */
 
-   func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC), arg_types, Elements(arg_types), 0);
+   func_type = LLVMFunctionType(LLVMVoidTypeInContext(lc), arg_types, Elements(arg_types), 0);
 
    function = LLVMAddFunction(gallivm.module, func_name, func_type);
    LLVMSetFunctionCallConv(function, LLVMCCallConv);
@@ -594,8 +595,8 @@ generate_fragment_function(struct llvmpipe_context *lp,
     * Function body
     */
 
-   block = LLVMAppendBasicBlockInContext(LC, function, "entry");
-   builder = LLVMCreateBuilderInContext(LC);
+   block = LLVMAppendBasicBlockInContext(lc, function, "entry");
+   builder = LLVMCreateBuilderInContext(lc);
    LLVMPositionBuilderAtEnd(builder, block);
 
    /*

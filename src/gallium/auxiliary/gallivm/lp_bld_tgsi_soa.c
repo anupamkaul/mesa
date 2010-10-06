@@ -51,6 +51,7 @@
 #include "lp_bld_arit.h"
 #include "lp_bld_bitarit.h"
 #include "lp_bld_gather.h"
+#include "lp_bld_init.h"
 #include "lp_bld_logic.h"
 #include "lp_bld_swizzle.h"
 #include "lp_bld_flow.h"
@@ -294,7 +295,7 @@ static void lp_exec_continue(struct lp_exec_mask *mask)
 static void lp_exec_endloop(struct lp_exec_mask *mask)
 {
    LLVMBasicBlockRef endloop;
-   LLVMTypeRef reg_type = LLVMIntTypeInContext(LC, mask->bld->type.width *
+   LLVMTypeRef reg_type = LLVMIntTypeInContext(gallivm.context, mask->bld->type.width *
                                                mask->bld->type.length);
    LLVMValueRef i1cond;
 
@@ -597,7 +598,7 @@ emit_fetch(
          index_vec = lp_build_mul(uint_bld, index_vec, length_vec);
 
          /* cast temps_array pointer to float* */
-         float4_ptr_type = LLVMPointerType(LLVMFloatTypeInContext(LC), 0);
+         float4_ptr_type = LLVMPointerType(LLVMFloatTypeInContext(gallivm.context), 0);
          temps_array = LLVMBuildBitCast(uint_bld->builder, bld->temps_array,
                                         float4_ptr_type, "");
 
