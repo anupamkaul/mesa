@@ -77,43 +77,43 @@ lp_jit_init_globals(void)
                                              Elements(elem_types), 0);
 
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, width,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_WIDTH);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, height,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_HEIGHT);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, depth,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_DEPTH);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, last_level,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_LAST_LEVEL);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, row_stride,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_ROW_STRIDE);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, img_stride,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_IMG_STRIDE);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, data,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_DATA);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, min_lod,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_MIN_LOD);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, max_lod,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_MAX_LOD);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, lod_bias,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_LOD_BIAS);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, border_color,
-                             lp_build_target, texture_type,
+                             gallivm.target, texture_type,
                              LP_JIT_TEXTURE_BORDER_COLOR);
 
       LP_CHECK_STRUCT_SIZE(struct lp_jit_texture,
-                           lp_build_target, texture_type);
+                           gallivm.target, texture_type);
 
-      LLVMAddTypeName(lp_build_module, "texture", texture_type);
+      LLVMAddTypeName(gallivm.module, "texture", texture_type);
    }
 
    /* struct lp_jit_context */
@@ -133,33 +133,33 @@ lp_jit_init_globals(void)
                                              Elements(elem_types), 0);
 
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_context, constants,
-                             lp_build_target, context_type,
+                             gallivm.target, context_type,
                              LP_JIT_CTX_CONSTANTS);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_context, alpha_ref_value,
-                             lp_build_target, context_type,
+                             gallivm.target, context_type,
                              LP_JIT_CTX_ALPHA_REF);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_context, stencil_ref_front,
-                             lp_build_target, context_type,
+                             gallivm.target, context_type,
                              LP_JIT_CTX_STENCIL_REF_FRONT);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_context, stencil_ref_back,
-                             lp_build_target, context_type,
+                             gallivm.target, context_type,
                              LP_JIT_CTX_STENCIL_REF_BACK);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_context, blend_color,
-                             lp_build_target, context_type,
+                             gallivm.target, context_type,
                              LP_JIT_CTX_BLEND_COLOR);
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_context, textures,
-                             lp_build_target, context_type,
+                             gallivm.target, context_type,
                              LP_JIT_CTX_TEXTURES);
       LP_CHECK_STRUCT_SIZE(struct lp_jit_context,
-                           lp_build_target, context_type);
+                           gallivm.target, context_type);
 
-      LLVMAddTypeName(lp_build_module, "context", context_type);
+      LLVMAddTypeName(gallivm.module, "context", context_type);
 
       lp_context_ptr_type = LLVMPointerType(context_type, 0);
    }
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
-      LLVMDumpModule(lp_build_module);
+      LLVMDumpModule(gallivm.module);
    }
 }
 

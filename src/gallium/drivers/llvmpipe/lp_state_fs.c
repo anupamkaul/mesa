@@ -551,7 +551,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
 
    func_type = LLVMFunctionType(LLVMVoidTypeInContext(LC), arg_types, Elements(arg_types), 0);
 
-   function = LLVMAddFunction(lp_build_module, func_name, func_type);
+   function = LLVMAddFunction(gallivm.module, func_name, func_type);
    LLVMSetFunctionCallConv(function, LLVMCCallConv);
 
    variant->function[partial_mask] = function;
@@ -713,7 +713,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
 #endif
 
    /* Apply optimizations to LLVM IR */
-   LLVMRunFunctionPassManager(lp_build_pass, function);
+   LLVMRunFunctionPassManager(gallivm.passmgr, function);
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
       /* Print the LLVM IR to stderr */
@@ -725,7 +725,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
     * Translate the LLVM IR into machine code.
     */
    {
-      void *f = LLVMGetPointerToGlobal(lp_build_engine, function);
+      void *f = LLVMGetPointerToGlobal(gallivm.engine, function);
 
       variant->jit_function[partial_mask] = (lp_jit_frag_func)pointer_to_func(f);
 
@@ -874,7 +874,7 @@ generate_variant(struct llvmpipe_context *lp,
 
    generate_fragment_function(lp, shader, variant, RAST_EDGE_TEST);
 
-   variant->engine = lp_build_engine;
+   variant->engine = gallivm.engine;
 
    if (variant->opaque) {
       /* Specialized shader, which doesn't need to read the color buffer. */

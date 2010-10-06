@@ -82,7 +82,7 @@ lp_build_assert(LLVMBuilderRef builder, LLVMValueRef condition,
       assert_func = LLVMAddFunction(module, "lp_assert", func_type);
       LLVMSetFunctionCallConv(assert_func, LLVMCCallConv);
       LLVMSetLinkage(assert_func, LLVMExternalLinkage);
-      LLVMAddGlobalMapping(lp_build_engine, assert_func,
+      LLVMAddGlobalMapping(gallivm.engine, assert_func,
                            func_to_pointer((func_pointer)lp_assert));
    }
    assert(assert_func);

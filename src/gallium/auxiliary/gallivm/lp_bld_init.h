@@ -35,12 +35,18 @@
 #include <llvm-c/ExecutionEngine.h>
 
 
-extern LLVMModuleRef lp_build_module;
-extern LLVMExecutionEngineRef lp_build_engine;
-extern LLVMModuleProviderRef lp_build_provider;
-extern LLVMTargetDataRef lp_build_target;
-extern LLVMPassManagerRef lp_build_pass;
+struct gallivm_state
+{
+   LLVMModuleRef module;
+   LLVMExecutionEngineRef engine;
+   LLVMModuleProviderRef provider;
+   LLVMTargetDataRef target;
+   LLVMPassManagerRef passmgr;
+   LLVMContextRef context;
+   LLVMBuilderRef builder;
+};
 
+extern struct gallivm_state gallivm;
 
 void
 lp_build_init(void);

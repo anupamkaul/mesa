@@ -52,11 +52,9 @@ DEBUG_GET_ONCE_FLAGS_OPTION(gallivm_debug, "GALLIVM_DEBUG", lp_bld_debug_flags, 
 
 
 LLVMContextRef LC = NULL;
-LLVMModuleRef lp_build_module = NULL;
-LLVMExecutionEngineRef lp_build_engine = NULL;
-LLVMModuleProviderRef lp_build_provider = NULL;
-LLVMTargetDataRef lp_build_target = NULL;
-LLVMPassManagerRef lp_build_pass = NULL;
+
+struct gallivm_state gallivm = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
+
 
 
 /*
@@ -97,29 +95,29 @@ lp_set_target_options(void);
 static void
 create_pass_manager(void)
 {
-   assert(!lp_build_pass);
+   assert(!gallivm.passmgr);
 
-   lp_build_pass = LLVMCreateFunctionPassManager(lp_build_provider);
-   LLVMAddTargetData(lp_build_target, lp_build_pass);
+   gallivm.passmgr = LLVMCreateFunctionPassManager(gallivm.provider);
+   LLVMAddTargetData(gallivm.target, gallivm.passmgr);
 
    if ((gallivm_debug & GALLIVM_DEBUG_NO_OPT) == 0) {
       /* These are the passes currently listed in llvm-c/Transforms/Scalar.h,
        * but there are more on SVN.
        * TODO: Add more passes.
        */
-      LLVMAddCFGSimplificationPass(lp_build_pass);
+      LLVMAddCFGSimplificationPass(gallivm.passmgr);
 
       if (HAVE_LLVM >= 0x207 && sizeof(void*) == 4) {
          /* For LLVM >= 2.7 and 32-bit build, use this order of passes to
           * avoid generating bad code.
           * Test with piglit glsl-vs-sqrt-zero test.
           */
-         LLVMAddConstantPropagationPass(lp_build_pass);
-         LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
+         LLVMAddConstantPropagationPass(gallivm.passmgr);
+         LLVMAddPromoteMemoryToRegisterPass(gallivm.passmgr);
       }
       else {
-         LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
-         LLVMAddConstantPropagationPass(lp_build_pass);
+         LLVMAddPromoteMemoryToRegisterPass(gallivm.passmgr);
+         LLVMAddConstantPropagationPass(gallivm.passmgr);
       }
 
       if (util_cpu_caps.has_sse4_1) {
@@ -127,18 +125,18 @@ create_pass_manager(void)
           * of fptosi and sitofp (necessary for trunc/floor/ceil/round
           * implementation) somehow becomes invalid code.
           */
-         LLVMAddInstructionCombiningPass(lp_build_pass);
+         LLVMAddInstructionCombiningPass(gallivm.passmgr);
       }
-      LLVMAddGVNPass(lp_build_pass);
+      LLVMAddGVNPass(gallivm.passmgr);
    }
    else {
       /* We need at least this pass to prevent the backends to fail in
        * unexpected ways.
        */
-      LLVMAddPromoteMemoryToRegisterPass(lp_build_pass);
+      LLVMAddPromoteMemoryToRegisterPass(gallivm.passmgr);
    }
 
-   assert(lp_build_pass);
+   assert(gallivm.passmgr);
 }
 
 
@@ -151,13 +149,13 @@ create_globals(void)
    if (!LC)
       LC = LLVMContextCreate();
 
-   if (!lp_build_module)
-      lp_build_module = LLVMModuleCreateWithNameInContext("gallivm", LC);
+   if (!gallivm.module)
+      gallivm.module = LLVMModuleCreateWithNameInContext("gallivm", LC);
 
-   if (!lp_build_provider)
-      lp_build_provider = LLVMCreateModuleProviderForExistingModule(lp_build_module);
+   if (!gallivm.provider)
+      gallivm.provider = LLVMCreateModuleProviderForExistingModule(gallivm.module);
 
-   if (!lp_build_engine) {
+   if (!gallivm.engine) {
       enum LLVM_CodeGenOpt_Level optlevel;
       char *error = NULL;
 
@@ -168,7 +166,7 @@ create_globals(void)
          optlevel = Default;
       }
 
-      if (LLVMCreateJITCompiler(&lp_build_engine, lp_build_provider,
+      if (LLVMCreateJITCompiler(&gallivm.engine, gallivm.provider,
                                 (unsigned)optlevel, &error)) {
          _debug_printf("%s\n", error);
          LLVMDisposeMessage(error);
@@ -176,14 +174,14 @@ create_globals(void)
       }
 
 #if defined(DEBUG) || defined(PROFILE)
-      lp_register_oprofile_jit_event_listener(lp_build_engine);
+      lp_register_oprofile_jit_event_listener(gallivm.engine);
 #endif
    }
 
-   if (!lp_build_target)
-      lp_build_target = LLVMGetExecutionEngineTargetData(lp_build_engine);
+   if (!gallivm.target)
+      gallivm.target = LLVMGetExecutionEngineTargetData(gallivm.engine);
 
-   if (!lp_build_pass) {
+   if (!gallivm.passmgr) {
       create_pass_manager();
    }
 }
@@ -198,20 +196,20 @@ free_globals(void)
    LLVMModuleRef mod;
    char *error;
 
-   LLVMRemoveModuleProvider(lp_build_engine, lp_build_provider,
+   LLVMRemoveModuleProvider(gallivm.engine, gallivm.provider,
                             &mod, &error);
 
-   LLVMDisposePassManager(lp_build_pass);
-   LLVMDisposeModule(lp_build_module);
-   LLVMDisposeExecutionEngine(lp_build_engine);
+   LLVMDisposePassManager(gallivm.passmgr);
+   LLVMDisposeModule(gallivm.module);
+   LLVMDisposeExecutionEngine(gallivm.engine);
    LLVMContextDispose(LC);
 
    LC = NULL;
-   lp_build_engine = NULL;
-   lp_build_target = NULL;
-   lp_build_module = NULL;
-   lp_build_provider = NULL;
-   lp_build_pass = NULL;
+   gallivm.engine = NULL;
+   gallivm.target = NULL;
+   gallivm.module = NULL;
+   gallivm.provider = NULL;
+   gallivm.passmgr = NULL;
 }
 
 
@@ -283,7 +281,7 @@ lp_garbage_collect(void)
 
    counter++;
    debug_printf("%s %d\n", __FUNCTION__, counter);
-   if (counter >= 100) {
+   if (counter >= 10) {
       if (LC) {
          if (1)
             debug_printf("***** Doing LLVM garbage collection\n");

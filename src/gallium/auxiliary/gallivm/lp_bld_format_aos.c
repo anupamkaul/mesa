@@ -546,7 +546,7 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
 
          assert(LLVMIsDeclaration(function));
 
-         LLVMAddGlobalMapping(lp_build_engine, function,
+         LLVMAddGlobalMapping(gallivm.engine, function,
                               func_to_pointer((func_pointer)format_desc->fetch_rgba_8unorm));
       }
 
@@ -649,7 +649,7 @@ lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
 
          assert(LLVMIsDeclaration(function));
 
-         LLVMAddGlobalMapping(lp_build_engine, function,
+         LLVMAddGlobalMapping(gallivm.engine, function,
                               func_to_pointer((func_pointer)format_desc->fetch_rgba_float));
       }
 

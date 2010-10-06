@@ -121,7 +121,7 @@ test_round(unsigned verbose, FILE *fp)
 {
    LLVMModuleRef module = NULL;
    LLVMValueRef test_round = NULL, test_trunc, test_floor, test_ceil;
-   LLVMExecutionEngineRef engine = lp_build_engine;
+   LLVMExecutionEngineRef engine = gallivm.engine;
    LLVMPassManagerRef pass = NULL;
    char *error = NULL;
    test_round_t round_func, trunc_func, floor_func, ceil_func;

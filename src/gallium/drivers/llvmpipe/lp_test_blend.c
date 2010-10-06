@@ -473,7 +473,7 @@ test_one(unsigned verbose,
 {
    LLVMModuleRef module = NULL;
    LLVMValueRef func = NULL;
-   LLVMExecutionEngineRef engine = lp_build_engine;
+   LLVMExecutionEngineRef engine = gallivm.engine;
    LLVMPassManagerRef pass = NULL;
    char *error = NULL;
    blend_test_ptr_t blend_test_ptr;

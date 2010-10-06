@@ -121,7 +121,7 @@ test_printf(unsigned verbose, FILE *fp, const struct printf_test_case *testcase)
    }
 #else
    (void) provider;
-   engine = lp_build_engine;
+   engine = gallivm.engine;
 #endif
 
 #if 0

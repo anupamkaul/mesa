@@ -102,7 +102,7 @@ test_sincos(unsigned verbose, FILE *fp)
 {
    LLVMModuleRef module = NULL;
    LLVMValueRef test_sin = NULL, test_cos = NULL;
-   LLVMExecutionEngineRef engine = lp_build_engine;
+   LLVMExecutionEngineRef engine = gallivm.engine;
    LLVMPassManagerRef pass = NULL;
    char *error = NULL;
    test_sincos_t sin_func;

@@ -101,7 +101,7 @@ add_fetch_rgba_test(unsigned verbose,
    args[1] = LLVMPointerType(LLVMInt8TypeInContext(LC), 0);
    args[3] = args[2] = LLVMInt32TypeInContext(LC);
 
-   func = LLVMAddFunction(lp_build_module, name,
+   func = LLVMAddFunction(gallivm.module, name,
                           LLVMFunctionType(LLVMVoidTypeInContext(LC), args, Elements(args), 0));
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
    rgba_ptr = LLVMGetParam(func, 0);
@@ -127,7 +127,7 @@ add_fetch_rgba_test(unsigned verbose,
       abort();
    }
 
-   LLVMRunFunctionPassManager(lp_build_pass, func);
+   LLVMRunFunctionPassManager(gallivm.passmgr, func);
 
    if (verbose >= 1) {
       LLVMDumpValue(func);
@@ -152,7 +152,7 @@ test_format_float(unsigned verbose, FILE *fp,
 
    fetch = add_fetch_rgba_test(verbose, desc, lp_float32_vec4_type());
 
-   f = LLVMGetPointerToGlobal(lp_build_engine, fetch);
+   f = LLVMGetPointerToGlobal(gallivm.engine, fetch);
    fetch_ptr = (fetch_ptr_t) pointer_to_func(f);
 
    if (verbose >= 2) {
@@ -208,7 +208,7 @@ test_format_float(unsigned verbose, FILE *fp,
       }
    }
 
-   LLVMFreeMachineCodeForFunction(lp_build_engine, fetch);
+   LLVMFreeMachineCodeForFunction(gallivm.engine, fetch);
    LLVMDeleteFunction(fetch);
 
    if(fp)
@@ -233,7 +233,7 @@ test_format_unorm8(unsigned verbose, FILE *fp,
 
    fetch = add_fetch_rgba_test(verbose, desc, lp_unorm8_vec4_type());
 
-   f = LLVMGetPointerToGlobal(lp_build_engine, fetch);
+   f = LLVMGetPointerToGlobal(gallivm.engine, fetch);
    fetch_ptr = (fetch_ptr_t) pointer_to_func(f);
 
    if (verbose >= 2) {
@@ -290,7 +290,7 @@ test_format_unorm8(unsigned verbose, FILE *fp,
    if (!success)
       LLVMDumpValue(fetch);
 
-   LLVMFreeMachineCodeForFunction(lp_build_engine, fetch);
+   LLVMFreeMachineCodeForFunction(gallivm.engine, fetch);
    LLVMDeleteFunction(fetch);
 
    if(fp)
