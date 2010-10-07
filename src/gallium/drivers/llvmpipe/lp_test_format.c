@@ -97,7 +97,7 @@ add_fetch_rgba_test(unsigned verbose,
    util_snprintf(name, sizeof name, "fetch_%s_%s", desc->short_name,
                  type.floating ? "float" : "unorm8");
 
-   args[0] = LLVMPointerType(lp_build_vec_type(type), 0);
+   args[0] = LLVMPointerType(lp_build_vec_type(&gallivm, type), 0);
    args[1] = LLVMPointerType(LLVMInt8TypeInContext(gallivm.context), 0);
    args[3] = args[2] = LLVMInt32TypeInContext(gallivm.context);
 
@@ -113,7 +113,7 @@ add_fetch_rgba_test(unsigned verbose,
    builder = LLVMCreateBuilderInContext(gallivm.context);
    LLVMPositionBuilderAtEnd(builder, block);
 
-   rgba = lp_build_fetch_rgba_aos(builder, desc, type,
+   rgba = lp_build_fetch_rgba_aos(&gallivm, desc, type,
                                   packed_ptr, offset, i, j);
 
    LLVMBuildStore(builder, rgba, rgba_ptr);

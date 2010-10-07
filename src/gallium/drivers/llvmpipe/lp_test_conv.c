@@ -111,8 +111,8 @@ add_conv_test(LLVMModuleRef module,
    LLVMValueRef dst[LP_MAX_VECTOR_LENGTH];
    unsigned i;
 
-   args[0] = LLVMPointerType(lp_build_vec_type(src_type), 0);
-   args[1] = LLVMPointerType(lp_build_vec_type(dst_type), 0);
+   args[0] = LLVMPointerType(lp_build_vec_type(&gallivm, src_type), 0);
+   args[1] = LLVMPointerType(lp_build_vec_type(&gallivm, dst_type), 0);
 
    func = LLVMAddFunction(module, "test", LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context), args, 2, 0));
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
@@ -129,7 +129,7 @@ add_conv_test(LLVMModuleRef module,
       src[i] = LLVMBuildLoad(builder, ptr, "");
    }
 
-   lp_build_conv(builder, src_type, dst_type, src, num_srcs, dst, num_dsts);
+   lp_build_conv(&gallivm, src_type, dst_type, src, num_srcs, dst, num_dsts);
 
    for(i = 0; i < num_dsts; ++i) {
       LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), i, 0);

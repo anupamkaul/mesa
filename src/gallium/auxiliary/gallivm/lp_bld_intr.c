@@ -137,12 +137,13 @@ lp_build_intrinsic_binary(LLVMBuilderRef builder,
 
 
 LLVMValueRef
-lp_build_intrinsic_map(LLVMBuilderRef builder,
+lp_build_intrinsic_map(struct gallivm_state *gallivm,
                        const char *name,
                        LLVMTypeRef ret_type,
                        LLVMValueRef *args,
                        unsigned num_args)
 {
+   LLVMBuilderRef builder = gallivm->builder;
    LLVMTypeRef ret_elem_type = LLVMGetElementType(ret_type);
    unsigned n = LLVMGetVectorSize(ret_type);
    unsigned i, j;
@@ -152,7 +153,7 @@ lp_build_intrinsic_map(LLVMBuilderRef builder,
 
    res = LLVMGetUndef(ret_type);
    for(i = 0; i < n; ++i) {
-      LLVMValueRef index = lp_build_const_int32(i);
+      LLVMValueRef index = lp_build_const_int32(gallivm, i);
       LLVMValueRef arg_elems[LP_MAX_FUNC_ARGS];
       LLVMValueRef res_elem;
       for(j = 0; j < num_args; ++j)
@@ -166,17 +167,17 @@ lp_build_intrinsic_map(LLVMBuilderRef builder,
 
 
 LLVMValueRef
-lp_build_intrinsic_map_unary(LLVMBuilderRef builder,
+lp_build_intrinsic_map_unary(struct gallivm_state *gallivm,
                              const char *name,
                              LLVMTypeRef ret_type,
                              LLVMValueRef a)
 {
-   return lp_build_intrinsic_map(builder, name, ret_type, &a, 1);
+   return lp_build_intrinsic_map(gallivm, name, ret_type, &a, 1);
 }
 
 
 LLVMValueRef
-lp_build_intrinsic_map_binary(LLVMBuilderRef builder,
+lp_build_intrinsic_map_binary(struct gallivm_state *gallivm,
                               const char *name,
                               LLVMTypeRef ret_type,
                               LLVMValueRef a,
@@ -187,7 +188,7 @@ lp_build_intrinsic_map_binary(LLVMBuilderRef builder,
    args[0] = a;
    args[1] = b;
 
-   return lp_build_intrinsic_map(builder, name, ret_type, args, 2);
+   return lp_build_intrinsic_map(gallivm, name, ret_type, args, 2);
 }
 
 

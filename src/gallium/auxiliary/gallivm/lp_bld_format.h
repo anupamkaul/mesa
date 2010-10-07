@@ -53,12 +53,12 @@ lp_build_format_swizzle_aos(const struct util_format_description *desc,
                             LLVMValueRef unswizzled);
 
 LLVMValueRef
-lp_build_pack_rgba_aos(LLVMBuilderRef builder,
+lp_build_pack_rgba_aos(struct gallivm_state *gallivm,
                        const struct util_format_description *desc,
                        LLVMValueRef rgba);
 
 LLVMValueRef
-lp_build_fetch_rgba_aos(LLVMBuilderRef builder,
+lp_build_fetch_rgba_aos(struct gallivm_state *gallivm,
                         const struct util_format_description *format_desc,
                         struct lp_type type,
                         LLVMValueRef base_ptr,
@@ -78,20 +78,20 @@ lp_build_format_swizzle_soa(const struct util_format_description *format_desc,
                             LLVMValueRef swizzled_out[4]);
 
 void
-lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
+lp_build_unpack_rgba_soa(struct gallivm_state *gallivm,
                          const struct util_format_description *format_desc,
                          struct lp_type type,
                          LLVMValueRef packed,
                          LLVMValueRef rgba_out[4]);
 
 void
-lp_build_rgba8_to_f32_soa(LLVMBuilderRef builder,
+lp_build_rgba8_to_f32_soa(struct gallivm_state *gallivm,
                           struct lp_type dst_type,
                           LLVMValueRef packed,
                           LLVMValueRef *rgba);
 
 void
-lp_build_fetch_rgba_soa(LLVMBuilderRef builder,
+lp_build_fetch_rgba_soa(struct gallivm_state *gallivm,
                         const struct util_format_description *format_desc,
                         struct lp_type type,
                         LLVMValueRef base_ptr,
@@ -106,7 +106,7 @@ lp_build_fetch_rgba_soa(LLVMBuilderRef builder,
 
 
 LLVMValueRef
-lp_build_fetch_subsampled_rgba_aos(LLVMBuilderRef builder,
+lp_build_fetch_subsampled_rgba_aos(struct gallivm_state *gallivm,
                                    const struct util_format_description *format_desc,
                                    unsigned n,
                                    LLVMValueRef base_ptr,

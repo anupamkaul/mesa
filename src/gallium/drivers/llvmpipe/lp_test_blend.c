@@ -179,7 +179,7 @@ add_blend_test(LLVMModuleRef module,
    LLVMBuilderRef builder;
    const unsigned rt = 0;
 
-   vec_type = lp_build_vec_type(type);
+   vec_type = lp_build_vec_type(&gallivm, type);
 
    args[3] = args[2] = args[1] = args[0] = LLVMPointerType(vec_type, 0);
    func = LLVMAddFunction(module, "test", LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context), args, 4, 0));
@@ -203,7 +203,7 @@ add_blend_test(LLVMModuleRef module,
       dst = LLVMBuildLoad(builder, dst_ptr, "dst");
       con = LLVMBuildLoad(builder, const_ptr, "const");
 
-      res = lp_build_blend_aos(builder, blend, type, rt, src, dst, con, 3);
+      res = lp_build_blend_aos(&gallivm, blend, type, rt, src, dst, con, 3);
 
       lp_build_name(res, "res");
 
@@ -227,7 +227,7 @@ add_blend_test(LLVMModuleRef module,
          lp_build_name(dst[i], "dst.%c", "rgba"[i]);
       }
 
-      lp_build_blend_soa(builder, blend, type, rt, src, dst, con, res);
+      lp_build_blend_soa(&gallivm, blend, type, rt, src, dst, con, res);
 
       for(i = 0; i < 4; ++i) {
          LLVMValueRef index = LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), i, 0);

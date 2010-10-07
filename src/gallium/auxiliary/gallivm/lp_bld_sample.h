@@ -102,61 +102,61 @@ struct lp_sampler_dynamic_state
    /** Obtain the base texture width. */
    LLVMValueRef
    (*width)( const struct lp_sampler_dynamic_state *state,
-             LLVMBuilderRef builder,
+             struct gallivm_state *gallivm,
              unsigned unit);
 
    /** Obtain the base texture height. */
    LLVMValueRef
    (*height)( const struct lp_sampler_dynamic_state *state,
-              LLVMBuilderRef builder,
+              struct gallivm_state *gallivm,
               unsigned unit);
 
    /** Obtain the base texture depth. */
    LLVMValueRef
    (*depth)( const struct lp_sampler_dynamic_state *state,
-             LLVMBuilderRef builder,
+             struct gallivm_state *gallivm,
              unsigned unit);
 
    /** Obtain the number of mipmap levels (minus one). */
    LLVMValueRef
    (*last_level)( const struct lp_sampler_dynamic_state *state,
-                  LLVMBuilderRef builder,
+                  struct gallivm_state *gallivm,
                   unsigned unit);
 
    LLVMValueRef
    (*row_stride)( const struct lp_sampler_dynamic_state *state,
-                  LLVMBuilderRef builder,
+                  struct gallivm_state *gallivm,
                   unsigned unit);
 
    LLVMValueRef
    (*img_stride)( const struct lp_sampler_dynamic_state *state,
-                  LLVMBuilderRef builder,
+                  struct gallivm_state *gallivm,
                   unsigned unit);
 
    LLVMValueRef
    (*data_ptr)( const struct lp_sampler_dynamic_state *state,
-                LLVMBuilderRef builder,
+                struct gallivm_state *gallivm,
                 unsigned unit);
 
    /** Obtain texture min lod */
    LLVMValueRef
    (*min_lod)(const struct lp_sampler_dynamic_state *state,
-              LLVMBuilderRef builder, unsigned unit);
+              struct gallivm_state *gallivm, unsigned unit);
 
    /** Obtain texture max lod */
    LLVMValueRef
    (*max_lod)(const struct lp_sampler_dynamic_state *state,
-              LLVMBuilderRef builder, unsigned unit);
+              struct gallivm_state *gallivm, unsigned unit);
 
    /** Obtain texture lod bias */
    LLVMValueRef
    (*lod_bias)(const struct lp_sampler_dynamic_state *state,
-               LLVMBuilderRef builder, unsigned unit);
+               struct gallivm_state *gallivm, unsigned unit);
 
    /** Obtain texture border color */
    LLVMValueRef
    (*border_color)(const struct lp_sampler_dynamic_state *state,
-                   LLVMBuilderRef builder, unsigned unit);
+                   struct gallivm_state *gallivm, unsigned unit);
 };
 
 
@@ -166,6 +166,8 @@ struct lp_sampler_dynamic_state
 struct lp_build_sample_context
 {
    LLVMBuilderRef builder;
+
+   struct gallivm_state *gallivm;
 
    const struct lp_sampler_static_state *static_state;
 
@@ -352,7 +354,7 @@ lp_build_sample_offset(struct lp_build_context *bld,
 
 
 void
-lp_build_sample_soa(LLVMBuilderRef builder,
+lp_build_sample_soa(struct gallivm_state *gallivm,
                     const struct lp_sampler_static_state *static_state,
                     struct lp_sampler_dynamic_state *dynamic_state,
                     struct lp_type fp_type,
@@ -366,7 +368,7 @@ lp_build_sample_soa(LLVMBuilderRef builder,
                     LLVMValueRef texel_out[4]);
 
 void
-lp_build_sample_nop(struct lp_type type,
+lp_build_sample_nop(struct gallivm_state *gallivm, struct lp_type type,
                     LLVMValueRef texel_out[4]);
 
 

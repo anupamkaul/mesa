@@ -110,7 +110,7 @@ static unsigned fs_no = 0;
  * Generate the depth /stencil test code.
  */
 static void
-generate_depth_stencil(LLVMBuilderRef builder,
+generate_depth_stencil(struct gallivm_state *gallivm,
                        const struct lp_fragment_shader_variant_key *key,
                        struct lp_type src_type,
                        struct lp_build_mask_context *mask,
@@ -152,12 +152,12 @@ generate_depth_stencil(LLVMBuilderRef builder,
    assert(dst_type.length == src_type.length);
 
    /* Convert fragment Z from float to integer */
-   lp_build_conv(builder, src_type, dst_type, &src, 1, &src, 1);
+   lp_build_conv(gallivm, src_type, dst_type, &src, 1, &src, 1);
 
-   dst_ptr = LLVMBuildBitCast(builder,
+   dst_ptr = LLVMBuildBitCast(gallivm->builder,
                               dst_ptr,
-                              LLVMPointerType(lp_build_vec_type(dst_type), 0), "");
-   lp_build_depth_stencil_test(builder,
+                              LLVMPointerType(lp_build_vec_type(gallivm, dst_type), 0), "");
+   lp_build_depth_stencil_test(gallivm,
                                &key->depth,
                                key->stencil,
                                dst_type,
@@ -180,13 +180,14 @@ generate_depth_stencil(LLVMBuilderRef builder,
  * \param mask_input  bitwise mask for the whole 4x4 stamp
  */
 static LLVMValueRef
-generate_quad_mask(LLVMBuilderRef builder,
+generate_quad_mask(struct gallivm_state *gallivm,
                    struct lp_type fs_type,
                    unsigned quad,
                    LLVMValueRef mask_input) /* int32 */
 {
+   LLVMBuilderRef builder = gallivm->builder;
    struct lp_type mask_type;
-   LLVMTypeRef i32t = LLVMInt32TypeInContext(gallivm.context);
+   LLVMTypeRef i32t = LLVMInt32TypeInContext(gallivm->context);
    LLVMValueRef bits[4];
    LLVMValueRef mask;
    int shift;
@@ -227,7 +228,9 @@ generate_quad_mask(LLVMBuilderRef builder,
    /*
     * mask = { mask_input & (1 << i), for i in [0,3] }
     */
-   mask = lp_build_broadcast(builder, lp_build_vec_type(mask_type), mask_input);
+   mask = lp_build_broadcast(gallivm,
+                             lp_build_vec_type(gallivm, mask_type),
+                             mask_input);
 
    bits[0] = LLVMConstInt(i32t, 1 << 0, 0);
    bits[1] = LLVMConstInt(i32t, 1 << 1, 0);
@@ -239,10 +242,10 @@ generate_quad_mask(LLVMBuilderRef builder,
    /*
     * mask = mask != 0 ? ~0 : 0
     */
-   mask = lp_build_compare(builder,
+   mask = lp_build_compare(gallivm,
                            mask_type, PIPE_FUNC_NOTEQUAL,
                            mask,
-                           lp_build_const_int_vec(mask_type, 0));
+                           lp_build_const_int_vec(gallivm, mask_type, 0));
 
    return mask;
 }
@@ -273,6 +276,7 @@ generate_fs(struct llvmpipe_context *lp,
             LLVMValueRef counter)
 {
    const struct tgsi_token *tokens = shader->base.tokens;
+   struct gallivm_state *gallivm = lp->gallivm;
    LLVMTypeRef vec_type;
    LLVMValueRef consts_ptr;
    LLVMValueRef outputs[PIPE_MAX_SHADER_OUTPUTS][NUM_CHANNELS];
@@ -287,14 +291,14 @@ generate_fs(struct llvmpipe_context *lp,
 
    assert(i < 4);
 
-   stencil_refs[0] = lp_jit_context_stencil_ref_front_value(builder, context_ptr);
-   stencil_refs[1] = lp_jit_context_stencil_ref_back_value(builder, context_ptr);
+   stencil_refs[0] = lp_jit_context_stencil_ref_front_value(gallivm, context_ptr);
+   stencil_refs[1] = lp_jit_context_stencil_ref_back_value(gallivm, context_ptr);
 
-   vec_type = lp_build_vec_type(type);
+   vec_type = lp_build_vec_type(gallivm, type);
 
-   consts_ptr = lp_jit_context_constants(builder, context_ptr);
+   consts_ptr = lp_jit_context_constants(gallivm, context_ptr);
 
-   flow = lp_build_flow_create(builder);
+   flow = lp_build_flow_create(gallivm);
 
    memset(outputs, 0, sizeof outputs);
 
@@ -311,11 +315,11 @@ generate_fs(struct llvmpipe_context *lp,
 
    /* do triangle edge testing */
    if (partial_mask) {
-      *pmask = generate_quad_mask(builder, type,
+      *pmask = generate_quad_mask(gallivm, type,
                                   i, mask_input);
    }
    else {
-      *pmask = lp_build_const_int_vec(type, ~0);
+      *pmask = lp_build_const_int_vec(gallivm, type, ~0);
    }
 
    /* 'mask' will control execution based on quad's pixel alive/killed state */
@@ -328,11 +332,11 @@ generate_fs(struct llvmpipe_context *lp,
       !shader->info.writes_z;
 
    if (early_depth_stencil_test)
-      generate_depth_stencil(builder, key,
+      generate_depth_stencil(gallivm, key,
                              type, &mask,
                              stencil_refs, z, depth_ptr, facing, counter);
 
-   lp_build_tgsi_soa(builder, tokens, type, &mask,
+   lp_build_tgsi_soa(gallivm, tokens, type, &mask,
                      consts_ptr, interp->pos, interp->inputs,
                      outputs, sampler, &shader->info);
 
@@ -355,9 +359,9 @@ generate_fs(struct llvmpipe_context *lp,
                   if (cbuf == 0 && chan == 3 && key->alpha.enabled) {
                      LLVMValueRef alpha = out;
                      LLVMValueRef alpha_ref_value;
-                     alpha_ref_value = lp_jit_context_alpha_ref_value(builder, context_ptr);
-                     alpha_ref_value = lp_build_broadcast(builder, vec_type, alpha_ref_value);
-                     lp_build_alpha_test(builder, key->alpha.func, type,
+                     alpha_ref_value = lp_jit_context_alpha_ref_value(gallivm, context_ptr);
+                     alpha_ref_value = lp_build_broadcast(gallivm, vec_type, alpha_ref_value);
+                     lp_build_alpha_test(gallivm, key->alpha.func, type,
                                          &mask, alpha, alpha_ref_value);
                   }
 
@@ -375,7 +379,7 @@ generate_fs(struct llvmpipe_context *lp,
    }
 
    if (!early_depth_stencil_test)
-      generate_depth_stencil(builder, key,
+      generate_depth_stencil(gallivm, key,
                              type, &mask,
                              stencil_refs, z, depth_ptr, facing, counter);
 
@@ -399,7 +403,8 @@ generate_fs(struct llvmpipe_context *lp,
  * \param dst_ptr  the destination color buffer pointer
  */
 static void
-generate_blend(const struct pipe_blend_state *blend,
+generate_blend(struct gallivm_state *gallivm,
+               const struct pipe_blend_state *blend,
                unsigned rt,
                LLVMBuilderRef builder,
                struct lp_type type,
@@ -418,22 +423,22 @@ generate_blend(const struct pipe_blend_state *blend,
    LLVMValueRef res[4];
    unsigned chan;
 
-   lp_build_context_init(&bld, builder, type);
+   lp_build_context_init(&bld, gallivm, type);
 
-   flow = lp_build_flow_create(builder);
+   flow = lp_build_flow_create(gallivm);
 
    /* we'll use this mask context to skip blending if all pixels are dead */
    lp_build_mask_begin(&mask_ctx, flow, type, mask);
 
-   vec_type = lp_build_vec_type(type);
+   vec_type = lp_build_vec_type(gallivm, type);
 
-   const_ptr = lp_jit_context_blend_color(builder, context_ptr);
+   const_ptr = lp_jit_context_blend_color(gallivm, context_ptr);
    const_ptr = LLVMBuildBitCast(builder, const_ptr,
                                 LLVMPointerType(vec_type, 0), "");
 
    /* load constant blend color and colors from the dest color buffer */
    for(chan = 0; chan < 4; ++chan) {
-      LLVMValueRef index = lp_build_const_int32(chan);
+      LLVMValueRef index = lp_build_const_int32(gallivm, chan);
       con[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, const_ptr, &index, 1, ""), "");
 
       dst[chan] = LLVMBuildLoad(builder, LLVMBuildGEP(builder, dst_ptr, &index, 1, ""), "");
@@ -443,12 +448,12 @@ generate_blend(const struct pipe_blend_state *blend,
    }
 
    /* do blend */
-   lp_build_blend_soa(builder, blend, type, rt, src, dst, con, res);
+   lp_build_blend_soa(gallivm, blend, type, rt, src, dst, con, res);
 
    /* store results to color buffer */
    for(chan = 0; chan < 4; ++chan) {
       if(blend->rt[rt].colormask & (1 << chan)) {
-         LLVMValueRef index = lp_build_const_int32(chan);
+         LLVMValueRef index = lp_build_const_int32(gallivm, chan);
          lp_build_name(res[chan], "res.%c", "rgba"[chan]);
          res[chan] = lp_build_select(&bld, mask, res[chan], dst[chan]);
          LLVMBuildStore(builder, res[chan], LLVMBuildGEP(builder, dst_ptr, &index, 1, ""));
@@ -473,7 +478,8 @@ generate_fragment_function(struct llvmpipe_context *lp,
                            unsigned partial_mask)
 {
    const struct lp_fragment_shader_variant_key *key = &variant->key;
-   LLVMContextRef lc = gallivm.context;
+   struct gallivm_state *gallivm = lp->gallivm;
+   LLVMContextRef lc = gallivm->context;
    char func_name[256];
    struct lp_type fs_type;
    struct lp_type blend_type;
@@ -530,15 +536,15 @@ generate_fragment_function(struct llvmpipe_context *lp,
     * lp_jit.h's lp_jit_frag_func function pointer type, and vice-versa.
     */
 
-   fs_elem_type = lp_build_elem_type(fs_type);
-   fs_int_vec_type = lp_build_int_vec_type(fs_type);
+   fs_elem_type = lp_build_elem_type(lp->gallivm, fs_type);
+   fs_int_vec_type = lp_build_int_vec_type(lp->gallivm, fs_type);
 
-   blend_vec_type = lp_build_vec_type(blend_type);
+   blend_vec_type = lp_build_vec_type(lp->gallivm, blend_type);
 
    util_snprintf(func_name, sizeof(func_name), "fs%u_variant%u_%s", 
 		 shader->no, variant->no, partial_mask ? "partial" : "whole");
 
-   arg_types[0] = lp_jit_get_context_type();           /* context */
+   arg_types[0] = lp_jit_get_context_type(gallivm);    /* context */
    arg_types[1] =                                      /* x */
    arg_types[2] = LLVMInt32TypeInContext(lc);          /* y */
    arg_types[3] = LLVMFloatTypeInContext(lc);          /* facing */
@@ -552,7 +558,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
 
    func_type = LLVMFunctionType(LLVMVoidTypeInContext(lc), arg_types, Elements(arg_types), 0);
 
-   function = LLVMAddFunction(gallivm.module, func_name, func_type);
+   function = LLVMAddFunction(gallivm->module, func_name, func_type);
    LLVMSetFunctionCallConv(function, LLVMCCallConv);
 
    variant->function[partial_mask] = function;
@@ -596,7 +602,8 @@ generate_fragment_function(struct llvmpipe_context *lp,
     */
 
    block = LLVMAppendBasicBlockInContext(lc, function, "entry");
-   builder = LLVMCreateBuilderInContext(lc);
+   builder = gallivm->builder;
+   assert(builder);
    LLVMPositionBuilderAtEnd(builder, block);
 
    /*
@@ -605,6 +612,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
     * already included in the shader key.
     */
    lp_build_interp_soa_init(&interp, 
+                            lp->gallivm,
                             lp->num_inputs,
                             lp->inputs,
                             builder, fs_type,
@@ -616,12 +624,12 @@ generate_fragment_function(struct llvmpipe_context *lp,
 
    /* loop over quads in the block */
    for(i = 0; i < num_fs; ++i) {
-      LLVMValueRef index = lp_build_const_int32(i);
+      LLVMValueRef index = lp_build_const_int32(gallivm, i);
       LLVMValueRef out_color[PIPE_MAX_COLOR_BUFS][NUM_CHANNELS];
       LLVMValueRef depth_ptr_i;
 
       if(i != 0)
-         lp_build_interp_soa_update(&interp, i);
+         lp_build_interp_soa_update(&interp, lp->gallivm, i);
 
       depth_ptr_i = LLVMBuildGEP(builder, depth_ptr, &index, 1, "");
 
@@ -651,7 +659,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
     */
    for(cbuf = 0; cbuf < key->nr_cbufs; cbuf++) {
       LLVMValueRef color_ptr;
-      LLVMValueRef index = lp_build_const_int32(cbuf);
+      LLVMValueRef index = lp_build_const_int32(gallivm, cbuf);
       LLVMValueRef blend_in_color[NUM_CHANNELS];
       unsigned rt;
 
@@ -659,18 +667,18 @@ generate_fragment_function(struct llvmpipe_context *lp,
        * Convert the fs's output color and mask to fit to the blending type. 
        */
       for(chan = 0; chan < NUM_CHANNELS; ++chan) {
-	 lp_build_conv(builder, fs_type, blend_type,
+	 lp_build_conv(lp->gallivm, fs_type, blend_type,
 		       fs_out_color[cbuf][chan], num_fs,
 		       &blend_in_color[chan], 1);
 	 lp_build_name(blend_in_color[chan], "color%d.%c", cbuf, "rgba"[chan]);
       }
 
       if (partial_mask || !variant->opaque) {
-         lp_build_conv_mask(builder, fs_type, blend_type,
+         lp_build_conv_mask(lp->gallivm, fs_type, blend_type,
                             fs_mask, num_fs,
                             &blend_mask, 1);
       } else {
-         blend_mask = lp_build_const_int_vec(blend_type, ~0);
+         blend_mask = lp_build_const_int_vec(lp->gallivm, blend_type, ~0);
       }
 
       color_ptr = LLVMBuildLoad(builder, 
@@ -684,7 +692,8 @@ generate_fragment_function(struct llvmpipe_context *lp,
       /*
        * Blending.
        */
-      generate_blend(&key->blend,
+      generate_blend(lp->gallivm,
+                     &key->blend,
                      rt,
 		     builder,
 		     blend_type,
@@ -701,7 +710,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
 
    LLVMBuildRetVoid(builder);
 
-   LLVMDisposeBuilder(builder);
+   //LLVMDisposeBuilder(builder);
 
 
    /* Verify the LLVM IR.  If invalid, dump and abort */
@@ -714,7 +723,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
 #endif
 
    /* Apply optimizations to LLVM IR */
-   LLVMRunFunctionPassManager(gallivm.passmgr, function);
+   LLVMRunFunctionPassManager(gallivm->passmgr, function);
 
    if (gallivm_debug & GALLIVM_DEBUG_IR) {
       /* Print the LLVM IR to stderr */
@@ -726,7 +735,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
     * Translate the LLVM IR into machine code.
     */
    {
-      void *f = LLVMGetPointerToGlobal(gallivm.engine, function);
+      void *f = LLVMGetPointerToGlobal(gallivm->engine, function);
 
       variant->jit_function[partial_mask] = (lp_jit_frag_func)pointer_to_func(f);
 
@@ -875,7 +884,7 @@ generate_variant(struct llvmpipe_context *lp,
 
    generate_fragment_function(lp, shader, variant, RAST_EDGE_TEST);
 
-   variant->engine = gallivm.engine;
+   variant->engine = lp->gallivm->engine;
 
    if (variant->opaque) {
       /* Specialized shader, which doesn't need to read the color buffer. */

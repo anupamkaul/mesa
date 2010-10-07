@@ -145,7 +145,7 @@ lp_build_lod_selector(struct lp_build_sample_context *bld,
 
 {
    LLVMValueRef min_lod =
-      bld->dynamic_state->min_lod(bld->dynamic_state, bld->builder, unit);
+      bld->dynamic_state->min_lod(bld->dynamic_state, bld->gallivm, unit);
 
    if (bld->static_state->min_max_lod_equal) {
       /* User is forcing sampling from a particular mipmap level.
@@ -156,10 +156,10 @@ lp_build_lod_selector(struct lp_build_sample_context *bld,
    else {
       struct lp_build_context *float_bld = &bld->float_bld;
       LLVMValueRef sampler_lod_bias =
-         bld->dynamic_state->lod_bias(bld->dynamic_state, bld->builder, unit);
+         bld->dynamic_state->lod_bias(bld->dynamic_state, bld->gallivm, unit);
       LLVMValueRef max_lod =
-         bld->dynamic_state->max_lod(bld->dynamic_state, bld->builder, unit);
-      LLVMValueRef index0 = lp_build_const_int32(0);
+         bld->dynamic_state->max_lod(bld->dynamic_state, bld->gallivm, unit);
+      LLVMValueRef index0 = lp_build_const_int32(bld->gallivm, 0);
       LLVMValueRef lod;
 
       if (explicit_lod) {
@@ -248,10 +248,10 @@ lp_build_nearest_mip_level(struct lp_build_sample_context *bld,
    struct lp_build_context *int_bld = &bld->int_bld;
    LLVMValueRef last_level, level;
 
-   LLVMValueRef zero = lp_build_const_int32(0);
+   LLVMValueRef zero = lp_build_const_int32(bld->gallivm, 0);
 
    last_level = bld->dynamic_state->last_level(bld->dynamic_state,
-                                               bld->builder, unit);
+                                               bld->gallivm, unit);
 
    /* convert float lod to integer */
    level = lp_build_iround(float_bld, lod);
@@ -279,7 +279,7 @@ lp_build_linear_mip_levels(struct lp_build_sample_context *bld,
    LLVMValueRef last_level, level;
 
    last_level = bld->dynamic_state->last_level(bld->dynamic_state,
-                                               bld->builder, unit);
+                                               bld->gallivm, unit);
 
    /* convert float lod to integer */
    level = lp_build_ifloor(float_bld, lod);
@@ -303,7 +303,7 @@ lp_build_get_mipmap_level(struct lp_build_sample_context *bld,
                           LLVMValueRef data_array, LLVMValueRef level)
 {
    LLVMValueRef indexes[2], data_ptr;
-   indexes[0] = lp_build_const_int32(0);
+   indexes[0] = lp_build_const_int32(bld->gallivm, 0);
    indexes[1] = level;
    data_ptr = LLVMBuildGEP(bld->builder, data_array, indexes, 2, "");
    data_ptr = LLVMBuildLoad(bld->builder, data_ptr, "");
@@ -315,7 +315,7 @@ LLVMValueRef
 lp_build_get_const_mipmap_level(struct lp_build_sample_context *bld,
                                 LLVMValueRef data_array, int level)
 {
-   LLVMValueRef lvl = lp_build_const_int32(level);
+   LLVMValueRef lvl = lp_build_const_int32(bld->gallivm, level);
    return lp_build_get_mipmap_level(bld, data_array, lvl);
 }
 
@@ -344,7 +344,7 @@ lp_build_get_level_stride_vec(struct lp_build_sample_context *bld,
                               LLVMValueRef stride_array, LLVMValueRef level)
 {
    LLVMValueRef indexes[2], stride;
-   indexes[0] = lp_build_const_int32(0);
+   indexes[0] = lp_build_const_int32(bld->gallivm, 0);
    indexes[1] = level;
    stride = LLVMBuildGEP(bld->builder, stride_array, indexes, 2, "");
    stride = LLVMBuildLoad(bld->builder, stride, "");
@@ -431,7 +431,7 @@ static LLVMValueRef
 lp_build_cube_ima(struct lp_build_context *coord_bld, LLVMValueRef coord)
 {
    /* ima = -0.5 / abs(coord); */
-   LLVMValueRef negHalf = lp_build_const_vec(coord_bld->type, -0.5);
+   LLVMValueRef negHalf = lp_build_const_vec(coord_bld->gallivm, coord_bld->type, -0.5);
    LLVMValueRef absCoord = lp_build_abs(coord_bld, coord);
    LLVMValueRef ima = lp_build_div(coord_bld, negHalf, absCoord);
    return ima;
@@ -450,7 +450,7 @@ lp_build_cube_coord(struct lp_build_context *coord_bld,
                     LLVMValueRef coord, LLVMValueRef ima)
 {
    /* return negate(coord) * ima * sign + 0.5; */
-   LLVMValueRef half = lp_build_const_vec(coord_bld->type, 0.5);
+   LLVMValueRef half = lp_build_const_vec(coord_bld->gallivm, coord_bld->type, 0.5);
    LLVMValueRef res;
 
    assert(negate_coord == +1 || negate_coord == -1);
@@ -478,11 +478,12 @@ lp_build_cube_face(struct lp_build_sample_context *bld,
                    LLVMValueRef major_coord,
                    unsigned pos_face, unsigned neg_face)
 {
+   struct gallivm_state *gallivm = bld->gallivm;
    LLVMValueRef cmp = LLVMBuildFCmp(bld->builder, LLVMRealUGE,
                                     major_coord,
                                     bld->float_bld.zero, "");
-   LLVMValueRef pos = lp_build_const_int32(pos_face);
-   LLVMValueRef neg = lp_build_const_int32(neg_face);
+   LLVMValueRef pos = lp_build_const_int32(gallivm, pos_face);
+   LLVMValueRef neg = lp_build_const_int32(gallivm, neg_face);
    LLVMValueRef res = LLVMBuildSelect(bld->builder, cmp, pos, neg, "");
    return res;
 }
@@ -505,7 +506,7 @@ lp_build_cube_lookup(struct lp_build_sample_context *bld,
    struct lp_build_context *coord_bld = &bld->coord_bld;
    LLVMValueRef rx, ry, rz;
    LLVMValueRef arx, ary, arz;
-   LLVMValueRef c25 = lp_build_const_float(0.25);
+   LLVMValueRef c25 = lp_build_const_float(bld->gallivm, 0.25);
    LLVMValueRef arx_ge_ary, arx_ge_arz;
    LLVMValueRef ary_ge_arx, ary_ge_arz;
    LLVMValueRef arx_ge_ary_arz, ary_ge_arx_arz;
@@ -546,7 +547,7 @@ lp_build_cube_lookup(struct lp_build_sample_context *bld,
       struct lp_build_flow_context *flow_ctx;
       struct lp_build_if_state if_ctx;
 
-      flow_ctx = lp_build_flow_create(bld->builder);
+      flow_ctx = lp_build_flow_create(bld->gallivm);
       lp_build_flow_scope_begin(flow_ctx);
 
       *face_s = bld->coord_bld.undef;
@@ -581,7 +582,7 @@ lp_build_cube_lookup(struct lp_build_sample_context *bld,
          LLVMValueRef face_t2 = bld->coord_bld.undef;
          LLVMValueRef face2 = bld->int_bld.undef;
 
-         flow_ctx2 = lp_build_flow_create(bld->builder);
+         flow_ctx2 = lp_build_flow_create(bld->gallivm);
          lp_build_flow_scope_begin(flow_ctx2);
          lp_build_flow_scope_declare(flow_ctx2, &face_s2);
          lp_build_flow_scope_declare(flow_ctx2, &face_t2);
@@ -665,8 +666,8 @@ lp_build_sample_partial_offset(struct lp_build_context *bld,
       coord    = LLVMBuildUDiv(bld->builder, coord, block_width, "");
 #else
       unsigned logbase2 = util_unsigned_logbase2(block_length);
-      LLVMValueRef block_shift = lp_build_const_int_vec(bld->type, logbase2);
-      LLVMValueRef block_mask = lp_build_const_int_vec(bld->type, block_length - 1);
+      LLVMValueRef block_shift = lp_build_const_int_vec(bld->gallivm, bld->type, logbase2);
+      LLVMValueRef block_mask = lp_build_const_int_vec(bld->gallivm, bld->type, block_length - 1);
       subcoord = LLVMBuildAnd(bld->builder, coord, block_mask, "");
       coord = LLVMBuildLShr(bld->builder, coord, block_shift, "");
 #endif
@@ -704,7 +705,8 @@ lp_build_sample_offset(struct lp_build_context *bld,
    LLVMValueRef x_stride;
    LLVMValueRef offset;
 
-   x_stride = lp_build_const_vec(bld->type, format_desc->block.bits/8);
+   x_stride = lp_build_const_vec(bld->gallivm, bld->type,
+                                 format_desc->block.bits/8);
 
    lp_build_sample_partial_offset(bld,
                                   format_desc->block.width,

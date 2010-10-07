@@ -420,7 +420,7 @@ draw_pt_fetch_pipeline_or_emit_llvm(struct draw_context *draw)
 {
    struct llvm_middle_end *fpme = 0;
 
-   if (!gallivm.engine)
+   if (!draw->llvm->gallivm->engine)
       return NULL;
 
    fpme = CALLOC_STRUCT( llvm_middle_end );

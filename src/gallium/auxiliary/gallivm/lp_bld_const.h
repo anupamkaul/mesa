@@ -74,51 +74,54 @@ lp_const_eps(struct lp_type type);
 
 
 LLVMValueRef
-lp_build_undef(struct lp_type type);
+lp_build_undef(struct gallivm_state *gallivm, struct lp_type type);
 
 
 LLVMValueRef
-lp_build_zero(struct lp_type type);
+lp_build_zero(struct gallivm_state *gallivm, struct lp_type type);
 
 
 LLVMValueRef
-lp_build_one(struct lp_type type);
+lp_build_one(struct gallivm_state *gallivm, struct lp_type type);
 
 
 LLVMValueRef
-lp_build_const_elem(struct lp_type type,
+lp_build_const_elem(struct gallivm_state *gallivm, struct lp_type type,
                     double val);
 
 LLVMValueRef
-lp_build_const_vec(struct lp_type type, double val);
+lp_build_const_vec(struct gallivm_state *gallivm, struct lp_type type,
+                   double val);
 
 
 LLVMValueRef
-lp_build_const_int_vec(struct lp_type type, long long val);
+lp_build_const_int_vec(struct gallivm_state *gallivm,
+                       struct lp_type type, long long val);
 
 
 LLVMValueRef
-lp_build_const_aos(struct lp_type type, 
+lp_build_const_aos(struct gallivm_state *gallivm, struct lp_type type, 
                    double r, double g, double b, double a, 
                    const unsigned char *swizzle);
 
 
 LLVMValueRef
-lp_build_const_mask_aos(struct lp_type type,
+lp_build_const_mask_aos(struct gallivm_state *gallivm,
+                        struct lp_type type,
                         unsigned mask);
 
 
 static INLINE LLVMValueRef
-lp_build_const_int32(int i)
+lp_build_const_int32(struct gallivm_state *gallivm, int i)
 {
-   return LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), i, 0);
+   return LLVMConstInt(LLVMInt32TypeInContext(gallivm->context), i, 0);
 }
 
 
 static INLINE LLVMValueRef
-lp_build_const_float(float x)
+lp_build_const_float(struct gallivm_state *gallivm, float x)
 {
-   return LLVMConstReal(LLVMFloatTypeInContext(gallivm.context), x);
+   return LLVMConstReal(LLVMFloatTypeInContext(gallivm->context), x);
 }
 
 

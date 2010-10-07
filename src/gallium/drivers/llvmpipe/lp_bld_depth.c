@@ -113,7 +113,7 @@ lp_build_stencil_test_single(struct lp_build_context *bld,
 
    if (stencil->valuemask != stencilMax) {
       /* compute stencilRef = stencilRef & valuemask */
-      LLVMValueRef valuemask = lp_build_const_int_vec(type, stencil->valuemask);
+      LLVMValueRef valuemask = lp_build_const_int_vec(bld->gallivm, type, stencil->valuemask);
       stencilRef = LLVMBuildAnd(bld->builder, stencilRef, valuemask, "");
       /* compute stencilVals = stencilVals & valuemask */
       stencilVals = LLVMBuildAnd(bld->builder, stencilVals, valuemask, "");
@@ -147,10 +147,10 @@ lp_build_stencil_test(struct lp_build_context *bld,
       struct lp_build_flow_context *flow_ctx;
       struct lp_build_if_state if_ctx;
       LLVMValueRef front_facing;
-      LLVMValueRef zero = lp_build_const_float(0.0);
+      LLVMValueRef zero = lp_build_const_float(bld->gallivm, 0.0);
       LLVMValueRef result = bld->undef;
 
-      flow_ctx = lp_build_flow_create(bld->builder);
+      flow_ctx = lp_build_flow_create(bld->gallivm);
       lp_build_flow_scope_begin(flow_ctx);
 
       lp_build_flow_scope_declare(flow_ctx, &result);
@@ -202,7 +202,7 @@ lp_build_stencil_op_single(struct lp_build_context *bld,
    const unsigned stencilMax = 255; /* XXX fix */
    struct lp_type type = bld->type;
    LLVMValueRef res;
-   LLVMValueRef max = lp_build_const_int_vec(type, stencilMax);
+   LLVMValueRef max = lp_build_const_int_vec(bld->gallivm, type, stencilMax);
    unsigned stencil_op;
 
    assert(type.sign);
@@ -260,7 +260,7 @@ lp_build_stencil_op_single(struct lp_build_context *bld,
 
    if (stencil->writemask != stencilMax) {
       /* mask &= stencil->writemask */
-      LLVMValueRef writemask = lp_build_const_int_vec(type, stencil->writemask);
+      LLVMValueRef writemask = lp_build_const_int_vec(bld->gallivm, type, stencil->writemask);
       mask = LLVMBuildAnd(bld->builder, mask, writemask, "");
       /* res = (res & mask) | (stencilVals & ~mask) */
       res = lp_build_select_bitwise(bld, writemask, res, stencilVals);
@@ -294,10 +294,10 @@ lp_build_stencil_op(struct lp_build_context *bld,
       struct lp_build_flow_context *flow_ctx;
       struct lp_build_if_state if_ctx;
       LLVMValueRef front_facing;
-      LLVMValueRef zero = lp_build_const_float(0.0);
+      LLVMValueRef zero = lp_build_const_float(bld->gallivm, 0.0);
       LLVMValueRef result = bld->undef;
 
-      flow_ctx = lp_build_flow_create(bld->builder);
+      flow_ctx = lp_build_flow_create(bld->gallivm);
       lp_build_flow_scope_begin(flow_ctx);
 
       lp_build_flow_scope_declare(flow_ctx, &result);
@@ -458,25 +458,27 @@ get_s_shift_and_mask(const struct util_format_description *format_desc,
  * \param counter is a pointer of the uint32 counter.
  */
 static void
-lp_build_occlusion_count(LLVMBuilderRef builder,
+lp_build_occlusion_count(struct gallivm_state *gallivm,
                          struct lp_type type,
                          LLVMValueRef maskvalue,
                          LLVMValueRef counter)
 {
-   LLVMValueRef countmask = lp_build_const_int_vec(type, 1);
+   LLVMBuilderRef builder = gallivm->builder;
+   LLVMContextRef context = gallivm->context;
+   LLVMValueRef countmask = lp_build_const_int_vec(gallivm, type, 1);
    LLVMValueRef countv = LLVMBuildAnd(builder, maskvalue, countmask, "countv");
-   LLVMTypeRef i8v16 = LLVMVectorType(LLVMInt8TypeInContext(gallivm.context), 16);
+   LLVMTypeRef i8v16 = LLVMVectorType(LLVMInt8TypeInContext(context), 16);
    LLVMValueRef counti = LLVMBuildBitCast(builder, countv, i8v16, "counti");
    LLVMValueRef maskarray[4] = {
-      lp_build_const_int32(0),
-      lp_build_const_int32(4),
-      lp_build_const_int32(8),
-      lp_build_const_int32(12)
+      lp_build_const_int32(gallivm, 0),
+      lp_build_const_int32(gallivm, 4),
+      lp_build_const_int32(gallivm, 8),
+      lp_build_const_int32(gallivm, 12)
    };
    LLVMValueRef shufflemask = LLVMConstVector(maskarray, 4);
    LLVMValueRef shufflev =  LLVMBuildShuffleVector(builder, counti, LLVMGetUndef(i8v16), shufflemask, "shufflev");
-   LLVMValueRef shuffle = LLVMBuildBitCast(builder, shufflev, LLVMInt32TypeInContext(gallivm.context), "shuffle");
-   LLVMValueRef count = lp_build_intrinsic_unary(builder, "llvm.ctpop.i32", LLVMInt32TypeInContext(gallivm.context), shuffle);
+   LLVMValueRef shuffle = LLVMBuildBitCast(builder, shufflev, LLVMInt32TypeInContext(context), "shuffle");
+   LLVMValueRef count = lp_build_intrinsic_unary(builder, "llvm.ctpop.i32", LLVMInt32TypeInContext(context), shuffle);
    LLVMValueRef orig = LLVMBuildLoad(builder, counter, "orig");
    LLVMValueRef incr = LLVMBuildAdd(builder, orig, count, "incr");
    LLVMBuildStore(builder, incr, counter);
@@ -499,7 +501,7 @@ lp_build_occlusion_count(LLVMBuilderRef builder,
  * \param facing  contains float value indicating front/back facing polygon
  */
 void
-lp_build_depth_stencil_test(LLVMBuilderRef builder,
+lp_build_depth_stencil_test(struct gallivm_state *gallivm,
                             const struct pipe_depth_state *depth,
                             const struct pipe_stencil_state stencil[2],
                             struct lp_type type,
@@ -511,6 +513,7 @@ lp_build_depth_stencil_test(LLVMBuilderRef builder,
                             LLVMValueRef face,
                             LLVMValueRef counter)
 {
+   LLVMBuilderRef builder = gallivm->builder;
    struct lp_build_context bld;
    struct lp_build_context sbld;
    struct lp_type s_type;
@@ -560,11 +563,11 @@ lp_build_depth_stencil_test(LLVMBuilderRef builder,
 
 
    /* Setup build context for Z vals */
-   lp_build_context_init(&bld, builder, type);
+   lp_build_context_init(&bld, gallivm, type);
 
    /* Setup build context for stencil vals */
    s_type = lp_type_int_vec(type.width);
-   lp_build_context_init(&sbld, builder, s_type);
+   lp_build_context_init(&sbld, gallivm, s_type);
 
    /* Load current z/stencil value from z/stencil buffer */
    zs_dst = LLVMBuildLoad(builder, zs_dst_ptr, "");
@@ -580,12 +583,12 @@ lp_build_depth_stencil_test(LLVMBuilderRef builder,
 
       if (get_z_shift_and_mask(format_desc, &z_shift, &z_mask)) {
          if (z_shift) {
-            LLVMValueRef shift = lp_build_const_int_vec(type, z_shift);
+            LLVMValueRef shift = lp_build_const_int_vec(gallivm, type, z_shift);
             z_src = LLVMBuildLShr(builder, z_src, shift, "");
          }
 
          if (z_mask != 0xffffffff) {
-            LLVMValueRef mask = lp_build_const_int_vec(type, z_mask);
+            LLVMValueRef mask = lp_build_const_int_vec(gallivm, type, z_mask);
             z_src = LLVMBuildAnd(builder, z_src, mask, "");
             z_dst = LLVMBuildAnd(builder, zs_dst, mask, "");
             z_bitmask = mask;  /* used below */
@@ -599,7 +602,7 @@ lp_build_depth_stencil_test(LLVMBuilderRef builder,
 
       if (get_s_shift_and_mask(format_desc, &s_shift, &s_mask)) {
          if (s_shift) {
-            LLVMValueRef shift = lp_build_const_int_vec(type, s_shift);
+            LLVMValueRef shift = lp_build_const_int_vec(gallivm, type, s_shift);
             stencil_vals = LLVMBuildLShr(builder, zs_dst, shift, "");
             stencil_shift = shift;  /* used below */
          }
@@ -608,7 +611,7 @@ lp_build_depth_stencil_test(LLVMBuilderRef builder,
          }
 
          if (s_mask != 0xffffffff) {
-            LLVMValueRef mask = lp_build_const_int_vec(type, s_mask);
+            LLVMValueRef mask = lp_build_const_int_vec(gallivm, type, s_mask);
             stencil_vals = LLVMBuildAnd(builder, stencil_vals, mask, "");
          }
 
@@ -723,5 +726,5 @@ lp_build_depth_stencil_test(LLVMBuilderRef builder,
       lp_build_mask_update(mask, z_pass);
 
    if (counter)
-      lp_build_occlusion_count(builder, type, mask->value, counter);
+      lp_build_occlusion_count(gallivm, type, mask->value, counter);
 }

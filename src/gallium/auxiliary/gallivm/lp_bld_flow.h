@@ -45,7 +45,7 @@ struct lp_build_flow_context;
 
 
 struct lp_build_flow_context *
-lp_build_flow_create(LLVMBuilderRef builder);
+lp_build_flow_create(struct gallivm_state *gallivm);
 
 void
 lp_build_flow_destroy(struct lp_build_flow_context *flow);
@@ -113,19 +113,19 @@ struct lp_build_loop_state
 
 
 void
-lp_build_loop_begin(LLVMBuilderRef builder,
+lp_build_loop_begin(struct gallivm_state *gallivm,
                     LLVMValueRef start,
                     struct lp_build_loop_state *state);
 
 
 void
-lp_build_loop_end(LLVMBuilderRef builder,
+lp_build_loop_end(struct gallivm_state *gallivm,
                   LLVMValueRef end,
                   LLVMValueRef step,
                   struct lp_build_loop_state *state);
 
 void
-lp_build_loop_end_cond(LLVMBuilderRef builder,
+lp_build_loop_end_cond(struct gallivm_state *gallivm,
                        LLVMValueRef end,
                        LLVMValueRef step,
                        int cond, /* LLVM condition */
@@ -154,15 +154,15 @@ void
 lp_build_endif(struct lp_build_if_state *ctx);
 
 LLVMBasicBlockRef
-lp_build_insert_new_block(LLVMBuilderRef builder, const char *name);
+lp_build_insert_new_block(struct gallivm_state *gallivm, const char *name);
 
 LLVMValueRef
-lp_build_alloca(LLVMBuilderRef builder,
+lp_build_alloca(struct gallivm_state *gallivm,
                 LLVMTypeRef type,
                 const char *name);
 
 LLVMValueRef
-lp_build_array_alloca(LLVMBuilderRef builder,
+lp_build_array_alloca(struct gallivm_state *gallivm,
                       LLVMTypeRef type,
                       LLVMValueRef count,
                       const char *name);

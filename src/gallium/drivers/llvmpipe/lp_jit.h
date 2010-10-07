@@ -120,23 +120,23 @@ enum {
 };
 
 
-#define lp_jit_context_constants(_builder, _ptr) \
-   lp_build_struct_get(_builder, _ptr, LP_JIT_CTX_CONSTANTS, "constants")
+#define lp_jit_context_constants(_gallivm, _ptr) \
+   lp_build_struct_get(_gallivm, _ptr, LP_JIT_CTX_CONSTANTS, "constants")
 
-#define lp_jit_context_alpha_ref_value(_builder, _ptr) \
-   lp_build_struct_get(_builder, _ptr, LP_JIT_CTX_ALPHA_REF, "alpha_ref_value")
+#define lp_jit_context_alpha_ref_value(_gallivm, _ptr) \
+   lp_build_struct_get(_gallivm, _ptr, LP_JIT_CTX_ALPHA_REF, "alpha_ref_value")
 
-#define lp_jit_context_stencil_ref_front_value(_builder, _ptr) \
-   lp_build_struct_get(_builder, _ptr, LP_JIT_CTX_STENCIL_REF_FRONT, "stencil_ref_front")
+#define lp_jit_context_stencil_ref_front_value(_gallivm, _ptr) \
+   lp_build_struct_get(_gallivm, _ptr, LP_JIT_CTX_STENCIL_REF_FRONT, "stencil_ref_front")
 
-#define lp_jit_context_stencil_ref_back_value(_builder, _ptr) \
-   lp_build_struct_get(_builder, _ptr, LP_JIT_CTX_STENCIL_REF_BACK, "stencil_ref_back")
+#define lp_jit_context_stencil_ref_back_value(_gallivm, _ptr) \
+   lp_build_struct_get(_gallivm, _ptr, LP_JIT_CTX_STENCIL_REF_BACK, "stencil_ref_back")
 
-#define lp_jit_context_blend_color(_builder, _ptr) \
-   lp_build_struct_get(_builder, _ptr, LP_JIT_CTX_BLEND_COLOR, "blend_color")
+#define lp_jit_context_blend_color(_gallivm, _ptr) \
+   lp_build_struct_get(_gallivm, _ptr, LP_JIT_CTX_BLEND_COLOR, "blend_color")
 
-#define lp_jit_context_textures(_builder, _ptr) \
-   lp_build_struct_get_ptr(_builder, _ptr, LP_JIT_CTX_TEXTURES, "textures")
+#define lp_jit_context_textures(_gallivm, _ptr) \
+   lp_build_struct_get_ptr(_gallivm, _ptr, LP_JIT_CTX_TEXTURES, "textures")
 
 
 
@@ -166,7 +166,7 @@ llvmpipe_garbage_collect(void);
 
 
 LLVMTypeRef
-lp_jit_get_context_type(void);
+lp_jit_get_context_type(struct gallivm_state *gallivm);
 
 void
 lp_jit_free_context_type(void);

@@ -164,7 +164,7 @@ lp_build_sample_texel_soa(struct lp_build_sample_context *bld,
       offset = lp_build_andnot(&bld->uint_coord_bld, offset, use_border);
    }
 
-   lp_build_fetch_rgba_soa(bld->builder,
+   lp_build_fetch_rgba_soa(bld->gallivm,
                            bld->format_desc,
                            bld->texel_type,
                            data_ptr, offset,
@@ -190,12 +190,12 @@ lp_build_sample_texel_soa(struct lp_build_sample_context *bld,
       /* select texel color or border color depending on use_border */
       LLVMValueRef border_color_ptr = 
          bld->dynamic_state->border_color(bld->dynamic_state,
-                                          bld->builder, unit);
+                                          bld->gallivm, unit);
       int chan;
       for (chan = 0; chan < 4; chan++) {
          LLVMValueRef border_chan =
-            lp_build_array_get(bld->builder, border_color_ptr,
-                               lp_build_const_int32(chan));
+            lp_build_array_get(bld->gallivm, border_color_ptr,
+                               lp_build_const_int32(bld->gallivm, chan));
          LLVMValueRef border_chan_vec =
             lp_build_broadcast_scalar(&bld->float_vec_bld, border_chan);
          texel_out[chan] = lp_build_select(&bld->texel_bld, use_border,
@@ -259,7 +259,7 @@ lp_build_sample_wrap_linear(struct lp_build_sample_context *bld,
    struct lp_build_context *coord_bld = &bld->coord_bld;
    struct lp_build_context *int_coord_bld = &bld->int_coord_bld;
    struct lp_build_context *uint_coord_bld = &bld->uint_coord_bld;
-   LLVMValueRef half = lp_build_const_vec(coord_bld->type, 0.5);
+   LLVMValueRef half = lp_build_const_vec(bld->gallivm, coord_bld->type, 0.5);
    LLVMValueRef length_f = lp_build_int_to_float(coord_bld, length);
    LLVMValueRef length_minus_one = lp_build_sub(uint_coord_bld, length, uint_coord_bld->one);
    LLVMValueRef coord0, coord1, weight;
@@ -339,7 +339,7 @@ lp_build_sample_wrap_linear(struct lp_build_sample_context *bld,
             coord = lp_build_mul(coord_bld, coord, length_f);
          }
          /* clamp to [-0.5, length + 0.5] */
-         min = lp_build_const_vec(coord_bld->type, -0.5F);
+         min = lp_build_const_vec(bld->gallivm, coord_bld->type, -0.5F);
          max = lp_build_sub(coord_bld, length_f, min);
          coord = lp_build_clamp(coord_bld, coord, min, max);
          coord = lp_build_sub(coord_bld, coord, half);
@@ -975,11 +975,11 @@ lp_build_sample_general(struct lp_build_sample_context *bld,
           * We should be able to set ilevel0 = const(0) but that causes
           * bad x86 code to be emitted.
           */
-         lod = lp_build_const_elem(bld->coord_bld.type, 0.0);
+         lod = lp_build_const_elem(bld->gallivm, bld->coord_bld.type, 0.0);
          lp_build_nearest_mip_level(bld, unit, lod, &ilevel0);
       }
       else {
-         ilevel0 = lp_build_const_int32(0);
+         ilevel0 = lp_build_const_int32(bld->gallivm, 0);
       }
    }
    else {
@@ -1036,7 +1036,7 @@ lp_build_sample_general(struct lp_build_sample_context *bld,
       struct lp_build_if_state if_ctx;
       LLVMValueRef minify;
 
-      flow_ctx = lp_build_flow_create(bld->builder);
+      flow_ctx = lp_build_flow_create(bld->gallivm);
       lp_build_flow_scope_begin(flow_ctx);
 
       lp_build_flow_scope_declare(flow_ctx, &colors_out[0]);
@@ -1103,11 +1103,11 @@ lp_build_sample_compare(struct lp_build_sample_context *bld,
 
    /* debug code */
    if (0) {
-      LLVMValueRef indx = lp_build_const_int32(0);
+      LLVMValueRef indx = lp_build_const_int32(bld->gallivm, 0);
       LLVMValueRef coord = LLVMBuildExtractElement(bld->builder, p, indx, "");
       LLVMValueRef tex = LLVMBuildExtractElement(bld->builder,
                                                  texel[chan], indx, "");
-      lp_build_printf(bld->builder, "shadow compare coord %f to texture %f\n",
+      lp_build_printf(bld->gallivm, "shadow compare coord %f to texture %f\n",
                       coord, tex);
    }
 
@@ -1129,10 +1129,10 @@ lp_build_sample_compare(struct lp_build_sample_context *bld,
  * For debugging.
  */
 void
-lp_build_sample_nop(struct lp_type type,
+lp_build_sample_nop(struct gallivm_state *gallivm, struct lp_type type,
                     LLVMValueRef texel_out[4])
 {
-   LLVMValueRef one = lp_build_one(type);
+   LLVMValueRef one = lp_build_one(gallivm, type);
    unsigned chan;
 
    for (chan = 0; chan < 4; chan++) {
@@ -1150,7 +1150,7 @@ lp_build_sample_nop(struct lp_type type,
  * \param ddy  partial derivatives of (s,t,r,q) with respect to y
  */
 void
-lp_build_sample_soa(LLVMBuilderRef builder,
+lp_build_sample_soa(struct gallivm_state *gallivm,
                     const struct lp_sampler_static_state *static_state,
                     struct lp_sampler_dynamic_state *dynamic_state,
                     struct lp_type type,
@@ -1183,7 +1183,8 @@ lp_build_sample_soa(LLVMBuilderRef builder,
 
    /* Setup our build context */
    memset(&bld, 0, sizeof bld);
-   bld.builder = builder;
+   bld.builder = gallivm->builder;
+   bld.gallivm = gallivm;
    bld.static_state = static_state;
    bld.dynamic_state = dynamic_state;
    bld.format_desc = util_format_description(static_state->format);
@@ -1197,21 +1198,21 @@ lp_build_sample_soa(LLVMBuilderRef builder,
 
    float_vec_type = lp_type_float_vec(32);
 
-   lp_build_context_init(&bld.float_bld, builder, bld.float_type);
-   lp_build_context_init(&bld.float_vec_bld, builder, float_vec_type);
-   lp_build_context_init(&bld.int_bld, builder, bld.int_type);
-   lp_build_context_init(&bld.coord_bld, builder, bld.coord_type);
-   lp_build_context_init(&bld.uint_coord_bld, builder, bld.uint_coord_type);
-   lp_build_context_init(&bld.int_coord_bld, builder, bld.int_coord_type);
-   lp_build_context_init(&bld.texel_bld, builder, bld.texel_type);
+   lp_build_context_init(&bld.float_bld, gallivm, bld.float_type);
+   lp_build_context_init(&bld.float_vec_bld, gallivm, float_vec_type);
+   lp_build_context_init(&bld.int_bld, gallivm, bld.int_type);
+   lp_build_context_init(&bld.coord_bld, gallivm, bld.coord_type);
+   lp_build_context_init(&bld.uint_coord_bld, gallivm, bld.uint_coord_type);
+   lp_build_context_init(&bld.int_coord_bld, gallivm, bld.int_coord_type);
+   lp_build_context_init(&bld.texel_bld, gallivm, bld.texel_type);
 
    /* Get the dynamic state */
-   width = dynamic_state->width(dynamic_state, builder, unit);
-   height = dynamic_state->height(dynamic_state, builder, unit);
-   depth = dynamic_state->depth(dynamic_state, builder, unit);
-   row_stride_array = dynamic_state->row_stride(dynamic_state, builder, unit);
-   img_stride_array = dynamic_state->img_stride(dynamic_state, builder, unit);
-   data_array = dynamic_state->data_ptr(dynamic_state, builder, unit);
+   width = dynamic_state->width(dynamic_state, gallivm, unit);
+   height = dynamic_state->height(dynamic_state, gallivm, unit);
+   depth = dynamic_state->depth(dynamic_state, gallivm, unit);
+   row_stride_array = dynamic_state->row_stride(dynamic_state, gallivm, unit);
+   img_stride_array = dynamic_state->img_stride(dynamic_state, gallivm, unit);
+   data_array = dynamic_state->data_ptr(dynamic_state, gallivm, unit);
    /* Note that data_array is an array[level] of pointers to texture images */
 
    s = coords[0];
@@ -1225,7 +1226,7 @@ lp_build_sample_soa(LLVMBuilderRef builder,
 
    if (0) {
       /* For debug: no-op texture sampling */
-      lp_build_sample_nop(bld.texel_type, texel_out);
+      lp_build_sample_nop(gallivm, bld.texel_type, texel_out);
    }
    else if (util_format_fits_8unorm(bld.format_desc) &&
             lp_is_simple_wrap_mode(static_state->wrap_s) &&

@@ -183,6 +183,8 @@ init_gallivm_state(struct gallivm_state *gallivm)
    if (!gallivm->passmgr) {
       create_pass_manager(gallivm);
    }
+
+   gallivm->builder = LLVMCreateBuilderInContext(gallivm->context);
 }
 
 
@@ -202,6 +204,7 @@ free_gallivm_state(struct gallivm_state *gallivm)
    LLVMDisposeModule(gallivm->module);
    LLVMDisposeExecutionEngine(gallivm->engine);
    LLVMContextDispose(gallivm->context);
+   /* XXX dispose builder/ */
 
    gallivm->engine = NULL;
    gallivm->target = NULL;

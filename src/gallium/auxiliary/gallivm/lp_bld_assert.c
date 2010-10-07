@@ -56,9 +56,12 @@ lp_assert(int condition, const char *msg)
  * \param msg  a string to print if the assertion fails.
  */
 LLVMValueRef
-lp_build_assert(LLVMBuilderRef builder, LLVMValueRef condition,
+lp_build_assert(struct gallivm_state *gallivm,
+                LLVMValueRef condition,
                 const char *msg)
 {
+   LLVMBuilderRef builder = gallivm->builder;
+   LLVMContextRef context = gallivm->context;
    LLVMModuleRef module;
    LLVMTypeRef arg_types[2];
    LLVMValueRef msg_string, assert_func, params[2], r;
@@ -66,10 +69,11 @@ lp_build_assert(LLVMBuilderRef builder, LLVMValueRef condition,
    module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(
                             LLVMGetInsertBlock(builder)));
 
-   msg_string = lp_build_const_string_variable(module, msg, strlen(msg) + 1);
+   msg_string = lp_build_const_string_variable(module, context,
+                                               msg, strlen(msg) + 1);
 
-   arg_types[0] = LLVMInt32TypeInContext(gallivm.context);
-   arg_types[1] = LLVMPointerType(LLVMInt8TypeInContext(gallivm.context), 0);
+   arg_types[0] = LLVMInt32TypeInContext(context);
+   arg_types[1] = LLVMPointerType(LLVMInt8TypeInContext(context), 0);
 
    /* lookup the lp_assert function */
    assert_func = LLVMGetNamedFunction(module, "lp_assert");
@@ -77,12 +81,12 @@ lp_build_assert(LLVMBuilderRef builder, LLVMValueRef condition,
    /* Create the assertion function if not found */
    if (!assert_func) {
       LLVMTypeRef func_type =
-         LLVMFunctionType(LLVMVoidTypeInContext(gallivm.context), arg_types, 2, 0);
+         LLVMFunctionType(LLVMVoidTypeInContext(context), arg_types, 2, 0);
 
       assert_func = LLVMAddFunction(module, "lp_assert", func_type);
       LLVMSetFunctionCallConv(assert_func, LLVMCCallConv);
       LLVMSetLinkage(assert_func, LLVMExternalLinkage);
-      LLVMAddGlobalMapping(gallivm.engine, assert_func,
+      LLVMAddGlobalMapping(gallivm->engine, assert_func,
                            func_to_pointer((func_pointer)lp_assert));
    }
    assert(assert_func);

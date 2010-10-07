@@ -73,12 +73,12 @@ add_printf_test(LLVMModuleRef module)
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
 
    LLVMPositionBuilderAtEnd(builder, block);
-   lp_build_printf(builder, "hello, world\n");
-   lp_build_printf(builder, "print 5 6: %d %d\n", LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), 5, 0),
+   lp_build_printf(&gallivm, "hello, world\n");
+   lp_build_printf(&gallivm, "print 5 6: %d %d\n", LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), 5, 0),
 				LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), 6, 0));
 
    /* Also test lp_build_assert().  This should not fail. */
-   lp_build_assert(builder, LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), 1, 0), "assert(1)");
+   lp_build_assert(&gallivm, LLVMConstInt(LLVMInt32TypeInContext(gallivm.context), 1, 0), "assert(1)");
 
    LLVMBuildRetVoid(builder);
    LLVMDisposeBuilder(builder);

@@ -236,6 +236,8 @@ struct draw_llvm {
    struct draw_context *draw;
 
    struct draw_jit_context jit_context;
+
+   struct gallivm_state *gallivm;
 };
 
 
@@ -282,7 +284,7 @@ struct draw_llvm_variant_key *
 draw_llvm_make_variant_key(struct draw_llvm *llvm, char *store);
 
 LLVMValueRef
-draw_llvm_translate_from(LLVMBuilderRef builder,
+draw_llvm_translate_from(struct gallivm_state *gallivm,
                          LLVMValueRef vbuffer,
                          enum pipe_format from_format);
 

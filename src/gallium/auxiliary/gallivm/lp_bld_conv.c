@@ -88,12 +88,13 @@
  * return { i32, i32, i32, i32 } where each value is in [0, 2^dst_width-1].
  */
 LLVMValueRef
-lp_build_clamped_float_to_unsigned_norm(LLVMBuilderRef builder,
+lp_build_clamped_float_to_unsigned_norm(struct gallivm_state *gallivm,
                                         struct lp_type src_type,
                                         unsigned dst_width,
                                         LLVMValueRef src)
 {
-   LLVMTypeRef int_vec_type = lp_build_int_vec_type(src_type);
+   LLVMBuilderRef builder = gallivm->builder;
+   LLVMTypeRef int_vec_type = lp_build_int_vec_type(gallivm, src_type);
    LLVMValueRef res;
    unsigned mantissa;
    unsigned n;
@@ -117,13 +118,14 @@ lp_build_clamped_float_to_unsigned_norm(LLVMBuilderRef builder,
    scale = (double)mask/ubound;
    bias = (double)((unsigned long long)1 << (mantissa - n));
 
-   res = LLVMBuildFMul(builder, src, lp_build_const_vec(src_type, scale), "");
-   res = LLVMBuildFAdd(builder, res, lp_build_const_vec(src_type, bias), "");
+   res = LLVMBuildFMul(builder, src, lp_build_const_vec(gallivm, src_type, scale), "");
+   res = LLVMBuildFAdd(builder, res, lp_build_const_vec(gallivm, src_type, bias), "");
    res = LLVMBuildBitCast(builder, res, int_vec_type, "");
 
    if(dst_width > n) {
       int shift = dst_width - n;
-      res = LLVMBuildShl(builder, res, lp_build_const_int_vec(src_type, shift), "");
+      res = LLVMBuildShl(builder, res,
+                         lp_build_const_int_vec(gallivm, src_type, shift), "");
 
       /* TODO: Fill in the empty lower bits for additional precision? */
       /* YES: this fixes progs/trivial/tri-z-eq.c.
@@ -147,7 +149,8 @@ lp_build_clamped_float_to_unsigned_norm(LLVMBuilderRef builder,
 #endif
    }
    else
-      res = LLVMBuildAnd(builder, res, lp_build_const_int_vec(src_type, mask), "");
+      res = LLVMBuildAnd(builder, res,
+                         lp_build_const_int_vec(gallivm, src_type, mask), "");
 
    return res;
 }
@@ -159,13 +162,14 @@ lp_build_clamped_float_to_unsigned_norm(LLVMBuilderRef builder,
  * return {float, float, float, float} with values in range [0, 1].
  */
 LLVMValueRef
-lp_build_unsigned_norm_to_float(LLVMBuilderRef builder,
+lp_build_unsigned_norm_to_float(struct gallivm_state *gallivm,
                                 unsigned src_width,
                                 struct lp_type dst_type,
                                 LLVMValueRef src)
 {
-   LLVMTypeRef vec_type = lp_build_vec_type(dst_type);
-   LLVMTypeRef int_vec_type = lp_build_int_vec_type(dst_type);
+   LLVMBuilderRef builder = gallivm->builder;
+   LLVMTypeRef vec_type = lp_build_vec_type(gallivm, dst_type);
+   LLVMTypeRef int_vec_type = lp_build_int_vec_type(gallivm, dst_type);
    LLVMValueRef bias_;
    LLVMValueRef res;
    unsigned mantissa;
@@ -190,10 +194,11 @@ lp_build_unsigned_norm_to_float(LLVMBuilderRef builder,
 
    if(src_width > mantissa) {
       int shift = src_width - mantissa;
-      res = LLVMBuildLShr(builder, res, lp_build_const_int_vec(dst_type, shift), "");
+      res = LLVMBuildLShr(builder, res,
+                          lp_build_const_int_vec(gallivm, dst_type, shift), "");
    }
 
-   bias_ = lp_build_const_vec(dst_type, bias);
+   bias_ = lp_build_const_vec(gallivm, dst_type, bias);
 
    res = LLVMBuildOr(builder,
                      res,
@@ -202,7 +207,7 @@ lp_build_unsigned_norm_to_float(LLVMBuilderRef builder,
    res = LLVMBuildBitCast(builder, res, vec_type, "");
 
    res = LLVMBuildFSub(builder, res, bias_, "");
-   res = LLVMBuildFMul(builder, res, lp_build_const_vec(dst_type, scale), "");
+   res = LLVMBuildFMul(builder, res, lp_build_const_vec(gallivm, dst_type, scale), "");
 
    return res;
 }
@@ -215,12 +220,13 @@ lp_build_unsigned_norm_to_float(LLVMBuilderRef builder,
  * to the lp_type union.
  */
 void
-lp_build_conv(LLVMBuilderRef builder,
+lp_build_conv(struct gallivm_state *gallivm,
               struct lp_type src_type,
               struct lp_type dst_type,
               const LLVMValueRef *src, unsigned num_srcs,
               LLVMValueRef *dst, unsigned num_dsts)
 {
+   LLVMBuilderRef builder = gallivm->builder;
    struct lp_type tmp_type;
    LLVMValueRef tmp[LP_MAX_VECTOR_LENGTH];
    unsigned num_tmps;
@@ -253,13 +259,13 @@ lp_build_conv(LLVMBuilderRef builder,
       double dst_max = lp_const_max(dst_type);
       LLVMValueRef thres;
 
-      lp_build_context_init(&bld, builder, tmp_type);
+      lp_build_context_init(&bld, gallivm, tmp_type);
 
       if(src_min < dst_min) {
          if(dst_min == 0.0)
             thres = bld.zero;
          else
-            thres = lp_build_const_vec(src_type, dst_min);
+            thres = lp_build_const_vec(gallivm, src_type, dst_min);
          for(i = 0; i < num_tmps; ++i)
             tmp[i] = lp_build_max(&bld, tmp[i], thres);
       }
@@ -268,7 +274,7 @@ lp_build_conv(LLVMBuilderRef builder,
          if(dst_max == 1.0)
             thres = bld.one;
          else
-            thres = lp_build_const_vec(src_type, dst_max);
+            thres = lp_build_const_vec(gallivm, src_type, dst_max);
          for(i = 0; i < num_tmps; ++i)
             tmp[i] = lp_build_min(&bld, tmp[i], thres);
       }
@@ -284,7 +290,7 @@ lp_build_conv(LLVMBuilderRef builder,
    else if(tmp_type.floating) {
       if(!dst_type.fixed && !dst_type.sign && dst_type.norm) {
          for(i = 0; i < num_tmps; ++i) {
-            tmp[i] = lp_build_clamped_float_to_unsigned_norm(builder,
+            tmp[i] = lp_build_clamped_float_to_unsigned_norm(gallivm,
                                                              tmp_type,
                                                              dst_type.width,
                                                              tmp[i]);
@@ -296,14 +302,14 @@ lp_build_conv(LLVMBuilderRef builder,
          LLVMTypeRef tmp_vec_type;
 
          if (dst_scale != 1.0) {
-            LLVMValueRef scale = lp_build_const_vec(tmp_type, dst_scale);
+            LLVMValueRef scale = lp_build_const_vec(gallivm, tmp_type, dst_scale);
             for(i = 0; i < num_tmps; ++i)
                tmp[i] = LLVMBuildFMul(builder, tmp[i], scale, "");
          }
 
          /* Use an equally sized integer for intermediate computations */
          tmp_type.floating = FALSE;
-         tmp_vec_type = lp_build_vec_type(tmp_type);
+         tmp_vec_type = lp_build_vec_type(gallivm, tmp_type);
          for(i = 0; i < num_tmps; ++i) {
 #if 0
             if(dst_type.sign)
@@ -323,7 +329,8 @@ lp_build_conv(LLVMBuilderRef builder,
 
       /* FIXME: compensate different offsets too */
       if(src_shift > dst_shift) {
-         LLVMValueRef shift = lp_build_const_int_vec(tmp_type, src_shift - dst_shift);
+         LLVMValueRef shift = lp_build_const_int_vec(gallivm, tmp_type,
+                                                     src_shift - dst_shift);
          for(i = 0; i < num_tmps; ++i)
             if(src_type.sign)
                tmp[i] = LLVMBuildAShr(builder, tmp[i], shift, "");
@@ -347,7 +354,7 @@ lp_build_conv(LLVMBuilderRef builder,
       new_type.width  = dst_type.width;
       new_type.length = dst_type.length;
 
-      lp_build_resize(builder, tmp_type, new_type, tmp, num_srcs, tmp, num_dsts);
+      lp_build_resize(gallivm, tmp_type, new_type, tmp, num_srcs, tmp, num_dsts);
 
       tmp_type = new_type;
       num_tmps = num_dsts;
@@ -363,7 +370,7 @@ lp_build_conv(LLVMBuilderRef builder,
    else if(!src_type.floating && dst_type.floating) {
       if(!src_type.fixed && !src_type.sign && src_type.norm) {
          for(i = 0; i < num_tmps; ++i) {
-            tmp[i] = lp_build_unsigned_norm_to_float(builder,
+            tmp[i] = lp_build_unsigned_norm_to_float(gallivm,
                                                      src_type.width,
                                                      dst_type,
                                                      tmp[i]);
@@ -377,7 +384,7 @@ lp_build_conv(LLVMBuilderRef builder,
          /* Use an equally sized integer for intermediate computations */
          tmp_type.floating = TRUE;
          tmp_type.sign = TRUE;
-         tmp_vec_type = lp_build_vec_type(tmp_type);
+         tmp_vec_type = lp_build_vec_type(gallivm, tmp_type);
          for(i = 0; i < num_tmps; ++i) {
 #if 0
             if(dst_type.sign)
@@ -391,7 +398,7 @@ lp_build_conv(LLVMBuilderRef builder,
           }
 
           if (src_scale != 1.0) {
-             LLVMValueRef scale = lp_build_const_vec(tmp_type, 1.0/src_scale);
+             LLVMValueRef scale = lp_build_const_vec(gallivm, tmp_type, 1.0/src_scale);
              for(i = 0; i < num_tmps; ++i)
                 tmp[i] = LLVMBuildFMul(builder, tmp[i], scale, "");
           }
@@ -403,7 +410,7 @@ lp_build_conv(LLVMBuilderRef builder,
 
        /* FIXME: compensate different offsets too */
        if(src_shift < dst_shift) {
-          LLVMValueRef shift = lp_build_const_int_vec(tmp_type, dst_shift - src_shift);
+          LLVMValueRef shift = lp_build_const_int_vec(gallivm, tmp_type, dst_shift - src_shift);
           for(i = 0; i < num_tmps; ++i)
              tmp[i] = LLVMBuildShl(builder, tmp[i], shift, "");
        }
@@ -427,7 +434,7 @@ lp_build_conv(LLVMBuilderRef builder,
  * This is basically a very trimmed down version of lp_build_conv.
  */
 void
-lp_build_conv_mask(LLVMBuilderRef builder,
+lp_build_conv_mask(struct gallivm_state *gallivm,
                    struct lp_type src_type,
                    struct lp_type dst_type,
                    const LLVMValueRef *src, unsigned num_srcs,
@@ -461,11 +468,11 @@ lp_build_conv_mask(LLVMBuilderRef builder,
 
    if(src_type.width > dst_type.width) {
       assert(num_dsts == 1);
-      dst[0] = lp_build_pack(builder, src_type, dst_type, TRUE, src, num_srcs);
+      dst[0] = lp_build_pack(gallivm, src_type, dst_type, TRUE, src, num_srcs);
    }
    else if(src_type.width < dst_type.width) {
       assert(num_srcs == 1);
-      lp_build_unpack(builder, src_type, dst_type, src[0], dst, num_dsts);
+      lp_build_unpack(gallivm, src_type, dst_type, src[0], dst, num_dsts);
    }
    else {
       assert(num_srcs == num_dsts);

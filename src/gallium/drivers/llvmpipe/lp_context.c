@@ -169,6 +169,8 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
 
    lp_reset_counters();
 
+   llvmpipe->gallivm = &gallivm;
+
    return &llvmpipe->pipe;
 
  fail:

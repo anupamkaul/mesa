@@ -69,7 +69,7 @@ struct lp_build_sampler_soa
 
    void
    (*emit_fetch_texel)( const struct lp_build_sampler_soa *sampler,
-                        LLVMBuilderRef builder,
+                        struct gallivm_state *gallivm,
                         struct lp_type type,
                         unsigned unit,
                         unsigned num_coords,
@@ -97,7 +97,7 @@ struct lp_build_sampler_aos
 
 
 void
-lp_build_tgsi_soa(LLVMBuilderRef builder,
+lp_build_tgsi_soa(struct gallivm_state *gallivm,
                   const struct tgsi_token *tokens,
                   struct lp_type type,
                   struct lp_build_mask_context *mask,
@@ -110,7 +110,7 @@ lp_build_tgsi_soa(LLVMBuilderRef builder,
 
 
 void
-lp_build_tgsi_aos(LLVMBuilderRef builder,
+lp_build_tgsi_aos(struct gallivm_state *gallivm,
                   const struct tgsi_token *tokens,
                   struct lp_type type,
                   const unsigned char swizzles[4],

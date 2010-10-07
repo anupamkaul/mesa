@@ -117,6 +117,8 @@ struct llvmpipe_context {
 
    unsigned tex_timestamp;
    boolean no_rast;
+
+   struct gallivm_state *gallivm;
 };
 
 
