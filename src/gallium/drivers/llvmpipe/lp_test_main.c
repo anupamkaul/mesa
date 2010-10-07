@@ -398,17 +398,17 @@ int main(int argc, char **argv)
 
    if(fp) {
       /* Warm up the caches */
-      test_some(0, NULL, 100);
+      test_some(&gallivm, 0, NULL, 100);
 
       write_tsv_header(fp);
    }
       
    if (single)
-      success = test_single(verbose, fp);
+      success = test_single(&gallivm, verbose, fp);
    else if (n)
-      success = test_some(verbose, fp, n);
+      success = test_some(&gallivm, verbose, fp, n);
    else
-      success = test_all(verbose, fp);
+      success = test_all(&gallivm, verbose, fp);
 
    if(fp)
       fclose(fp);
