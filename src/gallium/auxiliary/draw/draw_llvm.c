@@ -53,9 +53,6 @@
 #define DEBUG_STORE 0
 
 
-struct draw_llvm_globals draw_llvm_global;
-
-
 /**
  * This function is called by the gallivm "garbage collector" when
  * the LLVM global data structures are freed.  We must free all LLVM-related
@@ -68,8 +65,8 @@ draw_llvm_garbage_collect_callback(void *cb_data)
    struct draw_llvm_variant_list_item *li;
 
    /* free all shader variants */
-   li = first_elem(&draw_llvm_global.vs_variants_list);
-   while (!at_end(&draw_llvm_global.vs_variants_list, li)) {
+   li = first_elem(&llvm->vs_variants_list);
+   while (!at_end(&llvm->vs_variants_list, li)) {
       struct draw_llvm_variant_list_item *next = next_elem(li);
       draw_llvm_destroy_variant(li->base);
       li = next;
@@ -83,24 +80,6 @@ draw_llvm_garbage_collect_callback(void *cb_data)
    llvm->vb_ptr_type = NULL;
    llvm->vertex_header_ptr_type = NULL;
 }
-
-
-/**
- * One-time inits for llvm-related data.
- */
-static void
-draw_llvm_init_globals(void)
-{
-   static boolean initialized = FALSE;
-   if (!initialized) {
-      memset(&draw_llvm_global, 0, sizeof(draw_llvm_global));
-
-      make_empty_list(&draw_llvm_global.vs_variants_list);
-
-      initialized = TRUE;
-   }
-}
-
 
 
 static void
@@ -358,8 +337,6 @@ draw_llvm_create(struct draw_context *draw, struct gallivm_state *gallivm)
 {
    struct draw_llvm *llvm;
 
-   draw_llvm_init_globals();
-
    llvm = CALLOC_STRUCT( draw_llvm );
    if (!llvm)
       return NULL;
@@ -373,8 +350,8 @@ draw_llvm_create(struct draw_context *draw, struct gallivm_state *gallivm)
       LLVMDumpModule(llvm->gallivm->module);
    }
 
-   draw_llvm_global.nr_variants = 0;
-   make_empty_list(&draw_llvm_global.vs_variants_list);
+   llvm->nr_variants = 0;
+   make_empty_list(&llvm->vs_variants_list);
 
    lp_register_garbage_collector_callback(draw_llvm_garbage_collect_callback,
                                           llvm);
@@ -427,6 +404,7 @@ draw_llvm_create_variant(struct draw_llvm *llvm,
    variant->list_item_global.base = variant;
    variant->list_item_local.base = variant;
    /*variant->no = */shader->variants_created++;
+   variant->list_item_global.base = variant;
 
    return variant;
 }
@@ -1197,6 +1175,8 @@ draw_llvm_set_mapped_texture(struct draw_context *draw,
 void
 draw_llvm_destroy_variant(struct draw_llvm_variant *variant)
 {
+   struct draw_llvm *llvm = variant->llvm;
+
    if (variant->function_elts) {
       if (variant->function_elts)
          LLVMFreeMachineCodeForFunction(gallivm.engine,
@@ -1213,9 +1193,7 @@ draw_llvm_destroy_variant(struct draw_llvm_variant *variant)
 
    remove_from_list(&variant->list_item_local);
    variant->shader->variants_cached--;
-
    remove_from_list(&variant->list_item_global);
-   draw_llvm_global.nr_variants--;
-
+   llvm->nr_variants--;
    FREE(variant);
 }
