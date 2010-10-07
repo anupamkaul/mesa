@@ -1179,14 +1179,14 @@ draw_llvm_destroy_variant(struct draw_llvm_variant *variant)
 
    if (variant->function_elts) {
       if (variant->function_elts)
-         LLVMFreeMachineCodeForFunction(gallivm.engine,
+         LLVMFreeMachineCodeForFunction(llvm->gallivm->engine,
                                         variant->function_elts);
       LLVMDeleteFunction(variant->function_elts);
    }
 
    if (variant->function) {
       if (variant->function)
-         LLVMFreeMachineCodeForFunction(gallivm.engine,
+         LLVMFreeMachineCodeForFunction(llvm->gallivm->engine,
                                         variant->function);
       LLVMDeleteFunction(variant->function);
    }
