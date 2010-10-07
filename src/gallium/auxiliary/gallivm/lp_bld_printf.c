@@ -92,7 +92,7 @@ lp_build_printf(struct gallivm_state *gallivm, const char *fmt, ...)
    int argcount = lp_get_printf_arg_count(fmt);
    LLVMBuilderRef builder = gallivm->builder;
    LLVMContextRef context = gallivm->context;
-   LLVMModuleRef module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(LLVMGetInsertBlock(builder)));
+   LLVMModuleRef module = gallivm->module;
    LLVMValueRef params[50];
    LLVMValueRef fmtarg = lp_build_const_string_variable(module, context,
                                                         fmt, strlen(fmt) + 1);

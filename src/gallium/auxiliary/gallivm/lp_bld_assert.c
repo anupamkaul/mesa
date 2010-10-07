@@ -62,12 +62,9 @@ lp_build_assert(struct gallivm_state *gallivm,
 {
    LLVMBuilderRef builder = gallivm->builder;
    LLVMContextRef context = gallivm->context;
-   LLVMModuleRef module;
+   LLVMModuleRef module = gallivm->module;
    LLVMTypeRef arg_types[2];
    LLVMValueRef msg_string, assert_func, params[2], r;
-
-   module = LLVMGetGlobalParent(LLVMGetBasicBlockParent(
-                            LLVMGetInsertBlock(builder)));
 
    msg_string = lp_build_const_string_variable(module, context,
                                                msg, strlen(msg) + 1);
