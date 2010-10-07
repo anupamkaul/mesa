@@ -34,13 +34,10 @@
 #ifndef LP_SCREEN_H
 #define LP_SCREEN_H
 
-#include "gallivm/lp_bld.h"
-#include <llvm-c/ExecutionEngine.h>
-
-#include "os/os_thread.h"
 #include "pipe/p_screen.h"
 #include "pipe/p_defines.h"
-#include "lp_context.h"
+#include "os/os_thread.h"
+#include "gallivm/lp_bld.h"
 
 
 struct sw_winsys;
