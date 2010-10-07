@@ -29,6 +29,7 @@
 #include "pipe/p_compiler.h"
 #include "util/u_cpu_detect.h"
 #include "util/u_debug.h"
+#include "util/u_memory.h"
 #include "lp_bld_debug.h"
 #include "lp_bld_init.h"
 
@@ -49,10 +50,6 @@ static const struct debug_named_value lp_bld_debug_flags[] = {
 
 DEBUG_GET_ONCE_FLAGS_OPTION(gallivm_debug, "GALLIVM_DEBUG", lp_bld_debug_flags, 0)
 #endif
-
-
-struct gallivm_state gallivm = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
-
 
 
 /*
@@ -144,8 +141,6 @@ create_pass_manager(struct gallivm_state *gallivm)
 static void
 init_gallivm_state(struct gallivm_state *gallivm)
 {
-   LLVMContextRef *foo = LLVMContextCreate();
-
    if (!gallivm->context)
       gallivm->context = LLVMContextCreate();
 
@@ -280,20 +275,20 @@ call_garbage_collector_callbacks(void)
  * accumulated by the LLVM libraries).
  */
 boolean
-lp_garbage_collect(void)
+lp_garbage_collect(struct gallivm_state *gallivm)
 {
    static uint counter = 0;
 
    counter++;
    debug_printf("%s %d\n", __FUNCTION__, counter);
    if (counter >= 20) {
-      if (gallivm.context) {
+      if (gallivm->context) {
          if (1)
             debug_printf("***** Doing LLVM garbage collection\n");
 
          call_garbage_collector_callbacks();
-         free_gallivm_state(&gallivm);
-         init_gallivm_state(&gallivm);
+         free_gallivm_state(gallivm);
+         init_gallivm_state(gallivm);
       }
 
       counter = 0;
@@ -318,8 +313,6 @@ lp_build_init(void)
 
    LLVMLinkInJIT();
 
-   init_gallivm_state(&gallivm);
- 
    util_cpu_detect();
  
 #if 0
@@ -337,7 +330,32 @@ lp_build_init(void)
 void
 lp_build_cleanup(void)
 {
-   free_gallivm_state(&gallivm);
+   /* nothing */
+}
+
+
+/**
+ * Create a new gallivm_state object.
+ */
+struct gallivm_state *
+gallivm_create(void)
+{
+   struct gallivm_state *gallivm = CALLOC_STRUCT(gallivm_state);
+   if (gallivm) {
+      init_gallivm_state(gallivm);
+   }
+   return gallivm;
+}
+
+
+/**
+ * Destroy a gallivm_state object.
+ */
+void
+gallvim_destroy(struct gallivm_state *gallivm)
+{
+   free_gallivm_state(gallivm);
+   FREE(gallivm);
 }
 
 

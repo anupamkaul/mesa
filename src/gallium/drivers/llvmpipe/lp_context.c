@@ -160,7 +160,7 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    llvmpipe_init_context_resource_funcs( &llvmpipe->pipe );
    llvmpipe_init_surface_functions(llvmpipe);
 
-   llvmpipe->gallivm = &gallivm;
+   llvmpipe->gallivm = gallivm_create();
 
    /*
     * Create drawing context and plug our rendering stage into it.

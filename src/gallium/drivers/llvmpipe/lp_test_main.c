@@ -380,6 +380,7 @@ int main(int argc, char **argv)
    unsigned i;
    boolean success;
    boolean single = FALSE;
+   struct gallivm_state *gallivm = gallivm_create();
 
    for(i = 1; i < argc; ++i) {
       if(strcmp(argv[i], "-v") == 0)
@@ -398,17 +399,17 @@ int main(int argc, char **argv)
 
    if(fp) {
       /* Warm up the caches */
-      test_some(&gallivm, 0, NULL, 100);
+      test_some(gallivm, 0, NULL, 100);
 
       write_tsv_header(fp);
    }
       
    if (single)
-      success = test_single(&gallivm, verbose, fp);
+      success = test_single(gallivm, verbose, fp);
    else if (n)
-      success = test_some(&gallivm, verbose, fp, n);
+      success = test_some(gallivm, verbose, fp, n);
    else
-      success = test_all(&gallivm, verbose, fp);
+      success = test_all(gallivm, verbose, fp);
 
    if(fp)
       fclose(fp);
