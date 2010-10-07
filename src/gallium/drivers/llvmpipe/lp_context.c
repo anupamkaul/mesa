@@ -40,10 +40,8 @@
 #include "lp_clear.h"
 #include "lp_context.h"
 #include "lp_flush.h"
-#include "lp_global.h"
 #include "lp_perf.h"
 #include "lp_state.h"
-#include "lp_screen.h"
 #include "lp_surface.h"
 #include "lp_query.h"
 #include "lp_setup.h"
@@ -65,26 +63,16 @@ garbage_collect_callback(void *cb_data)
    struct llvmpipe_context *lp = (struct llvmpipe_context *) cb_data;
    struct lp_fs_variant_list_item *li;
 
-   li = first_elem(&llvmpipe_global.fs_variants_list);
-   while (!at_end(&llvmpipe_global.fs_variants_list, li)) {
+   /* Free all the context's shader variants */
+   li = first_elem(&lp->fs_variants_list);
+   while (!at_end(&lp->fs_variants_list, li)) {
       struct lp_fs_variant_list_item *next = next_elem(li);
-      llvmpipe_remove_shader_variant(li->base);
+      llvmpipe_remove_shader_variant(lp, li->base);
       li = next;
    }
 
    /* This type will be recreated upon demand */
    lp->jit_context_ptr_type = NULL;
-}
-
-
-/**
- * We need to periodically call this function to invoke gallivm's
- * garbage collector.  It will usually be a no-op, btw.
- */
-void
-llvmpipe_garbage_collect(void)
-{
-   (void) lp_garbage_collect();
 }
 
 
@@ -145,6 +133,8 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    util_init_math();
 
    memset(llvmpipe, 0, sizeof *llvmpipe);
+
+   make_empty_list(&llvmpipe->fs_variants_list);
 
    llvmpipe->pipe.winsys = screen->winsys;
    llvmpipe->pipe.screen = screen;
@@ -217,3 +207,4 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    llvmpipe_destroy(&llvmpipe->pipe);
    return NULL;
 }
+

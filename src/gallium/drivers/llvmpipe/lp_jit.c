@@ -41,16 +41,11 @@
 #include "gallivm/lp_bld_intr.h"
 #include "lp_context.h"
 #include "lp_screen.h"
-#include "lp_global.h"
 #include "lp_jit.h"
 
 
-//static LLVMTypeRef lp_context_ptr_type = NULL;
-
-
-
 static void
-lp_jit_init_globals(struct llvmpipe_context *lp)
+lp_jit_create_types(struct llvmpipe_context *lp)
 {
    struct gallivm_state *gallivm = lp->gallivm;
    LLVMContextRef lc = gallivm->context;
@@ -185,7 +180,7 @@ LLVMTypeRef
 lp_jit_get_context_type(struct llvmpipe_context *lp)
 {
    if (!lp->jit_context_ptr_type) {
-      lp_jit_init_globals(lp);
+      lp_jit_create_types(lp);
    }
 
    return lp->jit_context_ptr_type;

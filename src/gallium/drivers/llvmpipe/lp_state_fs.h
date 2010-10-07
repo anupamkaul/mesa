@@ -36,8 +36,6 @@
 #include "gallivm/lp_bld_init.h"
 #include "gallivm/lp_bld_sample.h" /* for struct lp_sampler_static_state */
 
-#include "lp_jit.h"
-
 
 struct tgsi_token;
 struct lp_fragment_shader;
@@ -90,8 +88,7 @@ struct lp_fragment_shader_variant
 
    lp_jit_frag_func jit_function[2];
 
-   struct lp_fs_variant_list_item list_item_global;
-   struct lp_fs_variant_list_item list_item_local;
+   struct lp_fs_variant_list_item list_item_global, list_item_local;
    struct lp_fragment_shader *shader;
 
    /* For debugging/profiling purposes */
@@ -115,22 +112,15 @@ struct lp_fragment_shader
    unsigned no;
    unsigned variants_created;
    unsigned variants_cached;
-
-   /** For linked list */
-   struct lp_fragment_shader *next, *prev;
 };
 
 
 void
 lp_debug_fs_variant(const struct lp_fragment_shader_variant *variant);
 
-
 void
-llvmpipe_remove_shader_variant(struct lp_fragment_shader_variant *variant);
-
-void
-llvmpipe_free_all_fs_variants(struct llvmpipe_context *llvmpipe,
-                              struct lp_fragment_shader *shader);
+llvmpipe_remove_shader_variant(struct llvmpipe_context *lp,
+                               struct lp_fragment_shader_variant *variant);
 
 
 #endif /* LP_STATE_FS_H_ */
