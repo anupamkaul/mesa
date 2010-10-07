@@ -84,7 +84,7 @@ lp_build_broadcast_scalar(struct lp_build_context *bld,
       i32_vec_type.length = type.length;
 
       res = LLVMBuildInsertElement(bld->builder, bld->undef, scalar,
-                                   lp_build_const_int32(gallivm, 0), "");
+                                   lp_build_const_int32(bld->gallivm, 0), "");
       res = LLVMBuildShuffleVector(bld->builder, res, bld->undef,
                                    lp_build_const_int_vec(bld->gallivm, i32_vec_type, 0), "");
 #else
