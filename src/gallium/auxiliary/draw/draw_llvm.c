@@ -353,8 +353,8 @@ draw_llvm_create(struct draw_context *draw, struct gallivm_state *gallivm)
    llvm->nr_variants = 0;
    make_empty_list(&llvm->vs_variants_list);
 
-   lp_register_garbage_collector_callback(draw_llvm_garbage_collect_callback,
-                                          llvm);
+   gallivm_register_garbage_collector_callback(
+                              draw_llvm_garbage_collect_callback, llvm);
 
    return llvm;
 }

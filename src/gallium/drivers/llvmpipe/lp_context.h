@@ -125,6 +125,7 @@ struct llvmpipe_context {
    /** JIT code generation */
    struct gallivm_state *gallivm;
    LLVMTypeRef jit_context_ptr_type;
+   unsigned variant_count;
 };
 
 

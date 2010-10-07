@@ -327,11 +327,6 @@ lp_setup_flush( struct lp_setup_context *setup,
    if (fence) {
       lp_fence_reference((struct lp_fence **)fence, setup->last_fence);
    }
-
-   {
-      struct llvmpipe_context *lp = llvmpipe_context(setup->pipe);
-      (void) lp_garbage_collect(lp->gallivm);
-   }
 }
 
 

@@ -231,15 +231,14 @@ static unsigned NumCallbacks = 0;
  * do garbage collection.
  */
 void
-lp_register_garbage_collector_callback(garbage_collect_callback_func func,
-                                       void *cb_data)
+gallivm_register_garbage_collector_callback(garbage_collect_callback_func func,
+                                            void *cb_data)
 {
    unsigned i;
 
    for (i = 0; i < NumCallbacks; i++) {
-      if (Callbacks[i].func == func) {
-         /* already in list, just update callback data */
-         Callbacks[i].cb_data = cb_data;
+      if (Callbacks[i].func == func && Callbacks[i].cb_data == cb_data) {
+         /* already in list: no-op */
          return;
       }
    }
@@ -249,6 +248,28 @@ lp_register_garbage_collector_callback(garbage_collect_callback_func func,
       Callbacks[NumCallbacks].func = func;
       Callbacks[NumCallbacks].cb_data = cb_data;
       NumCallbacks++;
+   }
+}
+
+
+/**
+ * Remove a callback.
+ */
+void
+gallivm_remove_garbage_collector_callback(garbage_collect_callback_func func,
+                                          void *cb_data)
+{
+   unsigned i;
+
+   for (i = 0; i < NumCallbacks; i++) {
+      if (Callbacks[i].func == func && Callbacks[i].cb_data == cb_data) {
+         /* found, now remove it */
+         NumCallbacks--;
+         for ( ; i < NumCallbacks; i++) {
+            Callbacks[i] = Callbacks[i + 1];
+         }
+         return;
+      }
    }
 }
 
@@ -274,28 +295,16 @@ call_garbage_collector_callbacks(void)
  * to let us do garbage collection (or at least try to free memory
  * accumulated by the LLVM libraries).
  */
-boolean
-lp_garbage_collect(struct gallivm_state *gallivm)
+void
+gallivm_garbage_collect(struct gallivm_state *gallivm)
 {
-   static uint counter = 0;
+   if (gallivm->context) {
+      if (1)
+         debug_printf("***** Doing LLVM garbage collection\n");
 
-   counter++;
-   debug_printf("%s %d\n", __FUNCTION__, counter);
-   if (counter >= 20) {
-      if (gallivm->context) {
-         if (1)
-            debug_printf("***** Doing LLVM garbage collection\n");
-
-         call_garbage_collector_callbacks();
-         free_gallivm_state(gallivm);
-         init_gallivm_state(gallivm);
-      }
-
-      counter = 0;
-      return TRUE;
-   }
-   else {
-      return FALSE;
+      call_garbage_collector_callbacks();
+      free_gallivm_state(gallivm);
+      init_gallivm_state(gallivm);
    }
 }
 
@@ -321,17 +330,9 @@ lp_build_init(void)
    util_cpu_caps.has_ssse3 = 0;
    util_cpu_caps.has_sse4_1 = 0;
 #endif
-
-   if (0)
-      atexit(lp_build_cleanup);
 }
 
 
-void
-lp_build_cleanup(void)
-{
-   /* nothing */
-}
 
 
 /**

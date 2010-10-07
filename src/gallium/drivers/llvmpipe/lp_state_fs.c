@@ -883,8 +883,6 @@ generate_variant(struct llvmpipe_context *lp,
 
    generate_fragment_function(lp, shader, variant, RAST_EDGE_TEST);
 
-   variant->engine = lp->gallivm->engine;
-
    if (variant->opaque) {
       /* Specialized shader, which doesn't need to read the color buffer. */
       generate_fragment_function(lp, shader, variant, RAST_WHOLE);
@@ -994,7 +992,7 @@ llvmpipe_remove_shader_variant(struct llvmpipe_context *lp,
    for (i = 0; i < Elements(variant->function); i++) {
       if (variant->function[i]) {
          if (variant->jit_function[i])
-            LLVMFreeMachineCodeForFunction(variant->engine,
+            LLVMFreeMachineCodeForFunction(lp->gallivm->engine,
                                            variant->function[i]);
          LLVMDeleteFunction(variant->function[i]);
       }
@@ -1258,6 +1256,8 @@ llvmpipe_update_fs(struct llvmpipe_context *lp)
       dt = t1 - t0;
       LP_COUNT_ADD(llvm_compile_time, dt);
       LP_COUNT_ADD(nr_llvm_compiles, 2);  /* emit vs. omit in/out test */
+
+      lp->variant_count++;
 
       /* Put the new variant into the list */
       if (variant) {

@@ -84,6 +84,9 @@ static void llvmpipe_destroy( struct pipe_context *pipe )
 
    lp_print_counters();
 
+   gallivm_remove_garbage_collector_callback(garbage_collect_callback,
+                                             llvmpipe);
+
    /* This will also destroy llvmpipe->setup:
     */
    if (llvmpipe->draw)
@@ -199,7 +202,8 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
 
    lp_reset_counters();
 
-   lp_register_garbage_collector_callback(garbage_collect_callback, llvmpipe);
+   gallivm_register_garbage_collector_callback(garbage_collect_callback,
+                                               llvmpipe);
 
    return &llvmpipe->pipe;
 

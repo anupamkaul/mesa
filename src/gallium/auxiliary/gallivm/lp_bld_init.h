@@ -50,24 +50,24 @@ struct gallivm_state
 void
 lp_build_init(void);
 
-void
-lp_build_cleanup(void);
-
 
 extern void
 lp_func_delete_body(LLVMValueRef func);
 
 
-boolean
-lp_garbage_collect(struct gallivm_state *gallivm);
+void
+gallivm_garbage_collect(struct gallivm_state *gallivm);
 
 
 typedef void (*garbage_collect_callback_func)(void *cb_data);
 
 void
-lp_register_garbage_collector_callback(garbage_collect_callback_func func,
-                                       void *cb_data);
+gallivm_register_garbage_collector_callback(garbage_collect_callback_func func,
+                                            void *cb_data);
 
+void
+gallivm_remove_garbage_collector_callback(garbage_collect_callback_func func,
+                                          void *cb_data);
 
 
 struct gallivm_state *
