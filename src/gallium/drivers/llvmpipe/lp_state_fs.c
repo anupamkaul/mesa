@@ -544,7 +544,7 @@ generate_fragment_function(struct llvmpipe_context *lp,
    util_snprintf(func_name, sizeof(func_name), "fs%u_variant%u_%s", 
 		 shader->no, variant->no, partial_mask ? "partial" : "whole");
 
-   arg_types[0] = lp_jit_get_context_type(gallivm);    /* context */
+   arg_types[0] = lp_jit_get_context_type(lp);         /* context */
    arg_types[1] =                                      /* x */
    arg_types[2] = LLVMInt32TypeInContext(lc);          /* y */
    arg_types[3] = LLVMFloatTypeInContext(lc);          /* facing */

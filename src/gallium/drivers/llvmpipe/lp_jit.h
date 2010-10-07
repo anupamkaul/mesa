@@ -166,10 +166,7 @@ llvmpipe_garbage_collect(void);
 
 
 LLVMTypeRef
-lp_jit_get_context_type(struct gallivm_state *gallivm);
-
-void
-lp_jit_free_context_type(void);
+lp_jit_get_context_type(struct llvmpipe_context *lp);
 
 
 #endif /* LP_JIT_H */

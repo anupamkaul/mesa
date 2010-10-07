@@ -118,7 +118,9 @@ struct llvmpipe_context {
    unsigned tex_timestamp;
    boolean no_rast;
 
+   /** JIT code generation */
    struct gallivm_state *gallivm;
+   LLVMTypeRef jit_context_ptr_type;
 };
 
 
