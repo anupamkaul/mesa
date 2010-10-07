@@ -170,10 +170,12 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    llvmpipe_init_context_resource_funcs( &llvmpipe->pipe );
    llvmpipe_init_surface_functions(llvmpipe);
 
+   llvmpipe->gallivm = &gallivm;
+
    /*
     * Create drawing context and plug our rendering stage into it.
     */
-   llvmpipe->draw = draw_create(&llvmpipe->pipe);
+   llvmpipe->draw = draw_create_gallivm(&llvmpipe->pipe, llvmpipe->gallivm);
    if (!llvmpipe->draw)
       goto fail;
 
@@ -206,8 +208,6 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
 #endif
 
    lp_reset_counters();
-
-   llvmpipe->gallivm = &gallivm;
 
    lp_register_garbage_collector_callback(garbage_collect_callback, llvmpipe);
 

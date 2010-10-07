@@ -144,6 +144,8 @@ create_pass_manager(struct gallivm_state *gallivm)
 static void
 init_gallivm_state(struct gallivm_state *gallivm)
 {
+   LLVMContextRef *foo = LLVMContextCreate();
+
    if (!gallivm->context)
       gallivm->context = LLVMContextCreate();
 
@@ -284,7 +286,7 @@ lp_garbage_collect(void)
 
    counter++;
    debug_printf("%s %d\n", __FUNCTION__, counter);
-   if (counter >= 10) {
+   if (counter >= 20) {
       if (gallivm.context) {
          if (1)
             debug_printf("***** Doing LLVM garbage collection\n");
