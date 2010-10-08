@@ -89,13 +89,17 @@ lp_set_target_options(void);
 /**
  * Create the LLVM (optimization) pass manager and install
  * relevant optimization passes.
+ * \return  TRUE for success, FALSE for failure
  */
-static void
+static boolean
 create_pass_manager(struct gallivm_state *gallivm)
 {
    assert(!gallivm->passmgr);
 
    gallivm->passmgr = LLVMCreateFunctionPassManager(gallivm->provider);
+   if (!gallivm->passmgr)
+      return FALSE;
+
    LLVMAddTargetData(gallivm->target, gallivm->passmgr);
 
    if ((gallivm_debug & GALLIVM_DEBUG_NO_OPT) == 0) {
@@ -134,29 +138,74 @@ create_pass_manager(struct gallivm_state *gallivm)
       LLVMAddPromoteMemoryToRegisterPass(gallivm->passmgr);
    }
 
-   assert(gallivm->passmgr);
+   return TRUE;
 }
 
 
 /**
- * Create the global LLVM resources.
+ * Free gallivm object's LLVM allocations, but not the gallivm object itself.
  */
 static void
+free_gallivm_state(struct gallivm_state *gallivm)
+{
+   LLVMModuleRef mod;
+   char *error;
+
+   if (gallivm->engine && gallivm->provider)
+      LLVMRemoveModuleProvider(gallivm->engine, gallivm->provider,
+                               &mod, &error);
+
+   if (gallivm->passmgr)
+      LLVMDisposePassManager(gallivm->passmgr);
+
+   if (gallivm->module)
+      LLVMDisposeModule(gallivm->module);
+
+   if (gallivm->engine)
+      LLVMDisposeExecutionEngine(gallivm->engine);
+
+   if (gallivm->context)
+      LLVMContextDispose(gallivm->context);
+
+   /* XXX dispose builder/ */
+
+   gallivm->engine = NULL;
+   gallivm->target = NULL;
+   gallivm->module = NULL;
+   gallivm->provider = NULL;
+   gallivm->passmgr = NULL;
+   gallivm->context = NULL;
+   gallivm->builder = NULL;
+}
+
+
+/**
+ * Allocate gallivm LLVM objects.
+ * \return  TRUE for success, FALSE for failure
+ */
+static boolean
 init_gallivm_state(struct gallivm_state *gallivm)
 {
    assert(gallivm_initialized);
+   assert(!gallivm->context);
+   assert(!gallivm->module);
+   assert(!gallivm->provider);
 
+   gallivm->context = LLVMContextCreate();
    if (!gallivm->context)
-      gallivm->context = LLVMContextCreate();
+      goto fail;
 
+   gallivm->module = LLVMModuleCreateWithNameInContext("gallivm",
+                                                       gallivm->context);
    if (!gallivm->module)
-      gallivm->module = LLVMModuleCreateWithNameInContext("gallivm",
-                                                          gallivm->context);
+      goto fail;
 
+   gallivm->provider =
+      LLVMCreateModuleProviderForExistingModule(gallivm->module);
    if (!gallivm->provider)
-      gallivm->provider = LLVMCreateModuleProviderForExistingModule(gallivm->module);
+      goto fail;
 
-   if (!gallivm->engine) {
+   {
       enum LLVM_CodeGenOpt_Level optlevel;
       char *error = NULL;
 
@@ -171,7 +220,7 @@ init_gallivm_state(struct gallivm_state *gallivm)
                                 (unsigned)optlevel, &error)) {
          _debug_printf("%s\n", error);
          LLVMDisposeMessage(error);
-         assert(0);
+         goto fail;
       }
 
 #if defined(DEBUG) || defined(PROFILE)
@@ -179,44 +228,23 @@ init_gallivm_state(struct gallivm_state *gallivm)
 #endif
    }
 
+   gallivm->target = LLVMGetExecutionEngineTargetData(gallivm->engine);
    if (!gallivm->target)
-      gallivm->target = LLVMGetExecutionEngineTargetData(gallivm->engine);
+      goto fail;
 
-   if (!gallivm->passmgr) {
-      create_pass_manager(gallivm);
-   }
+   if (!create_pass_manager(gallivm))
+      goto fail;
 
    gallivm->builder = LLVMCreateBuilderInContext(gallivm->context);
+   if (!gallivm->builder)
+      goto fail;
+
+   return TRUE;
+
+fail:
+   free_gallivm_state(gallivm);
+   return FALSE;
 }
-
-
-/**
- * Free all global LLVM resources.
- */
-static void
-free_gallivm_state(struct gallivm_state *gallivm)
-{
-   LLVMModuleRef mod;
-   char *error;
-
-   LLVMRemoveModuleProvider(gallivm->engine, gallivm->provider,
-                            &mod, &error);
-
-   LLVMDisposePassManager(gallivm->passmgr);
-   LLVMDisposeModule(gallivm->module);
-   LLVMDisposeExecutionEngine(gallivm->engine);
-   LLVMContextDispose(gallivm->context);
-   /* XXX dispose builder/ */
-
-   gallivm->engine = NULL;
-   gallivm->target = NULL;
-   gallivm->module = NULL;
-   gallivm->provider = NULL;
-   gallivm->passmgr = NULL;
-   gallivm->context = NULL;
-   gallivm->builder = NULL;
-}
-
 
 
 struct callback
@@ -350,7 +378,10 @@ gallivm_create(void)
 {
    struct gallivm_state *gallivm = CALLOC_STRUCT(gallivm_state);
    if (gallivm) {
-      init_gallivm_state(gallivm);
+      if (!init_gallivm_state(gallivm)) {
+         FREE(gallivm);
+         gallivm = NULL;
+      }
    }
    return gallivm;
 }
