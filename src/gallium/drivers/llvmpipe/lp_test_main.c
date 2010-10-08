@@ -380,7 +380,7 @@ int main(int argc, char **argv)
    unsigned i;
    boolean success;
    boolean single = FALSE;
-   struct gallivm_state *gallivm = gallivm_create();
+   struct gallivm_state *gallivm;
 
    for(i = 1; i < argc; ++i) {
       if(strcmp(argv[i], "-v") == 0)
@@ -394,6 +394,8 @@ int main(int argc, char **argv)
    }
 
    lp_build_init();
+
+   gallivm = gallivm_create();
 
    util_cpu_detect();
 

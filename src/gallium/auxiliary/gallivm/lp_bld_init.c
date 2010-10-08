@@ -52,6 +52,9 @@ DEBUG_GET_ONCE_FLAGS_OPTION(gallivm_debug, "GALLIVM_DEBUG", lp_bld_debug_flags, 
 #endif
 
 
+static boolean gallivm_initialized = FALSE;
+
+
 /*
  * Optimization values are:
  * - 0: None (-O0)
@@ -141,6 +144,8 @@ create_pass_manager(struct gallivm_state *gallivm)
 static void
 init_gallivm_state(struct gallivm_state *gallivm)
 {
+   assert(gallivm_initialized);
+
    if (!gallivm->context)
       gallivm->context = LLVMContextCreate();
 
@@ -324,6 +329,8 @@ lp_build_init(void)
 
    util_cpu_detect();
  
+   gallivm_initialized = TRUE;
+
 #if 0
    /* For simulating less capable machines */
    util_cpu_caps.has_sse3 = 0;
