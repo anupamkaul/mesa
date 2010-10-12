@@ -112,6 +112,8 @@ static void llvmpipe_destroy( struct pipe_context *pipe )
       }
    }
 
+   gallivm_destroy(llvmpipe->gallivm);
+
    align_free( llvmpipe );
 }
 
