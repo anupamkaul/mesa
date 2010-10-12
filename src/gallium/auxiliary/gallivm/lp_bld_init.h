@@ -74,7 +74,7 @@ struct gallivm_state *
 gallivm_create(void);
 
 void
-gallvim_destroy(struct gallivm_state *gallivm);
+gallivm_destroy(struct gallivm_state *gallivm);
 
 
 #endif /* !LP_BLD_INIT_H */

@@ -78,6 +78,13 @@ enum LLVM_CodeGenOpt_Level {
 };
 
 
+/**
+ * LLVM 2.6 permits only one ExecutionEngine to be created.  This is it.
+ */
+static LLVMExecutionEngineRef GlobalEngine = NULL;
+
+
+
 extern void
 lp_register_oprofile_jit_event_listener(LLVMExecutionEngineRef EE);
 
@@ -148,12 +155,21 @@ create_pass_manager(struct gallivm_state *gallivm)
 static void
 free_gallivm_state(struct gallivm_state *gallivm)
 {
+#if 0
+   /* This leads to crashes w/ some versions of LLVM */
    LLVMModuleRef mod;
    char *error;
 
    if (gallivm->engine && gallivm->provider)
       LLVMRemoveModuleProvider(gallivm->engine, gallivm->provider,
                                &mod, &error);
+#endif
+
+#if 0
+   /* XXX this seems to crash with all versions of LLVM */
+   if (gallivm->provider)
+      LLVMDisposeModuleProvider(gallivm->provider);
+#endif
 
    if (gallivm->passmgr)
       LLVMDisposePassManager(gallivm->passmgr);
@@ -161,13 +177,17 @@ free_gallivm_state(struct gallivm_state *gallivm)
    if (gallivm->module)
       LLVMDisposeModule(gallivm->module);
 
+#if 0
+   /* Don't free the exec engine, it's a global/singleton */
    if (gallivm->engine)
       LLVMDisposeExecutionEngine(gallivm->engine);
+#endif
 
    if (gallivm->context)
       LLVMContextDispose(gallivm->context);
 
-   /* XXX dispose builder/ */
+   if (gallivm->builder)
+      LLVMDisposeBuilder(gallivm->builder);
 
    gallivm->engine = NULL;
    gallivm->target = NULL;
@@ -205,7 +225,8 @@ init_gallivm_state(struct gallivm_state *gallivm)
    if (!gallivm->provider)
       goto fail;
 
-   {
+   if (!GlobalEngine) {
+      /* We can only create one LLVMExecutionEngine (w/ LLVM 2.6 anyway) */
       enum LLVM_CodeGenOpt_Level optlevel;
       char *error = NULL;
 
@@ -216,17 +237,21 @@ init_gallivm_state(struct gallivm_state *gallivm)
          optlevel = Default;
       }
 
-      if (LLVMCreateJITCompiler(&gallivm->engine, gallivm->provider,
-                                (unsigned)optlevel, &error)) {
+      if (LLVMCreateJITCompiler(&GlobalEngine, gallivm->provider,
+                                (unsigned) optlevel, &error)) {
          _debug_printf("%s\n", error);
          LLVMDisposeMessage(error);
          goto fail;
       }
 
 #if defined(DEBUG) || defined(PROFILE)
-      lp_register_oprofile_jit_event_listener(gallivm->engine);
+      lp_register_oprofile_jit_event_listener(GlobalEngine);
 #endif
    }
+
+   gallivm->engine = GlobalEngine;
+
+   LLVMAddModuleProvider(gallivm->engine, gallivm->provider);//new
 
    gallivm->target = LLVMGetExecutionEngineTargetData(gallivm->engine);
    if (!gallivm->target)
@@ -391,7 +416,7 @@ gallivm_create(void)
  * Destroy a gallivm_state object.
  */
 void
-gallvim_destroy(struct gallivm_state *gallivm)
+gallivm_destroy(struct gallivm_state *gallivm)
 {
    free_gallivm_state(gallivm);
    FREE(gallivm);
