@@ -377,21 +377,10 @@ draw_pt_arrays_restart(struct draw_context *draw, unsigned prim,
       }
    }
    else {
-      /* non-indexed prims (draw_arrays) */
-      cur_start = start;
-
-      /* there may be two runs of elements */
-      i = draw->restart_index;
-      if (start <= i && end > i) {
-         cur_count = i - start;
-         if (cur_count > 0)
-            draw_pt_arrays(draw, prim, cur_start, cur_count);
-         cur_start = i + 1;
-      }
-
-      cur_count = end - cur_start;
-      if (cur_count > 0)
-         draw_pt_arrays(draw, prim, cur_start, cur_count);
+      /* Non-indexed prims (draw_arrays).
+       * Primitive restart should have been handled in the state tracker.
+       */
+      draw_pt_arrays(draw, prim, start, count);
    }
 }
 
