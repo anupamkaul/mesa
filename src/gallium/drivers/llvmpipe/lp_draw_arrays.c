@@ -77,10 +77,6 @@ llvmpipe_draw_vbo(struct pipe_context *pipe, const struct pipe_draw_info *info)
                                     lp->num_vertex_sampler_views,
                                     lp->vertex_sampler_views);
 
-   draw_primitive_restart(lp->draw,
-                          info->primitive_restart,
-                          info->restart_index);
-
    /* draw! */
    draw_vbo(draw, info);
 

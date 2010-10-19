@@ -139,10 +139,6 @@ softpipe_draw_vbo(struct pipe_context *pipe,
 
    draw_set_mapped_index_buffer(draw, mapped_indices);
 
-   draw_primitive_restart(sp->draw,
-                          info->primitive_restart,
-                          info->restart_index);
-
    /* draw! */
    draw_vbo(draw, info);
 

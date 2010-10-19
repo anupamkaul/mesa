@@ -291,10 +291,6 @@ struct draw_context
    const struct pipe_sampler_state *samplers[PIPE_MAX_VERTEX_SAMPLERS];
    unsigned num_samplers;
 
-   /** Primitive restart */
-   boolean primitive_restart;
-   unsigned restart_index;
-
    void *driver_private;
 };
 

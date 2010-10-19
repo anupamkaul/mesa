@@ -291,7 +291,7 @@ draw_print_arrays(struct draw_context *draw, uint prim, int start, uint count)
 #define PRIM_RESTART_LOOP(elements) \
    do { \
       for (i = start; i < end; i++) { \
-         if (elements[i] == draw->restart_index) { \
+         if (elements[i] == info->restart_index) { \
             if (cur_count > 0) { \
                /* draw elts up to prev pos */ \
                draw_pt_arrays(draw, prim, cur_start, cur_count); \
@@ -325,7 +325,6 @@ draw_pt_arrays_restart(struct draw_context *draw,
    const unsigned end = start + count;
    unsigned i, cur_start, cur_count;
 
-   assert(draw->primitive_restart);
    assert(info->primitive_restart);
 
    if (draw->pt.user.elts) {
@@ -475,10 +474,7 @@ draw_vbo(struct draw_context *draw,
    for (instance = 0; instance < info->instance_count; instance++) {
       draw->instance_id = instance + info->start_instance;
 
-      /* Check if primtive restart is enabled. */
-      assert(draw->primitive_restart == info->primitive_restart);
-
-      if (draw->primitive_restart) {
+      if (info->primitive_restart) {
          draw_pt_arrays_restart(draw, info);
       }
       else {
