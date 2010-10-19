@@ -287,9 +287,11 @@ check_draw_arrays_data(GLcontext *ctx, GLint start, GLsizei count)
  * Print info/data for glDrawArrays(), for debugging.
  */
 static void
-print_draw_arrays(GLcontext *ctx, struct vbo_exec_context *exec,
+print_draw_arrays(GLcontext *ctx,
                   GLenum mode, GLint start, GLsizei count)
 {
+   struct vbo_context *vbo = vbo_context(ctx);
+   struct vbo_exec_context *exec = &vbo->exec;
    int i;
 
    printf("vbo_exec_DrawArrays(mode 0x%x, start %d, count %d):\n",
@@ -504,6 +506,87 @@ bind_arrays(GLcontext *ctx)
 }
 
 
+/**
+ * Helper function called by the other DrawArrays() functions below.
+ */
+static void
+vbo_draw_arrays(GLcontext *ctx, GLenum mode, GLint start, GLsizei count,
+                GLuint numInstances)
+{
+   struct vbo_context *vbo = vbo_context(ctx);
+   struct vbo_exec_context *exec = &vbo->exec;
+   struct _mesa_prim prim[2];
+
+   bind_arrays(ctx);
+
+   /* Again... because we may have changed the bitmask of per-vertex varying
+    * attributes.  If we regenerate the fixed-function vertex program now
+    * we may be able to prune down the number of vertex attributes which we
+    * need in the shader.
+    */
+   if (ctx->NewState)
+      _mesa_update_state(ctx);
+
+   prim[0].begin = 1;
+   prim[0].end = 1;
+   prim[0].weak = 0;
+   prim[0].pad = 0;
+   prim[0].mode = mode;
+   prim[0].start = 0; /* filled in below */
+   prim[0].count = 0; /* filled in below */
+   prim[0].indexed = 0;
+   prim[0].basevertex = 0;
+   prim[0].num_instances = numInstances;
+
+   /* Implement the primitive restart index */
+   if (ctx->Array.PrimitiveRestart && ctx->Array.RestartIndex < count) {
+      GLuint primCount = 0;
+
+      if (ctx->Array.RestartIndex == start) {
+         /* special case: RestartIndex == start */
+         if (count > 1) {
+            prim[0].start = start + 1;
+            prim[0].count = count - 1;
+            primCount = 1;
+         }
+      }
+      else if (ctx->Array.RestartIndex == start + count - 1) {
+         /* special case: RestartIndex == start + count - 1 */
+         if (count > 1) {
+            prim[0].start = start;
+            prim[0].count = count - 1;
+            primCount = 1;
+         }
+      }
+      else {
+         /* general case: split into two prims */
+         prim[0].start = start;
+         prim[0].count = ctx->Array.RestartIndex - start;
+
+         prim[1] = prim[0];
+         prim[1].start = ctx->Array.RestartIndex + 1;
+         prim[1].count = count - prim[1].start;
+
+         primCount = 2;
+      }
+
+      if (primCount > 0) {
+         /* draw one or two prims */
+         vbo->draw_prims(ctx, exec->array.inputs, prim, primCount, NULL,
+                         GL_TRUE, start, start + count - 1);
+      }
+   }
+   else {
+      /* no prim restart */
+      prim[0].start = start;
+      prim[0].count = count;
+
+      vbo->draw_prims(ctx, exec->array.inputs, prim, 1, NULL,
+                      GL_TRUE, start, start + count - 1);
+   }
+}
+
+
 
 /**
  * Called from glDrawArrays when in immediate mode (not display list mode).
@@ -512,9 +595,6 @@ static void GLAPIENTRY
 vbo_exec_DrawArrays(GLenum mode, GLint start, GLsizei count)
 {
    GET_CURRENT_CONTEXT(ctx);
-   struct vbo_context *vbo = vbo_context(ctx);
-   struct vbo_exec_context *exec = &vbo->exec;
-   struct _mesa_prim prim[1];
 
    if (MESA_VERBOSE & VERBOSE_DRAW)
       _mesa_debug(ctx, "glDrawArrays(%s, %d, %d)\n",
@@ -529,41 +609,13 @@ vbo_exec_DrawArrays(GLenum mode, GLint start, GLsizei count)
       return;
    }
 
-#if 0
-   check_draw_arrays_data(ctx, start, count);
-#else
-   (void) check_draw_arrays_data;
-#endif
+   if (0)
+      check_draw_arrays_data(ctx, start, count);
 
-   bind_arrays( ctx );
+   vbo_draw_arrays(ctx, mode, start, count, 1);
 
-   /* Again... because we may have changed the bitmask of per-vertex varying
-    * attributes.  If we regenerate the fixed-function vertex program now
-    * we may be able to prune down the number of vertex attributes which we
-    * need in the shader.
-    */
-   if (ctx->NewState)
-      _mesa_update_state( ctx );
-
-   prim[0].begin = 1;
-   prim[0].end = 1;
-   prim[0].weak = 0;
-   prim[0].pad = 0;
-   prim[0].mode = mode;
-   prim[0].start = start;
-   prim[0].count = count;
-   prim[0].indexed = 0;
-   prim[0].basevertex = 0;
-   prim[0].num_instances = 1;
-
-   vbo->draw_prims( ctx, exec->array.inputs, prim, 1, NULL,
-                    GL_TRUE, start, start + count - 1 );
-
-#if 0
-   print_draw_arrays(ctx, exec, mode, start, count);
-#else
-   (void) print_draw_arrays;
-#endif
+   if (0)
+      print_draw_arrays(ctx, mode, start, count);
 }
 
 
@@ -576,9 +628,6 @@ vbo_exec_DrawArraysInstanced(GLenum mode, GLint start, GLsizei count,
                              GLsizei primcount)
 {
    GET_CURRENT_CONTEXT(ctx);
-   struct vbo_context *vbo = vbo_context(ctx);
-   struct vbo_exec_context *exec = &vbo->exec;
-   struct _mesa_prim prim[1];
 
    if (MESA_VERBOSE & VERBOSE_DRAW)
       _mesa_debug(ctx, "glDrawArraysInstanced(%s, %d, %d, %d)\n",
@@ -593,37 +642,13 @@ vbo_exec_DrawArraysInstanced(GLenum mode, GLint start, GLsizei count,
       return;
    }
 
-#if 0 /* debug */
-   check_draw_arrays_data(ctx, start, count);
-#endif
+   if (0)
+      check_draw_arrays_data(ctx, start, count);
 
-   bind_arrays( ctx );
+   vbo_draw_arrays(ctx, mode, start, count, primcount);
 
-   /* Again... because we may have changed the bitmask of per-vertex varying
-    * attributes.  If we regenerate the fixed-function vertex program now
-    * we may be able to prune down the number of vertex attributes which we
-    * need in the shader.
-    */
-   if (ctx->NewState)
-      _mesa_update_state( ctx );
-
-   prim[0].begin = 1;
-   prim[0].end = 1;
-   prim[0].weak = 0;
-   prim[0].pad = 0;
-   prim[0].mode = mode;
-   prim[0].start = start;
-   prim[0].count = count;
-   prim[0].indexed = 0;
-   prim[0].basevertex = 0;
-   prim[0].num_instances = primcount;
-
-   vbo->draw_prims( ctx, exec->array.inputs, prim, 1, NULL,
-                    GL_TRUE, start, start + count - 1 );
-
-#if 0 /* debug */
-   print_draw_arrays(ctx, exec, mode, start, count);
-#endif
+   if (0)
+      print_draw_arrays(ctx, mode, start, count);
 }
 
 
