@@ -31,8 +31,7 @@
 #ifndef PROG_UNIFORM_H
 #define PROG_UNIFORM_H
 
-#include "main/mtypes.h"
-#include "prog_statevars.h"
+#include "main/glheader.h"
 
 
 /**
@@ -52,10 +51,7 @@ struct gl_uniform
    GLint FragPos;
    GLint GeomPos;
    GLboolean Initialized;   /**< For debug.  Has this uniform been set? */
-#if 0
-   GLenum DataType;         /**< GL_FLOAT, GL_FLOAT_VEC2, etc */
-   GLuint Size;             /**< Number of components (1..4) */
-#endif
+   const struct glsl_type *Type;
 };
 
 

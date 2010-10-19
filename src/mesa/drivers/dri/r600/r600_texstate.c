@@ -50,9 +50,11 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r700_fragprog.h"
 #include "r700_vertprog.h"
 
-void r600UpdateTextureState(GLcontext * ctx);
+#include "evergreen_tex.h"
 
-void r600UpdateTextureState(GLcontext * ctx)
+void r600UpdateTextureState(struct gl_context * ctx);
+
+void r600UpdateTextureState(struct gl_context * ctx)
 {
 	context_t *context = R700_CONTEXT(ctx);
 	R700_CHIP_CONTEXT *r700 = (R700_CHIP_CONTEXT*)(&context->hw);
@@ -705,7 +707,7 @@ void r600SetDepthTexMode(struct gl_texture_object *tObj)
  * \param rmesa Context pointer
  * \param t the r300 texture object
  */
-static GLboolean setup_hardware_state(GLcontext * ctx, struct gl_texture_object *texObj, int unit)
+static GLboolean setup_hardware_state(struct gl_context * ctx, struct gl_texture_object *texObj, int unit)
 {
 	context_t *rmesa = R700_CONTEXT(ctx);
 	radeonTexObj *t = radeon_tex_obj(texObj);
@@ -801,7 +803,7 @@ static GLboolean setup_hardware_state(GLcontext * ctx, struct gl_texture_object 
  *
  * Mostly this means populating the texture object's mipmap tree.
  */
-static GLboolean r600_validate_texture(GLcontext * ctx, struct gl_texture_object *texObj, int unit)
+static GLboolean r600_validate_texture(struct gl_context * ctx, struct gl_texture_object *texObj, int unit)
 {
 	radeonTexObj *t = radeon_tex_obj(texObj);
 
@@ -820,7 +822,7 @@ static GLboolean r600_validate_texture(GLcontext * ctx, struct gl_texture_object
 /**
  * Ensure all enabled and complete textures are uploaded along with any buffers being used.
  */
-GLboolean r600ValidateBuffers(GLcontext * ctx)
+GLboolean r600ValidateBuffers(struct gl_context * ctx)
 {
 	context_t *rmesa = R700_CONTEXT(ctx);
 	struct radeon_renderbuffer *rrb;
@@ -878,6 +880,18 @@ GLboolean r600ValidateBuffers(GLcontext * ctx)
 						  RADEON_GEM_DOMAIN_GTT, 0);
 	}
 
+	pbo = (struct radeon_bo *)r700GetActiveFpShaderConstBo(ctx);
+	if (pbo) {
+		radeon_cs_space_add_persistent_bo(rmesa->radeon.cmdbuf.cs, pbo,
+						  RADEON_GEM_DOMAIN_GTT, 0);
+	}
+
+	pbo = (struct radeon_bo *)r700GetActiveVpShaderConstBo(ctx);
+	if (pbo) {
+		radeon_cs_space_add_persistent_bo(rmesa->radeon.cmdbuf.cs, pbo,
+						  RADEON_GEM_DOMAIN_GTT, 0);
+	}	
+
 	ret = radeon_cs_space_check_with_bo(rmesa->radeon.cmdbuf.cs, first_elem(&rmesa->radeon.dma.reserved)->bo, RADEON_GEM_DOMAIN_GTT, 0);
 	if (ret)
 		return GL_FALSE;
@@ -896,6 +910,12 @@ void r600SetTexOffset(__DRIcontext * pDRICtx, GLint texname,
 
 	if (!tObj)
 		return;
+
+    if(rmesa->radeon.radeonScreen->chip_family >= CHIP_FAMILY_CEDAR)
+    {
+        evergreenSetTexOffset(pDRICtx, texname, offset, depth, pitch);
+        return;
+    }    
 
 	t->image_override = GL_TRUE;
 
@@ -988,6 +1008,12 @@ void r600SetTexBuffer2(__DRIcontext *pDRICtx, GLint target, GLint glx_texture_fo
 
 	radeon = pDRICtx->driverPrivate;
 	rmesa = pDRICtx->driverPrivate;
+
+    if(rmesa->radeon.radeonScreen->chip_family >= CHIP_FAMILY_CEDAR)
+    {
+        evergreenSetTexBuffer(pDRICtx, target, glx_texture_format, dPriv);
+        return;
+    }   
 
 	rfb = dPriv->driverPrivate;
         texUnit = &radeon->glCtx->Texture.Unit[radeon->glCtx->Texture.CurrentUnit];

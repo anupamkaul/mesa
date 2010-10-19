@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Nicolai Haehnle.
+ * Copyright 2010 Tom Stellard <tstellar@gmail.com>
  *
  * All Rights Reserved.
  *
@@ -28,8 +29,20 @@
 #include "radeon_dataflow.h"
 
 #include "radeon_compiler.h"
+#include "radeon_compiler_util.h"
 #include "radeon_swizzle.h"
 
+struct peephole_state {
+	struct rc_instruction * Inst;
+	/** Stores a bitmask of the components that are still "alive" (i.e.
+	 * they have not been written to since Inst was executed.)
+	 */
+	unsigned int WriteMask;
+};
+
+typedef void (*rc_presub_replace_fn)(struct peephole_state *,
+						struct rc_instruction *,
+						unsigned int);
 
 static struct rc_src_register chain_srcregs(struct rc_src_register outer, struct rc_src_register inner)
 {
@@ -54,7 +67,7 @@ static struct rc_src_register chain_srcregs(struct rc_src_register outer, struct
 	return combine;
 }
 
-struct peephole_state {
+struct copy_propagate_state {
 	struct radeon_compiler * C;
 	struct rc_instruction * Mov;
 	unsigned int Conflict:1;
@@ -75,76 +88,65 @@ struct peephole_state {
 	int BranchDepth;
 };
 
-/**
- * This is a callback function that is meant to be passed to
- * rc_for_all_reads_mask.  This function will be called once for each source
- * register in inst.
- * @param inst The instruction that the source register belongs to.
- * @param file The register file of the source register.
- * @param index The index of the source register.
- * @param mask The components of the source register that are being read from.
- */
-static void peephole_scan_read(void * data, struct rc_instruction * inst,
-		rc_register_file file, unsigned int index, unsigned int mask)
+static void copy_propagate_scan_read(void * data, struct rc_instruction * inst,
+						struct rc_src_register * src)
 {
-	struct peephole_state * s = data;
+	rc_register_file file = src->File;
+	struct rc_reader_data * reader_data = data;
+	const struct rc_opcode_info * info = rc_get_opcode_info(inst->U.I.Opcode);
 
-	if (file != RC_FILE_TEMPORARY || index != s->Mov->U.I.DstReg.Index)
+	/* It is possible to do copy propigation in this situation,
+	 * just not right now, see peephole_add_presub_inv() */
+	if (reader_data->Writer->U.I.PreSub.Opcode != RC_PRESUB_NONE &&
+			(info->NumSrcRegs > 2 || info->HasTexture)) {
+		reader_data->Abort = 1;
 		return;
+	}
+
+	/* XXX This could probably be handled better. */
+	if (file == RC_FILE_ADDRESS) {
+		reader_data->Abort = 1;
+		return;
+	}
 
 	/* These instructions cannot read from the constants file.
 	 * see radeonTransformTEX()
 	 */
-	if(s->Mov->U.I.SrcReg[0].File != RC_FILE_TEMPORARY &&
-			s->Mov->U.I.SrcReg[0].File != RC_FILE_INPUT &&
+	if(reader_data->Writer->U.I.SrcReg[0].File != RC_FILE_TEMPORARY &&
+			reader_data->Writer->U.I.SrcReg[0].File != RC_FILE_INPUT &&
 				(inst->U.I.Opcode == RC_OPCODE_TEX ||
 				inst->U.I.Opcode == RC_OPCODE_TXB ||
 				inst->U.I.Opcode == RC_OPCODE_TXP ||
 				inst->U.I.Opcode == RC_OPCODE_KIL)){
-		s->Conflict = 1;
+		reader_data->Abort = 1;
 		return;
-	}
-	if ((mask & s->MovMask) == mask) {
-		if (s->SourceClobbered) {
-			s->Conflict = 1;
-		}
-	} else if ((mask & s->DefinedMask) == mask) {
-		/* read from something entirely written by other instruction: this is okay */
-	} else {
-		/* read from component combination that is not well-defined without
-		 * the MOV: cannot remove it */
-		s->Conflict = 1;
 	}
 }
 
-static void peephole_scan_write(void * data, struct rc_instruction * inst,
+static void copy_propagate_scan_write(void * data, struct rc_instruction * inst,
 		rc_register_file file, unsigned int index, unsigned int mask)
 {
-	struct peephole_state * s = data;
+	struct rc_reader_data * reader_data = data;
+	struct copy_propagate_state * s = reader_data->CbData;
 
-	if (s->BranchDepth < 0)
-		return;
-
-	if (file == s->Mov->U.I.DstReg.File && index == s->Mov->U.I.DstReg.Index) {
-		s->MovMask &= ~mask;
-		if (s->BranchDepth == 0)
-			s->DefinedMask |= mask;
-		else
-			s->DefinedMask &= ~mask;
-	}
-	if (file == s->Mov->U.I.SrcReg[0].File && index == s->Mov->U.I.SrcReg[0].Index) {
+	if (file == reader_data->Writer->U.I.SrcReg[0].File && index == reader_data->Writer->U.I.SrcReg[0].Index) {
 		if (mask & s->SourcedMask)
-			s->SourceClobbered = 1;
+			reader_data->AbortOnRead = 1;
 	} else if (s->Mov->U.I.SrcReg[0].RelAddr && file == RC_FILE_ADDRESS) {
-		s->SourceClobbered = 1;
+		reader_data->AbortOnRead = 1;
 	}
 }
 
-static void peephole(struct radeon_compiler * c, struct rc_instruction * inst_mov)
+static void copy_propagate(struct radeon_compiler * c, struct rc_instruction * inst_mov)
 {
-	struct peephole_state s;
+	struct copy_propagate_state s;
+	struct rc_reader_data reader_data;
+	unsigned int i;
 
-	if (inst_mov->U.I.DstReg.File != RC_FILE_TEMPORARY || inst_mov->U.I.WriteALUResult)
+	if (inst_mov->U.I.DstReg.File != RC_FILE_TEMPORARY ||
+	    inst_mov->U.I.DstReg.RelAddr ||
+	    inst_mov->U.I.WriteALUResult ||
+	    inst_mov->U.I.SaturateMode)
 		return;
 
 	memset(&s, 0, sizeof(s));
@@ -153,84 +155,27 @@ static void peephole(struct radeon_compiler * c, struct rc_instruction * inst_mo
 	s.MovMask = inst_mov->U.I.DstReg.WriteMask;
 	s.DefinedMask = RC_MASK_XYZW & ~s.MovMask;
 
+	reader_data.CbData = &s;
+
 	for(unsigned int chan = 0; chan < 4; ++chan) {
 		unsigned int swz = GET_SWZ(inst_mov->U.I.SrcReg[0].Swizzle, chan);
 		s.SourcedMask |= (1 << swz) & RC_MASK_XYZW;
 	}
 
-	/* 1st pass: Check whether all subsequent readers can be changed */
-	for(struct rc_instruction * inst = inst_mov->Next;
-	    inst != &c->Program.Instructions;
-	    inst = inst->Next) {
-		/* XXX In the future we might be able to make the optimizer
-		 * smart enough to handle loops. */
-		if(inst->U.I.Opcode == RC_OPCODE_BGNLOOP
-				|| inst->U.I.Opcode == RC_OPCODE_ENDLOOP){
-			return;
-		}
-		rc_for_all_reads_mask(inst, peephole_scan_read, &s);
-		rc_for_all_writes_mask(inst, peephole_scan_write, &s);
-		if (s.Conflict)
-			return;
+	/* Get a list of all the readers of this MOV instruction. */
+	rc_get_readers_normal(c, inst_mov, &reader_data,
+			copy_propagate_scan_read, copy_propagate_scan_write);
 
-		if (s.BranchDepth >= 0) {
-			if (inst->U.I.Opcode == RC_OPCODE_IF) {
-				s.BranchDepth++;
-			} else if (inst->U.I.Opcode == RC_OPCODE_ENDIF
-				|| inst->U.I.Opcode == RC_OPCODE_ELSE) {
-				s.BranchDepth--;
-				if (s.BranchDepth < 0) {
-					s.DefinedMask &= ~s.MovMask;
-					s.MovMask = 0;
-				}
-			}
-		}
-	}
-
-	if (s.Conflict)
+	if (reader_data.Abort || reader_data.ReaderCount == 0)
 		return;
 
-	/* 2nd pass: We can satisfy all readers, so switch them over all at once */
-	s.MovMask = inst_mov->U.I.DstReg.WriteMask;
-	s.BranchDepth = 0;
+	/* Propagate the MOV instruction. */
+	for (i = 0; i < reader_data.ReaderCount; i++) {
+		struct rc_instruction * inst = reader_data.Readers[i].Inst;
+		*reader_data.Readers[i].Src = chain_srcregs(*reader_data.Readers[i].Src, s.Mov->U.I.SrcReg[0]);
 
-	for(struct rc_instruction * inst = inst_mov->Next;
-	    inst != &c->Program.Instructions;
-	    inst = inst->Next) {
-		const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
-
-		for(unsigned int src = 0; src < opcode->NumSrcRegs; ++src) {
-			if (inst->U.I.SrcReg[src].File == RC_FILE_TEMPORARY &&
-			    inst->U.I.SrcReg[src].Index == s.Mov->U.I.DstReg.Index) {
-				unsigned int refmask = 0;
-
-				for(unsigned int chan = 0; chan < 4; ++chan) {
-					unsigned int swz = GET_SWZ(inst->U.I.SrcReg[src].Swizzle, chan);
-					refmask |= (1 << swz) & RC_MASK_XYZW;
-				}
-
-				if ((refmask & s.MovMask) == refmask)
-					inst->U.I.SrcReg[src] = chain_srcregs(inst->U.I.SrcReg[src], s.Mov->U.I.SrcReg[0]);
-			}
-		}
-
-		if (opcode->HasDstReg) {
-			if (inst->U.I.DstReg.File == RC_FILE_TEMPORARY &&
-			    inst->U.I.DstReg.Index == s.Mov->U.I.DstReg.Index) {
-				s.MovMask &= ~inst->U.I.DstReg.WriteMask;
-			}
-		}
-
-		if (s.BranchDepth >= 0) {
-			if (inst->U.I.Opcode == RC_OPCODE_IF) {
-				s.BranchDepth++;
-			} else if (inst->U.I.Opcode == RC_OPCODE_ENDIF
-				|| inst->U.I.Opcode == RC_OPCODE_ELSE) {
-				s.BranchDepth--;
-				if (s.BranchDepth < 0)
-					break; /* no more readers after this point */
-			}
-		}
+		if (s.Mov->U.I.SrcReg[0].File == RC_FILE_PRESUB)
+			inst->U.I.PreSub = s.Mov->U.I.PreSub;
 	}
 
 	/* Finally, remove the original MOV instruction */
@@ -274,7 +219,6 @@ static int is_src_uniform_constant(struct rc_src_register src,
 
 	return 1;
 }
-
 
 static void constant_folding_mad(struct rc_instruction * inst)
 {
@@ -371,7 +315,6 @@ static void constant_folding_add(struct rc_instruction * inst)
 	}
 }
 
-
 /**
  * Replace 0.0, 1.0 and 0.5 immediate constants by their
  * respective swizzles. Simplify instructions like ADD dst, src, 0;
@@ -379,30 +322,38 @@ static void constant_folding_add(struct rc_instruction * inst)
 static void constant_folding(struct radeon_compiler * c, struct rc_instruction * inst)
 {
 	const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
+	unsigned int i;
 
 	/* Replace 0.0, 1.0 and 0.5 immediates by their explicit swizzles */
 	for(unsigned int src = 0; src < opcode->NumSrcRegs; ++src) {
+		struct rc_constant * constant;
+		struct rc_src_register newsrc;
+		int have_real_reference;
+
 		if (inst->U.I.SrcReg[src].File != RC_FILE_CONSTANT ||
 		    inst->U.I.SrcReg[src].RelAddr ||
 		    inst->U.I.SrcReg[src].Index >= c->Program.Constants.Count)
 			continue;
 
-		struct rc_constant * constant =
+		constant =
 			&c->Program.Constants.Constants[inst->U.I.SrcReg[src].Index];
 
 		if (constant->Type != RC_CONSTANT_IMMEDIATE)
 			continue;
 
-		struct rc_src_register newsrc = inst->U.I.SrcReg[src];
-		int have_real_reference = 0;
+		newsrc = inst->U.I.SrcReg[src];
+		have_real_reference = 0;
 		for(unsigned int chan = 0; chan < 4; ++chan) {
 			unsigned int swz = GET_SWZ(newsrc.Swizzle, chan);
+			unsigned int newswz;
+			float imm;
+			float baseimm;
+
 			if (swz >= 4)
 				continue;
 
-			unsigned int newswz;
-			float imm = constant->u.Immediate[swz];
-			float baseimm = imm;
+			imm = constant->u.Immediate[swz];
+			baseimm = imm;
 			if (imm < 0.0)
 				baseimm = -baseimm;
 
@@ -410,7 +361,7 @@ static void constant_folding(struct radeon_compiler * c, struct rc_instruction *
 				newswz = RC_SWIZZLE_ZERO;
 			} else if (baseimm == 1.0) {
 				newswz = RC_SWIZZLE_ONE;
-			} else if (baseimm == 0.5) {
+			} else if (baseimm == 0.5 && c->has_half_swizzles) {
 				newswz = RC_SWIZZLE_HALF;
 			} else {
 				have_real_reference = 1;
@@ -444,9 +395,319 @@ static void constant_folding(struct radeon_compiler * c, struct rc_instruction *
 		constant_folding_mul(inst);
 	else if (inst->U.I.Opcode == RC_OPCODE_ADD)
 		constant_folding_add(inst);
+
+	/* In case this instruction has been converted, make sure all of the
+	 * registers that are no longer used are empty. */
+	opcode = rc_get_opcode_info(inst->U.I.Opcode);
+	for(i = opcode->NumSrcRegs; i < 3; i++) {
+		memset(&inst->U.I.SrcReg[i], 0, sizeof(struct rc_src_register));
+	}
 }
 
-void rc_optimize(struct radeon_compiler * c)
+/**
+ * If src and dst use the same register, this function returns a writemask that
+ * indicates wich components are read by src.  Otherwise zero is returned.
+ */
+static unsigned int src_reads_dst_mask(struct rc_src_register src,
+						struct rc_dst_register dst)
+{
+	if (dst.File != src.File || dst.Index != src.Index) {
+		return 0;
+	}
+	return rc_swizzle_to_writemask(src.Swizzle);
+}
+
+/* Return 1 if the source registers has a constant swizzle (e.g. 0, 0.5, 1.0)
+ * in any of its channels.  Return 0 otherwise. */
+static int src_has_const_swz(struct rc_src_register src) {
+	int chan;
+	for(chan = 0; chan < 4; chan++) {
+		unsigned int swz = GET_SWZ(src.Swizzle, chan);
+		if (swz == RC_SWIZZLE_ZERO || swz == RC_SWIZZLE_HALF
+						|| swz == RC_SWIZZLE_ONE) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static void peephole_scan_write(void * data, struct rc_instruction * inst,
+		rc_register_file file, unsigned int index, unsigned int mask)
+{
+	struct peephole_state * s = data;
+	if(s->Inst->U.I.DstReg.File == file
+	   && s->Inst->U.I.DstReg.Index == index) {
+		unsigned int common_mask = s->WriteMask & mask;
+		s->WriteMask &= ~common_mask;
+	}
+}
+
+static int presub_helper(
+	struct radeon_compiler * c,
+	struct peephole_state * s,
+	rc_presubtract_op presub_opcode,
+	rc_presub_replace_fn presub_replace)
+{
+	struct rc_instruction * inst;
+	unsigned int can_remove = 0;
+	unsigned int cant_sub = 0;
+
+	for(inst = s->Inst->Next; inst != &c->Program.Instructions;
+							inst = inst->Next) {
+		unsigned int i;
+		unsigned char can_use_presub = 1;
+		const struct rc_opcode_info * info =
+					rc_get_opcode_info(inst->U.I.Opcode);
+		/* XXX: There are some situations where instructions
+		 * with more than 2 src registers can use the
+		 * presubtract select, but to keep things simple we
+		 * will disable presubtract on these instructions for
+		 * now. */
+		if (info->NumSrcRegs > 2 || info->HasTexture) {
+			can_use_presub = 0;
+		}
+
+		/* We can't use more than one presubtract value in an
+		 * instruction, unless the two prsubtract operations
+		 * are the same and read from the same registers. */
+		if (inst->U.I.PreSub.Opcode != RC_PRESUB_NONE) {
+			if (inst->U.I.PreSub.Opcode != presub_opcode
+				|| inst->U.I.PreSub.SrcReg[0].File !=
+					s->Inst->U.I.SrcReg[1].File
+				|| inst->U.I.PreSub.SrcReg[0].Index !=
+					s->Inst->U.I.SrcReg[1].Index) {
+				can_use_presub = 0;
+			}
+		}
+
+		/* Even if the instruction can't use a presubtract operation
+		 * we still need to check if the instruction reads from
+		 * s->Inst->U.I.DstReg, because if it does we must not
+		 * remove s->Inst. */
+		for(i = 0; i < info->NumSrcRegs; i++) {
+			unsigned int mask = src_reads_dst_mask(
+				inst->U.I.SrcReg[i], s->Inst->U.I.DstReg);
+			/* XXX We could be more aggressive here using
+			 * presubtract.  It is okay if SrcReg[i] only reads
+			 * from some of the mask components. */
+			if(s->Inst->U.I.DstReg.WriteMask != mask) {
+				if (s->Inst->U.I.DstReg.WriteMask & mask) {
+					can_remove = 0;
+					break;
+				} else {
+					continue;
+				}
+			}
+			if (cant_sub || !can_use_presub) {
+				can_remove = 0;
+				break;
+			}
+			presub_replace(s, inst, i);
+			can_remove = 1;
+		}
+		if(!can_remove)
+			break;
+		rc_for_all_writes_mask(inst, peephole_scan_write, s);
+		/* If all components of inst_add's destination register have
+		 * been written to by subsequent instructions, the original
+		 * value of the destination register is no longer valid and
+		 * we can't keep doing substitutions. */
+		if (!s->WriteMask){
+			break;
+		}
+		/* Make this instruction doesn't write to the presubtract source. */
+		if (inst->U.I.DstReg.WriteMask &
+				src_reads_dst_mask(s->Inst->U.I.SrcReg[1],
+							inst->U.I.DstReg)
+				|| src_reads_dst_mask(s->Inst->U.I.SrcReg[0],
+							inst->U.I.DstReg)
+				|| info->IsFlowControl) {
+			cant_sub = 1;
+		}
+	}
+	return can_remove;
+}
+
+/* This function assumes that s->Inst->U.I.SrcReg[0] and
+ * s->Inst->U.I.SrcReg[1] aren't both negative. */
+static void presub_replace_add(struct peephole_state *s,
+						struct rc_instruction * inst,
+						unsigned int src_index)
+{
+	rc_presubtract_op presub_opcode;
+	if (s->Inst->U.I.SrcReg[1].Negate || s->Inst->U.I.SrcReg[0].Negate)
+		presub_opcode = RC_PRESUB_SUB;
+	else
+		presub_opcode = RC_PRESUB_ADD;
+
+	if (s->Inst->U.I.SrcReg[1].Negate) {
+		inst->U.I.PreSub.SrcReg[0] = s->Inst->U.I.SrcReg[1];
+		inst->U.I.PreSub.SrcReg[1] = s->Inst->U.I.SrcReg[0];
+	} else {
+		inst->U.I.PreSub.SrcReg[0] = s->Inst->U.I.SrcReg[0];
+		inst->U.I.PreSub.SrcReg[1] = s->Inst->U.I.SrcReg[1];
+	}
+	inst->U.I.PreSub.SrcReg[0].Negate = 0;
+	inst->U.I.PreSub.SrcReg[1].Negate = 0;
+	inst->U.I.PreSub.Opcode = presub_opcode;
+	inst->U.I.SrcReg[src_index] = chain_srcregs(inst->U.I.SrcReg[src_index],
+						inst->U.I.PreSub.SrcReg[0]);
+	inst->U.I.SrcReg[src_index].File = RC_FILE_PRESUB;
+	inst->U.I.SrcReg[src_index].Index = presub_opcode;
+}
+
+static int is_presub_candidate(struct rc_instruction * inst)
+{
+	const struct rc_opcode_info * info = rc_get_opcode_info(inst->U.I.Opcode);
+	unsigned int i;
+
+	if (inst->U.I.PreSub.Opcode != RC_PRESUB_NONE || inst->U.I.SaturateMode)
+		return 0;
+
+	for(i = 0; i < info->NumSrcRegs; i++) {
+		if (src_reads_dst_mask(inst->U.I.SrcReg[i], inst->U.I.DstReg))
+			return 0;
+	}
+	return 1;
+}
+
+static int peephole_add_presub_add(
+	struct radeon_compiler * c,
+	struct rc_instruction * inst_add)
+{
+	struct rc_src_register * src0 = NULL;
+	struct rc_src_register * src1 = NULL;
+	unsigned int i;
+	struct peephole_state s;
+
+	if (!is_presub_candidate(inst_add))
+		return 0;
+
+	if (inst_add->U.I.SrcReg[0].Swizzle != inst_add->U.I.SrcReg[1].Swizzle)
+		return 0;
+
+	/* src0 and src1 can't have absolute values only one can be negative and they must be all negative or all positive. */
+	for (i = 0; i < 2; i++) {
+		if (inst_add->U.I.SrcReg[i].Abs)
+			return 0;
+		if ((inst_add->U.I.SrcReg[i].Negate
+					& inst_add->U.I.DstReg.WriteMask) ==
+						inst_add->U.I.DstReg.WriteMask) {
+			src0 = &inst_add->U.I.SrcReg[i];
+		} else if (!src1) {
+			src1 = &inst_add->U.I.SrcReg[i];
+		} else {
+			src0 = &inst_add->U.I.SrcReg[i];
+		}
+	}
+
+	if (!src1)
+		return 0;
+
+	s.Inst = inst_add;
+	s.WriteMask = inst_add->U.I.DstReg.WriteMask;
+	if (presub_helper(c, &s, RC_PRESUB_ADD, presub_replace_add)) {
+		rc_remove_instruction(inst_add);
+		return 1;
+	}
+	return 0;
+}
+
+static void presub_replace_inv(struct peephole_state * s,
+						struct rc_instruction * inst,
+						unsigned int src_index)
+{
+	/* We must be careful not to modify s->Inst, since it
+	 * is possible it will remain part of the program. 
+	 * XXX Maybe pass a struct instead of a pointer for s->Inst.*/
+	inst->U.I.PreSub.SrcReg[0] = s->Inst->U.I.SrcReg[1];
+	inst->U.I.PreSub.SrcReg[0].Negate = 0;
+	inst->U.I.PreSub.Opcode = RC_PRESUB_INV;
+	inst->U.I.SrcReg[src_index] = chain_srcregs(inst->U.I.SrcReg[src_index],
+						inst->U.I.PreSub.SrcReg[0]);
+
+	inst->U.I.SrcReg[src_index].File = RC_FILE_PRESUB;
+	inst->U.I.SrcReg[src_index].Index = RC_PRESUB_INV;
+}
+
+/**
+ * PRESUB_INV: ADD TEMP[0], none.1, -TEMP[1]
+ * Use the presubtract 1 - src0 for all readers of TEMP[0].  The first source
+ * of the add instruction must have the constatnt 1 swizzle.  This function
+ * does not check const registers to see if their value is 1.0, so it should
+ * be called after the constant_folding optimization.
+ * @return 
+ * 	0 if the ADD instruction is still part of the program.
+ * 	1 if the ADD instruction is no longer part of the program.
+ */
+static int peephole_add_presub_inv(
+	struct radeon_compiler * c,
+	struct rc_instruction * inst_add)
+{
+	unsigned int i, swz, mask;
+	struct peephole_state s;
+
+	if (!is_presub_candidate(inst_add))
+		return 0;
+
+	mask = inst_add->U.I.DstReg.WriteMask;
+
+	/* Check if src0 is 1. */
+	/* XXX It would be nice to use is_src_uniform_constant here, but that
+	 * function only works if the register's file is RC_FILE_NONE */
+	for(i = 0; i < 4; i++ ) {
+		swz = GET_SWZ(inst_add->U.I.SrcReg[0].Swizzle, i);
+		if(((1 << i) & inst_add->U.I.DstReg.WriteMask)
+						&& swz != RC_SWIZZLE_ONE) {
+			return 0;
+		}
+	}
+
+	/* Check src1. */
+	if ((inst_add->U.I.SrcReg[1].Negate & inst_add->U.I.DstReg.WriteMask) !=
+						inst_add->U.I.DstReg.WriteMask
+		|| inst_add->U.I.SrcReg[1].Abs
+		|| (inst_add->U.I.SrcReg[1].File != RC_FILE_TEMPORARY
+			&& inst_add->U.I.SrcReg[1].File != RC_FILE_CONSTANT)
+		|| src_has_const_swz(inst_add->U.I.SrcReg[1])) {
+
+		return 0;
+	}
+
+	/* Setup the peephole_state information. */
+	s.Inst = inst_add;
+	s.WriteMask = inst_add->U.I.DstReg.WriteMask;
+
+	if (presub_helper(c, &s, RC_PRESUB_INV, presub_replace_inv)) {
+		rc_remove_instruction(inst_add);
+		return 1;
+	}
+	return 0;
+}
+
+/**
+ * @return
+ * 	0 if inst is still part of the program.
+ * 	1 if inst is no longer part of the program.
+ */
+static int peephole(struct radeon_compiler * c, struct rc_instruction * inst)
+{
+	switch(inst->U.I.Opcode){
+	case RC_OPCODE_ADD:
+		if (c->has_presub) {
+			if(peephole_add_presub_inv(c, inst))
+				return 1;
+			if(peephole_add_presub_add(c, inst))
+				return 1;
+		}
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+void rc_optimize(struct radeon_compiler * c, void *user)
 {
 	struct rc_instruction * inst = c->Program.Instructions.Next;
 	while(inst != &c->Program.Instructions) {
@@ -455,8 +716,11 @@ void rc_optimize(struct radeon_compiler * c)
 
 		constant_folding(c, cur);
 
+		if(peephole(c, cur))
+			continue;
+
 		if (cur->U.I.Opcode == RC_OPCODE_MOV) {
-			peephole(c, cur);
+			copy_propagate(c, cur);
 			/* cur may no longer be part of the program */
 		}
 	}

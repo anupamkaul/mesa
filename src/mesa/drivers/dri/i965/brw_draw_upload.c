@@ -313,7 +313,7 @@ copy_array_to_vbo_array( struct brw_context *brw,
 
 static void brw_prepare_vertices(struct brw_context *brw)
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    struct intel_context *intel = intel_context(ctx);
    GLbitfield vs_inputs = brw->vs.prog_data->inputs_read; 
    GLuint i;
@@ -383,7 +383,7 @@ static void brw_prepare_vertices(struct brw_context *brw)
 	  */
 	 assert(input->offset < input->bo->size);
       } else {
-	 input->count = input->glarray->StrideB ? max_index + 1 - min_index : 1;
+	 input->count = input->glarray->StrideB ? max_index + 1 : 1;
 	 if (input->bo != NULL) {
 	    /* Already-uploaded vertex data is present from a previous
 	     * prepare_vertices, but we had to re-validate state due to
@@ -414,15 +414,6 @@ static void brw_prepare_vertices(struct brw_context *brw)
 	 }
 
 	 upload[nr_uploads++] = input;
-	 
-	 /* We rebase drawing to start at element zero only when
-	  * varyings are not in vbos, which means we can end up
-	  * uploading non-varying arrays (stride != 0) when min_index
-	  * is zero.  This doesn't matter as the amount to upload is
-	  * the same for these arrays whether the draw call is rebased
-	  * or not - we just have to upload the one element.
-	  */
-	 assert(min_index == 0 || input->glarray->StrideB == 0);
       }
    }
 
@@ -460,7 +451,7 @@ static void brw_prepare_vertices(struct brw_context *brw)
 
 static void brw_emit_vertices(struct brw_context *brw)
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    struct intel_context *intel = intel_context(ctx);
    GLuint i;
 
@@ -476,7 +467,7 @@ static void brw_emit_vertices(struct brw_context *brw)
    if (brw->vb.nr_enabled == 0) {
       BEGIN_BATCH(3);
       OUT_BATCH((CMD_VERTEX_ELEMENT << 16) | 1);
-      if (IS_GEN6(intel->intelScreen->deviceID)) {
+      if (intel->gen >= 6) {
 	 OUT_BATCH((0 << GEN6_VE0_INDEX_SHIFT) |
 		   GEN6_VE0_VALID |
 		   (BRW_SURFACEFORMAT_R32G32B32A32_FLOAT << BRW_VE0_FORMAT_SHIFT) |
@@ -553,7 +544,7 @@ static void brw_emit_vertices(struct brw_context *brw)
 	 break;
       }
 
-      if (IS_GEN6(intel->intelScreen->deviceID)) {
+      if (intel->gen >= 6) {
 	 OUT_BATCH((i << GEN6_VE0_INDEX_SHIFT) |
 		   GEN6_VE0_VALID |
 		   (format << BRW_VE0_FORMAT_SHIFT) |
@@ -592,7 +583,7 @@ const struct brw_tracked_state brw_vertices = {
 
 static void brw_prepare_indices(struct brw_context *brw)
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    struct intel_context *intel = &brw->intel;
    const struct _mesa_index_buffer *index_buffer = brw->ib.ib;
    GLuint ib_size;

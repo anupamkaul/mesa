@@ -237,11 +237,12 @@ static void commit_alu_instruction(struct schedule_state * s, struct schedule_in
 static void emit_all_tex(struct schedule_state * s, struct rc_instruction * before)
 {
 	struct schedule_instruction *readytex;
+	struct rc_instruction * inst_begin;
 
 	assert(s->ReadyTEX);
 
 	/* Node marker for R300 */
-	struct rc_instruction * inst_begin = rc_insert_new_instruction(s->C, before->Prev);
+	inst_begin = rc_insert_new_instruction(s->C, before->Prev);
 	inst_begin->U.I.Opcode = RC_OPCODE_BEGIN_TEX;
 
 	/* Link texture instructions back in */
@@ -274,16 +275,135 @@ static void emit_all_tex(struct schedule_state * s, struct rc_instruction * befo
 	}
 }
 
+/* This is a helper function for destructive_merge_instructions().  It helps
+ * merge presubtract sources from two instructions and makes sure the
+ * presubtract sources end up in the correct spot.  This function assumes that
+ * dst_full is an rgb instruction, meaning that it has a vector instruction(rgb)
+ * but no scalar instruction (alpha).
+ * @return 0 if merging the presubtract sources fails.
+ * @retrun 1 if merging the presubtract sources succeeds.
+ */
+static int merge_presub_sources(
+	struct rc_pair_instruction * dst_full,
+	struct rc_pair_sub_instruction src,
+	unsigned int type)
+{
+	unsigned int srcp_src, srcp_regs, is_rgb, is_alpha;
+	struct rc_pair_sub_instruction * dst_sub;
 
+	assert(dst_full->Alpha.Opcode == RC_OPCODE_NOP);
+
+	switch(type) {
+	case RC_PAIR_SOURCE_RGB:
+		is_rgb = 1;
+		is_alpha = 0;
+		dst_sub = &dst_full->RGB;
+		break;
+	case RC_PAIR_SOURCE_ALPHA:
+		is_rgb = 0;
+		is_alpha = 1;
+		dst_sub = &dst_full->Alpha;
+		break;
+	default:
+		assert(0);
+		return 0;
+	}
+
+	const struct rc_opcode_info * info =
+					rc_get_opcode_info(dst_full->RGB.Opcode);
+	if (dst_sub->Src[RC_PAIR_PRESUB_SRC].Used)
+		return 0;
+
+	srcp_regs = rc_presubtract_src_reg_count(
+					src.Src[RC_PAIR_PRESUB_SRC].Index);
+	for(srcp_src = 0; srcp_src < srcp_regs; srcp_src++) {
+		unsigned int arg;
+		int free_source;
+		unsigned int one_way = 0;
+		struct rc_pair_instruction_source srcp = src.Src[srcp_src];
+		struct rc_pair_instruction_source temp;
+
+		free_source = rc_pair_alloc_source(dst_full, is_rgb, is_alpha,
+							srcp.File, srcp.Index);
+
+		/* If free_source < 0 then there are no free source
+		 * slots. */
+		if (free_source < 0)
+			return 0;
+
+		temp = dst_sub->Src[srcp_src];
+		dst_sub->Src[srcp_src] = dst_sub->Src[free_source];
+
+		/* srcp needs src0 and src1 to be the same */
+		if (free_source < srcp_src) {
+			if (!temp.Used)
+				continue;
+			free_source = rc_pair_alloc_source(dst_full, is_rgb,
+					is_alpha, temp.File, temp.Index);
+			one_way = 1;
+		} else {
+			dst_sub->Src[free_source] = temp;
+		}
+
+		/* If free_source == srcp_src, then the presubtract
+		 * source is already in the correct place. */
+		if (free_source == srcp_src)
+			continue;
+
+		/* Shuffle the sources, so we can put the
+		 * presubtract source in the correct place. */
+		for(arg = 0; arg < info->NumSrcRegs; arg++) {
+			/*If this arg does not read from an rgb source,
+			 * do nothing. */
+			if (!(rc_source_type_that_arg_reads(
+				dst_full->RGB.Arg[arg].Source,
+				dst_full->RGB.Arg[arg].Swizzle) & type)) {
+				continue;
+			}
+			if (dst_full->RGB.Arg[arg].Source == srcp_src)
+				dst_full->RGB.Arg[arg].Source = free_source;
+			/* We need to do this just in case register
+			 * is one of the sources already, but in the
+			 * wrong spot. */
+			else if(dst_full->RGB.Arg[arg].Source == free_source
+							&& !one_way) {
+				dst_full->RGB.Arg[arg].Source = srcp_src;
+			}
+		}
+	}
+	return 1;
+}
+
+
+/* This function assumes that rgb.Alpha and alpha.RGB are unused */
 static int destructive_merge_instructions(
 		struct rc_pair_instruction * rgb,
 		struct rc_pair_instruction * alpha)
 {
+	const struct rc_opcode_info * opcode;
+
 	assert(rgb->Alpha.Opcode == RC_OPCODE_NOP);
 	assert(alpha->RGB.Opcode == RC_OPCODE_NOP);
 
+	/* Presubtract registers need to be merged first so that registers
+	 * needed by the presubtract operation can be placed in src0 and/or
+	 * src1. */
+
+	/* Merge the rgb presubtract registers. */
+	if (alpha->RGB.Src[RC_PAIR_PRESUB_SRC].Used) {
+		if (!merge_presub_sources(rgb, alpha->RGB, RC_PAIR_SOURCE_RGB)) {
+			return 0;
+		}
+	}
+	/* Merge the alpha presubtract registers */
+	if (alpha->Alpha.Src[RC_PAIR_PRESUB_SRC].Used) {
+		if(!merge_presub_sources(rgb,  alpha->Alpha, RC_PAIR_SOURCE_ALPHA)){
+			return 0;
+		}
+	}
+
 	/* Copy alpha args into rgb */
-	const struct rc_opcode_info * opcode = rc_get_opcode_info(alpha->Alpha.Opcode);
+	opcode = rc_get_opcode_info(alpha->Alpha.Opcode);
 
 	for(unsigned int arg = 0; arg < opcode->NumSrcRegs; ++arg) {
 		unsigned int srcrgb = 0;
@@ -291,6 +411,7 @@ static int destructive_merge_instructions(
 		unsigned int oldsrc = alpha->Alpha.Arg[arg].Source;
 		rc_register_file file = 0;
 		unsigned int index = 0;
+		int source;
 
 		if (alpha->Alpha.Arg[arg].Swizzle < 3) {
 			srcrgb = 1;
@@ -302,7 +423,7 @@ static int destructive_merge_instructions(
 			index = alpha->Alpha.Src[oldsrc].Index;
 		}
 
-		int source = rc_pair_alloc_source(rgb, srcrgb, srcalpha, file, index);
+		source = rc_pair_alloc_source(rgb, srcrgb, srcalpha, file, index);
 		if (source < 0)
 			return 0;
 
@@ -342,6 +463,12 @@ static int merge_instructions(struct rc_pair_instruction * rgb, struct rc_pair_i
 {
 	struct rc_pair_instruction backup;
 
+	/*Instructions can't write output registers and ALU result at the
+	 * same time. */
+	if ((rgb->WriteALUResult && alpha->Alpha.OutputWriteMask)
+		|| (rgb->RGB.OutputWriteMask && alpha->WriteALUResult)) {
+		return 0;
+	}
 	memcpy(&backup, rgb, sizeof(struct rc_pair_instruction));
 
 	if (destructive_merge_instructions(rgb, alpha))
@@ -351,7 +478,52 @@ static int merge_instructions(struct rc_pair_instruction * rgb, struct rc_pair_i
 	return 0;
 }
 
+static void presub_nop(struct rc_instruction * emitted) {
+	int prev_rgb_index, prev_alpha_index, i, num_src;
 
+	/* We don't need a nop if the previous instruction is a TEX. */
+	if (emitted->Prev->Type != RC_INSTRUCTION_PAIR) {
+		return;
+	}
+	if (emitted->Prev->U.P.RGB.WriteMask)
+		prev_rgb_index = emitted->Prev->U.P.RGB.DestIndex;
+	else
+		prev_rgb_index = -1;
+	if (emitted->Prev->U.P.Alpha.WriteMask)
+		prev_alpha_index = emitted->Prev->U.P.Alpha.DestIndex;
+	else
+		prev_alpha_index = 1;
+
+	/* Check the previous rgb instruction */
+	if (emitted->U.P.RGB.Src[RC_PAIR_PRESUB_SRC].Used) {
+		num_src = rc_presubtract_src_reg_count(
+				emitted->U.P.RGB.Src[RC_PAIR_PRESUB_SRC].Index);
+		for (i = 0; i < num_src; i++) {
+			unsigned int index = emitted->U.P.RGB.Src[i].Index;
+			if (emitted->U.P.RGB.Src[i].File == RC_FILE_TEMPORARY
+			    && (index  == prev_rgb_index
+				|| index == prev_alpha_index)) {
+				emitted->Prev->U.P.Nop = 1;
+				return;
+			}
+		}
+	}
+
+	/* Check the previous alpha instruction. */
+	if (!emitted->U.P.Alpha.Src[RC_PAIR_PRESUB_SRC].Used)
+		return;
+
+	num_src = rc_presubtract_src_reg_count(
+				emitted->U.P.Alpha.Src[RC_PAIR_PRESUB_SRC].Index);
+	for (i = 0; i < num_src; i++) {
+		unsigned int index = emitted->U.P.Alpha.Src[i].Index;
+		if(emitted->U.P.Alpha.Src[i].File == RC_FILE_TEMPORARY
+		   && (index == prev_rgb_index || index == prev_alpha_index)) {
+			emitted->Prev->U.P.Nop = 1;
+			return;
+		}
+	}
+}
 /**
  * Find a good ALU instruction or pair of ALU instruction and emit it.
  *
@@ -408,6 +580,10 @@ static void emit_one_alu(struct schedule_state *s, struct rc_instruction * befor
 		commit_alu_instruction(s, sinst);
 	success: ;
 	}
+	/* If the instruction we just emitted uses a presubtract value, and
+	 * the presubtract sources were written by the previous intstruction,
+	 * the previous instruction needs a nop. */
+	presub_nop(before->Prev);
 }
 
 static void scan_read(void * data, struct rc_instruction * inst,
@@ -415,6 +591,7 @@ static void scan_read(void * data, struct rc_instruction * inst,
 {
 	struct schedule_state * s = data;
 	struct reg_value * v = get_reg_value(s, file, index, chan);
+	struct reg_value_reader * reader;
 
 	if (!v)
 		return;
@@ -428,7 +605,7 @@ static void scan_read(void * data, struct rc_instruction * inst,
 
 	DBG("%i: read %i[%i] chan %i\n", s->Current->Instruction->IP, file, index, chan);
 
-	struct reg_value_reader * reader = memory_pool_malloc(&s->C->Pool, sizeof(*reader));
+	reader = memory_pool_malloc(&s->C->Pool, sizeof(*reader));
 	reader->Reader = s->Current;
 	reader->Next = v->Readers;
 	v->Readers = reader;
@@ -448,13 +625,14 @@ static void scan_write(void * data, struct rc_instruction * inst,
 {
 	struct schedule_state * s = data;
 	struct reg_value ** pv = get_reg_valuep(s, file, index, chan);
+	struct reg_value * newv;
 
 	if (!pv)
 		return;
 
 	DBG("%i: write %i[%i] chan %i\n", s->Current->Instruction->IP, file, index, chan);
 
-	struct reg_value * newv = memory_pool_malloc(&s->C->Pool, sizeof(*newv));
+	newv = memory_pool_malloc(&s->C->Pool, sizeof(*newv));
 	memset(newv, 0, sizeof(*newv));
 
 	newv->Writer = s->Current;
@@ -477,12 +655,13 @@ static void schedule_block(struct r300_fragment_program_compiler * c,
 		struct rc_instruction * begin, struct rc_instruction * end)
 {
 	struct schedule_state s;
+	unsigned int ip;
 
 	memset(&s, 0, sizeof(s));
 	s.C = &c->Base;
 
 	/* Scan instructions for data dependencies */
-	unsigned int ip = 0;
+	ip = 0;
 	for(struct rc_instruction * inst = begin; inst != end; inst = inst->Next) {
 		s.Current = memory_pool_malloc(&c->Base.Pool, sizeof(*s.Current));
 		memset(s.Current, 0, sizeof(struct schedule_instruction));
@@ -529,16 +708,19 @@ static int is_controlflow(struct rc_instruction * inst)
 	return 0;
 }
 
-void rc_pair_schedule(struct r300_fragment_program_compiler *c)
+void rc_pair_schedule(struct radeon_compiler *cc, void *user)
 {
+	struct r300_fragment_program_compiler *c = (struct r300_fragment_program_compiler*)cc;
 	struct rc_instruction * inst = c->Base.Program.Instructions.Next;
 	while(inst != &c->Base.Program.Instructions) {
+		struct rc_instruction * first;
+
 		if (is_controlflow(inst)) {
 			inst = inst->Next;
 			continue;
 		}
 
-		struct rc_instruction * first = inst;
+		first = inst;
 
 		while(inst != &c->Base.Program.Instructions && !is_controlflow(inst))
 			inst = inst->Next;

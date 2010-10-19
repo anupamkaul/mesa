@@ -21,6 +21,8 @@
  * USE OR OTHER DEALINGS IN THE SOFTWARE. */
 
 #include "r300_context.h"
+#include "r300_emit.h"
+#include "r300_hyperz.h"
 #include "r300_texture.h"
 #include "r300_winsys.h"
 
@@ -99,9 +101,6 @@ static boolean r300_cbzb_clear_allowed(struct r300_context *r300,
     struct pipe_framebuffer_state *fb =
         (struct pipe_framebuffer_state*)r300->fb_state.state;
 
-    if (r300->z_fastfill)
-        clear_buffers &= ~(PIPE_CLEAR_DEPTH | PIPE_CLEAR_STENCIL);
-
     /* Only color clear allowed, and only one colorbuffer. */
     if (clear_buffers != PIPE_CLEAR_COLOR || fb->nr_cbufs != 1)
         return FALSE;
@@ -173,22 +172,25 @@ static void r300_clear(struct pipe_context* pipe,
         (struct pipe_framebuffer_state*)r300->fb_state.state;
     struct r300_hyperz_state *hyperz =
         (struct r300_hyperz_state*)r300->hyperz_state.state;
+    struct r300_texture *zstex =
+            fb->zsbuf ? r300_texture(fb->zsbuf->texture) : NULL;
     uint32_t width = fb->width;
     uint32_t height = fb->height;
     boolean has_hyperz = r300->rws->get_value(r300->rws, R300_CAN_HYPERZ);
-    uint32_t hyperz_dcv = 0;
+    uint32_t hyperz_dcv = hyperz->zb_depthclearvalue;
 
     /* Enable fast Z clear.
      * The zbuffer must be in micro-tiled mode, otherwise it locks up. */
-    if ((buffers & (PIPE_CLEAR_DEPTH|PIPE_CLEAR_STENCIL)) && has_hyperz) {
-      
+    if ((buffers & PIPE_CLEAR_DEPTHSTENCIL) && has_hyperz) {
         hyperz_dcv = hyperz->zb_depthclearvalue =
             r300_depth_clear_value(fb->zsbuf->format, depth, stencil);
 
         r300_mark_fb_state_dirty(r300, R300_CHANGED_ZCLEAR_FLAG);
-        if (r300->z_compression || r300->z_fastfill)
+        if (zstex->zmask_mem[fb->zsbuf->level]) {
             r300->zmask_clear.dirty = TRUE;
-        if (r300->hiz_enable)
+            buffers &= ~PIPE_CLEAR_DEPTHSTENCIL;
+        }
+        if (zstex->hiz_mem[fb->zsbuf->level])
             r300->hiz_clear.dirty = TRUE;
     }
 
@@ -207,13 +209,43 @@ static void r300_clear(struct pipe_context* pipe,
     }
 
     /* Clear. */
-    r300_blitter_begin(r300, R300_CLEAR);
-    util_blitter_clear(r300->blitter,
-                       width,
-                       height,
-                       fb->nr_cbufs,
-                       buffers, rgba, depth, stencil);
-    r300_blitter_end(r300);
+    if (buffers) {
+        /* Clear using the blitter. */
+        r300_blitter_begin(r300, R300_CLEAR);
+        util_blitter_clear(r300->blitter,
+                           width,
+                           height,
+                           fb->nr_cbufs,
+                           buffers, rgba, depth, stencil);
+        r300_blitter_end(r300);
+    } else if (r300->zmask_clear.dirty) {
+        /* Just clear zmask and hiz now, this does not use a standard draw
+         * procedure. */
+        unsigned dwords;
+
+        /* Calculate zmask_clear and hiz_clear atom sizes. */
+        r300_update_hyperz_state(r300);
+        dwords = r300->zmask_clear.size +
+                 (r300->hiz_clear.dirty ? r300->hiz_clear.size : 0) +
+                 r300_get_num_cs_end_dwords(r300);
+
+        /* Reserve CS space. */
+        if (dwords > (r300->cs->ndw - r300->cs->cdw)) {
+            r300->context.flush(&r300->context, 0, NULL);
+        }
+
+        /* Emit clear packets. */
+        r300_emit_zmask_clear(r300, r300->zmask_clear.size,
+                              r300->zmask_clear.state);
+        r300->zmask_clear.dirty = FALSE;
+        if (r300->hiz_clear.dirty) {
+            r300_emit_hiz_clear(r300, r300->hiz_clear.size,
+                                r300->hiz_clear.state);
+            r300->hiz_clear.dirty = FALSE;
+        }
+    } else {
+        assert(0);
+    }
 
     /* Disable CBZB clear. */
     if (r300->cbzb_clear) {
@@ -222,9 +254,15 @@ static void r300_clear(struct pipe_context* pipe,
         r300_mark_fb_state_dirty(r300, R300_CHANGED_CBZB_FLAG);
     }
 
-    /* XXX this flush "fixes" a hardlock in the cubestorm xscreensaver */
-    if (r300->flush_counter == 0)
-        pipe->flush(pipe, 0, NULL);
+    /* Enable fastfill and/or hiz.
+     *
+     * If we cleared zmask/hiz, it's in use now. The Hyper-Z state update
+     * looks if zmask/hiz is in use and enables fastfill accordingly. */
+    if (zstex &&
+        (zstex->zmask_in_use[fb->zsbuf->level] ||
+         zstex->hiz_in_use[fb->zsbuf->level])) {
+        r300->hyperz_state.dirty = TRUE;
+    }
 }
 
 /* Clear a region of a color surface to a constant value. */
@@ -271,7 +309,7 @@ void r300_flush_depth_stencil(struct pipe_context *pipe,
 
     if (!tex->zmask_mem[subdst.level])
         return;
-    if (!tex->dirty_zmask[subdst.level])
+    if (!tex->zmask_in_use[subdst.level])
         return;
 
     dstsurf = pipe->screen->get_tex_surface(pipe->screen, dst,
@@ -283,7 +321,7 @@ void r300_flush_depth_stencil(struct pipe_context *pipe,
     r300_blitter_end(r300);
     r300->z_decomp_rd = FALSE;
 
-    tex->dirty_zmask[subdst.level] = FALSE;
+    tex->zmask_in_use[subdst.level] = FALSE;
 }
 
 /* Copy a block of pixels from one surface to another using HW. */
@@ -349,9 +387,6 @@ static void r300_resource_copy_region(struct pipe_context *pipe,
         r300_flush_depth_stencil(pipe, src, subsrc, srcz);
     }
     if (old_format != new_format) {
-        dst->format = new_format;
-        src->format = new_format;
-
         r300_texture_reinterpret_format(pipe->screen,
                                         dst, new_format);
         r300_texture_reinterpret_format(pipe->screen,
@@ -362,9 +397,6 @@ static void r300_resource_copy_region(struct pipe_context *pipe,
                         src, subsrc, srcx, srcy, srcz, width, height);
 
     if (old_format != new_format) {
-        dst->format = old_format;
-        src->format = old_format;
-
         r300_texture_reinterpret_format(pipe->screen,
                                         dst, old_format);
         r300_texture_reinterpret_format(pipe->screen,

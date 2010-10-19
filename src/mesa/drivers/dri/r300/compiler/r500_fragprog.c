@@ -39,10 +39,12 @@ int r500_transform_IF(
 	struct rc_instruction * inst,
 	void* data)
 {
+	struct rc_instruction * inst_mov;
+
 	if (inst->U.I.Opcode != RC_OPCODE_IF)
 		return 0;
 
-	struct rc_instruction * inst_mov = rc_insert_new_instruction(c, inst->Prev);
+	inst_mov = rc_insert_new_instruction(c, inst->Prev);
 	inst_mov->U.I.Opcode = RC_OPCODE_MOV;
 	inst_mov->U.I.DstReg.WriteMask = 0;
 	inst_mov->U.I.WriteALUResult = RC_ALURESULT_W;
@@ -247,15 +249,15 @@ static char *to_texop(int val)
   return NULL;
 }
 
-void r500FragmentProgramDump(struct rX00_fragment_program_code *c)
+void r500FragmentProgramDump(struct radeon_compiler *c, void *user)
 {
-  struct r500_fragment_program_code *code = &c->code.r500;
-  fprintf(stderr, "R500 Fragment Program:\n--------\n");
-
+  struct r300_fragment_program_compiler *compiler = (struct r300_fragment_program_compiler*)c;
+  struct r500_fragment_program_code *code = &compiler->code->code.r500;
   int n, i;
   uint32_t inst;
   uint32_t inst0;
   char *str = NULL;
+  fprintf(stderr, "R500 Fragment Program:\n--------\n");
 
   for (n = 0; n < code->inst_end+1; n++) {
     inst0 = inst = code->inst[n].inst0;

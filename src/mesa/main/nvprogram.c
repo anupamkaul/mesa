@@ -511,13 +511,15 @@ _mesa_GetVertexAttribPointervNV(GLuint index, GLenum pname, GLvoid **pointer)
 }
 
 void
-_mesa_emit_nv_temp_initialization(GLcontext *ctx,
+_mesa_emit_nv_temp_initialization(struct gl_context *ctx,
 				  struct gl_program *program)
 {
    struct prog_instruction *inst;
    GLuint i;
+   struct gl_shader_compiler_options* options =
+         &ctx->ShaderCompilerOptions[_mesa_program_target_to_index(program->Target)];
 
-   if (!ctx->Shader.EmitNVTempInitialization)
+   if (!options->EmitNVTempInitialization)
       return;
 
    /* We'll swizzle up a zero temporary so we can use it for the
@@ -557,7 +559,7 @@ _mesa_emit_nv_temp_initialization(GLcontext *ctx,
 }
 
 void
-_mesa_setup_nv_temporary_count(GLcontext *ctx, struct gl_program *program)
+_mesa_setup_nv_temporary_count(struct gl_context *ctx, struct gl_program *program)
 {
    GLuint i;
 

@@ -383,6 +383,7 @@
 		<value name="GL_ALPHA"/>
 		<value name="GL_RGB"/>
 		<value name="GL_RGBA"/>
+		<value name="GL_BGRA_EXT"/>
 		<value name="GL_LUMINANCE"/>
 		<value name="GL_LUMINANCE_ALPHA"/>
 		<value name="GL_DEPTH_COMPONENT" category="OES_depth_texture"/>
@@ -458,9 +459,16 @@
 
 	<desc name="format" category="OES_packed_depth_stencil">
 		<value name="GL_DEPTH_STENCIL_OES"/>
-
 		<desc name="type" error="GL_INVALID_OPERATION">
 			<value name="GL_UNSIGNED_INT_24_8_OES"/>
+		</desc>
+	</desc>
+
+	<desc name="format" category="EXT_texture_format_BGRA8888">
+		<value name="GL_BGRA_EXT"/>
+
+		<desc name="type" error="GL_INVALID_OPERATION">
+			<value name="GL_UNSIGNED_BYTE"/>
 		</desc>
 	</desc>
 </template>
@@ -1701,8 +1709,7 @@
 	<desc name="type">
 		<value name="GL_UNSIGNED_BYTE"/>
 		<value name="GL_UNSIGNED_SHORT"/>
-		<!-- GL_UNSIGNED_INT is not defined in GLES1.1 headers -->
-		<value name="(0x1405 /* GL_UNSIGNED_INT */)" category="OES_element_index_uint"/>
+		<value name="GL_UNSIGNED_INT" category="OES_element_index_uint"/>
 	</desc>
 </template>
 
@@ -3458,8 +3465,8 @@
 	<proto>
 		<return type="void"/>
 		<param name="mode" type="GLenum"/>
-		<param name="first" type="GLint *"/>
-		<param name="count" type="GLsizei *"/>
+		<param name="first" type="const GLint *"/>
+		<param name="count" type="const GLsizei *"/>
 		<param name="primcount" type="GLsizei"/>
 	</proto>
 
@@ -3497,8 +3504,7 @@
 	<desc name="type">
 		<value name="GL_UNSIGNED_BYTE"/>
 		<value name="GL_UNSIGNED_SHORT"/>
-		<!-- GL_UNSIGNED_INT is not defined in GLES1.1 headers -->
-		<value name="(0x1405 /* GL_UNSIGNED_INT */)" category="OES_element_index_uint"/>
+		<value name="GL_UNSIGNED_INT" category="OES_element_index_uint"/>
 	</desc>
 </template>
 
@@ -3836,9 +3842,9 @@
 	<category name="ARB_texture_non_power_of_two"/>
 	<!-- disabled due to missing enums
 	<category name="EXT_texture_compression_dxt1"/>
+	-->
 	<category name="EXT_texture_lod_bias"/>
 	<category name="EXT_blend_minmax"/>
-	-->
 	<category name="EXT_multi_draw_arrays"/>
 	<category name="OES_EGL_image"/>
 
@@ -4123,11 +4129,10 @@
 	<category name="OES_depth_texture"/>
 	<category name="OES_packed_depth_stencil"/>
 	<category name="OES_standard_derivatives"/>
+	<category name="EXT_texture_format_BGRA8888"/>
 
-	<!-- disabled due to missing enums
 	<category name="EXT_texture_compression_dxt1"/>
 	<category name="EXT_blend_minmax"/>
-	-->
 	<category name="EXT_multi_draw_arrays"/>
 	<category name="OES_EGL_image"/>
 

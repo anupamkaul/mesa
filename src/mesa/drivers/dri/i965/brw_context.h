@@ -179,6 +179,16 @@ struct brw_fragment_program {
    GLbitfield tex_units_used;
 };
 
+struct brw_shader {
+   struct gl_shader base;
+
+   /** Shader IR transformed for native compile, at link time. */
+   struct exec_list *ir;
+};
+
+struct brw_shader_program {
+   struct gl_shader_program base;
+};
 
 /* Data about a particular attempt to compile a program.  Note that
  * there can be many of these, each in a different GL state
@@ -654,7 +664,13 @@ struct brw_context
 
       drm_intel_bo *prog_bo;
       drm_intel_bo *state_bo;
-      drm_intel_bo *const_bo;
+      drm_intel_bo *const_bo; /* pull constant buffer. */
+      /**
+       *  This is the push constant BO on gen6.
+       *
+       * Pre-gen6, push constants live in the CURBE.
+       */
+      drm_intel_bo *push_const_bo;
    } wm;
 
 
@@ -686,7 +702,13 @@ struct brw_context
 
 #define BRW_PACKCOLOR8888(r,g,b,a)  ((r<<24) | (g<<16) | (b<<8) | a)
 
-
+struct brw_instruction_info {
+    char    *name;
+    int	    nsrc;
+    int	    ndst;
+    GLboolean is_arith;
+};
+extern const struct brw_instruction_info brw_opcodes[128];
 
 /*======================================================================
  * brw_vtbl.c
@@ -697,7 +719,7 @@ void brwInitVtbl( struct brw_context *brw );
  * brw_context.c
  */
 GLboolean brwCreateContext( int api,
-			    const __GLcontextModes *mesaVis,
+			    const struct gl_config *mesaVis,
 			    __DRIcontext *driContextPriv,
 			    void *sharedContextPrivate);
 
@@ -741,15 +763,15 @@ void brw_upload_cs_urb_state(struct brw_context *brw);
 int brw_disasm (FILE *file, struct brw_instruction *inst, int gen);
 
 /* brw_state.c */
-void brw_enable(GLcontext * ctx, GLenum cap, GLboolean state);
-void brw_depth_range(GLcontext *ctx, GLclampd nearval, GLclampd farval);
+void brw_enable(struct gl_context * ctx, GLenum cap, GLboolean state);
+void brw_depth_range(struct gl_context *ctx, GLclampd nearval, GLclampd farval);
 
 /*======================================================================
  * Inline conversion functions.  These are better-typed than the
  * macros used previously:
  */
 static INLINE struct brw_context *
-brw_context( GLcontext *ctx )
+brw_context( struct gl_context *ctx )
 {
    return (struct brw_context *)ctx;
 }
@@ -777,6 +799,8 @@ brw_fragment_program_const(const struct gl_fragment_program *p)
 {
    return (const struct brw_fragment_program *) p;
 }
+
+GLboolean brw_do_cubemap_normalize(struct exec_list *instructions);
 
 #endif
 

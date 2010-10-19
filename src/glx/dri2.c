@@ -98,16 +98,13 @@ DRI2WireToEvent(Display *dpy, XEvent *event, xEvent *wire)
    {
       GLXBufferSwapComplete *aevent = (GLXBufferSwapComplete *)event;
       xDRI2BufferSwapComplete *awire = (xDRI2BufferSwapComplete *)wire;
-      __GLXDRIdrawable *pdraw;
-      struct glx_display *glx_dpy = __glXInitialize(dpy);
 
       /* Ignore swap events if we're not looking for them */
-      pdraw = dri2GetGlxDrawableFromXDrawableId(dpy, awire->drawable);
-      if (!(pdraw->eventMask & GLX_BUFFER_SWAP_COMPLETE_INTEL_MASK))
-	 return False;
+      aevent->type = dri2GetSwapEventType(dpy, awire->drawable);
+      if(!aevent->type)
+         return False;
 
       aevent->serial = _XSetLastRequestRead(dpy, (xGenericReply *) wire);
-      aevent->type = glx_dpy->codes->first_event + GLX_BufferSwapComplete;
       aevent->send_event = (awire->type & 0x80) != 0;
       aevent->display = dpy;
       aevent->drawable = awire->drawable;
@@ -173,6 +170,14 @@ DRI2Error(Display *display, xError *err, XExtCodes *codes, int *ret_code)
     if (err->majorCode == codes->major_opcode &&
 	err->errorCode == BadDrawable &&
 	err->minorCode == X_DRI2CopyRegion)
+	return True;
+
+    /* If the X drawable was destroyed before the GLX drawable, the
+     * DRI2 drawble will be gone by the time we call
+     * DRI2DestroyDrawable.  So just ignore BadDrawable here. */
+    if (err->majorCode == codes->major_opcode &&
+	err->errorCode == BadDrawable &&
+	err->minorCode == X_DRI2DestroyDrawable)
 	return True;
 
     return False;

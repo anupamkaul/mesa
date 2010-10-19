@@ -140,8 +140,7 @@ struct draw_context
       } middle;
 
       struct {
-         struct draw_pt_front_end *vcache;
-         struct draw_pt_front_end *varray;
+         struct draw_pt_front_end *vsplit;
       } front;
 
       struct pipe_vertex_buffer vertex_buffer[PIPE_MAX_ATTRIBS];
@@ -149,6 +148,8 @@ struct draw_context
 
       struct pipe_vertex_element vertex_element[PIPE_MAX_ATTRIBS];
       unsigned nr_vertex_elements;
+
+      struct pipe_index_buffer index_buffer;
 
       /* user-space vertex data, buffers */
       struct {
@@ -175,13 +176,19 @@ struct draw_context
    } pt;
 
    struct {
-      boolean bypass_clipping;
-      boolean bypass_vs;
+      boolean bypass_clip_xy;
+      boolean bypass_clip_z;
    } driver;
 
    boolean flushing;         /**< debugging/sanity */
    boolean suspend_flushing; /**< internally set */
-   boolean bypass_clipping;  /**< set if either api or driver bypass_clipping true */
+
+   /* Flags set if API requires clipping in these planes and the
+    * driver doesn't indicate that it can do it for us.
+    */
+   boolean clip_xy;
+   boolean clip_z;
+   boolean clip_user;
 
    boolean force_passthrough; /**< never clip or shade */
 
@@ -243,6 +250,11 @@ struct draw_context
       struct tgsi_sampler **samplers;
    } gs;
 
+   /** Fragment shader state */
+   struct {
+      struct draw_fragment_shader *fragment_shader;
+   } fs;
+
    /** Stream output (vertex feedback) state */
    struct {
       struct pipe_stream_output_state state;
@@ -259,9 +271,10 @@ struct draw_context
    /* If a prim stage introduces new vertex attributes, they'll be stored here
     */
    struct {
-      uint semantic_name;
-      uint semantic_index;
-      int slot;
+      uint num;
+      uint semantic_name[10];
+      uint semantic_index[10];
+      uint slot[10];
    } extra_shader_outputs;
 
    unsigned reduced_prim;
@@ -300,6 +313,10 @@ struct draw_vertex_info {
    unsigned count;
 };
 
+/* these flags are set if the primitive is a segment of a larger one */
+#define DRAW_SPLIT_BEFORE 0x1
+#define DRAW_SPLIT_AFTER  0x2
+
 struct draw_prim_info {
    boolean linear;
    unsigned start;
@@ -308,6 +325,7 @@ struct draw_prim_info {
    unsigned count;
 
    unsigned prim;
+   unsigned flags;
    unsigned *primitive_lengths;
    unsigned primitive_count;
 };
@@ -354,6 +372,11 @@ void draw_gs_destroy( struct draw_context *draw );
 uint draw_current_shader_outputs(const struct draw_context *draw);
 uint draw_current_shader_position_output(const struct draw_context *draw);
 
+int draw_alloc_extra_vertex_attrib(struct draw_context *draw,
+                                   uint semantic_name, uint semantic_index);
+void draw_remove_extra_vertex_attribs(struct draw_context *draw);
+
+
 /*******************************************************************************
  * Vertex processing (was passthrough) code:
  */
@@ -373,21 +396,15 @@ void draw_pipeline_destroy( struct draw_context *draw );
 
 
 
-/* We use the top few bits in the elts[] parameter to convey a little
- * API information.  This limits the number of vertices we can address
- * to only 4096 -- if that becomes a problem, we can switch to 32-bit
- * draw indices.
- *
- * These flags expected at first vertex of lines & triangles when
- * unfilled and/or line stipple modes are operational.
+/*
+ * These flags are used by the pipeline when unfilled and/or line stipple modes
+ * are operational.
  */
-#define DRAW_PIPE_MAX_VERTICES  (0x1<<12)
-#define DRAW_PIPE_EDGE_FLAG_0   (0x1<<12)
-#define DRAW_PIPE_EDGE_FLAG_1   (0x2<<12)
-#define DRAW_PIPE_EDGE_FLAG_2   (0x4<<12)
-#define DRAW_PIPE_EDGE_FLAG_ALL (0x7<<12)
-#define DRAW_PIPE_RESET_STIPPLE (0x8<<12)
-#define DRAW_PIPE_FLAG_MASK     (0xf<<12)
+#define DRAW_PIPE_EDGE_FLAG_0   0x1
+#define DRAW_PIPE_EDGE_FLAG_1   0x2
+#define DRAW_PIPE_EDGE_FLAG_2   0x4
+#define DRAW_PIPE_EDGE_FLAG_ALL 0x7
+#define DRAW_PIPE_RESET_STIPPLE 0x8
 
 void draw_pipeline_run( struct draw_context *draw,
                         const struct draw_vertex_info *vert,

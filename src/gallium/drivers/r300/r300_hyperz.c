@@ -129,6 +129,12 @@ static void r300_update_hyperz(struct r300_context* r300)
 {
     struct r300_hyperz_state *z =
         (struct r300_hyperz_state*)r300->hyperz_state.state;
+    struct pipe_framebuffer_state *fb =
+        (struct pipe_framebuffer_state*)r300->fb_state.state;
+    struct r300_texture *zstex =
+            fb->zsbuf ? r300_texture(fb->zsbuf->texture) : NULL;
+    boolean zmask_in_use = FALSE;
+    boolean hiz_in_use = FALSE;
 
     z->gb_z_peq_config = 0;
     z->zb_bw_cntl = 0;
@@ -140,25 +146,32 @@ static void r300_update_hyperz(struct r300_context* r300)
         return;
     }
 
+    if (!zstex)
+        return;
+
     if (!r300->rws->get_value(r300->rws, R300_CAN_HYPERZ))
         return;
 
-    /* Zbuffer compression. */
-    if (r300->z_compression) {
-        z->zb_bw_cntl |= R300_RD_COMP_ENABLE;
-        if (r300->z_decomp_rd == false)
-            z->zb_bw_cntl |= R300_WR_COMP_ENABLE;
-       /* RV350 and up optimizations. */
-       if (r300->z_compression == RV350_Z_COMPRESS_88)
-           z->gb_z_peq_config |= R300_GB_Z_PEQ_CONFIG_Z_PEQ_SIZE_8_8;
-    }
+    zmask_in_use = zstex->zmask_in_use[fb->zsbuf->level];
+    hiz_in_use = zstex->hiz_in_use[fb->zsbuf->level];
 
     /* Z fastfill. */
-    if (r300->z_fastfill) {
+    if (zmask_in_use) {
         z->zb_bw_cntl |= R300_FAST_FILL_ENABLE; /*  | R300_FORCE_COMPRESSED_STENCIL_VALUE_ENABLE;*/
     }
 
-    if (r300->hiz_enable) {
+    /* Zbuffer compression. */
+    if (zmask_in_use && r300->z_compression) {
+        z->zb_bw_cntl |= R300_RD_COMP_ENABLE;
+        if (r300->z_decomp_rd == false)
+            z->zb_bw_cntl |= R300_WR_COMP_ENABLE;
+    }
+    /* RV350 and up optimizations. */
+    /* The section 10.4.9 in the docs is a lie. */
+    if (r300->z_compression == RV350_Z_COMPRESS_88)
+        z->gb_z_peq_config |= R300_GB_Z_PEQ_CONFIG_Z_PEQ_SIZE_8_8;
+
+    if (hiz_in_use) {
         bool can_hiz = r300_can_hiz(r300);
         if (can_hiz) {
             z->zb_bw_cntl |= R300_HIZ_ENABLE;
@@ -168,8 +181,8 @@ static void r300_update_hyperz(struct r300_context* r300)
         }
     }
 
+    /* R500-specific features and optimizations. */
     if (r300->screen->caps.is_r500) {
-        /* XXX Are these bits really available on RV350? */
         z->zb_bw_cntl |= R500_HIZ_FP_EXP_BITS_3;
         z->zb_bw_cntl |=
                 R500_HIZ_EQUAL_REJECT_ENABLE |
@@ -341,7 +354,12 @@ void r300_zmask_alloc_block(struct r300_context *r300, struct r300_surface *surf
     /* We currently don't handle decompression for 3D textures and cubemaps
      * correctly. */
     if (tex->desc.b.b.target != PIPE_TEXTURE_1D &&
-        tex->desc.b.b.target != PIPE_TEXTURE_2D)
+        tex->desc.b.b.target != PIPE_TEXTURE_2D &&
+        tex->desc.b.b.target != PIPE_TEXTURE_RECT)
+        return;
+
+    /* Cannot flush zmask of 16-bit zbuffers. */
+    if (util_format_get_blocksizebits(tex->desc.b.b.format) == 16)
         return;
 
     if (tex->zmask_mem[level])
@@ -360,23 +378,36 @@ void r300_zmask_alloc_block(struct r300_context *r300, struct r300_surface *surf
     return;
 }
 
-void r300_hyperz_init_mm(struct r300_context *r300)
+boolean r300_hyperz_init_mm(struct r300_context *r300)
 {
     struct r300_screen* r300screen = r300->screen;
     int frag_pipes = r300screen->caps.num_frag_pipes;
 
-    if (r300screen->caps.hiz_ram)
-      r300->hiz_mm = u_mmInit(0, r300screen->caps.hiz_ram * frag_pipes);
-
     r300->zmask_mm = u_mmInit(0, r300screen->caps.zmask_ram * frag_pipes);
+    if (!r300->zmask_mm)
+      return FALSE;
+
+    if (r300screen->caps.hiz_ram) {
+      r300->hiz_mm = u_mmInit(0, r300screen->caps.hiz_ram * frag_pipes);
+      if (!r300->hiz_mm) {
+        u_mmDestroy(r300->zmask_mm);
+        r300->zmask_mm = NULL;
+        return FALSE;
+      }
+    }
+
+    return TRUE;
 }
 
 void r300_hyperz_destroy_mm(struct r300_context *r300)
 {
     struct r300_screen* r300screen = r300->screen;
 
-    if (r300screen->caps.hiz_ram)
+    if (r300screen->caps.hiz_ram) {
       u_mmDestroy(r300->hiz_mm);
+      r300->hiz_mm = NULL;
+    }
 
     u_mmDestroy(r300->zmask_mm);
+    r300->zmask_mm = NULL;
 }

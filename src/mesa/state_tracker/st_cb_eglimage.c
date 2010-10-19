@@ -71,7 +71,7 @@ st_pipe_format_to_base_format(enum pipe_format format)
 }
 
 static void
-st_egl_image_target_renderbuffer_storage(GLcontext *ctx,
+st_egl_image_target_renderbuffer_storage(struct gl_context *ctx,
 					 struct gl_renderbuffer *rb,
 					 GLeglImageOES image_handle)
 {
@@ -98,7 +98,7 @@ st_egl_image_target_renderbuffer_storage(GLcontext *ctx,
 }
 
 static void
-st_bind_surface(GLcontext *ctx, GLenum target,
+st_bind_surface(struct gl_context *ctx, GLenum target,
                 struct gl_texture_object *texObj,
                 struct gl_texture_image *texImage,
                 struct pipe_surface *ps)
@@ -128,7 +128,8 @@ st_bind_surface(GLcontext *ctx, GLenum target,
    _mesa_set_fetch_functions(texImage, 2);
 
    /* FIXME create a non-default sampler view from the pipe_surface? */
-   pipe_resource_reference(&stImage->pt, ps->texture);
+   pipe_resource_reference(&stObj->pt, ps->texture);
+   pipe_resource_reference(&stImage->pt, stObj->pt);
 
    stObj->width0 = ps->width;
    stObj->height0 = ps->height;
@@ -138,7 +139,7 @@ st_bind_surface(GLcontext *ctx, GLenum target,
 }
 
 static void
-st_egl_image_target_texture_2d(GLcontext *ctx, GLenum target,
+st_egl_image_target_texture_2d(struct gl_context *ctx, GLenum target,
 			       struct gl_texture_object *texObj,
 			       struct gl_texture_image *texImage,
 			       GLeglImageOES image_handle)

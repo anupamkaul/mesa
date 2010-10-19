@@ -54,7 +54,7 @@
  * \param ptr  the address (or offset inside VBO) of the array data
  */
 static void
-update_array(GLcontext *ctx, struct gl_client_array *array,
+update_array(struct gl_context *ctx, struct gl_client_array *array,
              GLbitfield dirtyBit, GLsizei elementSize,
              GLint size, GLenum type, GLenum format,
              GLsizei stride, GLboolean normalized, const GLvoid *ptr)
@@ -778,7 +778,7 @@ _mesa_DisableVertexAttribArrayARB(GLuint index)
  * not handle the 4-element GL_CURRENT_VERTEX_ATTRIB_ARB query.
  */
 static GLuint
-get_vertex_array_attrib(GLcontext *ctx, GLuint index, GLenum pname,
+get_vertex_array_attrib(struct gl_context *ctx, GLuint index, GLenum pname,
                   const char *caller)
 {
    const struct gl_client_array *array;
@@ -1256,8 +1256,8 @@ _mesa_UnlockArraysEXT( void )
 /* GL_EXT_multi_draw_arrays */
 /* Somebody forgot to spec the first and count parameters as const! <sigh> */
 void GLAPIENTRY
-_mesa_MultiDrawArraysEXT( GLenum mode, GLint *first,
-                          GLsizei *count, GLsizei primcount )
+_mesa_MultiDrawArraysEXT( GLenum mode, const GLint *first,
+                          const GLsizei *count, GLsizei primcount )
 {
    GET_CURRENT_CONTEXT(ctx);
    GLint i;
@@ -1340,7 +1340,7 @@ _mesa_PrimitiveRestartIndex(GLuint index)
  * Copy one client vertex array to another.
  */
 void
-_mesa_copy_client_array(GLcontext *ctx,
+_mesa_copy_client_array(struct gl_context *ctx,
                         struct gl_client_array *dst,
                         struct gl_client_array *src)
 {
@@ -1381,7 +1381,7 @@ print_array(const char *name, GLint index, const struct gl_client_array *array)
  * Print current vertex object/array info.  For debug.
  */
 void
-_mesa_print_arrays(GLcontext *ctx)
+_mesa_print_arrays(struct gl_context *ctx)
 {
    struct gl_array_object *arrayObj = ctx->Array.ArrayObj;
    GLuint i;
@@ -1409,7 +1409,7 @@ _mesa_print_arrays(GLcontext *ctx)
  * Initialize vertex array state for given context.
  */
 void 
-_mesa_init_varray(GLcontext *ctx)
+_mesa_init_varray(struct gl_context *ctx)
 {
    ctx->Array.DefaultArrayObj = _mesa_new_array_object(ctx, 0);
    _mesa_reference_array_object(ctx, &ctx->Array.ArrayObj,
@@ -1427,7 +1427,7 @@ static void
 delete_arrayobj_cb(GLuint id, void *data, void *userData)
 {
    struct gl_array_object *arrayObj = (struct gl_array_object *) data;
-   GLcontext *ctx = (GLcontext *) userData;
+   struct gl_context *ctx = (struct gl_context *) userData;
    _mesa_delete_array_object(ctx, arrayObj);
 }
 
@@ -1436,7 +1436,7 @@ delete_arrayobj_cb(GLuint id, void *data, void *userData)
  * Free vertex array state for given context.
  */
 void 
-_mesa_free_varray_data(GLcontext *ctx)
+_mesa_free_varray_data(struct gl_context *ctx)
 {
    _mesa_HashDeleteAll(ctx->Array.Objects, delete_arrayobj_cb, ctx);
    _mesa_DeleteHashTable(ctx->Array.Objects);

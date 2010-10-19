@@ -143,6 +143,20 @@ src_vector(struct i915_fragment_program *p,
       }
       break;
 
+   case PROGRAM_OUTPUT:
+      switch (source->Index) {
+      case FRAG_RESULT_COLOR:
+	 src = UREG(REG_TYPE_OC, 0);
+	 break;
+      case FRAG_RESULT_DEPTH:
+	 src = UREG(REG_TYPE_OD, 0);
+	 break;
+      default:
+	 i915_program_error(p, "Bad source->Index: %d", source->Index);
+	 return 0;
+      }
+      break;
+
       /* Various paramters and env values.  All emitted to
        * hardware as program constants.
        */
@@ -472,6 +486,18 @@ upload_program(struct i915_fragment_program *p)
 			 swizzle(tmp, X, X, X, X));
          break;
 
+      case OPCODE_DP2:
+         src0 = src_vector(p, &inst->SrcReg[0], program);
+         src1 = src_vector(p, &inst->SrcReg[1], program);
+	 i915_emit_arith(p,
+			 A0_DP3,
+                         get_result_vector(p, inst),
+                         get_result_flags(inst), 0,
+			 swizzle(src0, X, Y, ZERO, ZERO),
+			 swizzle(src1, X, Y, ZERO, ZERO),
+			 0);
+         break;
+
       case OPCODE_DP3:
          EMIT_2ARG_ARITH(A0_DP3);
          break;
@@ -653,21 +679,6 @@ upload_program(struct i915_fragment_program *p)
       case OPCODE_MUL:
          EMIT_2ARG_ARITH(A0_MUL);
          break;
-
-      case OPCODE_NOISE1:
-      case OPCODE_NOISE2:
-      case OPCODE_NOISE3:
-      case OPCODE_NOISE4:
-	 /* Don't implement noise because we just don't have the instructions
-	  * to spare.  We aren't the first vendor to do so.
-	  */
-	 i915_program_error(p, "Stubbed-out noise functions");
-	 i915_emit_arith(p,
-			 A0_MOV,
-			 get_result_vector(p, inst),
-			 get_result_flags(inst), 0,
-			 swizzle(tmp, ZERO, ZERO, ZERO, ZERO), 0, 0);
-	 break;
 
       case OPCODE_POW:
          src0 = src_vector(p, &inst->SrcReg[0], program);
@@ -957,6 +968,41 @@ upload_program(struct i915_fragment_program *p)
 			 0);
          break;
 
+      case OPCODE_SSG:
+	 dst = get_result_vector(p, inst);
+	 flags = get_result_flags(inst);
+         src0 = src_vector(p, &inst->SrcReg[0], program);
+	 tmp = i915_get_utemp(p);
+
+	 /* tmp = (src < 0.0) */
+	 i915_emit_arith(p,
+			 A0_SLT,
+			 tmp,
+			 flags, 0,
+			 src0,
+			 swizzle(src0, ZERO, ZERO, ZERO, ZERO),
+			 0);
+
+	 /* dst = (0.0 < src) */
+	 i915_emit_arith(p,
+			 A0_SLT,
+			 dst,
+			 flags, 0,
+			 swizzle(src0, ZERO, ZERO, ZERO, ZERO),
+			 src0,
+			 0);
+
+	 /* dst = (src > 0.0) - (src < 0.0) */
+	 i915_emit_arith(p,
+			 A0_ADD,
+			 dst,
+			 flags, 0,
+			 dst,
+			 negate(tmp, 1, 1, 1, 1),
+			 0);
+
+         break;
+
       case OPCODE_SUB:
          src0 = src_vector(p, &inst->SrcReg[0], program);
          src1 = src_vector(p, &inst->SrcReg[1], program);
@@ -1140,7 +1186,7 @@ track_params(struct i915_fragment_program *p)
 
 
 static void
-i915BindProgram(GLcontext * ctx, GLenum target, struct gl_program *prog)
+i915BindProgram(struct gl_context * ctx, GLenum target, struct gl_program *prog)
 {
    if (target == GL_FRAGMENT_PROGRAM_ARB) {
       struct i915_context *i915 = I915_CONTEXT(ctx);
@@ -1163,7 +1209,7 @@ i915BindProgram(GLcontext * ctx, GLenum target, struct gl_program *prog)
 }
 
 static struct gl_program *
-i915NewProgram(GLcontext * ctx, GLenum target, GLuint id)
+i915NewProgram(struct gl_context * ctx, GLenum target, GLuint id)
 {
    switch (target) {
    case GL_VERTEX_PROGRAM_ARB:
@@ -1191,7 +1237,7 @@ i915NewProgram(GLcontext * ctx, GLenum target, GLuint id)
 }
 
 static void
-i915DeleteProgram(GLcontext * ctx, struct gl_program *prog)
+i915DeleteProgram(struct gl_context * ctx, struct gl_program *prog)
 {
    if (prog->Target == GL_FRAGMENT_PROGRAM_ARB) {
       struct i915_context *i915 = I915_CONTEXT(ctx);
@@ -1206,7 +1252,7 @@ i915DeleteProgram(GLcontext * ctx, struct gl_program *prog)
 
 
 static GLboolean
-i915IsProgramNative(GLcontext * ctx, GLenum target, struct gl_program *prog)
+i915IsProgramNative(struct gl_context * ctx, GLenum target, struct gl_program *prog)
 {
    if (target == GL_FRAGMENT_PROGRAM_ARB) {
       struct i915_fragment_program *p = (struct i915_fragment_program *) prog;
@@ -1221,7 +1267,7 @@ i915IsProgramNative(GLcontext * ctx, GLenum target, struct gl_program *prog)
 }
 
 static GLboolean
-i915ProgramStringNotify(GLcontext * ctx,
+i915ProgramStringNotify(struct gl_context * ctx,
                         GLenum target, struct gl_program *prog)
 {
    if (target == GL_FRAGMENT_PROGRAM_ARB) {
@@ -1245,7 +1291,7 @@ i915ProgramStringNotify(GLcontext * ctx,
 }
 
 void
-i915_update_program(GLcontext *ctx)
+i915_update_program(struct gl_context *ctx)
 {
    struct intel_context *intel = intel_context(ctx);
    struct i915_context *i915 = i915_context(&intel->ctx);
@@ -1270,7 +1316,7 @@ i915_update_program(GLcontext *ctx)
 void
 i915ValidateFragmentProgram(struct i915_context *i915)
 {
-   GLcontext *ctx = &i915->intel.ctx;
+   struct gl_context *ctx = &i915->intel.ctx;
    struct intel_context *intel = intel_context(ctx);
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    struct vertex_buffer *VB = &tnl->vb;

@@ -35,6 +35,7 @@ env.Prepend(LIBS = [
     mesa,
     glsl,
     gallium,
+    'talloc'
 ])
 
 sources = [
@@ -46,6 +47,10 @@ env.Tool('x11')
 if True:
     env.Append(CPPDEFINES = 'GALLIUM_SOFTPIPE')
     env.Prepend(LIBS = [softpipe])
+
+if True:
+    env.Append(CPPDEFINES = 'GALLIUM_GALAHAD')
+    env.Prepend(LIBS = [galahad])
 
 if env['llvm']:
     env.Append(CPPDEFINES = 'GALLIUM_LLVMPIPE')

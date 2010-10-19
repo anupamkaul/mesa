@@ -108,8 +108,9 @@ emit_vertex(struct push_context *ctx, unsigned n)
    int i;
 
    if (ctx->edgeflag_attr < 16) {
-      float *edgeflag = (uint8_t *)ctx->attr[ctx->edgeflag_attr].map +
-                        ctx->attr[ctx->edgeflag_attr].stride * n;
+      float *edgeflag = (float *)
+         ((uint8_t *)ctx->attr[ctx->edgeflag_attr].map +
+          ctx->attr[ctx->edgeflag_attr].stride * n);
 
       if (*edgeflag != ctx->edgeflag) {
          BEGIN_RING(chan, tesla, NV50TCL_EDGEFLAG_ENABLE, 1);
@@ -227,7 +228,7 @@ nv50_push_elements_instanced(struct pipe_context *pipe,
    ctx.idxbuf = NULL;
    ctx.vtx_size = 0;
    ctx.edgeflag = 0.5f;
-   ctx.edgeflag_attr = nv50->vertprog->cfg.edgeflag_in;
+   ctx.edgeflag_attr = nv50->vertprog->vp.edgeflag;
 
    /* map vertex buffers, determine vertex size */
    for (i = 0; i < nv50->vtxelt->num_elements; i++) {

@@ -32,6 +32,7 @@
 #include "drm_sarea.h"
 #include "utils.h"
 #include "xmlpool.h"
+#include "../glsl/glsl_parser_extras.h"
 
 PUBLIC const char __dri2ConfigOptions[] =
    DRI_CONF_BEGIN
@@ -443,8 +444,7 @@ driCreateNewDrawable(__DRIscreen *psp, const __DRIconfig *config,
 
     pdp->driScreenPriv = psp;
 
-    if (!(*psp->DriverAPI.CreateBuffer)(psp, pdp, &config->modes,
-					renderType == GLX_PIXMAP_BIT)) {
+    if (!(*psp->DriverAPI.CreateBuffer)(psp, pdp, &config->modes, 0)) {
        free(pdp);
        return NULL;
     }
@@ -634,6 +634,7 @@ dri2CreateNewContextForAPI(__DRIscreen *screen, int api,
 			   __DRIcontext *shared, void *data)
 {
     __DRIcontext *context;
+    const struct gl_config *modes = (config != NULL) ? &config->modes : NULL;
     void *shareCtx = (shared != NULL) ? shared->driverPrivate : NULL;
     gl_api mesa_api;
 
@@ -650,6 +651,8 @@ dri2CreateNewContextForAPI(__DRIscreen *screen, int api,
     case __DRI_API_GLES2:
 	    mesa_api = API_OPENGLES2;
 	    break;
+    default:
+	    return NULL;
     }
 
     context = malloc(sizeof *context);
@@ -660,7 +663,7 @@ dri2CreateNewContextForAPI(__DRIscreen *screen, int api,
     context->driDrawablePriv = NULL;
     context->loaderPrivate = data;
     
-    if (!(*screen->DriverAPI.CreateContext)(api, &config->modes,
+    if (!(*screen->DriverAPI.CreateContext)(mesa_api, modes,
 					    context, shareCtx) ) {
         free(context);
         return NULL;
@@ -707,6 +710,8 @@ static void driDestroyScreen(__DRIscreen *psp)
 	 * stream open to the X-server anymore.
 	 */
 
+       _mesa_destroy_shader_compiler();
+
 	if (psp->DriverAPI.DestroyScreen)
 	    (*psp->DriverAPI.DestroyScreen)(psp);
 
@@ -714,6 +719,9 @@ static void driDestroyScreen(__DRIscreen *psp)
 	   (void)drmUnmap((drmAddress)psp->pSAREA, SAREA_MAX);
 	   (void)drmUnmap((drmAddress)psp->pFB, psp->fbSize);
 	   (void)drmCloseOnce(psp->fd);
+	} else {
+	   driDestroyOptionCache(&psp->optionCache);
+	   driDestroyOptionInfo(&psp->optionInfo);
 	}
 
 	free(psp);
@@ -746,7 +754,7 @@ setupLoaderExtensions(__DRIscreen *psp,
  * This is the bootstrap function for the driver.  libGL supplies all of the
  * requisite information about the system, and the driver initializes itself.
  * This routine also fills in the linked list pointed to by \c driver_modes
- * with the \c __GLcontextModes that the driver can support for windows or
+ * with the \c struct gl_config that the driver can support for windows or
  * pbuffers.
  *
  * For legacy DRI.
@@ -839,7 +847,6 @@ dri2CreateNewScreen(int scrn, int fd,
     static const __DRIextension *emptyExtensionList[] = { NULL };
     __DRIscreen *psp;
     drmVersionPtr version;
-    driOptionCache options;
 
     if (driDriverAPI.InitScreen2 == NULL)
         return NULL;
@@ -872,9 +879,12 @@ dri2CreateNewScreen(int scrn, int fd,
     }
 
     psp->DriverAPI = driDriverAPI;
+    psp->loaderPrivate = data;
 
-    driParseOptionInfo(&options, __dri2ConfigOptions, __dri2NConfigOptions);
-    driParseConfigFiles(&psp->optionCache, &options, psp->myNum, "dri2");
+    driParseOptionInfo(&psp->optionInfo, __dri2ConfigOptions,
+		       __dri2NConfigOptions);
+    driParseConfigFiles(&psp->optionCache, &psp->optionInfo, psp->myNum,
+			"dri2");
 
     return psp;
 }

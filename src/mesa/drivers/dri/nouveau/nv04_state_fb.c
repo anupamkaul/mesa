@@ -47,7 +47,7 @@ get_rt_format(gl_format format)
 }
 
 void
-nv04_emit_framebuffer(GLcontext *ctx, int emit)
+nv04_emit_framebuffer(struct gl_context *ctx, int emit)
 {
 	struct nouveau_channel *chan = context_chan(ctx);
 	struct nouveau_hw_state *hw = &to_nouveau_context(ctx)->hw;
@@ -97,7 +97,7 @@ nv04_emit_framebuffer(GLcontext *ctx, int emit)
 }
 
 void
-nv04_emit_scissor(GLcontext *ctx, int emit)
+nv04_emit_scissor(struct gl_context *ctx, int emit)
 {
 	struct nouveau_channel *chan = context_chan(ctx);
 	struct nouveau_hw_state *hw = &to_nouveau_context(ctx)->hw;
@@ -110,7 +110,11 @@ nv04_emit_scissor(GLcontext *ctx, int emit)
 	OUT_RING(chan, w << 16 | x);
 	OUT_RING(chan, h << 16 | y);
 
-	/* Messing with surf3d invalidates some engine state. */
+	/* Messing with surf3d invalidates the engine state. */
+	context_dirty_i(ctx, TEX_ENV, 0);
+	context_dirty_i(ctx, TEX_ENV, 1);
+	context_dirty_i(ctx, TEX_OBJ, 0);
+	context_dirty_i(ctx, TEX_OBJ, 1);
 	context_dirty(ctx, CONTROL);
 	context_dirty(ctx, BLEND);
 }

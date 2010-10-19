@@ -55,12 +55,20 @@ lp_build_broadcast_scalar(struct lp_build_context *bld,
                           LLVMValueRef scalar);
 
 
+LLVMValueRef
+lp_build_extract_broadcast(LLVMBuilderRef builder,
+                           struct lp_type src_type,
+                           struct lp_type dst_type,
+                           LLVMValueRef vector,
+                           LLVMValueRef index);
+
+
 /**
  * Broadcast one channel of a vector composed of arrays of XYZW structures into
  * all four channel.
  */
 LLVMValueRef
-lp_build_broadcast_aos(struct lp_build_context *bld,
+lp_build_swizzle_scalar_aos(struct lp_build_context *bld,
                        LLVMValueRef a,
                        unsigned channel);
 

@@ -47,7 +47,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_reg.h"
 #include "r600_cmdbuf.h"
 #include "radeon_bocs_wrapper.h"
-#include "radeon_reg.h"
 
 #ifdef HAVE_LIBDRM_RADEON
 #include "radeon_cs_int.h"
@@ -473,7 +472,14 @@ void r600InitCmdBuf(context_t *r600) /* from rcommonInitCmdBuf */
 	radeonContextPtr rmesa = &r600->radeon;
 	GLuint size;
 
-	r600InitAtoms(r600);
+    if(r600->radeon.radeonScreen->chip_family >= CHIP_FAMILY_CEDAR)
+    {
+        evergreenInitAtoms(r600);
+    }
+    else
+    {
+        r600InitAtoms(r600);
+    }	
 
 	/* Initialize command buffer */
 	size = 256 * driQueryOptioni(&rmesa->optionCache,

@@ -68,7 +68,7 @@ struct st_context
 {
    struct st_context_iface iface;
 
-   GLcontext *ctx;
+   struct gl_context *ctx;
 
    struct pipe_context *pipe;
 
@@ -149,7 +149,7 @@ struct st_context
    /** for glBitmap */
    struct {
       struct pipe_rasterizer_state rasterizer;
-      struct pipe_sampler_state sampler;
+      struct pipe_sampler_state samplers[2];
       enum pipe_format tex_format;
       void *vs;
       float vertices[4][3][4];  /**< vertex pos + color + texcoord */
@@ -160,7 +160,7 @@ struct st_context
 
    /** for glDraw/CopyPixels */
    struct {
-      struct st_fragment_program *z_shader;
+      struct st_fragment_program *shaders[4];
       void *vert_shaders[2];   /**< ureg shaders */
    } drawpix;
 
@@ -182,6 +182,7 @@ struct st_context
 
    void *passthrough_fs;  /**< simple pass-through frag shader */
 
+   enum pipe_texture_target internal_target;
    struct gen_mipmap_state *gen_mipmap;
    struct blit_state *blit;
 
@@ -194,19 +195,19 @@ struct st_context
 
 /* Need this so that we can implement Mesa callbacks in this module.
  */
-static INLINE struct st_context *st_context(GLcontext *ctx)
+static INLINE struct st_context *st_context(struct gl_context *ctx)
 {
    return ctx->st;
 }
 
 
 /**
- * Wrapper for GLframebuffer.
+ * Wrapper for struct gl_framebuffer.
  * This is an opaque type to the outside world.
  */
 struct st_framebuffer
 {
-   GLframebuffer Base;
+   struct gl_framebuffer Base;
    void *Private;
 
    struct st_framebuffer_iface *iface;
@@ -218,7 +219,7 @@ struct st_framebuffer
 
 extern void st_init_driver_functions(struct dd_function_table *functions);
 
-void st_invalidate_state(GLcontext * ctx, GLuint new_state);
+void st_invalidate_state(struct gl_context * ctx, GLuint new_state);
 
 
 
@@ -259,7 +260,7 @@ st_get_msaa(void);
 
 extern struct st_context *
 st_create_context(gl_api api, struct pipe_context *pipe,
-                  const __GLcontextModes *visual,
+                  const struct gl_config *visual,
                   struct st_context *share);
 
 extern void

@@ -91,19 +91,14 @@
 #include "mtypes.h"
 #include "varray.h"
 #include "viewport.h"
-#if FEATURE_NV_vertex_program
-#include "nvprogram.h"
-#endif
-#if FEATURE_NV_fragment_program
+#if FEATURE_NV_vertex_program || FEATURE_NV_fragment_program
 #include "nvprogram.h"
 #endif
 #if FEATURE_ARB_shader_objects
 #include "shaderapi.h"
 #include "uniforms.h"
 #endif
-#if FEATURE_ARB_sync
 #include "syncobj.h"
-#endif
 #include "main/dispatch.h"
 
 
@@ -226,8 +221,6 @@ _mesa_create_exec_table(void)
    SET_ClearIndex(exec, _mesa_ClearIndex);
    SET_ClipPlane(exec, _mesa_ClipPlane);
    SET_ColorMaterial(exec, _mesa_ColorMaterial);
-   SET_CullParameterfvEXT(exec, _mesa_CullParameterfvEXT);
-   SET_CullParameterdvEXT(exec, _mesa_CullParameterdvEXT);
    SET_DepthFunc(exec, _mesa_DepthFunc);
    SET_DepthMask(exec, _mesa_DepthMask);
    SET_DepthRange(exec, _mesa_DepthRange);
@@ -637,15 +630,7 @@ _mesa_create_exec_table(void)
 #endif
 
    /* GL_ARB_sync */
-#if FEATURE_ARB_sync
-   SET_IsSync(exec, _mesa_IsSync);
-   SET_DeleteSync(exec, _mesa_DeleteSync);
-   SET_FenceSync(exec, _mesa_FenceSync);
-   SET_ClientWaitSync(exec, _mesa_ClientWaitSync);
-   SET_WaitSync(exec, _mesa_WaitSync);
-   SET_GetInteger64v(exec, _mesa_GetInteger64v);
-   SET_GetSynciv(exec, _mesa_GetSynciv);
-#endif
+   _mesa_init_sync_dispatch(exec);
 
   /* GL_ATI_fragment_shader */
    _mesa_init_ati_fragment_shader_dispatch(exec);

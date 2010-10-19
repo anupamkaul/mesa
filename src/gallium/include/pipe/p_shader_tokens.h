@@ -33,8 +33,6 @@
 extern "C" {
 #endif
 
-#include "p_compiler.h"
-
 
 struct tgsi_header
 {
@@ -145,7 +143,8 @@ struct tgsi_declaration_dimension
 #define TGSI_SEMANTIC_EDGEFLAG   8
 #define TGSI_SEMANTIC_PRIMID     9
 #define TGSI_SEMANTIC_INSTANCEID 10
-#define TGSI_SEMANTIC_COUNT      11 /**< number of semantic values */
+#define TGSI_SEMANTIC_STENCIL    11
+#define TGSI_SEMANTIC_COUNT      12 /**< number of semantic values */
 
 struct tgsi_declaration_semantic
 {
@@ -201,7 +200,7 @@ struct tgsi_property_data {
  * 
  * For more information on semantics of opcodes and
  * which APIs are known to use which opcodes, see
- * auxiliary/tgsi/tgsi-instruction-set.txt
+ * gallium/docs/source/tgsi.rst
  */
 #define TGSI_OPCODE_ARL                 0
 #define TGSI_OPCODE_MOV                 1

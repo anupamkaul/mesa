@@ -71,6 +71,10 @@
 static struct gl_framebuffer DummyFramebuffer;
 static struct gl_renderbuffer DummyRenderbuffer;
 
+/* We bind this framebuffer when applications pass a NULL
+ * drawable/surface in make current. */
+static struct gl_framebuffer IncompleteFramebuffer;
+
 
 #define IS_CUBE_FACE(TARGET) \
    ((TARGET) >= GL_TEXTURE_CUBE_MAP_POSITIVE_X && \
@@ -91,23 +95,27 @@ delete_dummy_framebuffer(struct gl_framebuffer *fb)
 
 
 void
-_mesa_init_fbobjects(GLcontext *ctx)
+_mesa_init_fbobjects(struct gl_context *ctx)
 {
+   _glthread_INIT_MUTEX(DummyFramebuffer.Mutex);
+   _glthread_INIT_MUTEX(DummyRenderbuffer.Mutex);
+   _glthread_INIT_MUTEX(IncompleteFramebuffer.Mutex);
    DummyFramebuffer.Delete = delete_dummy_framebuffer;
    DummyRenderbuffer.Delete = delete_dummy_renderbuffer;
+   IncompleteFramebuffer.Delete = delete_dummy_framebuffer;
 }
 
 struct gl_framebuffer *
 _mesa_get_incomplete_framebuffer(void)
 {
-   return &DummyFramebuffer;
+   return &IncompleteFramebuffer;
 }
 
 /**
  * Helper routine for getting a gl_renderbuffer.
  */
 struct gl_renderbuffer *
-_mesa_lookup_renderbuffer(GLcontext *ctx, GLuint id)
+_mesa_lookup_renderbuffer(struct gl_context *ctx, GLuint id)
 {
    struct gl_renderbuffer *rb;
 
@@ -124,7 +132,7 @@ _mesa_lookup_renderbuffer(GLcontext *ctx, GLuint id)
  * Helper routine for getting a gl_framebuffer.
  */
 struct gl_framebuffer *
-_mesa_lookup_framebuffer(GLcontext *ctx, GLuint id)
+_mesa_lookup_framebuffer(struct gl_context *ctx, GLuint id)
 {
    struct gl_framebuffer *fb;
 
@@ -158,7 +166,7 @@ invalidate_framebuffer(struct gl_framebuffer *fb)
  * the depth buffer attachment point.
  */
 struct gl_renderbuffer_attachment *
-_mesa_get_attachment(GLcontext *ctx, struct gl_framebuffer *fb,
+_mesa_get_attachment(struct gl_context *ctx, struct gl_framebuffer *fb,
                      GLenum attachment)
 {
    GLuint i;
@@ -208,7 +216,7 @@ _mesa_get_attachment(GLcontext *ctx, struct gl_framebuffer *fb,
  * window-system framebuffer (not user-created framebuffer objects).
  */
 static struct gl_renderbuffer_attachment *
-_mesa_get_fb0_attachment(GLcontext *ctx, struct gl_framebuffer *fb,
+_mesa_get_fb0_attachment(struct gl_context *ctx, struct gl_framebuffer *fb,
                          GLenum attachment)
 {
    assert(fb->Name == 0);
@@ -247,7 +255,7 @@ _mesa_get_fb0_attachment(GLcontext *ctx, struct gl_framebuffer *fb,
  * point.  Update reference counts, etc.
  */
 void
-_mesa_remove_attachment(GLcontext *ctx, struct gl_renderbuffer_attachment *att)
+_mesa_remove_attachment(struct gl_context *ctx, struct gl_renderbuffer_attachment *att)
 {
    if (att->Type == GL_TEXTURE) {
       ASSERT(att->Texture);
@@ -273,7 +281,7 @@ _mesa_remove_attachment(GLcontext *ctx, struct gl_renderbuffer_attachment *att)
  * The previous binding, if any, will be removed first.
  */
 void
-_mesa_set_texture_attachment(GLcontext *ctx,
+_mesa_set_texture_attachment(struct gl_context *ctx,
                              struct gl_framebuffer *fb,
                              struct gl_renderbuffer_attachment *att,
                              struct gl_texture_object *texObj,
@@ -314,7 +322,7 @@ _mesa_set_texture_attachment(GLcontext *ctx,
  * The previous binding, if any, will be removed first.
  */
 void
-_mesa_set_renderbuffer_attachment(GLcontext *ctx,
+_mesa_set_renderbuffer_attachment(struct gl_context *ctx,
                                   struct gl_renderbuffer_attachment *att,
                                   struct gl_renderbuffer *rb)
 {
@@ -332,7 +340,7 @@ _mesa_set_renderbuffer_attachment(GLcontext *ctx,
  * Attach a renderbuffer object to a framebuffer object.
  */
 void
-_mesa_framebuffer_renderbuffer(GLcontext *ctx, struct gl_framebuffer *fb,
+_mesa_framebuffer_renderbuffer(struct gl_context *ctx, struct gl_framebuffer *fb,
                                GLenum attachment, struct gl_renderbuffer *rb)
 {
    struct gl_renderbuffer_attachment *att;
@@ -398,7 +406,7 @@ fbo_incomplete(const char *msg, int index)
  *               if GL_STENCIL, this is a stencil component attachment point.
  */
 static void
-test_attachment_completeness(const GLcontext *ctx, GLenum format,
+test_attachment_completeness(const struct gl_context *ctx, GLenum format,
                              struct gl_renderbuffer_attachment *att)
 {
    assert(format == GL_COLOR || format == GL_DEPTH || format == GL_STENCIL);
@@ -443,7 +451,11 @@ test_attachment_completeness(const GLcontext *ctx, GLenum format,
          if (baseFormat != GL_RGB &&
              baseFormat != GL_RGBA &&
 	     (!ctx->Extensions.ARB_framebuffer_object ||
-	      baseFormat != GL_ALPHA)) {
+	      baseFormat != GL_ALPHA) &&
+	     (!ctx->Extensions.ARB_texture_rg ||
+	      baseFormat != GL_RED) &&
+	     (!ctx->Extensions.ARB_texture_rg ||
+	      baseFormat != GL_RG)) {
             att_incomplete("bad format");
             att->Complete = GL_FALSE;
             return;
@@ -551,7 +563,7 @@ test_attachment_completeness(const GLcontext *ctx, GLenum format,
  * framebuffer is complete.
  */
 void
-_mesa_test_framebuffer_completeness(GLcontext *ctx, struct gl_framebuffer *fb)
+_mesa_test_framebuffer_completeness(struct gl_context *ctx, struct gl_framebuffer *fb)
 {
    GLuint numImages;
    GLenum intFormat = GL_NONE; /* color buffers' internal format */
@@ -623,7 +635,9 @@ _mesa_test_framebuffer_completeness(GLcontext *ctx, struct gl_framebuffer *fb)
          numImages++;
          if (f != GL_RGB && f != GL_RGBA && f != GL_DEPTH_COMPONENT
              && f != GL_DEPTH_STENCIL_EXT
-	     && (!ctx->Extensions.ARB_framebuffer_object || f != GL_ALPHA)) {
+	     && (!ctx->Extensions.ARB_framebuffer_object || f != GL_ALPHA)
+	     && (!ctx->Extensions.ARB_texture_rg || f != GL_RED)
+	     && (!ctx->Extensions.ARB_texture_rg || f != GL_RG)) {
             fb->_Status = GL_FRAMEBUFFER_INCOMPLETE_FORMATS_EXT;
             fbo_incomplete("texture attachment incomplete", -1);
             return;
@@ -819,7 +833,7 @@ _mesa_BindRenderbufferEXT(GLenum target, GLuint renderbuffer)
  * The spec calls for unbinding.
  */
 static void
-detach_renderbuffer(GLcontext *ctx,
+detach_renderbuffer(struct gl_context *ctx,
                     struct gl_framebuffer *fb,
                     struct gl_renderbuffer *rb)
 {
@@ -920,9 +934,15 @@ _mesa_GenRenderbuffersEXT(GLsizei n, GLuint *renderbuffers)
  * we'll also return GL_RED and GL_RG.
  */
 GLenum
-_mesa_base_fbo_format(GLcontext *ctx, GLenum internalFormat)
+_mesa_base_fbo_format(struct gl_context *ctx, GLenum internalFormat)
 {
    switch (internalFormat) {
+   case GL_ALPHA:
+   case GL_ALPHA4:
+   case GL_ALPHA8:
+   case GL_ALPHA12:
+   case GL_ALPHA16:
+      return GL_ALPHA;
    case GL_RGB:
    case GL_R3_G3_B2:
    case GL_RGB4:
@@ -1020,7 +1040,7 @@ renderbuffer_storage(GLenum target, GLenum internalFormat,
 
    rb = ctx->CurrentRenderbuffer;
    if (!rb) {
-      _mesa_error(ctx, GL_INVALID_OPERATION, func);
+      _mesa_error(ctx, GL_INVALID_OPERATION, "%s", func);
       return;
    }
 
@@ -1267,7 +1287,7 @@ _mesa_IsFramebufferEXT(GLuint framebuffer)
  * attachments.
  */
 static void
-check_begin_texture_render(GLcontext *ctx, struct gl_framebuffer *fb)
+check_begin_texture_render(struct gl_context *ctx, struct gl_framebuffer *fb)
 {
    GLuint i;
    ASSERT(ctx->Driver.RenderTexture);
@@ -1292,7 +1312,7 @@ check_begin_texture_render(GLcontext *ctx, struct gl_framebuffer *fb)
  * notify the device driver that the texture image may have changed.
  */
 static void
-check_end_texture_render(GLcontext *ctx, struct gl_framebuffer *fb)
+check_end_texture_render(struct gl_context *ctx, struct gl_framebuffer *fb)
 {
    if (fb->Name == 0)
       return; /* can't render to texture with winsys framebuffers */
@@ -1586,7 +1606,7 @@ _mesa_CheckFramebufferStatusEXT(GLenum target)
  * Common code called by glFramebufferTexture1D/2D/3DEXT().
  */
 static void
-framebuffer_texture(GLcontext *ctx, const char *caller, GLenum target, 
+framebuffer_texture(struct gl_context *ctx, const char *caller, GLenum target, 
                     GLenum attachment, GLenum textarget, GLuint texture,
                     GLint level, GLint zoffset)
 {

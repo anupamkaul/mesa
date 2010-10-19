@@ -224,14 +224,14 @@ set_render_target(context_t *context, struct radeon_bo *bo, gl_format mesa_forma
             break;
     case MESA_FORMAT_RGBA_FLOAT32:
             format = COLOR_32_32_32_32_FLOAT;
-            comp_swap = SWAP_STD_REV;
+            comp_swap = SWAP_STD;
 	    SETbit(cb_color0_info, BLEND_FLOAT32_bit);
 	    CLEARbit(cb_color0_info, SOURCE_FORMAT_bit);
 	    SETfield(cb_color0_info, NUMBER_FLOAT, NUMBER_TYPE_shift, NUMBER_TYPE_mask);
             break;
     case MESA_FORMAT_RGBA_FLOAT16:
             format = COLOR_16_16_16_16_FLOAT;
-            comp_swap = SWAP_STD_REV;
+            comp_swap = SWAP_STD;
 	    CLEARbit(cb_color0_info, SOURCE_FORMAT_bit);
 	    SETfield(cb_color0_info, NUMBER_FLOAT, NUMBER_TYPE_shift, NUMBER_TYPE_mask);
             break;
@@ -408,7 +408,7 @@ set_render_target(context_t *context, struct radeon_bo *bo, gl_format mesa_forma
 
 }
 
-static inline void load_shaders(GLcontext * ctx)
+static inline void load_shaders(struct gl_context * ctx)
 {
 
     radeonContextPtr radeonctx = RADEON_CONTEXT(ctx);
@@ -554,9 +554,9 @@ set_vtx_resource(context_t *context)
     R600_OUT_BATCH(0);
     R600_OUT_BATCH(0);
     R600_OUT_BATCH(SQ_TEX_VTX_VALID_BUFFER << SQ_TEX_RESOURCE_WORD6_0__TYPE_shift);
-    R600_OUT_BATCH_RELOC(SQ_VTX_CONSTANT_WORD0_0,
+    R600_OUT_BATCH_RELOC(0,
                          bo,
-                         SQ_VTX_CONSTANT_WORD0_0,
+                         0,
                          RADEON_GEM_DOMAIN_GTT, 0, 0);
     END_BATCH();
     COMMIT_BATCH();
@@ -1454,7 +1454,7 @@ set_default_state(context_t *context)
 	    SETbit(sq_dyn_gpr_cntl_ps_flush_req, VS_PC_LIMIT_ENABLE_bit);
     }
 
-    BEGIN_BATCH_NO_AUTOSTATE(117);
+    BEGIN_BATCH_NO_AUTOSTATE(120);
     R600_OUT_BATCH_REGSEQ(SQ_CONFIG, 6);
     R600_OUT_BATCH(sq_config);
     R600_OUT_BATCH(sq_gpr_resource_mgmt_1);
@@ -1499,9 +1499,10 @@ set_default_state(context_t *context)
     R600_OUT_BATCH_REGVAL(PA_SU_VTX_CNTL, (PIX_CENTER_bit) |
         (X_ROUND_TO_EVEN << PA_SU_VTX_CNTL__ROUND_MODE_shift) |
         (X_1_256TH << QUANT_MODE_shift));
+    R600_OUT_BATCH_REGVAL(PA_SC_AA_CONFIG, 0);
 
     R600_OUT_BATCH_REGSEQ(VGT_MAX_VTX_INDX, 4);
-    R600_OUT_BATCH(2048);
+    R600_OUT_BATCH(0xffffff);
     R600_OUT_BATCH(0);
     R600_OUT_BATCH(0);
     R600_OUT_BATCH(0);
@@ -1565,7 +1566,7 @@ static GLboolean validate_buffers(context_t *rmesa,
     return GL_TRUE;
 }
 
-unsigned r600_blit(GLcontext *ctx,
+unsigned r600_blit(struct gl_context *ctx,
                    struct radeon_bo *src_bo,
                    intptr_t src_offset,
                    gl_format src_mesaformat,
@@ -1614,7 +1615,7 @@ unsigned r600_blit(GLcontext *ctx,
     /* Flush is needed to make sure that source buffer has correct data */
     radeonFlush(ctx);
 
-    rcommonEnsureCmdBufSpace(&context->radeon, 308, __FUNCTION__);
+    rcommonEnsureCmdBufSpace(&context->radeon, 311, __FUNCTION__);
 
     /* load shaders */
     load_shaders(context->radeon.glCtx);
@@ -1623,7 +1624,7 @@ unsigned r600_blit(GLcontext *ctx,
         return GL_FALSE;
 
     /* set clear state */
-    /* 117 */
+    /* 120 */
     set_default_state(context);
 
     /* shaders */

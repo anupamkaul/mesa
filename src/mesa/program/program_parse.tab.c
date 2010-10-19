@@ -5589,7 +5589,7 @@ yyerror(YYLTYPE *locp, struct asm_parser_state *state, const char *s)
 
    err_str = make_error_string("glProgramStringARB(%s)\n", s);
    if (err_str) {
-      _mesa_error(state->ctx, GL_INVALID_OPERATION, err_str);
+      _mesa_error(state->ctx, GL_INVALID_OPERATION, "%s", err_str);
       free(err_str);
    }
 
@@ -5604,7 +5604,7 @@ yyerror(YYLTYPE *locp, struct asm_parser_state *state, const char *s)
 
 
 GLboolean
-_mesa_parse_arb_program(GLcontext *ctx, GLenum target, const GLubyte *str,
+_mesa_parse_arb_program(struct gl_context *ctx, GLenum target, const GLubyte *str,
 			GLsizei len, struct asm_parser_state *state)
 {
    struct asm_instruction *inst;

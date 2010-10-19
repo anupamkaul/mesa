@@ -44,6 +44,7 @@
 #include "tgsi/tgsi_dump.h"
 
 #include "util/u_cpu_detect.h"
+#include "util/u_math.h"
 #include "util/u_pointer.h"
 #include "util/u_string.h"
 
@@ -71,12 +72,17 @@ init_globals(struct draw_llvm *llvm)
       elem_types[DRAW_JIT_TEXTURE_DEPTH] = LLVMInt32Type();
       elem_types[DRAW_JIT_TEXTURE_LAST_LEVEL] = LLVMInt32Type();
       elem_types[DRAW_JIT_TEXTURE_ROW_STRIDE] =
-         LLVMArrayType(LLVMInt32Type(), DRAW_MAX_TEXTURE_LEVELS);
+         LLVMArrayType(LLVMInt32Type(), PIPE_MAX_TEXTURE_LEVELS);
       elem_types[DRAW_JIT_TEXTURE_IMG_STRIDE] =
-         LLVMArrayType(LLVMInt32Type(), DRAW_MAX_TEXTURE_LEVELS);
+         LLVMArrayType(LLVMInt32Type(), PIPE_MAX_TEXTURE_LEVELS);
       elem_types[DRAW_JIT_TEXTURE_DATA] =
          LLVMArrayType(LLVMPointerType(LLVMInt8Type(), 0),
-                       DRAW_MAX_TEXTURE_LEVELS);
+                       PIPE_MAX_TEXTURE_LEVELS);
+      elem_types[DRAW_JIT_TEXTURE_MIN_LOD] = LLVMFloatType();
+      elem_types[DRAW_JIT_TEXTURE_MAX_LOD] = LLVMFloatType();
+      elem_types[DRAW_JIT_TEXTURE_LOD_BIAS] = LLVMFloatType();
+      elem_types[DRAW_JIT_TEXTURE_BORDER_COLOR] = 
+         LLVMArrayType(LLVMFloatType(), 4);
 
       texture_type = LLVMStructType(elem_types, Elements(elem_types), 0);
 
@@ -101,6 +107,18 @@ init_globals(struct draw_llvm *llvm)
       LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, data,
                              llvm->target, texture_type,
                              DRAW_JIT_TEXTURE_DATA);
+      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, min_lod,
+                             llvm->target, texture_type,
+                             DRAW_JIT_TEXTURE_MIN_LOD);
+      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, max_lod,
+                             llvm->target, texture_type,
+                             DRAW_JIT_TEXTURE_MAX_LOD);
+      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, lod_bias,
+                             llvm->target, texture_type,
+                             DRAW_JIT_TEXTURE_LOD_BIAS);
+      LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, border_color,
+                             llvm->target, texture_type,
+                             DRAW_JIT_TEXTURE_BORDER_COLOR);
       LP_CHECK_STRUCT_SIZE(struct draw_jit_texture,
                            llvm->target, texture_type);
 
@@ -210,13 +228,6 @@ draw_llvm_create(struct draw_context *draw)
 {
    struct draw_llvm *llvm;
 
-#ifdef PIPE_ARCH_X86
-   util_cpu_detect();
-   /* require SSE2 due to LLVM PR6960. */
-   if (!util_cpu_caps.has_sse2)
-       return NULL;
-#endif
-
    llvm = CALLOC_STRUCT( draw_llvm );
    if (!llvm)
       return NULL;
@@ -292,15 +303,23 @@ draw_llvm_destroy(struct draw_llvm *llvm)
 }
 
 struct draw_llvm_variant *
-draw_llvm_create_variant(struct draw_llvm *llvm, int num_inputs)
+draw_llvm_create_variant(struct draw_llvm *llvm,
+			 unsigned num_inputs,
+			 const struct draw_llvm_variant_key *key)
 {
-   struct draw_llvm_variant *variant = MALLOC(sizeof(struct draw_llvm_variant));
+   struct draw_llvm_variant *variant;
    struct llvm_vertex_shader *shader =
       llvm_vertex_shader(llvm->draw->vs.vertex_shader);
 
+   variant = MALLOC(sizeof *variant +
+		    shader->variant_key_size -
+		    sizeof variant->key);
+   if (variant == NULL)
+      return NULL;
+
    variant->llvm = llvm;
 
-   draw_llvm_make_variant_key(llvm, &variant->key);
+   memcpy(&variant->key, key, shader->variant_key_size);
 
    llvm->vertex_header_ptr_type = create_vertex_header(llvm, num_inputs);
 
@@ -738,8 +757,9 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    step = LLVMConstInt(LLVMInt32Type(), max_vertices, 0);
 
    /* code generated texture sampling */
-   sampler = draw_llvm_sampler_soa_create(variant->key.sampler,
-                                          context_ptr);
+   sampler = draw_llvm_sampler_soa_create(
+      draw_llvm_variant_key_samplers(&variant->key),
+      context_ptr);
 
 #if DEBUG_STORE
    lp_build_printf(builder, "start = %d, end = %d, step = %d\n",
@@ -901,8 +921,9 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    step = LLVMConstInt(LLVMInt32Type(), max_vertices, 0);
 
    /* code generated texture sampling */
-   sampler = draw_llvm_sampler_soa_create(variant->key.sampler,
-                                          context_ptr);
+   sampler = draw_llvm_sampler_soa_create(
+      draw_llvm_variant_key_samplers(&variant->key),
+      context_ptr);
 
    fetch_max = LLVMBuildSub(builder, fetch_count,
                             LLVMConstInt(LLVMInt32Type(), 1, 0),
@@ -1002,35 +1023,42 @@ draw_llvm_generate_elts(struct draw_llvm *llvm, struct draw_llvm_variant *varian
    lp_func_delete_body(variant->function_elts);
 }
 
-void
-draw_llvm_make_variant_key(struct draw_llvm *llvm,
-                           struct draw_llvm_variant_key *key)
+
+struct draw_llvm_variant_key *
+draw_llvm_make_variant_key(struct draw_llvm *llvm, char *store)
 {
    unsigned i;
+   struct draw_llvm_variant_key *key;
+   struct lp_sampler_static_state *sampler;
 
-   memset(key, 0, sizeof(struct draw_llvm_variant_key));
+   key = (struct draw_llvm_variant_key *)store;
 
+   /* Presumably all variants of the shader should have the same
+    * number of vertex elements - ie the number of shader inputs.
+    */
    key->nr_vertex_elements = llvm->draw->pt.nr_vertex_elements;
+
+   /* All variants of this shader will have the same value for
+    * nr_samplers.  Not yet trying to compact away holes in the
+    * sampler array.
+    */
+   key->nr_samplers = llvm->draw->vs.vertex_shader->info.file_max[TGSI_FILE_SAMPLER] + 1;
+
+   sampler = draw_llvm_variant_key_samplers(key);
 
    memcpy(key->vertex_element,
           llvm->draw->pt.vertex_element,
           sizeof(struct pipe_vertex_element) * key->nr_vertex_elements);
+   
+   memset(sampler, 0, key->nr_samplers * sizeof *sampler);
 
-   memcpy(&key->vs,
-          &llvm->draw->vs.vertex_shader->state,
-          sizeof(struct pipe_shader_state));
-
-   /* if the driver implemented the sampling hooks then
-    * setup our sampling state */
-   if (llvm->draw->num_sampler_views && llvm->draw->num_samplers) {
-      for(i = 0; i < PIPE_MAX_VERTEX_SAMPLERS; ++i) {
-         struct draw_vertex_shader *shader = llvm->draw->vs.vertex_shader;
-         if(shader->info.file_mask[TGSI_FILE_SAMPLER] & (1 << i))
-            lp_sampler_static_state(&key->sampler[i],
-                                    llvm->draw->sampler_views[i],
-                                    llvm->draw->samplers[i]);
-      }
+   for (i = 0 ; i < key->nr_samplers; i++) {
+      lp_sampler_static_state(&sampler[i],
+			      llvm->draw->sampler_views[i],
+			      llvm->draw->samplers[i]);
    }
+
+   return key;
 }
 
 void
@@ -1038,9 +1066,9 @@ draw_llvm_set_mapped_texture(struct draw_context *draw,
                              unsigned sampler_idx,
                              uint32_t width, uint32_t height, uint32_t depth,
                              uint32_t last_level,
-                             uint32_t row_stride[DRAW_MAX_TEXTURE_LEVELS],
-                             uint32_t img_stride[DRAW_MAX_TEXTURE_LEVELS],
-                             const void *data[DRAW_MAX_TEXTURE_LEVELS])
+                             uint32_t row_stride[PIPE_MAX_TEXTURE_LEVELS],
+                             uint32_t img_stride[PIPE_MAX_TEXTURE_LEVELS],
+                             const void *data[PIPE_MAX_TEXTURE_LEVELS])
 {
    unsigned j;
    struct draw_jit_texture *jit_tex;
@@ -1061,6 +1089,25 @@ draw_llvm_set_mapped_texture(struct draw_context *draw,
       jit_tex->img_stride[j] = img_stride[j];
    }
 }
+
+
+void
+draw_llvm_set_sampler_state(struct draw_context *draw)
+{
+   unsigned i;
+
+   for (i = 0; i < draw->num_samplers; i++) {
+      struct draw_jit_texture *jit_tex = &draw->llvm->jit_context.textures[i];
+
+      if (draw->samplers[i]) {
+         jit_tex->min_lod = draw->samplers[i]->min_lod;
+         jit_tex->max_lod = draw->samplers[i]->max_lod;
+         jit_tex->lod_bias = draw->samplers[i]->lod_bias;
+         COPY_4V(jit_tex->border_color, draw->samplers[i]->border_color);
+      }
+   }
+}
+
 
 void
 draw_llvm_destroy_variant(struct draw_llvm_variant *variant)

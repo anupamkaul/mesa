@@ -258,7 +258,7 @@ radeonFillInModes( __DRIscreen *psp,
 		   unsigned stencil_bits, GLboolean have_back_buffer )
 {
     __DRIconfig **configs;
-    __GLcontextModes *m;
+    struct gl_config *m;
     unsigned depth_buffer_factor;
     unsigned back_buffer_factor;
     int i;
@@ -916,6 +916,61 @@ static int radeon_set_screen_flags(radeonScreenPtr screen, int device_id)
       screen->chip_flags = RADEON_CHIPSET_TCL;
       break;
 
+    case PCI_CHIP_CEDAR_68E0:
+    case PCI_CHIP_CEDAR_68E1:
+    case PCI_CHIP_CEDAR_68E4:
+    case PCI_CHIP_CEDAR_68E5:
+    case PCI_CHIP_CEDAR_68E8:
+    case PCI_CHIP_CEDAR_68E9:
+    case PCI_CHIP_CEDAR_68F1:
+    case PCI_CHIP_CEDAR_68F8:
+    case PCI_CHIP_CEDAR_68F9:
+    case PCI_CHIP_CEDAR_68FE:
+       screen->chip_family = CHIP_FAMILY_CEDAR;
+       screen->chip_flags = RADEON_CHIPSET_TCL;
+       break;
+
+    case PCI_CHIP_REDWOOD_68C0:
+    case PCI_CHIP_REDWOOD_68C1:
+    case PCI_CHIP_REDWOOD_68C8:
+    case PCI_CHIP_REDWOOD_68C9:
+    case PCI_CHIP_REDWOOD_68D8:
+    case PCI_CHIP_REDWOOD_68D9:
+    case PCI_CHIP_REDWOOD_68DA:
+    case PCI_CHIP_REDWOOD_68DE:
+       screen->chip_family = CHIP_FAMILY_REDWOOD;
+       screen->chip_flags = RADEON_CHIPSET_TCL;
+       break;
+
+    case PCI_CHIP_JUNIPER_68A0:
+    case PCI_CHIP_JUNIPER_68A1:
+    case PCI_CHIP_JUNIPER_68A8:
+    case PCI_CHIP_JUNIPER_68A9:
+    case PCI_CHIP_JUNIPER_68B0:
+    case PCI_CHIP_JUNIPER_68B8:
+    case PCI_CHIP_JUNIPER_68B9:
+    case PCI_CHIP_JUNIPER_68BE:
+       screen->chip_family = CHIP_FAMILY_JUNIPER;
+       screen->chip_flags = RADEON_CHIPSET_TCL;
+       break;
+
+    case PCI_CHIP_CYPRESS_6880:
+    case PCI_CHIP_CYPRESS_6888:
+    case PCI_CHIP_CYPRESS_6889:
+    case PCI_CHIP_CYPRESS_688A:
+    case PCI_CHIP_CYPRESS_6898:
+    case PCI_CHIP_CYPRESS_6899:
+    case PCI_CHIP_CYPRESS_689E:
+       screen->chip_family = CHIP_FAMILY_CYPRESS;
+       screen->chip_flags = RADEON_CHIPSET_TCL;
+       break;
+
+    case PCI_CHIP_HEMLOCK_689C:
+    case PCI_CHIP_HEMLOCK_689D:
+       screen->chip_family = CHIP_FAMILY_HEMLOCK;
+       screen->chip_flags = RADEON_CHIPSET_TCL;
+       break;
+
    default:
       fprintf(stderr, "unknown chip id 0x%x, can't guess.\n",
 	      device_id);
@@ -1116,7 +1171,7 @@ radeonCreateScreen( __DRIscreen *sPriv )
             }
         }
         else
-        {
+        {            
             screen->fbLocation = (temp & 0xffff) << 16;
         }
    }
@@ -1528,7 +1583,7 @@ radeonInitDriver( __DRIscreen *sPriv )
 static GLboolean
 radeonCreateBuffer( __DRIscreen *driScrnPriv,
                     __DRIdrawable *driDrawPriv,
-                    const __GLcontextModes *mesaVis,
+                    const struct gl_config *mesaVis,
                     GLboolean isPixmap )
 {
     radeonScreenPtr screen = (radeonScreenPtr) driScrnPriv->private;
@@ -1636,7 +1691,7 @@ radeonDestroyBuffer(__DRIdrawable *driDrawPriv)
     if (!rfb)
 	return;
     radeon_cleanup_renderbuffers(rfb);
-    _mesa_reference_framebuffer((GLframebuffer **)(&(driDrawPriv->driverPrivate)), NULL);
+    _mesa_reference_framebuffer((struct gl_framebuffer **)(&(driDrawPriv->driverPrivate)), NULL);
 }
 
 
@@ -1645,7 +1700,7 @@ radeonDestroyBuffer(__DRIdrawable *driDrawPriv)
  *
  * \todo maybe fold this into intelInitDriver
  *
- * \return the __GLcontextModes supported by this driver
+ * \return the struct gl_config supported by this driver
  */
 static const __DRIconfig **
 radeonInitScreen(__DRIscreen *psp)
@@ -1695,7 +1750,7 @@ radeonInitScreen(__DRIscreen *psp)
  * This is the driver specific part of the createNewScreen entry point.
  * Called when using DRI2.
  *
- * \return the __GLcontextModes supported by this driver
+ * \return the struct gl_config supported by this driver
  */
 static const
 __DRIconfig **radeonInitScreen2(__DRIscreen *psp)
