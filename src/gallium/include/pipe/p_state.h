@@ -459,6 +459,9 @@ struct pipe_draw_info
    unsigned min_index; /**< the min index */
    unsigned max_index; /**< the max index */
 
+   /**
+    * Primitive restart enable/index (only applies to indexed drawing)
+    */
    boolean primitive_restart;
    unsigned restart_index;
 };
