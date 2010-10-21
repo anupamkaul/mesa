@@ -155,7 +155,7 @@ create_pass_manager(struct gallivm_state *gallivm)
 static void
 free_gallivm_state(struct gallivm_state *gallivm)
 {
-#if 0
+#if HAVE_LLVM >= 0x207 /* XXX or 0x208? */
    /* This leads to crashes w/ some versions of LLVM */
    LLVMModuleRef mod;
    char *error;
@@ -174,8 +174,10 @@ free_gallivm_state(struct gallivm_state *gallivm)
    if (gallivm->passmgr)
       LLVMDisposePassManager(gallivm->passmgr);
 
+#if HAVE_LLVM >= 0x207
    if (gallivm->module)
       LLVMDisposeModule(gallivm->module);
+#endif
 
 #if 0
    /* Don't free the exec engine, it's a global/singleton */
