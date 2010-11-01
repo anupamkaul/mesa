@@ -72,6 +72,8 @@ lp_jit_create_types(struct llvmpipe_context *lp)
       texture_type = LLVMStructTypeInContext(lc, elem_types,
                                              Elements(elem_types), 0);
 
+      LLVMInvalidateStructLayout(gallivm->target, texture_type);
+
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, width,
                              gallivm->target, texture_type,
                              LP_JIT_TEXTURE_WIDTH);
@@ -127,6 +129,8 @@ lp_jit_create_types(struct llvmpipe_context *lp)
 
       context_type = LLVMStructTypeInContext(lc, elem_types,
                                              Elements(elem_types), 0);
+
+      LLVMInvalidateStructLayout(gallivm->target, context_type);
 
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_context, constants,
                              gallivm->target, context_type,

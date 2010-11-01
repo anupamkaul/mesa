@@ -122,6 +122,11 @@ create_jit_texture_type(struct gallivm_state *gallivm)
    texture_type = LLVMStructTypeInContext(gallivm->context, elem_types,
                                           Elements(elem_types), 0);
 
+   /* Make sure the target's struct layout cache doesn't return
+    * stale/invalid data.
+    */
+   LLVMInvalidateStructLayout(gallivm->target, texture_type);
+
    LP_CHECK_MEMBER_OFFSET(struct draw_jit_texture, width,
                           target, texture_type,
                           DRAW_JIT_TEXTURE_WIDTH);
@@ -184,6 +189,8 @@ create_jit_context_type(struct gallivm_state *gallivm,
    context_type = LLVMStructTypeInContext(gallivm->context, elem_types,
                                           Elements(elem_types), 0);
 
+   LLVMInvalidateStructLayout(gallivm->target, context_type);
+
    LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, vs_constants,
                           target, context_type, 0);
    LP_CHECK_MEMBER_OFFSET(struct draw_jit_context, gs_constants,
@@ -218,6 +225,8 @@ create_jit_vertex_buffer_type(struct gallivm_state *gallivm)
    vb_type = LLVMStructTypeInContext(gallivm->context, elem_types,
                                      Elements(elem_types), 0);
 
+   LLVMInvalidateStructLayout(gallivm->target, vb_type);
+
    LP_CHECK_MEMBER_OFFSET(struct pipe_vertex_buffer, stride,
                           target, vb_type, 0);
    LP_CHECK_MEMBER_OFFSET(struct pipe_vertex_buffer, buffer_offset,
@@ -248,6 +257,8 @@ create_jit_vertex_header(struct gallivm_state *gallivm, int data_elems)
 
    vertex_header = LLVMStructTypeInContext(gallivm->context, elem_types,
                                            Elements(elem_types), 0);
+
+   LLVMInvalidateStructLayout(gallivm->target, vertex_header);
 
    /* these are bit-fields and we can't take address of them
       LP_CHECK_MEMBER_OFFSET(struct vertex_header, clipmask,
