@@ -841,23 +841,15 @@ store_clip(struct gallivm_state *gallivm,
    clip_ptr3 = draw_jit_header_clip(gallivm, io3_ptr);
 
    for (i = 0; i<4; i++){
-      clip0_ptr = LLVMBuildGEP(builder, clip_ptr0,
-                               indices, 2, ""); //x0
-      clip1_ptr = LLVMBuildGEP(builder, clip_ptr1,
-                               indices, 2, ""); //x1
-      clip2_ptr = LLVMBuildGEP(builder, clip_ptr2,
-                               indices, 2, ""); //x2
-      clip3_ptr = LLVMBuildGEP(builder, clip_ptr3,
-                               indices, 2, ""); //x3
+      clip0_ptr = LLVMBuildGEP(builder, clip_ptr0, indices, 2, ""); /* x0 */
+      clip1_ptr = LLVMBuildGEP(builder, clip_ptr1, indices, 2, ""); /* x1 */
+      clip2_ptr = LLVMBuildGEP(builder, clip_ptr2, indices, 2, ""); /* x2 */
+      clip3_ptr = LLVMBuildGEP(builder, clip_ptr3, indices, 2, ""); /* x3 */
 
-      out0elem = LLVMBuildExtractElement(builder, out[i],
-                                         ind0, ""); //x0
-      out1elem = LLVMBuildExtractElement(builder, out[i],
-                                         ind1, ""); //x1
-      out2elem = LLVMBuildExtractElement(builder, out[i],
-                                         ind2, ""); //x2
-      out3elem = LLVMBuildExtractElement(builder, out[i],
-                                         ind3, ""); //x3
+      out0elem = LLVMBuildExtractElement(builder, out[i], ind0, ""); /* x0 */
+      out1elem = LLVMBuildExtractElement(builder, out[i], ind1, ""); /* x1 */
+      out2elem = LLVMBuildExtractElement(builder, out[i], ind2, ""); /* x2 */
+      out3elem = LLVMBuildExtractElement(builder, out[i], ind3, ""); /* x3 */
   
       LLVMBuildStore(builder, out0elem, clip0_ptr);
       LLVMBuildStore(builder, out1elem, clip1_ptr);
