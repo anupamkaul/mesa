@@ -101,14 +101,15 @@ create_jit_texture_type(struct gallivm_state *gallivm)
    LLVMTargetDataRef target = gallivm->target;
    LLVMTypeRef texture_type;
    LLVMTypeRef elem_types[DRAW_JIT_TEXTURE_NUM_FIELDS];
+   LLVMTypeRef int32_type = LLVMInt32TypeInContext(gallivm->context);
 
    elem_types[DRAW_JIT_TEXTURE_WIDTH]  =
    elem_types[DRAW_JIT_TEXTURE_HEIGHT] =
    elem_types[DRAW_JIT_TEXTURE_DEPTH] =
-   elem_types[DRAW_JIT_TEXTURE_LAST_LEVEL] = LLVMInt32TypeInContext(gallivm->context);
+   elem_types[DRAW_JIT_TEXTURE_LAST_LEVEL] = int32_type;
    elem_types[DRAW_JIT_TEXTURE_ROW_STRIDE] =
    elem_types[DRAW_JIT_TEXTURE_IMG_STRIDE] =
-      LLVMArrayType(LLVMInt32TypeInContext(gallivm->context), PIPE_MAX_TEXTURE_LEVELS);
+      LLVMArrayType(int32_type, PIPE_MAX_TEXTURE_LEVELS);
    elem_types[DRAW_JIT_TEXTURE_DATA] =
       LLVMArrayType(LLVMPointerType(LLVMInt8TypeInContext(gallivm->context), 0),
                     PIPE_MAX_TEXTURE_LEVELS);
@@ -1119,14 +1120,13 @@ draw_llvm_generate(struct draw_llvm *llvm, struct draw_llvm_variant *variant)
    arg_types[0] = get_context_ptr_type(llvm);       /* context */
    arg_types[1] = get_vertex_header_ptr_type(llvm); /* vertex_header */
    arg_types[2] = get_buffer_ptr_type(llvm);        /* vbuffers */
-   arg_types[3] = LLVMInt32TypeInContext(context);  /* start */
-   arg_types[4] = LLVMInt32TypeInContext(context);  /* count */
-   arg_types[5] = LLVMInt32TypeInContext(context);  /* stride */
+   arg_types[3] = int32_type;                       /* start */
+   arg_types[4] = int32_type;                       /* count */
+   arg_types[5] = int32_type;                       /* stride */
    arg_types[6] = get_vb_ptr_type(llvm);            /* pipe_vertex_buffer's */
-   arg_types[7] = LLVMInt32TypeInContext(context);  /* instance_id */
+   arg_types[7] = int32_type;                       /* instance_id */
 
-   func_type = LLVMFunctionType(LLVMInt32TypeInContext(context),
-                                arg_types, Elements(arg_types), 0);
+   func_type = LLVMFunctionType(int32_type, arg_types, Elements(arg_types), 0);
 
    variant->function = LLVMAddFunction(gallivm->module, "draw_llvm_shader",
                                        func_type);
