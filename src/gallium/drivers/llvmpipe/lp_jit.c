@@ -180,33 +180,5 @@ lp_jit_get_context_type(struct llvmpipe_context *lp)
    if (!lp->jit_context_ptr_type)
       lp_jit_create_types(lp);
 
-#if 0000
-=======
-   screen->module = lp_build_module;
-   screen->provider = lp_build_provider;
-   screen->engine = lp_build_engine;
-   screen->target = lp_build_target;
-
-   screen->pass = LLVMCreateFunctionPassManager(screen->provider);
-   LLVMAddTargetData(screen->target, screen->pass);
-
-   if ((gallivm_debug & GALLIVM_DEBUG_NO_OPT) == 0) {
-      /* These are the passes currently listed in llvm-c/Transforms/Scalar.h,
-       * but there are more on SVN. */
-      /* TODO: Add more passes */
-      LLVMAddCFGSimplificationPass(screen->pass);
-      LLVMAddPromoteMemoryToRegisterPass(screen->pass);
-      LLVMAddConstantPropagationPass(screen->pass);
-      LLVMAddInstructionCombiningPass(screen->pass);
-      LLVMAddGVNPass(screen->pass);
-   } else {
-      /* We need at least this pass to prevent the backends to fail in
-       * unexpected ways.
-       */
-      LLVMAddPromoteMemoryToRegisterPass(screen->pass);
-   }
-
-#endif
-
    return lp->jit_context_ptr_type;
 }
