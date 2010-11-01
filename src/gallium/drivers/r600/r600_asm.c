@@ -20,14 +20,13 @@
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-#include "radeon.h"
-#include "r600_context.h"
+#include <stdio.h>
+#include <errno.h>
 #include "util/u_memory.h"
+#include "r600_pipe.h"
 #include "r600_sq.h"
 #include "r600_opcodes.h"
 #include "r600_asm.h"
-#include <stdio.h>
-#include <errno.h>
 
 static inline unsigned int r600_bc_get_num_operands(struct r600_bc_alu *alu)
 {
@@ -466,8 +465,7 @@ int r600_bc_add_alu_type(struct r600_bc *bc, const struct r600_bc_alu *alu, int 
 	bc->cf_last->ndw += 2;
 	bc->ndw += 2;
 
-	if (bc->use_mem_constant)
-		bc->cf_last->kcache0_mode = 2;
+	bc->cf_last->kcache0_mode = 2;
 
 	/* process cur ALU instructions for bank swizzle */
 	if (alu->last) {
@@ -602,7 +600,11 @@ static int r600_bc_vtx_build(struct r600_bc *bc, struct r600_bc_vtx *vtx, unsign
 				S_SQ_VTX_WORD1_DST_SEL_Y(vtx->dst_sel_y) |
 				S_SQ_VTX_WORD1_DST_SEL_Z(vtx->dst_sel_z) |
 				S_SQ_VTX_WORD1_DST_SEL_W(vtx->dst_sel_w) |
-				S_SQ_VTX_WORD1_USE_CONST_FIELDS(1) |
+				S_SQ_VTX_WORD1_USE_CONST_FIELDS(vtx->use_const_fields) |
+				S_SQ_VTX_WORD1_DATA_FORMAT(vtx->data_format) |
+				S_SQ_VTX_WORD1_NUM_FORMAT_ALL(vtx->num_format_all) |
+				S_SQ_VTX_WORD1_FORMAT_COMP_ALL(vtx->format_comp_all) |
+				S_SQ_VTX_WORD1_SRF_MODE_ALL(vtx->srf_mode_all) |
 				S_SQ_VTX_WORD1_GPR_DST_GPR(vtx->dst_gpr);
 	bc->bytecode[id++] = S_SQ_VTX_WORD2_MEGA_FETCH(1);
 	bc->bytecode[id++] = 0;
@@ -699,9 +701,14 @@ static int r600_bc_cf_build(struct r600_bc *bc, struct r600_bc_cf *cf)
 	case (V_SQ_CF_ALU_WORD1_SQ_CF_INST_ALU << 3):
 	case (V_SQ_CF_ALU_WORD1_SQ_CF_INST_ALU_PUSH_BEFORE << 3):
 		bc->bytecode[id++] = S_SQ_CF_ALU_WORD0_ADDR(cf->addr >> 1) |
-			S_SQ_CF_ALU_WORD0_KCACHE_MODE0(cf->kcache0_mode);
+			S_SQ_CF_ALU_WORD0_KCACHE_MODE0(cf->kcache0_mode) |
+			S_SQ_CF_ALU_WORD0_KCACHE_BANK0(cf->kcache0_bank) |
+			S_SQ_CF_ALU_WORD0_KCACHE_BANK1(cf->kcache1_bank);
 
 		bc->bytecode[id++] = S_SQ_CF_ALU_WORD1_CF_INST(cf->inst >> 3) |
+			S_SQ_CF_ALU_WORD1_KCACHE_MODE1(cf->kcache1_mode) |
+			S_SQ_CF_ALU_WORD1_KCACHE_ADDR0(cf->kcache0_addr) |
+			S_SQ_CF_ALU_WORD1_KCACHE_ADDR1(cf->kcache1_addr) |
 					S_SQ_CF_ALU_WORD1_BARRIER(1) |
 					S_SQ_CF_ALU_WORD1_USES_WATERFALL(bc->chiprev == 0 ? cf->r6xx_uses_waterfall : 0) |
 					S_SQ_CF_ALU_WORD1_COUNT((cf->ndw / 2) - 1);
@@ -868,4 +875,40 @@ int r600_bc_build(struct r600_bc *bc)
 		}
 	}
 	return 0;
+}
+
+void r600_bc_clear(struct r600_bc *bc)
+{
+	struct r600_bc_cf *cf = NULL, *next_cf;
+
+	free(bc->bytecode);
+	bc->bytecode = NULL;
+
+	LIST_FOR_EACH_ENTRY_SAFE(cf, next_cf, &bc->cf, list) {
+		struct r600_bc_alu *alu = NULL, *next_alu;
+		struct r600_bc_tex *tex = NULL, *next_tex;
+		struct r600_bc_tex *vtx = NULL, *next_vtx;
+
+		LIST_FOR_EACH_ENTRY_SAFE(alu, next_alu, &cf->alu, list) {
+			free(alu);
+		}
+
+		LIST_INITHEAD(&cf->alu);
+
+		LIST_FOR_EACH_ENTRY_SAFE(tex, next_tex, &cf->tex, list) {
+			free(tex);
+		}
+
+		LIST_INITHEAD(&cf->tex);
+
+		LIST_FOR_EACH_ENTRY_SAFE(vtx, next_vtx, &cf->vtx, list) {
+			free(vtx);
+		}
+
+		LIST_INITHEAD(&cf->vtx);
+
+		free(cf);
+	}
+
+	LIST_INITHEAD(&cf->list);
 }

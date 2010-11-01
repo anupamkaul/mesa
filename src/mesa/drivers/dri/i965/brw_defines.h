@@ -501,9 +501,26 @@
 #define BRW_MASK_ENABLE   0
 #define BRW_MASK_DISABLE  1
 
-/* Sandybridge is WECtrl (Write enable control) */
+/** @{
+ *
+ * Gen6 has replaced "mask enable/disable" with WECtrl, which is
+ * effectively the same but much simpler to think about.  Now, there
+ * are two contributors ANDed together to whether channels are
+ * executed: The predication on the instruction, and the channel write
+ * enable.
+ */
+/**
+ * This is the default value.  It means that a channel's write enable is set
+ * if the per-channel IP is pointing at this instruction.
+ */
 #define BRW_WE_NORMAL		0
-#define BRW_WE_KILL_PRED	1
+/**
+ * This is used like BRW_MASK_DISABLE, and causes all channels to have
+ * their write enable set.  Note that predication still contributes to
+ * whether the channel actually gets written.
+ */
+#define BRW_WE_ALL		1
+/** @} */
 
 #define BRW_OPCODE_MOV        1
 #define BRW_OPCODE_SEL        2
@@ -534,6 +551,7 @@
 #define BRW_OPCODE_POP        47
 #define BRW_OPCODE_WAIT       48
 #define BRW_OPCODE_SEND       49
+#define BRW_OPCODE_SENDC      50
 #define BRW_OPCODE_MATH       56
 #define BRW_OPCODE_ADD        64
 #define BRW_OPCODE_MUL        65
@@ -912,6 +930,11 @@
 #define CMD_3D_CLIP_STATE		      0x7812 /* GEN6+ */
 /* DW1 */
 # define GEN6_CLIP_STATISTICS_ENABLE			(1 << 10)
+/**
+ * Just does cheap culling based on the clip distance.  Bits must be
+ * disjoint with USER_CLIP_CLIP_DISTANCE bits.
+ */
+# define GEN6_USER_CLIP_CULL_DISTANCES_SHIFT		0
 /* DW2 */
 # define GEN6_CLIP_ENABLE				(1 << 31)
 # define GEN6_CLIP_API_OGL				(0 << 30)
@@ -919,6 +942,8 @@
 # define GEN6_CLIP_XY_TEST				(1 << 28)
 # define GEN6_CLIP_Z_TEST				(1 << 27)
 # define GEN6_CLIP_GB_TEST				(1 << 26)
+/** 8-bit field of which user clip distances to clip aganist. */
+# define GEN6_USER_CLIP_CLIP_DISTANCES_SHIFT		16
 # define GEN6_CLIP_MODE_NORMAL				(0 << 13)
 # define GEN6_CLIP_MODE_REJECT_ALL			(3 << 13)
 # define GEN6_CLIP_MODE_ACCEPT_ALL			(4 << 13)

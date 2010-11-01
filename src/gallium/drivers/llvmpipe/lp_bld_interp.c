@@ -208,7 +208,7 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
             dadq2 = LLVMBuildFAdd(builder, dadq, dadq, "");
 
             /*
-             * a = a0 + x * dadx + y * dady
+             * a = a0 + (x * dadx + y * dady)
              */
 
             if (attrib == 0 && chan == 0) {
@@ -221,11 +221,11 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
                a = a0;
                if (interp != LP_INTERP_CONSTANT &&
                    interp != LP_INTERP_FACING) {
-                  LLVMValueRef tmp;
-                  tmp = LLVMBuildFMul(builder, bld->x, dadx, "");
-                  a = LLVMBuildFAdd(builder, a, tmp, "");
-                  tmp = LLVMBuildFMul(builder, bld->y, dady, "");
-                  a = LLVMBuildFAdd(builder, a, tmp, "");
+                  LLVMValueRef ax, ay, axy;
+                  ax = LLVMBuildFMul(builder, bld->x, dadx, "");
+                  ay = LLVMBuildFMul(builder, bld->y, dady, "");
+                  axy = LLVMBuildFAdd(builder, ax, ay, "");
+                  a = LLVMBuildFAdd(builder, a, axy, "");
                }
             }
 
@@ -276,7 +276,9 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
 static void
 attribs_update(struct lp_build_interp_soa_context *bld,
                struct gallivm_state *gallivm,
-               int quad_index)
+               int quad_index,
+               int start,
+               int end)
 {
    struct lp_build_context *coeff_bld = &bld->coeff_bld;
    LLVMValueRef shuffle = lp_build_const_int_vec(gallivm, coeff_bld->type, quad_index);
@@ -286,7 +288,7 @@ attribs_update(struct lp_build_interp_soa_context *bld,
 
    assert(quad_index < 4);
 
-   for(attrib = 0; attrib < bld->num_attribs; ++attrib) {
+   for(attrib = start; attrib < end; ++attrib) {
       const unsigned mask = bld->mask[attrib];
       const unsigned interp = bld->interp[attrib];
       for(chan = 0; chan < NUM_CHANNELS; ++chan) {
@@ -353,6 +355,14 @@ attribs_update(struct lp_build_interp_soa_context *bld,
                   a = lp_build_mul(coeff_bld, a, oow);
                }
 #endif
+
+               if (attrib == 0 && chan == 2) {
+                  /* FIXME: Depth values can exceed 1.0, due to the fact that
+                   * setup interpolation coefficients refer to (0,0) which causes
+                   * precision loss. So we must clamp to 1.0 here to avoid artifacts
+                   */
+                  a = lp_build_min(coeff_bld, a, coeff_bld->one);
+               }
 
                attrib_name(a, attrib, chan, "");
             }
@@ -439,8 +449,6 @@ lp_build_interp_soa_init(struct lp_build_interp_soa_context *bld,
    pos_init(bld, x0, y0);
 
    coeffs_init(bld, a0_ptr, dadx_ptr, dady_ptr);
-
-   attribs_update(bld, gallivm, 0);
 }
 
 
@@ -448,11 +456,22 @@ lp_build_interp_soa_init(struct lp_build_interp_soa_context *bld,
  * Advance the position and inputs to the given quad within the block.
  */
 void
-lp_build_interp_soa_update(struct lp_build_interp_soa_context *bld,
-                           struct gallivm_state *gallivm,
-                           int quad_index)
+lp_build_interp_soa_update_inputs(struct lp_build_interp_soa_context *bld,
+                                  struct gallivm_state *gallivm,
+                                  int quad_index)
 {
    assert(quad_index < 4);
 
-   attribs_update(bld, gallivm, quad_index);
+   attribs_update(bld, gallivm, quad_index, 1, bld->num_attribs);
 }
+
+void
+lp_build_interp_soa_update_pos(struct lp_build_interp_soa_context *bld,
+                                  struct gallivm_state *gallivm,
+                                  int quad_index)
+{
+   assert(quad_index < 4);
+
+   attribs_update(bld, gallivm, quad_index, 0, 1);
+}
+

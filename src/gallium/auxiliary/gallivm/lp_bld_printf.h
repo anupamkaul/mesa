@@ -41,5 +41,10 @@ LLVMValueRef lp_build_const_string_variable(LLVMModuleRef module,
 LLVMValueRef lp_build_printf(struct gallivm_state *gallivm,
                              const char *fmt, ...);
 
+LLVMValueRef
+lp_build_print_vec4(struct gallivm_state *gallivm,
+                    const char *msg, LLVMValueRef vec);
+
+
 #endif
 

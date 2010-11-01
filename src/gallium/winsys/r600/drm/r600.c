@@ -25,6 +25,9 @@
  */
 #include "xf86drm.h"
 #include "radeon_drm.h"
+#include "pipe/p_compiler.h"
+#include "util/u_inlines.h"
+#include <pipebuffer/pb_bufmgr.h>
 #include "r600_priv.h"
 
 enum radeon_family r600_get_family(struct radeon *r600)
@@ -35,6 +38,11 @@ enum radeon_family r600_get_family(struct radeon *r600)
 enum chip_class r600_get_family_class(struct radeon *radeon)
 {
 	return radeon->chip_class;
+}
+
+struct r600_tiling_info *r600_get_tiling_info(struct radeon *radeon)
+{
+	return &radeon->tiling_info;
 }
 
 static int r600_get_device(struct radeon *r600)

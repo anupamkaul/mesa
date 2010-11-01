@@ -91,10 +91,7 @@
 #include "mtypes.h"
 #include "varray.h"
 #include "viewport.h"
-#if FEATURE_NV_vertex_program
-#include "nvprogram.h"
-#endif
-#if FEATURE_NV_fragment_program
+#if FEATURE_NV_vertex_program || FEATURE_NV_fragment_program
 #include "nvprogram.h"
 #endif
 #if FEATURE_ARB_shader_objects
@@ -163,7 +160,7 @@ _mesa_create_exec_table(void)
 {
    struct _glapi_table *exec;
 
-   exec = _mesa_alloc_dispatch_table(sizeof *exec);
+   exec = _mesa_alloc_dispatch_table(_gloffset_COUNT);
    if (exec == NULL)
       return NULL;
 
@@ -497,6 +494,9 @@ _mesa_create_exec_table(void)
    SET_ActiveStencilFaceEXT(exec, _mesa_ActiveStencilFaceEXT);
 #endif
 
+   /* 285. GL_NV_primitive_restart */
+   SET_PrimitiveRestartIndexNV(exec, _mesa_PrimitiveRestartIndex);
+
    /* ???. GL_EXT_depth_bounds_test */
    SET_DepthBoundsEXT(exec, _mesa_DepthBoundsEXT);
 
@@ -726,6 +726,18 @@ _mesa_create_exec_table(void)
    SET_FramebufferTextureFaceARB(exec, _mesa_FramebufferTextureFaceARB);
 #endif
 
+   /* GL_EXT_texture_integer */
+   SET_ClearColorIiEXT(exec, _mesa_ClearColorIiEXT);
+   SET_ClearColorIuiEXT(exec, _mesa_ClearColorIuiEXT);
+   SET_GetTexParameterIivEXT(exec, _mesa_GetTexParameterIiv);
+   SET_GetTexParameterIuivEXT(exec, _mesa_GetTexParameterIuiv);
+   SET_TexParameterIivEXT(exec, _mesa_TexParameterIiv);
+   SET_TexParameterIuivEXT(exec, _mesa_TexParameterIuiv);
+
+   /* GL_EXT_gpu_shader4 / OpenGL 3.0 */
+   SET_GetVertexAttribIivEXT(exec, _mesa_GetVertexAttribIiv);
+   SET_GetVertexAttribIuivEXT(exec, _mesa_GetVertexAttribIuiv);
+   SET_VertexAttribIPointerEXT(exec, _mesa_VertexAttribIPointer);
 
    return exec;
 }

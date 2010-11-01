@@ -25,6 +25,7 @@
 
 #include "util/u_format.h"
 #include "evergreend.h"
+#include "r600_formats.h"
 
 static INLINE uint32_t r600_translate_blend_function(int blend_func)
 {
@@ -276,6 +277,14 @@ static inline uint32_t r600_translate_dbformat(enum pipe_format format)
 	}
 }
 
+static inline uint32_t r600_translate_stencilformat(enum pipe_format format)
+{
+	if (format == PIPE_FORMAT_Z24_UNORM_S8_USCALED)
+		return 1;
+	else
+		return 0;
+}
+
 static inline uint32_t r600_translate_colorswap(enum pipe_format format)
 {
 	switch (format) {
@@ -300,6 +309,12 @@ static inline uint32_t r600_translate_colorswap(enum pipe_format format)
 		return V_028C70_SWAP_ALT;
 
 	case PIPE_FORMAT_Z16_UNORM:
+		return V_028C70_SWAP_STD;
+
+	case PIPE_FORMAT_R8G8_UNORM:
+		return V_028C70_SWAP_STD;
+
+	case PIPE_FORMAT_R16_UNORM:
 		return V_028C70_SWAP_STD;
 		/* 32-bit buffers. */
 
@@ -337,6 +352,9 @@ static inline uint32_t r600_translate_colorswap(enum pipe_format format)
 	case PIPE_FORMAT_B10G10R10A2_UNORM:
 	case PIPE_FORMAT_R10SG10SB10SA2U_NORM:
 		return V_028C70_SWAP_STD_REV;
+
+	case PIPE_FORMAT_R16G16_UNORM:
+		return V_028C70_SWAP_STD;
 
 		/* 64-bit buffers. */
 	case PIPE_FORMAT_R16G16B16A16_UNORM:
@@ -382,6 +400,12 @@ static INLINE uint32_t r600_translate_colorformat(enum pipe_format format)
 	case PIPE_FORMAT_Z16_UNORM:
 		return V_028C70_COLOR_16;
 
+	case PIPE_FORMAT_R8G8_UNORM:
+		return V_028C70_COLOR_8_8;
+
+	case PIPE_FORMAT_R16_UNORM:
+		return V_028C70_COLOR_16;
+
 		/* 32-bit buffers. */
 	case PIPE_FORMAT_A8B8G8R8_SRGB:
 	case PIPE_FORMAT_A8B8G8R8_UNORM:
@@ -419,6 +443,7 @@ static INLINE uint32_t r600_translate_colorformat(enum pipe_format format)
 		return V_028C70_COLOR_16_16_FLOAT;
 
 	case PIPE_FORMAT_R16G16_SSCALED:
+	case PIPE_FORMAT_R16G16_UNORM:
 		return V_028C70_COLOR_16_16;
 
 		/* 64-bit buffers. */
@@ -453,25 +478,6 @@ static INLINE uint32_t r600_translate_colorformat(enum pipe_format format)
 	}
 }
 
-static INLINE void r600_translate_vertex_num_format(enum pipe_format format, uint32_t *num_format_p,
-						    uint32_t *format_comp_p)
-{
-	uint32_t num_format = 0, format_comp = 0;
-	switch (format) {
-	case PIPE_FORMAT_R16G16B16A16_SSCALED:
-	case PIPE_FORMAT_R16G16B16_SSCALED:
-	case PIPE_FORMAT_R16G16_SSCALED:
-	case PIPE_FORMAT_R32G32_SSCALED:
-		num_format = V_030008_SQ_NUM_FORMAT_SCALED;
-		format_comp = 1;
-		break;
-	default:
-		break;
-	}
-	*num_format_p = num_format;
-	*format_comp_p = format_comp;
-}
-
 static INLINE boolean r600_is_sampler_format_supported(enum pipe_format format)
 {
 	return r600_translate_texformat(format, NULL, NULL, NULL) != ~0;
@@ -491,6 +497,175 @@ static INLINE boolean r600_is_zs_format_supported(enum pipe_format format)
 static INLINE boolean r600_is_vertex_format_supported(enum pipe_format format)
 {
 	return r600_translate_colorformat(format) != ~0;
+}
+
+static INLINE uint32_t r600_translate_vertex_data_type(enum pipe_format format)
+{
+	uint32_t result = 0;
+	const struct util_format_description *desc;
+	unsigned i;
+
+	desc = util_format_description(format);
+	if (desc->layout != UTIL_FORMAT_LAYOUT_PLAIN) {
+		goto out_unknown;
+	}
+
+	/* Find the first non-VOID channel. */
+	for (i = 0; i < 4; i++) {
+		if (desc->channel[i].type != UTIL_FORMAT_TYPE_VOID) {
+			break;
+		}
+	}
+
+	switch (desc->channel[i].type) {
+		/* Half-floats, floats, doubles */
+	case UTIL_FORMAT_TYPE_FLOAT:
+		switch (desc->channel[i].size) {
+		case 16:
+			switch (desc->nr_channels) {
+			case 1:
+				result = FMT_16_FLOAT;
+				break;
+			case 2:
+				result = FMT_16_16_FLOAT;
+				break;
+			case 3:
+				result = FMT_16_16_16_FLOAT;
+				break;
+			case 4:
+				result = FMT_16_16_16_16_FLOAT;
+				break;
+			}
+			break;
+		case 32:
+			switch (desc->nr_channels) {
+			case 1:
+				result = FMT_32_FLOAT;
+				break;
+			case 2:
+				result = FMT_32_32_FLOAT;
+				break;
+			case 3:
+				result = FMT_32_32_32_FLOAT;
+				break;
+			case 4:
+				result = FMT_32_32_32_32_FLOAT;
+				break;
+			}
+			break;
+		default:
+			goto out_unknown;
+		}
+		break;
+	/* Unsigned ints */
+	case UTIL_FORMAT_TYPE_UNSIGNED:
+	/* Signed ints */
+	case UTIL_FORMAT_TYPE_SIGNED:
+		switch (desc->channel[i].size) {
+		case 8:
+			switch (desc->nr_channels) {
+			case 1:
+				result = FMT_8;
+				break;
+			case 2:
+				result = FMT_8_8;
+				break;
+			case 3:
+//				result = V_038008_FMT_8_8_8; /* fails piglit draw-vertices test */
+//				break;
+			case 4:
+				result = FMT_8_8_8_8;
+				break;
+			}
+			break;
+		case 16:
+			switch (desc->nr_channels) {
+			case 1:
+				result = FMT_16;
+				break;
+			case 2:
+				result = FMT_16_16;
+				break;
+			case 3:
+//				result = V_038008_FMT_16_16_16; /* fails piglit draw-vertices test */
+//				break;
+			case 4:
+				result = FMT_16_16_16_16;
+				break;
+			}
+			break;
+		case 32:
+			switch (desc->nr_channels) {
+			case 1:
+				result = FMT_32;
+				break;
+			case 2:
+				result = FMT_32_32;
+				break;
+			case 3:
+				result = FMT_32_32_32;
+				break;
+			case 4:
+				result = FMT_32_32_32_32;
+				break;
+			}
+			break;
+		default:
+			goto out_unknown;
+		}
+		break;
+	default:
+		goto out_unknown;
+	}
+
+	result = S_030008_DATA_FORMAT(result);
+
+	if (desc->channel[i].type == UTIL_FORMAT_TYPE_SIGNED) {
+		result |= S_030008_FORMAT_COMP_ALL(1);
+	}
+	if (desc->channel[i].normalized) {
+		result |= S_030008_NUM_FORMAT_ALL(0);
+	} else {
+		result |= S_030008_NUM_FORMAT_ALL(2);
+	}
+	return result;
+out_unknown:
+	R600_ERR("unsupported vertex format %s\n", util_format_name(format));
+	return ~0;
+}
+
+static INLINE uint32_t r600_translate_vertex_data_swizzle(enum pipe_format format)
+{
+	const struct util_format_description *desc = util_format_description(format);
+	unsigned i;
+	uint32_t word3;
+
+	assert(format);
+
+	if (desc->layout != UTIL_FORMAT_LAYOUT_PLAIN) {
+		fprintf(stderr, "r600: Bad format %s in %s:%d\n",
+				util_format_short_name(format), __FUNCTION__, __LINE__);
+		return 0;
+	}
+
+	word3 = 0;
+	for (i = 0; i < desc->nr_channels; i++) {
+		switch (i) {
+		case 0:
+			word3 |= S_03000C_DST_SEL_X(desc->swizzle[0]);
+			break;
+		case 1:
+			word3 |= S_03000C_DST_SEL_Y(desc->swizzle[1]);
+			break;
+		case 2:
+			word3 |= S_03000C_DST_SEL_Z(desc->swizzle[2]);
+			break;
+		case 3:
+			word3 |= S_03000C_DST_SEL_W(desc->swizzle[3]);
+			break;
+		}
+	}
+	return word3;
 }
 
 #endif

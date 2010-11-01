@@ -29,77 +29,16 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <errno.h>
-#include "radeon_priv.h"
+#include "r600_priv.h"
 #include "xf86drm.h"
 #include "radeon_drm.h"
 
-struct radeon_bo *radeon_bo(struct radeon *radeon, unsigned handle,
-			unsigned size, unsigned alignment, void *ptr)
-{
-	struct radeon_bo *bo;
-	int r;
-
-	bo = calloc(1, sizeof(*bo));
-	if (bo == NULL) {
-		return NULL;
-	}
-	bo->size = size;
-	bo->handle = handle;
-	pipe_reference_init(&bo->reference, 1);
-	bo->alignment = alignment;
-
-	if (handle) {
-		struct drm_gem_open open_arg;
-
-		memset(&open_arg, 0, sizeof(open_arg));
-		open_arg.name = handle;
-		r = drmIoctl(radeon->fd, DRM_IOCTL_GEM_OPEN, &open_arg);
-		if (r != 0) {
-			free(bo);
-			return NULL;
-		}
-		bo->handle = open_arg.handle;
-		bo->size = open_arg.size;
-	} else {
-		struct drm_radeon_gem_create args;
-
-		args.size = size;
-		args.alignment = alignment;
-		args.initial_domain = RADEON_GEM_DOMAIN_CPU;
-		args.flags = 0;
-		args.handle = 0;
-		r = drmCommandWriteRead(radeon->fd, DRM_RADEON_GEM_CREATE,
-					&args, sizeof(args));
-		bo->handle = args.handle;
-		if (r) {
-			fprintf(stderr, "Failed to allocate :\n");
-			fprintf(stderr, "   size      : %d bytes\n", size);
-			fprintf(stderr, "   alignment : %d bytes\n", alignment);
-			free(bo);
-			return NULL;
-		}
-	}
-	if (ptr) {
-		if (radeon_bo_map(radeon, bo)) {
-			fprintf(stderr, "%s failed to copy data into bo\n", __func__);
-			radeon_bo_reference(radeon, &bo, NULL);
-			return bo;
-		}
-		memcpy(bo->data, ptr, size);
-		radeon_bo_unmap(radeon, bo);
-	}
-	return bo;
-}
-
-int radeon_bo_map(struct radeon *radeon, struct radeon_bo *bo)
+static int radeon_bo_fixed_map(struct radeon *radeon, struct radeon_bo *bo)
 {
 	struct drm_radeon_gem_mmap args;
 	void *ptr;
 	int r;
 
-	if (bo->map_count != 0) {
-		goto success;
-	}
 	/* Zero out args to make valgrind happy */
 	memset(&args, 0, sizeof(args));
 	args.handle = bo->handle;
@@ -119,25 +58,81 @@ int radeon_bo_map(struct radeon *radeon, struct radeon_bo *bo)
 	}
 	bo->data = ptr;
 
-success:
 	bo->map_count++;
-
 	return 0;
 }
 
-void radeon_bo_unmap(struct radeon *radeon, struct radeon_bo *bo)
+static void radeon_bo_fixed_unmap(struct radeon *radeon, struct radeon_bo *bo)
 {
-	if (--bo->map_count > 0) {
-		return;
-	}
 	munmap(bo->data, bo->size);
 	bo->data = NULL;
+}
+
+struct radeon_bo *radeon_bo(struct radeon *radeon, unsigned handle,
+			unsigned size, unsigned alignment, void *ptr)
+{
+	struct radeon_bo *bo;
+	int r;
+
+	bo = calloc(1, sizeof(*bo));
+	if (bo == NULL) {
+		return NULL;
+	}
+	bo->size = size;
+	bo->handle = handle;
+	pipe_reference_init(&bo->reference, 1);
+	bo->alignment = alignment;
+	LIST_INITHEAD(&bo->fencedlist);
+
+	if (handle) {
+		struct drm_gem_open open_arg;
+
+		memset(&open_arg, 0, sizeof(open_arg));
+		open_arg.name = handle;
+		r = drmIoctl(radeon->fd, DRM_IOCTL_GEM_OPEN, &open_arg);
+		if (r != 0) {
+			free(bo);
+			return NULL;
+		}
+		bo->handle = open_arg.handle;
+		bo->size = open_arg.size;
+		bo->shared = TRUE;
+	} else {
+		struct drm_radeon_gem_create args;
+
+		args.size = size;
+		args.alignment = alignment;
+		args.initial_domain = RADEON_GEM_DOMAIN_CPU;
+		args.flags = 0;
+		args.handle = 0;
+		r = drmCommandWriteRead(radeon->fd, DRM_RADEON_GEM_CREATE,
+					&args, sizeof(args));
+		bo->handle = args.handle;
+		if (r) {
+			fprintf(stderr, "Failed to allocate :\n");
+			fprintf(stderr, "   size      : %d bytes\n", size);
+			fprintf(stderr, "   alignment : %d bytes\n", alignment);
+			free(bo);
+			return NULL;
+		}
+	}
+	if (radeon_bo_fixed_map(radeon, bo)) {
+		R600_ERR("failed to map bo\n");
+		radeon_bo_reference(radeon, &bo, NULL);
+		return bo;
+	}
+	if (ptr) {
+		memcpy(bo->data, ptr, size);
+	}
+	return bo;
 }
 
 static void radeon_bo_destroy(struct radeon *radeon, struct radeon_bo *bo)
 {
 	struct drm_gem_close args;
 
+	LIST_DEL(&bo->fencedlist);
+	radeon_bo_fixed_unmap(radeon, bo);
 	memset(&args, 0, sizeof(args));
 	args.handle = bo->handle;
 	drmIoctl(radeon->fd, DRM_IOCTL_GEM_CLOSE, &args);
@@ -161,6 +156,15 @@ int radeon_bo_wait(struct radeon *radeon, struct radeon_bo *bo)
 	struct drm_radeon_gem_wait_idle args;
 	int ret;
 
+	if (!bo->fence && !bo->shared)
+		return 0;
+
+	if (bo->fence <= *bo->ctx->cfence) {
+		LIST_DELINIT(&bo->fencedlist);
+		bo->fence = 0;
+		return 0;
+	}
+
 	/* Zero out args to make valgrind happy */
 	memset(&args, 0, sizeof(args));
 	args.handle = bo->handle;
@@ -173,16 +177,45 @@ int radeon_bo_wait(struct radeon *radeon, struct radeon_bo *bo)
 
 int radeon_bo_busy(struct radeon *radeon, struct radeon_bo *bo, uint32_t *domain)
 {
-        struct drm_radeon_gem_busy args;
-        int ret;
+	struct drm_radeon_gem_busy args;
+	int ret;
 
-        memset(&args, 0, sizeof(args));
-        args.handle = bo->handle;
-        args.domain = 0;
+	if (!bo->shared) {
+		if (!bo->fence)
+			return 0;
+		if (bo->fence <= *bo->ctx->cfence) {
+			LIST_DELINIT(&bo->fencedlist);
+			bo->fence = 0;
+			return 0;
+		}
+	}
 
-        ret = drmCommandWriteRead(radeon->fd, DRM_RADEON_GEM_BUSY,
-                                  &args, sizeof(args));
+	memset(&args, 0, sizeof(args));
+	args.handle = bo->handle;
+	args.domain = 0;
 
-        *domain = args.domain;
-        return ret;
+	ret = drmCommandWriteRead(radeon->fd, DRM_RADEON_GEM_BUSY,
+			&args, sizeof(args));
+
+	*domain = args.domain;
+	return ret;
+}
+
+int radeon_bo_get_tiling_flags(struct radeon *radeon,
+			       struct radeon_bo *bo,
+			       uint32_t *tiling_flags,
+			       uint32_t *pitch)
+{
+	struct drm_radeon_gem_get_tiling args;
+	int ret;
+	
+	args.handle = bo->handle;
+	ret = drmCommandWriteRead(radeon->fd, DRM_RADEON_GEM_GET_TILING,
+				  &args, sizeof(args));
+	if (ret)
+		return ret;
+	
+	*tiling_flags = args.tiling_flags;
+	*pitch = args.pitch;
+	return ret;
 }

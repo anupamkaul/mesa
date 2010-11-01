@@ -58,7 +58,7 @@
 /**
  * Redefine these LLVM entrypoints as invalid macros to make sure we
  * don't accidentally use them.  We need to use the functions which
- * take and explicit LLVMContextRef parameter.
+ * take an explicit LLVMContextRef parameter.
  */
 #define LLVMInt1Type ILLEGAL_LLVM_FUNCTION
 #define LLVMInt8Type ILLEGAL_LLVM_FUNCTION

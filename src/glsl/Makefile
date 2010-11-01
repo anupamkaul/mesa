@@ -76,6 +76,7 @@ CXX_SOURCES = \
 	loop_controls.cpp \
 	loop_unroll.cpp \
 	lower_noise.cpp \
+	lower_texture_projection.cpp \
 	lower_variable_index_to_cond_assign.cpp \
 	opt_redundant_jumps.cpp \
 	s_expression.cpp
@@ -177,7 +178,7 @@ builtins: builtin_function.cpp builtins/profiles/* builtins/ir/* builtins/tools/
 	cp builtins/tools/builtin_function.cpp .
 	make glsl_compiler
 	@echo Regenerating builtin_function.cpp...
-	./builtins/tools/generate_builtins.py > builtin_function.cpp
+	$(PYTHON2) $(PYTHON_FLAGS) builtins/tools/generate_builtins.py > builtin_function.cpp
 	@echo Rebuilding the real compiler...
 	make glsl_compiler
 

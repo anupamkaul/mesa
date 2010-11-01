@@ -26,6 +26,7 @@
 #ifndef R600_H
 #define R600_H
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <util/u_double_list.h>
@@ -98,55 +99,42 @@ enum chip_class {
 	EVERGREEN,
 };
 
+struct r600_tiling_info {
+	unsigned num_channels;
+	unsigned num_banks;
+	unsigned group_bytes;
+};
+
 enum radeon_family r600_get_family(struct radeon *rw);
 enum chip_class r600_get_family_class(struct radeon *radeon);
+struct r600_tiling_info *r600_get_tiling_info(struct radeon *radeon);
 
-/* lowlevel WS bo */
-struct radeon_ws_bo;
-struct radeon_ws_bo *radeon_ws_bo(struct radeon *radeon,
+/* r600_bo.c */
+struct r600_bo;
+struct r600_bo *r600_bo(struct radeon *radeon,
 				  unsigned size, unsigned alignment, unsigned usage);
-struct radeon_ws_bo *radeon_ws_bo_handle(struct radeon *radeon,
-					 unsigned handle);
-void *radeon_ws_bo_map(struct radeon *radeon, struct radeon_ws_bo *bo, unsigned usage, void *ctx);
-void radeon_ws_bo_unmap(struct radeon *radeon, struct radeon_ws_bo *bo);
-void radeon_ws_bo_reference(struct radeon *radeon, struct radeon_ws_bo **dst,
-			    struct radeon_ws_bo *src);
+struct r600_bo *r600_bo_handle(struct radeon *radeon,
+			       unsigned handle, unsigned *array_mode);
+void *r600_bo_map(struct radeon *radeon, struct r600_bo *bo, unsigned usage, void *ctx);
+void r600_bo_unmap(struct radeon *radeon, struct r600_bo *bo);
+void r600_bo_reference(struct radeon *radeon, struct r600_bo **dst,
+			    struct r600_bo *src);
+static INLINE unsigned r600_bo_offset(struct r600_bo *bo)
+{
+	return 0;
+}
+
 
 /* R600/R700 STATES */
 #define R600_GROUP_MAX			16
 #define R600_BLOCK_MAX_BO		32
 #define R600_BLOCK_MAX_REG		128
 
-enum r600_group_id {
-	R600_GROUP_CONFIG = 0,
-	R600_GROUP_CONTEXT,
-	R600_GROUP_ALU_CONST,
-	R600_GROUP_RESOURCE,
-	R600_GROUP_SAMPLER,
-	R600_GROUP_CTL_CONST,
-	R600_GROUP_LOOP_CONST,
-	R600_GROUP_BOOL_CONST,
-	R600_NGROUPS
-};
-
-enum evergreen_group_id {
-	EVERGREEN_GROUP_CONFIG = 0,
-	EVERGREEN_GROUP_CONTEXT,
-	EVERGREEN_GROUP_RESOURCE,
-	EVERGREEN_GROUP_SAMPLER,
-	EVERGREEN_GROUP_CTL_CONST,
-	EVERGREEN_GROUP_LOOP_CONST,
-	EVERGREEN_GROUP_BOOL_CONST,
-	EVERGREEN_GROUP_SAMPLER_BORDER,
-	EVERGREEN_NGROUPS
-};
-
 struct r600_pipe_reg {
-	unsigned			group_id;
 	u32				offset;
 	u32				mask;
 	u32				value;
-	struct radeon_ws_bo		*bo;
+	struct r600_bo		*bo;
 };
 
 struct r600_pipe_state {
@@ -156,11 +144,9 @@ struct r600_pipe_state {
 };
 
 static inline void r600_pipe_state_add_reg(struct r600_pipe_state *state,
-					unsigned group_id, u32 offset,
-					u32 value, u32 mask,
-					struct radeon_ws_bo *bo)
+					u32 offset, u32 value, u32 mask,
+					struct r600_bo *bo)
 {
-	state->regs[state->nregs].group_id = group_id;
 	state->regs[state->nregs].offset = offset;
 	state->regs[state->nregs].value = value;
 	state->regs[state->nregs].mask = mask;
@@ -173,15 +159,18 @@ static inline void r600_pipe_state_add_reg(struct r600_pipe_state *state,
 #define R600_BLOCK_STATUS_DIRTY		(1 << 1)
 
 struct r600_block_reloc {
-	struct radeon_ws_bo	*bo;
-	unsigned		nreloc;
-	unsigned		bo_pm4_index[R600_BLOCK_MAX_BO];
+	struct r600_bo		*bo;
+	unsigned		flush_flags;
+	unsigned		flush_mask;
+	unsigned		bo_pm4_index;
 };
 
-struct r600_group_block {
+struct r600_block {
+	struct list_head	list;
 	unsigned		status;
 	unsigned		start_offset;
 	unsigned		pm4_ndwords;
+	unsigned		pm4_flush_ndwords;
 	unsigned		nbo;
 	unsigned		nreg;
 	u32			*reg;
@@ -190,12 +179,10 @@ struct r600_group_block {
 	struct r600_block_reloc	reloc[R600_BLOCK_MAX_BO];
 };
 
-struct r600_group {
+struct r600_range {
 	unsigned		start_offset;
 	unsigned		end_offset;
-	unsigned		nblocks;
-	struct r600_group_block	*blocks;
-	unsigned		*offset_block_id;
+	struct r600_block	**blocks;
 };
 
 /*
@@ -223,7 +210,7 @@ struct r600_query {
 	/* if we've flushed the query */
 	unsigned				state;
 	/* The buffer where query results are stored. */
-	struct radeon_ws_bo			*buffer;
+	struct r600_bo			*buffer;
 	unsigned				buffer_size;
 	/* linked list of queries */
 	struct list_head			list;
@@ -236,8 +223,12 @@ struct r600_query {
 
 struct r600_context {
 	struct radeon		*radeon;
-	unsigned		ngroups;
-	struct r600_group	groups[R600_GROUP_MAX];
+	unsigned		hash_size;
+	unsigned		hash_shift;
+	struct r600_range	range[256];
+	unsigned		nblocks;
+	struct r600_block	**blocks;
+	struct list_head	dirty;
 	unsigned		pm4_ndwords;
 	unsigned		pm4_cdwords;
 	unsigned		pm4_dirty_cdwords;
@@ -249,6 +240,10 @@ struct r600_context {
 	u32			*pm4;
 	struct list_head	query_list;
 	unsigned		num_query_running;
+	unsigned		fence;
+	struct list_head	fenced_bo;
+	unsigned		*cfence;
+	struct r600_bo		*fence_bo;
 };
 
 struct r600_draw {
@@ -257,7 +252,7 @@ struct r600_draw {
 	u32			vgt_index_type;
 	u32			vgt_draw_initiator;
 	u32			indices_bo_offset;
-	struct radeon_ws_bo	*indices;
+	struct r600_bo		*indices;
 };
 
 int r600_context_init(struct r600_context *ctx, struct radeon *radeon);

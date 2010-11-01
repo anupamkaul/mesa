@@ -114,14 +114,6 @@ brw_wm_non_glsl_emit(struct brw_context *brw, struct brw_wm_compile *c)
    /* how many general-purpose registers are used */
    c->prog_data.total_grf = c->max_wm_grf;
 
-   /* Scratch space is used for register spilling */
-   if (c->last_scratch) {
-      c->prog_data.total_scratch = c->last_scratch + 0x40;
-   }
-   else {
-      c->prog_data.total_scratch = 0;
-   }
-
    /* Emit GEN4 code.
     */
    brw_wm_emit(c);
@@ -193,6 +185,19 @@ static void do_wm_prog( struct brw_context *brw,
       }
    }
 
+   /* Scratch space is used for register spilling */
+   if (c->last_scratch) {
+      /* Per-thread scratch space is power-of-two sized. */
+      for (c->prog_data.total_scratch = 1024;
+	   c->prog_data.total_scratch <= c->last_scratch;
+	   c->prog_data.total_scratch *= 2) {
+	 /* empty */
+      }
+   }
+   else {
+      c->prog_data.total_scratch = 0;
+   }
+
    if (INTEL_DEBUG & DEBUG_WM)
       fprintf(stderr, "\n");
 
@@ -216,7 +221,7 @@ static void brw_wm_populate_key( struct brw_context *brw,
 				 struct brw_wm_prog_key *key )
 {
    struct intel_context *intel = &brw->intel;
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    /* BRW_NEW_FRAGMENT_PROGRAM */
    const struct brw_fragment_program *fp = 
       (struct brw_fragment_program *)brw->fragment_program;
@@ -318,6 +323,12 @@ static void brw_wm_populate_key( struct brw_context *brw,
       /* R31: MSAA position offsets. */
       /* R32-: bary for 32-pixel. */
       /* R58-59: interp W for 32-pixel. */
+
+      if (fp->program.Base.OutputsWritten & BITFIELD64_BIT(FRAG_RESULT_DEPTH)) {
+	 key->source_depth_to_render_target = GL_TRUE;
+	 key->computes_depth = GL_TRUE;
+      }
+
    } else {
       brw_wm_lookup_iz(intel,
 	      	       line_aa,
@@ -342,13 +353,44 @@ static void brw_wm_populate_key( struct brw_context *brw,
       if (unit->_ReallyEnabled) {
          const struct gl_texture_object *t = unit->_Current;
          const struct gl_texture_image *img = t->Image[0][t->BaseLevel];
+	 int swizzles[SWIZZLE_NIL + 1] = {
+	    SWIZZLE_X,
+	    SWIZZLE_Y,
+	    SWIZZLE_Z,
+	    SWIZZLE_W,
+	    SWIZZLE_ZERO,
+	    SWIZZLE_ONE,
+	    SWIZZLE_NIL
+	 };
+
+	 key->tex_swizzles[i] = SWIZZLE_NOOP;
+
+	 /* GL_DEPTH_TEXTURE_MODE is normally handled through
+	  * brw_wm_surface_state, but it applies to shadow compares as
+	  * well and our shadow compares always return the result in
+	  * all 4 channels.
+	  */
+	 if (t->CompareMode == GL_COMPARE_R_TO_TEXTURE_ARB) {
+	    if (t->DepthMode == GL_ALPHA) {
+	       swizzles[0] = SWIZZLE_ZERO;
+	       swizzles[1] = SWIZZLE_ZERO;
+	       swizzles[2] = SWIZZLE_ZERO;
+	    } else if (t->DepthMode == GL_LUMINANCE) {
+	       swizzles[3] = SWIZZLE_ONE;
+	    }
+	 }
+
 	 if (img->InternalFormat == GL_YCBCR_MESA) {
 	    key->yuvtex_mask |= 1 << i;
 	    if (img->TexFormat == MESA_FORMAT_YCBCR)
 		key->yuvtex_swap_mask |= 1 << i;
 	 }
 
-         key->tex_swizzles[i] = t->_Swizzle;
+	 key->tex_swizzles[i] =
+	    MAKE_SWIZZLE4(swizzles[GET_SWZ(t->_Swizzle, 0)],
+			  swizzles[GET_SWZ(t->_Swizzle, 1)],
+			  swizzles[GET_SWZ(t->_Swizzle, 2)],
+			  swizzles[GET_SWZ(t->_Swizzle, 3)]);
       }
       else {
          key->tex_swizzles[i] = SWIZZLE_NOOP;

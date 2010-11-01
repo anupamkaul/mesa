@@ -67,7 +67,7 @@ int INTEL_DEBUG = (0);
 
 
 static const GLubyte *
-intelGetString(GLcontext * ctx, GLenum name)
+intelGetString(struct gl_context * ctx, GLenum name)
 {
    const struct intel_context *const intel = intel_context(ctx);
    const char *chipset;
@@ -163,6 +163,19 @@ intelGetString(GLcontext * ctx, GLenum name)
       case PCI_CHIP_ILM_G:
          chipset = "Intel(R) Ironlake Mobile";
          break;
+      case PCI_CHIP_SANDYBRIDGE_GT1:
+      case PCI_CHIP_SANDYBRIDGE_GT2:
+      case PCI_CHIP_SANDYBRIDGE_GT2_PLUS:
+	 chipset = "Intel(R) Sandybridge Desktop";
+	 break;
+      case PCI_CHIP_SANDYBRIDGE_M_GT1:
+      case PCI_CHIP_SANDYBRIDGE_M_GT2:
+      case PCI_CHIP_SANDYBRIDGE_M_GT2_PLUS:
+	 chipset = "Intel(R) Sandybridge Mobile";
+	 break;
+      case PCI_CHIP_SANDYBRIDGE_S:
+	 chipset = "Intel(R) Sandybridge Server";
+	 break;
       default:
          chipset = "Unknown Intel Chipset";
          break;
@@ -177,7 +190,7 @@ intelGetString(GLcontext * ctx, GLenum name)
 }
 
 static void
-intel_flush_front(GLcontext *ctx)
+intel_flush_front(struct gl_context *ctx)
 {
    struct intel_context *intel = intel_context(ctx);
     __DRIcontext *driContext = intel->driContext;
@@ -465,7 +478,7 @@ intel_prepare_render(struct intel_context *intel)
 }
 
 static void
-intel_viewport(GLcontext *ctx, GLint x, GLint y, GLsizei w, GLsizei h)
+intel_viewport(struct gl_context *ctx, GLint x, GLint y, GLsizei w, GLsizei h)
 {
     struct intel_context *intel = intel_context(ctx);
     __DRIcontext *driContext = intel->driContext;
@@ -514,7 +527,7 @@ static const struct dri_debug_control debug_control[] = {
 
 
 static void
-intelInvalidateState(GLcontext * ctx, GLuint new_state)
+intelInvalidateState(struct gl_context * ctx, GLuint new_state)
 {
     struct intel_context *intel = intel_context(ctx);
 
@@ -531,7 +544,7 @@ intelInvalidateState(GLcontext * ctx, GLuint new_state)
 }
 
 void
-intel_flush(GLcontext *ctx)
+intel_flush(struct gl_context *ctx)
 {
    struct intel_context *intel = intel_context(ctx);
 
@@ -546,7 +559,7 @@ intel_flush(GLcontext *ctx)
 }
 
 static void
-intel_glFlush(GLcontext *ctx)
+intel_glFlush(struct gl_context *ctx)
 {
    struct intel_context *intel = intel_context(ctx);
 
@@ -556,7 +569,7 @@ intel_glFlush(GLcontext *ctx)
 }
 
 void
-intelFinish(GLcontext * ctx)
+intelFinish(struct gl_context * ctx)
 {
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    int i;
@@ -603,17 +616,17 @@ intelInitDriverFunctions(struct dd_function_table *functions)
 GLboolean
 intelInitContext(struct intel_context *intel,
 		 int api,
-                 const __GLcontextModes * mesaVis,
+                 const struct gl_config * mesaVis,
                  __DRIcontext * driContextPriv,
                  void *sharedContextPrivate,
                  struct dd_function_table *functions)
 {
-   GLcontext *ctx = &intel->ctx;
-   GLcontext *shareCtx = (GLcontext *) sharedContextPrivate;
+   struct gl_context *ctx = &intel->ctx;
+   struct gl_context *shareCtx = (struct gl_context *) sharedContextPrivate;
    __DRIscreen *sPriv = driContextPriv->driScreenPriv;
    struct intel_screen *intelScreen = sPriv->private;
    int bo_reuse_mode;
-   __GLcontextModes visual;
+   struct gl_config visual;
 
    /* we can't do anything without a connection to the device */
    if (intelScreen->bufmgr == NULL)
@@ -724,7 +737,7 @@ intelInitContext(struct intel_context *intel,
    ctx->Const.MaxSamples = 1.0;
 
    /* reinitialize the context point state.
-    * It depend on constants in __GLcontextRec::Const
+    * It depend on constants in __struct gl_contextRec::Const
     */
    _mesa_init_point(ctx);
 

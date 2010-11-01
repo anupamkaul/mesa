@@ -58,8 +58,10 @@ MAIN_SOURCES = \
 	main/mm.c \
 	main/multisample.c \
 	main/nvprogram.c \
+	main/pack.c \
 	main/pixel.c \
 	main/pixelstore.c \
+	main/pixeltransfer.c \
 	main/points.c \
 	main/polygon.c \
 	main/queryobj.c \
@@ -247,6 +249,7 @@ PROGRAM_SOURCES = \
 	program/prog_statevars.c \
 	program/prog_uniform.c \
 	program/programopt.c \
+	program/register_allocate.c \
 	program/symbol_table.c
 
 SHADER_CXX_SOURCES = \

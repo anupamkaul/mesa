@@ -40,6 +40,9 @@
 #define EVERGREEN_SAMPLER_OFFSET                    0X0003C000
 #define EVERGREEN_SAMPLER_END                       0X0003CFF0
 
+#define EVERGREEN_CTL_CONST_OFFSET                  0x0003CFF0
+#define EVERGREEN_CTL_CONST_END                     0x0003E200
+
 #define EVENT_TYPE_ZPASS_DONE                  0x15
 #define EVENT_TYPE_CACHE_FLUSH_AND_INV_EVENT   0x16
 
@@ -683,6 +686,9 @@
 #define   S_02880C_Z_EXPORT_ENABLE(x)                  (((x) & 0x1) << 0)
 #define   G_02880C_Z_EXPORT_ENABLE(x)                  (((x) >> 0) & 0x1)
 #define   C_02880C_Z_EXPORT_ENABLE                     0xFFFFFFFE
+#define   S_02880C_STENCIL_EXPORT_ENABLE(x)            (((x) & 0x1) << 1)
+#define   G_02880C_STENCIL_EXPORT_ENABLE(x)            (((x) >> 1) & 0x1)
+#define   C_02880C_STENCIL_EXPORT_ENABLE               0xFFFFFFFD
 #define   S_02880C_Z_ORDER(x)                          (((x) & 0x3) << 4)
 #define   G_02880C_Z_ORDER(x)                          (((x) >> 4) & 0x3)
 #define   C_02880C_Z_ORDER                             0xFFFFFCFF
@@ -981,9 +987,6 @@
 #define   S_030010_ENDIAN_SWAP(x)                      (((x) & 0x3) << 12)
 #define   G_030010_ENDIAN_SWAP(x)                      (((x) >> 12) & 0x3)
 #define   C_030010_ENDIAN_SWAP                         0xFFFFCFFF
-#define   S_030010_REQUEST_SIZE(x)                     (((x) & 0x3) << 14)
-#define   G_030010_REQUEST_SIZE(x)                     (((x) >> 14) & 0x3)
-#define   C_030010_REQUEST_SIZE                        0xFFFF3FFF
 #define   S_030010_DST_SEL_X(x)                        (((x) & 0x7) << 16)
 #define   G_030010_DST_SEL_X(x)                        (((x) >> 16) & 0x7)
 #define   C_030010_DST_SEL_X                           0xFFF8FFFF
@@ -1047,40 +1050,6 @@
 #define   S_030008_DATA_FORMAT(x)                      (((x) & 0x3F) << 20)
 #define   G_030008_DATA_FORMAT(x)                      (((x) >> 20) & 0x3F)
 #define   C_030008_DATA_FORMAT                         0xFC0FFFFF
-#define     V_030008_COLOR_INVALID                     0x00000000
-#define     V_030008_COLOR_8                           0x00000001
-#define     V_030008_COLOR_4_4                         0x00000002
-#define     V_030008_COLOR_3_3_2                       0x00000003
-#define     V_030008_COLOR_16                          0x00000005
-#define     V_030008_COLOR_16_FLOAT                    0x00000006
-#define     V_030008_COLOR_8_8                         0x00000007
-#define     V_030008_COLOR_5_6_5                       0x00000008
-#define     V_030008_COLOR_6_5_5                       0x00000009
-#define     V_030008_COLOR_1_5_5_5                     0x0000000A
-#define     V_030008_COLOR_4_4_4_4                     0x0000000B
-#define     V_030008_COLOR_5_5_5_1                     0x0000000C
-#define     V_030008_COLOR_32                          0x0000000D
-#define     V_030008_COLOR_32_FLOAT                    0x0000000E
-#define     V_030008_COLOR_16_16                       0x0000000F
-#define     V_030008_COLOR_16_16_FLOAT                 0x00000010
-#define     V_030008_COLOR_8_24                        0x00000011
-#define     V_030008_COLOR_8_24_FLOAT                  0x00000012
-#define     V_030008_COLOR_24_8                        0x00000013
-#define     V_030008_COLOR_24_8_FLOAT                  0x00000014
-#define     V_030008_COLOR_10_11_11                    0x00000015
-#define     V_030008_COLOR_10_11_11_FLOAT              0x00000016
-#define     V_030008_COLOR_11_11_10                    0x00000017
-#define     V_030008_COLOR_11_11_10_FLOAT              0x00000018
-#define     V_030008_COLOR_2_10_10_10                  0x00000019
-#define     V_030008_COLOR_8_8_8_8                     0x0000001A
-#define     V_030008_COLOR_10_10_10_2                  0x0000001B
-#define     V_030008_COLOR_X24_8_32_FLOAT              0x0000001C
-#define     V_030008_COLOR_32_32                       0x0000001D
-#define     V_030008_COLOR_32_32_FLOAT                 0x0000001E
-#define     V_030008_COLOR_16_16_16_16                 0x0000001F
-#define     V_030008_COLOR_16_16_16_16_FLOAT           0x00000020
-#define     V_030008_COLOR_32_32_32_32                 0x00000022
-#define     V_030008_COLOR_32_32_32_32_FLOAT           0x00000023
 #define   S_030008_NUM_FORMAT_ALL(x)                   (((x) & 0x3) << 26)
 #define   G_030008_NUM_FORMAT_ALL(x)                   (((x) >> 26) & 0x3)
 #define   C_030008_NUM_FORMAT_ALL                      0xF3FFFFFF
@@ -1424,8 +1393,16 @@
 #define R_008C0C_SQ_THREAD_RESOURCE_MGMT             0x00008C0C
 #define R_008D8C_SQ_DYN_GPR_CNTL_PS_FLUSH_REQ        0x00008D8C
 #define R_028000_DB_RENDER_CONTROL                   0x00028000
+#define   S_028000_DEPTH_CLEAR_ENABLE(x)               (((x) & 0x1) << 0)
+#define   S_028000_STENCIL_CLEAR_ENABLE(x)             (((x) & 0x1) << 1)
+#define   S_028000_DEPTH_COPY_ENABLE(x)                (((x) & 0x1) << 2)
+#define   S_028000_STENCIL_COPY_ENABLE(x)              (((x) & 0x1) << 3)
+#define   S_028000_RESUMMARIZE_ENABLE(x)               (((x) & 0x1) << 4)
 #define   S_028000_STENCIL_COMPRESS_DISABLE(x)         (((x) & 0x1) << 5)
 #define   S_028000_DEPTH_COMPRESS_DISABLE(x)           (((x) & 0x1) << 6)
+#define   S_028000_COPY_CENTROID(x)                    (((x) & 0x1) << 7)
+#define   S_028000_COPY_SAMPLE(x)                      (((x) & 0x7) << 8)
+#define   S_028000_COLOR_DISABLE(x)                    (((x) & 0x1) << 12)
 #define R_028004_DB_COUNT_CONTROL                    0x00028004
 #define   S_028004_ZPASS_INCREMENT_DISABLE        (((x) & 0x1) << 0)
 #define   S_028004_PERFECT_ZPASS_COUNTS(x)        (((x) & 0x1) << 1)
@@ -1724,7 +1701,7 @@
 #define R_028CA8_CB_COLOR1_VIEW                      0x00028CA8
 #define R_028CAC_CB_COLOR1_INFO                      0x00028CAC
 #define R_028CB0_CB_COLOR1_ATTRIB                    0x00028CB0
-#define R_028CB8_CB_COLOR1_DIM                       0x00028CB8
+#define R_028CB4_CB_COLOR1_DIM                       0x00028CB4
 #define R_028CD8_CB_COLOR2_BASE                      0x00028CD8
 #define R_028CDC_CB_COLOR2_PITCH                     0x00028CDC
 #define R_028CE0_CB_COLOR2_SLICE                     0x00028CE0
@@ -1849,9 +1826,18 @@
 #define   S_0085F0_DB_DEST_BASE_ENA(x)                 (((x) & 0x1) << 14)
 #define   G_0085F0_DB_DEST_BASE_ENA(x)                 (((x) >> 14) & 0x1)
 #define   C_0085F0_DB_DEST_BASE_ENA                    0xFFFFBFFF
-#define   S_0085F0_CR_DEST_BASE_ENA(x)                 (((x) & 0x1) << 15)
-#define   G_0085F0_CR_DEST_BASE_ENA(x)                 (((x) >> 15) & 0x1)
-#define   C_0085F0_CR_DEST_BASE_ENA                    0xFFFF7FFF
+#define   S_0085F0_CB8_DEST_BASE_ENA(x)                (((x) & 0x1) << 15)
+#define   G_0085F0_CB8_DEST_BASE_ENA(x)                (((x) >> 15) & 0x1)
+
+#define   S_0085F0_CB9_DEST_BASE_ENA(x)                (((x) & 0x1) << 16)
+#define   G_0085F0_CB9_DEST_BASE_ENA(x)                (((x) >> 16) & 0x1)
+
+#define   S_0085F0_CB10_DEST_BASE_ENA(x)               (((x) & 0x1) << 17)
+#define   G_0085F0_CB10_DEST_BASE_ENA(x)               (((x) >> 17) & 0x1)
+
+#define   S_0085F0_CB11_DEST_BASE_ENA(x)               (((x) & 0x1) << 18)
+#define   G_0085F0_CB11_DEST_BASE_ENA(x)               (((x) >> 18) & 0x1)
+
 #define   S_0085F0_TC_ACTION_ENA(x)                    (((x) & 0x1) << 23)
 #define   G_0085F0_TC_ACTION_ENA(x)                    (((x) >> 23) & 0x1)
 #define   C_0085F0_TC_ACTION_ENA                       0xFF7FFFFF
@@ -1882,4 +1868,8 @@
 #define R_008970_VGT_NUM_INDICES                     0x008970
 #define R_0287F0_VGT_DRAW_INITIATOR                  0x0287F0
 
+#define R_03CFF0_SQ_VTX_BASE_VTX_LOC                    0x03CFF0
+#define R_03CFF4_SQ_VTX_START_INST_LOC                  0x03CFF4
+
+#define R_03A200_SQ_LOOP_CONST_0                     0x3A200
 #endif

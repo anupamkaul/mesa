@@ -392,9 +392,9 @@ static void ei_if(struct r300_vertex_program_compiler * compiler,
 	 * don't already have one. */
 	if (!compiler->PredicateMask) {
 		unsigned int writemasks[RC_REGISTER_MAX_INDEX];
-		memset(writemasks, 0, sizeof(writemasks));
 		struct rc_instruction * inst;
 		unsigned int i;
+		memset(writemasks, 0, sizeof(writemasks));
 		for(inst = compiler->Base.Program.Instructions.Next;
 				inst != &compiler->Base.Program.Instructions;
 							inst = inst->Next) {
@@ -1067,7 +1067,7 @@ void r3xx_compile_vertex_program(struct r300_vertex_program_compiler *c)
 		{"dead constants",		1, kill_consts, rc_remove_unused_constants,	&c->code->constants_remap_table},
 		{"final code validation",	0, 1,		rc_validate_final_shader,	NULL},
 		{"machine code generation",	0, 1,		translate_vertex_program,	NULL},
-		{"dump machine code",		0,c->Base.Debug,r300_vertex_program_dump,	NULL},
+		{"dump machine code",		0, c->Base.Debug & RC_DBG_LOG, r300_vertex_program_dump,	NULL},
 		{NULL, 0, 0, NULL, NULL}
 	};
 

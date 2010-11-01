@@ -29,8 +29,10 @@
 
 #include "util/u_debug.h"
 #include "util/u_memory.h"
+#include "util/u_string.h"
 #include "lp_bld_const.h"
 #include "lp_bld_init.h"
+#include "lp_bld_const.h"
 #include "lp_bld_printf.h"
 
 
@@ -126,3 +128,24 @@ lp_build_printf(struct gallivm_state *gallivm, const char *fmt, ...)
    return LLVMBuildCall(builder, func_printf, params, argcount + 1, "");
 }
 
+
+
+/**
+ * Print a float[4] vector.
+ */
+LLVMValueRef
+lp_build_print_vec4(struct gallivm_state *gallivm,
+                    const char *msg, LLVMValueRef vec)
+{
+   LLVMBuilderRef builder = gallivm->builder;
+   char format[1000];
+   LLVMValueRef x, y, z, w;
+
+   x = LLVMBuildExtractElement(builder, vec, lp_build_const_int32(gallivm, 0), "");
+   y = LLVMBuildExtractElement(builder, vec, lp_build_const_int32(gallivm, 1), "");
+   z = LLVMBuildExtractElement(builder, vec, lp_build_const_int32(gallivm, 2), "");
+   w = LLVMBuildExtractElement(builder, vec, lp_build_const_int32(gallivm, 3), "");
+
+   util_snprintf(format, sizeof(format), "%s %%f %%f %%f %%f\n", msg);
+   return lp_build_printf(gallivm, format, x, y, z, w);
+}

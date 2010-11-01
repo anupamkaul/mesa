@@ -91,6 +91,7 @@
 #define PKT3_SET_CTL_CONST                     0x6F
 #define PKT3_SURFACE_BASE_UPDATE               0x73
 
+#define EVENT_TYPE_CACHE_FLUSH_AND_INV_TS_EVENT 0x14
 #define EVENT_TYPE_ZPASS_DONE                  0x15
 #define EVENT_TYPE_CACHE_FLUSH_AND_INV_EVENT   0x16
 
@@ -2199,5 +2200,13 @@
 #define R_038010_RESOURCE0_WORD4                     0x038010
 #define R_038014_RESOURCE0_WORD5                     0x038014
 #define R_038018_RESOURCE0_WORD6                     0x038018
+
+#define R_028140_ALU_CONST_BUFFER_SIZE_PS_0          0x00028140
+#define R_028180_ALU_CONST_BUFFER_SIZE_VS_0          0x00028180
+#define R_028940_ALU_CONST_CACHE_PS_0                0x00028940
+#define R_028980_ALU_CONST_CACHE_VS_0                0x00028980
+
+#define R_03CFF0_SQ_VTX_BASE_VTX_LOC                 0x03CFF0
+#define R_03CFF4_SQ_VTX_START_INST_LOC               0x03CFF4
 
 #endif

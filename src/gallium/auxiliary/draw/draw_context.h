@@ -51,7 +51,6 @@ struct tgsi_sampler;
 struct gallivm_state;
 
 
-#define DRAW_MAX_TEXTURE_LEVELS 13  /* 4K x 4K for now */
 
 struct draw_context *draw_create( struct pipe_context *pipe );
 
@@ -125,9 +124,9 @@ draw_set_mapped_texture(struct draw_context *draw,
                         unsigned sampler_idx,
                         uint32_t width, uint32_t height, uint32_t depth,
                         uint32_t last_level,
-                        uint32_t row_stride[DRAW_MAX_TEXTURE_LEVELS],
-                        uint32_t img_stride[DRAW_MAX_TEXTURE_LEVELS],
-                        const void *data[DRAW_MAX_TEXTURE_LEVELS]);
+                        uint32_t row_stride[PIPE_MAX_TEXTURE_LEVELS],
+                        uint32_t img_stride[PIPE_MAX_TEXTURE_LEVELS],
+                        const void *data[PIPE_MAX_TEXTURE_LEVELS]);
 
 
 /*

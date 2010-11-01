@@ -69,11 +69,7 @@ add_sincos_test(struct gallivm_state *gallivm, LLVMModuleRef module,
    LLVMValueRef ret;
    struct lp_build_context bld;
 
-   bld.builder = builder;
-   bld.type.floating = 1;
-   bld.type.width = 32;
-   bld.type.length = 4;
-   bld.gallivm = gallivm;
+   lp_build_context_init(&bld, gallivm, lp_float32_vec4_type());
 
    LLVMSetFunctionCallConv(func, LLVMCCallConv);
 

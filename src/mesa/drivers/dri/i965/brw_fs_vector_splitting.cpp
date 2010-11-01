@@ -212,7 +212,6 @@ public:
    struct variable_entry *get_splitting_entry(ir_variable *var);
 
    exec_list *variable_list;
-   void *mem_ctx;
 };
 
 struct variable_entry *
@@ -300,6 +299,7 @@ ir_vector_splitting_visitor::visit_leave(ir_assignment *ir)
       }
       ir->remove();
    } else if (lhs) {
+      void *mem_ctx = lhs->mem_ctx;
       int elem = -1;
 
       switch (ir->write_mask) {
@@ -333,7 +333,6 @@ ir_vector_splitting_visitor::visit_leave(ir_assignment *ir)
    return visit_continue;
 }
 
-extern "C" {
 bool
 brw_do_vector_splitting(exec_list *instructions)
 {
@@ -390,5 +389,4 @@ brw_do_vector_splitting(exec_list *instructions)
    talloc_free(mem_ctx);
 
    return true;
-}
 }

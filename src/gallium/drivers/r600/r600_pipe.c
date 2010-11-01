@@ -19,37 +19,232 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
  * USE OR OTHER DEALINGS IN THE SOFTWARE.
- *
- * Authors:
- *      Jerome Glisse
- *      Corbin Simpson
  */
 #include <stdio.h>
-#include "util/u_inlines.h"
-#include "util/u_format.h"
-#include "util/u_memory.h"
-#include "r600_screen.h"
-#include "r600_context.h"
-#include "r600_public.h"
+#include <errno.h>
+#include <pipe/p_defines.h>
+#include <pipe/p_state.h>
+#include <pipe/p_context.h>
+#include <tgsi/tgsi_scan.h>
+#include <tgsi/tgsi_parse.h>
+#include <tgsi/tgsi_util.h>
+#include <util/u_blitter.h>
+#include <util/u_double_list.h>
+#include <util/u_transfer.h>
+#include <util/u_surface.h>
+#include <util/u_pack_color.h>
+#include <util/u_memory.h>
+#include <util/u_inlines.h>
+#include <util/u_upload_mgr.h>
+#include <pipebuffer/pb_buffer.h>
+#include "r600.h"
+#include "r600d.h"
 #include "r600_resource.h"
+#include "r600_shader.h"
+#include "r600_pipe.h"
 #include "r600_state_inlines.h"
 
+/*
+ * pipe_context
+ */
+static void r600_flush(struct pipe_context *ctx, unsigned flags,
+			struct pipe_fence_handle **fence)
+{
+	struct r600_pipe_context *rctx = (struct r600_pipe_context *)ctx;
+#if 0
+	static int dc = 0;
+	char dname[256];
+#endif
+
+	if (!rctx->ctx.pm4_cdwords)
+		return;
+
+	u_upload_flush(rctx->upload_vb);
+	u_upload_flush(rctx->upload_ib);
+
+#if 0
+	sprintf(dname, "gallium-%08d.bof", dc);
+	if (dc < 20) {
+		r600_context_dump_bof(&rctx->ctx, dname);
+		R600_ERR("dumped %s\n", dname);
+	}
+	dc++;
+#endif
+	r600_context_flush(&rctx->ctx);
+}
+
+static void r600_destroy_context(struct pipe_context *context)
+{
+	struct r600_pipe_context *rctx = (struct r600_pipe_context *)context;
+
+	r600_context_fini(&rctx->ctx);
+	for (int i = 0; i < R600_PIPE_NSTATES; i++) {
+		free(rctx->states[i]);
+	}
+
+	util_blitter_destroy(rctx->blitter);
+
+	u_upload_destroy(rctx->upload_vb);
+	u_upload_destroy(rctx->upload_ib);
+
+	if (rctx->tran.translate_cache)
+		translate_cache_destroy(rctx->tran.translate_cache);
+
+	FREE(rctx->ps_resource);
+	FREE(rctx->vs_resource);
+	FREE(rctx);
+}
+
+static struct pipe_context *r600_create_context(struct pipe_screen *screen, void *priv)
+{
+	struct r600_pipe_context *rctx = CALLOC_STRUCT(r600_pipe_context);
+	struct r600_screen* rscreen = (struct r600_screen *)screen;
+	enum chip_class class;
+
+	if (rctx == NULL)
+		return NULL;
+	rctx->context.winsys = rscreen->screen.winsys;
+	rctx->context.screen = screen;
+	rctx->context.priv = priv;
+	rctx->context.destroy = r600_destroy_context;
+	rctx->context.flush = r600_flush;
+
+	/* Easy accessing of screen/winsys. */
+	rctx->screen = rscreen;
+	rctx->radeon = rscreen->radeon;
+	rctx->family = r600_get_family(rctx->radeon);
+
+	r600_init_blit_functions(rctx);
+	r600_init_query_functions(rctx);
+	r600_init_context_resource_functions(rctx);
+
+	switch (r600_get_family(rctx->radeon)) {
+	case CHIP_R600:
+	case CHIP_RV610:
+	case CHIP_RV630:
+	case CHIP_RV670:
+	case CHIP_RV620:
+	case CHIP_RV635:
+	case CHIP_RS780:
+	case CHIP_RS880:
+	case CHIP_RV770:
+	case CHIP_RV730:
+	case CHIP_RV710:
+	case CHIP_RV740:
+		rctx->context.draw_vbo = r600_draw_vbo;
+		r600_init_state_functions(rctx);
+		if (r600_context_init(&rctx->ctx, rctx->radeon)) {
+			r600_destroy_context(&rctx->context);
+			return NULL;
+		}
+		r600_init_config(rctx);
+		break;
+	case CHIP_CEDAR:
+	case CHIP_REDWOOD:
+	case CHIP_JUNIPER:
+	case CHIP_CYPRESS:
+	case CHIP_HEMLOCK:
+		rctx->context.draw_vbo = evergreen_draw;
+		evergreen_init_state_functions(rctx);
+		if (evergreen_context_init(&rctx->ctx, rctx->radeon)) {
+			r600_destroy_context(&rctx->context);
+			return NULL;
+		}
+		evergreen_init_config(rctx);
+		break;
+	default:
+		R600_ERR("unsupported family %d\n", r600_get_family(rctx->radeon));
+		r600_destroy_context(&rctx->context);
+		return NULL;
+	}
+
+	rctx->upload_ib = u_upload_create(&rctx->context, 32 * 1024, 16,
+					  PIPE_BIND_INDEX_BUFFER);
+	if (rctx->upload_ib == NULL) {
+		r600_destroy_context(&rctx->context);
+		return NULL;
+	}
+
+	rctx->upload_vb = u_upload_create(&rctx->context, 128 * 1024, 16,
+					  PIPE_BIND_VERTEX_BUFFER);
+	if (rctx->upload_vb == NULL) {
+		r600_destroy_context(&rctx->context);
+		return NULL;
+	}
+
+	rctx->blitter = util_blitter_create(&rctx->context);
+	if (rctx->blitter == NULL) {
+		FREE(rctx);
+		return NULL;
+	}
+
+	rctx->tran.translate_cache = translate_cache_create();
+	if (rctx->tran.translate_cache == NULL) {
+		FREE(rctx);
+		return NULL;
+	}
+	
+	rctx->vs_resource = CALLOC(R600_RESOURCE_ARRAY_SIZE, sizeof(struct r600_pipe_state));
+	if (!rctx->vs_resource) {
+		FREE(rctx);
+		return NULL;
+	}
+
+	rctx->ps_resource = CALLOC(R600_RESOURCE_ARRAY_SIZE, sizeof(struct r600_pipe_state));
+	if (!rctx->ps_resource) {
+		FREE(rctx);
+		return NULL;
+	}
+
+	class = r600_get_family_class(rctx->radeon);
+	if (class == R600 || class == R700)
+		rctx->custom_dsa_flush = r600_create_db_flush_dsa(rctx);
+	else
+		rctx->custom_dsa_flush = evergreen_create_db_flush_dsa(rctx);
+
+	r600_blit_uncompress_depth_ptr = r600_blit_uncompress_depth;
+
+	return &rctx->context;
+}
+
+/*
+ * pipe_screen
+ */
 static const char* r600_get_vendor(struct pipe_screen* pscreen)
 {
 	return "X.Org";
 }
 
+static const char *r600_get_family_name(enum radeon_family family)
+{
+	switch(family) {
+	case CHIP_R600: return "R600";
+	case CHIP_RV610: return "RV610";
+	case CHIP_RV630: return "RV630";
+	case CHIP_RV670: return "RV670";
+	case CHIP_RV620: return "RV620";
+	case CHIP_RV635: return "RV635";
+	case CHIP_RS780: return "RS780";
+	case CHIP_RS880: return "RS880";
+	case CHIP_RV770: return "RV770";
+	case CHIP_RV730: return "RV730";
+	case CHIP_RV710: return "RV710";
+	case CHIP_RV740: return "RV740";
+	case CHIP_CEDAR: return "CEDAR";
+	case CHIP_REDWOOD: return "REDWOOD";
+	case CHIP_JUNIPER: return "JUNIPER";
+	case CHIP_CYPRESS: return "CYPRESS";
+	case CHIP_HEMLOCK: return "HEMLOCK";
+	default: return "unknown";
+	}
+}
+
 static const char* r600_get_name(struct pipe_screen* pscreen)
 {
-	struct r600_screen *screen = r600_screen(pscreen);
-	enum radeon_family family = radeon_get_family(screen->rw);
+	struct r600_screen *rscreen = (struct r600_screen *)pscreen;
+	enum radeon_family family = r600_get_family(rscreen->radeon);
 
-	if (family >= CHIP_R600 && family < CHIP_RV770)
-		return "R600 (HD2XXX,HD3XXX)";
-	else if (family < CHIP_CEDAR)
-		return "R700 (HD4XXX)";
-	else
-		return "EVERGREEN";
+	return r600_get_family_name(family);
 }
 
 static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
@@ -72,6 +267,7 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 	case PIPE_CAP_INDEP_BLEND_ENABLE:
 	case PIPE_CAP_DEPTHSTENCIL_CLEAR_SEPARATE:
 	case PIPE_CAP_DEPTH_CLAMP:
+	case PIPE_CAP_SHADER_STENCIL_EXPORT:
 		return 1;
 
 	/* Unsupported features (boolean caps). */
@@ -87,7 +283,7 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 		return 14;
 	case PIPE_CAP_MAX_VERTEX_TEXTURE_UNITS:
 		/* FIXME allow this once infrastructure is there */
-		return 0;
+		return 16;
 	case PIPE_CAP_MAX_TEXTURE_IMAGE_UNITS:
 	case PIPE_CAP_MAX_COMBINED_SAMPLERS:
 		return 16;
@@ -104,15 +300,35 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 	case PIPE_CAP_TGSI_FS_COORD_ORIGIN_LOWER_LEFT:
 	case PIPE_CAP_TGSI_FS_COORD_PIXEL_CENTER_INTEGER:
 		return 0;
+
 	default:
 		R600_ERR("r600: unknown param %d\n", param);
 		return 0;
 	}
 }
 
+static float r600_get_paramf(struct pipe_screen* pscreen, enum pipe_cap param)
+{
+	switch (param) {
+	case PIPE_CAP_MAX_LINE_WIDTH:
+	case PIPE_CAP_MAX_LINE_WIDTH_AA:
+	case PIPE_CAP_MAX_POINT_WIDTH:
+	case PIPE_CAP_MAX_POINT_WIDTH_AA:
+		return 8192.0f;
+	case PIPE_CAP_MAX_TEXTURE_ANISOTROPY:
+		return 16.0f;
+	case PIPE_CAP_MAX_TEXTURE_LOD_BIAS:
+		return 16.0f;
+	default:
+		R600_ERR("r600: unsupported paramf %d\n", param);
+		return 0.0f;
+	}
+}
+
 static int r600_get_shader_param(struct pipe_screen* pscreen, unsigned shader, enum pipe_shader_cap param)
 {
-	switch(shader) {
+	switch(shader)
+	{
 	case PIPE_SHADER_FRAGMENT:
 	case PIPE_SHADER_VERTEX:
 		break;
@@ -152,24 +368,6 @@ static int r600_get_shader_param(struct pipe_screen* pscreen, unsigned shader, e
 		return 1;
 	default:
 		return 0;
-	}
-}
-
-static float r600_get_paramf(struct pipe_screen* pscreen, enum pipe_cap param)
-{
-	switch (param) {
-	case PIPE_CAP_MAX_LINE_WIDTH:
-	case PIPE_CAP_MAX_LINE_WIDTH_AA:
-	case PIPE_CAP_MAX_POINT_WIDTH:
-	case PIPE_CAP_MAX_POINT_WIDTH_AA:
-		return 8192.0f;
-	case PIPE_CAP_MAX_TEXTURE_ANISOTROPY:
-		return 16.0f;
-	case PIPE_CAP_MAX_TEXTURE_LOD_BIAS:
-		return 16.0f;
-	default:
-		R600_ERR("r600: unsupported paramf %d\n", param);
-		return 0.0f;
 	}
 }
 
@@ -226,31 +424,25 @@ static boolean r600_is_format_supported(struct pipe_screen* screen,
 
 static void r600_destroy_screen(struct pipe_screen* pscreen)
 {
-	struct r600_screen* rscreen = r600_screen(pscreen);
+	struct r600_screen *rscreen = (struct r600_screen *)pscreen;
 
 	if (rscreen == NULL)
 		return;
 	FREE(rscreen);
 }
 
-struct pipe_screen *r600_screen_create(struct radeon *rw)
+
+struct pipe_screen *r600_screen_create(struct radeon *radeon)
 {
-	struct r600_screen* rscreen;
+	struct r600_screen *rscreen;
 
 	rscreen = CALLOC_STRUCT(r600_screen);
 	if (rscreen == NULL) {
 		return NULL;
 	}
 
-	/* don't enable mem constant for r600 yet */
-	rscreen->use_mem_constant = FALSE;
-	if (radeon_get_family_class(rw) == EVERGREEN) {
-		rscreen->use_mem_constant = TRUE;
-	}
-
-	radeon_set_mem_constant(rw, rscreen->use_mem_constant);
-	rscreen->rw = rw;
-	rscreen->screen.winsys = (struct pipe_winsys*)rw;
+	rscreen->radeon = radeon;
+	rscreen->screen.winsys = (struct pipe_winsys*)radeon;
 	rscreen->screen.destroy = r600_destroy_screen;
 	rscreen->screen.get_name = r600_get_name;
 	rscreen->screen.get_vendor = r600_get_vendor;
@@ -261,5 +453,8 @@ struct pipe_screen *r600_screen_create(struct radeon *rw)
 	rscreen->screen.context_create = r600_create_context;
 	r600_init_screen_texture_functions(&rscreen->screen);
 	r600_init_screen_resource_functions(&rscreen->screen);
+
+	rscreen->tiling_info = r600_get_tiling_info(radeon);
+
 	return &rscreen->screen;
 }
