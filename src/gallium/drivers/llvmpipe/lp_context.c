@@ -71,6 +71,9 @@ garbage_collect_callback(void *cb_data)
       li = next;
    }
 
+   /* Free all the context's primitive setup variants */
+   lp_delete_setup_variants(lp);
+
    /* This type will be recreated upon demand */
    lp->jit_context_ptr_type = NULL;
 }
