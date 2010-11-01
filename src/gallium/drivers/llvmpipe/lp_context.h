@@ -126,10 +126,8 @@ struct llvmpipe_context {
    LLVMTypeRef jit_context_ptr_type;
    unsigned variant_count;
 
-#if 1/* ?? */
    struct lp_setup_variant_list_item setup_variants_list;
    unsigned nr_setup_variants;
-#endif
 };
 
 
