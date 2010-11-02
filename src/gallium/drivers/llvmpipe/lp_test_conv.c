@@ -124,7 +124,6 @@ add_conv_test(struct gallivm_state *gallivm,
    dst_ptr = LLVMGetParam(func, 1);
 
    block = LLVMAppendBasicBlockInContext(context, func, "entry");
-   builder = LLVMCreateBuilderInContext(context);
    LLVMPositionBuilderAtEnd(builder, block);
 
    for(i = 0; i < num_srcs; ++i) {
