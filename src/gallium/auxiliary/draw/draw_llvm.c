@@ -385,6 +385,10 @@ draw_llvm_create(struct draw_context *draw, struct gallivm_state *gallivm)
 void
 draw_llvm_destroy(struct draw_llvm *llvm)
 {
+   gallivm_remove_garbage_collector_callback(
+                              draw_llvm_garbage_collect_callback, llvm);
+
+   /* XXX free other draw_llvm data? */
    FREE(llvm);
 }
 
