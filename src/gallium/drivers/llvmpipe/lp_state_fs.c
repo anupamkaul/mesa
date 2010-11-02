@@ -772,9 +772,6 @@ generate_fragment(struct llvmpipe_context *lp,
 
    LLVMBuildRetVoid(builder);
 
-   //LLVMDisposeBuilder(builder);
-
-
    /* Verify the LLVM IR.  If invalid, dump and abort */
 #ifdef DEBUG
    if(LLVMVerifyFunction(function, LLVMPrintMessageAction)) {

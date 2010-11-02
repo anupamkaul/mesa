@@ -571,7 +571,6 @@ generate_setup_variant(struct gallivm_state *gallivm,
     */
    block = LLVMAppendBasicBlockInContext(gallivm->context,
                                          variant->function, "entry");
-   //builder = LLVMCreateBuilder();
    builder = gallivm->builder;
    LLVMPositionBuilderAtEnd(builder, block);
 
@@ -581,7 +580,6 @@ generate_setup_variant(struct gallivm_state *gallivm,
 
    lp_emit_emms(builder);
    LLVMBuildRetVoid(builder);
-   /*LLVMDisposeBuilder(builder);*/
 
    variant->jit_function = finalize_function(gallivm, builder,
 					     variant->function);
