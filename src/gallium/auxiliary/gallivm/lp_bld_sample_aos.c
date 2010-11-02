@@ -888,7 +888,7 @@ lp_build_sample_mipmap(struct lp_build_sample_context *bld,
             int i;
             assert(h16_bld.type.length <= Elements(shuffles));
             for (i = 0; i < h16_bld.type.length; i++)
-               shuffles[i] = lp_build_const_int32(2 * (i & 1));
+               shuffles[i] = lp_build_const_int32(bld->gallivm, 2 * (i & 1));
             shuffle = LLVMConstVector(shuffles, h16_bld.type.length);
             lod_fpart = LLVMBuildShuffleVector(builder,
                                                lod_fpart, lod_fpart,
