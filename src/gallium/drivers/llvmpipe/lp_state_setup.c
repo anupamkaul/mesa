@@ -506,7 +506,7 @@ generate_setup_variant(struct gallivm_state *gallivm,
    LLVMTypeRef func_type;
    LLVMTypeRef arg_types[7];
    LLVMBasicBlockRef block;
-   LLVMBuilderRef builder;
+   LLVMBuilderRef builder = gallivm->builder;
    int64_t t0, t1;
 
    if (0)
@@ -571,7 +571,6 @@ generate_setup_variant(struct gallivm_state *gallivm,
     */
    block = LLVMAppendBasicBlockInContext(gallivm->context,
                                          variant->function, "entry");
-   builder = gallivm->builder;
    LLVMPositionBuilderAtEnd(builder, block);
 
    set_noalias(builder, variant->function, arg_types, Elements(arg_types));
