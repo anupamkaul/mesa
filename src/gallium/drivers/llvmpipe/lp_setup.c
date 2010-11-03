@@ -114,7 +114,7 @@ first_point( struct lp_setup_context *setup,
    setup->point( setup, v0 );
 }
 
-static void lp_setup_reset( struct lp_setup_context *setup )
+void lp_setup_reset( struct lp_setup_context *setup )
 {
    LP_DBG(DEBUG_SETUP, "%s\n", __FUNCTION__);
 
