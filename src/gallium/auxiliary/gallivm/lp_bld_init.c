@@ -186,6 +186,11 @@ free_gallivm_state(struct gallivm_state *gallivm)
       LLVMDisposeExecutionEngine(gallivm->engine);
 #endif
 
+#if 0
+   /* Don't free the TargetData, it's owned by the exec engine */
+   LLVMDisposeTargetData(gallivm->target);
+#endif
+
    if (gallivm->context)
       LLVMContextDispose(gallivm->context);
 
