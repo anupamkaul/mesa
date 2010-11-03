@@ -913,6 +913,12 @@ lp_setup_update_state( struct lp_setup_context *setup,
          llvmpipe_update_derived(lp);
       }
 
+      if (lp->setup->dirty) {
+         llvmpipe_update_setup(lp);
+      }
+
+      assert(setup->setup.variant);
+
       /* Will probably need to move this somewhere else, just need  
        * to know about vertex shader point size attribute.
        */
