@@ -124,11 +124,18 @@ struct llvmpipe_context {
    /** JIT code generation */
    struct gallivm_state *gallivm;
    LLVMTypeRef jit_context_ptr_type;
-   unsigned variant_count;
 
    struct lp_setup_variant_list_item setup_variants_list;
    unsigned nr_setup_variants;
 };
+
+
+/**
+ * Fragment and setup variant count, used to trigger garbage collection.
+ * This is global since all variants in all contexts will be free when
+ * we do garbage collection.
+ */
+extern unsigned llvmpipe_variant_count;
 
 
 struct pipe_context *

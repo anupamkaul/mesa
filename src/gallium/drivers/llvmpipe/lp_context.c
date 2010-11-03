@@ -50,6 +50,8 @@
 DEBUG_GET_ONCE_BOOL_OPTION(lp_no_rast, "LP_NO_RAST", FALSE)
 
 
+/** shared by all contexts */
+unsigned llvmpipe_variant_count;
 
 
 /**

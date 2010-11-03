@@ -1372,7 +1372,7 @@ llvmpipe_update_fs(struct llvmpipe_context *lp)
       LP_COUNT_ADD(llvm_compile_time, dt);
       LP_COUNT_ADD(nr_llvm_compiles, 2);  /* emit vs. omit in/out test */
 
-      lp->variant_count++;
+      llvmpipe_variant_count++;
 
       /* Put the new variant into the list */
       if (variant) {

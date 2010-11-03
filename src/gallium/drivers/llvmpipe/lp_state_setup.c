@@ -720,6 +720,8 @@ llvmpipe_update_setup(struct llvmpipe_context *lp)
       variant = generate_setup_variant(lp->gallivm, key);
       insert_at_head(&lp->setup_variants_list, &variant->list_item_global);
       lp->nr_setup_variants++;
+
+      llvmpipe_variant_count++;
    }
 
    lp_setup_set_setup_variant(lp->setup,
