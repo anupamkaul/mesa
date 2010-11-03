@@ -74,6 +74,11 @@ garbage_collect_callback(void *cb_data)
    /* Free all the context's primitive setup variants */
    lp_delete_setup_variants(lp);
 
+   /* release references to setup variants, shaders */
+   lp_setup_set_setup_variant(lp->setup, NULL);
+   lp_setup_set_fs_variant(lp->setup, NULL);
+   lp_setup_reset(lp->setup);
+
    /* This type will be recreated upon demand */
    lp->jit_context_ptr_type = NULL;
 }
