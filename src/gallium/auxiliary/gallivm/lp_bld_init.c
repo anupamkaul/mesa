@@ -287,7 +287,7 @@ struct callback
 };
 
 
-#define MAX_CALLBACKS 8
+#define MAX_CALLBACKS 32
 static struct callback Callbacks[MAX_CALLBACKS];
 static unsigned NumCallbacks = 0;
 
