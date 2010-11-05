@@ -83,6 +83,9 @@ garbage_collect_callback(void *cb_data)
 
    /* This type will be recreated upon demand */
    lp->jit_context_ptr_type = NULL;
+
+   /* mark all state as dirty to ensure new shaders are jit'd, etc. */
+   lp->dirty = ~0;
 }
 
 
