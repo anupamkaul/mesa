@@ -52,6 +52,7 @@
 #include "main/readpix.h"
 #include "main/scissor.h"
 #include "main/shaderapi.h"
+#include "main/shaderobj.h"
 #include "main/state.h"
 #include "main/stencil.h"
 #include "main/texobj.h"
@@ -103,6 +104,8 @@ struct save_state
 
    /** META_ALPHA_TEST */
    GLboolean AlphaEnabled;
+   GLenum AlphaFunc;
+   GLclampf AlphaRef;
 
    /** META_BLEND */
    GLbitfield BlendEnabled;
@@ -143,10 +146,10 @@ struct save_state
    struct gl_vertex_program *VertexProgram;
    GLboolean FragmentProgramEnabled;
    struct gl_fragment_program *FragmentProgram;
-   GLuint VertexShader;
-   GLuint GeometryShader;
-   GLuint FragmentShader;
-   GLuint ActiveShader;
+   struct gl_shader_program *VertexShader;
+   struct gl_shader_program *GeometryShader;
+   struct gl_shader_program *FragmentShader;
+   struct gl_shader_program *ActiveShader;
 
    /** META_STENCIL_TEST */
    struct gl_stencil_attrib Stencil;
@@ -327,6 +330,8 @@ _mesa_meta_begin(struct gl_context *ctx, GLbitfield state)
 
    if (state & META_ALPHA_TEST) {
       save->AlphaEnabled = ctx->Color.AlphaEnabled;
+      save->AlphaFunc = ctx->Color.AlphaFunc;
+      save->AlphaRef = ctx->Color.AlphaRef;
       if (ctx->Color.AlphaEnabled)
          _mesa_set_enable(ctx, GL_ALPHA_TEST, GL_FALSE);
    }
@@ -436,14 +441,14 @@ _mesa_meta_begin(struct gl_context *ctx, GLbitfield state)
       }
 
       if (ctx->Extensions.ARB_shader_objects) {
-         save->VertexShader = ctx->Shader.CurrentVertexProgram ?
-            ctx->Shader.CurrentVertexProgram->Name : 0;
-         save->GeometryShader = ctx->Shader.CurrentGeometryProgram ?
-            ctx->Shader.CurrentGeometryProgram->Name : 0;
-         save->FragmentShader = ctx->Shader.CurrentFragmentProgram ?
-            ctx->Shader.CurrentFragmentProgram->Name : 0;
-         save->ActiveShader = ctx->Shader.ActiveProgram ?
-            ctx->Shader.ActiveProgram->Name : 0;
+	 _mesa_reference_shader_program(ctx, &save->VertexShader,
+					ctx->Shader.CurrentVertexProgram);
+	 _mesa_reference_shader_program(ctx, &save->GeometryShader,
+					ctx->Shader.CurrentGeometryProgram);
+	 _mesa_reference_shader_program(ctx, &save->FragmentShader,
+					ctx->Shader.CurrentFragmentProgram);
+	 _mesa_reference_shader_program(ctx, &save->ActiveShader,
+					ctx->Shader.CurrentFragmentProgram);
 
          _mesa_UseProgramObjectARB(0);
       }
@@ -575,6 +580,7 @@ _mesa_meta_end(struct gl_context *ctx)
    if (state & META_ALPHA_TEST) {
       if (ctx->Color.AlphaEnabled != save->AlphaEnabled)
          _mesa_set_enable(ctx, GL_ALPHA_TEST, save->AlphaEnabled);
+      _mesa_AlphaFunc(save->AlphaFunc, save->AlphaRef);
    }
 
    if (state & META_BLEND) {
@@ -675,16 +681,18 @@ _mesa_meta_end(struct gl_context *ctx)
       }
 
       if (ctx->Extensions.ARB_vertex_shader)
-	 _mesa_UseShaderProgramEXT(GL_VERTEX_SHADER, save->VertexShader);
+	 _mesa_use_shader_program(ctx, GL_VERTEX_SHADER, save->VertexShader);
 
       if (ctx->Extensions.ARB_geometry_shader4)
-	 _mesa_UseShaderProgramEXT(GL_GEOMETRY_SHADER_ARB,
-				   save->GeometryShader);
+	 _mesa_use_shader_program(ctx, GL_GEOMETRY_SHADER_ARB,
+				  save->GeometryShader);
 
       if (ctx->Extensions.ARB_fragment_shader)
-	 _mesa_UseShaderProgramEXT(GL_FRAGMENT_SHADER, save->FragmentShader);
+	 _mesa_use_shader_program(ctx, GL_FRAGMENT_SHADER,
+				  save->FragmentShader);
 
-      _mesa_ActiveProgramEXT(save->ActiveShader);
+      _mesa_reference_shader_program(ctx, &ctx->Shader.ActiveProgram,
+				     save->ActiveShader);
    }
 
    if (state & META_STENCIL_TEST) {
@@ -1989,6 +1997,7 @@ _mesa_meta_Bitmap(struct gl_context *ctx,
    struct temp_texture *tex = get_bitmap_temp_texture(ctx);
    const GLenum texIntFormat = GL_ALPHA;
    const struct gl_pixelstore_attrib unpackSave = *unpack;
+   GLubyte fg, bg;
    struct vertex {
       GLfloat x, y, z, s, t, r, g, b, a;
    };
@@ -2090,21 +2099,26 @@ _mesa_meta_Bitmap(struct gl_context *ctx,
       _mesa_BufferSubDataARB(GL_ARRAY_BUFFER_ARB, 0, sizeof(verts), verts);
    }
 
+   /* choose different foreground/background alpha values */
+   CLAMPED_FLOAT_TO_UBYTE(fg, ctx->Current.RasterColor[ACOMP]);
+   bg = (fg > 127 ? 0 : 255);
+
    bitmap1 = _mesa_map_pbo_source(ctx, &unpackSave, bitmap1);
    if (!bitmap1) {
       _mesa_meta_end(ctx);
       return;
    }
 
-   bitmap8 = (GLubyte *) calloc(1, width * height);
+   bitmap8 = (GLubyte *) malloc(width * height);
    if (bitmap8) {
+      memset(bitmap8, bg, width * height);
       _mesa_expand_bitmap(width, height, &unpackSave, bitmap1,
-                          bitmap8, width, 0xff);
+                          bitmap8, width, fg);
 
       _mesa_set_enable(ctx, tex->Target, GL_TRUE);
 
       _mesa_set_enable(ctx, GL_ALPHA_TEST, GL_TRUE);
-      _mesa_AlphaFunc(GL_GREATER, 0.0);
+      _mesa_AlphaFunc(GL_NOTEQUAL, UBYTE_TO_FLOAT(bg));
 
       setup_drawpix_texture(ctx, tex, newTex, texIntFormat, width, height,
                             GL_ALPHA, GL_UNSIGNED_BYTE, bitmap8);

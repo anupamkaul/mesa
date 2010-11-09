@@ -77,12 +77,15 @@ static void r600_destroy_context(struct pipe_context *context)
 {
 	struct r600_pipe_context *rctx = (struct r600_pipe_context *)context;
 
+	rctx->context.delete_depth_stencil_alpha_state(&rctx->context, rctx->custom_dsa_flush);
+
 	r600_context_fini(&rctx->ctx);
+
+	util_blitter_destroy(rctx->blitter);
+
 	for (int i = 0; i < R600_PIPE_NSTATES; i++) {
 		free(rctx->states[i]);
 	}
-
-	util_blitter_destroy(rctx->blitter);
 
 	u_upload_destroy(rctx->upload_vb);
 	u_upload_destroy(rctx->upload_ib);
@@ -273,6 +276,7 @@ static int r600_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
 	/* Unsupported features (boolean caps). */
 	case PIPE_CAP_TIMER_QUERY:
 	case PIPE_CAP_STREAM_OUTPUT:
+	case PIPE_CAP_PRIMITIVE_RESTART:
 	case PIPE_CAP_INDEP_BLEND_FUNC: /* FIXME allow this */
 		return 0;
 
@@ -428,6 +432,9 @@ static void r600_destroy_screen(struct pipe_screen* pscreen)
 
 	if (rscreen == NULL)
 		return;
+
+	radeon_decref(rscreen->radeon);
+
 	FREE(rscreen);
 }
 
