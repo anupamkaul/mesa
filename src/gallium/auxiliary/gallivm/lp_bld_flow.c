@@ -415,6 +415,8 @@ lp_build_alloca(struct gallivm_state *gallivm,
    res = LLVMBuildAlloca(first_builder, type, name);
    LLVMBuildStore(builder, LLVMConstNull(type), res);
 
+   LLVMDisposeBuilder(first_builder);
+
    return res;
 }
 
@@ -454,6 +456,8 @@ lp_build_array_alloca(struct gallivm_state *gallivm,
    }
 
    res = LLVMBuildArrayAlloca(first_builder, type, count, name);
+
+   LLVMDisposeBuilder(first_builder);
 
    return res;
 }
