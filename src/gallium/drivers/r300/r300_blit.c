@@ -186,11 +186,11 @@ static void r300_clear(struct pipe_context* pipe,
             r300_depth_clear_value(fb->zsbuf->format, depth, stencil);
 
         r300_mark_fb_state_dirty(r300, R300_CHANGED_ZCLEAR_FLAG);
-        if (zstex->zmask_mem[fb->zsbuf->level]) {
+        if (zstex->zmask_mem[fb->zsbuf->u.tex.level]) {
             r300->zmask_clear.dirty = TRUE;
             buffers &= ~PIPE_CLEAR_DEPTHSTENCIL;
         }
-        if (zstex->hiz_mem[fb->zsbuf->level])
+        if (zstex->hiz_mem[fb->zsbuf->u.tex.level])
             r300->hiz_clear.dirty = TRUE;
     }
 
@@ -259,8 +259,8 @@ static void r300_clear(struct pipe_context* pipe,
      * If we cleared zmask/hiz, it's in use now. The Hyper-Z state update
      * looks if zmask/hiz is in use and enables fastfill accordingly. */
     if (zstex &&
-        (zstex->zmask_in_use[fb->zsbuf->level] ||
-         zstex->hiz_in_use[fb->zsbuf->level])) {
+        (zstex->zmask_in_use[fb->zsbuf->u.tex.level] ||
+         zstex->hiz_in_use[fb->zsbuf->u.tex.level])) {
         r300->hyperz_state.dirty = TRUE;
     }
 }
@@ -300,28 +300,32 @@ static void r300_clear_depth_stencil(struct pipe_context *pipe,
 /* Flush a depth stencil buffer. */
 void r300_flush_depth_stencil(struct pipe_context *pipe,
                               struct pipe_resource *dst,
-                              struct pipe_subresource subdst,
-                              unsigned zslice)
+                              unsigned level,
+                              unsigned layer)
 {
     struct r300_context *r300 = r300_context(pipe);
-    struct pipe_surface *dstsurf;
+    struct pipe_surface *dstsurf, surf_tmpl;
     struct r300_texture *tex = r300_texture(dst);
 
-    if (!tex->zmask_mem[subdst.level])
+    if (!tex->zmask_mem[level])
         return;
-    if (!tex->zmask_in_use[subdst.level])
+    if (!tex->zmask_in_use[level])
         return;
 
-    dstsurf = pipe->screen->get_tex_surface(pipe->screen, dst,
-                                            subdst.face, subdst.level, zslice,
-                                            PIPE_BIND_DEPTH_STENCIL);
+    surf_tmpl.format = dst->format;
+    surf_tmpl.usage = PIPE_BIND_DEPTH_STENCIL;
+    surf_tmpl.u.tex.level = level;
+    surf_tmpl.u.tex.first_layer = layer;
+    surf_tmpl.u.tex.last_layer = layer;
+    dstsurf = pipe->create_surface(pipe, dst, &surf_tmpl);
+
     r300->z_decomp_rd = TRUE;
     r300_blitter_begin(r300, R300_CLEAR_SURFACE);
     util_blitter_flush_depth_stencil(r300->blitter, dstsurf);
     r300_blitter_end(r300);
     r300->z_decomp_rd = FALSE;
 
-    tex->zmask_in_use[subdst.level] = FALSE;
+    tex->zmask_in_use[level] = FALSE;
 }
 
 /* Copy a block of pixels from one surface to another using HW. */
@@ -383,7 +387,7 @@ static void r300_resource_copy_region(struct pipe_context *pipe,
 
     is_depth = util_format_get_component_bits(src->format, UTIL_FORMAT_COLORSPACE_ZS, 0) != 0;
     if (is_depth) {
-        r300_flush_depth_stencil(pipe, src, subsrc, srcz);
+        r300_flush_depth_stencil(pipe, src, src_level, src_box->z);
     }
     if (old_format != new_format) {
         r300_texture_reinterpret_format(pipe->screen,

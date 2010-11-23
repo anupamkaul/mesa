@@ -768,7 +768,7 @@ static void
             struct r300_surface *zs_surf = r300_surface(state->zsbuf);
             struct r300_texture *tex;
             int compress = r300->screen->caps.is_rv350 ? RV350_Z_COMPRESS_88 : R300_Z_COMPRESS_44;
-            int level = zs_surf->base.level;
+            int level = zs_surf->base.u.tex.level;
 
             tex = r300_texture(zs_surf->base.texture);
 

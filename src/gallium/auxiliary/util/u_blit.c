@@ -363,8 +363,8 @@ util_blit_pixels_writemask(struct blit_state *ctx,
    if ((src_tex == dst->texture &&
        dst->u.tex.level == src_level &&
        dst->u.tex.first_layer == srcZ0) ||
-       src_tex->target != PIPE_TEXTURE_2D &&
        (src_tex->target != PIPE_TEXTURE_2D &&
+       src_tex->target != PIPE_TEXTURE_2D &&
        src_tex->target != PIPE_TEXTURE_RECT))
    {
       struct pipe_resource texTemp;

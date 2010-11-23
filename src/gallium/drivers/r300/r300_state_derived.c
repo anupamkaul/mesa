@@ -847,9 +847,8 @@ static void r300_flush_depth_textures(struct r300_context *r300)
             for (level = 0; level <= tex->last_level; level++)
                 if (r300_texture(tex)->zmask_in_use[level]) {
                     /* We don't handle 3D textures and cubemaps yet. */
-                    r300_flush_depth_stencil(&r300->context, tex,
-                                             u_subresource(0, level), 0);
-                }
+                    r300_flush_depth_stencil(&r300->context, tex, level, 0);
+                 }
         }
 }
 

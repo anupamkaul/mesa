@@ -155,7 +155,7 @@ lp_sampler_static_state(struct lp_sampler_static_state *state,
             state->apply_min_lod = 1;
          }
 
-         if (sampler->max_lod < (float)view->last_level) {
+         if (sampler->max_lod < (float)view->u.tex.last_level) {
             state->apply_max_lod = 1;
          }
       }

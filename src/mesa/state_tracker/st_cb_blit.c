@@ -183,10 +183,9 @@ st_BlitFramebuffer(struct gl_context *ctx,
 
          if (mask & GL_DEPTH_BUFFER_BIT) {
             util_blit_pixels(st->blit, srcDepthRb->texture,
-                             u_subresource(srcDepthRb->surface->face,
-                                           srcDepthRb->surface->level),
+                             srcDepthRb->surface->u.tex.level,
                              srcX0, srcY0, srcX1, srcY1,
-                             srcDepthRb->surface->zslice,
+                             srcDepthRb->surface->u.tex.first_layer,
                              dstDepthSurf, dstX0, dstY0, dstX1, dstY1,
                              0.0, pFilter);
          }

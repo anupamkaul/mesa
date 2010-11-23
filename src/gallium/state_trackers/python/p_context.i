@@ -148,11 +148,10 @@ struct st_context {
       } else {
          templat.format = format;
       }
-      templat.last_level = MIN2(last_level, texture->last_level);
-      templat.first_level = first_level;
-      templat.last_level = last_level;
-      templat.first_layer = first_layer;
-      templat.last_layer = last_layer;
+      templat.u.tex.last_level = MIN2(last_level, texture->last_level);
+      templat.u.tex.first_level = first_level;
+      templat.u.tex.first_layer = first_layer;
+      templat.u.tex.last_layer = last_layer;
       templat.swizzle_r = swizzle_r;
       templat.swizzle_g = swizzle_g;
       templat.swizzle_b = swizzle_b;

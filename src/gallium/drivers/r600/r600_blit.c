@@ -81,16 +81,21 @@ static void r600_blitter_end(struct pipe_context *ctx)
 int r600_blit_uncompress_depth(struct pipe_context *ctx, struct r600_resource_texture *texture)
 {
 	struct r600_pipe_context *rctx = (struct r600_pipe_context *)ctx;
-	struct pipe_surface *zsurf, *cbsurf;
+	struct pipe_surface *zsurf, *cbsurf, surf_tmpl;
 	int level = 0;
 	float depth = 1.0f;
+	surf_tmpl.format = texture->resource.base.b.format;
+	surf_tmpl.u.tex.level = level;
+	surf_tmpl.u.tex.first_layer = 0;
+	surf_tmpl.u.tex.last_layer = 0;
+	surf_tmpl.usage = PIPE_BIND_DEPTH_STENCIL;
 
-	zsurf = ctx->screen->get_tex_surface(ctx->screen, &texture->resource.base.b, 0, level, 0,
-					     PIPE_BIND_DEPTH_STENCIL);
+	zsurf = ctx->create_surface(ctx, &texture->resource.base.b, &surf_tmpl);
 
-	cbsurf = ctx->screen->get_tex_surface(ctx->screen,
-			(struct pipe_resource*)texture->flushed_depth_texture,
-			0, level, 0, PIPE_BIND_RENDER_TARGET);
+	surf_tmpl.format = ((struct pipe_resource*)texture->flushed_depth_texture)->format;
+	surf_tmpl.usage = PIPE_BIND_RENDER_TARGET;
+	cbsurf = ctx->create_surface(ctx,
+			(struct pipe_resource*)texture->flushed_depth_texture, &surf_tmpl);
 
 	if (rctx->family == CHIP_RV610 || rctx->family == CHIP_RV630 ||
 	    rctx->family == CHIP_RV620 || rctx->family == CHIP_RV635)

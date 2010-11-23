@@ -120,6 +120,7 @@ static struct pipe_context *r600_create_context(struct pipe_screen *screen, void
 	r600_init_blit_functions(rctx);
 	r600_init_query_functions(rctx);
 	r600_init_context_resource_functions(rctx);
+	r600_init_surface_functions(rctx);
 
 	switch (r600_get_family(rctx->radeon)) {
 	case CHIP_R600:

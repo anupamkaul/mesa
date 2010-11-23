@@ -41,6 +41,7 @@ util_staging_resource_template(struct pipe_resource *pt, unsigned width, unsigne
    template->width0 = width;
    template->height0 = height;
    template->depth0 = depth;
+   template->array_size = 1;
    template->last_level = 0;
    template->nr_samples = pt->nr_samples;
    template->bind = 0;
@@ -82,9 +83,20 @@ util_staging_transfer_init(struct pipe_context *pipe,
 
    if (usage & PIPE_TRANSFER_READ)
    {
+      /* XXX this looks wrong dst is always the same but looping over src z? */
       unsigned zi;
-      for(zi = 0; zi < box->depth; ++zi)
-         pipe->resource_copy_region(pipe, tx->staging_resource, 0, 0, 0, 0, tx->base.resource, level, box->x, box->y, box->z + zi, box->width, box->height);
+      struct pipe_box sbox;
+      sbox.x = box->x;
+      sbox.y = box->y;
+      sbox.z = box->z;
+      sbox.width = box->width;
+      sbox.height = box->height;
+      sbox.depth = 1;
+      for(zi = 0; zi < box->depth; ++zi) {
+         sbox.z = sbox.z + zi;
+         pipe->resource_copy_region(pipe, tx->staging_resource, 0, 0, 0, 0,
+                                    tx->base.resource, level, &sbox);
+      }
    }
 
    return tx;
@@ -98,9 +110,18 @@ util_staging_transfer_destroy(struct pipe_context *pipe, struct pipe_transfer *p
    if (tx->staging_resource != tx->base.resource)
    {
       if(tx->base.usage & PIPE_TRANSFER_WRITE) {
+         /* XXX this looks wrong src is always the same but looping over dst z? */
          unsigned zi;
+         struct pipe_box sbox;
+         sbox.x = 0;
+         sbox.y = 0;
+         sbox.z = 0;
+         sbox.width = tx->base.box.width;
+         sbox.height = tx->base.box.height;
+         sbox.depth = 1;
          for(zi = 0; zi < tx->base.box.depth; ++zi)
-            pipe->resource_copy_region(pipe, tx->base.resource, tx->base.level, tx->base.box.x, tx->base.box.y, tx->base.box.z + zi, tx->staging_resource, 0, 0, 0, 0, tx->base.box.width, tx->base.box.height);
+            pipe->resource_copy_region(pipe, tx->base.resource, tx->base.level, tx->base.box.x, tx->base.box.y, tx->base.box.z + zi,
+                                       tx->staging_resource, 0, &sbox);
       }
 
       pipe_resource_reference(&tx->staging_resource, NULL);

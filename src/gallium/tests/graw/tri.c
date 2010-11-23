@@ -201,7 +201,7 @@ static void init( void )
    surf_tmpl.u.tex.first_layer = 0;
    surf_tmpl.u.tex.last_layer = 0;
    surf = ctx->create_surface(ctx, tex, &surf_tmpl);
-   if (surf == NULL)
+   if (surf == NULL) {
       fprintf(stderr, "Unable to create tex surface!\n");
       exit(5);
    }

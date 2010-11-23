@@ -115,7 +115,7 @@
       
       if(surface) {
          /* XXX need a context here */
-         _surface = st_pipe_surface(surface, PIPE_BIND_RENDER_TARGET);
+         _surface = st_pipe_surface(NULL, surface, PIPE_BIND_RENDER_TARGET);
          if(!_surface)
             SWIG_exception(SWIG_ValueError, "couldn't acquire surface for writing");
       }
@@ -133,7 +133,7 @@
 
       if(surface) {
          /* XXX need a context here */
-         _surface = st_pipe_surface(surface, PIPE_BIND_DEPTH_STENCIL);
+         _surface = st_pipe_surface(NULL, surface, PIPE_BIND_DEPTH_STENCIL);
          if(!_surface)
             SWIG_exception(SWIG_ValueError, "couldn't acquire surface for writing");
       }
