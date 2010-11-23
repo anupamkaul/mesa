@@ -89,8 +89,6 @@ typedef struct __GLXDRIdisplayRec __GLXDRIdisplay;
 typedef struct __GLXDRIscreenRec __GLXDRIscreen;
 typedef struct __GLXDRIdrawableRec __GLXDRIdrawable;
 
-#include "glxextensions.h"
-
 struct __GLXDRIdisplayRec
 {
     /**
@@ -150,6 +148,7 @@ extern __GLXDRIdisplay *driswCreateDisplay(Display * dpy);
 extern __GLXDRIdisplay *driCreateDisplay(Display * dpy);
 extern __GLXDRIdisplay *dri2CreateDisplay(Display * dpy);
 extern void dri2InvalidateBuffers(Display *dpy, XID drawable);
+extern unsigned dri2GetSwapEventType(Display *dpy, XID drawable);
 
 
 /*
@@ -259,6 +258,8 @@ struct glx_context
    GLubyte *bufEnd;
    GLint bufSize;
    /*@} */
+
+   const struct glx_context_vtable *vtable;
 
     /**
      * The XID of this rendering context.  When the context is created a
@@ -423,8 +424,6 @@ struct glx_context
    unsigned long thread_id;
 
    char gl_extension_bits[__GL_EXT_BYTES];
-
-   const struct glx_context_vtable *vtable;
 };
 
 extern Bool
@@ -494,13 +493,13 @@ struct glx_screen
 
    struct glx_display *display;
 
+   Display *dpy;
+   int scr;
+
 #if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)
     /**
      * Per screen direct rendering interface functions and data.
      */
-   Display *dpy;
-   int scr;
-
    __GLXDRIscreen *driScreen;
 #endif
 

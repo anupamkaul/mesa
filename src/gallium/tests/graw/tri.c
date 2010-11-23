@@ -2,13 +2,14 @@
  * any utility code, just the graw interface and gallium.
  */
 
+#include <stdio.h>
+
 #include "state_tracker/graw.h"
 #include "pipe/p_screen.h"
 #include "pipe/p_context.h"
 #include "pipe/p_state.h"
 #include "pipe/p_defines.h"
 
-#include "util/u_debug.h"       /* debug_dump_surface_bmp() */
 #include "util/u_memory.h"      /* Offset() */
 #include "util/u_draw_quad.h"
 
@@ -32,16 +33,19 @@ struct vertex {
    float color[4];
 };
 
-static struct vertex vertices[4] =
+static struct vertex vertices[3] =
 {
-   { { 0.0f, -0.9f, 0.0f, 1.0f },
-     { 1.0f, 0.0f, 0.0f, 1.0f }
+   {
+      { 0.0f, -0.9f, 0.0f, 1.0f },
+      { 1.0f, 0.0f, 0.0f, 1.0f }
    },
-   { { -0.9f, 0.9f, 0.0f, 1.0f },
-     { 0.0f, 1.0f, 0.0f, 1.0f }
+   {
+      { -0.9f, 0.9f, 0.0f, 1.0f },
+      { 0.0f, 1.0f, 0.0f, 1.0f }
    },
-   { { 0.9f, 0.9f, 0.0f, 1.0f },
-     { 0.0f, 0.0f, 1.0f, 1.0f }
+   {
+      { 0.9f, 0.9f, 0.0f, 1.0f },
+      { 0.0f, 0.0f, 1.0f, 1.0f }
    }
 };
 
@@ -139,17 +143,7 @@ static void draw( void )
    util_draw_arrays(ctx, PIPE_PRIM_TRIANGLES, 0, 3);
    ctx->flush(ctx, PIPE_FLUSH_RENDER_CACHE, NULL);
 
-#if 0
-   /* At the moment, libgraw leaks out/makes available some of the
-    * symbols from gallium/auxiliary, including these debug helpers.
-    * Will eventually want to bless some of these paths, and lock the
-    * others down so they aren't accessible from test programs.
-    *
-    * This currently just happens to work on debug builds - a release
-    * build will probably fail to link here:
-    */
-   debug_dump_surface_bmp(ctx, "result.bmp", surf);
-#endif
+   graw_save_surface_to_file(ctx, surf, NULL);
 
    screen->flush_frontbuffer(screen, tex, 0, 0, window);
 }
@@ -178,8 +172,10 @@ static void init( void )
    }
    
    ctx = screen->context_create(screen, NULL);
-   if (ctx == NULL)
+   if (ctx == NULL) {
+      fprintf(stderr, "Unable to create context!\n");
       exit(3);
+   }
 
    templat.target = PIPE_TEXTURE_2D;
    templat.format = formats[i];
@@ -194,8 +190,10 @@ static void init( void )
    
    tex = screen->resource_create(screen,
                                  &templat);
-   if (tex == NULL)
+   if (tex == NULL) {
+      fprintf(stderr, "Unable to create screen texture!\n");
       exit(4);
+   }
 
    surf_tmpl.format = templat.format;
    surf_tmpl.usage = PIPE_BIND_RENDER_TARGET;
@@ -204,7 +202,9 @@ static void init( void )
    surf_tmpl.u.tex.last_layer = 0;
    surf = ctx->create_surface(ctx, tex, &surf_tmpl);
    if (surf == NULL)
+      fprintf(stderr, "Unable to create tex surface!\n");
       exit(5);
+   }
 
    memset(&fb, 0, sizeof fb);
    fb.nr_cbufs = 1;
@@ -247,9 +247,21 @@ static void init( void )
    set_fragment_shader();
 }
 
+static void args(int argc, char *argv[])
+{
+   int i;
+
+   for (i = 1; i < argc;) {
+      if (graw_parse_args(&i, argc, argv)) {
+         continue;
+      }
+      exit(1);
+   }
+}
 
 int main( int argc, char *argv[] )
 {
+   args(argc, argv);
    init();
 
    graw_set_display_func( draw );

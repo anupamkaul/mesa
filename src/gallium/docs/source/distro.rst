@@ -74,6 +74,20 @@ Trace
 Wrapper driver. Trace dumps an XML record of the calls made to the
 :ref:`Context` and :ref:`Screen` objects that it wraps.
 
+Rbug
+^^^^
+
+Wrapper driver. :ref:`rbug` driver used with stand alone rbug-gui.
+
+.. _galahad:
+
+Galahad
+^^^^^^^
+
+Wrapper driver. Sanity checker for the internal gallium state. Normally
+a driver should n't have to sanity check the input it gets from a state
+tracker. Any wrong state received should be perceived as a state tracker bug.
+
 State Trackers
 --------------
 

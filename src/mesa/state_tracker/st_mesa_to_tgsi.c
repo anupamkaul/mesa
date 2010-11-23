@@ -32,9 +32,10 @@
  */
 
 #include "pipe/p_compiler.h"
+#include "pipe/p_context.h"
+#include "pipe/p_screen.h"
 #include "pipe/p_shader_tokens.h"
 #include "pipe/p_state.h"
-#include "pipe/p_context.h"
 #include "tgsi/tgsi_ureg.h"
 #include "st_mesa_to_tgsi.h"
 #include "st_context.h"
@@ -923,7 +924,7 @@ emit_edgeflags( struct st_translate *t,
  */
 enum pipe_error
 st_translate_mesa_program(
-   GLcontext *ctx,
+   struct gl_context *ctx,
    uint procType,
    struct ureg_program *ureg,
    const struct gl_program *program,
@@ -1000,6 +1001,13 @@ st_translate_mesa_program(
 
             t->outputs[i] = ureg_writemask( t->outputs[i],
                                             TGSI_WRITEMASK_Z );
+            break;
+         case TGSI_SEMANTIC_STENCIL:
+            t->outputs[i] = ureg_DECL_output( ureg,
+                                              TGSI_SEMANTIC_STENCIL, /* Stencil */
+                                              outputSemanticIndex[i] );
+            t->outputs[i] = ureg_writemask( t->outputs[i],
+                                            TGSI_WRITEMASK_Y );
             break;
          case TGSI_SEMANTIC_COLOR:
             t->outputs[i] = ureg_DECL_output( ureg,

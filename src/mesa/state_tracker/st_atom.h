@@ -34,6 +34,8 @@
 #ifndef ST_ATOM_H
 #define ST_ATOM_H
 
+#include "main/glheader.h"
+
 struct st_context;
 struct st_tracked_state;
 
@@ -65,6 +67,6 @@ extern const struct st_tracked_state st_update_vs_constants;
 extern const struct st_tracked_state st_update_pixel_transfer;
 
 
-uint st_compare_func_to_pipe(GLenum func);
+GLuint st_compare_func_to_pipe(GLenum func);
 
 #endif

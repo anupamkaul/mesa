@@ -211,6 +211,10 @@ static uint32_t radeon_get_value(struct r300_winsys_screen *rws,
         return ws->squaretiling;
     case R300_VID_DRM_2_3_0:
         return ws->drm_2_3_0;
+    case R300_VID_DRM_2_6_0:
+        return ws->drm_2_6_0;
+    case R300_CAN_HYPERZ:
+        return ws->hyperz;
     }
     return 0;
 }
@@ -246,6 +250,7 @@ static void radeon_r300_winsys_cs_destroy(struct r300_winsys_cs *rcs)
 {
     struct radeon_libdrm_cs *cs = radeon_libdrm_cs(rcs);
     radeon_cs_destroy(cs->cs);
+    FREE(cs);
 }
 
 static void radeon_winsys_destroy(struct r300_winsys_screen *rws)
@@ -257,6 +262,8 @@ static void radeon_winsys_destroy(struct r300_winsys_screen *rws)
 
     radeon_bo_manager_gem_dtor(ws->bom);
     radeon_cs_manager_gem_dtor(ws->csm);
+
+    FREE(rws);
 }
 
 boolean radeon_setup_winsys(int fd, struct radeon_libdrm_winsys* ws)

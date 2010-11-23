@@ -28,6 +28,7 @@
 #include "main/imports.h"
 #include "main/context.h"
 #include "main/shaderobj.h"
+#include "program/prog_cache.h"
 #include "vbo/vbo.h"
 #include "glapi/glapi.h"
 #include "st_context.h"
@@ -62,10 +63,13 @@
 #include "cso_cache/cso_context.h"
 
 
+DEBUG_GET_ONCE_BOOL_OPTION(mesa_mvp_dp4, "MESA_MVP_DP4", FALSE)
+
+
 /**
  * Called via ctx->Driver.UpdateState()
  */
-void st_invalidate_state(GLcontext * ctx, GLuint new_state)
+void st_invalidate_state(struct gl_context * ctx, GLuint new_state)
 {
    struct st_context *st = st_context(ctx);
 
@@ -93,7 +97,7 @@ st_get_msaa(void)
 
 
 static struct st_context *
-st_create_context_priv( GLcontext *ctx, struct pipe_context *pipe )
+st_create_context_priv( struct gl_context *ctx, struct pipe_context *pipe )
 {
    uint i;
    struct st_context *st = ST_CALLOC_STRUCT( st_context );
@@ -120,6 +124,11 @@ st_create_context_priv( GLcontext *ctx, struct pipe_context *pipe )
    st_init_draw( st );
    st_init_generate_mipmap(st);
    st_init_blit(st);
+
+   if(pipe->screen->get_param(pipe->screen, PIPE_CAP_NPOT_TEXTURES))
+      st->internal_target = PIPE_TEXTURE_2D;
+   else
+      st->internal_target = PIPE_TEXTURE_RECT;
 
    for (i = 0; i < PIPE_MAX_SAMPLERS; i++)
       st->state.sampler_list[i] = &st->state.samplers[i];
@@ -154,11 +163,11 @@ st_create_context_priv( GLcontext *ctx, struct pipe_context *pipe )
 
 
 struct st_context *st_create_context(gl_api api, struct pipe_context *pipe,
-                                     const __GLcontextModes *visual,
+                                     const struct gl_config *visual,
                                      struct st_context *share)
 {
-   GLcontext *ctx;
-   GLcontext *shareCtx = share ? share->ctx : NULL;
+   struct gl_context *ctx;
+   struct gl_context *shareCtx = share ? share->ctx : NULL;
    struct dd_function_table funcs;
 
    memset(&funcs, 0, sizeof(funcs));
@@ -169,7 +178,7 @@ struct st_context *st_create_context(gl_api api, struct pipe_context *pipe,
    /* XXX: need a capability bit in gallium to query if the pipe
     * driver prefers DP4 or MUL/MAD for vertex transformation.
     */
-   if (debug_get_bool_option("MESA_MVP_DP4", FALSE))
+   if (debug_get_option_mesa_mvp_dp4())
       _mesa_set_mvp_with_dp4( ctx, GL_TRUE );
 
    return st_create_context_priv(ctx, pipe);
@@ -212,7 +221,7 @@ void st_destroy_context( struct st_context *st )
 {
    struct pipe_context *pipe = st->pipe;
    struct cso_context *cso = st->cso_context;
-   GLcontext *ctx = st->ctx;
+   struct gl_context *ctx = st->ctx;
    GLuint i;
 
    /* need to unbind and destroy CSO objects before anything else */
@@ -226,6 +235,13 @@ void st_destroy_context( struct st_context *st )
       pipe_surface_reference(&st->state.framebuffer.cbufs[i], NULL);
    }
    pipe_surface_reference(&st->state.framebuffer.zsbuf, NULL);
+
+   pipe->set_index_buffer(pipe, NULL);
+
+   for (i = 0; i < PIPE_SHADER_TYPES; i++) {
+      pipe->set_constant_buffer(pipe, PIPE_SHADER_VERTEX, 0, NULL);
+      pipe_resource_reference(&st->state.constants[PIPE_SHADER_VERTEX], NULL);
+   }
 
    _mesa_delete_program_cache(st->ctx, st->pixel_xfer.cache);
 

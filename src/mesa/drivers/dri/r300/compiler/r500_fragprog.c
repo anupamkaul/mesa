@@ -30,7 +30,6 @@
 #include <stdio.h>
 
 #include "../r300_reg.h"
-#include "radeon_emulate_loops.h"
 
 /**
  * Rewrite IF instructions to use the ALU result special register.
@@ -40,10 +39,12 @@ int r500_transform_IF(
 	struct rc_instruction * inst,
 	void* data)
 {
+	struct rc_instruction * inst_mov;
+
 	if (inst->U.I.Opcode != RC_OPCODE_IF)
 		return 0;
 
-	struct rc_instruction * inst_mov = rc_insert_new_instruction(c, inst->Prev);
+	inst_mov = rc_insert_new_instruction(c, inst->Prev);
 	inst_mov->U.I.Opcode = RC_OPCODE_MOV;
 	inst_mov->U.I.DstReg.WriteMask = 0;
 	inst_mov->U.I.WriteALUResult = RC_ALURESULT_W;
@@ -58,31 +59,6 @@ int r500_transform_IF(
 	inst->U.I.SrcReg[0].Negate = 0;
 
 	return 1;
-}
-
-/**
- * Rewrite loops to make them easier to emit.  This is not a local
- * transformation, because it modifies and reorders an entire block of code.
- */
-void r500_transform_unroll_loops(struct radeon_compiler * c,
-						struct emulate_loop_state *s)
-{
-	int i;
-	
-	rc_transform_unroll_loops(c, s);
-	
-	for( i = s->LoopCount - 1; i >= 0; i-- ){
-		struct rc_instruction * inst_continue;
-		if(!s->Loops[i].EndLoop){
-			continue;
-		}
-		/* Insert a continue instruction at the end of the loop.  This
-		 * is required in order to emit loops correctly. */
-		inst_continue = rc_insert_new_instruction(c,
-						s->Loops[i].EndIf->Prev);
-		inst_continue->U.I.Opcode = RC_OPCODE_CONTINUE;
-	}
-
 }
 
 static int r500_swizzle_is_native(rc_opcode opcode, struct rc_src_register reg)
@@ -273,15 +249,15 @@ static char *to_texop(int val)
   return NULL;
 }
 
-void r500FragmentProgramDump(struct rX00_fragment_program_code *c)
+void r500FragmentProgramDump(struct radeon_compiler *c, void *user)
 {
-  struct r500_fragment_program_code *code = &c->code.r500;
-  fprintf(stderr, "R500 Fragment Program:\n--------\n");
-
+  struct r300_fragment_program_compiler *compiler = (struct r300_fragment_program_compiler*)c;
+  struct r500_fragment_program_code *code = &compiler->code->code.r500;
   int n, i;
   uint32_t inst;
   uint32_t inst0;
   char *str = NULL;
+  fprintf(stderr, "R500 Fragment Program:\n--------\n");
 
   for (n = 0; n < code->inst_end+1; n++) {
     inst0 = inst = code->inst[n].inst0;

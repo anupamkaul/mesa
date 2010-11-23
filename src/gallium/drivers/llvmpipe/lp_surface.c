@@ -72,14 +72,16 @@ lp_resource_copy(struct pipe_context *pipe,
                            0, /* flush_flags */
                            FALSE, /* read_only */
                            TRUE, /* cpu_access */
-                           FALSE); /* do_not_block */
+                           FALSE, /* do_not_block */
+                           "blit dest");
 
    llvmpipe_flush_resource(pipe,
                            src, src_level, src_box->z,
                            0, /* flush_flags */
                            TRUE, /* read_only */
                            TRUE, /* cpu_access */
-                           FALSE); /* do_not_block */
+                           FALSE, /* do_not_block */
+                           "blit src");
 
    /*
    printf("surface copy from %u lvl %u to %u lvl %u: %u,%u,%u to %u,%u,%u %u x %u x %u\n",

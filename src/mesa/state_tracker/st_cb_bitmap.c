@@ -46,6 +46,7 @@
 
 #include "pipe/p_context.h"
 #include "pipe/p_defines.h"
+#include "pipe/p_shader_tokens.h"
 #include "util/u_inlines.h"
 #include "util/u_draw_quad.h"
 #include "util/u_simple_shaders.h"
@@ -112,7 +113,7 @@ struct bitmap_cache
  * This program will be combined with the user's fragment program.
  */
 static struct st_fragment_program *
-make_bitmap_fragment_program(GLcontext *ctx, GLuint samplerIndex)
+make_bitmap_fragment_program(struct gl_context *ctx, GLuint samplerIndex)
 {
    struct st_context *st = st_context(ctx);
    struct st_fragment_program *stfp;
@@ -186,7 +187,7 @@ find_free_bit(uint bitfield)
  * Combine basic bitmap fragment program with the user-defined program.
  */
 static struct st_fragment_program *
-combined_bitmap_fragment_program(GLcontext *ctx)
+combined_bitmap_fragment_program(struct gl_context *ctx)
 {
    struct st_context *st = st_context(ctx);
    struct st_fragment_program *stfp = st->fp;
@@ -255,7 +256,7 @@ unpack_bitmap(struct st_context *st,
  * Create a texture which represents a bitmap image.
  */
 static struct pipe_resource *
-make_bitmap_texture(GLcontext *ctx, GLsizei width, GLsizei height,
+make_bitmap_texture(struct gl_context *ctx, GLsizei width, GLsizei height,
                     const struct gl_pixelstore_attrib *unpack,
                     const GLubyte *bitmap)
 {
@@ -274,7 +275,7 @@ make_bitmap_texture(GLcontext *ctx, GLsizei width, GLsizei height,
    /**
     * Create texture to hold bitmap pattern.
     */
-   pt = st_texture_create(st, PIPE_TEXTURE_2D, st->bitmap.tex_format,
+   pt = st_texture_create(st, st->internal_target, st->bitmap.tex_format,
                           0, width, height, 1,
                           PIPE_BIND_SAMPLER_VIEW);
    if (!pt) {
@@ -303,7 +304,7 @@ make_bitmap_texture(GLcontext *ctx, GLsizei width, GLsizei height,
 }
 
 static GLuint
-setup_bitmap_vertex_data(struct st_context *st,
+setup_bitmap_vertex_data(struct st_context *st, bool normalized,
                          int x, int y, int width, int height,
                          float z, const float color[4])
 {
@@ -315,12 +316,20 @@ setup_bitmap_vertex_data(struct st_context *st,
    const GLfloat x1 = (GLfloat)(x + width);
    const GLfloat y0 = (GLfloat)y;
    const GLfloat y1 = (GLfloat)(y + height);
-   const GLfloat sLeft = (GLfloat)0.0, sRight = (GLfloat)1.0;
-   const GLfloat tTop = (GLfloat)0.0, tBot = (GLfloat)1.0 - tTop;
+   GLfloat sLeft = (GLfloat)0.0, sRight = (GLfloat)1.0;
+   GLfloat tTop = (GLfloat)0.0, tBot = (GLfloat)1.0 - tTop;
    const GLfloat clip_x0 = (GLfloat)(x0 / fb_width * 2.0 - 1.0);
    const GLfloat clip_y0 = (GLfloat)(y0 / fb_height * 2.0 - 1.0);
    const GLfloat clip_x1 = (GLfloat)(x1 / fb_width * 2.0 - 1.0);
    const GLfloat clip_y1 = (GLfloat)(y1 / fb_height * 2.0 - 1.0);
+   const GLuint max_slots = 1; /* 4096 / sizeof(st->bitmap.vertices); */
+   GLuint i;
+
+   if(!normalized)
+   {
+      sRight = width;
+      tBot = height;
+   }
 
    /* XXX: Need to improve buffer_write to allow NO_WAIT (as well as
     * no_flush) updates to buffers where we know there is no conflict
@@ -332,9 +341,6 @@ setup_bitmap_vertex_data(struct st_context *st,
     * price of allocating a new buffer for each bitmap cache-flush to
     * avoid synchronous rendering.
     */
-   const GLuint max_slots = 1; /* 4096 / sizeof(st->bitmap.vertices); */
-   GLuint i;
-
    if (st->bitmap.vbuf_slot >= max_slots) {
       pipe_resource_reference(&st->bitmap.vbuf, NULL);
       st->bitmap.vbuf_slot = 0;
@@ -397,7 +403,7 @@ setup_bitmap_vertex_data(struct st_context *st,
  * Render a glBitmap by drawing a textured quad
  */
 static void
-draw_bitmap_quad(GLcontext *ctx, GLint x, GLint y, GLfloat z,
+draw_bitmap_quad(struct gl_context *ctx, GLint x, GLint y, GLfloat z,
                  GLsizei width, GLsizei height,
                  struct pipe_sampler_view *sv,
                  const GLfloat *color)
@@ -461,7 +467,7 @@ draw_bitmap_quad(GLcontext *ctx, GLint x, GLint y, GLfloat z,
       for (i = 0; i < st->state.num_samplers; i++) {
          samplers[i] = &st->state.samplers[i];
       }
-      samplers[stfp->bitmap_sampler] = &st->bitmap.sampler;
+      samplers[stfp->bitmap_sampler] = &st->bitmap.samplers[sv->texture->target != PIPE_TEXTURE_RECT];
       cso_set_samplers(cso, num, (const struct pipe_sampler_state **) samplers);
    }
 
@@ -498,7 +504,7 @@ draw_bitmap_quad(GLcontext *ctx, GLint x, GLint y, GLfloat z,
    z = z * 2.0 - 1.0;
 
    /* draw textured quad */
-   offset = setup_bitmap_vertex_data(st, x, y, width, height, z, color);
+   offset = setup_bitmap_vertex_data(st, sv->texture->target != PIPE_TEXTURE_RECT, x, y, width, height, z, color);
 
    util_draw_vertex_buffer(pipe, st->bitmap.vbuf, offset,
                            PIPE_PRIM_TRIANGLE_FAN,
@@ -731,7 +737,7 @@ accum_bitmap(struct st_context *st,
  * Called via ctx->Driver.Bitmap()
  */
 static void
-st_Bitmap(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
+st_Bitmap(struct gl_context *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
           const struct gl_pixelstore_attrib *unpack, const GLubyte *bitmap )
 {
    struct st_context *st = st_context(ctx);
@@ -760,7 +766,7 @@ st_Bitmap(GLcontext *ctx, GLint x, GLint y, GLsizei width, GLsizei height,
    if (pt) {
       struct pipe_sampler_view *sv = st_create_texture_sampler_view(st->pipe, pt);
 
-      assert(pt->target == PIPE_TEXTURE_2D);
+      assert(pt->target == PIPE_TEXTURE_2D || pt->target == PIPE_TEXTURE_RECT);
 
       if (sv) {
          draw_bitmap_quad(ctx, x, y, ctx->Current.RasterPos[2],
@@ -788,7 +794,7 @@ st_init_bitmap_functions(struct dd_function_table *functions)
 void
 st_init_bitmap(struct st_context *st)
 {
-   struct pipe_sampler_state *sampler = &st->bitmap.sampler;
+   struct pipe_sampler_state *sampler = &st->bitmap.samplers[0];
    struct pipe_context *pipe = st->pipe;
    struct pipe_screen *screen = pipe->screen;
 
@@ -800,7 +806,8 @@ st_init_bitmap(struct st_context *st)
    sampler->min_img_filter = PIPE_TEX_FILTER_NEAREST;
    sampler->min_mip_filter = PIPE_TEX_MIPFILTER_NONE;
    sampler->mag_img_filter = PIPE_TEX_FILTER_NEAREST;
-   sampler->normalized_coords = 1;
+   st->bitmap.samplers[1] = *sampler;
+   st->bitmap.samplers[1].normalized_coords = 1;
 
    /* init baseline rasterizer state once */
    memset(&st->bitmap.rasterizer, 0, sizeof(st->bitmap.rasterizer));

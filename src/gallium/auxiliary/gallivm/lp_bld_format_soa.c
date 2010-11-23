@@ -37,6 +37,7 @@
 #include "lp_bld_conv.h"
 #include "lp_bld_swizzle.h"
 #include "lp_bld_gather.h"
+#include "lp_bld_debug.h"
 #include "lp_bld_format.h"
 
 
@@ -197,7 +198,7 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
             if (format_desc->channel[chan].normalized) {
                double scale = 1.0 / ((1 << (format_desc->channel[chan].size - 1)) - 1);
                LLVMValueRef scale_val = lp_build_const_vec(type, scale);
-               input = LLVMBuildMul(builder, input, scale_val, "");
+               input = LLVMBuildFMul(builder, input, scale_val, "");
             }
          }
          else {
@@ -227,7 +228,7 @@ lp_build_unpack_rgba_soa(LLVMBuilderRef builder,
             double scale = 1.0 / ((1 << (format_desc->channel[chan].size/2)) - 1);
             LLVMValueRef scale_val = lp_build_const_vec(type, scale);
             input = LLVMBuildSIToFP(builder, input, lp_build_vec_type(type), "");
-            input = LLVMBuildMul(builder, input, scale_val, "");
+            input = LLVMBuildFMul(builder, input, scale_val, "");
          }
          else {
             /* FIXME */
@@ -386,6 +387,11 @@ lp_build_fetch_rgba_soa(LLVMBuilderRef builder,
    {
       unsigned k, chan;
       struct lp_type tmp_type;
+
+      if (gallivm_debug & GALLIVM_DEBUG_PERF) {
+         debug_printf("%s: scalar unpacking of %s\n",
+                      __FUNCTION__, format_desc->short_name);
+      }
 
       tmp_type = type;
       tmp_type.length = 4;

@@ -43,6 +43,12 @@ struct instruction_state {
 	unsigned char SrcReg[3];
 };
 
+struct loopinfo {
+	struct updatemask_state * Breaks;
+	unsigned int BreakCount;
+	unsigned int BreaksReserved;
+};
+
 struct branchinfo {
 	unsigned int HaveElse:1;
 
@@ -59,6 +65,10 @@ struct deadcode_state {
 	struct branchinfo * BranchStack;
 	unsigned int BranchStackSize;
 	unsigned int BranchStackReserved;
+
+	struct loopinfo * LoopStack;
+	unsigned int LoopStackSize;
+	unsigned int LoopStackReserved;
 };
 
 
@@ -78,12 +88,30 @@ static void or_updatemasks(
 	dst->Address = a->Address | b->Address;
 }
 
+static void push_break(struct deadcode_state *s)
+{
+	struct loopinfo * loop = &s->LoopStack[s->LoopStackSize - 1];
+	memory_pool_array_reserve(&s->C->Pool, struct updatemask_state,
+		loop->Breaks, loop->BreakCount, loop->BreaksReserved, 1);
+
+	memcpy(&loop->Breaks[loop->BreakCount++], &s->R, sizeof(s->R));
+}
+
+static void push_loop(struct deadcode_state * s)
+{
+	memory_pool_array_reserve(&s->C->Pool, struct loopinfo, s->LoopStack,
+			s->LoopStackSize, s->LoopStackReserved, 1);
+	memset(&s->LoopStack[s->LoopStackSize++], 0, sizeof(struct loopinfo));
+}
+
 static void push_branch(struct deadcode_state * s)
 {
+	struct branchinfo * branch;
+
 	memory_pool_array_reserve(&s->C->Pool, struct branchinfo, s->BranchStack,
 			s->BranchStackSize, s->BranchStackReserved, 1);
 
-	struct branchinfo * branch = &s->BranchStack[s->BranchStackSize++];
+	branch = &s->BranchStack[s->BranchStackSize++];
 	branch->HaveElse = 0;
 	memcpy(&branch->StoreEndif, &s->R, sizeof(s->R));
 }
@@ -126,13 +154,18 @@ static void update_instruction(struct deadcode_state * s, struct rc_instruction 
 	const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
 	struct instruction_state * insts = &s->Instructions[inst->IP];
 	unsigned int usedmask = 0;
+	unsigned int srcmasks[3];
 
 	if (opcode->HasDstReg) {
 		unsigned char * pused = get_used_ptr(s, inst->U.I.DstReg.File, inst->U.I.DstReg.Index);
 		if (pused) {
 			usedmask = *pused & inst->U.I.DstReg.WriteMask;
-			*pused &= ~usedmask;
+			if (!inst->U.I.DstReg.RelAddr)
+				*pused &= ~usedmask;
 		}
+
+		if (inst->U.I.DstReg.RelAddr)
+			mark_used(s, RC_FILE_ADDRESS, 0, RC_MASK_X);
 	}
 
 	insts->WriteMask |= usedmask;
@@ -150,7 +183,6 @@ static void update_instruction(struct deadcode_state * s, struct rc_instruction 
 		}
 	}
 
-	unsigned int srcmasks[3];
 	rc_compute_sources_for_writemask(inst, usedmask, srcmasks);
 
 	for(unsigned int src = 0; src < opcode->NumSrcRegs; ++src) {
@@ -183,10 +215,25 @@ static void mark_output_use(void * data, unsigned int index, unsigned int mask)
 	mark_used(s, RC_FILE_OUTPUT, index, mask);
 }
 
-void rc_dataflow_deadcode(struct radeon_compiler * c, rc_dataflow_mark_outputs_fn dce, void * userdata)
+void rc_dataflow_deadcode(struct radeon_compiler * c, void *user)
 {
 	struct deadcode_state s;
 	unsigned int nr_instructions;
+	unsigned has_temp_reladdr_src = 0;
+	rc_dataflow_mark_outputs_fn dce = (rc_dataflow_mark_outputs_fn)user;
+	unsigned int ip;
+
+	/* Give up if there is relative addressing of destination operands. */
+	for(struct rc_instruction * inst = c->Program.Instructions.Next;
+	    inst != &c->Program.Instructions;
+	    inst = inst->Next) {
+		const struct rc_opcode_info *opcode = rc_get_opcode_info(inst->U.I.Opcode);
+		if (opcode->HasDstReg &&
+		    inst->U.I.DstReg.WriteMask &&
+		    inst->U.I.DstReg.RelAddr) {
+			return;
+		}
+	}
 
 	memset(&s, 0, sizeof(s));
 	s.C = c;
@@ -195,7 +242,7 @@ void rc_dataflow_deadcode(struct radeon_compiler * c, rc_dataflow_mark_outputs_f
 	s.Instructions = memory_pool_malloc(&c->Pool, sizeof(struct instruction_state)*nr_instructions);
 	memset(s.Instructions, 0, sizeof(struct instruction_state)*nr_instructions);
 
-	dce(userdata, &s, &mark_output_use);
+	dce(c, &s, &mark_output_use);
 
 	for(struct rc_instruction * inst = c->Program.Instructions.Prev;
 	    inst != &c->Program.Instructions;
@@ -233,11 +280,22 @@ void rc_dataflow_deadcode(struct radeon_compiler * c, rc_dataflow_mark_outputs_f
 					}
 				}
 			}
+			push_loop(&s);
 			break;
 		}
-		case RC_OPCODE_CONTINUE:
 		case RC_OPCODE_BRK:
+			push_break(&s);
+			break;
 		case RC_OPCODE_BGNLOOP:
+		{
+			unsigned int i;
+			struct loopinfo * loop = &s.LoopStack[s.LoopStackSize-1];
+			for(i = 0; i < loop->BreakCount; i++) {
+				or_updatemasks(&s.R, &s.R, &loop->Breaks[i]);
+			}
+			break;
+		}
+		case RC_OPCODE_CONT:
 			break;
 		case RC_OPCODE_ENDIF:
 			push_branch(&s);
@@ -263,17 +321,45 @@ void rc_dataflow_deadcode(struct radeon_compiler * c, rc_dataflow_mark_outputs_f
 					rc_error(c, "%s: Unhandled control flow instruction %s\n", __FUNCTION__, opcode->Name);
 				}
 			}
+
+			if (!has_temp_reladdr_src) {
+				for (unsigned i = 0; i < opcode->NumSrcRegs; i++) {
+					if (inst->U.I.SrcReg[i].File == RC_FILE_TEMPORARY &&
+					    inst->U.I.SrcReg[i].RelAddr) {
+						/* If there is a register read from a temporary file with relative addressing,
+						 * mark all preceding written registers as used. */
+						for (struct rc_instruction *ptr = inst->Prev;
+						     ptr != &c->Program.Instructions;
+						     ptr = ptr->Prev) {
+							opcode = rc_get_opcode_info(ptr->U.I.Opcode);
+							if (opcode->HasDstReg &&
+							    ptr->U.I.DstReg.File == RC_FILE_TEMPORARY &&
+							    ptr->U.I.DstReg.WriteMask) {
+								mark_used(&s,
+									  ptr->U.I.DstReg.File,
+									  ptr->U.I.DstReg.Index,
+									  ptr->U.I.DstReg.WriteMask);
+							}
+						}
+
+						has_temp_reladdr_src = 1;
+						break;
+					}
+				}
+			}
 		}
 
 		update_instruction(&s, inst);
 	}
 
-	unsigned int ip = 0;
+	ip = 0;
 	for(struct rc_instruction * inst = c->Program.Instructions.Next;
 	    inst != &c->Program.Instructions;
 	    inst = inst->Next, ++ip) {
 		const struct rc_opcode_info * opcode = rc_get_opcode_info(inst->U.I.Opcode);
 		int dead = 1;
+		unsigned int srcmasks[3];
+		unsigned int usemask;
 
 		if (!opcode->HasDstReg) {
 			dead = 0;
@@ -295,8 +381,7 @@ void rc_dataflow_deadcode(struct radeon_compiler * c, rc_dataflow_mark_outputs_f
 			continue;
 		}
 
-		unsigned int srcmasks[3];
-		unsigned int usemask = s.Instructions[ip].WriteMask;
+		usemask = s.Instructions[ip].WriteMask;
 
 		if (inst->U.I.WriteALUResult == RC_ALURESULT_X)
 			usemask |= RC_MASK_X;

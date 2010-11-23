@@ -31,15 +31,12 @@
 #include "vg_context.h"
 #include "vg_translate.h"
 #include "api_consts.h"
-#include "image.h"
 #include "api.h"
 
 #include "pipe/p_context.h"
 #include "pipe/p_screen.h"
 #include "util/u_inlines.h"
-#include "util/u_blit.h"
 #include "util/u_tile.h"
-#include "util/u_memory.h"
 
 static INLINE VGboolean supported_image_format(VGImageFormat format)
 {

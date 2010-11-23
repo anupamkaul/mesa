@@ -44,7 +44,7 @@
 
 #include "r700_debug.h"
 
-void insert_wpos_code(GLcontext *ctx, struct gl_fragment_program *fprog)
+void insert_wpos_code(struct gl_context *ctx, struct gl_fragment_program *fprog)
 {
     static const gl_state_index winstate[STATE_LENGTH]
          = { STATE_INTERNAL, STATE_FB_SIZE, 0, 0, 0};
@@ -95,11 +95,10 @@ void insert_wpos_code(GLcontext *ctx, struct gl_fragment_program *fprog)
 //TODO : Validate FP input with VP output.
 void Map_Fragment_Program(r700_AssemblerBase         *pAsm,
 						  struct gl_fragment_program *mesa_fp,
-                          GLcontext *ctx) 
+                          struct gl_context *ctx) 
 {
 	unsigned int unBit;
     unsigned int i;
-    GLuint       ui;
 
     /* match fp inputs with vp exports. */
     struct r700_vertex_program_cont *vpc =
@@ -245,12 +244,6 @@ void Map_Fragment_Program(r700_AssemblerBase         *pAsm,
         }
     }
 
-    pAsm->pucOutMask = (unsigned char*) MALLOC(pAsm->number_of_exports);
-    for(ui=0; ui<pAsm->number_of_exports; ui++)
-    {
-        pAsm->pucOutMask[ui] = 0x0;
-    }
-
     pAsm->flag_reg_index = pAsm->number_used_registers++;
 
     pAsm->uFirstHelpReg = pAsm->number_used_registers;
@@ -360,8 +353,11 @@ GLboolean Find_Instruction_Dependencies_fp(struct r700_fragment_program *fp,
 
 GLboolean r700TranslateFragmentShader(struct r700_fragment_program *fp,
 							     struct gl_fragment_program   *mesa_fp,
-                                 GLcontext *ctx) 
+                                 struct gl_context *ctx) 
 {
+    context_t *context = R700_CONTEXT(ctx);      
+    R700_CHIP_CONTEXT *r700 = (R700_CHIP_CONTEXT*)(&context->hw);
+
 	GLuint    number_of_colors_exported;
 	GLboolean z_enabled = GL_FALSE;
 	GLuint    unBit, shadow_unit;
@@ -372,6 +368,17 @@ GLboolean r700TranslateFragmentShader(struct r700_fragment_program *fp,
 
     //Init_Program
 	Init_r700_AssemblerBase( SPT_FP, &(fp->r700AsmCode), &(fp->r700Shader) );
+
+    if(GL_TRUE == r700->bShaderUseMemConstant)
+    {
+        fp->r700AsmCode.bUseMemConstant = GL_TRUE;
+    }
+    else
+    {
+        fp->r700AsmCode.bUseMemConstant = GL_FALSE;
+    }
+
+    fp->r700AsmCode.unAsic = 7;
 
     if(mesa_fp->Base.InputsRead & FRAG_BIT_WPOS)
     {
@@ -459,7 +466,7 @@ GLboolean r700TranslateFragmentShader(struct r700_fragment_program *fp,
 	return GL_TRUE;
 }
 
-void r700SelectFragmentShader(GLcontext *ctx)
+void r700SelectFragmentShader(struct gl_context *ctx)
 {
     context_t *context = R700_CONTEXT(ctx);
     struct r700_fragment_program *fp = (struct r700_fragment_program *)
@@ -473,7 +480,7 @@ void r700SelectFragmentShader(GLcontext *ctx)
 	    r700TranslateFragmentShader(fp, &(fp->mesa_program), ctx); 
 }
 
-void * r700GetActiveFpShaderBo(GLcontext * ctx)
+void * r700GetActiveFpShaderBo(struct gl_context * ctx)
 {
     struct r700_fragment_program *fp = (struct r700_fragment_program *)
 	                                   (ctx->FragmentProgram._Current);
@@ -481,7 +488,15 @@ void * r700GetActiveFpShaderBo(GLcontext * ctx)
     return fp->shaderbo;
 }
 
-GLboolean r700SetupFragmentProgram(GLcontext * ctx)
+void * r700GetActiveFpShaderConstBo(struct gl_context * ctx)
+{
+    struct r700_fragment_program *fp = (struct r700_fragment_program *)
+	                                   (ctx->FragmentProgram._Current);
+
+    return fp->constbo0;
+}
+
+GLboolean r700SetupFragmentProgram(struct gl_context * ctx)
 {
     context_t *context = R700_CONTEXT(ctx);
     R700_CHIP_CONTEXT *r700 = (R700_CHIP_CONTEXT*)(&context->hw);
@@ -768,6 +783,17 @@ GLboolean r700SetupFragmentProgram(GLcontext * ctx)
 		        r700->ps.consts[ui][2].f32All = paramList->ParameterValues[ui][2];
 		        r700->ps.consts[ui][3].f32All = paramList->ParameterValues[ui][3];
 	    }
+
+        /* Load fp constants to gpu */
+        if( (GL_TRUE == r700->bShaderUseMemConstant) && (unNumParamData > 0) )
+        {
+            r600EmitShader(ctx,
+                           &(fp->constbo0),
+                           (GLvoid *)&(paramList->ParameterValues[0][0]),
+                           unNumParamData * 4,
+                           "FS Const");
+        }
+
     } else
 	    r700->ps.num_consts = 0;
 

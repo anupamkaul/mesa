@@ -34,6 +34,8 @@
 #include "main/imports.h"
 #include "main/macros.h"
 #include "main/mipmap.h"
+#include "main/pack.h"
+#include "main/pixeltransfer.h"
 #include "main/texcompress.h"
 #include "main/texfetch.h"
 #include "main/texgetimage.h"
@@ -74,8 +76,10 @@ gl_target_to_pipe(GLenum target)
       return PIPE_TEXTURE_1D;
 
    case GL_TEXTURE_2D:
-   case GL_TEXTURE_RECTANGLE_NV:
       return PIPE_TEXTURE_2D;
+
+   case GL_TEXTURE_RECTANGLE_NV:
+      return PIPE_TEXTURE_RECT;
 
    case GL_TEXTURE_3D:
       return PIPE_TEXTURE_3D;
@@ -92,7 +96,7 @@ gl_target_to_pipe(GLenum target)
 
 /** called via ctx->Driver.NewTextureImage() */
 static struct gl_texture_image *
-st_NewTextureImage(GLcontext * ctx)
+st_NewTextureImage(struct gl_context * ctx)
 {
    DBG("%s\n", __FUNCTION__);
    (void) ctx;
@@ -102,7 +106,7 @@ st_NewTextureImage(GLcontext * ctx)
 
 /** called via ctx->Driver.NewTextureObject() */
 static struct gl_texture_object *
-st_NewTextureObject(GLcontext * ctx, GLuint name, GLenum target)
+st_NewTextureObject(struct gl_context * ctx, GLuint name, GLenum target)
 {
    struct st_texture_object *obj = ST_CALLOC_STRUCT(st_texture_object);
 
@@ -114,7 +118,7 @@ st_NewTextureObject(GLcontext * ctx, GLuint name, GLenum target)
 
 /** called via ctx->Driver.DeleteTextureObject() */
 static void 
-st_DeleteTextureObject(GLcontext *ctx,
+st_DeleteTextureObject(struct gl_context *ctx,
                        struct gl_texture_object *texObj)
 {
    struct st_context *st = st_context(ctx);
@@ -138,7 +142,7 @@ st_DeleteTextureObject(GLcontext *ctx,
 
 /** called via ctx->Driver.FreeTexImageData() */
 static void
-st_FreeTextureImageData(GLcontext * ctx, struct gl_texture_image *texImage)
+st_FreeTextureImageData(struct gl_context * ctx, struct gl_texture_image *texImage)
 {
    struct st_texture_image *stImage = st_texture_image(texImage);
 
@@ -238,6 +242,12 @@ get_texture_dims(GLenum target)
       return 1;
    case GL_TEXTURE_2D:
    case GL_TEXTURE_CUBE_MAP_ARB:
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_X_ARB:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_X_ARB:
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_Y_ARB:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_ARB:
+   case GL_TEXTURE_CUBE_MAP_POSITIVE_Z_ARB:
+   case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_ARB:
    case GL_TEXTURE_RECTANGLE_NV:
    case GL_TEXTURE_2D_ARRAY_EXT:
       return 2;
@@ -403,7 +413,7 @@ strip_texture_border(GLint border,
  * \return GL_TRUE for success, GL_FALSE for failure
  */
 static GLboolean
-compress_with_blit(GLcontext * ctx,
+compress_with_blit(struct gl_context * ctx,
                    GLenum target, GLint level,
                    GLint xoffset, GLint yoffset, GLint zoffset,
                    GLint width, GLint height, GLint depth,
@@ -453,7 +463,7 @@ compress_with_blit(GLcontext * ctx,
    /* Create the temporary source texture
     */
    memset(&templ, 0, sizeof(templ));
-   templ.target = PIPE_TEXTURE_2D;
+   templ.target = st->internal_target;
    templ.format = st_mesa_format_to_pipe_format(mesa_format);
    templ.width0 = width;
    templ.height0 = height;
@@ -519,7 +529,7 @@ compress_with_blit(GLcontext * ctx,
  * Do glTexImage1/2/3D().
  */
 static void
-st_TexImage(GLcontext * ctx,
+st_TexImage(struct gl_context * ctx,
             GLint dims,
             GLenum target, GLint level,
             GLint internalFormat,
@@ -542,15 +552,21 @@ st_TexImage(GLcontext * ctx,
    DBG("%s target %s level %d %dx%dx%d border %d\n", __FUNCTION__,
        _mesa_lookup_enum_by_nr(target), level, width, height, depth, border);
 
-   /* The Mesa/Gallium state tracker does not implement the imaging extensions
-    * such as convolution.
-    */
-   assert(!ctx->Extensions.ARB_imaging);
-   assert(!ctx->Extensions.EXT_convolution);
-
    /* switch to "normal" */
    if (stObj->surface_based) {
+      gl_format texFormat;
+
       _mesa_clear_texture_object(ctx, texObj);
+      pipe_resource_reference(&stObj->pt, NULL);
+
+      /* oops, need to init this image again */
+      texFormat = _mesa_choose_texture_format(ctx, texObj, target, level,
+                                              internalFormat, format, type);
+
+      _mesa_init_teximage_fields(ctx, target, texImage,
+                                 width, height, depth, border,
+                                 internalFormat, texFormat);
+
       stObj->surface_based = GL_FALSE;
    }
 
@@ -774,7 +790,7 @@ done:
 
 
 static void
-st_TexImage3D(GLcontext * ctx,
+st_TexImage3D(struct gl_context * ctx,
               GLenum target, GLint level,
               GLint internalFormat,
               GLint width, GLint height, GLint depth,
@@ -791,7 +807,7 @@ st_TexImage3D(GLcontext * ctx,
 
 
 static void
-st_TexImage2D(GLcontext * ctx,
+st_TexImage2D(struct gl_context * ctx,
               GLenum target, GLint level,
               GLint internalFormat,
               GLint width, GLint height, GLint border,
@@ -806,7 +822,7 @@ st_TexImage2D(GLcontext * ctx,
 
 
 static void
-st_TexImage1D(GLcontext * ctx,
+st_TexImage1D(struct gl_context * ctx,
               GLenum target, GLint level,
               GLint internalFormat,
               GLint width, GLint border,
@@ -821,7 +837,7 @@ st_TexImage1D(GLcontext * ctx,
 
 
 static void
-st_CompressedTexImage2D(GLcontext *ctx, GLenum target, GLint level,
+st_CompressedTexImage2D(struct gl_context *ctx, GLenum target, GLint level,
                         GLint internalFormat,
                         GLint width, GLint height, GLint border,
                         GLsizei imageSize, const GLvoid *data,
@@ -839,7 +855,7 @@ st_CompressedTexImage2D(GLcontext *ctx, GLenum target, GLint level,
  * a textured quad.  Store the results in the user's buffer.
  */
 static void
-decompress_with_blit(GLcontext * ctx, GLenum target, GLint level,
+decompress_with_blit(struct gl_context * ctx, GLenum target, GLint level,
                      GLenum format, GLenum type, GLvoid *pixels,
                      struct gl_texture_object *texObj,
                      struct gl_texture_image *texImage)
@@ -934,7 +950,7 @@ decompress_with_blit(GLcontext * ctx, GLenum target, GLint level,
  * then unmap it.
  */
 static void
-st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
+st_get_tex_image(struct gl_context * ctx, GLenum target, GLint level,
                  GLenum format, GLenum type, GLvoid * pixels,
                  struct gl_texture_object *texObj,
                  struct gl_texture_image *texImage, GLboolean compressed_dst)
@@ -990,6 +1006,8 @@ st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
 
    dest = (GLubyte *) pixels;
 
+   _mesa_set_fetch_functions(texImage, get_texture_dims(target));
+
    for (i = 0; i < depth; i++) {
       if (compressed_dst) {
 	 _mesa_get_compressed_teximage(ctx, target, level, dest,
@@ -1023,7 +1041,7 @@ st_get_tex_image(GLcontext * ctx, GLenum target, GLint level,
 
 
 static void
-st_GetTexImage(GLcontext * ctx, GLenum target, GLint level,
+st_GetTexImage(struct gl_context * ctx, GLenum target, GLint level,
                GLenum format, GLenum type, GLvoid * pixels,
                struct gl_texture_object *texObj,
                struct gl_texture_image *texImage)
@@ -1034,7 +1052,7 @@ st_GetTexImage(GLcontext * ctx, GLenum target, GLint level,
 
 
 static void
-st_GetCompressedTexImage(GLcontext *ctx, GLenum target, GLint level,
+st_GetCompressedTexImage(struct gl_context *ctx, GLenum target, GLint level,
                          GLvoid *pixels,
                          struct gl_texture_object *texObj,
                          struct gl_texture_image *texImage)
@@ -1046,7 +1064,7 @@ st_GetCompressedTexImage(GLcontext *ctx, GLenum target, GLint level,
 
 
 static void
-st_TexSubimage(GLcontext *ctx, GLint dims, GLenum target, GLint level,
+st_TexSubimage(struct gl_context *ctx, GLint dims, GLenum target, GLint level,
                GLint xoffset, GLint yoffset, GLint zoffset,
                GLint width, GLint height, GLint depth,
                GLenum format, GLenum type, const void *pixels,
@@ -1152,7 +1170,7 @@ done:
 
 
 static void
-st_TexSubImage3D(GLcontext *ctx, GLenum target, GLint level,
+st_TexSubImage3D(struct gl_context *ctx, GLenum target, GLint level,
                  GLint xoffset, GLint yoffset, GLint zoffset,
                  GLsizei width, GLsizei height, GLsizei depth,
                  GLenum format, GLenum type, const GLvoid *pixels,
@@ -1167,7 +1185,7 @@ st_TexSubImage3D(GLcontext *ctx, GLenum target, GLint level,
 
 
 static void
-st_TexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
+st_TexSubImage2D(struct gl_context *ctx, GLenum target, GLint level,
                  GLint xoffset, GLint yoffset,
                  GLsizei width, GLsizei height,
                  GLenum format, GLenum type, const GLvoid * pixels,
@@ -1182,7 +1200,7 @@ st_TexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
 
 
 static void
-st_TexSubImage1D(GLcontext *ctx, GLenum target, GLint level,
+st_TexSubImage1D(struct gl_context *ctx, GLenum target, GLint level,
                  GLint xoffset, GLsizei width, GLenum format, GLenum type,
                  const GLvoid * pixels,
                  const struct gl_pixelstore_attrib *packing,
@@ -1195,7 +1213,7 @@ st_TexSubImage1D(GLcontext *ctx, GLenum target, GLint level,
 
 
 static void
-st_CompressedTexSubImage1D(GLcontext *ctx, GLenum target, GLint level,
+st_CompressedTexSubImage1D(struct gl_context *ctx, GLenum target, GLint level,
                            GLint xoffset, GLsizei width,
                            GLenum format,
                            GLsizei imageSize, const GLvoid *data,
@@ -1207,7 +1225,7 @@ st_CompressedTexSubImage1D(GLcontext *ctx, GLenum target, GLint level,
 
 
 static void
-st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
+st_CompressedTexSubImage2D(struct gl_context *ctx, GLenum target, GLint level,
                            GLint xoffset, GLint yoffset,
                            GLsizei width, GLint height,
                            GLenum format,
@@ -1262,7 +1280,7 @@ st_CompressedTexSubImage2D(GLcontext *ctx, GLenum target, GLint level,
 
 
 static void
-st_CompressedTexSubImage3D(GLcontext *ctx, GLenum target, GLint level,
+st_CompressedTexSubImage3D(struct gl_context *ctx, GLenum target, GLint level,
                            GLint xoffset, GLint yoffset, GLint zoffset,
                            GLsizei width, GLint height, GLint depth,
                            GLenum format,
@@ -1283,7 +1301,7 @@ st_CompressedTexSubImage3D(GLcontext *ctx, GLenum target, GLint level,
  * Note: srcY=0=TOP of renderbuffer
  */
 static void
-fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
+fallback_copy_texsubimage(struct gl_context *ctx, GLenum target, GLint level,
                           struct st_renderbuffer *strb,
                           struct st_texture_image *stImage,
                           GLenum baseFormat,
@@ -1409,7 +1427,7 @@ fallback_copy_texsubimage(GLcontext *ctx, GLenum target, GLint level,
  * If the src/dest are incompatible, return 0.
  */
 static unsigned
-compatible_src_dst_formats(GLcontext *ctx,
+compatible_src_dst_formats(struct gl_context *ctx,
                            const struct gl_renderbuffer *src,
                            const struct gl_texture_image *dst)
 {
@@ -1476,7 +1494,7 @@ compatible_src_dst_formats(GLcontext *ctx,
  * Note: srcY=0=Bottom of renderbuffer (GL convention)
  */
 static void
-st_copy_texsubimage(GLcontext *ctx,
+st_copy_texsubimage(struct gl_context *ctx,
                     GLenum target, GLint level,
                     GLint destX, GLint destY, GLint destZ,
                     GLint srcX, GLint srcY,
@@ -1661,7 +1679,7 @@ st_copy_texsubimage(GLcontext *ctx,
 
 
 static void
-st_CopyTexImage1D(GLcontext * ctx, GLenum target, GLint level,
+st_CopyTexImage1D(struct gl_context * ctx, GLenum target, GLint level,
                   GLenum internalFormat,
                   GLint x, GLint y, GLsizei width, GLint border)
 {
@@ -1687,7 +1705,7 @@ st_CopyTexImage1D(GLcontext * ctx, GLenum target, GLint level,
 
 
 static void
-st_CopyTexImage2D(GLcontext * ctx, GLenum target, GLint level,
+st_CopyTexImage2D(struct gl_context * ctx, GLenum target, GLint level,
                   GLenum internalFormat,
                   GLint x, GLint y, GLsizei width, GLsizei height,
                   GLint border)
@@ -1714,7 +1732,7 @@ st_CopyTexImage2D(GLcontext * ctx, GLenum target, GLint level,
 
 
 static void
-st_CopyTexSubImage1D(GLcontext * ctx, GLenum target, GLint level,
+st_CopyTexSubImage1D(struct gl_context * ctx, GLenum target, GLint level,
                      GLint xoffset, GLint x, GLint y, GLsizei width)
 {
    const GLint yoffset = 0, zoffset = 0;
@@ -1726,7 +1744,7 @@ st_CopyTexSubImage1D(GLcontext * ctx, GLenum target, GLint level,
 
 
 static void
-st_CopyTexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
+st_CopyTexSubImage2D(struct gl_context * ctx, GLenum target, GLint level,
                      GLint xoffset, GLint yoffset,
                      GLint x, GLint y, GLsizei width, GLsizei height)
 {
@@ -1738,7 +1756,7 @@ st_CopyTexSubImage2D(GLcontext * ctx, GLenum target, GLint level,
 
 
 static void
-st_CopyTexSubImage3D(GLcontext * ctx, GLenum target, GLint level,
+st_CopyTexSubImage3D(struct gl_context * ctx, GLenum target, GLint level,
                      GLint xoffset, GLint yoffset, GLint zoffset,
                      GLint x, GLint y, GLsizei width, GLsizei height)
 {
@@ -1803,7 +1821,7 @@ copy_image_data_to_texture(struct st_context *st,
  * \return GL_TRUE for success, GL_FALSE for failure (out of mem)
  */
 GLboolean
-st_finalize_texture(GLcontext *ctx,
+st_finalize_texture(struct gl_context *ctx,
 		    struct pipe_context *pipe,
 		    struct gl_texture_object *tObj)
 {
@@ -1939,7 +1957,7 @@ st_get_default_texture(struct st_context *st)
 
       _mesa_init_teximage_fields(st->ctx, target, texImg,
                                  16, 16, 1, 0,  /* w, h, d, border */
-                                 GL_RGBA);
+                                 GL_RGBA, MESA_FORMAT_RGBA8888);
 
       st_TexImage(st->ctx, 2, target,
                   0, GL_RGBA,    /* level, intformat */
@@ -1989,7 +2007,6 @@ st_init_texture_functions(struct dd_function_table *functions)
    functions->NewTextureImage = st_NewTextureImage;
    functions->DeleteTexture = st_DeleteTextureObject;
    functions->FreeTexImageData = st_FreeTextureImageData;
-   functions->UpdateTexturePalette = 0;
 
    functions->TextureMemCpy = do_memcpy;
 

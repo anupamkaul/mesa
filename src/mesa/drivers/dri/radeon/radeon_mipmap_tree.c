@@ -133,7 +133,7 @@ static void compute_tex_image_offset(radeonContextPtr rmesa, radeon_mipmap_tree 
 	height = _mesa_next_pow_two_32(lvl->height);
 
 	lvl->rowstride = get_texture_image_row_stride(rmesa, mt->mesaFormat, lvl->width, mt->tilebits);
-	lvl->size = get_texture_image_size(mt->mesaFormat, lvl->rowstride, lvl->height, lvl->depth, mt->tilebits);
+	lvl->size = get_texture_image_size(mt->mesaFormat, lvl->rowstride, height, lvl->depth, mt->tilebits);
 
 	assert(lvl->size > 0);
 
@@ -199,10 +199,10 @@ static void calculate_miptree_layout_r300(radeonContextPtr rmesa, radeon_mipmap_
 
 		for(face = 0; face < mt->faces; face++)
 			compute_tex_image_offset(rmesa, mt, face, level, &curOffset);
-		/* r600 cube levels seems to be aligned to 8 faces but
-		 * we have separate register for 1'st level offset so add
+		/* from r700? cube levels seems to be aligned to 8 faces,
+		 * as we have separate register for 1'st level offset add
 		 * 2 image alignment after 1'st mip level */
-		if(rmesa->radeonScreen->chip_family >= CHIP_FAMILY_R600 &&
+		if(rmesa->radeonScreen->chip_family >= CHIP_FAMILY_RV770 &&
 		   mt->target == GL_TEXTURE_CUBE_MAP && level >= 1)
 			curOffset += 2 * mt->levels[level].size;
 	}
@@ -578,7 +578,7 @@ static radeon_mipmap_tree * get_biggest_matching_miptree(radeonTexObj *texObj,
  * If individual images are stored in different mipmap trees
  * use the mipmap tree that has the most of the correct data.
  */
-int radeon_validate_texture_miptree(GLcontext * ctx, struct gl_texture_object *texObj)
+int radeon_validate_texture_miptree(struct gl_context * ctx, struct gl_texture_object *texObj)
 {
 	radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
 	radeonTexObj *t = radeon_tex_obj(texObj);

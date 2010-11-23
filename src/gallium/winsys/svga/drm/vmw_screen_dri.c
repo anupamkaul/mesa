@@ -30,10 +30,7 @@
 #include "util/u_format.h"
 #include "vmw_screen.h"
 
-#include "vmw_screen.h"
 #include "vmw_surface.h"
-#include "vmw_fence.h"
-#include "vmw_context.h"
 #include "svga_drm_public.h"
 
 #include "state_tracker/drm_driver.h"

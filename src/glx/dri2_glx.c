@@ -118,13 +118,13 @@ dri2_destroy_context(struct glx_context *context)
    struct dri2_context *pcp = (struct dri2_context *) context;
    struct dri2_screen *psc = (struct dri2_screen *) context->psc;
 
+   driReleaseDrawables(&pcp->base);
+
    if (context->xid)
       glx_send_destroy_context(psc->base.dpy, context->xid);
 
    if (context->extensions)
       XFree((char *) context->extensions);
-
-   GarbageCollectDRIDrawables(context->psc);
 
    (*psc->core->destroyContext) (pcp->driContext);
 
@@ -138,6 +138,7 @@ dri2_bind_context(struct glx_context *context, struct glx_context *old,
    struct dri2_context *pcp = (struct dri2_context *) context;
    struct dri2_screen *psc = (struct dri2_screen *) pcp->base.psc;
    struct dri2_drawable *pdraw, *pread;
+   struct dri2_display *pdp;
 
    pdraw = (struct dri2_drawable *) driFetchDrawable(context, draw);
    pread = (struct dri2_drawable *) driFetchDrawable(context, read);
@@ -145,11 +146,21 @@ dri2_bind_context(struct glx_context *context, struct glx_context *old,
    if (pdraw == NULL || pread == NULL)
       return GLXBadDrawable;
 
-   if ((*psc->core->bindContext) (pcp->driContext,
-				  pdraw->driDrawable, pread->driDrawable))
-      return Success;
+   if (!(*psc->core->bindContext) (pcp->driContext,
+				   pdraw->driDrawable, pread->driDrawable))
+      return GLXBadContext;
 
-   return GLXBadContext;
+   /* If the server doesn't send invalidate events, we may miss a
+    * resize before the rendering starts.  Invalidate the buffers now
+    * so the driver will recheck before rendering starts. */
+   pdp = (struct dri2_display *) psc->base.display;
+   if (!pdp->invalidateAvailable) {
+      dri2InvalidateBuffers(psc->base.dpy, pdraw->base.xDrawable);
+      if (pread != pdraw)
+	 dri2InvalidateBuffers(psc->base.dpy, pread->base.xDrawable);
+   }
+
+   return Success;
 }
 
 static void
@@ -159,6 +170,9 @@ dri2_unbind_context(struct glx_context *context, struct glx_context *new)
    struct dri2_screen *psc = (struct dri2_screen *) pcp->base.psc;
 
    (*psc->core->unbindContext) (pcp->driContext);
+
+   if (context == new)
+      driReleaseDrawables(&pcp->base);
 }
 
 static struct glx_context *
@@ -210,7 +224,17 @@ dri2DestroyDrawable(__GLXDRIdrawable *base)
 
    __glxHashDelete(pdp->dri2Hash, pdraw->base.xDrawable);
    (*psc->core->destroyDrawable) (pdraw->driDrawable);
-   DRI2DestroyDrawable(psc->base.dpy, pdraw->base.xDrawable);
+
+   /* If it's a GLX 1.3 drawables, we can destroy the DRI2 drawable
+    * now, as the application explicitly asked to destroy the GLX
+    * drawable.  Otherwise, for legacy drawables, we let the DRI2
+    * drawable linger on the server, since there's no good way of
+    * knowing when the application is done with it.  The server will
+    * destroy the DRI2 drawable when it destroys the X drawable or the
+    * client exits anyway. */
+   if (pdraw->base.xDrawable != pdraw->base.drawable)
+      DRI2DestroyDrawable(psc->base.dpy, pdraw->base.xDrawable);
+
    Xfree(pdraw);
 }
 
@@ -439,7 +463,7 @@ dri2FlushFrontBuffer(__DRIdrawable *driDrawable, void *loaderPrivate)
 
    /* Old servers don't send invalidate events */
    if (!pdp->invalidateAvailable)
-       dri2InvalidateBuffers(priv->dpy, pdraw->base.drawable);
+       dri2InvalidateBuffers(priv->dpy, pdraw->base.xDrawable);
 
    dri2_wait_gl(gc);
 }
@@ -489,6 +513,16 @@ process_buffers(struct dri2_drawable * pdraw, DRI2Buffer * buffers,
 
 }
 
+unsigned dri2GetSwapEventType(Display* dpy, XID drawable)
+{
+      struct glx_display *glx_dpy = __glXInitialize(dpy);
+      __GLXDRIdrawable *pdraw;
+      pdraw = dri2GetGlxDrawableFromXDrawableId(dpy, drawable);
+      if (!pdraw || !(pdraw->eventMask & GLX_BUFFER_SWAP_COMPLETE_INTEL_MASK))
+         return 0;
+      return glx_dpy->codes->first_event + GLX_BufferSwapComplete;
+}
+
 static int64_t
 dri2SwapBuffers(__GLXDRIdrawable *pdraw, int64_t target_msc, int64_t divisor,
 		int64_t remainder)
@@ -507,7 +541,7 @@ dri2SwapBuffers(__GLXDRIdrawable *pdraw, int64_t target_msc, int64_t divisor,
 
     /* Old servers don't send invalidate events */
     if (!pdp->invalidateAvailable)
-       dri2InvalidateBuffers(dpyPriv->dpy, pdraw->drawable);
+       dri2InvalidateBuffers(dpyPriv->dpy, pdraw->xDrawable);
 
     /* Old servers can't handle swapbuffers */
     if (!pdp->swapAvailable) {
@@ -657,9 +691,10 @@ dri2_bind_tex_image(Display * dpy,
    struct dri2_drawable *pdraw = (struct dri2_drawable *) base;
    struct dri2_display *pdp =
       (struct dri2_display *) dpyPriv->dri2Display;
-   struct dri2_screen *psc = (struct dri2_screen *) base->psc;
+   struct dri2_screen *psc;
 
    if (pdraw != NULL) {
+      psc = (struct dri2_screen *) base->psc;
 
 #if __DRI2_FLUSH_VERSION >= 3
       if (!pdp->invalidateAvailable && psc->f)

@@ -36,17 +36,17 @@
 
 /* This is a table driven implemetation of the glGet*v() functions.
  * The basic idea is that most getters just look up an int somewhere
- * in GLcontext and then convert it to a bool or float according to
+ * in struct gl_context and then convert it to a bool or float according to
  * which of glGetIntegerv() glGetBooleanv() etc is being called.
  * Instead of generating code to do this, we can just record the enum
- * value and the offset into GLcontext in an array of structs.  Then
+ * value and the offset into struct gl_context in an array of structs.  Then
  * in glGet*(), we lookup the struct for the enum in question, and use
  * the offset to get the int we need.
  *
  * Sometimes we need to look up a float, a boolean, a bit in a
  * bitfield, a matrix or other types instead, so we need to track the
- * type of the value in GLcontext.  And sometimes the value isn't in
- * GLcontext but in the drawbuffer, the array object, current texture
+ * type of the value in struct gl_context.  And sometimes the value isn't in
+ * struct gl_context but in the drawbuffer, the array object, current texture
  * unit, or maybe it's a computed value.  So we need to also track
  * where or how to find the value.  Finally, we sometimes need to
  * check that one of a number of extensions are enabled, the GL
@@ -128,6 +128,7 @@ enum value_extra {
    EXTRA_VERSION_30,
    EXTRA_VERSION_31,
    EXTRA_VERSION_32,
+   EXTRA_VERSION_ES2,
    EXTRA_NEW_BUFFERS, 
    EXTRA_VALID_DRAW_BUFFER,
    EXTRA_VALID_TEXTURE_UNIT,
@@ -164,7 +165,7 @@ union value {
 #define BUFFER_FIELD(field, type) \
    LOC_BUFFER, type, offsetof(struct gl_framebuffer, field)
 #define CONTEXT_FIELD(field, type) \
-   LOC_CONTEXT, type, offsetof(GLcontext, field)
+   LOC_CONTEXT, type, offsetof(struct gl_context, field)
 #define ARRAY_FIELD(field, type) \
    LOC_ARRAY, type, offsetof(struct gl_array_object, field)
 #define CONST(value) \
@@ -172,6 +173,7 @@ union value {
 
 #define BUFFER_INT(field) BUFFER_FIELD(field, TYPE_INT)
 #define BUFFER_ENUM(field) BUFFER_FIELD(field, TYPE_ENUM)
+#define BUFFER_BOOL(field) BUFFER_FIELD(field, TYPE_BOOLEAN)
 
 #define CONTEXT_INT(field) CONTEXT_FIELD(field, TYPE_INT)
 #define CONTEXT_INT2(field) CONTEXT_FIELD(field, TYPE_INT_2)
@@ -259,6 +261,17 @@ static const int extra_EXT_fog_coord_flush_current[] = {
    EXTRA_END
 };
 
+static const int extra_EXT_texture_integer[] = {
+   EXT(EXT_texture_integer),
+   EXTRA_END
+};
+
+static const int extra_EXT_gpu_shader4[] = {
+   EXT(EXT_gpu_shader4),
+   EXTRA_END
+};
+
+
 EXTRA_EXT(ARB_multitexture);
 EXTRA_EXT(ARB_texture_cube_map);
 EXTRA_EXT(MESA_texture_array);
@@ -275,9 +288,6 @@ EXTRA_EXT(NV_fragment_program);
 EXTRA_EXT(NV_texture_rectangle);
 EXTRA_EXT(EXT_stencil_two_side);
 EXTRA_EXT(NV_light_max_exponent);
-EXTRA_EXT(EXT_convolution);
-EXTRA_EXT(EXT_histogram);
-EXTRA_EXT(SGI_color_table);
 EXTRA_EXT(SGI_texture_color_table);
 EXTRA_EXT(EXT_depth_bounds_test);
 EXTRA_EXT(ARB_depth_clamp);
@@ -287,7 +297,7 @@ EXTRA_EXT(ARB_shader_objects);
 EXTRA_EXT(EXT_provoking_vertex);
 EXTRA_EXT(ARB_fragment_shader);
 EXTRA_EXT(ARB_fragment_program);
-EXTRA_EXT(ARB_framebuffer_object);
+EXTRA_EXT2(ARB_framebuffer_object, EXT_framebuffer_multisample);
 EXTRA_EXT(EXT_framebuffer_object);
 EXTRA_EXT(APPLE_vertex_array_object);
 EXTRA_EXT(ARB_seamless_cube_map);
@@ -322,9 +332,22 @@ extra_NV_vertex_program_ARB_vertex_program_ARB_fragment_program_NV_vertex_progra
    EXTRA_END
 };
 
+static const int
+extra_NV_primitive_restart[] = {
+   EXT(NV_primitive_restart),
+   EXTRA_END
+};
+
 static const int extra_version_30[] = { EXTRA_VERSION_30, EXTRA_END };
 static const int extra_version_31[] = { EXTRA_VERSION_31, EXTRA_END };
 static const int extra_version_32[] = { EXTRA_VERSION_32, EXTRA_END };
+
+static const int
+extra_ARB_vertex_program_version_es2[] = {
+   EXT(ARB_vertex_program),
+   EXTRA_VERSION_ES2,
+   EXTRA_END
+};
 
 #define API_OPENGL_BIT (1 << API_OPENGL)
 #define API_OPENGLES_BIT (1 << API_OPENGLES)
@@ -366,7 +389,7 @@ static const struct value_desc values[] = {
    { GL_MAX_ELEMENTS_VERTICES, CONTEXT_INT(Const.MaxArrayLockSize), NO_EXTRA },
    { GL_MAX_ELEMENTS_INDICES, CONTEXT_INT(Const.MaxArrayLockSize), NO_EXTRA },
    { GL_MAX_TEXTURE_SIZE, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, Const.MaxTextureLevels), NO_EXTRA },
+     offsetof(struct gl_context, Const.MaxTextureLevels), NO_EXTRA },
    { GL_MAX_VIEWPORT_DIMS, CONTEXT_INT2(Const.MaxViewportWidth), NO_EXTRA },
    { GL_PACK_ALIGNMENT, CONTEXT_INT(Pack.Alignment), NO_EXTRA },
    { GL_ALIASED_POINT_SIZE_RANGE, CONTEXT_FLOAT2(Const.MinPointSize), NO_EXTRA },
@@ -405,7 +428,7 @@ static const struct value_desc values[] = {
    { GL_TEXTURE_BINDING_CUBE_MAP_ARB, LOC_CUSTOM, TYPE_INT,
      TEXTURE_CUBE_INDEX, extra_ARB_texture_cube_map },
    { GL_MAX_CUBE_MAP_TEXTURE_SIZE_ARB, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, Const.MaxCubeTextureLevels),
+     offsetof(struct gl_context, Const.MaxCubeTextureLevels),
      extra_ARB_texture_cube_map }, /* XXX: OES_texture_cube_map */
 
    /* XXX: OES_blend_subtract */
@@ -517,7 +540,7 @@ static const struct value_desc values[] = {
    { GL_MAX_TEXTURE_STACK_DEPTH, CONST(MAX_TEXTURE_STACK_DEPTH), NO_EXTRA },
    { GL_MODELVIEW_MATRIX, CONTEXT_MATRIX(ModelviewMatrixStack.Top), NO_EXTRA },
    { GL_MODELVIEW_STACK_DEPTH, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, ModelviewMatrixStack.Depth), NO_EXTRA },
+     offsetof(struct gl_context, ModelviewMatrixStack.Depth), NO_EXTRA },
    { GL_NORMALIZE, CONTEXT_BOOL(Transform.Normalize), NO_EXTRA },
    { GL_PACK_SKIP_IMAGES_EXT, CONTEXT_INT(Pack.SkipImages), NO_EXTRA },
    { GL_PERSPECTIVE_CORRECTION_HINT, CONTEXT_ENUM(Hint.PerspectiveCorrection), NO_EXTRA },
@@ -530,7 +553,7 @@ static const struct value_desc values[] = {
    { GL_POINT_FADE_THRESHOLD_SIZE_EXT, CONTEXT_FLOAT(Point.Threshold), NO_EXTRA },
    { GL_PROJECTION_MATRIX, CONTEXT_MATRIX(ProjectionMatrixStack.Top), NO_EXTRA },
    { GL_PROJECTION_STACK_DEPTH, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, ProjectionMatrixStack.Depth), NO_EXTRA },
+     offsetof(struct gl_context, ProjectionMatrixStack.Depth), NO_EXTRA },
    { GL_RESCALE_NORMAL, CONTEXT_BOOL(Transform.RescaleNormals), NO_EXTRA },
    { GL_SHADE_MODEL, CONTEXT_ENUM(Light.ShadeModel), NO_EXTRA },
    { GL_TEXTURE_2D, LOC_CUSTOM, TYPE_BOOLEAN, 0, NO_EXTRA },
@@ -661,12 +684,13 @@ static const struct value_desc values[] = {
    { GL_STENCIL_BACK_PASS_DEPTH_PASS, CONTEXT_ENUM(Stencil.ZPassFunc[1]), NO_EXTRA },
 
    { GL_MAX_VERTEX_ATTRIBS_ARB,
-     CONTEXT_INT(Const.VertexProgram.MaxAttribs), extra_ARB_vertex_program },
+     CONTEXT_INT(Const.VertexProgram.MaxAttribs),
+     extra_ARB_vertex_program_version_es2 },
 
    /* OES_texture_3D */
    { GL_TEXTURE_BINDING_3D, LOC_CUSTOM, TYPE_INT, TEXTURE_3D_INDEX, NO_EXTRA },
    { GL_MAX_3D_TEXTURE_SIZE, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, Const.Max3DTextureLevels), NO_EXTRA },
+     offsetof(struct gl_context, Const.Max3DTextureLevels), NO_EXTRA },
 
    /* GL_ARB_fragment_program/OES_standard_derivatives */
    { GL_FRAGMENT_SHADER_DERIVATIVE_HINT_ARB,
@@ -677,11 +701,11 @@ static const struct value_desc values[] = {
    /* Enums unique to OpenGL ES 2.0 */
    { 0, 0, TYPE_API_MASK, API_OPENGLES2_BIT, NO_EXTRA },
    { GL_MAX_FRAGMENT_UNIFORM_VECTORS, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, Const.FragmentProgram.MaxUniformComponents), NO_EXTRA },
+     offsetof(struct gl_context, Const.FragmentProgram.MaxUniformComponents), NO_EXTRA },
    { GL_MAX_VARYING_VECTORS, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, Const.MaxVarying), NO_EXTRA },
+     offsetof(struct gl_context, Const.MaxVarying), NO_EXTRA },
    { GL_MAX_VERTEX_UNIFORM_VECTORS, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, Const.VertexProgram.MaxUniformComponents), NO_EXTRA },
+     offsetof(struct gl_context, Const.VertexProgram.MaxUniformComponents), NO_EXTRA },
    { GL_SHADER_COMPILER, CONST(1), NO_EXTRA },
    /* OES_get_program_binary */
    { GL_NUM_SHADER_BINARY_FORMATS, CONST(0), NO_EXTRA },
@@ -867,83 +891,11 @@ static const struct value_desc values[] = {
      extra_EXT_compiled_vertex_array },
 
    /* GL_ARB_transpose_matrix */
-   { GL_TRANSPOSE_COLOR_MATRIX_ARB, CONTEXT_MATRIX_T(ColorMatrixStack.Top), NO_EXTRA },
    { GL_TRANSPOSE_MODELVIEW_MATRIX_ARB,
      CONTEXT_MATRIX_T(ModelviewMatrixStack), NO_EXTRA },
    { GL_TRANSPOSE_PROJECTION_MATRIX_ARB,
      CONTEXT_MATRIX_T(ProjectionMatrixStack.Top), NO_EXTRA },
    { GL_TRANSPOSE_TEXTURE_MATRIX_ARB, CONTEXT_MATRIX_T(TextureMatrixStack), NO_EXTRA },
-
-   /* GL_SGI_color_matrix (also in 1.2 imaging) */
-   { GL_COLOR_MATRIX_SGI, CONTEXT_MATRIX(ColorMatrixStack.Top), NO_EXTRA },
-   { GL_COLOR_MATRIX_STACK_DEPTH_SGI, LOC_CUSTOM, TYPE_INT,
-     offsetof(GLcontext, ColorMatrixStack.Depth), NO_EXTRA },
-   { GL_MAX_COLOR_MATRIX_STACK_DEPTH_SGI,
-     CONST(MAX_COLOR_STACK_DEPTH), NO_EXTRA },
-   { GL_POST_COLOR_MATRIX_RED_SCALE_SGI,
-     CONTEXT_FLOAT(Pixel.PostColorMatrixScale[0]), NO_EXTRA },
-   { GL_POST_COLOR_MATRIX_GREEN_SCALE_SGI,
-     CONTEXT_FLOAT(Pixel.PostColorMatrixScale[1]), NO_EXTRA },
-   { GL_POST_COLOR_MATRIX_BLUE_SCALE_SGI,
-     CONTEXT_FLOAT(Pixel.PostColorMatrixScale[2]), NO_EXTRA },
-   { GL_POST_COLOR_MATRIX_ALPHA_SCALE_SGI,
-     CONTEXT_FLOAT(Pixel.PostColorMatrixScale[3]), NO_EXTRA },
-   { GL_POST_COLOR_MATRIX_RED_BIAS_SGI,
-     CONTEXT_FLOAT(Pixel.PostColorMatrixBias[0]), NO_EXTRA },
-   { GL_POST_COLOR_MATRIX_GREEN_BIAS_SGI,
-     CONTEXT_FLOAT(Pixel.PostColorMatrixBias[1]), NO_EXTRA },
-   { GL_POST_COLOR_MATRIX_BLUE_BIAS_SGI,
-     CONTEXT_FLOAT(Pixel.PostColorMatrixBias[2]), NO_EXTRA },
-   { GL_POST_COLOR_MATRIX_ALPHA_BIAS_SGI,
-     CONTEXT_FLOAT(Pixel.PostColorMatrixBias[3]), NO_EXTRA },
-
-   /* GL_EXT_convolution (also in 1.2 imaging) */
-   { GL_CONVOLUTION_1D_EXT, CONTEXT_BOOL(Pixel.Convolution1DEnabled),
-     extra_EXT_convolution },
-   { GL_CONVOLUTION_2D_EXT, CONTEXT_BOOL(Pixel.Convolution2DEnabled),
-     extra_EXT_convolution },
-   { GL_SEPARABLE_2D_EXT, CONTEXT_BOOL(Pixel.Separable2DEnabled),
-     extra_EXT_convolution },
-   { GL_POST_CONVOLUTION_RED_SCALE_EXT,
-     CONTEXT_FLOAT(Pixel.PostConvolutionScale[0]),
-     extra_EXT_convolution },
-   { GL_POST_CONVOLUTION_GREEN_SCALE_EXT,
-     CONTEXT_FLOAT(Pixel.PostConvolutionScale[1]),
-     extra_EXT_convolution },
-   { GL_POST_CONVOLUTION_BLUE_SCALE_EXT,
-     CONTEXT_FLOAT(Pixel.PostConvolutionScale[2]),
-     extra_EXT_convolution },
-   { GL_POST_CONVOLUTION_ALPHA_SCALE_EXT,
-     CONTEXT_FLOAT(Pixel.PostConvolutionScale[3]),
-     extra_EXT_convolution },
-   { GL_POST_CONVOLUTION_RED_BIAS_EXT,
-     CONTEXT_FLOAT(Pixel.PostConvolutionBias[0]),
-     extra_EXT_convolution },
-   { GL_POST_CONVOLUTION_GREEN_BIAS_EXT,
-     CONTEXT_FLOAT(Pixel.PostConvolutionBias[1]),
-     extra_EXT_convolution },
-   { GL_POST_CONVOLUTION_BLUE_BIAS_EXT,
-     CONTEXT_FLOAT(Pixel.PostConvolutionBias[2]),
-     extra_EXT_convolution },
-   { GL_POST_CONVOLUTION_ALPHA_BIAS_EXT,
-     CONTEXT_FLOAT(Pixel.PostConvolutionBias[3]),
-     extra_EXT_convolution },
-
-   /* GL_EXT_histogram / GL_ARB_imaging */
-   { GL_HISTOGRAM, CONTEXT_BOOL(Pixel.HistogramEnabled),
-     extra_EXT_histogram },
-   { GL_MINMAX, CONTEXT_BOOL(Pixel.MinMaxEnabled), extra_EXT_histogram },
-
-   /* GL_SGI_color_table / GL_ARB_imaging */
-   { GL_COLOR_TABLE_SGI,
-     CONTEXT_BOOL(Pixel.ColorTableEnabled[COLORTABLE_PRECONVOLUTION]),
-     extra_SGI_color_table },
-   { GL_POST_CONVOLUTION_COLOR_TABLE_SGI,
-     CONTEXT_BOOL(Pixel.ColorTableEnabled[COLORTABLE_POSTCONVOLUTION]),
-     extra_SGI_color_table },
-   { GL_POST_COLOR_MATRIX_COLOR_TABLE_SGI,
-     CONTEXT_BOOL(Pixel.ColorTableEnabled[COLORTABLE_POSTCOLORMATRIX]),
-     extra_SGI_color_table },
 
    /* GL_SGI_texture_color_table */
    { GL_TEXTURE_COLOR_TABLE_SGI, LOC_TEXUNIT, TYPE_BOOLEAN,
@@ -1085,6 +1037,12 @@ static const struct value_desc values[] = {
    { GL_MAX_SPOT_EXPONENT_NV, CONTEXT_FLOAT(Const.MaxSpotExponent),
      extra_NV_light_max_exponent },
      
+   /* GL_NV_primitive_restart */
+   { GL_PRIMITIVE_RESTART_NV, CONTEXT_BOOL(Array.PrimitiveRestart),
+     extra_NV_primitive_restart },
+   { GL_PRIMITIVE_RESTART_INDEX_NV, CONTEXT_INT(Array.RestartIndex),
+     extra_NV_primitive_restart },
+ 
    /* GL_ARB_vertex_buffer_object */
    { GL_INDEX_ARRAY_BUFFER_BINDING_ARB, LOC_CUSTOM, TYPE_INT,
      offsetof(struct gl_array_object, Index.BufferObj), NO_EXTRA },
@@ -1184,7 +1142,7 @@ static const struct value_desc values[] = {
 
    /* GL_ARB_framebuffer_object */
    { GL_MAX_SAMPLES, CONTEXT_INT(Const.MaxSamples),
-     extra_ARB_framebuffer_object },
+     extra_ARB_framebuffer_object_EXT_framebuffer_multisample },
 
    /* GL_APPLE_vertex_array_object */
    { GL_VERTEX_ARRAY_BINDING_APPLE, ARRAY_INT(Name),
@@ -1197,6 +1155,10 @@ static const struct value_desc values[] = {
    /* GL_ARB_sync */
    { GL_MAX_SERVER_WAIT_TIMEOUT,
      CONTEXT_INT64(Const.MaxServerWaitTimeout), extra_ARB_sync },
+
+   /* GL_EXT_texture_integer */
+   { GL_RGBA_INTEGER_MODE_EXT, BUFFER_BOOL(_IntegerColor),
+     extra_EXT_texture_integer },
 
    /* GL_EXT_transform_feedback */
    { GL_TRANSFORM_FEEDBACK_BUFFER_BINDING, LOC_CUSTOM, TYPE_INT, 0,
@@ -1241,6 +1203,14 @@ static const struct value_desc values[] = {
      CONTEXT_INT(Const.GeometryProgram.MaxVertexVaryingComponents),
      extra_ARB_geometry_shader4 },
 
+   /* GL_EXT_gpu_shader4 / GL 3.0 */
+   { GL_MIN_PROGRAM_TEXEL_OFFSET,
+     CONTEXT_INT(Const.MinProgramTexelOffset),
+     extra_EXT_gpu_shader4 },
+   { GL_MAX_PROGRAM_TEXEL_OFFSET,
+     CONTEXT_INT(Const.MaxProgramTexelOffset),
+     extra_EXT_gpu_shader4 },
+
    /* GL 3.0 */
    { GL_NUM_EXTENSIONS, LOC_CUSTOM, TYPE_INT, 0, extra_version_30 },
    { GL_MAJOR_VERSION, CONTEXT_INT(VersionMajor), extra_version_30 },
@@ -1248,11 +1218,15 @@ static const struct value_desc values[] = {
    { GL_CONTEXT_FLAGS, CONTEXT_INT(Const.ContextFlags), extra_version_30  },
 
    /* GL 3.1 */
+   /* NOTE: different enum values for GL_PRIMITIVE_RESTART_NV
+    * vs. GL_PRIMITIVE_RESTART!
+    */
    { GL_PRIMITIVE_RESTART, CONTEXT_BOOL(Array.PrimitiveRestart),
      extra_version_31 },
    { GL_PRIMITIVE_RESTART_INDEX, CONTEXT_INT(Array.RestartIndex),
      extra_version_31 },
  
+
    /* GL 3.2 */
    { GL_CONTEXT_PROFILE_MASK, CONTEXT_INT(Const.ProfileMask),
      extra_version_32 },
@@ -1322,7 +1296,7 @@ print_table_stats(void)
  *
  * \param the current context, for determining the API in question
  */
-void _mesa_init_get_hash(GLcontext *ctx)
+void _mesa_init_get_hash(struct gl_context *ctx)
 {
    int i, hash, index, mask;
    int api_mask = 0, api_bit;
@@ -1371,7 +1345,7 @@ void _mesa_init_get_hash(GLcontext *ctx)
  * \param v pointer to the tmp declared in the calling glGet*v() function
  */
 static void
-find_custom_value(GLcontext *ctx, const struct value_desc *d, union value *v)
+find_custom_value(struct gl_context *ctx, const struct value_desc *d, union value *v)
 {
    struct gl_buffer_object *buffer_obj;
    struct gl_client_array *array;
@@ -1458,7 +1432,6 @@ find_custom_value(GLcontext *ctx, const struct value_desc *d, union value *v)
 
    case GL_MODELVIEW_STACK_DEPTH:
    case GL_PROJECTION_STACK_DEPTH:
-   case GL_COLOR_MATRIX_STACK_DEPTH_SGI:
       v->value_int = *(GLint *) ((char *) ctx + d->offset) + 1;
       break;
 
@@ -1619,7 +1592,7 @@ find_custom_value(GLcontext *ctx, const struct value_desc *d, union value *v)
       break;
    case GL_CURRENT_PROGRAM:
       v->value_int =
-	 ctx->Shader.CurrentProgram ? ctx->Shader.CurrentProgram->Name : 0;
+	 ctx->Shader.ActiveProgram ? ctx->Shader.ActiveProgram->Name : 0;
       break;
    case GL_READ_FRAMEBUFFER_BINDING_EXT:
       v->value_int = ctx->ReadBuffer->Name;
@@ -1650,7 +1623,7 @@ find_custom_value(GLcontext *ctx, const struct value_desc *d, union value *v)
  *     otherwise GL_TRUE.
  */
 static GLboolean
-check_extra(GLcontext *ctx, const char *func, const struct value_desc *d)
+check_extra(struct gl_context *ctx, const char *func, const struct value_desc *d)
 {
    const GLuint version = ctx->VersionMajor * 10 + ctx->VersionMinor;
    int total, enabled;
@@ -1661,16 +1634,28 @@ check_extra(GLcontext *ctx, const char *func, const struct value_desc *d)
    for (e = d->extra; *e != EXTRA_END; e++)
       switch (*e) {
       case EXTRA_VERSION_30:
-	 if (version < 30)
-	    return GL_FALSE;
+	 if (version >= 30) {
+	    total++;
+	    enabled++;
+	 }
 	 break;
       case EXTRA_VERSION_31:
-	 if (version < 31)
-	    return GL_FALSE;
+	 if (version >= 31) {
+	    total++;
+	    enabled++;
+	 }
 	 break;
       case EXTRA_VERSION_32:
-	 if (version < 32)
-	    return GL_FALSE;
+	 if (version >= 32) {
+	    total++;
+	    enabled++;
+	 }
+	 break;
+      case EXTRA_VERSION_ES2:
+	 if (ctx->API == API_OPENGLES2) {
+	    total++;
+	    enabled++;
+	 }
 	 break;
       case EXTRA_NEW_BUFFERS:
 	 if (ctx->NewState & _NEW_BUFFERS)

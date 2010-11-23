@@ -75,6 +75,33 @@
  */
 
 
+/**
+ * Do one perspective divide per quad.
+ *
+ * For perspective interpolation, the final attribute value is given
+ *
+ *  a' = a/w = a * oow
+ *
+ * where
+ *
+ *  a = a0 + dadx*x + dady*y
+ *  w = w0 + dwdx*x + dwdy*y
+ *  oow = 1/w = 1/(w0 + dwdx*x + dwdy*y)
+ *
+ * Instead of computing the division per pixel, with this macro we compute the
+ * division on the upper left pixel of each quad, and use a linear
+ * approximation in the remaining pixels, given by:
+ *
+ *  da'dx = (dadx - dwdx*a)*oow
+ *  da'dy = (dady - dwdy*a)*oow
+ *
+ * Ironically, this actually makes things slower -- probably because the
+ * divide hardware unit is rarely used, whereas the multiply unit is typically
+ * already saturated.
+ */
+#define PERSPECTIVE_DIVIDE_PER_QUAD 0
+
+
 static const unsigned char quad_offset_x[4] = {0, 1, 0, 1};
 static const unsigned char quad_offset_y[4] = {0, 0, 1, 1};
 
@@ -107,7 +134,6 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
    LLVMValueRef i1 = LLVMConstInt(LLVMInt32Type(), 1, 0);
    LLVMValueRef i2 = LLVMConstInt(LLVMInt32Type(), 2, 0);
    LLVMValueRef i3 = LLVMConstInt(LLVMInt32Type(), 3, 0);
-   LLVMValueRef oow = NULL;
    unsigned attrib;
    unsigned chan;
 
@@ -141,7 +167,7 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
                else {
                   dadx = LLVMBuildLoad(builder, LLVMBuildGEP(builder, dadx_ptr, &index, 1, ""), "");
                   dady = LLVMBuildLoad(builder, LLVMBuildGEP(builder, dady_ptr, &index, 1, ""), "");
-                  dadxy = LLVMBuildAdd(builder, dadx, dady, "");
+                  dadxy = LLVMBuildFAdd(builder, dadx, dady, "");
                   attrib_name(dadx, attrib, chan, ".dadx");
                   attrib_name(dady, attrib, chan, ".dady");
                   attrib_name(dadxy, attrib, chan, ".dadxy");
@@ -177,10 +203,10 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
              * dadq2 = 2 * dq
              */
 
-            dadq2 = LLVMBuildAdd(builder, dadq, dadq, "");
+            dadq2 = LLVMBuildFAdd(builder, dadq, dadq, "");
 
             /*
-             * a = a0 + x * dadx + y * dady
+             * a = a0 + (x * dadx + y * dady)
              */
 
             if (attrib == 0 && chan == 0) {
@@ -193,12 +219,11 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
                a = a0;
                if (interp != LP_INTERP_CONSTANT &&
                    interp != LP_INTERP_FACING) {
-                  a = LLVMBuildAdd(builder, a,
-                                   LLVMBuildMul(builder, bld->x, dadx, ""),
-                                   "");
-                  a = LLVMBuildAdd(builder, a,
-                                   LLVMBuildMul(builder, bld->y, dady, ""),
-                                   "");
+                  LLVMValueRef ax, ay, axy;
+                  ax = LLVMBuildFMul(builder, bld->x, dadx, "");
+                  ay = LLVMBuildFMul(builder, bld->y, dady, "");
+                  axy = LLVMBuildFAdd(builder, ax, ay, "");
+                  a = LLVMBuildFAdd(builder, a, axy, "");
                }
             }
 
@@ -212,24 +237,24 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
              * Compute the attrib values on the upper-left corner of each quad.
              */
 
-            a = LLVMBuildAdd(builder, a, dadq2, "");
+            a = LLVMBuildFAdd(builder, a, dadq2, "");
 
+#if PERSPECTIVE_DIVIDE_PER_QUAD
             /*
-             * a    *= 1 / w
-             * dadq *= 1 / w
+             * a *= 1 / w
              */
 
             if (interp == LP_INTERP_PERSPECTIVE) {
                LLVMValueRef w = bld->a[0][3];
                assert(attrib != 0);
                assert(bld->mask[0] & TGSI_WRITEMASK_W);
-               if (!oow) {
-                  oow = lp_build_rcp(coeff_bld, w);
-                  lp_build_name(oow, "oow");
+               if (!bld->oow) {
+                  bld->oow = lp_build_rcp(coeff_bld, w);
+                  lp_build_name(bld->oow, "oow");
                }
-               a = lp_build_mul(coeff_bld, a, oow);
-               dadq = lp_build_mul(coeff_bld, dadq, oow);
+               a = lp_build_mul(coeff_bld, a, bld->oow);
             }
+#endif
 
             attrib_name(a, attrib, chan, ".a");
             attrib_name(dadq, attrib, chan, ".dadq");
@@ -247,16 +272,20 @@ coeffs_init(struct lp_build_interp_soa_context *bld,
  * This is called when we move from one quad to the next.
  */
 static void
-attribs_update(struct lp_build_interp_soa_context *bld, int quad_index)
+attribs_update(struct lp_build_interp_soa_context *bld,
+               int quad_index,
+               int start,
+               int end)
 {
    struct lp_build_context *coeff_bld = &bld->coeff_bld;
    LLVMValueRef shuffle = lp_build_const_int_vec(coeff_bld->type, quad_index);
+   LLVMValueRef oow = NULL;
    unsigned attrib;
    unsigned chan;
 
    assert(quad_index < 4);
 
-   for(attrib = 0; attrib < bld->num_attribs; ++attrib) {
+   for(attrib = start; attrib < end; ++attrib) {
       const unsigned mask = bld->mask[attrib];
       const unsigned interp = bld->interp[attrib];
       for(chan = 0; chan < NUM_CHANNELS; ++chan) {
@@ -271,6 +300,8 @@ attribs_update(struct lp_build_interp_soa_context *bld, int quad_index)
                a = bld->attribs[0][chan];
             }
             else {
+               LLVMValueRef dadq;
+
                a = bld->a[attrib][chan];
 
                /*
@@ -281,10 +312,54 @@ attribs_update(struct lp_build_interp_soa_context *bld, int quad_index)
                                           a, coeff_bld->undef, shuffle, "");
 
                /*
+                * Get the derivatives.
+                */
+
+               dadq = bld->dadq[attrib][chan];
+
+#if PERSPECTIVE_DIVIDE_PER_QUAD
+               if (interp == LP_INTERP_PERSPECTIVE) {
+                  LLVMValueRef dwdq = bld->dadq[0][3];
+
+                  if (oow == NULL) {
+                     assert(bld->oow);
+                     oow = LLVMBuildShuffleVector(coeff_bld->builder,
+                                                  bld->oow, coeff_bld->undef,
+                                                  shuffle, "");
+                  }
+
+                  dadq = lp_build_sub(coeff_bld,
+                                      dadq,
+                                      lp_build_mul(coeff_bld, a, dwdq));
+                  dadq = lp_build_mul(coeff_bld, dadq, oow);
+               }
+#endif
+
+               /*
                 * Add the derivatives
                 */
 
-               a = lp_build_add(coeff_bld, a, bld->dadq[attrib][chan]);
+               a = lp_build_add(coeff_bld, a, dadq);
+
+#if !PERSPECTIVE_DIVIDE_PER_QUAD
+               if (interp == LP_INTERP_PERSPECTIVE) {
+                  if (oow == NULL) {
+                     LLVMValueRef w = bld->attribs[0][3];
+                     assert(attrib != 0);
+                     assert(bld->mask[0] & TGSI_WRITEMASK_W);
+                     oow = lp_build_rcp(coeff_bld, w);
+                  }
+                  a = lp_build_mul(coeff_bld, a, oow);
+               }
+#endif
+
+               if (attrib == 0 && chan == 2) {
+                  /* FIXME: Depth values can exceed 1.0, due to the fact that
+                   * setup interpolation coefficients refer to (0,0) which causes
+                   * precision loss. So we must clamp to 1.0 here to avoid artifacts
+                   */
+                  a = lp_build_min(coeff_bld, a, coeff_bld->one);
+               }
 
                attrib_name(a, attrib, chan, "");
             }
@@ -370,8 +445,6 @@ lp_build_interp_soa_init(struct lp_build_interp_soa_context *bld,
    pos_init(bld, x0, y0);
 
    coeffs_init(bld, a0_ptr, dadx_ptr, dady_ptr);
-
-   attribs_update(bld, 0);
 }
 
 
@@ -379,10 +452,20 @@ lp_build_interp_soa_init(struct lp_build_interp_soa_context *bld,
  * Advance the position and inputs to the given quad within the block.
  */
 void
-lp_build_interp_soa_update(struct lp_build_interp_soa_context *bld,
-                           int quad_index)
+lp_build_interp_soa_update_inputs(struct lp_build_interp_soa_context *bld,
+                                  int quad_index)
 {
    assert(quad_index < 4);
 
-   attribs_update(bld, quad_index);
+   attribs_update(bld, quad_index, 1, bld->num_attribs);
 }
+
+void
+lp_build_interp_soa_update_pos(struct lp_build_interp_soa_context *bld,
+                                  int quad_index)
+{
+   assert(quad_index < 4);
+
+   attribs_update(bld, quad_index, 0, 1);
+}
+

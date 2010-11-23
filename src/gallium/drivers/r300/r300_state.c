@@ -23,8 +23,9 @@
 
 #include "draw/draw_context.h"
 
-#include "util/u_blitter.h"
+#include "util/u_framebuffer.h"
 #include "util/u_math.h"
+#include "util/u_mm.h"
 #include "util/u_memory.h"
 #include "util/u_pack_color.h"
 
@@ -43,6 +44,7 @@
 #include "r300_texture.h"
 #include "r300_vs.h"
 #include "r300_winsys.h"
+#include "r300_hyperz.h"
 
 /* r300_state: Functions used to intialize state context by translating
  * Gallium state objects into semi-native r300 state objects. */
@@ -472,13 +474,13 @@ static void*
 
     dsa->dsa = *state;
 
-    /* Depth test setup. */
+    /* Depth test setup. - separate write mask depth for decomp flush */
+    if (state->depth.writemask) {
+        dsa->z_buffer_control |= R300_Z_WRITE_ENABLE;
+    }
+
     if (state->depth.enabled) {
         dsa->z_buffer_control |= R300_Z_ENABLE;
-
-        if (state->depth.writemask) {
-            dsa->z_buffer_control |= R300_Z_WRITE_ENABLE;
-        }
 
         dsa->z_stencil_control |=
             (r300_translate_depth_stencil_function(state->depth.func) <<
@@ -592,6 +594,7 @@ static void r300_bind_dsa_state(struct pipe_context* pipe,
 
     UPDATE_STATE(state, r300->dsa_state);
 
+    r300->hyperz_state.dirty = TRUE; /* Will be updated before the emission. */
     r300_dsa_inject_stencilref(r300);
 }
 
@@ -681,6 +684,7 @@ void r300_mark_fb_state_dirty(struct r300_context *r300,
                               enum r300_fb_state_change change)
 {
     struct pipe_framebuffer_state *state = r300->fb_state.state;
+    boolean can_hyperz = r300->rws->get_value(r300->rws, R300_CAN_HYPERZ);
 
     /* What is marked as dirty depends on the enum r300_fb_state_change. */
     r300->gpu_flush.dirty = TRUE;
@@ -697,8 +701,11 @@ void r300_mark_fb_state_dirty(struct r300_context *r300,
 
     if (r300->cbzb_clear)
         r300->fb_state.size += 10;
-    else if (state->zsbuf)
-        r300->fb_state.size += r300->screen->caps.has_hiz ? 18 : 14;
+    else if (state->zsbuf) {
+        r300->fb_state.size += 10;
+        if (can_hyperz)
+            r300->fb_state.size += r300->screen->caps.hiz_ram ? 8 : 4;
+    }
 
     /* The size of the rest of atoms stays the same. */
 }
@@ -710,8 +717,10 @@ static void
     struct r300_context* r300 = r300_context(pipe);
     struct r300_aa_state *aa = (struct r300_aa_state*)r300->aa_state.state;
     struct pipe_framebuffer_state *old_state = r300->fb_state.state;
+    boolean can_hyperz = r300->rws->get_value(r300->rws, R300_CAN_HYPERZ);
     unsigned max_width, max_height, i;
     uint32_t zbuffer_bpp = 0;
+    int blocksize;
 
     if (r300->screen->caps.is_r500) {
         max_width = max_height = 4096;
@@ -739,24 +748,54 @@ static void
     /* The tiling flags are dependent on the surface miplevel, unfortunately. */
     r300_fb_set_tiling_flags(r300, state);
 
-    util_assign_framebuffer_state(r300->fb_state.state, state);
+    util_copy_framebuffer_state(r300->fb_state.state, state);
 
     r300_mark_fb_state_dirty(r300, R300_CHANGED_FB_STATE);
 
-    /* Polygon offset depends on the zbuffer bit depth. */
-    if (state->zsbuf && r300->polygon_offset_enabled) {
-        switch (util_format_get_blocksize(state->zsbuf->texture->format)) {
-            case 2:
-                zbuffer_bpp = 16;
-                break;
-            case 4:
-                zbuffer_bpp = 24;
-                break;
+    r300->z_compression = false;
+    
+    if (state->zsbuf) {
+        blocksize = util_format_get_blocksize(state->zsbuf->texture->format);
+        switch (blocksize) {
+        case 2:
+            zbuffer_bpp = 16;
+            break;
+        case 4:
+            zbuffer_bpp = 24;
+            break;
+        }
+        if (can_hyperz) {
+            struct r300_surface *zs_surf = r300_surface(state->zsbuf);
+            struct r300_texture *tex;
+            int compress = r300->screen->caps.is_rv350 ? RV350_Z_COMPRESS_88 : R300_Z_COMPRESS_44;
+            int level = zs_surf->base.level;
+
+            tex = r300_texture(zs_surf->base.texture);
+
+            /* work out whether we can support hiz on this buffer */
+            r300_hiz_alloc_block(r300, zs_surf);
+        
+            /* work out whether we can support zmask features on this buffer */
+            r300_zmask_alloc_block(r300, zs_surf, compress);
+
+            if (tex->zmask_mem[level]) {
+                /* compression causes hangs on 16-bit */
+                if (zbuffer_bpp == 24)
+                    r300->z_compression = compress;
+            }
+            DBG(r300, DBG_HYPERZ,
+                "hyper-z features: hiz: %d @ %08x z-compression: %d z-fastfill: %d @ %08x\n", tex->hiz_mem[level] ? 1 : 0,
+                tex->hiz_mem[level] ? tex->hiz_mem[level]->ofs : 0xdeadbeef,
+                r300->z_compression, tex->zmask_mem[level] ? 1 : 0,
+                tex->zmask_mem[level] ? tex->zmask_mem[level]->ofs : 0xdeadbeef);
         }
 
+        /* Polygon offset depends on the zbuffer bit depth. */
         if (r300->zbuffer_bpp != zbuffer_bpp) {
             r300->zbuffer_bpp = zbuffer_bpp;
-            r300->rs_state.dirty = TRUE;
+
+            if (r300->polygon_offset_enabled)
+                r300->rs_state.dirty = TRUE;
         }
     }
 
@@ -826,6 +865,9 @@ void r300_mark_fs_code_dirty(struct r300_context *r300)
         r300->fs_rc_constant_state.size = fs->shader->rc_state_count * 5;
         r300->fs_constants.size = fs->shader->externals_count * 4 + 1;
     }
+
+    ((struct r300_constant_buffer*)r300->fs_constants.state)->remap_table =
+            fs->shader->code.constants_remap_table;
 }
 
 /* Bind fragment shader state. */
@@ -880,7 +922,6 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
                                   const struct pipe_rasterizer_state* state)
 {
     struct r300_rs_state* rs = CALLOC_STRUCT(r300_rs_state);
-    int i;
     float psiz;
     uint32_t vap_control_status;    /* R300_VAP_CNTL_STATUS: 0x2140 */
     uint32_t point_size;            /* R300_GA_POINT_SIZE: 0x421c */
@@ -893,20 +934,19 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
     uint32_t polygon_mode;          /* R300_GA_POLY_MODE: 0x4288 */
     uint32_t clip_rule;             /* R300_SC_CLIP_RULE: 0x43D0 */
 
-    /* Specifies top of Raster pipe specific enable controls,
-     * i.e. texture coordinates stuffing for points, lines, triangles */
-    uint32_t stuffing_enable;       /* R300_GB_ENABLE: 0x4008 */
-
     /* Point sprites texture coordinates, 0: lower left, 1: upper right */
-    float point_texcoord_left;      /* R300_GA_POINT_S0: 0x4200 */
+    float point_texcoord_left = 0;  /* R300_GA_POINT_S0: 0x4200 */
     float point_texcoord_bottom = 0;/* R300_GA_POINT_T0: 0x4204 */
-    float point_texcoord_right;     /* R300_GA_POINT_S1: 0x4208 */
+    float point_texcoord_right = 1; /* R300_GA_POINT_S1: 0x4208 */
     float point_texcoord_top = 0;   /* R300_GA_POINT_T1: 0x420c */
     CB_LOCALS;
 
     /* Copy rasterizer state. */
     rs->rs = *state;
     rs->rs_draw = *state;
+
+    rs->rs.sprite_coord_enable = state->point_quad_rasterization *
+                                 state->sprite_coord_enable;
 
     /* Override some states for Draw. */
     rs->rs_draw.sprite_coord_enable = 0; /* We can do this in HW. */
@@ -1007,19 +1047,8 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
 
     clip_rule = state->scissor ? 0xAAAA : 0xFFFF;
 
-    /* Point sprites */
-    stuffing_enable = 0;
-    if (state->sprite_coord_enable) {
-        stuffing_enable = R300_GB_POINT_STUFF_ENABLE;
-	for (i = 0; i < 8; i++) {
-	    if (state->sprite_coord_enable & (1 << i))
-                stuffing_enable |=
-		    R300_GB_TEX_STR << (R300_GB_TEX0_SOURCE_SHIFT + (i*2));
-	}
-
-        point_texcoord_left = 0.0f;
-        point_texcoord_right = 1.0f;
-
+    /* Point sprites coord mode */
+    if (rs->rs.sprite_coord_enable) {
         switch (state->sprite_coord_mode) {
             case PIPE_SPRITE_COORD_UPPER_LEFT:
                 point_texcoord_top = 0.0f;
@@ -1033,7 +1062,7 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
     }
 
     /* Build the main command buffer. */
-    BEGIN_CB(rs->cb_main, 25);
+    BEGIN_CB(rs->cb_main, RS_STATE_MAIN_SIZE);
     OUT_CB_REG(R300_VAP_CNTL_STATUS, vap_control_status);
     OUT_CB_REG(R300_GA_POINT_SIZE, point_size);
     OUT_CB_REG_SEQ(R300_GA_POINT_MINMAX, 2);
@@ -1047,7 +1076,6 @@ static void* r300_create_rs_state(struct pipe_context* pipe,
     OUT_CB_REG(R300_GA_LINE_STIPPLE_VALUE, line_stipple_value);
     OUT_CB_REG(R300_GA_POLY_MODE, polygon_mode);
     OUT_CB_REG(R300_SC_CLIP_RULE, clip_rule);
-    OUT_CB_REG(R300_GB_ENABLE, stuffing_enable);
     OUT_CB_REG_SEQ(R300_GA_POINT_S0, 4);
     OUT_CB_32F(point_texcoord_left);
     OUT_CB_32F(point_texcoord_bottom);
@@ -1095,9 +1123,7 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     }
 
     if (rs) {
-        r300->polygon_offset_enabled = (rs->rs.offset_point ||
-                                        rs->rs.offset_line ||
-                                        rs->rs.offset_tri);
+        r300->polygon_offset_enabled = rs->polygon_offset_enable;
         r300->sprite_coord_enable = rs->rs.sprite_coord_enable;
         r300->two_sided_color = rs->rs.light_twoside;
     } else {
@@ -1107,7 +1133,7 @@ static void r300_bind_rs_state(struct pipe_context* pipe, void* state)
     }
 
     UPDATE_STATE(state, r300->rs_state);
-    r300->rs_state.size = 25 + (r300->polygon_offset_enabled ? 5 : 0);
+    r300->rs_state.size = RS_STATE_MAIN_SIZE + (r300->polygon_offset_enabled ? 5 : 0);
 
     if (last_sprite_coord_enable != r300->sprite_coord_enable ||
         last_two_sided_color != r300->two_sided_color) {
@@ -1129,7 +1155,6 @@ static void*
     struct r300_sampler_state* sampler = CALLOC_STRUCT(r300_sampler_state);
     boolean is_r500 = r300->screen->caps.is_r500;
     int lod_bias;
-    union util_color uc;
 
     sampler->state = *state;
 
@@ -1171,8 +1196,8 @@ static void*
 
     /* Unfortunately, r300-r500 don't support floating-point mipmap lods. */
     /* We must pass these to the merge function to clamp them properly. */
-    sampler->min_lod = MAX2((unsigned)state->min_lod, 0);
-    sampler->max_lod = MAX2((unsigned)ceilf(state->max_lod), 0);
+    sampler->min_lod = (unsigned)MAX2(state->min_lod, 0);
+    sampler->max_lod = (unsigned)MAX2(ceilf(state->max_lod), 0);
 
     lod_bias = CLAMP((int)(state->lod_bias * 32 + 1), -(1 << 9), (1 << 9) - 1);
 
@@ -1185,9 +1210,6 @@ static void*
     if (DBG_ON(r300, DBG_ANISOHQ) && is_r500) {
         sampler->filter1 |= r500_anisotropy(state->max_anisotropy);
     }
-
-    util_pack_color(state->border_color, PIPE_FORMAT_B8G8R8A8_UNORM, &uc);
-    sampler->border_color = uc.ui;
 
     /* R500-specific fixups and optimizations */
     if (r300->screen->caps.is_r500) {
@@ -1511,7 +1533,12 @@ static void r300_set_index_buffer(struct pipe_context* pipe,
         memset(&r300->index_buffer, 0, sizeof(r300->index_buffer));
     }
 
-    /* TODO make this more like a state */
+    if (r300->screen->caps.has_tcl) {
+       /* TODO make this more like a state */
+    }
+    else {
+       draw_set_index_buffer(r300->draw, ib);
+    }
 }
 
 /* Initialize the PSC tables. */
@@ -1714,10 +1741,12 @@ static void r300_bind_vs_state(struct pipe_context* pipe, void* shader)
     r300->rs_block_state.dirty = TRUE; /* Will be updated before the emission. */
 
     if (r300->screen->caps.has_tcl) {
+        unsigned fc_op_dwords = r300->screen->caps.is_r500 ? 3 : 2;
         r300->vs_state.dirty = TRUE;
         r300->vs_state.size =
                 vs->code.length + 9 +
-                (vs->immediates_count ? vs->immediates_count * 4 + 3 : 0);
+                (vs->immediates_count ? vs->immediates_count * 4 + 3 : 0) +
+        (vs->code.num_fc_ops ? vs->code.num_fc_ops * fc_op_dwords + 4 : 0);
 
         if (vs->externals_count) {
             r300->vs_constants.dirty = TRUE;
@@ -1725,6 +1754,9 @@ static void r300_bind_vs_state(struct pipe_context* pipe, void* shader)
         } else {
             r300->vs_constants.size = 0;
         }
+
+        ((struct r300_constant_buffer*)r300->vs_constants.state)->remap_table =
+                vs->code.constants_remap_table;
 
         r300->pvs_flush.dirty = TRUE;
     } else {
@@ -1740,6 +1772,8 @@ static void r300_delete_vs_state(struct pipe_context* pipe, void* shader)
 
     if (r300->screen->caps.has_tcl) {
         rc_constants_destroy(&vs->code.constants);
+        if (vs->code.constants_remap_table)
+            FREE(vs->code.constants_remap_table);
     } else {
         draw_delete_vertex_shader(r300->draw,
                 (struct draw_vertex_shader*)vs->draw_vs);
@@ -1755,48 +1789,29 @@ static void r300_set_constant_buffer(struct pipe_context *pipe,
 {
     struct r300_context* r300 = r300_context(pipe);
     struct r300_constant_buffer *cbuf;
-    uint32_t *mapped = r300_buffer(buf)->user_buffer;
-    int max_size = 0, max_size_bytes = 0, clamped_size = 0;
+    uint32_t *mapped;
 
     switch (shader) {
         case PIPE_SHADER_VERTEX:
             cbuf = (struct r300_constant_buffer*)r300->vs_constants.state;
-            max_size = 256;
             break;
         case PIPE_SHADER_FRAGMENT:
             cbuf = (struct r300_constant_buffer*)r300->fs_constants.state;
-            if (r300->screen->caps.is_r500) {
-                max_size = 256;
-            } else {
-                max_size = 32;
-            }
             break;
         default:
             assert(0);
             return;
     }
-    max_size_bytes = max_size * 4 * sizeof(float);
 
     if (buf == NULL || buf->width0 == 0 ||
         (mapped = r300_buffer(buf)->constant_buffer) == NULL) {
-        cbuf->count = 0;
         return;
     }
 
     if (shader == PIPE_SHADER_FRAGMENT ||
         (shader == PIPE_SHADER_VERTEX && r300->screen->caps.has_tcl)) {
         assert((buf->width0 % (4 * sizeof(float))) == 0);
-
-        /* Check the size of the constant buffer. */
-        /* XXX Subtract immediates and RC_STATE_* variables. */
-        if (buf->width0 > max_size_bytes) {
-            fprintf(stderr, "r300: Max size of the constant buffer is "
-                          "%i*4 floats.\n", max_size);
-        }
-
-        clamped_size = MIN2(buf->width0, max_size_bytes);
-        cbuf->count = clamped_size / (4 * sizeof(float));
-        cbuf->ptr = mapped;
+        cbuf->ptr = mapped + index*4;
     }
 
     if (shader == PIPE_SHADER_VERTEX) {

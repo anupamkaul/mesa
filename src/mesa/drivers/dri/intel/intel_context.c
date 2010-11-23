@@ -67,7 +67,7 @@ int INTEL_DEBUG = (0);
 
 
 static const GLubyte *
-intelGetString(GLcontext * ctx, GLenum name)
+intelGetString(struct gl_context * ctx, GLenum name)
 {
    const struct intel_context *const intel = intel_context(ctx);
    const char *chipset;
@@ -155,6 +155,7 @@ intelGetString(GLcontext * ctx, GLenum name)
          chipset = "Intel(R) G41";
          break;
       case PCI_CHIP_B43_G:
+      case PCI_CHIP_B43_G1:
          chipset = "Intel(R) B43";
          break;
       case PCI_CHIP_ILD_G:
@@ -163,6 +164,19 @@ intelGetString(GLcontext * ctx, GLenum name)
       case PCI_CHIP_ILM_G:
          chipset = "Intel(R) Ironlake Mobile";
          break;
+      case PCI_CHIP_SANDYBRIDGE_GT1:
+      case PCI_CHIP_SANDYBRIDGE_GT2:
+      case PCI_CHIP_SANDYBRIDGE_GT2_PLUS:
+	 chipset = "Intel(R) Sandybridge Desktop";
+	 break;
+      case PCI_CHIP_SANDYBRIDGE_M_GT1:
+      case PCI_CHIP_SANDYBRIDGE_M_GT2:
+      case PCI_CHIP_SANDYBRIDGE_M_GT2_PLUS:
+	 chipset = "Intel(R) Sandybridge Mobile";
+	 break;
+      case PCI_CHIP_SANDYBRIDGE_S:
+	 chipset = "Intel(R) Sandybridge Server";
+	 break;
       default:
          chipset = "Unknown Intel Chipset";
          break;
@@ -177,7 +191,7 @@ intelGetString(GLcontext * ctx, GLenum name)
 }
 
 static void
-intel_flush_front(GLcontext *ctx)
+intel_flush_front(struct gl_context *ctx)
 {
    struct intel_context *intel = intel_context(ctx);
     __DRIcontext *driContext = intel->driContext;
@@ -236,7 +250,7 @@ intel_update_renderbuffers(__DRIcontext *context, __DRIdrawable *drawable)
     * thus ignore the invalidate. */
    drawable->lastStamp = drawable->dri2.stamp;
 
-   if (INTEL_DEBUG & DEBUG_DRI)
+   if (unlikely(INTEL_DEBUG & DEBUG_DRI))
       fprintf(stderr, "enter %s, drawable %p\n", __func__, drawable);
 
    screen = intel->intelScreen->driScrnPriv;
@@ -354,7 +368,7 @@ intel_update_renderbuffers(__DRIcontext *context, __DRIdrawable *drawable)
        case __DRI_BUFFER_ACCUM:
        default:
 	   fprintf(stderr,
-		   "unhandled buffer attach event, attacment type %d\n",
+		   "unhandled buffer attach event, attachment type %d\n",
 		   buffers[i].attachment);
 	   return;
        }
@@ -365,19 +379,20 @@ intel_update_renderbuffers(__DRIcontext *context, __DRIdrawable *drawable)
        if (rb->region && rb->region->name == buffers[i].name)
 	     continue;
 
-       if (INTEL_DEBUG & DEBUG_DRI)
+       if (unlikely(INTEL_DEBUG & DEBUG_DRI))
 	  fprintf(stderr,
 		  "attaching buffer %d, at %d, cpp %d, pitch %d\n",
 		  buffers[i].name, buffers[i].attachment,
 		  buffers[i].cpp, buffers[i].pitch);
        
        if (buffers[i].attachment == __DRI_BUFFER_STENCIL && depth_region) {
-	  if (INTEL_DEBUG & DEBUG_DRI)
+	  if (unlikely(INTEL_DEBUG & DEBUG_DRI))
 	     fprintf(stderr, "(reusing depth buffer as stencil)\n");
 	  intel_region_reference(&region, depth_region);
        }
        else
-          region = intel_region_alloc_for_handle(intel, buffers[i].cpp,
+          region = intel_region_alloc_for_handle(intel->intelScreen,
+						 buffers[i].cpp,
 						 drawable->w,
 						 drawable->h,
 						 buffers[i].pitch / buffers[i].cpp,
@@ -464,7 +479,7 @@ intel_prepare_render(struct intel_context *intel)
 }
 
 static void
-intel_viewport(GLcontext *ctx, GLint x, GLint y, GLsizei w, GLsizei h)
+intel_viewport(struct gl_context *ctx, GLint x, GLint y, GLsizei w, GLsizei h)
 {
     struct intel_context *intel = intel_context(ctx);
     __DRIcontext *driContext = intel->driContext;
@@ -513,7 +528,7 @@ static const struct dri_debug_control debug_control[] = {
 
 
 static void
-intelInvalidateState(GLcontext * ctx, GLuint new_state)
+intelInvalidateState(struct gl_context * ctx, GLuint new_state)
 {
     struct intel_context *intel = intel_context(ctx);
 
@@ -530,7 +545,7 @@ intelInvalidateState(GLcontext * ctx, GLuint new_state)
 }
 
 void
-intel_flush(GLcontext *ctx)
+intel_flush(struct gl_context *ctx)
 {
    struct intel_context *intel = intel_context(ctx);
 
@@ -545,7 +560,7 @@ intel_flush(GLcontext *ctx)
 }
 
 static void
-intel_glFlush(GLcontext *ctx)
+intel_glFlush(struct gl_context *ctx)
 {
    struct intel_context *intel = intel_context(ctx);
 
@@ -555,7 +570,7 @@ intel_glFlush(GLcontext *ctx)
 }
 
 void
-intelFinish(GLcontext * ctx)
+intelFinish(struct gl_context * ctx)
 {
    struct gl_framebuffer *fb = ctx->DrawBuffer;
    int i;
@@ -602,17 +617,17 @@ intelInitDriverFunctions(struct dd_function_table *functions)
 GLboolean
 intelInitContext(struct intel_context *intel,
 		 int api,
-                 const __GLcontextModes * mesaVis,
+                 const struct gl_config * mesaVis,
                  __DRIcontext * driContextPriv,
                  void *sharedContextPrivate,
                  struct dd_function_table *functions)
 {
-   GLcontext *ctx = &intel->ctx;
-   GLcontext *shareCtx = (GLcontext *) sharedContextPrivate;
+   struct gl_context *ctx = &intel->ctx;
+   struct gl_context *shareCtx = (struct gl_context *) sharedContextPrivate;
    __DRIscreen *sPriv = driContextPriv->driScreenPriv;
    struct intel_screen *intelScreen = sPriv->private;
    int bo_reuse_mode;
-   __GLcontextModes visual;
+   struct gl_config visual;
 
    /* we can't do anything without a connection to the device */
    if (intelScreen->bufmgr == NULL)
@@ -720,8 +735,10 @@ intelInitContext(struct intel_context *intel,
    ctx->Const.MaxPointSizeAA = 3.0;
    ctx->Const.PointSizeGranularity = 1.0;
 
+   ctx->Const.MaxSamples = 1.0;
+
    /* reinitialize the context point state.
-    * It depend on constants in __GLcontextRec::Const
+    * It depend on constants in __struct gl_contextRec::Const
     */
    _mesa_init_point(ctx);
 
@@ -782,6 +799,11 @@ intelInitContext(struct intel_context *intel,
    INTEL_DEBUG = driParseDebugString(getenv("INTEL_DEBUG"), debug_control);
    if (INTEL_DEBUG & DEBUG_BUFMGR)
       dri_bufmgr_set_debug(intel->bufmgr, GL_TRUE);
+
+   /* XXX force SIMD8 kernel for Sandybridge before we fixed
+      SIMD16 interpolation. */
+   if (intel->gen == 6)
+       INTEL_DEBUG |= DEBUG_GLSL_FORCE;
 
    intel->batch = intel_batchbuffer_alloc(intel);
 
@@ -870,6 +892,9 @@ intelDestroyContext(__DRIcontext * driContextPriv)
 GLboolean
 intelUnbindContext(__DRIcontext * driContextPriv)
 {
+   /* Unset current context and dispath table */
+   _mesa_make_current(NULL, NULL, NULL);
+
    return GL_TRUE;
 }
 

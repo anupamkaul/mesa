@@ -36,7 +36,6 @@
 #include <llvm-c/Transforms/Scalar.h>
 
 #include "util/u_memory.h"
-#include "util/u_cpu_detect.h"
 #include "gallivm/lp_bld_init.h"
 #include "gallivm/lp_bld_debug.h"
 #include "lp_screen.h"
@@ -64,6 +63,11 @@ lp_jit_init_globals(struct llvmpipe_screen *screen)
       elem_types[LP_JIT_TEXTURE_DATA] =
          LLVMArrayType(LLVMPointerType(LLVMInt8Type(), 0),
                        LP_MAX_TEXTURE_LEVELS);
+      elem_types[LP_JIT_TEXTURE_MIN_LOD] = LLVMFloatType();
+      elem_types[LP_JIT_TEXTURE_MAX_LOD] = LLVMFloatType();
+      elem_types[LP_JIT_TEXTURE_LOD_BIAS] = LLVMFloatType();
+      elem_types[LP_JIT_TEXTURE_BORDER_COLOR] = 
+         LLVMArrayType(LLVMFloatType(), 4);
 
       texture_type = LLVMStructType(elem_types, Elements(elem_types), 0);
 
@@ -88,6 +92,19 @@ lp_jit_init_globals(struct llvmpipe_screen *screen)
       LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, data,
                              screen->target, texture_type,
                              LP_JIT_TEXTURE_DATA);
+      LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, min_lod,
+                             screen->target, texture_type,
+                             LP_JIT_TEXTURE_MIN_LOD);
+      LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, max_lod,
+                             screen->target, texture_type,
+                             LP_JIT_TEXTURE_MAX_LOD);
+      LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, lod_bias,
+                             screen->target, texture_type,
+                             LP_JIT_TEXTURE_LOD_BIAS);
+      LP_CHECK_MEMBER_OFFSET(struct lp_jit_texture, border_color,
+                             screen->target, texture_type,
+                             LP_JIT_TEXTURE_BORDER_COLOR);
+
       LP_CHECK_STRUCT_SIZE(struct lp_jit_texture,
                            screen->target, texture_type);
 
@@ -144,9 +161,6 @@ lp_jit_init_globals(struct llvmpipe_screen *screen)
 void
 lp_jit_screen_cleanup(struct llvmpipe_screen *screen)
 {
-   if(screen->engine)
-      LLVMDisposeExecutionEngine(screen->engine);
-
    if(screen->pass)
       LLVMDisposePassManager(screen->pass);
 }
@@ -172,13 +186,7 @@ lp_jit_screen_init(struct llvmpipe_screen *screen)
       LLVMAddCFGSimplificationPass(screen->pass);
       LLVMAddPromoteMemoryToRegisterPass(screen->pass);
       LLVMAddConstantPropagationPass(screen->pass);
-      if(util_cpu_caps.has_sse4_1) {
-         /* FIXME: There is a bug in this pass, whereby the combination of fptosi
-          * and sitofp (necessary for trunc/floor/ceil/round implementation)
-          * somehow becomes invalid code.
-          */
-         LLVMAddInstructionCombiningPass(screen->pass);
-      }
+      LLVMAddInstructionCombiningPass(screen->pass);
       LLVMAddGVNPass(screen->pass);
    } else {
       /* We need at least this pass to prevent the backends to fail in

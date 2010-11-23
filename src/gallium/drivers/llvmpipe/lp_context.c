@@ -46,6 +46,10 @@
 #include "lp_query.h"
 #include "lp_setup.h"
 
+
+DEBUG_GET_ONCE_BOOL_OPTION(lp_no_rast, "LP_NO_RAST", FALSE)
+
+
 static void llvmpipe_destroy( struct pipe_context *pipe )
 {
    struct llvmpipe_context *llvmpipe = llvmpipe_context( pipe );
@@ -78,7 +82,17 @@ static void llvmpipe_destroy( struct pipe_context *pipe )
       }
    }
 
+   lp_delete_setup_variants(llvmpipe);
+
    align_free( llvmpipe );
+}
+
+static void
+do_flush( struct pipe_context *pipe,
+          unsigned flags,
+          struct pipe_fence_handle **fence)
+{
+   llvmpipe_flush(pipe, flags, fence, __FUNCTION__);
 }
 
 
@@ -96,6 +110,7 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    memset(llvmpipe, 0, sizeof *llvmpipe);
 
    make_empty_list(&llvmpipe->fs_variants_list);
+   make_empty_list(&llvmpipe->setup_variants_list);
 
    llvmpipe->pipe.winsys = screen->winsys;
    llvmpipe->pipe.screen = screen;
@@ -105,7 +120,7 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    llvmpipe->pipe.destroy = llvmpipe_destroy;
    llvmpipe->pipe.set_framebuffer_state = llvmpipe_set_framebuffer_state;
    llvmpipe->pipe.clear = llvmpipe_clear;
-   llvmpipe->pipe.flush = llvmpipe_flush;
+   llvmpipe->pipe.flush = do_flush;
 
    llvmpipe_init_blend_funcs(llvmpipe);
    llvmpipe_init_clip_funcs(llvmpipe);
@@ -130,7 +145,7 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
 
    /* FIXME: devise alternative to draw_texture_samplers */
 
-   if (debug_get_bool_option( "LP_NO_RAST", FALSE ))
+   if (debug_get_option_lp_no_rast())
       llvmpipe->no_rast = TRUE;
 
    llvmpipe->setup = lp_setup_create( &llvmpipe->pipe,
@@ -143,9 +158,13 @@ llvmpipe_create_context( struct pipe_screen *screen, void *priv )
    draw_install_aapoint_stage(llvmpipe->draw, &llvmpipe->pipe);
    draw_install_pstipple_stage(llvmpipe->draw, &llvmpipe->pipe);
 
-   /* convert points and lines into triangles: */
-   draw_wide_point_threshold(llvmpipe->draw, 0.0);
-   draw_wide_line_threshold(llvmpipe->draw, 0.0);
+   /* convert points and lines into triangles: 
+    * (otherwise, draw points and lines natively)
+    */
+   draw_wide_point_sprites(llvmpipe->draw, FALSE);
+   draw_enable_point_sprites(llvmpipe->draw, FALSE);
+   draw_wide_point_threshold(llvmpipe->draw, 10000.0);
+   draw_wide_line_threshold(llvmpipe->draw, 10000.0);
 
 #if USE_DRAW_STAGE_PSTIPPLE
    /* Do polygon stipple w/ texture map + frag prog? */

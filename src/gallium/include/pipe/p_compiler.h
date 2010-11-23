@@ -35,6 +35,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <stdarg.h>
+#include <limits.h>
 
 
 #if defined(_WIN32) && !defined(__WIN32__)
@@ -79,6 +80,14 @@ typedef unsigned char boolean;
 #define FALSE false
 #endif
 
+#ifndef va_copy
+#ifdef __va_copy
+#define va_copy(dest, src) __va_copy((dest), (src))
+#else
+#define va_copy(dest, src) (dest) = (src)
+#endif
+#endif
+
 /* Function inlining */
 #ifndef INLINE
 #  ifdef __cplusplus
@@ -99,6 +108,37 @@ typedef unsigned char boolean;
 #    define INLINE inline
 #  else
 #    define INLINE
+#  endif
+#endif
+
+/* Forced function inlining */
+#ifndef ALWAYS_INLINE
+#  ifdef __GNUC__
+#    define ALWAYS_INLINE inline __attribute__((always_inline))
+#  elif defined(_MSC_VER)
+#    define ALWAYS_INLINE __forceinline
+#  else
+#    define ALWAYS_INLINE INLINE
+#  endif
+#endif
+
+/*
+ * Define the C99 restrict keyword.
+ *
+ * See also:
+ * - http://cellperformance.beyond3d.com/articles/2006/05/demystifying-the-restrict-keyword.html
+ */
+#ifndef restrict
+#  if (__STDC_VERSION__ >= 199901L)
+     /* C99 */
+#  elif defined(__SUNPRO_C) && defined(__C99FEATURES__)
+     /* C99 */
+#  elif defined(__GNUC__)
+#    define restrict __restrict__
+#  elif defined(_MSC_VER)
+#    define restrict __restrict
+#  else
+#    define restrict /* */
 #  endif
 #endif
 

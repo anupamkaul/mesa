@@ -171,75 +171,41 @@ static void do_triangle( struct draw_context *draw,
  * This code uses vertex indexes / elements.
  */
 
-/* emit first quad vertex as first vertex in triangles */
-#define QUAD_FIRST_PV(i0,i1,i2,i3)              \
-   do_triangle( draw,                           \
-                ( DRAW_PIPE_RESET_STIPPLE |     \
-                  DRAW_PIPE_EDGE_FLAG_0 |       \
-                  DRAW_PIPE_EDGE_FLAG_1 ),      \
-                verts + stride * (elts[i0] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i1] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i2] & ~DRAW_PIPE_FLAG_MASK));    \
-   do_triangle( draw,                           \
-                ( DRAW_PIPE_EDGE_FLAG_1 |       \
-                  DRAW_PIPE_EDGE_FLAG_2 ),      \
-                verts + stride * (elts[i0] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i2] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i3] & ~DRAW_PIPE_FLAG_MASK))
+#define TRIANGLE(flags,i0,i1,i2)                                  \
+   do {                                                           \
+      do_triangle( draw,                                          \
+                   flags,                                         \
+                   verts + stride * (i0),                         \
+                   verts + stride * (i1),                         \
+                   verts + stride * (i2) );                       \
+   } while (0)
 
-/* emit last quad vertex as last vertex in triangles */
-#define QUAD_LAST_PV(i0,i1,i2,i3)               \
-   do_triangle( draw,                           \
-                ( DRAW_PIPE_RESET_STIPPLE |     \
-                  DRAW_PIPE_EDGE_FLAG_0 |       \
-                  DRAW_PIPE_EDGE_FLAG_2 ),      \
-                verts + stride * (elts[i0] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i1] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i3] & ~DRAW_PIPE_FLAG_MASK));    \
-   do_triangle( draw,                           \
-                ( DRAW_PIPE_EDGE_FLAG_0 |       \
-                  DRAW_PIPE_EDGE_FLAG_1 ),      \
-                verts + stride * (elts[i1] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i2] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i3] & ~DRAW_PIPE_FLAG_MASK))
-
-#define TRIANGLE(flags,i0,i1,i2)                                        \
-   do_triangle( draw,                                                   \
-                elts[i0],  /* flags */                                  \
-                verts + stride * (elts[i0] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i1] & ~DRAW_PIPE_FLAG_MASK),     \
-                verts + stride * (elts[i2] & ~DRAW_PIPE_FLAG_MASK) );
-
-#define LINE(flags,i0,i1)                                       \
-   do_line( draw,                                               \
-            elts[i0],                                           \
-            verts + stride * (elts[i0] & ~DRAW_PIPE_FLAG_MASK), \
-            verts + stride * (elts[i1] & ~DRAW_PIPE_FLAG_MASK) );
+#define LINE(flags,i0,i1)                                         \
+   do {                                                           \
+      do_line( draw,                                              \
+               flags,                                             \
+               verts + stride * (i0),                             \
+               verts + stride * (i1) );                           \
+   } while (0)
 
 #define POINT(i0)                               \
-   do_point( draw,                              \
-             verts + stride * (elts[i0] & ~DRAW_PIPE_FLAG_MASK) )
+   do {                                         \
+      do_point( draw, verts + stride * (i0) );  \
+   } while (0)
+
+#define GET_ELT(idx) (elts[idx])
 
 #define FUNC pipe_run_elts
-#define ARGS                                    \
+#define FUNC_VARS                               \
     struct draw_context *draw,                  \
     unsigned prim,                              \
+    unsigned prim_flags,                        \
     struct vertex_header *vertices,             \
     unsigned stride,                            \
-    const ushort *elts
-
-#define LOCAL_VARS                                           \
-   char *verts = (char *)vertices;                           \
-   boolean flatfirst = (draw->rasterizer->flatshade &&       \
-                        draw->rasterizer->flatshade_first);  \
-   unsigned i;                                               \
-   ushort flags
-
-#define FLUSH
+    const ushort *elts,                         \
+    unsigned count
 
 #include "draw_pt_decompose.h"
-#undef ARGS
-#undef LOCAL_VARS
 
 
 
@@ -272,22 +238,27 @@ void draw_pipeline_run( struct draw_context *draw,
       const unsigned count = prim_info->primitive_lengths[i];
 
 #if DEBUG
-      /* make sure none of the element indexes go outside the vertex buffer */
+      /* Warn if one of the element indexes go outside the vertex buffer */
       {
          unsigned max_index = 0x0, i;
          /* find the largest element index */
          for (i = 0; i < count; i++) {
-            unsigned int index = (prim_info->elts[start + i]
-                                  & ~DRAW_PIPE_FLAG_MASK);
+            unsigned int index = prim_info->elts[start + i];
             if (index > max_index)
                max_index = index;
          }
-         assert(max_index <= vert_info->count);
+         if (max_index >= vert_info->count) {
+            debug_printf("%s: max_index (%u) outside vertex buffer (%u)\n",
+                         __FUNCTION__,
+                         max_index,
+                         vert_info->count);
+         }
       }
 #endif
 
       pipe_run_elts(draw,
                     prim_info->prim,
+                    prim_info->flags,
                     vert_info->verts,
                     vert_info->stride,
                     prim_info->elts + start,
@@ -304,70 +275,31 @@ void draw_pipeline_run( struct draw_context *draw,
  * This code is for non-indexed (aka linear) rendering (no elts).
  */
 
-/* emit first quad vertex as first vertex in triangles */
-#define QUAD_FIRST_PV(i0,i1,i2,i3)                               \
-   do_triangle( draw,                                            \
-                ( DRAW_PIPE_RESET_STIPPLE |                      \
-                  DRAW_PIPE_EDGE_FLAG_0 |                        \
-                  DRAW_PIPE_EDGE_FLAG_1 ),                       \
-                verts + stride * ((i0) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i1) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i2) & ~DRAW_PIPE_FLAG_MASK)); \
-   do_triangle( draw,                                            \
-                ( DRAW_PIPE_EDGE_FLAG_1 |                        \
-                  DRAW_PIPE_EDGE_FLAG_2 ),                       \
-                verts + stride * ((i0) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i2) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i3) & ~DRAW_PIPE_FLAG_MASK))
+#define TRIANGLE(flags,i0,i1,i2)       \
+   do_triangle( draw, flags,           \
+                verts + stride * (i0), \
+                verts + stride * (i1), \
+                verts + stride * (i2) )
 
-/* emit last quad vertex as last vertex in triangles */
-#define QUAD_LAST_PV(i0,i1,i2,i3)                                \
-   do_triangle( draw,                                            \
-                ( DRAW_PIPE_RESET_STIPPLE |                      \
-                  DRAW_PIPE_EDGE_FLAG_0 |                        \
-                  DRAW_PIPE_EDGE_FLAG_2 ),                       \
-                verts + stride * ((i0) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i1) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i3) & ~DRAW_PIPE_FLAG_MASK)); \
-   do_triangle( draw,                                            \
-                ( DRAW_PIPE_EDGE_FLAG_0 |                        \
-                  DRAW_PIPE_EDGE_FLAG_1 ),                       \
-                verts + stride * ((i1) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i2) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i3) & ~DRAW_PIPE_FLAG_MASK))
+#define LINE(flags,i0,i1)              \
+   do_line( draw, flags,               \
+            verts + stride * (i0),     \
+            verts + stride * (i1) )
 
-#define TRIANGLE(flags,i0,i1,i2)                                 \
-   do_triangle( draw,                                            \
-                flags,  /* flags */                              \
-                verts + stride * ((i0) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i1) & ~DRAW_PIPE_FLAG_MASK),  \
-                verts + stride * ((i2) & ~DRAW_PIPE_FLAG_MASK))
+#define POINT(i0)                      \
+   do_point( draw, verts + stride * (i0) )
 
-#define LINE(flags,i0,i1)                                   \
-   do_line( draw,                                           \
-            flags,                                          \
-            verts + stride * ((i0) & ~DRAW_PIPE_FLAG_MASK), \
-            verts + stride * ((i1) & ~DRAW_PIPE_FLAG_MASK))
 
-#define POINT(i0)                               \
-   do_point( draw,                              \
-             verts + stride * ((i0) & ~DRAW_PIPE_FLAG_MASK) )
+#define GET_ELT(idx) (idx)
 
 #define FUNC pipe_run_linear
-#define ARGS                                    \
-    struct draw_context *draw,                  \
-    unsigned prim,                              \
-    struct vertex_header *vertices,             \
-    unsigned stride
-
-#define LOCAL_VARS                                           \
-   char *verts = (char *)vertices;                           \
-   boolean flatfirst = (draw->rasterizer->flatshade &&       \
-                        draw->rasterizer->flatshade_first);  \
-   unsigned i;                                               \
-   ushort flags
-
-#define FLUSH
+#define FUNC_VARS                      \
+    struct draw_context *draw,         \
+    unsigned prim,                     \
+    unsigned prim_flags,               \
+    struct vertex_header *vertices,    \
+    unsigned stride,                   \
+    unsigned count
 
 #include "draw_pt_decompose.h"
 
@@ -397,6 +329,7 @@ void draw_pipeline_run_linear( struct draw_context *draw,
 
       pipe_run_linear(draw,
                       prim_info->prim,
+                      prim_info->flags,
                       (struct vertex_header*)verts,
                       vert_info->stride,
                       count);

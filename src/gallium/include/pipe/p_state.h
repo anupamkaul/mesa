@@ -43,7 +43,6 @@
 #include "p_compiler.h"
 #include "p_defines.h"
 #include "p_format.h"
-#include "p_screen.h"
 
 
 #ifdef __cplusplus
@@ -468,6 +467,12 @@ struct pipe_draw_info
    int index_bias; /**< a bias to be added to each index */
    unsigned min_index; /**< the min index */
    unsigned max_index; /**< the max index */
+
+   /**
+    * Primitive restart enable/index (only applies to indexed drawing)
+    */
+   boolean primitive_restart;
+   unsigned restart_index;
 };
 
 

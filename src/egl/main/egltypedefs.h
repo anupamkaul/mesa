@@ -24,6 +24,8 @@ typedef struct _egl_extensions _EGLExtensions;
 
 typedef struct _egl_image _EGLImage;
 
+typedef struct _egl_image_attribs _EGLImageAttribs;
+
 typedef struct _egl_mode _EGLMode;
 
 typedef struct _egl_resource _EGLResource;
@@ -31,6 +33,8 @@ typedef struct _egl_resource _EGLResource;
 typedef struct _egl_screen _EGLScreen;
 
 typedef struct _egl_surface _EGLSurface;
+
+typedef struct _egl_sync _EGLSync;
 
 typedef struct _egl_thread_info _EGLThreadInfo;
 

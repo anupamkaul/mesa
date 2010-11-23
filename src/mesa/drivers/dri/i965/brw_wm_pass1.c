@@ -158,6 +158,7 @@ void brw_wm_pass1( struct brw_wm_compile *c )
       case OPCODE_FLR:
       case OPCODE_FRC:
       case OPCODE_MOV:
+      case OPCODE_SSG:
       case OPCODE_SWZ:
       case OPCODE_TRUNC:
 	 read0 = writemask;
@@ -254,6 +255,11 @@ void brw_wm_pass1( struct brw_wm_compile *c )
 	 read2 = WRITEMASK_W; /* pixel w */
 	 break;
 
+      case OPCODE_DP2:
+	 read0 = WRITEMASK_XY;
+	 read1 = WRITEMASK_XY;
+	 break;
+
       case OPCODE_DP3:	
 	 read0 = WRITEMASK_XYZ;
 	 read1 = WRITEMASK_XYZ;
@@ -285,7 +291,7 @@ void brw_wm_pass1( struct brw_wm_compile *c )
       track_arg(c, inst, 2, read2);
    }
 
-   if (INTEL_DEBUG & DEBUG_WM) {
+   if (unlikely(INTEL_DEBUG & DEBUG_WM)) {
       brw_wm_print_program(c, "pass1");
    }
 }

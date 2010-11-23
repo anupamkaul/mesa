@@ -33,6 +33,7 @@
 
 #include "r300_defines.h"
 
+struct winsys_handle;
 struct r300_winsys_screen;
 
 struct r300_winsys_buffer;
@@ -49,6 +50,8 @@ enum r300_value_id {
     R300_VID_Z_PIPES,
     R300_VID_SQUARE_TILING_SUPPORT,
     R300_VID_DRM_2_3_0,
+    R300_VID_DRM_2_6_0,
+    R300_CAN_HYPERZ,
 };
 
 enum r300_reference_domain { /* bitfield */

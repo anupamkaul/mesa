@@ -118,7 +118,6 @@ _mesa_VertexAttribPointerARB(GLuint index, GLint size, GLenum type,
 
 void GLAPIENTRY
 _mesa_VertexAttribIPointer(GLuint index, GLint size, GLenum type,
-                           GLboolean normalized,
                            GLsizei stride, const GLvoid *ptr);
 
 
@@ -159,8 +158,8 @@ _mesa_InterleavedArrays(GLenum format, GLsizei stride, const GLvoid *pointer);
 
 
 extern void GLAPIENTRY
-_mesa_MultiDrawArraysEXT( GLenum mode, GLint *first,
-                          GLsizei *count, GLsizei primcount );
+_mesa_MultiDrawArraysEXT( GLenum mode, const GLint *first,
+                          const GLsizei *count, GLsizei primcount );
 
 extern void GLAPIENTRY
 _mesa_MultiDrawElementsEXT( GLenum mode, const GLsizei *count, GLenum type,
@@ -216,19 +215,19 @@ _mesa_PrimitiveRestartIndex(GLuint index);
 
 
 extern void
-_mesa_copy_client_array(GLcontext *ctx,
+_mesa_copy_client_array(struct gl_context *ctx,
                         struct gl_client_array *dst,
                         struct gl_client_array *src);
 
 
 extern void
-_mesa_print_arrays(GLcontext *ctx);
+_mesa_print_arrays(struct gl_context *ctx);
 
 extern void
-_mesa_init_varray( GLcontext * ctx );
+_mesa_init_varray( struct gl_context * ctx );
 
 extern void 
-_mesa_free_varray_data(GLcontext *ctx);
+_mesa_free_varray_data(struct gl_context *ctx);
 
 #else
 

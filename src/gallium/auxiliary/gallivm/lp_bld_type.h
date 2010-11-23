@@ -128,16 +128,16 @@ struct lp_build_context
     */
    struct lp_type type;
 
-   /** Same as lp_build_undef(type) */
+   /** Same as lp_build_elem_type(type) */
    LLVMTypeRef elem_type;
 
-   /** Same as lp_build_undef(type) */
+   /** Same as lp_build_vec_type(type) */
    LLVMTypeRef vec_type;
 
-   /** Same as lp_build_undef(type) */
+   /** Same as lp_build_int_elem_type(type) */
    LLVMTypeRef int_elem_type;
 
-   /** Same as lp_build_undef(type) */
+   /** Same as lp_build_int_vec_type(type) */
    LLVMTypeRef int_vec_type;
 
    /** Same as lp_build_undef(type) */
@@ -362,6 +362,10 @@ lp_unorm8_vec4_type(void)
 
    return type;
 }
+
+
+struct lp_type
+lp_elem_type(struct lp_type type);
 
 
 struct lp_type

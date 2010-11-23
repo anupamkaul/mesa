@@ -9,8 +9,6 @@ if not env['llvm']:
 
 env = env.Clone()
 
-env.Tool('udis86')
-
 env.Append(CPPPATH = ['.'])
 
 env.CodeGenerate(
@@ -27,13 +25,7 @@ env.Depends('lp_tile_soa.c', [
 ])
 
 
-# Only enable SSSE3 for lp_tile_soa_sse3.c
-ssse3_env = env.Clone()
-if env['gcc'] \
-   and distutils.version.LooseVersion(env['CCVERSION']) >= distutils.version.LooseVersion('4.3') \
-   and env['machine'] in ('x86', 'x86_64') :
-    ssse3_env.Append(CCFLAGS = ['-mssse3'])
-lp_tile_soa_os = ssse3_env.SharedObject('lp_tile_soa.c')
+lp_tile_soa_os = env.SharedObject('lp_tile_soa.c')
 
 
 llvmpipe = env.ConvenienceLibrary(
@@ -55,6 +47,7 @@ llvmpipe = env.ConvenienceLibrary(
 		'lp_perf.c',
 		'lp_query.c',
 		'lp_rast.c',
+		'lp_rast_debug.c',
 		'lp_rast_tri.c',
 		'lp_scene.c',
 		'lp_scene_queue.c',
@@ -68,6 +61,7 @@ llvmpipe = env.ConvenienceLibrary(
 		'lp_state_clip.c',
 		'lp_state_derived.c',
 		'lp_state_fs.c',
+		'lp_state_setup.c',
 		'lp_state_gs.c',
 		'lp_state_rasterizer.c',
 		'lp_state_sampler.c',
@@ -81,6 +75,8 @@ llvmpipe = env.ConvenienceLibrary(
 		'lp_tile_image.c',
         lp_tile_soa_os,
 	])
+
+env.Alias('llvmpipe', llvmpipe)
 
 
 if env['platform'] != 'embedded':
@@ -96,7 +92,7 @@ if env['platform'] != 'embedded':
 	'sincos',
     ]
 
-    if not msvc:
+    if not env['msvc']:
         tests.append('round')
 
     for test in tests:

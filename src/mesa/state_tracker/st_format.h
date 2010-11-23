@@ -31,7 +31,12 @@
 #define ST_FORMAT_H
 
 #include "main/formats.h"
+#include "main/mtypes.h"
 
+#include "pipe/p_defines.h"
+#include "pipe/p_format.h"
+
+struct pipe_screen;
 
 extern GLenum
 st_format_datatype(enum pipe_format format);
@@ -54,8 +59,12 @@ st_choose_renderbuffer_format(struct pipe_screen *screen,
                               GLenum internalFormat, unsigned sample_count);
 
 
+gl_format
+st_ChooseTextureFormat_renderable(struct gl_context *ctx, GLint internalFormat,
+				  GLenum format, GLenum type, GLboolean renderable);
+
 extern gl_format
-st_ChooseTextureFormat(GLcontext * ctx, GLint internalFormat,
+st_ChooseTextureFormat(struct gl_context * ctx, GLint internalFormat,
                        GLenum format, GLenum type);
 
 

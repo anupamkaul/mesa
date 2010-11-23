@@ -42,7 +42,7 @@
 
 #include "intel_batchbuffer.h"
 
-#define FILE_DEBUG_FLAG DEBUG_BATCH
+#define FILE_DEBUG_FLAG DEBUG_PRIMS
 
 static GLuint prim_to_hw_prim[GL_POLYGON+1] = {
    _3DPRIM_POINTLIST,
@@ -80,11 +80,10 @@ static const GLenum reduced_prim[GL_POLYGON+1] = {
 static GLuint brw_set_prim(struct brw_context *brw,
 			   const struct _mesa_prim *prim)
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    GLenum mode = prim->mode;
 
-   if (INTEL_DEBUG & DEBUG_PRIMS)
-      printf("PRIM: %s\n", _mesa_lookup_enum_by_nr(prim->mode));
+   DBG("PRIM: %s\n", _mesa_lookup_enum_by_nr(prim->mode));
 
    /* Slight optimization to avoid the GS program when not needed:
     */
@@ -133,9 +132,8 @@ static void brw_emit_prim(struct brw_context *brw,
    struct brw_3d_primitive prim_packet;
    struct intel_context *intel = &brw->intel;
 
-   if (INTEL_DEBUG & DEBUG_PRIMS)
-      printf("PRIM: %s %d %d\n", _mesa_lookup_enum_by_nr(prim->mode), 
-		   prim->start, prim->count);
+   DBG("PRIM: %s %d %d\n", _mesa_lookup_enum_by_nr(prim->mode),
+       prim->start, prim->count);
 
    prim_packet.header.opcode = CMD_3D_PRIM;
    prim_packet.header.length = sizeof(prim_packet)/4 - 2;
@@ -201,7 +199,7 @@ static GLboolean check_fallbacks( struct brw_context *brw,
 				  const struct _mesa_prim *prim,
 				  GLuint nr_prims )
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    GLuint i;
 
    /* If we don't require strict OpenGL conformance, never 
@@ -293,7 +291,7 @@ static GLboolean check_fallbacks( struct brw_context *brw,
 /* May fail if out of video memory for texture or vbo upload, or on
  * fallback conditions.
  */
-static GLboolean brw_try_draw_prims( GLcontext *ctx,
+static GLboolean brw_try_draw_prims( struct gl_context *ctx,
 				     const struct gl_client_array *arrays[],
 				     const struct _mesa_prim *prim,
 				     GLuint nr_prims,
@@ -416,7 +414,7 @@ static GLboolean brw_try_draw_prims( GLcontext *ctx,
    return retval;
 }
 
-void brw_draw_prims( GLcontext *ctx,
+void brw_draw_prims( struct gl_context *ctx,
 		     const struct gl_client_array *arrays[],
 		     const struct _mesa_prim *prim,
 		     GLuint nr_prims,
@@ -434,7 +432,7 @@ void brw_draw_prims( GLcontext *ctx,
       /* Decide if we want to rebase.  If so we end up recursing once
        * only into this function.
        */
-      if (min_index != 0) {
+      if (min_index != 0 && !vbo_any_varyings_in_vbos(arrays)) {
 	 vbo_rebase_prims(ctx, arrays,
 			  prim, nr_prims,
 			  ib, min_index, max_index,
@@ -460,7 +458,7 @@ void brw_draw_prims( GLcontext *ctx,
 
 void brw_draw_init( struct brw_context *brw )
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    struct vbo_context *vbo = vbo_context(ctx);
 
    /* Register our drawing function: 

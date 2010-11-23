@@ -30,6 +30,7 @@
 #include "r300_cb.h"
 #include "r300_context.h"
 #include "r300_emit.h"
+#include "r300_hyperz.h"
 #include "r300_screen.h"
 #include "r300_screen_buffer.h"
 #include "r300_winsys.h"
@@ -64,7 +65,7 @@ static void r300_release_referenced_objects(struct r300_context *r300)
     unsigned i;
 
     /* Framebuffer state. */
-    util_assign_framebuffer_state(fb, NULL);
+    util_unreference_framebuffer_state(fb);
 
     /* Textures. */
     for (i = 0; i < textures->sampler_view_count; i++)
@@ -98,8 +99,10 @@ static void r300_destroy_context(struct pipe_context* context)
     struct r300_context* r300 = r300_context(context);
     struct r300_atom *atom;
 
-    util_blitter_destroy(r300->blitter);
-    draw_destroy(r300->draw);
+    if (r300->blitter)
+        util_blitter_destroy(r300->blitter);
+    if (r300->draw)
+        draw_destroy(r300->draw);
 
     /* Print stats, if enabled. */
     if (SCREEN_DBG_ON(r300->screen, DBG_STATS)) {
@@ -111,36 +114,48 @@ static void r300_destroy_context(struct pipe_context* context)
         }
     }
 
-    u_upload_destroy(r300->upload_vb);
-    u_upload_destroy(r300->upload_ib);
+    if (r300->upload_vb)
+        u_upload_destroy(r300->upload_vb);
+    if (r300->upload_ib)
+        u_upload_destroy(r300->upload_ib);
 
-    translate_cache_destroy(r300->tran.translate_cache);
+    if (r300->tran.translate_cache)
+        translate_cache_destroy(r300->tran.translate_cache);
 
+    /* XXX: This function assumes r300->query_list was initialized */
     r300_release_referenced_objects(r300);
 
-    r300->rws->cs_destroy(r300->cs);
+    if (r300->zmask_mm)
+        r300_hyperz_destroy_mm(r300);
 
+    if (r300->cs)
+        r300->rws->cs_destroy(r300->cs);
+
+    /* XXX: No way to tell if this was initialized or not? */
     util_mempool_destroy(&r300->pool_transfers);
 
     r300_update_num_contexts(r300->screen, -1);
 
-    FREE(r300->aa_state.state);
-    FREE(r300->blend_color_state.state);
-    FREE(r300->clip_state.state);
-    FREE(r300->fb_state.state);
-    FREE(r300->gpu_flush.state);
-    FREE(r300->hyperz_state.state);
-    FREE(r300->invariant_state.state);
-    FREE(r300->rs_block_state.state);
-    FREE(r300->scissor_state.state);
-    FREE(r300->textures_state.state);
-    FREE(r300->vap_invariant_state.state);
-    FREE(r300->viewport_state.state);
-    FREE(r300->ztop_state.state);
-    FREE(r300->fs_constants.state);
-    FREE(r300->vs_constants.state);
-    if (!r300->screen->caps.has_tcl) {
-        FREE(r300->vertex_stream_state.state);
+    /* Free the structs allocated in r300_setup_atoms() */
+    if (r300->aa_state.state) {
+        FREE(r300->aa_state.state);
+        FREE(r300->blend_color_state.state);
+        FREE(r300->clip_state.state);
+        FREE(r300->fb_state.state);
+        FREE(r300->gpu_flush.state);
+        FREE(r300->hyperz_state.state);
+        FREE(r300->invariant_state.state);
+        FREE(r300->rs_block_state.state);
+        FREE(r300->scissor_state.state);
+        FREE(r300->textures_state.state);
+        FREE(r300->vap_invariant_state.state);
+        FREE(r300->viewport_state.state);
+        FREE(r300->ztop_state.state);
+        FREE(r300->fs_constants.state);
+        FREE(r300->vs_constants.state);
+        if (!r300->screen->caps.has_tcl) {
+            FREE(r300->vertex_stream_state.state);
+        }
     }
     FREE(r300);
 }
@@ -153,12 +168,14 @@ void r300_flush_cb(void *data)
 }
 
 #define R300_INIT_ATOM(atomname, atomsize) \
+ do { \
     r300->atomname.name = #atomname; \
     r300->atomname.state = NULL; \
     r300->atomname.size = atomsize; \
     r300->atomname.emit = r300_emit_##atomname; \
     r300->atomname.dirty = FALSE; \
-    insert_at_tail(&r300->atom_list, &r300->atomname);
+    insert_at_tail(&r300->atom_list, &r300->atomname); \
+ } while (0)
 
 static void r300_setup_atoms(struct r300_context* r300)
 {
@@ -166,6 +183,9 @@ static void r300_setup_atoms(struct r300_context* r300)
     boolean is_r500 = r300->screen->caps.is_r500;
     boolean has_tcl = r300->screen->caps.has_tcl;
     boolean drm_2_3_0 = r300->rws->get_value(r300->rws, R300_VID_DRM_2_3_0);
+    boolean drm_2_6_0 = r300->rws->get_value(r300->rws, R300_VID_DRM_2_6_0);
+    boolean can_hyperz = r300->rws->get_value(r300->rws, R300_CAN_HYPERZ);
+    boolean has_hiz_ram = r300->screen->caps.hiz_ram > 0;
 
     /* Create the actual atom list.
      *
@@ -188,8 +208,8 @@ static void r300_setup_atoms(struct r300_context* r300)
     R300_INIT_ATOM(gpu_flush, 9);
     R300_INIT_ATOM(aa_state, 4);
     R300_INIT_ATOM(fb_state, 0);
+    R300_INIT_ATOM(hyperz_state, is_r500 || (is_rv350 && drm_2_6_0) ? 10 : 8);
     /* ZB (unpipelined), SC. */
-    R300_INIT_ATOM(hyperz_state, 6);
     R300_INIT_ATOM(ztop_state, 2);
     /* ZB, FG. */
     R300_INIT_ATOM(dsa_state, is_r500 ? 8 : 6);
@@ -220,6 +240,13 @@ static void r300_setup_atoms(struct r300_context* r300)
     /* TX. */
     R300_INIT_ATOM(texture_cache_inval, 2);
     R300_INIT_ATOM(textures_state, 0);
+    if (can_hyperz) {
+        /* HiZ Clear */
+        if (has_hiz_ram)
+            R300_INIT_ATOM(hiz_clear, 0);
+        /* zmask clear */
+        R300_INIT_ATOM(zmask_clear, 0);
+    }
     /* ZB (unpipelined), SU. */
     R300_INIT_ATOM(query_start, 4);
 
@@ -282,8 +309,7 @@ static void r300_init_states(struct pipe_context *pipe)
             (struct r300_vap_invariant_state*)r300->vap_invariant_state.state;
     struct r300_invariant_state *invariant =
             (struct r300_invariant_state*)r300->invariant_state.state;
-    struct r300_hyperz_state *hyperz =
-            (struct r300_hyperz_state*)r300->hyperz_state.state;
+
     CB_LOCALS;
 
     pipe->set_blend_color(pipe, &bc);
@@ -351,10 +377,20 @@ static void r300_init_states(struct pipe_context *pipe)
 
     /* Initialize the hyperz state. */
     {
-        BEGIN_CB(&hyperz->cb_begin, r300->hyperz_state.size);
+        struct r300_hyperz_state *hyperz =
+            (struct r300_hyperz_state*)r300->hyperz_state.state;
+        BEGIN_CB(&hyperz->cb_flush_begin, r300->hyperz_state.size);
+        OUT_CB_REG(R300_ZB_ZCACHE_CTLSTAT,
+                   R300_ZB_ZCACHE_CTLSTAT_ZC_FLUSH_FLUSH_AND_FREE);
         OUT_CB_REG(R300_ZB_BW_CNTL, 0);
         OUT_CB_REG(R300_ZB_DEPTHCLEARVALUE, 0);
         OUT_CB_REG(R300_SC_HYPERZ, R300_SC_HYPERZ_ADJ_2);
+
+        if (r300->screen->caps.is_r500 ||
+            (r300->screen->caps.is_rv350 &&
+             r300->rws->get_value(r300->rws, R300_VID_DRM_2_6_0))) {
+            OUT_CB_REG(R300_GB_Z_PEQ_CONFIG, 0);
+        }
         END_CB;
     }
 }
@@ -380,27 +416,27 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
 
     r300->context.destroy = r300_destroy_context;
 
-    r300->cs = rws->cs_create(rws);
+    make_empty_list(&r300->query_list);
 
     util_mempool_create(&r300->pool_transfers,
                         sizeof(struct pipe_transfer), 64,
                         UTIL_MEMPOOL_SINGLETHREADED);
+
+    r300->cs = rws->cs_create(rws);
+    if (r300->cs == NULL)
+        goto fail;
 
     if (!r300screen->caps.has_tcl) {
         /* Create a Draw. This is used for SW TCL. */
         r300->draw = draw_create(&r300->context);
         /* Enable our renderer. */
         draw_set_rasterize_stage(r300->draw, r300_draw_stage(r300));
-        /* Enable Draw's clipping. */
-        draw_set_driver_clipping(r300->draw, FALSE);
         /* Disable converting points/lines to triangles. */
         draw_wide_line_threshold(r300->draw, 10000000.f);
         draw_wide_point_threshold(r300->draw, 10000000.f);
     }
 
     r300_setup_atoms(r300);
-
-    make_empty_list(&r300->query_list);
 
     r300_init_blit_functions(r300);
     r300_init_flush_functions(r300);
@@ -409,26 +445,35 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
     r300_init_resource_functions(r300);
 
     r300->blitter = util_blitter_create(&r300->context);
+    if (r300->blitter == NULL)
+        goto fail;
 
     /* Render functions must be initialized after blitter. */
     r300_init_render_functions(r300);
 
     rws->cs_set_flush(r300->cs, r300_flush_cb, r300);
 
+    /* setup hyper-z mm */
+    if (r300->rws->get_value(r300->rws, R300_CAN_HYPERZ))
+        if (!r300_hyperz_init_mm(r300))
+            goto fail;
+
     r300->upload_ib = u_upload_create(&r300->context,
 				      32 * 1024, 16,
 				      PIPE_BIND_INDEX_BUFFER);
 
     if (r300->upload_ib == NULL)
-        goto no_upload_ib;
+        goto fail;
 
     r300->upload_vb = u_upload_create(&r300->context,
 				      128 * 1024, 16,
 				      PIPE_BIND_VERTEX_BUFFER);
     if (r300->upload_vb == NULL)
-        goto no_upload_vb;
+        goto fail;
 
     r300->tran.translate_cache = translate_cache_create();
+    if (r300->tran.translate_cache == NULL)
+        goto fail;
 
     r300_init_states(&r300->context);
 
@@ -458,10 +503,8 @@ struct pipe_context* r300_create_context(struct pipe_screen* screen,
 
     return &r300->context;
 
- no_upload_ib:
-    u_upload_destroy(r300->upload_ib);
- no_upload_vb:
-    FREE(r300);
+ fail:
+    r300_destroy_context(&r300->context);
     return NULL;
 }
 

@@ -8,6 +8,7 @@ LIBNAME = r300compiler
 C_SOURCES = \
 		radeon_code.c \
 		radeon_compiler.c \
+		radeon_compiler_util.c \
 		radeon_emulate_branches.c \
 		radeon_emulate_loops.c \
 		radeon_program.c \
@@ -23,6 +24,7 @@ C_SOURCES = \
 		radeon_dataflow_deadcode.c \
 		radeon_dataflow_swizzles.c \
 		radeon_optimize.c \
+		radeon_remove_constants.c \
 		radeon_rename_regs.c \
 		r3xx_fragprog.c \
 		r300_fragprog.c \

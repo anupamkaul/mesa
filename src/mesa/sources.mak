@@ -58,8 +58,10 @@ MAIN_SOURCES = \
 	main/mm.c \
 	main/multisample.c \
 	main/nvprogram.c \
+	main/pack.c \
 	main/pixel.c \
 	main/pixelstore.c \
+	main/pixeltransfer.c \
 	main/points.c \
 	main/polygon.c \
 	main/queryobj.c \
@@ -154,7 +156,6 @@ TNL_SOURCES = \
 	tnl/t_vb_texgen.c \
 	tnl/t_vb_texmat.c \
 	tnl/t_vb_vertex.c \
-	tnl/t_vb_cull.c \
 	tnl/t_vb_fog.c \
 	tnl/t_vb_light.c \
 	tnl/t_vb_normals.c \
@@ -248,28 +249,12 @@ PROGRAM_SOURCES = \
 	program/prog_statevars.c \
 	program/prog_uniform.c \
 	program/programopt.c \
+	program/register_allocate.c \
 	program/symbol_table.c
 
-SLANG_SOURCES =	\
-	slang/slang_builtin.c	\
-	slang/slang_codegen.c	\
-	slang/slang_compile.c	\
-	slang/slang_compile_function.c	\
-	slang/slang_compile_operation.c	\
-	slang/slang_compile_struct.c	\
-	slang/slang_compile_variable.c	\
-	slang/slang_emit.c	\
-	slang/slang_ir.c	\
-	slang/slang_label.c	\
-	slang/slang_link.c	\
-	slang/slang_log.c	\
-	slang/slang_mem.c	\
-	slang/slang_print.c	\
-	slang/slang_simplify.c	\
-	slang/slang_storage.c	\
-	slang/slang_typeinfo.c	\
-	slang/slang_vartable.c	\
-	slang/slang_utility.c
+SHADER_CXX_SOURCES = \
+	program/ir_to_mesa.cpp \
+	program/sampler.cpp
 
 ASM_C_SOURCES =	\
 	x86/common_x86.c \
@@ -324,8 +309,10 @@ MESA_SOURCES = \
 	$(SWRAST_SOURCES)	\
 	$(SWRAST_SETUP_SOURCES)	\
 	$(COMMON_DRIVER_SOURCES)\
-	$(ASM_C_SOURCES)	\
-	$(SLANG_SOURCES)
+	$(ASM_C_SOURCES)
+
+MESA_CXX_SOURCES = \
+	 $(SHADER_CXX_SOURCES)
 
 # Sources for building Gallium drivers
 MESA_GALLIUM_SOURCES = \
@@ -335,12 +322,15 @@ MESA_GALLIUM_SOURCES = \
 	$(STATETRACKER_SOURCES)	\
 	$(PROGRAM_SOURCES)	\
 	ppc/common_ppc.c	\
-	x86/common_x86.c	\
-	$(SLANG_SOURCES)
+	x86/common_x86.c
+
+MESA_GALLIUM_CXX_SOURCES = \
+	 $(SHADER_CXX_SOURCES)
 
 # All the core C sources, for dependency checking
 ALL_SOURCES = \
 	$(MESA_SOURCES)		\
+	$(MESA_CXX_SOURCES)	\
 	$(MESA_ASM_SOURCES)	\
 	$(STATETRACKER_SOURCES)
 
@@ -349,10 +339,12 @@ ALL_SOURCES = \
 
 MESA_OBJECTS = \
 	$(MESA_SOURCES:.c=.o) \
+	$(MESA_CXX_SOURCES:.cpp=.o) \
 	$(MESA_ASM_SOURCES:.S=.o)
 
 MESA_GALLIUM_OBJECTS = \
 	$(MESA_GALLIUM_SOURCES:.c=.o) \
+	$(MESA_GALLIUM_CXX_SOURCES:.cpp=.o) \
 	$(MESA_ASM_SOURCES:.S=.o)
 
 
@@ -362,14 +354,14 @@ COMMON_DRIVER_OBJECTS = $(COMMON_DRIVER_SOURCES:.c=.o)
 ### Other archives/libraries
 
 GLSL_LIBS = \
-	$(TOP)/src/glsl/pp/libglslpp.a \
-	$(TOP)/src/glsl/cl/libglslcl.a
+	$(TOP)/src/glsl/libglsl.a
 
 
 ### Include directories
 
 INCLUDE_DIRS = \
 	-I$(TOP)/include \
+	-I$(TOP)/src/glsl \
 	-I$(TOP)/src/mesa \
 	-I$(TOP)/src/mapi \
 	-I$(TOP)/src/gallium/include \

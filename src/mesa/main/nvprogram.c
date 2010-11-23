@@ -511,13 +511,15 @@ _mesa_GetVertexAttribPointervNV(GLuint index, GLenum pname, GLvoid **pointer)
 }
 
 void
-_mesa_emit_nv_temp_initialization(GLcontext *ctx,
+_mesa_emit_nv_temp_initialization(struct gl_context *ctx,
 				  struct gl_program *program)
 {
    struct prog_instruction *inst;
    GLuint i;
+   struct gl_shader_compiler_options* options =
+         &ctx->ShaderCompilerOptions[_mesa_program_target_to_index(program->Target)];
 
-   if (!ctx->Shader.EmitNVTempInitialization)
+   if (!options->EmitNVTempInitialization)
       return;
 
    /* We'll swizzle up a zero temporary so we can use it for the
@@ -557,7 +559,7 @@ _mesa_emit_nv_temp_initialization(GLcontext *ctx,
 }
 
 void
-_mesa_setup_nv_temporary_count(GLcontext *ctx, struct gl_program *program)
+_mesa_setup_nv_temporary_count(struct gl_context *ctx, struct gl_program *program)
 {
    GLuint i;
 
@@ -683,13 +685,13 @@ _mesa_LoadProgramNV(GLenum target, GLuint id, GLsizei len,
  */
 void GLAPIENTRY
 _mesa_ProgramParameters4dvNV(GLenum target, GLuint index,
-                             GLuint num, const GLdouble *params)
+                             GLsizei num, const GLdouble *params)
 {
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (target == GL_VERTEX_PROGRAM_NV && ctx->Extensions.NV_vertex_program) {
-      GLuint i;
+      GLint i;
       if (index + num > MAX_NV_VERTEX_PROGRAM_PARAMS) {
          _mesa_error(ctx, GL_INVALID_VALUE, "glProgramParameters4dvNV");
          return;
@@ -715,13 +717,13 @@ _mesa_ProgramParameters4dvNV(GLenum target, GLuint index,
  */
 void GLAPIENTRY
 _mesa_ProgramParameters4fvNV(GLenum target, GLuint index,
-                             GLuint num, const GLfloat *params)
+                             GLsizei num, const GLfloat *params)
 {
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (target == GL_VERTEX_PROGRAM_NV && ctx->Extensions.NV_vertex_program) {
-      GLuint i;
+      GLint i;
       if (index + num > MAX_NV_VERTEX_PROGRAM_PARAMS) {
          _mesa_error(ctx, GL_INVALID_VALUE, "glProgramParameters4fvNV");
          return;

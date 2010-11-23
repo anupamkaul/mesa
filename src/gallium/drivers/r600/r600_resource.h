@@ -25,8 +25,18 @@
 
 #include "util/u_transfer.h"
 
-struct r600_context;
-struct r600_screen;
+/* flag to indicate a resource is to be used as a transfer so should not be tiled */
+#define R600_RESOURCE_FLAG_TRANSFER     PIPE_RESOURCE_FLAG_DRV_PRIV
+
+/* Texture transfer. */
+struct r600_transfer {
+	/* Base class. */
+	struct pipe_transfer		transfer;
+	/* Buffer transfer. */
+	struct pipe_transfer		*buffer_transfer;
+	unsigned			offset;
+	struct pipe_resource		*staging_texture;
+};
 
 /* This gets further specialized into either buffer or texture
  * structures. Use the vtbl struct to choose between the two
@@ -34,27 +44,27 @@ struct r600_screen;
  */
 struct r600_resource {
 	struct u_resource		base;
-	struct radeon_bo		*bo;
-	u32				domain;
-	u32				flink;
-	struct pb_buffer		*pb;
+	struct r600_bo			*bo;
+	u32				size;
 };
 
 struct r600_resource_texture {
 	struct r600_resource		resource;
-	unsigned long			offset[PIPE_MAX_TEXTURE_LEVELS];
-	unsigned long			pitch[PIPE_MAX_TEXTURE_LEVELS];
-	unsigned long			layer_size[PIPE_MAX_TEXTURE_LEVELS];
-	unsigned long			pitch_override;
-	unsigned long			bpt;
-	unsigned long			size;
+	unsigned			offset[PIPE_MAX_TEXTURE_LEVELS];
+	unsigned			pitch_in_bytes[PIPE_MAX_TEXTURE_LEVELS];
+	unsigned			pitch_in_pixels[PIPE_MAX_TEXTURE_LEVELS];
+	unsigned			layer_size[PIPE_MAX_TEXTURE_LEVELS];
+	unsigned			array_mode[PIPE_MAX_TEXTURE_LEVELS];
+	unsigned			pitch_override;
+	unsigned			size;
+	unsigned			tiled;
+	unsigned			tile_type;
+	unsigned			depth;
+	unsigned			dirty;
+	struct r600_resource_texture    *flushed_depth_texture;
 };
 
-void r600_init_context_resource_functions(struct r600_context *r600);
-void r600_init_screen_resource_functions(struct r600_screen *r600screen);
-
-/* r600_buffer */
-u32 r600_domain_from_usage(unsigned usage);
+void r600_init_screen_resource_functions(struct pipe_screen *screen);
 
 /* r600_texture */
 struct pipe_resource *r600_texture_create(struct pipe_screen *screen,
@@ -62,5 +72,59 @@ struct pipe_resource *r600_texture_create(struct pipe_screen *screen,
 struct pipe_resource *r600_texture_from_handle(struct pipe_screen *screen,
 						const struct pipe_resource *base,
 						struct winsys_handle *whandle);
+
+#define R600_BUFFER_MAGIC 0xabcd1600
+#define R600_BUFFER_MAX_RANGES 32
+
+struct r600_buffer_range {
+	uint32_t start;
+	uint32_t end;
+};
+
+struct r600_resource_buffer {
+	struct r600_resource r;
+	uint32_t magic;
+	void *user_buffer;
+	struct r600_buffer_range ranges[R600_BUFFER_MAX_RANGES];
+	unsigned num_ranges;
+};
+
+/* r600_buffer */
+static INLINE struct r600_resource_buffer *r600_buffer(struct pipe_resource *buffer)
+{
+	if (buffer) {
+		assert(((struct r600_resource_buffer *)buffer)->magic == R600_BUFFER_MAGIC);
+		return (struct r600_resource_buffer *)buffer;
+    }
+    return NULL;
+}
+
+static INLINE boolean r600_buffer_is_user_buffer(struct pipe_resource *buffer)
+{
+    return r600_buffer(buffer)->user_buffer ? TRUE : FALSE;
+}
+
+int r600_texture_depth_flush(struct pipe_context *ctx,
+			     struct pipe_resource *texture);
+
+extern int (*r600_blit_uncompress_depth_ptr)(struct pipe_context *ctx, struct r600_resource_texture *texture);
+
+/* r600_texture.c texture transfer functions. */
+struct pipe_transfer* r600_texture_get_transfer(struct pipe_context *ctx,
+						struct pipe_resource *texture,
+						struct pipe_subresource sr,
+						unsigned usage,
+						const struct pipe_box *box);
+void r600_texture_transfer_destroy(struct pipe_context *ctx,
+				   struct pipe_transfer *trans);
+void* r600_texture_transfer_map(struct pipe_context *ctx,
+				struct pipe_transfer* transfer);
+void r600_texture_transfer_unmap(struct pipe_context *ctx,
+				 struct pipe_transfer* transfer);
+
+struct r600_surface {
+	struct pipe_surface base;
+	unsigned aligned_height;
+};
 
 #endif

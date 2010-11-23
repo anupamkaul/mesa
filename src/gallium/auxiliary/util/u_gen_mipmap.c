@@ -1241,6 +1241,7 @@ fallback_gen_mipmap(struct gen_mipmap_state *ctx,
       make_1d_mipmap(ctx, pt, layer, baseLevel, lastLevel);
       break;
    case PIPE_TEXTURE_2D:
+   case PIPE_TEXTURE_RECT:
    case PIPE_TEXTURE_CUBE:
       make_2d_mipmap(ctx, pt, layer, baseLevel, lastLevel);
       break;

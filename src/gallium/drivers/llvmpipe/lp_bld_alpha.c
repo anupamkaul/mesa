@@ -44,21 +44,24 @@
 
 void
 lp_build_alpha_test(LLVMBuilderRef builder,
-                    const struct pipe_alpha_state *state,
+                    unsigned func,
                     struct lp_type type,
                     struct lp_build_mask_context *mask,
                     LLVMValueRef alpha,
-                    LLVMValueRef ref)
+                    LLVMValueRef ref,
+                    boolean do_branch)
 {
    struct lp_build_context bld;
+   LLVMValueRef test;
 
    lp_build_context_init(&bld, builder, type);
 
-   if(state->enabled) {
-      LLVMValueRef test = lp_build_cmp(&bld, state->func, alpha, ref);
+   test = lp_build_cmp(&bld, func, alpha, ref);
 
-      lp_build_name(test, "alpha_mask");
+   lp_build_name(test, "alpha_mask");
 
-      lp_build_mask_update(mask, test);
-   }
+   lp_build_mask_update(mask, test);
+
+   if (do_branch)
+      lp_build_mask_check(mask);
 }

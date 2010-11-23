@@ -12,7 +12,6 @@ INCLUDE_DIRS = -I$(TOP)/include
 HEADERS = \
 	eglcompiler.h \
 	eglconfig.h \
-	eglconfigutil.h \
 	eglcontext.h \
 	eglcurrent.h \
 	egldefines.h \
@@ -26,17 +25,18 @@ HEADERS = \
 	eglmutex.h \
 	eglscreen.h \
 	eglstring.h \
-	eglsurface.h
+	eglsurface.h \
+	eglsync.h
 
 SOURCES = \
 	eglapi.c \
 	eglarray.c \
 	eglconfig.c \
-	eglconfigutil.c \
 	eglcontext.c \
 	eglcurrent.c \
 	egldisplay.c \
 	egldriver.c \
+	eglfallbacks.c \
 	eglglobals.c \
 	eglimage.c \
 	egllog.c \
@@ -44,7 +44,8 @@ SOURCES = \
 	eglmode.c \
 	eglscreen.c \
 	eglstring.c \
-	eglsurface.c
+	eglsurface.c \
+	eglsync.c
 
 OBJECTS = $(SOURCES:.c=.o)
 
@@ -57,7 +58,7 @@ EGL_NATIVE_PLATFORM=_EGL_INVALID_PLATFORM
 ifeq ($(firstword $(EGL_PLATFORMS)),x11)
 EGL_NATIVE_PLATFORM=_EGL_PLATFORM_X11
 endif
-ifeq ($(firstword $(EGL_PLATFORMS)),kms)
+ifeq ($(firstword $(EGL_PLATFORMS)),drm)
 EGL_NATIVE_PLATFORM=_EGL_PLATFORM_DRM
 endif
 ifeq ($(firstword $(EGL_PLATFORMS)),fbdev)

@@ -48,7 +48,7 @@
 
 static void upload_blend_constant_color(struct brw_context *brw)
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    struct brw_blend_constant_color bcc;
 
    memset(&bcc, 0, sizeof(bcc));      
@@ -76,7 +76,7 @@ const struct brw_tracked_state brw_blend_constant_color = {
 static void upload_drawing_rect(struct brw_context *brw)
 {
    struct intel_context *intel = &brw->intel;
-   GLcontext *ctx = &intel->ctx;
+   struct gl_context *ctx = &intel->ctx;
 
    BEGIN_BATCH(4);
    OUT_BATCH(_3DSTATE_DRAWRECT_INFO_I965);
@@ -281,7 +281,7 @@ static void emit_depthbuffer(struct brw_context *brw)
       }
 
       assert(region->tiling != I915_TILING_X);
-      if (IS_GEN6(intel->intelScreen->deviceID))
+      if (intel->gen >= 6)
 	 assert(region->tiling != I915_TILING_NONE);
 
       BEGIN_BATCH(len);
@@ -295,7 +295,7 @@ static void emit_depthbuffer(struct brw_context *brw)
 		I915_GEM_DOMAIN_RENDER, I915_GEM_DOMAIN_RENDER,
 		0);
       OUT_BATCH((BRW_SURFACE_MIPMAPLAYOUT_BELOW << 1) |
-		((region->pitch - 1) << 6) |
+		((region->width - 1) << 6) |
 		((region->height - 1) << 19));
       OUT_BATCH(0);
 
@@ -335,7 +335,7 @@ const struct brw_tracked_state brw_depthbuffer = {
 
 static void upload_polygon_stipple(struct brw_context *brw)
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    struct brw_polygon_stipple bps;
    GLuint i;
 
@@ -378,7 +378,7 @@ const struct brw_tracked_state brw_polygon_stipple = {
 
 static void upload_polygon_stipple_offset(struct brw_context *brw)
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    struct brw_polygon_stipple_offset bpso;
 
    memset(&bpso, 0, sizeof(bpso));
@@ -449,7 +449,7 @@ const struct brw_tracked_state brw_aa_line_parameters = {
 
 static void upload_line_stipple(struct brw_context *brw)
 {
-   GLcontext *ctx = &brw->intel.ctx;
+   struct gl_context *ctx = &brw->intel.ctx;
    struct brw_line_stipple bls;
    GLfloat tmp;
    GLint tmpi;
@@ -515,8 +515,6 @@ static void upload_invarient_state( struct brw_context *brw )
    if (intel->gen >= 6) {
       int i;
 
-      intel_batchbuffer_emit_mi_flush(intel->batch);
-
       BEGIN_BATCH(3);
       OUT_BATCH(CMD_3D_MULTISAMPLE << 16 | (3 - 2));
       OUT_BATCH(MS_PIXEL_LOCATION_CENTER |
@@ -557,7 +555,7 @@ static void upload_invarient_state( struct brw_context *brw )
       memset(&vfs, 0, sizeof(vfs));
 
       vfs.opcode = brw->CMD_VF_STATISTICS;
-      if (INTEL_DEBUG & DEBUG_STATS)
+      if (unlikely(INTEL_DEBUG & DEBUG_STATS))
 	 vfs.statistics_enable = 1; 
 
       BRW_BATCH_STRUCT(brw, &vfs);

@@ -40,6 +40,7 @@
 #include "st_cb_fbo.h"
 
 #include "util/u_blit.h"
+#include "util/u_inlines.h"
 
 
 void
@@ -60,7 +61,7 @@ st_destroy_blit(struct st_context *st)
 #if FEATURE_EXT_framebuffer_blit
 
 static void
-st_BlitFramebuffer(GLcontext *ctx,
+st_BlitFramebuffer(struct gl_context *ctx,
                    GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
                    GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
                    GLbitfield mask, GLenum filter)
@@ -146,34 +147,32 @@ st_BlitFramebuffer(GLcontext *ctx,
       /* depth and/or stencil blit */
 
       /* get src/dst depth surfaces */
-      struct st_renderbuffer *srcDepthRb = 
+      struct gl_renderbuffer_attachment *srcDepth =
+         &readFB->Attachment[BUFFER_DEPTH];
+      struct gl_renderbuffer_attachment *dstDepth =
+         &drawFB->Attachment[BUFFER_DEPTH];
+      struct gl_renderbuffer_attachment *srcStencil =
+         &readFB->Attachment[BUFFER_STENCIL];
+      struct gl_renderbuffer_attachment *dstStencil =
+         &drawFB->Attachment[BUFFER_STENCIL];
+
+      struct st_renderbuffer *srcDepthRb =
          st_renderbuffer(readFB->Attachment[BUFFER_DEPTH].Renderbuffer);
       struct st_renderbuffer *dstDepthRb = 
          st_renderbuffer(drawFB->Attachment[BUFFER_DEPTH].Renderbuffer);
-      struct pipe_surface *srcDepthSurf =
-         srcDepthRb ? srcDepthRb->surface : NULL;
       struct pipe_surface *dstDepthSurf =
          dstDepthRb ? dstDepthRb->surface : NULL;
 
-      /* get src/dst stencil surfaces */
-      struct st_renderbuffer *srcStencilRb = 
-         st_renderbuffer(readFB->Attachment[BUFFER_STENCIL].Renderbuffer);
-      struct st_renderbuffer *dstStencilRb = 
-         st_renderbuffer(drawFB->Attachment[BUFFER_STENCIL].Renderbuffer);
-      struct pipe_surface *srcStencilSurf =
-         srcStencilRb ? srcStencilRb->surface : NULL;
-      struct pipe_surface *dstStencilSurf =
-         dstStencilRb ? dstStencilRb->surface : NULL;
-
       if ((mask & depthStencil) == depthStencil &&
-          srcDepthSurf == srcStencilSurf &&
-          dstDepthSurf == dstStencilSurf) {
+          st_is_depth_stencil_combined(srcDepth, srcStencil) &&
+          st_is_depth_stencil_combined(dstDepth, dstStencil)) {
 
          /* Blitting depth and stencil values between combined
           * depth/stencil buffers.  This is the ideal case for such buffers.
           */
          util_blit_pixels(st->blit,
-                          srcDepthRb->texture, srcDepthRb->surface->u.tex.level,
+                          srcDepthRb->texture,
+                          srcDepthRb->surface->u.tex.level,
                           srcX0, srcY0, srcX1, srcY1,
                           srcDepthRb->surface->u.tex.first_layer,
                           dstDepthSurf, dstX0, dstY0, dstX1, dstY1,
@@ -183,8 +182,13 @@ st_BlitFramebuffer(GLcontext *ctx,
          /* blitting depth and stencil separately */
 
          if (mask & GL_DEPTH_BUFFER_BIT) {
-            /* blit Z only */
-            _mesa_problem(ctx, "st_BlitFramebuffer(DEPTH) not completed");
+            util_blit_pixels(st->blit, srcDepthRb->texture,
+                             u_subresource(srcDepthRb->surface->face,
+                                           srcDepthRb->surface->level),
+                             srcX0, srcY0, srcX1, srcY1,
+                             srcDepthRb->surface->zslice,
+                             dstDepthSurf, dstX0, dstY0, dstX1, dstY1,
+                             0.0, pFilter);
          }
 
          if (mask & GL_STENCIL_BUFFER_BIT) {

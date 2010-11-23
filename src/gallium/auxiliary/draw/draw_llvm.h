@@ -41,7 +41,6 @@
 #include <llvm-c/Target.h>
 #include <llvm-c/ExecutionEngine.h>
 
-#define DRAW_MAX_TEXTURE_LEVELS 13  /* 4K x 4K for now */
 
 struct draw_llvm;
 struct llvm_vertex_shader;
@@ -52,9 +51,13 @@ struct draw_jit_texture
    uint32_t height;
    uint32_t depth;
    uint32_t last_level;
-   uint32_t row_stride[DRAW_MAX_TEXTURE_LEVELS];
-   uint32_t img_stride[DRAW_MAX_TEXTURE_LEVELS];
-   const void *data[DRAW_MAX_TEXTURE_LEVELS];
+   uint32_t row_stride[PIPE_MAX_TEXTURE_LEVELS];
+   uint32_t img_stride[PIPE_MAX_TEXTURE_LEVELS];
+   const void *data[PIPE_MAX_TEXTURE_LEVELS];
+   float min_lod;
+   float max_lod;
+   float lod_bias;
+   float border_color[4];
 };
 
 enum {
@@ -65,6 +68,10 @@ enum {
    DRAW_JIT_TEXTURE_ROW_STRIDE,
    DRAW_JIT_TEXTURE_IMG_STRIDE,
    DRAW_JIT_TEXTURE_DATA,
+   DRAW_JIT_TEXTURE_MIN_LOD,
+   DRAW_JIT_TEXTURE_MAX_LOD,
+   DRAW_JIT_TEXTURE_LOD_BIAS,
+   DRAW_JIT_TEXTURE_BORDER_COLOR,
    DRAW_JIT_TEXTURE_NUM_FIELDS  /* number of fields above */
 };
 
@@ -89,7 +96,8 @@ struct draw_jit_context
 {
    const float *vs_constants;
    const float *gs_constants;
-
+   float (*planes) [12][4];
+   float *viewport;
 
    struct draw_jit_texture textures[PIPE_MAX_VERTEX_SAMPLERS];
 };
@@ -101,18 +109,22 @@ struct draw_jit_context
 #define draw_jit_context_gs_constants(_builder, _ptr) \
    lp_build_struct_get(_builder, _ptr, 1, "gs_constants")
 
-#define DRAW_JIT_CTX_TEXTURES 2
+#define draw_jit_context_planes(_builder, _ptr) \
+   lp_build_struct_get(_builder, _ptr, 2, "planes")
+
+#define draw_jit_context_viewport(_builder, _ptr) \
+   lp_build_struct_get(_builder, _ptr, 3, "viewport")
+
+#define DRAW_JIT_CTX_TEXTURES 4
 
 #define draw_jit_context_textures(_builder, _ptr) \
    lp_build_struct_get_ptr(_builder, _ptr, DRAW_JIT_CTX_TEXTURES, "textures")
-
-
 
 #define draw_jit_header_id(_builder, _ptr)              \
    lp_build_struct_get_ptr(_builder, _ptr, 0, "id")
 
 #define draw_jit_header_clip(_builder, _ptr) \
-   lp_build_struct_get(_builder, _ptr, 1, "clip")
+   lp_build_struct_get_ptr(_builder, _ptr, 1, "clip")
 
 #define draw_jit_header_data(_builder, _ptr)            \
    lp_build_struct_get_ptr(_builder, _ptr, 2, "data")
@@ -128,7 +140,7 @@ struct draw_jit_context
    lp_build_struct_get(_builder, _ptr, 2, "buffer_offset")
 
 
-typedef void
+typedef int
 (*draw_jit_vert_func)(struct draw_jit_context *context,
                       struct vertex_header *io,
                       const char *vbuffers[PIPE_MAX_ATTRIBS],
@@ -139,7 +151,7 @@ typedef void
                       unsigned instance_id);
 
 
-typedef void
+typedef int
 (*draw_jit_vert_func_elts)(struct draw_jit_context *context,
                            struct vertex_header *io,
                            const char *vbuffers[PIPE_MAX_ATTRIBS],
@@ -151,11 +163,50 @@ typedef void
 
 struct draw_llvm_variant_key
 {
-   struct pipe_vertex_element vertex_element[PIPE_MAX_ATTRIBS];
-   unsigned                   nr_vertex_elements;
-   struct pipe_shader_state   vs;
-   struct lp_sampler_static_state sampler[PIPE_MAX_VERTEX_SAMPLERS];
+   unsigned nr_vertex_elements:8;
+   unsigned nr_samplers:8;
+   unsigned clip_xy:1;
+   unsigned clip_z:1;
+   unsigned clip_user:1;
+   unsigned clip_halfz:1;
+   unsigned bypass_viewport:1;
+   unsigned need_edgeflags:1;
+   unsigned nr_planes:4;
+   unsigned pad:6;
+
+   /* Variable number of vertex elements:
+    */
+   struct pipe_vertex_element vertex_element[1];
+
+   /* Followed by variable number of samplers:
+    */
+/*   struct lp_sampler_static_state sampler; */
 };
+
+#define DRAW_LLVM_MAX_VARIANT_KEY_SIZE \
+   (sizeof(struct draw_llvm_variant_key) +	\
+    PIPE_MAX_VERTEX_SAMPLERS * sizeof(struct lp_sampler_static_state) +	\
+    (PIPE_MAX_ATTRIBS-1) * sizeof(struct pipe_vertex_element))
+
+
+static INLINE size_t
+draw_llvm_variant_key_size(unsigned nr_vertex_elements,
+			   unsigned nr_samplers)
+{
+   return (sizeof(struct draw_llvm_variant_key) +
+	   nr_samplers * sizeof(struct lp_sampler_static_state) +
+	   (nr_vertex_elements - 1) * sizeof(struct pipe_vertex_element));
+}
+
+
+static INLINE struct lp_sampler_static_state *
+draw_llvm_variant_key_samplers(struct draw_llvm_variant_key *key)
+{
+   return (struct lp_sampler_static_state *)
+      &key->vertex_element[key->nr_vertex_elements];
+}
+
+
 
 struct draw_llvm_variant_list_item
 {
@@ -165,7 +216,6 @@ struct draw_llvm_variant_list_item
 
 struct draw_llvm_variant
 {
-   struct draw_llvm_variant_key key;
    LLVMValueRef function;
    LLVMValueRef function_elts;
    draw_jit_vert_func jit_func;
@@ -176,11 +226,16 @@ struct draw_llvm_variant
    struct draw_llvm *llvm;
    struct draw_llvm_variant_list_item list_item_global;
    struct draw_llvm_variant_list_item list_item_local;
+
+   /* key is variable-sized, must be last */
+   struct draw_llvm_variant_key key;
+   /* key is variable-sized, must be last */
 };
 
 struct llvm_vertex_shader {
    struct draw_vertex_shader base;
 
+   unsigned variant_key_size;
    struct draw_llvm_variant_list_item variants;
    unsigned variants_created;
    unsigned variants_cached;
@@ -220,14 +275,15 @@ void
 draw_llvm_destroy(struct draw_llvm *llvm);
 
 struct draw_llvm_variant *
-draw_llvm_create_variant(struct draw_llvm *llvm, int num_inputs);
+draw_llvm_create_variant(struct draw_llvm *llvm,
+			 unsigned num_vertex_header_attribs,
+			 const struct draw_llvm_variant_key *key);
 
 void
 draw_llvm_destroy_variant(struct draw_llvm_variant *variant);
 
-void
-draw_llvm_make_variant_key(struct draw_llvm *llvm,
-                           struct draw_llvm_variant_key *key);
+struct draw_llvm_variant_key *
+draw_llvm_make_variant_key(struct draw_llvm *llvm, char *store);
 
 LLVMValueRef
 draw_llvm_translate_from(LLVMBuilderRef builder,
@@ -239,12 +295,15 @@ draw_llvm_sampler_soa_create(const struct lp_sampler_static_state *static_state,
                              LLVMValueRef context_ptr);
 
 void
+draw_llvm_set_sampler_state(struct draw_context *draw);
+
+void
 draw_llvm_set_mapped_texture(struct draw_context *draw,
                              unsigned sampler_idx,
                              uint32_t width, uint32_t height, uint32_t depth,
                              uint32_t last_level,
-                             uint32_t row_stride[DRAW_MAX_TEXTURE_LEVELS],
-                             uint32_t img_stride[DRAW_MAX_TEXTURE_LEVELS],
-                             const void *data[DRAW_MAX_TEXTURE_LEVELS]);
+                             uint32_t row_stride[PIPE_MAX_TEXTURE_LEVELS],
+                             uint32_t img_stride[PIPE_MAX_TEXTURE_LEVELS],
+                             const void *data[PIPE_MAX_TEXTURE_LEVELS]);
 
 #endif

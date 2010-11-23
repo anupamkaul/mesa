@@ -166,7 +166,6 @@ class PrintGlxProtoStubs(glX_proto_common.glx_print_proto):
 		print '#include "indirect.h"'
 		print '#include "glxclient.h"'
 		print '#include "indirect_size.h"'
-		print '#include "glapidispatch.h"'
 		print '#include "glapi.h"'
 		print '#include "glthread.h"'
 		print '#include <GL/glxproto.h>'
@@ -375,7 +374,7 @@ const GLuint __glXDefaultPixelStore[9] = { 0, 0, 0, 0, 0, 0, 0, 0, 1 };
 				print ''
 				print '#if defined(GLX_DIRECT_RENDERING) && !defined(GLX_USE_APPLEGL)'
 				print '    if (gc->isDirect) {'
-				print '    %sCALL_%s(GET_DISPATCH(), (%s));' % (ret_string, func.name, func.get_called_parameter_string())
+				print '    %sGET_DISPATCH()->%s(%s);' % (ret_string, func.name, func.get_called_parameter_string())
 				print '    } else'
 				print '#endif'
 				print '    {'
@@ -895,13 +894,13 @@ static int NoOp(void)
  * Create and initialize a new GL dispatch table.  The table is initialized
  * with GLX indirect rendering protocol functions.
  */
-__GLapi * __glXNewIndirectAPI( void )
+struct _glapi_table * __glXNewIndirectAPI( void )
 {
-    __GLapi *glAPI;
+    struct _glapi_table *glAPI;
     GLuint entries;
 
     entries = _glapi_get_dispatch_table_size();
-    glAPI = (__GLapi *) Xmalloc(entries * sizeof(void *));
+    glAPI = (struct _glapi_table *) Xmalloc(entries * sizeof(void *));
 
     /* first, set all entries to point to no-op functions */
     {
@@ -994,6 +993,9 @@ extern HIDDEN NOINLINE FASTCALL GLubyte * __glXSetupVendorRequest(
 					asdf = func.static_glx_name(n)
 					if asdf not in func.static_entry_points:
 						print 'extern HIDDEN %s gl%s(%s);' % (func.return_type, asdf, params)
+						# give it a easy-to-remember name
+						if func.client_handcode:
+							print '#define gl_dispatch_stub_%s gl%s' % (n, asdf)
 					else:
 						print 'GLAPI %s GLAPIENTRY gl%s(%s);' % (func.return_type, asdf, params)
 						

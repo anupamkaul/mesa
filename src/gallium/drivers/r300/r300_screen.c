@@ -32,6 +32,8 @@
 #include "r300_winsys.h"
 #include "r300_public.h"
 
+#include "draw/draw_context.h"
+
 /* Return the identifier behind whom the brave coders responsible for this
  * amalgamation of code, sweat, and duct tape, routinely obscure their names.
  *
@@ -44,31 +46,31 @@ static const char* r300_get_vendor(struct pipe_screen* pscreen)
 }
 
 static const char* chip_families[] = {
-    "R300",
-    "R350",
-    "R360",
-    "RV350",
-    "RV370",
-    "RV380",
-    "R420",
-    "R423",
-    "R430",
-    "R480",
-    "R481",
-    "RV410",
-    "RS400",
-    "RC410",
-    "RS480",
-    "RS482",
-    "RS600",
-    "RS690",
-    "RS740",
-    "RV515",
-    "R520",
-    "RV530",
-    "R580",
-    "RV560",
-    "RV570"
+    "ATI R300",
+    "ATI R350",
+    "ATI R360",
+    "ATI RV350",
+    "ATI RV370",
+    "ATI RV380",
+    "ATI R420",
+    "ATI R423",
+    "ATI R430",
+    "ATI R480",
+    "ATI R481",
+    "ATI RV410",
+    "ATI RS400",
+    "ATI RC410",
+    "ATI RS480",
+    "ATI RS482",
+    "ATI RS600",
+    "ATI RS690",
+    "ATI RS740",
+    "ATI RV515",
+    "ATI R520",
+    "ATI RV530",
+    "ATI R580",
+    "ATI RV560",
+    "ATI RV570"
 };
 
 static const char* r300_get_name(struct pipe_screen* pscreen)
@@ -115,15 +117,18 @@ static int r300_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
         case PIPE_CAP_TEXTURE_MIRROR_REPEAT:
         case PIPE_CAP_BLEND_EQUATION_SEPARATE:
         case PIPE_CAP_TEXTURE_SWIZZLE:
-        case PIPE_CAP_DEPTH_CLAMP:
             return 1;
 
         /* Unsupported features (boolean caps). */
         case PIPE_CAP_TIMER_QUERY:
         case PIPE_CAP_DUAL_SOURCE_BLEND:
-        case PIPE_CAP_TGSI_CONT_SUPPORTED:
         case PIPE_CAP_INDEP_BLEND_ENABLE:
         case PIPE_CAP_INDEP_BLEND_FUNC:
+        case PIPE_CAP_DEPTH_CLAMP: /* XXX implemented, but breaks Regnum Online */
+        case PIPE_CAP_DEPTHSTENCIL_CLEAR_SEPARATE:
+        case PIPE_CAP_SHADER_STENCIL_EXPORT:
+        case PIPE_CAP_STREAM_OUTPUT:
+        case PIPE_CAP_PRIMITIVE_RESTART:
             return 0;
 
         /* Texturing. */
@@ -145,14 +150,6 @@ static int r300_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
         /* General shader limits and features. */
         case PIPE_CAP_SM3:
             return is_r500 ? 1 : 0;
-        case PIPE_CAP_MAX_CONST_BUFFERS:
-            return 1;
-        case PIPE_CAP_MAX_CONST_BUFFER_SIZE:
-            return 256;
-
-        case PIPE_CAP_DEPTHSTENCIL_CLEAR_SEPARATE:
-            return 1;
-
         /* Fragment coordinate conventions. */
         case PIPE_CAP_TGSI_FS_COORD_ORIGIN_UPPER_LEFT:
         case PIPE_CAP_TGSI_FS_COORD_PIXEL_CENTER_HALF_INTEGER:
@@ -160,19 +157,39 @@ static int r300_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
         case PIPE_CAP_TGSI_FS_COORD_ORIGIN_LOWER_LEFT:
         case PIPE_CAP_TGSI_FS_COORD_PIXEL_CENTER_INTEGER:
             return 0;
+        default:
+            debug_printf("r300: Warning: Unknown CAP %d in get_param.\n",
+                         param);
+            return 0;
+    }
+}
 
-        /* Fragment shader limits. */
-        case PIPE_CAP_MAX_FS_INSTRUCTIONS:
+static int r300_get_shader_param(struct pipe_screen *pscreen, unsigned shader, enum pipe_shader_cap param)
+{
+   struct r300_screen* r300screen = r300_screen(pscreen);
+   boolean is_r400 = r300screen->caps.is_r400;
+   boolean is_r500 = r300screen->caps.is_r500;
+
+   /* XXX extended shader capabilities of r400 unimplemented */
+   is_r400 = FALSE;
+
+   switch (shader)
+    {
+    case PIPE_SHADER_FRAGMENT:
+        switch (param)
+        {
+        case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
             return is_r500 || is_r400 ? 512 : 96;
-        case PIPE_CAP_MAX_FS_ALU_INSTRUCTIONS:
+        case PIPE_SHADER_CAP_MAX_ALU_INSTRUCTIONS:
             return is_r500 || is_r400 ? 512 : 64;
-        case PIPE_CAP_MAX_FS_TEX_INSTRUCTIONS:
+        case PIPE_SHADER_CAP_MAX_TEX_INSTRUCTIONS:
             return is_r500 || is_r400 ? 512 : 32;
-        case PIPE_CAP_MAX_FS_TEX_INDIRECTIONS:
+        case PIPE_SHADER_CAP_MAX_TEX_INDIRECTIONS:
             return is_r500 ? 511 : 4;
-        case PIPE_CAP_MAX_FS_CONTROL_FLOW_DEPTH:
+        case PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH:
             return is_r500 ? 64 : 0; /* Actually unlimited on r500. */
-        case PIPE_CAP_MAX_FS_INPUTS:
+            /* Fragment shader limits. */
+        case PIPE_SHADER_CAP_MAX_INPUTS:
             /* 2 colors + 8 texcoords are always supported
              * (minus fog and wpos).
              *
@@ -180,42 +197,68 @@ static int r300_get_param(struct pipe_screen* pscreen, enum pipe_cap param)
              * additional texcoords but there is no two-sided color
              * selection then. However the facing bit can be used instead. */
             return 10;
-        case PIPE_CAP_MAX_FS_CONSTS:
+        case PIPE_SHADER_CAP_MAX_CONSTS:
             return is_r500 ? 256 : 32;
-        case PIPE_CAP_MAX_FS_TEMPS:
+        case PIPE_SHADER_CAP_MAX_CONST_BUFFERS:
+            return 1;
+        case PIPE_SHADER_CAP_MAX_TEMPS:
             return is_r500 ? 128 : is_r400 ? 64 : 32;
-        case PIPE_CAP_MAX_FS_ADDRS:
+        case PIPE_SHADER_CAP_MAX_ADDRS:
             return 0;
-        case PIPE_CAP_MAX_FS_PREDS:
+        case PIPE_SHADER_CAP_MAX_PREDS:
             return is_r500 ? 1 : 0;
+        case PIPE_SHADER_CAP_TGSI_CONT_SUPPORTED:
+            return 1;
+        case PIPE_SHADER_CAP_INDIRECT_INPUT_ADDR:
+        case PIPE_SHADER_CAP_INDIRECT_OUTPUT_ADDR:
+        case PIPE_SHADER_CAP_INDIRECT_TEMP_ADDR:
+        case PIPE_SHADER_CAP_INDIRECT_CONST_ADDR:
+            return 0;
+        }
+        break;
+    case PIPE_SHADER_VERTEX:
+        if (!r300screen->caps.has_tcl) {
+            return draw_get_shader_param(shader, param);
+        }
 
-        /* Vertex shader limits. */
-        case PIPE_CAP_MAX_VS_INSTRUCTIONS:
-        case PIPE_CAP_MAX_VS_ALU_INSTRUCTIONS:
+        switch (param)
+        {
+        case PIPE_SHADER_CAP_MAX_INSTRUCTIONS:
+        case PIPE_SHADER_CAP_MAX_ALU_INSTRUCTIONS:
             return is_r500 ? 1024 : 256;
-        case PIPE_CAP_MAX_VS_TEX_INSTRUCTIONS:
-        case PIPE_CAP_MAX_VS_TEX_INDIRECTIONS:
+        case PIPE_SHADER_CAP_MAX_TEX_INSTRUCTIONS:
+        case PIPE_SHADER_CAP_MAX_TEX_INDIRECTIONS:
             return 0;
-        case PIPE_CAP_MAX_VS_CONTROL_FLOW_DEPTH:
+        case PIPE_SHADER_CAP_MAX_CONTROL_FLOW_DEPTH:
             return is_r500 ? 4 : 0; /* For loops; not sure about conditionals. */
-        case PIPE_CAP_MAX_VS_INPUTS:
+        case PIPE_SHADER_CAP_MAX_INPUTS:
             return 16;
-        case PIPE_CAP_MAX_VS_CONSTS:
+        case PIPE_SHADER_CAP_MAX_CONSTS:
             return 256;
-        case PIPE_CAP_MAX_VS_TEMPS:
+        case PIPE_SHADER_CAP_MAX_CONST_BUFFERS:
+            return 1;
+        case PIPE_SHADER_CAP_MAX_TEMPS:
             return 32;
-        case PIPE_CAP_MAX_VS_ADDRS:
+        case PIPE_SHADER_CAP_MAX_ADDRS:
             return 1; /* XXX guessed */
-        case PIPE_CAP_MAX_VS_PREDS:
+        case PIPE_SHADER_CAP_MAX_PREDS:
             return is_r500 ? 4 : 0; /* XXX guessed. */
-        case PIPE_CAP_GEOMETRY_SHADER4:
+        case PIPE_SHADER_CAP_TGSI_CONT_SUPPORTED:
+            return 1;
+        case PIPE_SHADER_CAP_INDIRECT_INPUT_ADDR:
+        case PIPE_SHADER_CAP_INDIRECT_OUTPUT_ADDR:
+        case PIPE_SHADER_CAP_INDIRECT_TEMP_ADDR:
             return 0;
-
+        case PIPE_SHADER_CAP_INDIRECT_CONST_ADDR:
+            return 1;
         default:
-            fprintf(stderr, "r300: Implementation error: Bad param %d\n",
-                param);
-            return 0;
+            break;
+        }
+        break;
+    default:
+        break;
     }
+    return 0;
 }
 
 static float r300_get_paramf(struct pipe_screen* pscreen, enum pipe_cap param)
@@ -241,8 +284,8 @@ static float r300_get_paramf(struct pipe_screen* pscreen, enum pipe_cap param)
         case PIPE_CAP_MAX_TEXTURE_LOD_BIAS:
             return 16.0f;
         default:
-            fprintf(stderr, "r300: Implementation error: Bad paramf %d\n",
-                param);
+            debug_printf("r300: Warning: Unknown CAP %d in get_paramf.\n",
+                         param);
             return 0.0f;
     }
 }
@@ -279,11 +322,14 @@ static boolean r300_is_format_supported(struct pipe_screen* screen,
         case 3:
         case 4:
         case 6:
+            return FALSE;
+#if 0
             if (usage != PIPE_BIND_RENDER_TARGET ||
                 !util_format_is_rgba8_variant(
                     util_format_description(format))) {
                 return FALSE;
             }
+#endif
             break;
         default:
             return FALSE;
@@ -409,6 +455,7 @@ struct pipe_screen* r300_screen_create(struct r300_winsys_screen *rws)
     r300screen->screen.get_name = r300_get_name;
     r300screen->screen.get_vendor = r300_get_vendor;
     r300screen->screen.get_param = r300_get_param;
+    r300screen->screen.get_shader_param = r300_get_shader_param;
     r300screen->screen.get_paramf = r300_get_paramf;
     r300screen->screen.is_format_supported = r300_is_format_supported;
     r300screen->screen.context_create = r300_create_context;

@@ -22,6 +22,7 @@ C_SOURCES = \
 	lp_perf.c \
 	lp_query.c \
 	lp_rast.c \
+	lp_rast_debug.c \
 	lp_rast_tri.c \
 	lp_scene.c \
 	lp_scene_queue.c \
@@ -35,6 +36,7 @@ C_SOURCES = \
 	lp_state_clip.c \
 	lp_state_derived.c \
 	lp_state_fs.c \
+	lp_state_setup.c \
 	lp_state_gs.c \
 	lp_state_rasterizer.c \
 	lp_state_sampler.c \
@@ -60,14 +62,14 @@ PROGS := lp_test_format	\
 # Need this for the lp_test_*.o files
 CLEAN_EXTRA = *.o
 
+include ../../Makefile.template
+
 lp_test_sincos.o : sse_mathfun.h
 
 PROGS_DEPS := ../../auxiliary/libgallium.a
 
-include ../../Makefile.template
-
 lp_tile_soa.c: lp_tile_soa.py ../../auxiliary/util/u_format_parse.py ../../auxiliary/util/u_format_pack.py ../../auxiliary/util/u_format.csv
-	python lp_tile_soa.py ../../auxiliary/util/u_format.csv > $@
+	$(PYTHON2) $(PYTHON_FLAGS) lp_tile_soa.py ../../auxiliary/util/u_format.csv > $@
 
 LDFLAGS += $(LLVM_LDFLAGS)
 LIBS += -L../../auxiliary/ -lgallium libllvmpipe.a $(LLVM_LIBS) $(GL_LIB_DEPS)
