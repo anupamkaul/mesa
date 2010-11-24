@@ -275,9 +275,9 @@ enum pipe_transfer_usage {
  * Resource binding flags -- state tracker must specify in advance all
  * the ways a resource might be used.
  */
-#define PIPE_BIND_DEPTH_STENCIL        (1 << 0) /* get_tex_surface */
-#define PIPE_BIND_RENDER_TARGET        (1 << 1) /* get_tex_surface */
-#define PIPE_BIND_SAMPLER_VIEW         (1 << 2) /* get_sampler_view */
+#define PIPE_BIND_DEPTH_STENCIL        (1 << 0) /* create_surface */
+#define PIPE_BIND_RENDER_TARGET        (1 << 1) /* create_surface */
+#define PIPE_BIND_SAMPLER_VIEW         (1 << 2) /* create_sampler_view */
 #define PIPE_BIND_VERTEX_BUFFER        (1 << 3) /* set_vertex_buffers */
 #define PIPE_BIND_INDEX_BUFFER         (1 << 4) /* draw_elements */
 #define PIPE_BIND_CONSTANT_BUFFER      (1 << 5) /* set_constant_buffer */

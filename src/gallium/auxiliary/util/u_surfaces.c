@@ -32,7 +32,7 @@
 struct pipe_surface *
 util_surfaces_do_get(struct util_surfaces *us, unsigned surface_struct_size,
                      struct pipe_screen *pscreen, struct pipe_resource *pt,
-                     unsigned face, unsigned level, unsigned zslice, unsigned flags)
+                     unsigned level, unsigned layer, unsigned flags)
 {
    struct pipe_surface *ps;
 
@@ -41,7 +41,7 @@ util_surfaces_do_get(struct util_surfaces *us, unsigned surface_struct_size,
       if(!us->u.hash)
          us->u.hash = cso_hash_create();
 
-      ps = cso_hash_iter_data(cso_hash_find(us->u.hash, ((zslice + face) << 8) | level));
+      ps = cso_hash_iter_data(cso_hash_find(us->u.hash, (layer << 8) | level));
    }
    else
    {
@@ -60,10 +60,10 @@ util_surfaces_do_get(struct util_surfaces *us, unsigned surface_struct_size,
    if(!ps)
       return NULL;
 
-   pipe_surface_init(ps, pt, level, zslice + face, flags);
+   pipe_surface_init(ps, pt, level, layer, flags);
 
    if(pt->target == PIPE_TEXTURE_3D || pt->target == PIPE_TEXTURE_CUBE)
-      cso_hash_insert(us->u.hash, ((zslice + face) << 8) | level, ps);
+      cso_hash_insert(us->u.hash, (layer << 8) | level, ps);
    else
       us->u.array[level] = ps;
 

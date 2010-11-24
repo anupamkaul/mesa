@@ -271,7 +271,7 @@ softpipe_create_surface(struct pipe_context *pipe,
 
 
 /**
- * Free a pipe_surface which was created with softpipe_get_tex_surface().
+ * Free a pipe_surface which was created with softpipe_create_surface().
  */
 static void 
 softpipe_surface_destroy(struct pipe_context *pipe,

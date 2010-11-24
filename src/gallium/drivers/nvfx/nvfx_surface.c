@@ -123,7 +123,7 @@ nvfx_region_init_for_subresource(struct nv04_region* rgn, struct pipe_resource* 
 {
 	if(pt->target != PIPE_BUFFER)
 	{
-		struct nvfx_surface* ns = (struct nvfx_surface*)util_surfaces_peek(&((struct nvfx_miptree*)pt)->surfaces, pt, 0, level, z);
+		struct nvfx_surface* ns = (struct nvfx_surface*)util_surfaces_peek(&((struct nvfx_miptree*)pt)->surfaces, pt, level, z);
 		if(ns && util_dirty_surface_is_dirty(&ns->base))
 		{
 			nvfx_region_init_for_surface(rgn, ns, x, y, for_write);
