@@ -236,10 +236,10 @@ nv50_clear_render_target(struct pipe_context *pipe,
 	BEGIN_RING(chan, tesla, NV50TCL_RT_CONTROL, 1);
 	OUT_RING  (chan, 1);
 	BEGIN_RING(chan, tesla, NV50TCL_RT_ADDRESS_HIGH(0), 5);
-	OUT_RELOCh(chan, bo, dst->offset, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
-	OUT_RELOCl(chan, bo, dst->offset, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCh(chan, bo, ((struct nv50_surface *)dst)->offset, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, bo, ((struct nv50_surface *)dst)->offset, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 	OUT_RING  (chan, nv50_format_table[dst->format].rt);
-	OUT_RING  (chan, mt->level[dst->level].tile_mode << 4);
+	OUT_RING  (chan, mt->level[dst->u.tex.level].tile_mode << 4);
 	OUT_RING  (chan, 0);
 	BEGIN_RING(chan, tesla, NV50TCL_RT_HORIZ(0), 2);
 	OUT_RING  (chan, dst->width);
@@ -292,10 +292,10 @@ nv50_clear_depth_stencil(struct pipe_context *pipe,
 		return;
 
 	BEGIN_RING(chan, tesla, NV50TCL_ZETA_ADDRESS_HIGH, 5);
-	OUT_RELOCh(chan, bo, dst->offset, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
-	OUT_RELOCl(chan, bo, dst->offset, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCh(chan, bo, ((struct nv50_surface *)dst)->offset, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
+	OUT_RELOCl(chan, bo, ((struct nv50_surface *)dst)->offset, NOUVEAU_BO_VRAM | NOUVEAU_BO_WR);
 	OUT_RING  (chan, nv50_format_table[dst->format].rt);
-	OUT_RING  (chan, mt->level[dst->level].tile_mode << 4);
+	OUT_RING  (chan, mt->level[dst->u.tex.level].tile_mode << 4);
 	OUT_RING  (chan, 0);
 	BEGIN_RING(chan, tesla, NV50TCL_ZETA_ENABLE, 1);
 	OUT_RING  (chan, 1);

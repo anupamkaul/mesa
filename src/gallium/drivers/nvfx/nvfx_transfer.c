@@ -48,7 +48,7 @@ nvfx_transfer_new(struct pipe_context *pipe,
 		tx->usage = usage;
 		tx->box = *box;
 
-		tx->slice_stride = tx->stride = util_format_get_stride(pt->format, box->width);
+		tx->layer_stride = tx->stride = util_format_get_stride(pt->format, box->width);
 		tx->data = buffer->data + util_format_get_stride(pt->format, box->x);
 
 		return tx;
@@ -67,7 +67,7 @@ nvfx_transfer_new(struct pipe_context *pipe,
 		if(direct)
 		{
 			tx->base.base.stride = nvfx_subresource_pitch(pt, level);
-			tx->base.base.slice_stride = tx->base.base.stride * u_minify(pt->height0, level);
+			tx->base.base.layer_stride = tx->base.base.stride * u_minify(pt->height0, level);
 			tx->offset = nvfx_subresource_offset(pt, box->z, level, box->z)
 				+ util_format_get_2d_size(pt->format, tx->base.base.stride, box->y)
 				+ util_format_get_stride(pt->format, box->x);
@@ -75,7 +75,7 @@ nvfx_transfer_new(struct pipe_context *pipe,
 		else
 		{
 			tx->base.base.stride = nvfx_subresource_pitch(tx->base.staging_resource, 0);
-			tx->base.base.slice_stride = tx->base.base.stride * tx->base.staging_resource->height0;
+			tx->base.base.layer_stride = tx->base.base.stride * tx->base.staging_resource->height0;
 			tx->offset = 0;
 		}
 

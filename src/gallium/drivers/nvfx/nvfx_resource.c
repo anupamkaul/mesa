@@ -6,7 +6,7 @@
 
 static unsigned int
 nvfx_resource_is_referenced(struct pipe_context *pipe,
-			    struct pipe_resource *resource,
+			    struct pipe_resource *pr,
 			    unsigned level, int layer)
 {
 	return !!nouveau_reference_flags(nvfx_resource(pr)->bo);

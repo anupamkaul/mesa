@@ -99,17 +99,17 @@ nvfx_region_init_for_surface(struct nv04_region* rgn, struct nvfx_surface* surf,
 			util_dirty_surface_set_dirty(nvfx_surface_get_dirty_surfaces(&surf->base.base), &surf->base);
 	} else {
 		rgn->bo = ((struct nvfx_resource*)surf->base.base.texture)->bo;
-		rgn->offset = surf->base.base.offset;
+		rgn->offset = surf->offset;
 
 		if(surf->base.base.texture->flags & NVFX_RESOURCE_FLAG_LINEAR)
 			rgn->pitch = surf->pitch;
 	        else
 	        {
 		        rgn->pitch = 0;
-		        rgn->z = surf->base.base.zslice;
+		        rgn->z = surf->base.base.u.tex.first_layer;
 		        rgn->w = surf->base.base.width;
 		        rgn->h = surf->base.base.height;
-		        rgn->d = u_minify(surf->base.base.texture->depth0, surf->base.base.level);
+		        rgn->d = u_minify(surf->base.base.texture->depth0, surf->base.base.u.tex.level);
 	        }
 	}
 
@@ -372,7 +372,7 @@ static void
 nvfx_surface_copy_temp(struct pipe_context* pipe, struct pipe_surface* surf, int to_temp)
 {
 	struct nvfx_surface* ns = (struct nvfx_surface*)surf;
-	struct pipe_subresource tempsr, surfsr;
+	struct pipe_box box;
 	struct nvfx_context* nvfx = nvfx_context(pipe);
 	struct nvfx_miptree* temp;
 	unsigned use_vertex_buffers;
@@ -388,15 +388,20 @@ nvfx_surface_copy_temp(struct pipe_context* pipe, struct pipe_surface* surf, int
 	use_index_buffer = nvfx->use_index_buffer;
 	base_vertex = nvfx->base_vertex;
 
-	tempsr.face = 0;
-	tempsr.level = 0;
-	surfsr.face = surf->face;
-	surfsr.level = surf->level;
+	box.x = box.y = 0;
+	assert(surf->u.tex.first_layer = surf->u.tex.last_layer);
+	box.width = surf->width;
+	box.height = surf->height;
+	box.depth = 1;
 
-	if(to_temp)
-		nvfx_resource_copy_region(pipe, &temp->base.base, tempsr, 0, 0, 0, surf->texture, surfsr, 0, 0, surf->zslice, surf->width, surf->height);
-	else
-		nvfx_resource_copy_region(pipe, surf->texture, surfsr, 0, 0, surf->zslice, &temp->base.base, tempsr, 0, 0, 0, surf->width, surf->height);
+	if(to_temp) {
+	        box.z = surf->u.tex.first_layer;
+		nvfx_resource_copy_region(pipe, &temp->base.base, 0, 0, 0, 0, surf->texture, surf->u.tex.level, &box);
+	}
+	else {
+		box.z = 0;
+		nvfx_resource_copy_region(pipe, surf->texture, surf->u.tex.level, 0, 0, surf->u.tex.first_layer, &temp->base.base, 0, &box);
+	}
 
 	/* If this triggers, it probably means we attempted to use the blitter
 	 * but failed due to non-renderability of the target.
