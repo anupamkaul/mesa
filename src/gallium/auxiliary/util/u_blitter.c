@@ -63,8 +63,7 @@ struct blitter_context_priv
 
    /* Constant state objects. */
    /* Vertex shaders. */
-   void *vs_col; /**< Vertex shader which passes {pos, color} to the output */
-   void *vs_tex; /**< Vertex shader which passes {pos, texcoord} to the output.*/
+   void *vs; /**< Vertex shader which passes {pos, generic} to the output.*/
 
    /* Fragment shaders. */
    /* The shader at index i outputs color to color buffers 0,1,...,i-1. */
@@ -211,20 +210,12 @@ struct blitter_context *util_blitter_create(struct pipe_context *pipe)
 
    /* fragment shaders are created on-demand */
 
-   /* vertex shaders */
-   {
-      const uint semantic_names[] = { TGSI_SEMANTIC_POSITION,
-                                      TGSI_SEMANTIC_COLOR };
-      const uint semantic_indices[] = { 0, 0 };
-      ctx->vs_col =
-         util_make_vertex_passthrough_shader(pipe, 2, semantic_names,
-                                             semantic_indices);
-   }
+   /* vertex shader */
    {
       const uint semantic_names[] = { TGSI_SEMANTIC_POSITION,
                                       TGSI_SEMANTIC_GENERIC };
       const uint semantic_indices[] = { 0, 0 };
-      ctx->vs_tex =
+      ctx->vs =
          util_make_vertex_passthrough_shader(pipe, 2, semantic_names,
                                              semantic_indices);
    }
@@ -257,8 +248,7 @@ void util_blitter_destroy(struct blitter_context *blitter)
    pipe->delete_depth_stencil_alpha_state(pipe, ctx->dsa_flush_depth_stencil);
 
    pipe->delete_rasterizer_state(pipe, ctx->rs_state);
-   pipe->delete_vs_state(pipe, ctx->vs_col);
-   pipe->delete_vs_state(pipe, ctx->vs_tex);
+   pipe->delete_vs_state(pipe, ctx->vs);
    pipe->delete_vertex_elements_state(pipe, ctx->velem_state);
 
    for (i = 0; i < PIPE_MAX_TEXTURE_TYPES; i++) {
@@ -522,10 +512,13 @@ static void blitter_set_dst_dimensions(struct blitter_context_priv *ctx,
 static void blitter_draw_quad(struct blitter_context_priv *ctx)
 {
    struct pipe_context *pipe = ctx->base.pipe;
+   struct pipe_box box;
 
    /* write vertices and draw them */
-   pipe_buffer_write(pipe, ctx->vbuf,
-                     0, sizeof(ctx->vertices), ctx->vertices);
+   u_box_1d(0, sizeof(ctx->vertices), &box);
+   pipe->transfer_inline_write(pipe, ctx->vbuf, u_subresource(0,0),
+                               PIPE_TRANSFER_WRITE | PIPE_TRANSFER_DISCARD,
+                               &box, ctx->vertices, sizeof(ctx->vertices), 0);
 
    util_draw_vertex_buffer(pipe, ctx->vbuf, 0, PIPE_PRIM_TRIANGLE_FAN,
                            4,  /* verts */
@@ -566,7 +559,9 @@ void *blitter_get_fs_col(struct blitter_context_priv *ctx, unsigned num_cbufs)
 
    if (!ctx->fs_col[num_cbufs])
       ctx->fs_col[num_cbufs] =
-         util_make_fragment_clonecolor_shader(pipe, num_cbufs);
+         util_make_fragment_cloneinput_shader(pipe, num_cbufs,
+                                              TGSI_SEMANTIC_GENERIC,
+                                              TGSI_INTERPOLATE_LINEAR);
 
    return ctx->fs_col[num_cbufs];
 }
@@ -697,7 +692,7 @@ void util_blitter_clear(struct blitter_context *blitter,
    pipe->bind_rasterizer_state(pipe, ctx->rs_state);
    pipe->bind_vertex_elements_state(pipe, ctx->velem_state);
    pipe->bind_fs_state(pipe, blitter_get_fs_col(ctx, num_cbufs));
-   pipe->bind_vs_state(pipe, ctx->vs_col);
+   pipe->bind_vs_state(pipe, ctx->vs);
 
    blitter_set_dst_dimensions(ctx, width, height);
    blitter->draw_rectangle(blitter, 0, 0, width, height, depth,
@@ -816,7 +811,7 @@ void util_blitter_copy_region(struct blitter_context *blitter,
 
    /* Set rasterizer state, shaders, and textures. */
    pipe->bind_rasterizer_state(pipe, ctx->rs_state);
-   pipe->bind_vs_state(pipe, ctx->vs_tex);
+   pipe->bind_vs_state(pipe, ctx->vs);
    pipe->bind_fragment_sampler_states(pipe, 1,
                                       blitter_get_sampler_state(ctx, srclevel, normalized));
    pipe->bind_vertex_elements_state(pipe, ctx->velem_state);
@@ -895,7 +890,7 @@ void util_blitter_clear_render_target(struct blitter_context *blitter,
    pipe->bind_depth_stencil_alpha_state(pipe, ctx->dsa_keep_depth_stencil);
    pipe->bind_rasterizer_state(pipe, ctx->rs_state);
    pipe->bind_fs_state(pipe, blitter_get_fs_col(ctx, 1));
-   pipe->bind_vs_state(pipe, ctx->vs_col);
+   pipe->bind_vs_state(pipe, ctx->vs);
    pipe->bind_vertex_elements_state(pipe, ctx->velem_state);
 
    /* set a framebuffer state */
@@ -955,7 +950,7 @@ void util_blitter_clear_depth_stencil(struct blitter_context *blitter,
 
    pipe->bind_rasterizer_state(pipe, ctx->rs_state);
    pipe->bind_fs_state(pipe, blitter_get_fs_col(ctx, 0));
-   pipe->bind_vs_state(pipe, ctx->vs_col);
+   pipe->bind_vs_state(pipe, ctx->vs);
    pipe->bind_vertex_elements_state(pipe, ctx->velem_state);
 
    /* set a framebuffer state */
@@ -996,7 +991,7 @@ void util_blitter_custom_depth_stencil(struct blitter_context *blitter,
 
    pipe->bind_rasterizer_state(pipe, ctx->rs_state);
    pipe->bind_fs_state(pipe, blitter_get_fs_col(ctx, 0));
-   pipe->bind_vs_state(pipe, ctx->vs_col);
+   pipe->bind_vs_state(pipe, ctx->vs);
    pipe->bind_vertex_elements_state(pipe, ctx->velem_state);
 
    /* set a framebuffer state */

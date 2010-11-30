@@ -54,7 +54,7 @@ nvfx_framebuffer_prepare(struct nvfx_context *nvfx)
 	int all_swizzled = 1;
 
 	if(!nvfx->is_nv4x)
-		assert(fb->nr_cbufs <= 2);
+		assert(fb->nr_cbufs <= 1);
 	else
 		assert(fb->nr_cbufs <= 4);
 
@@ -113,7 +113,9 @@ nvfx_framebuffer_validate(struct nvfx_context *nvfx, unsigned prepare_result)
 		nvfx->state.render_temps |= nvfx_surface_get_render_target(fb->cbufs[i], prepare_result, &nvfx->hw_rt[i]) << i;
 
 	for(; i < 4; ++i)
-		nvfx->hw_rt[i].bo = 0;
+		nvfx->hw_rt[i].bo = NULL;
+
+	nvfx->hw_zeta.bo = NULL;
 
 	if (fb->zsbuf) {
 		nvfx->state.render_temps |= nvfx_surface_get_render_target(fb->zsbuf, prepare_result, &nvfx->hw_zeta) << 7;

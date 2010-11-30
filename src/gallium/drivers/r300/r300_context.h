@@ -480,6 +480,10 @@ struct r300_context {
      * dummy texture there. */
     struct r300_sampler_view *texkill_sampler;
 
+    /* When no vertex buffer is set, this one is used instead to prevent
+     * hardlocks. */
+    struct pipe_resource *dummy_vb;
+
     /* The currently active query. */
     struct r300_query *query_current;
     /* The saved query for blitter operations. */
@@ -595,7 +599,7 @@ struct r300_context {
     struct u_upload_mgr *upload_vb;
     struct u_upload_mgr *upload_ib;
 
-    struct util_mempool pool_transfers;
+    struct util_slab_mempool pool_transfers;
 
     /* Stat counter. */
     uint64_t flush_counter;

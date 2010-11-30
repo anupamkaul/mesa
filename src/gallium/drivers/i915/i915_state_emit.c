@@ -227,10 +227,6 @@ i915_emit_hardware_state(struct i915_context *i915 )
 
          offset = tex->image_offset[cbuf_surface->u.tex.level][cbuf_surface->u.tex.first_layer];
 
-         if (tex && tex->sw_tiled) {
-            ctile = BUF_3D_TILED_SURFACE;
-         }
-
          OUT_BATCH(_3DSTATE_BUF_INFO_CMD);
 
          OUT_BATCH(BUF_3D_ID_COLOR_BACK |
@@ -251,9 +247,6 @@ i915_emit_hardware_state(struct i915_context *i915 )
          assert(tex);
 
          offset = tex->image_offset[depth_surface->u.tex.level][depth_surface->u.tex.first_layer];
-         if (tex && tex->sw_tiled) {
-            ztile = BUF_3D_TILED_SURFACE;
-         }
 
          OUT_BATCH(_3DSTATE_BUF_INFO_CMD);
 

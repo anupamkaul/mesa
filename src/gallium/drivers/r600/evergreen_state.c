@@ -501,16 +501,16 @@ static void evergreen_set_clip_state(struct pipe_context *ctx,
 	rstate->id = R600_PIPE_STATE_CLIP;
 	for (int i = 0; i < state->nr; i++) {
 		r600_pipe_state_add_reg(rstate,
-					R_0285BC_PA_CL_UCP0_X + i * 4,
+					R_0285BC_PA_CL_UCP0_X + i * 16,
 					fui(state->ucp[i][0]), 0xFFFFFFFF, NULL);
 		r600_pipe_state_add_reg(rstate,
-					R_0285C0_PA_CL_UCP0_Y + i * 4,
+					R_0285C0_PA_CL_UCP0_Y + i * 16,
 					fui(state->ucp[i][1]) , 0xFFFFFFFF, NULL);
 		r600_pipe_state_add_reg(rstate,
-					R_0285C4_PA_CL_UCP0_Z + i * 4,
+					R_0285C4_PA_CL_UCP0_Z + i * 16,
 					fui(state->ucp[i][2]), 0xFFFFFFFF, NULL);
 		r600_pipe_state_add_reg(rstate,
-					R_0285C8_PA_CL_UCP0_W + i * 4,
+					R_0285C8_PA_CL_UCP0_W + i * 16,
 					fui(state->ucp[i][3]), 0xFFFFFFFF, NULL);
 	}
 	r600_pipe_state_add_reg(rstate, R_028810_PA_CL_CLIP_CNTL,
@@ -1044,11 +1044,33 @@ void evergreen_init_config(struct r600_pipe_context *rctx)
 		num_hs_stack_entries = 85;
 		num_ls_stack_entries = 85;
 		break;
+	case CHIP_PALM:
+		num_ps_gprs = 93;
+		num_vs_gprs = 46;
+		num_temp_gprs = 4;
+		num_gs_gprs = 31;
+		num_es_gprs = 31;
+		num_hs_gprs = 23;
+		num_ls_gprs = 23;
+		num_ps_threads = 96;
+		num_vs_threads = 16;
+		num_gs_threads = 16;
+		num_es_threads = 16;
+		num_hs_threads = 16;
+		num_ls_threads = 16;
+		num_ps_stack_entries = 42;
+		num_vs_stack_entries = 42;
+		num_gs_stack_entries = 42;
+		num_es_stack_entries = 42;
+		num_hs_stack_entries = 42;
+		num_ls_stack_entries = 42;
+		break;
 	}
 
 	tmp = 0x00000000;
 	switch (family) {
 	case CHIP_CEDAR:
+	case CHIP_PALM:
 		break;
 	default:
 		tmp |= S_008C00_VC_ENABLE(1);

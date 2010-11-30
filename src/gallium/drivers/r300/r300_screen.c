@@ -214,6 +214,8 @@ static int r300_get_shader_param(struct pipe_screen *pscreen, unsigned shader, e
         case PIPE_SHADER_CAP_INDIRECT_TEMP_ADDR:
         case PIPE_SHADER_CAP_INDIRECT_CONST_ADDR:
             return 0;
+        case PIPE_SHADER_CAP_SUBROUTINES:
+            return 0;
         }
         break;
     case PIPE_SHADER_VERTEX:
@@ -251,6 +253,8 @@ static int r300_get_shader_param(struct pipe_screen *pscreen, unsigned shader, e
             return 0;
         case PIPE_SHADER_CAP_INDIRECT_CONST_ADDR:
             return 1;
+        case PIPE_SHADER_CAP_SUBROUTINES:
+            return 0;
         default:
             break;
         }
@@ -283,6 +287,13 @@ static float r300_get_paramf(struct pipe_screen* pscreen, enum pipe_cap param)
             return 16.0f;
         case PIPE_CAP_MAX_TEXTURE_LOD_BIAS:
             return 16.0f;
+        case PIPE_CAP_GUARD_BAND_LEFT:
+        case PIPE_CAP_GUARD_BAND_TOP:
+        case PIPE_CAP_GUARD_BAND_RIGHT:
+        case PIPE_CAP_GUARD_BAND_BOTTOM:
+            /* XXX I don't know what these should be but the least we can do is
+             * silence the potential error message */
+            return 0.0f;
         default:
             debug_printf("r300: Warning: Unknown CAP %d in get_paramf.\n",
                          param);
@@ -388,7 +399,7 @@ static void r300_destroy_screen(struct pipe_screen* pscreen)
     struct r300_screen* r300screen = r300_screen(pscreen);
     struct r300_winsys_screen *rws = r300_winsys_screen(pscreen);
 
-    util_mempool_destroy(&r300screen->pool_buffers);
+    util_slab_destroy(&r300screen->pool_buffers);
 
     if (rws)
       rws->destroy(rws);
@@ -445,9 +456,9 @@ struct pipe_screen* r300_screen_create(struct r300_winsys_screen *rws)
     r300_init_debug(r300screen);
     r300_parse_chipset(&r300screen->caps);
 
-    util_mempool_create(&r300screen->pool_buffers,
-                        sizeof(struct r300_buffer), 64,
-                        UTIL_MEMPOOL_SINGLETHREADED);
+    util_slab_create(&r300screen->pool_buffers,
+                     sizeof(struct r300_buffer), 64,
+                     UTIL_SLAB_SINGLETHREADED);
 
     r300screen->rws = rws;
     r300screen->screen.winsys = (struct pipe_winsys*)rws;

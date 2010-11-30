@@ -148,6 +148,7 @@ static struct pipe_context *r600_create_context(struct pipe_screen *screen, void
 	case CHIP_JUNIPER:
 	case CHIP_CYPRESS:
 	case CHIP_HEMLOCK:
+	case CHIP_PALM:
 		rctx->context.draw_vbo = evergreen_draw;
 		evergreen_init_state_functions(rctx);
 		if (evergreen_context_init(&rctx->ctx, rctx->radeon)) {
@@ -239,6 +240,7 @@ static const char *r600_get_family_name(enum radeon_family family)
 	case CHIP_JUNIPER: return "AMD JUNIPER";
 	case CHIP_CYPRESS: return "AMD CYPRESS";
 	case CHIP_HEMLOCK: return "AMD HEMLOCK";
+	case CHIP_PALM: return "AMD PALM";
 	default: return "AMD unknown";
 	}
 }
@@ -376,6 +378,8 @@ static int r600_get_shader_param(struct pipe_screen* pscreen, unsigned shader, e
 	case PIPE_SHADER_CAP_INDIRECT_TEMP_ADDR:
 	case PIPE_SHADER_CAP_INDIRECT_CONST_ADDR:
 		return 1;
+	case PIPE_SHADER_CAP_SUBROUTINES:
+		return 0;
 	default:
 		return 0;
 	}

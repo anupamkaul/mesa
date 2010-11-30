@@ -31,9 +31,7 @@
 #include "main/enums.h"
 #include "main/image.h"
 #include "main/teximage.h"
-#include "main/mipmap.h"
 #include "main/simple_list.h"
-#include "main/texstore.h"
 #include "main/texobj.h"
 
 #include "texmem.h"
