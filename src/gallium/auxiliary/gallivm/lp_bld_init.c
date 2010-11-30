@@ -84,6 +84,12 @@ enum LLVM_CodeGenOpt_Level {
  */
 static LLVMExecutionEngineRef GlobalEngine = NULL;
 
+/**
+ * Same gallivm state shared by all contexts.
+ */
+static struct gallivm_state *GlobalGallivm = NULL;
+
+
 
 
 extern void
@@ -402,21 +408,23 @@ lp_build_init(void)
 
 
 
-
 /**
  * Create a new gallivm_state object.
+ * Note that we return a singleton.
  */
 struct gallivm_state *
 gallivm_create(void)
 {
-   struct gallivm_state *gallivm = CALLOC_STRUCT(gallivm_state);
-   if (gallivm) {
-      if (!init_gallivm_state(gallivm)) {
-         FREE(gallivm);
-         gallivm = NULL;
+   if (!GlobalGallivm) {
+      GlobalGallivm = CALLOC_STRUCT(gallivm_state);
+      if (GlobalGallivm) {
+         if (!init_gallivm_state(GlobalGallivm)) {
+            FREE(GlobalGallivm);
+            GlobalGallivm = NULL;
+         }
       }
    }
-   return gallivm;
+   return GlobalGallivm;
 }
 
 
@@ -426,8 +434,8 @@ gallivm_create(void)
 void
 gallivm_destroy(struct gallivm_state *gallivm)
 {
-   free_gallivm_state(gallivm);
-   FREE(gallivm);
+   /* No-op: don't destroy the singleton */
+   (void) gallivm;
 }
 
 
