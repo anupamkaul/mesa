@@ -54,7 +54,6 @@ struct pipe_scissor_state;
 struct pipe_shader_state;
 struct pipe_stencil_ref;
 struct pipe_stream_output_state;
-struct pipe_subresource;
 struct pipe_surface;
 struct pipe_vertex_buffer;
 struct pipe_vertex_element;

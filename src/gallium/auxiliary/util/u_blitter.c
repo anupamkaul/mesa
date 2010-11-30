@@ -516,7 +516,7 @@ static void blitter_draw_quad(struct blitter_context_priv *ctx)
 
    /* write vertices and draw them */
    u_box_1d(0, sizeof(ctx->vertices), &box);
-   pipe->transfer_inline_write(pipe, ctx->vbuf, u_subresource(0,0),
+   pipe->transfer_inline_write(pipe, ctx->vbuf, 0,
                                PIPE_TRANSFER_WRITE | PIPE_TRANSFER_DISCARD,
                                &box, ctx->vertices, sizeof(ctx->vertices), 0);
 

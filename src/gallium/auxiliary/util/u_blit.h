@@ -42,7 +42,6 @@ struct cso_context;
 struct pipe_context;
 struct pipe_resource;
 struct pipe_sampler_view;
-struct pipe_subresource;
 struct pipe_surface;
 
 
