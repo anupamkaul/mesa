@@ -126,7 +126,7 @@ gdi_present(struct pipe_screen *screen,
 #endif
 
    winsys = softpipe_screen(screen)->winsys,
-   dt = softpipe_resource(surface->texture)->dt,
+   dt = softpipe_resource(res)->dt,
    gdi_sw_display(winsys, dt, hDC);
 }
 

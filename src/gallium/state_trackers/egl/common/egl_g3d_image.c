@@ -287,9 +287,8 @@ egl_g3d_create_drm_image(_EGLDriver *drv, _EGLDisplay *dpy,
 
    /* transfer the ownership to the image */
    gimg->texture = ptex;
-   gimg->face = 0;
    gimg->level = 0;
-   gimg->zslice = 0;
+   gimg->layer = 0;
 
    return &gimg->base;
 }
