@@ -59,13 +59,12 @@ i915_surface_copy(struct pipe_context *pipe,
    if (dst->target != PIPE_TEXTURE_CUBE &&
        dst->target != PIPE_TEXTURE_3D)
       assert(dstz == 0);
-   dst_offset = dst_tex->image_offset[dst_level][dstz];
+   dst_offset = i915_texture_offset(dst_tex, dst_level, dstz);
 
    if (src->target != PIPE_TEXTURE_CUBE &&
        src->target != PIPE_TEXTURE_3D)
       assert(src_box->z == 0);
-   src_offset = src_tex->image_offset[src_level][src_box->z];
-
+   src_offset = i915_texture_offset(src_tex, src_level, src_box->z);
 
    assert( dst != src );
    assert( util_format_get_blocksize(dpt->format) == util_format_get_blocksize(spt->format) );
@@ -93,7 +92,7 @@ i915_clear_render_target(struct pipe_context *pipe,
    struct i915_texture *tex = i915_texture(dst->texture);
    struct pipe_resource *pt = &tex->b.b;
    union util_color uc;
-   unsigned offset = tex->image_offset[dst->u.tex.level][dst->u.tex.first_layer];
+   unsigned offset = i915_texture_offset(tex, dst->u.tex.level, dst->u.tex.first_layer);
 
    assert(util_format_get_blockwidth(pt->format) == 1);
    assert(util_format_get_blockheight(pt->format) == 1);
@@ -122,7 +121,7 @@ i915_clear_depth_stencil(struct pipe_context *pipe,
    struct pipe_resource *pt = &tex->b.b;
    unsigned packedds;
    unsigned mask = 0;
-   unsigned offset = tex->image_offset[dst->u.tex.level][dst->u.tex.first_layer];
+   unsigned offset = i915_texture_offset(tex, dst->u.tex.level, dst->u.tex.first_layer);
 
    assert(util_format_get_blockwidth(pt->format) == 1);
    assert(util_format_get_blockheight(pt->format) == 1);

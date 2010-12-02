@@ -1029,16 +1029,44 @@ void brw_ENDIF(struct brw_compile *p,
 
 struct brw_instruction *brw_BREAK(struct brw_compile *p, int pop_count)
 {
+   struct intel_context *intel = &p->brw->intel;
    struct brw_instruction *insn;
+
    insn = next_insn(p, BRW_OPCODE_BREAK);
+   if (intel->gen >= 6) {
+      brw_set_dest(insn, retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
+      brw_set_src0(insn, retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
+      brw_set_src1(insn, brw_imm_d(0x0));
+   } else {
+      brw_set_dest(insn, brw_ip_reg());
+      brw_set_src0(insn, brw_ip_reg());
+      brw_set_src1(insn, brw_imm_d(0x0));
+      insn->bits3.if_else.pad0 = 0;
+      insn->bits3.if_else.pop_count = pop_count;
+   }
+   insn->header.compression_control = BRW_COMPRESSION_NONE;
+   insn->header.execution_size = BRW_EXECUTE_8;
+
+   return insn;
+}
+
+struct brw_instruction *brw_CONT_gen6(struct brw_compile *p,
+				      struct brw_instruction *do_insn)
+{
+   struct brw_instruction *insn;
+   int br = 2;
+
+   insn = next_insn(p, BRW_OPCODE_CONTINUE);
+   brw_set_dest(insn, retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
+   brw_set_src0(insn, retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
    brw_set_dest(insn, brw_ip_reg());
    brw_set_src0(insn, brw_ip_reg());
    brw_set_src1(insn, brw_imm_d(0x0));
+
+   insn->bits3.break_cont.uip = br * (do_insn - insn);
+
    insn->header.compression_control = BRW_COMPRESSION_NONE;
    insn->header.execution_size = BRW_EXECUTE_8;
-   /* insn->header.mask_control = BRW_MASK_DISABLE; */
-   insn->bits3.if_else.pad0 = 0;
-   insn->bits3.if_else.pop_count = pop_count;
    return insn;
 }
 
@@ -1058,10 +1086,26 @@ struct brw_instruction *brw_CONT(struct brw_compile *p, int pop_count)
 }
 
 /* DO/WHILE loop:
+ *
+ * The DO/WHILE is just an unterminated loop -- break or continue are
+ * used for control within the loop.  We have a few ways they can be
+ * done.
+ *
+ * For uniform control flow, the WHILE is just a jump, so ADD ip, ip,
+ * jip and no DO instruction.
+ *
+ * For non-uniform control flow pre-gen6, there's a DO instruction to
+ * push the mask, and a WHILE to jump back, and BREAK to get out and
+ * pop the mask.
+ *
+ * For gen6, there's no more mask stack, so no need for DO.  WHILE
+ * just points back to the first instruction of the loop.
  */
 struct brw_instruction *brw_DO(struct brw_compile *p, GLuint execute_size)
 {
-   if (p->single_program_flow) {
+   struct intel_context *intel = &p->brw->intel;
+
+   if (intel->gen >= 6 || p->single_program_flow) {
       return &p->store[p->nr_insn];
    } else {
       struct brw_instruction *insn = next_insn(p, BRW_OPCODE_DO);
@@ -1094,34 +1138,42 @@ struct brw_instruction *brw_WHILE(struct brw_compile *p,
    if (intel->gen >= 5)
       br = 2;
 
-   if (p->single_program_flow)
-      insn = next_insn(p, BRW_OPCODE_ADD);
-   else
+   if (intel->gen >= 6) {
       insn = next_insn(p, BRW_OPCODE_WHILE);
 
-   brw_set_dest(insn, brw_ip_reg());
-   brw_set_src0(insn, brw_ip_reg());
-   brw_set_src1(insn, brw_imm_d(0x0));
+      brw_set_dest(insn, brw_imm_w(0));
+      insn->bits1.branch_gen6.jump_count = br * (do_insn - insn);
+      brw_set_src0(insn, retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
+      brw_set_src1(insn, retype(brw_null_reg(), BRW_REGISTER_TYPE_D));
 
-   insn->header.compression_control = BRW_COMPRESSION_NONE;
-
-   if (p->single_program_flow) {
-      insn->header.execution_size = BRW_EXECUTE_1;
-
-      insn->bits3.d = (do_insn - insn) * 16;
-   } else {
       insn->header.execution_size = do_insn->header.execution_size;
+      assert(insn->header.execution_size == BRW_EXECUTE_8);
+   } else {
+      if (p->single_program_flow) {
+	 insn = next_insn(p, BRW_OPCODE_ADD);
 
-      assert(do_insn->header.opcode == BRW_OPCODE_DO);
-      insn->bits3.if_else.jump_count = br * (do_insn - insn + 1);
-      insn->bits3.if_else.pop_count = 0;
-      insn->bits3.if_else.pad0 = 0;
+	 brw_set_dest(insn, brw_ip_reg());
+	 brw_set_src0(insn, brw_ip_reg());
+	 brw_set_src1(insn, brw_imm_d((do_insn - insn) * 16));
+	 insn->header.execution_size = BRW_EXECUTE_1;
+      } else {
+	 insn = next_insn(p, BRW_OPCODE_WHILE);
+
+	 assert(do_insn->header.opcode == BRW_OPCODE_DO);
+
+	 brw_set_dest(insn, brw_ip_reg());
+	 brw_set_src0(insn, brw_ip_reg());
+	 brw_set_src1(insn, brw_imm_d(0));
+
+	 insn->header.execution_size = do_insn->header.execution_size;
+	 insn->bits3.if_else.jump_count = br * (do_insn - insn + 1);
+	 insn->bits3.if_else.pop_count = 0;
+	 insn->bits3.if_else.pad0 = 0;
+      }
    }
+   insn->header.compression_control = BRW_COMPRESSION_NONE;
+   p->current->header.predicate_control = BRW_PREDICATE_NONE;
 
-/*    insn->header.mask_control = BRW_MASK_ENABLE; */
-
-   /* insn->header.mask_control = BRW_MASK_DISABLE; */
-   p->current->header.predicate_control = BRW_PREDICATE_NONE;   
    return insn;
 }
 
@@ -1987,6 +2039,80 @@ void brw_urb_WRITE(struct brw_compile *p,
 		       writes_complete, 
 		       offset,
 		       swizzle);
+}
+
+static int
+brw_find_next_block_end(struct brw_compile *p, int start)
+{
+   int ip;
+
+   for (ip = start + 1; ip < p->nr_insn; ip++) {
+      struct brw_instruction *insn = &p->store[ip];
+
+      switch (insn->header.opcode) {
+      case BRW_OPCODE_ENDIF:
+      case BRW_OPCODE_ELSE:
+      case BRW_OPCODE_WHILE:
+	 return ip;
+      }
+   }
+   assert(!"not reached");
+   return start + 1;
+}
+
+/* There is no DO instruction on gen6, so to find the end of the loop
+ * we have to see if the loop is jumping back before our start
+ * instruction.
+ */
+static int
+brw_find_loop_end(struct brw_compile *p, int start)
+{
+   int ip;
+   int br = 2;
+
+   for (ip = start + 1; ip < p->nr_insn; ip++) {
+      struct brw_instruction *insn = &p->store[ip];
+
+      if (insn->header.opcode == BRW_OPCODE_WHILE) {
+	 if (ip + insn->bits1.branch_gen6.jump_count / br < start)
+	    return ip;
+      }
+   }
+   assert(!"not reached");
+   return start + 1;
+}
+
+/* After program generation, go back and update the UIP and JIP of
+ * BREAK and CONT instructions to their correct locations.
+ */
+void
+brw_set_uip_jip(struct brw_compile *p)
+{
+   struct intel_context *intel = &p->brw->intel;
+   int ip;
+   int br = 2;
+
+   if (intel->gen < 6)
+      return;
+
+   for (ip = 0; ip < p->nr_insn; ip++) {
+      struct brw_instruction *insn = &p->store[ip];
+
+      switch (insn->header.opcode) {
+      case BRW_OPCODE_BREAK:
+	 insn->bits3.break_cont.jip = br * (brw_find_next_block_end(p, ip) - ip);
+	 insn->bits3.break_cont.uip = br * (brw_find_loop_end(p, ip) - ip + 1);
+	 break;
+      case BRW_OPCODE_CONTINUE:
+	 /* JIP is set at CONTINUE emit time, since that's when we
+	  * know where the start of the loop is.
+	  */
+	 insn->bits3.break_cont.jip = br * (brw_find_next_block_end(p, ip) - ip);
+	 assert(insn->bits3.break_cont.uip != 0);
+	 assert(insn->bits3.break_cont.jip != 0);
+	 break;
+      }
+   }
 }
 
 void brw_ff_sync(struct brw_compile *p,

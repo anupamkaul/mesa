@@ -954,6 +954,8 @@ struct brw_instruction *brw_WHILE(struct brw_compile *p,
 	       struct brw_instruction *patch_insn);
 
 struct brw_instruction *brw_BREAK(struct brw_compile *p, int pop_count);
+struct brw_instruction *brw_CONT_gen6(struct brw_compile *p,
+				      struct brw_instruction *do_insn);
 struct brw_instruction *brw_CONT(struct brw_compile *p, int pop_count);
 /* Forward jumps:
  */
@@ -1009,6 +1011,7 @@ void brw_math_invert( struct brw_compile *p,
 void brw_set_src1( struct brw_instruction *insn,
                           struct brw_reg reg );
 
+void brw_set_uip_jip(struct brw_compile *p);
 
 /* brw_optimize.c */
 void brw_optimize(struct brw_compile *p);

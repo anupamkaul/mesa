@@ -933,6 +933,10 @@ fs_visitor::visit(ir_expression *ir)
       assert(!"not reached: should be handled by lower_noise");
       break;
 
+   case ir_quadop_vector:
+      assert(!"not reached: should be handled by lower_quadop_vector");
+      break;
+
    case ir_unop_sqrt:
       emit_math(FS_OPCODE_SQRT, this->result, op[0]);
       break;
@@ -3375,10 +3379,6 @@ fs_visitor::generate_code()
 	 break;
 
       case BRW_OPCODE_DO:
-	 /* FINISHME: We need to write the loop instruction support still. */
-	 if (intel->gen >= 6)
-	    this->fail = true;
-
 	 loop_stack[loop_stack_depth++] = brw_DO(p, BRW_EXECUTE_8);
 	 if_depth_in_loop[loop_stack_depth] = 0;
 	 break;
@@ -3388,7 +3388,11 @@ fs_visitor::generate_code()
 	 brw_set_predicate_control(p, BRW_PREDICATE_NONE);
 	 break;
       case BRW_OPCODE_CONTINUE:
-	 brw_CONT(p, if_depth_in_loop[loop_stack_depth]);
+	 /* FINISHME: We need to write the loop instruction support still. */
+	 if (intel->gen >= 6)
+	    brw_CONT_gen6(p, loop_stack[loop_stack_depth - 1]);
+	 else
+	    brw_CONT(p, if_depth_in_loop[loop_stack_depth]);
 	 brw_set_predicate_control(p, BRW_PREDICATE_NONE);
 	 break;
 
@@ -3402,16 +3406,18 @@ fs_visitor::generate_code()
 	 assert(loop_stack_depth > 0);
 	 loop_stack_depth--;
 	 inst0 = inst1 = brw_WHILE(p, loop_stack[loop_stack_depth]);
-	 /* patch all the BREAK/CONT instructions from last BGNLOOP */
-	 while (inst0 > loop_stack[loop_stack_depth]) {
-	    inst0--;
-	    if (inst0->header.opcode == BRW_OPCODE_BREAK &&
-		inst0->bits3.if_else.jump_count == 0) {
-	       inst0->bits3.if_else.jump_count = br * (inst1 - inst0 + 1);
+	 if (intel->gen < 6) {
+	    /* patch all the BREAK/CONT instructions from last BGNLOOP */
+	    while (inst0 > loop_stack[loop_stack_depth]) {
+	       inst0--;
+	       if (inst0->header.opcode == BRW_OPCODE_BREAK &&
+		   inst0->bits3.if_else.jump_count == 0) {
+		  inst0->bits3.if_else.jump_count = br * (inst1 - inst0 + 1);
 	    }
-	    else if (inst0->header.opcode == BRW_OPCODE_CONTINUE &&
-		     inst0->bits3.if_else.jump_count == 0) {
-	       inst0->bits3.if_else.jump_count = br * (inst1 - inst0);
+	       else if (inst0->header.opcode == BRW_OPCODE_CONTINUE &&
+			inst0->bits3.if_else.jump_count == 0) {
+		  inst0->bits3.if_else.jump_count = br * (inst1 - inst0);
+	       }
 	    }
 	 }
       }
@@ -3487,6 +3493,26 @@ fs_visitor::generate_code()
       }
 
       last_native_inst = p->nr_insn;
+   }
+
+   brw_set_uip_jip(p);
+
+   /* OK, while the INTEL_DEBUG=wm above is very nice for debugging FS
+    * emit issues, it doesn't get the jump distances into the output,
+    * which is often something we want to debug.  So this is here in
+    * case you're doing that.
+    */
+   if (0) {
+      if (unlikely(INTEL_DEBUG & DEBUG_WM)) {
+	 for (unsigned int i = 0; i < p->nr_insn; i++) {
+	    printf("0x%08x 0x%08x 0x%08x 0x%08x ",
+		   ((uint32_t *)&p->store[i])[3],
+		   ((uint32_t *)&p->store[i])[2],
+		   ((uint32_t *)&p->store[i])[1],
+		   ((uint32_t *)&p->store[i])[0]);
+	    brw_disasm(stdout, &p->store[i], intel->gen);
+	 }
+      }
    }
 }
 
