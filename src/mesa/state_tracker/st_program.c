@@ -32,6 +32,7 @@
 
 
 #include "main/imports.h"
+#include "main/hash.h"
 #include "main/mtypes.h"
 #include "program/prog_print.h"
 #include "program/programopt.h"
@@ -52,6 +53,29 @@
 
 
 /**
+ * Delete a vertex program varient.  Note the caller must unlink
+ * the varient from the linked list.
+ */
+static void
+delete_vp_varient(struct st_context *st, struct st_vp_varient *vpv)
+{
+   if (vpv->driver_shader) 
+      cso_delete_vertex_shader(st->cso_context, vpv->driver_shader);
+      
+#if FEATURE_feedback || FEATURE_rastpos
+   if (vpv->draw_shader)
+      draw_delete_vertex_shader( st->draw, vpv->draw_shader );
+#endif
+      
+   if (vpv->tgsi.tokens)
+      st_free_tokens(vpv->tgsi.tokens);
+      
+   FREE( vpv );
+}
+
+
+
+/**
  * Clean out any old compilations:
  */
 void
@@ -62,20 +86,7 @@ st_vp_release_varients( struct st_context *st,
 
    for (vpv = stvp->varients; vpv; ) {
       struct st_vp_varient *next = vpv->next;
-
-      if (vpv->driver_shader) 
-         cso_delete_vertex_shader(st->cso_context, vpv->driver_shader);
-      
-#if FEATURE_feedback || FEATURE_rastpos
-      if (vpv->draw_shader)
-         draw_delete_vertex_shader( st->draw, vpv->draw_shader );
-#endif
-      
-      if (vpv->tgsi.tokens)
-         st_free_tokens(vpv->tgsi.tokens);
-      
-      FREE( vpv );
-
+      delete_vp_varient(st, vpv);
       vpv = next;
    }
 
@@ -758,4 +769,120 @@ st_print_shaders(struct gl_context *ctx)
 	 }
       }
    }
+}
+
+
+/**
+ * Vert/Geom/Frag programs have per-context variants.  Free all the
+ * variants attached to the given program which match the given context.
+ */
+static void
+destroy_program_variants(struct st_context *st, struct gl_program *program)
+{
+   if (!program)
+      return;
+
+   switch (program->Target) {
+   case GL_VERTEX_PROGRAM_ARB:
+      {
+         struct st_vertex_program *stvp = (struct st_vertex_program *) program;
+         struct st_vp_varient *vpv, **prev = &stvp->varients;
+
+         for (vpv = stvp->varients; vpv; ) {
+            struct st_vp_varient *next = vpv->next;
+            if (vpv->key.st == st) {
+               /* unlink from list */
+               *prev = next;
+               /* destroy this variant */
+               delete_vp_varient(st, vpv);
+            }
+            else {
+               prev = &vpv;
+            }
+            vpv = next;
+         }
+      }
+      break;
+   case GL_FRAGMENT_PROGRAM_ARB:
+      {
+         struct st_fragment_program *stfp =
+            (struct st_fragment_program *) program;
+      }
+      break;
+   default:
+      _mesa_problem(NULL, "Unexpected program target in "
+                    "destroy_program_variants_cb()");
+   }
+}
+
+
+/**
+ * Callback for _mesa_HashWalk.  Free all the shader's program variants
+ * which match the given context.
+ */
+static void
+destroy_shader_program_variants_cb(GLuint key, void *data, void *userData)
+{
+   struct st_context *st = (struct st_context *) userData;
+   struct gl_shader *shader = (struct gl_shader *) data;
+
+   switch (shader->Type) {
+   case GL_SHADER_PROGRAM_MESA:
+      {
+         struct gl_shader_program *shProg = (struct gl_shader_program *) data;
+         GLuint i;
+
+         for (i = 0; i < shProg->NumShaders; i++) {
+            destroy_program_variants(st, shProg->Shaders[i]->Program);
+         }
+
+         destroy_program_variants(st, (struct gl_program *)
+                                  shProg->VertexProgram);
+         destroy_program_variants(st, (struct gl_program *)
+                                  shProg->FragmentProgram);
+         destroy_program_variants(st, (struct gl_program *)
+                                  shProg->GeometryProgram);
+      }
+      break;
+   case GL_VERTEX_SHADER:
+   case GL_FRAGMENT_SHADER:
+   case GL_GEOMETRY_SHADER:
+      {
+         destroy_program_variants(st, shader->Program);
+      }
+      break;
+   default:
+      assert(0);
+   }
+}
+
+
+/**
+ * Callback for _mesa_HashWalk.  Free all the program variants which match
+ * the given context.
+ */
+static void
+destroy_program_variants_cb(GLuint key, void *data, void *userData)
+{
+   struct st_context *st = (struct st_context *) userData;
+   struct gl_program *program = (struct gl_program *) data;
+   destroy_program_variants(st, program);
+}
+
+
+/**
+ * Walk over all shaders and programs to delete any variants which
+ * belong to the given context.
+ * This is called during context tear-down.
+ */
+void
+st_destroy_program_variants(struct st_context *st)
+{
+   /* ARB vert/frag program */
+   _mesa_HashWalk(st->ctx->Shared->Programs,
+                  destroy_program_variants_cb, st);
+
+   /* GLSL vert/frag/geom shaders */
+   _mesa_HashWalk(st->ctx->Shared->ShaderObjects,
+                  destroy_shader_program_variants_cb, st);
 }

@@ -106,6 +106,7 @@ find_translated_vp(struct st_context *st,
                                 st->ctx->Polygon.FrontMode != GL_FILL ||
                                 st->ctx->Polygon.BackMode != GL_FILL));
 
+   key.st = st;  /* variants are per-context */
 
    /* Do we need to throw away old translations after a change in the
     * GL program string?

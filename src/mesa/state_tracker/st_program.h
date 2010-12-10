@@ -60,6 +60,7 @@ struct st_fragment_program
 
 struct st_vp_varient_key
 {
+   struct st_context *st;          /**< variants are per-context */
    boolean passthrough_edgeflags;
 };
 
@@ -224,6 +225,9 @@ st_vp_release_varients( struct st_context *st,
 
 extern void
 st_print_shaders(struct gl_context *ctx);
+
+extern void
+st_destroy_program_variants(struct st_context *st);
 
 
 #endif
