@@ -167,7 +167,10 @@ st_delete_program(struct gl_context *ctx, struct gl_program *prog)
       break;
    case GL_FRAGMENT_PROGRAM_ARB:
       {
-         struct st_fragment_program *stfp = (struct st_fragment_program *) prog;
+         struct st_fragment_program *stfp =
+            (struct st_fragment_program *) prog;
+         st_fp_release_varients(st, stfp);
+#if 0
 
          if (stfp->driver_shader) {
             cso_delete_fragment_shader(st->cso_context, stfp->driver_shader);
@@ -184,6 +187,8 @@ st_delete_program(struct gl_context *ctx, struct gl_program *prog)
             _mesa_reference_program(ctx, &prg, NULL);
             stfp->bitmap_program = NULL;
          }
+#endif
+
       }
       break;
    default:
@@ -214,6 +219,8 @@ static GLboolean st_program_string_notify( struct gl_context *ctx,
 
       stfp->serialNo++;
 
+      st_fp_release_varients(st, stfp);
+#if 00000
       if (stfp->driver_shader) {
          cso_delete_fragment_shader(st->cso_context, stfp->driver_shader);
          stfp->driver_shader = NULL;
@@ -223,6 +230,7 @@ static GLboolean st_program_string_notify( struct gl_context *ctx,
          st_free_tokens(stfp->tgsi.tokens);
          stfp->tgsi.tokens = NULL;
       }
+#endif
 
       if (st->fp == stfp)
 	 st->dirty.st |= ST_NEW_FRAGMENT_PROGRAM;

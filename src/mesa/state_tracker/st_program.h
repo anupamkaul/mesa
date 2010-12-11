@@ -40,6 +40,34 @@
 #include "st_context.h"
 
 
+/** Fragment program variant key */
+struct st_fp_varient_key
+{
+   struct st_context *st;          /**< variants are per-context */
+   GLboolean bitmap;               /**< glBitmap varient? */
+};
+
+
+/**
+ * Variant of a fragment program.
+ */
+struct st_fp_varient
+{
+   /** Parameters which generated this version of fragment program */
+   struct st_fp_varient_key key;
+
+   /** Driver's compiled shader */
+   void *driver_shader;
+
+   /** For glBitmap variants */
+   struct gl_program_parameter_list *parameters;
+   uint bitmap_sampler;
+
+   /** next in linked list */
+   struct st_fp_varient *next;
+};
+
+
 /**
  * Derived from Mesa gl_fragment_program:
  */
@@ -49,7 +77,11 @@ struct st_fragment_program
    GLuint serialNo;
 
    struct pipe_shader_state tgsi;
+#if 0
    void *driver_shader;
+#else
+   struct st_fp_varient *varients;
+#endif
 
    /** Program prefixed with glBitmap prologue */
    struct st_fragment_program *bitmap_program;
@@ -199,9 +231,16 @@ st_reference_fragprog(struct st_context *st,
 }
 
 
-extern void
+extern struct st_fp_varient *
 st_translate_fragment_program(struct st_context *st,
-                              struct st_fragment_program *fp);
+                              struct st_fragment_program *fp,
+                              const struct st_fp_varient_key *key);
+
+extern struct st_fp_varient *
+st_get_fp_varient(struct st_context *st,
+                  struct st_fragment_program *stfp,
+                  const struct st_fp_varient_key *key);
+
 
 extern void
 st_translate_geometry_program(struct st_context *st,
@@ -222,6 +261,10 @@ st_translate_vertex_program(struct st_context *st,
 void
 st_vp_release_varients( struct st_context *st,
                         struct st_vertex_program *stvp );
+
+extern void
+st_fp_release_varients( struct st_context *st,
+                        struct st_fragment_program *stfp );
 
 extern void
 st_print_shaders(struct gl_context *ctx);

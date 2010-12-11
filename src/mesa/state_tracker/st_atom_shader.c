@@ -51,20 +51,6 @@
 
 
 
-/**
- * Translate fragment program if needed.
- */
-static void
-translate_fp(struct st_context *st,
-             struct st_fragment_program *stfp)
-{
-   if (!stfp->tgsi.tokens) {
-      assert(stfp->Base.Base.NumInstructions > 0);
-
-      st_translate_fragment_program(st, stfp);
-   }
-}
-
 /*
  * Translate geometry program if needed.
  */
@@ -168,12 +154,17 @@ static void
 update_fp( struct st_context *st )
 {
    struct st_fragment_program *stfp;
+   struct st_fp_varient_key key;
 
    assert(st->ctx->FragmentProgram._Current);
    stfp = st_fragment_program(st->ctx->FragmentProgram._Current);
    assert(stfp->Base.Base.Target == GL_FRAGMENT_PROGRAM_ARB);
 
-   translate_fp(st, stfp);
+
+   memset(&key, 0, sizeof(key));
+   key.st = st;
+
+   st->fp_varient = st_get_fp_varient(st, stfp, &key);
 
    st_reference_fragprog(st, &st->fp, stfp);
 
@@ -183,7 +174,8 @@ update_fp( struct st_context *st )
       cso_set_fragment_shader_handle(st->cso_context, fs);
    }
    else {
-      cso_set_fragment_shader_handle(st->cso_context, stfp->driver_shader);
+      cso_set_fragment_shader_handle(st->cso_context,
+                                     st->fp_varient->driver_shader);
    }
 }
 

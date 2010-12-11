@@ -131,6 +131,7 @@ struct st_context
    struct st_geometry_program *gp;  /**< Currently bound geometry program */
 
    struct st_vp_varient *vp_varient;
+   struct st_fp_varient *fp_varient;
 
    struct gl_texture_object *default_texture;
 

@@ -142,7 +142,9 @@ combined_drawpix_fragment_program(struct gl_context *ctx)
 #endif
 
       /* translate to TGSI tokens */
+#if 0000000000000
       st_translate_fragment_program(st, stfp);
+#endif
 
       /* save new program, update serial numbers */
       st->pixel_xfer.xfer_prog_sn = st->pixel_xfer.program->serialNo;
@@ -158,7 +160,11 @@ combined_drawpix_fragment_program(struct gl_context *ctx)
     */
    st_upload_constants(st, stfp->Base.Base.Parameters, PIPE_SHADER_FRAGMENT);
 
+#if 00000000000
    return stfp->driver_shader;
+#else
+   return 0;
+#endif
 }
 
 
@@ -183,7 +189,11 @@ make_fragment_shader_z_stencil(struct st_context *st, GLboolean write_depth,
 
    if (st->drawpix.shaders[shaderIndex]) {
       /* already have the proper shader */
+#if 00000
       return st->drawpix.shaders[shaderIndex]->driver_shader;
+#else
+      return 0;
+#endif
    }
 
    /*
@@ -247,12 +257,16 @@ make_fragment_shader_z_stencil(struct st_context *st, GLboolean write_depth,
 
    stp = st_fragment_program((struct gl_fragment_program *) p);
 
+#if 0000
    /* save the new shader */
    st->drawpix.shaders[shaderIndex] = stp;
 
    st_translate_fragment_program(st, stp);
 
    return stp->driver_shader;
+#else
+   return 000;
+#endif
 }
 
 

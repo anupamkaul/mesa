@@ -34,6 +34,7 @@
 #include "main/imports.h"
 #include "main/hash.h"
 #include "main/mtypes.h"
+#include "program/prog_parameter.h"
 #include "program/prog_print.h"
 #include "program/programopt.h"
 
@@ -45,6 +46,7 @@
 #include "tgsi/tgsi_ureg.h"
 
 #include "st_debug.h"
+#include "st_cb_bitmap.h"
 #include "st_context.h"
 #include "st_program.h"
 #include "st_mesa_to_tgsi.h"
@@ -91,6 +93,39 @@ st_vp_release_varients( struct st_context *st,
    }
 
    stvp->varients = NULL;
+}
+
+
+
+/**
+ * Delete a fragment program varient.  Note the caller must unlink
+ * the varient from the linked list.
+ */
+static void
+delete_fp_varient(struct st_context *st, struct st_fp_varient *fpv)
+{
+   if (fpv->driver_shader) 
+      cso_delete_fragment_shader(st->cso_context, fpv->driver_shader);
+      
+   FREE(fpv);
+}
+
+
+/**
+ * Free all varients of a fragment program.
+ */
+void
+st_fp_release_varients(struct st_context *st, struct st_fragment_program *stfp)
+{
+   struct st_fp_varient *fpv;
+
+   for (fpv = stfp->varients; fpv; ) {
+      struct st_fp_varient *next = fpv->next;
+      delete_fp_varient(st, fpv);
+      fpv = next;
+   }
+
+   stfp->varients = NULL;
 }
 
 
@@ -290,195 +325,252 @@ fail:
 
 
 /**
- * Translate a Mesa fragment shader into a TGSI shader.
+ * Translate a Mesa fragment shader into a TGSI shader using extra info in
+ * the key.
  * \return  pointer to cached pipe_shader object.
  */
-void
+struct st_fp_varient *
 st_translate_fragment_program(struct st_context *st,
-                              struct st_fragment_program *stfp )
+                              struct st_fragment_program *stfp,
+                              const struct st_fp_varient_key *key)
 {
    struct pipe_context *pipe = st->pipe;
-   GLuint outputMapping[FRAG_RESULT_MAX];
-   GLuint inputMapping[FRAG_ATTRIB_MAX];
-   GLuint interpMode[PIPE_MAX_SHADER_INPUTS];  /* XXX size? */
-   GLuint attr;
-   enum pipe_error error;
-   const GLbitfield inputsRead = stfp->Base.Base.InputsRead;
-   struct ureg_program *ureg;
+   struct st_fp_varient *varient = MALLOC_STRUCT(st_fp_varient);
 
-   ubyte input_semantic_name[PIPE_MAX_SHADER_INPUTS];
-   ubyte input_semantic_index[PIPE_MAX_SHADER_INPUTS];
-   uint fs_num_inputs = 0;
+   if (!varient)
+      return NULL;
 
-   ubyte fs_output_semantic_name[PIPE_MAX_SHADER_OUTPUTS];
-   ubyte fs_output_semantic_index[PIPE_MAX_SHADER_OUTPUTS];
-   uint fs_num_outputs = 0;
+   if (key->bitmap) {
+      struct gl_fragment_program *fp;
+      st_make_combined_bitmap_fragment_program(st, &stfp->Base,
+                                               &fp, &varient->bitmap_sampler);
 
-   _mesa_remove_output_reads(&stfp->Base.Base, PROGRAM_OUTPUT);
-
-   /*
-    * Convert Mesa program inputs to TGSI input register semantics.
-    */
-   for (attr = 0; attr < FRAG_ATTRIB_MAX; attr++) {
-      if (inputsRead & (1 << attr)) {
-         const GLuint slot = fs_num_inputs++;
-
-         inputMapping[attr] = slot;
-
-         switch (attr) {
-         case FRAG_ATTRIB_WPOS:
-            input_semantic_name[slot] = TGSI_SEMANTIC_POSITION;
-            input_semantic_index[slot] = 0;
-            interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
-            break;
-         case FRAG_ATTRIB_COL0:
-            input_semantic_name[slot] = TGSI_SEMANTIC_COLOR;
-            input_semantic_index[slot] = 0;
-            interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
-            break;
-         case FRAG_ATTRIB_COL1:
-            input_semantic_name[slot] = TGSI_SEMANTIC_COLOR;
-            input_semantic_index[slot] = 1;
-            interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
-            break;
-         case FRAG_ATTRIB_FOGC:
-            input_semantic_name[slot] = TGSI_SEMANTIC_FOG;
-            input_semantic_index[slot] = 0;
-            interpMode[slot] = TGSI_INTERPOLATE_PERSPECTIVE;
-            break;
-         case FRAG_ATTRIB_FACE:
-            input_semantic_name[slot] = TGSI_SEMANTIC_FACE;
-            input_semantic_index[slot] = 0;
-            interpMode[slot] = TGSI_INTERPOLATE_CONSTANT;
-            break;
-            /* In most cases, there is nothing special about these
-             * inputs, so adopt a convention to use the generic
-             * semantic name and the mesa FRAG_ATTRIB_ number as the
-             * index. 
-             * 
-             * All that is required is that the vertex shader labels
-             * its own outputs similarly, and that the vertex shader
-             * generates at least every output required by the
-             * fragment shader plus fixed-function hardware (such as
-             * BFC).
-             * 
-             * There is no requirement that semantic indexes start at
-             * zero or be restricted to a particular range -- nobody
-             * should be building tables based on semantic index.
-             */
-         case FRAG_ATTRIB_PNTC:
-         case FRAG_ATTRIB_TEX0:
-         case FRAG_ATTRIB_TEX1:
-         case FRAG_ATTRIB_TEX2:
-         case FRAG_ATTRIB_TEX3:
-         case FRAG_ATTRIB_TEX4:
-         case FRAG_ATTRIB_TEX5:
-         case FRAG_ATTRIB_TEX6:
-         case FRAG_ATTRIB_TEX7:
-         case FRAG_ATTRIB_VAR0:
-         default:
-            /* Actually, let's try and zero-base this just for
-             * readability of the generated TGSI.
-             */
-            assert(attr >= FRAG_ATTRIB_TEX0);
-            input_semantic_index[slot] = (attr - FRAG_ATTRIB_TEX0);
-            input_semantic_name[slot] = TGSI_SEMANTIC_GENERIC;
-            if (attr == FRAG_ATTRIB_PNTC)
-               interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
-            else
-               interpMode[slot] = TGSI_INTERPOLATE_PERSPECTIVE;
-            break;
-         }
-      }
-      else {
-	 inputMapping[attr] = -1;
-      }
+      varient->parameters = _mesa_clone_parameter_list(fp->Base.Parameters);
+      stfp = (struct st_fragment_program *) fp;
    }
 
-   /*
-    * Semantics and mapping for outputs
-    */
-   {
-      uint numColors = 0;
-      GLbitfield64 outputsWritten = stfp->Base.Base.OutputsWritten;
+   if (!stfp->tgsi.tokens) {
+      /* need to translate Mesa instructions to TGSI now */
+      GLuint outputMapping[FRAG_RESULT_MAX];
+      GLuint inputMapping[FRAG_ATTRIB_MAX];
+      GLuint interpMode[PIPE_MAX_SHADER_INPUTS];  /* XXX size? */
+      GLuint attr;
+      enum pipe_error error;
+      const GLbitfield inputsRead = stfp->Base.Base.InputsRead;
+      struct ureg_program *ureg;
 
-      /* if z is written, emit that first */
-      if (outputsWritten & BITFIELD64_BIT(FRAG_RESULT_DEPTH)) {
-         fs_output_semantic_name[fs_num_outputs] = TGSI_SEMANTIC_POSITION;
-         fs_output_semantic_index[fs_num_outputs] = 0;
-         outputMapping[FRAG_RESULT_DEPTH] = fs_num_outputs;
-         fs_num_outputs++;
-         outputsWritten &= ~(1 << FRAG_RESULT_DEPTH);
-      }
+      ubyte input_semantic_name[PIPE_MAX_SHADER_INPUTS];
+      ubyte input_semantic_index[PIPE_MAX_SHADER_INPUTS];
+      uint fs_num_inputs = 0;
 
-      if (outputsWritten & BITFIELD64_BIT(FRAG_RESULT_STENCIL)) {
-         fs_output_semantic_name[fs_num_outputs] = TGSI_SEMANTIC_STENCIL;
-         fs_output_semantic_index[fs_num_outputs] = 0;
-         outputMapping[FRAG_RESULT_STENCIL] = fs_num_outputs;
-         fs_num_outputs++;
-         outputsWritten &= ~(1 << FRAG_RESULT_STENCIL);
-      }
+      ubyte fs_output_semantic_name[PIPE_MAX_SHADER_OUTPUTS];
+      ubyte fs_output_semantic_index[PIPE_MAX_SHADER_OUTPUTS];
+      uint fs_num_outputs = 0;
 
-      /* handle remaning outputs (color) */
-      for (attr = 0; attr < FRAG_RESULT_MAX; attr++) {
-         if (outputsWritten & BITFIELD64_BIT(attr)) {
+
+      _mesa_remove_output_reads(&stfp->Base.Base, PROGRAM_OUTPUT);
+
+      /*
+       * Convert Mesa program inputs to TGSI input register semantics.
+       */
+      for (attr = 0; attr < FRAG_ATTRIB_MAX; attr++) {
+         if (inputsRead & (1 << attr)) {
+            const GLuint slot = fs_num_inputs++;
+
+            inputMapping[attr] = slot;
+
             switch (attr) {
-            case FRAG_RESULT_DEPTH:
-            case FRAG_RESULT_STENCIL:
-               /* handled above */
-               assert(0);
+            case FRAG_ATTRIB_WPOS:
+               input_semantic_name[slot] = TGSI_SEMANTIC_POSITION;
+               input_semantic_index[slot] = 0;
+               interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
                break;
+            case FRAG_ATTRIB_COL0:
+               input_semantic_name[slot] = TGSI_SEMANTIC_COLOR;
+               input_semantic_index[slot] = 0;
+               interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
+               break;
+            case FRAG_ATTRIB_COL1:
+               input_semantic_name[slot] = TGSI_SEMANTIC_COLOR;
+               input_semantic_index[slot] = 1;
+               interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
+               break;
+            case FRAG_ATTRIB_FOGC:
+               input_semantic_name[slot] = TGSI_SEMANTIC_FOG;
+               input_semantic_index[slot] = 0;
+               interpMode[slot] = TGSI_INTERPOLATE_PERSPECTIVE;
+               break;
+            case FRAG_ATTRIB_FACE:
+               input_semantic_name[slot] = TGSI_SEMANTIC_FACE;
+               input_semantic_index[slot] = 0;
+               interpMode[slot] = TGSI_INTERPOLATE_CONSTANT;
+               break;
+               /* In most cases, there is nothing special about these
+                * inputs, so adopt a convention to use the generic
+                * semantic name and the mesa FRAG_ATTRIB_ number as the
+                * index. 
+                * 
+                * All that is required is that the vertex shader labels
+                * its own outputs similarly, and that the vertex shader
+                * generates at least every output required by the
+                * fragment shader plus fixed-function hardware (such as
+                * BFC).
+                * 
+                * There is no requirement that semantic indexes start at
+                * zero or be restricted to a particular range -- nobody
+                * should be building tables based on semantic index.
+                */
+            case FRAG_ATTRIB_PNTC:
+            case FRAG_ATTRIB_TEX0:
+            case FRAG_ATTRIB_TEX1:
+            case FRAG_ATTRIB_TEX2:
+            case FRAG_ATTRIB_TEX3:
+            case FRAG_ATTRIB_TEX4:
+            case FRAG_ATTRIB_TEX5:
+            case FRAG_ATTRIB_TEX6:
+            case FRAG_ATTRIB_TEX7:
+            case FRAG_ATTRIB_VAR0:
             default:
-               assert(attr == FRAG_RESULT_COLOR ||
-                      (FRAG_RESULT_DATA0 <= attr && attr < FRAG_RESULT_MAX));
-               fs_output_semantic_name[fs_num_outputs] = TGSI_SEMANTIC_COLOR;
-               fs_output_semantic_index[fs_num_outputs] = numColors;
-               outputMapping[attr] = fs_num_outputs;
-               numColors++;
+               /* Actually, let's try and zero-base this just for
+                * readability of the generated TGSI.
+                */
+               assert(attr >= FRAG_ATTRIB_TEX0);
+               input_semantic_index[slot] = (attr - FRAG_ATTRIB_TEX0);
+               input_semantic_name[slot] = TGSI_SEMANTIC_GENERIC;
+               if (attr == FRAG_ATTRIB_PNTC)
+                  interpMode[slot] = TGSI_INTERPOLATE_LINEAR;
+               else
+                  interpMode[slot] = TGSI_INTERPOLATE_PERSPECTIVE;
                break;
             }
-
-            fs_num_outputs++;
+         }
+         else {
+            inputMapping[attr] = -1;
          }
       }
+
+      /*
+       * Semantics and mapping for outputs
+       */
+      {
+         uint numColors = 0;
+         GLbitfield64 outputsWritten = stfp->Base.Base.OutputsWritten;
+
+         /* if z is written, emit that first */
+         if (outputsWritten & BITFIELD64_BIT(FRAG_RESULT_DEPTH)) {
+            fs_output_semantic_name[fs_num_outputs] = TGSI_SEMANTIC_POSITION;
+            fs_output_semantic_index[fs_num_outputs] = 0;
+            outputMapping[FRAG_RESULT_DEPTH] = fs_num_outputs;
+            fs_num_outputs++;
+            outputsWritten &= ~(1 << FRAG_RESULT_DEPTH);
+         }
+
+         if (outputsWritten & BITFIELD64_BIT(FRAG_RESULT_STENCIL)) {
+            fs_output_semantic_name[fs_num_outputs] = TGSI_SEMANTIC_STENCIL;
+            fs_output_semantic_index[fs_num_outputs] = 0;
+            outputMapping[FRAG_RESULT_STENCIL] = fs_num_outputs;
+            fs_num_outputs++;
+            outputsWritten &= ~(1 << FRAG_RESULT_STENCIL);
+         }
+
+         /* handle remaning outputs (color) */
+         for (attr = 0; attr < FRAG_RESULT_MAX; attr++) {
+            if (outputsWritten & BITFIELD64_BIT(attr)) {
+               switch (attr) {
+               case FRAG_RESULT_DEPTH:
+               case FRAG_RESULT_STENCIL:
+                  /* handled above */
+                  assert(0);
+                  break;
+               default:
+                  assert(attr == FRAG_RESULT_COLOR ||
+                         (FRAG_RESULT_DATA0 <= attr && attr < FRAG_RESULT_MAX));
+                  fs_output_semantic_name[fs_num_outputs] = TGSI_SEMANTIC_COLOR;
+                  fs_output_semantic_index[fs_num_outputs] = numColors;
+                  outputMapping[attr] = fs_num_outputs;
+                  numColors++;
+                  break;
+               }
+
+               fs_num_outputs++;
+            }
+         }
+      }
+
+      ureg = ureg_create( TGSI_PROCESSOR_FRAGMENT );
+      if (ureg == NULL)
+         return NULL;
+
+      if (ST_DEBUG & DEBUG_MESA) {
+         _mesa_print_program(&stfp->Base.Base);
+         _mesa_print_program_parameters(st->ctx, &stfp->Base.Base);
+         debug_printf("\n");
+      }
+
+      error = st_translate_mesa_program(st->ctx,
+                                        TGSI_PROCESSOR_FRAGMENT,
+                                        ureg,
+                                        &stfp->Base.Base,
+                                        /* inputs */
+                                        fs_num_inputs,
+                                        inputMapping,
+                                        input_semantic_name,
+                                        input_semantic_index,
+                                        interpMode,
+                                        /* outputs */
+                                        fs_num_outputs,
+                                        outputMapping,
+                                        fs_output_semantic_name,
+                                        fs_output_semantic_index, FALSE );
+
+      stfp->tgsi.tokens = ureg_get_tokens( ureg, NULL );
+      ureg_destroy( ureg );
    }
 
-   ureg = ureg_create( TGSI_PROCESSOR_FRAGMENT );
-   if (ureg == NULL)
-      return;
-
-   if (ST_DEBUG & DEBUG_MESA) {
-      _mesa_print_program(&stfp->Base.Base);
-      _mesa_print_program_parameters(st->ctx, &stfp->Base.Base);
-      debug_printf("\n");
-   }
-
-   error = 
-      st_translate_mesa_program(st->ctx,
-                                TGSI_PROCESSOR_FRAGMENT,
-                                ureg,
-                                &stfp->Base.Base,
-                                /* inputs */
-                                fs_num_inputs,
-                                inputMapping,
-                                input_semantic_name,
-                                input_semantic_index,
-                                interpMode,
-                                /* outputs */
-                                fs_num_outputs,
-                                outputMapping,
-                                fs_output_semantic_name,
-                                fs_output_semantic_index, FALSE );
-
-   stfp->tgsi.tokens = ureg_get_tokens( ureg, NULL );
-   ureg_destroy( ureg );
-   stfp->driver_shader = pipe->create_fs_state(pipe, &stfp->tgsi);
+   /* fill in varient */
+   varient->driver_shader = pipe->create_fs_state(pipe, &stfp->tgsi);
+   varient->key = *key;
 
    if (ST_DEBUG & DEBUG_TGSI) {
       tgsi_dump( stfp->tgsi.tokens, 0/*TGSI_DUMP_VERBOSE*/ );
       debug_printf("\n");
    }
+
+   return varient;
 }
+
+
+/**
+ * Translate fragment program if needed.
+ */
+struct st_fp_varient *
+st_get_fp_varient(struct st_context *st,
+                  struct st_fragment_program *stfp,
+                  const struct st_fp_varient_key *key)
+{
+   struct st_fp_varient *fpv;
+
+   /* Search for existing varient */
+   for (fpv = stfp->varients; fpv; fpv = fpv->next) {
+      if (memcmp(&fpv->key, key, sizeof(*key)) == 0) {
+         break;
+      }
+   }
+
+   if (!fpv) {
+      /* create new */
+      fpv = st_translate_fragment_program(st, stfp, key);
+      if (fpv) {
+         /* insert into list */
+         fpv->next = stfp->varients;
+         stfp->varients = fpv;
+      }
+   }
+
+   return fpv;
+}
+
+
 
 void
 st_translate_geometry_program(struct st_context *st,
@@ -807,6 +899,21 @@ destroy_program_variants(struct st_context *st, struct gl_program *program)
       {
          struct st_fragment_program *stfp =
             (struct st_fragment_program *) program;
+         struct st_fp_varient *fpv, **prev = &stfp->varients;
+
+         for (fpv = stfp->varients; fpv; ) {
+            struct st_fp_varient *next = fpv->next;
+            if (fpv->key.st == st) {
+               /* unlink from list */
+               *prev = next;
+               /* destroy this variant */
+               delete_fp_varient(st, fpv);
+            }
+            else {
+               prev = &fpv;
+            }
+            fpv = next;
+         }
       }
       break;
    default:
