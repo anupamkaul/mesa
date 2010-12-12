@@ -47,6 +47,7 @@
 
 #include "st_debug.h"
 #include "st_cb_bitmap.h"
+#include "st_cb_drawpixels.h"
 #include "st_context.h"
 #include "st_program.h"
 #include "st_mesa_to_tgsi.h"
@@ -327,7 +328,7 @@ fail:
 /**
  * Translate a Mesa fragment shader into a TGSI shader using extra info in
  * the key.
- * \return  pointer to cached pipe_shader object.
+ * \return  new fragment program variant
  */
 struct st_fp_varient *
 st_translate_fragment_program(struct st_context *st,
@@ -335,17 +336,36 @@ st_translate_fragment_program(struct st_context *st,
                               const struct st_fp_varient_key *key)
 {
    struct pipe_context *pipe = st->pipe;
-   struct st_fp_varient *varient = MALLOC_STRUCT(st_fp_varient);
+   struct st_fp_varient *varient = CALLOC_STRUCT(st_fp_varient);
 
    if (!varient)
       return NULL;
 
+   assert(!(key->bitmap && key->drawpixels));
+
    if (key->bitmap) {
+      /* glBitmap drawing */
       struct gl_fragment_program *fp;
-      st_make_combined_bitmap_fragment_program(st, &stfp->Base,
-                                               &fp, &varient->bitmap_sampler);
+
+      st_make_bitmap_fragment_program(st, &stfp->Base,
+                                      &fp, &varient->bitmap_sampler);
 
       varient->parameters = _mesa_clone_parameter_list(fp->Base.Parameters);
+      stfp = (struct st_fragment_program *) fp;
+   }
+   else if (key->drawpixels) {
+      /* glDrawPixels drawing */
+      struct gl_fragment_program *fp;
+
+      if (key->drawpixels_z || key->drawpixels_stencil) {
+         fp = st_make_drawpix_z_stencil_program(st, key->drawpixels_z,
+                                                key->drawpixels_stencil);
+      }
+      else {
+         /* RGBA */
+         st_make_drawpix_fragment_program(st, &stfp->Base, &fp);
+         varient->parameters = _mesa_clone_parameter_list(fp->Base.Parameters);
+      }
       stfp = (struct st_fragment_program *) fp;
    }
 

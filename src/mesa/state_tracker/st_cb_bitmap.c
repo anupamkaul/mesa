@@ -191,10 +191,10 @@ find_free_bit(uint bitfield)
  * \param bitmap_sampler  sampler number for the bitmap texture
  */
 void
-st_make_combined_bitmap_fragment_program(struct st_context *st,
-                                         struct gl_fragment_program *fpIn,
-                                         struct gl_fragment_program **fpOut,
-                                         GLuint *bitmap_sampler)
+st_make_bitmap_fragment_program(struct st_context *st,
+                                struct gl_fragment_program *fpIn,
+                                struct gl_fragment_program **fpOut,
+                                GLuint *bitmap_sampler)
 {
    struct st_fragment_program *bitmap_prog;
    struct gl_program *newProg;

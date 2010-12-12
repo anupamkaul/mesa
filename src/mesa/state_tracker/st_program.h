@@ -43,8 +43,17 @@
 /** Fragment program variant key */
 struct st_fp_varient_key
 {
-   struct st_context *st;          /**< variants are per-context */
-   GLboolean bitmap;               /**< glBitmap varient? */
+   struct st_context *st;         /**< variants are per-context */
+
+   /** for glBitmap */
+   GLuint bitmap:1;               /**< glBitmap varient? */
+
+   /** for glDrawPixels */
+   GLuint drawpixels:1;           /**< glDrawPixels varient */
+   GLuint scaleAndBias:1;         /**< glDrawPixels w/ scale and/or bias? */
+   GLuint pixelMaps:1;            /**< glDrawPixels w/ pixel lookup map? */
+   GLuint drawpixels_z:1;         /**< glDrawPixels(GL_DEPTH) */
+   GLuint drawpixels_stencil:1;   /**< glDrawPixels(GL_STENCIL) */
 };
 
 
@@ -74,18 +83,10 @@ struct st_fp_varient
 struct st_fragment_program
 {
    struct gl_fragment_program Base;
-   GLuint serialNo;
 
    struct pipe_shader_state tgsi;
-#if 0
-   void *driver_shader;
-#else
-   struct st_fp_varient *varients;
-#endif
 
-   /** Program prefixed with glBitmap prologue */
-   struct st_fragment_program *bitmap_program;
-   uint bitmap_sampler;
+   struct st_fp_varient *varients;
 };
 
 

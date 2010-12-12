@@ -161,7 +161,7 @@ struct st_context
 
    /** for glDraw/CopyPixels */
    struct {
-      struct st_fragment_program *shaders[4];
+      struct gl_fragment_program *shaders[4];
       void *vert_shaders[2];   /**< ureg shaders */
    } drawpix;
 

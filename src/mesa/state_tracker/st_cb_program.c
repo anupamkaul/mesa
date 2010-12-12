@@ -112,8 +112,6 @@ static struct gl_program *st_new_program( struct gl_context *ctx,
    case GL_FRAGMENT_PROGRAM_NV: {
       struct st_fragment_program *prog = ST_CALLOC_STRUCT(st_fragment_program);
 
-      prog->serialNo = SerialNo++;
-
       return _mesa_init_fragment_program( ctx, 
 					  &prog->Base,
 					  target, 
@@ -217,20 +215,12 @@ static GLboolean st_program_string_notify( struct gl_context *ctx,
    if (target == GL_FRAGMENT_PROGRAM_ARB) {
       struct st_fragment_program *stfp = (struct st_fragment_program *) prog;
 
-      stfp->serialNo++;
-
       st_fp_release_varients(st, stfp);
-#if 00000
-      if (stfp->driver_shader) {
-         cso_delete_fragment_shader(st->cso_context, stfp->driver_shader);
-         stfp->driver_shader = NULL;
-      }
 
       if (stfp->tgsi.tokens) {
          st_free_tokens(stfp->tgsi.tokens);
          stfp->tgsi.tokens = NULL;
       }
-#endif
 
       if (st->fp == stfp)
 	 st->dirty.st |= ST_NEW_FRAGMENT_PROGRAM;
