@@ -135,7 +135,6 @@ struct st_vp_varient
 struct st_vertex_program
 {
    struct gl_vertex_program Base;  /**< The Mesa vertex program */
-   GLuint serialNo, lastSerialNo;
 
    /** maps a Mesa VERT_ATTRIB_x to a packed TGSI input index */
    GLuint input_to_index[VERT_ATTRIB_MAX];
@@ -183,7 +182,6 @@ struct st_gp_varient
 struct st_geometry_program
 {
    struct gl_geometry_program Base;  /**< The Mesa geometry program */
-   GLuint serialNo;
 
    /** map GP input back to VP output */
    GLuint input_map[PIPE_MAX_SHADER_INPUTS];
@@ -258,6 +256,12 @@ st_reference_fragprog(struct st_context *st,
 }
 
 
+extern struct st_vp_varient *
+st_get_vp_varient(struct st_context *st,
+                  struct st_vertex_program *stvp,
+                  const struct st_vp_varient_key *key);
+
+
 extern struct st_fp_varient *
 st_get_fp_varient(struct st_context *st,
                   struct st_fragment_program *stfp,
@@ -269,19 +273,6 @@ st_get_gp_varient(struct st_context *st,
                   struct st_geometry_program *stgp,
                   const struct st_gp_varient_key *key);
 
-
-
-/* Called after program string change, discard all previous
- * compilation results.
- */
-extern void
-st_prepare_vertex_program(struct st_context *st,
-                          struct st_vertex_program *stvp);
-
-extern struct st_vp_varient *
-st_translate_vertex_program(struct st_context *st,
-                            struct st_vertex_program *stvp,
-                            const struct st_vp_varient_key *key);
 
 
 extern void

@@ -51,71 +51,6 @@
 
 
 /**
- * Find a translated vertex program that corresponds to stvp and
- * has outputs matched to stfp's inputs.
- * This performs vertex and fragment translation (to TGSI) when needed.
- */
-static struct st_vp_varient *
-find_translated_vp(struct st_context *st,
-                   struct st_vertex_program *stvp )
-{
-   struct st_vp_varient *vpv;
-   struct st_vp_varient_key key;
-
-   /* Nothing in our key yet.  This will change:
-    */
-   memset(&key, 0, sizeof key);
-
-   /* When this is true, we will add an extra input to the vertex
-    * shader translation (for edgeflags), an extra output with
-    * edgeflag semantics, and extend the vertex shader to pass through
-    * the input to the output.  We'll need to use similar logic to set
-    * up the extra vertex_element input for edgeflags.
-    * _NEW_POLYGON, ST_NEW_EDGEFLAGS_DATA
-    */
-   key.passthrough_edgeflags = (st->vertdata_edgeflags && (
-                                st->ctx->Polygon.FrontMode != GL_FILL ||
-                                st->ctx->Polygon.BackMode != GL_FILL));
-
-   key.st = st;  /* variants are per-context */
-
-   /* Do we need to throw away old translations after a change in the
-    * GL program string?
-    */
-   if (stvp->serialNo != stvp->lastSerialNo) {
-      /* These may have changed if the program string changed.
-       */
-      st_prepare_vertex_program( st, stvp );
-
-      /* We are now up-to-date:
-       */
-      stvp->lastSerialNo = stvp->serialNo;
-   }
-   
-   /* See if we've got a translated vertex program whose outputs match
-    * the fragment program's inputs.
-    */
-   for (vpv = stvp->varients; vpv; vpv = vpv->next) {
-      if (memcmp(&vpv->key, &key, sizeof key) == 0) {
-         break;
-      }
-   }
-
-   /* No?  Perform new translation here. */
-   if (!vpv) {
-      vpv = st_translate_vertex_program(st, stvp, &key);
-      if (!vpv)
-         return NULL;
-      
-      vpv->next = stvp->varients;
-      stvp->varients = vpv;
-   }
-
-   return vpv;
-}
-
-
-/**
  * Return pointer to a pass-through fragment shader.
  * This shader is used when a texture is missing/incomplete.
  */
@@ -144,7 +79,6 @@ update_fp( struct st_context *st )
    assert(st->ctx->FragmentProgram._Current);
    stfp = st_fragment_program(st->ctx->FragmentProgram._Current);
    assert(stfp->Base.Base.Target == GL_FRAGMENT_PROGRAM_ARB);
-
 
    memset(&key, 0, sizeof(key));
    key.st = st;
@@ -184,6 +118,7 @@ static void
 update_vp( struct st_context *st )
 {
    struct st_vertex_program *stvp;
+   struct st_vp_varient_key key;
 
    /* find active shader and params -- Should be covered by
     * ST_NEW_VERTEX_PROGRAM
@@ -192,7 +127,21 @@ update_vp( struct st_context *st )
    stvp = st_vertex_program(st->ctx->VertexProgram._Current);
    assert(stvp->Base.Base.Target == GL_VERTEX_PROGRAM_ARB);
 
-   st->vp_varient = find_translated_vp(st, stvp);
+   memset(&key, 0, sizeof key);
+   key.st = st;  /* variants are per-context */
+
+   /* When this is true, we will add an extra input to the vertex
+    * shader translation (for edgeflags), an extra output with
+    * edgeflag semantics, and extend the vertex shader to pass through
+    * the input to the output.  We'll need to use similar logic to set
+    * up the extra vertex_element input for edgeflags.
+    * _NEW_POLYGON, ST_NEW_EDGEFLAGS_DATA
+    */
+   key.passthrough_edgeflags = (st->vertdata_edgeflags && (
+                                st->ctx->Polygon.FrontMode != GL_FILL ||
+                                st->ctx->Polygon.BackMode != GL_FILL));
+
+   st->vp_varient = st_get_vp_varient(st, stvp, &key);
 
    st_reference_vertprog(st, &st->vp, stvp);
 

@@ -171,7 +171,7 @@ st_gp_release_varients(struct st_context *st, struct st_geometry_program *stgp)
  * \param tokensOut  destination for TGSI tokens
  * \return  pointer to cached pipe_shader object.
  */
-void
+static void
 st_prepare_vertex_program(struct st_context *st,
                             struct st_vertex_program *stvp)
 {
@@ -275,7 +275,10 @@ st_prepare_vertex_program(struct st_context *st,
 }
 
 
-struct st_vp_varient *
+/**
+ * Translate a vertex program to create a new varient.
+ */
+static struct st_vp_varient *
 st_translate_vertex_program(struct st_context *st,
                             struct st_vertex_program *stvp,
                             const struct st_vp_varient_key *key)
@@ -285,6 +288,8 @@ st_translate_vertex_program(struct st_context *st,
    struct ureg_program *ureg;
    enum pipe_error error;
    unsigned num_outputs;
+
+   st_prepare_vertex_program( st, stvp );
 
    _mesa_remove_output_reads(&stvp->Base.Base, PROGRAM_OUTPUT);
    _mesa_remove_output_reads(&stvp->Base.Base, PROGRAM_VARYING);
@@ -355,6 +360,36 @@ fail:
    return NULL;
 }
 
+
+/**
+ * Find/create a vertex program varient.
+ */
+struct st_vp_varient *
+st_get_vp_varient(struct st_context *st,
+                  struct st_vertex_program *stvp,
+                  const struct st_vp_varient_key *key)
+{
+   struct st_vp_varient *vpv;
+
+   /* Search for existing varient */
+   for (vpv = stvp->varients; vpv; vpv = vpv->next) {
+      if (memcmp(&vpv->key, key, sizeof(*key)) == 0) {
+         break;
+      }
+   }
+
+   if (!vpv) {
+      /* create now */
+      vpv = st_translate_vertex_program(st, stvp, key);
+      if (vpv) {
+         /* insert into list */
+         vpv->next = stvp->varients;
+         stvp->varients = vpv;
+      }
+   }
+
+   return vpv;
+}
 
 
 /**
