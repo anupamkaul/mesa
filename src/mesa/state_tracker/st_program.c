@@ -130,6 +130,38 @@ st_fp_release_varients(struct st_context *st, struct st_fragment_program *stfp)
 }
 
 
+/**
+ * Delete a geometry program varient.  Note the caller must unlink
+ * the varient from the linked list.
+ */
+static void
+delete_gp_varient(struct st_context *st, struct st_gp_varient *gpv)
+{
+   if (gpv->driver_shader) 
+      cso_delete_geometry_shader(st->cso_context, gpv->driver_shader);
+      
+   FREE(gpv);
+}
+
+
+/**
+ * Free all varients of a geometry program.
+ */
+void
+st_gp_release_varients(struct st_context *st, struct st_geometry_program *stgp)
+{
+   struct st_gp_varient *gpv;
+
+   for (gpv = stgp->varients; gpv; ) {
+      struct st_gp_varient *next = gpv->next;
+      delete_gp_varient(st, gpv);
+      gpv = next;
+   }
+
+   stgp->varients = NULL;
+}
+
+
 
 
 /**
@@ -330,7 +362,7 @@ fail:
  * the key.
  * \return  new fragment program variant
  */
-struct st_fp_varient *
+static struct st_fp_varient *
 st_translate_fragment_program(struct st_context *st,
                               struct st_fragment_program *stfp,
                               const struct st_fp_varient_key *key)
@@ -591,10 +623,13 @@ st_get_fp_varient(struct st_context *st,
 }
 
 
-
-void
+/**
+ * Translate a geometry program to create a new varient.
+ */
+static struct st_gp_varient *
 st_translate_geometry_program(struct st_context *st,
-                              struct st_geometry_program *stgp)
+                              struct st_geometry_program *stgp,
+                              const struct st_gp_varient_key *key)
 {
    GLuint inputMapping[GEOM_ATTRIB_MAX];
    GLuint outputMapping[GEOM_RESULT_MAX];
@@ -617,12 +652,19 @@ st_translate_geometry_program(struct st_context *st,
    GLuint maxSlot = 0;
    struct ureg_program *ureg;
 
+   struct st_gp_varient *gpv;
+
+   gpv = CALLOC_STRUCT(st_gp_varient);
+   if (!gpv)
+      return NULL;
+
    _mesa_remove_output_reads(&stgp->Base.Base, PROGRAM_OUTPUT);
    _mesa_remove_output_reads(&stgp->Base.Base, PROGRAM_VARYING);
 
    ureg = ureg_create( TGSI_PROCESSOR_GEOMETRY );
    if (ureg == NULL) {
-      return;
+      FREE(gpv);
+      return NULL;
    }
 
    /* which vertex output goes to the first geometry input */
@@ -652,7 +694,7 @@ st_translate_geometry_program(struct st_context *st,
          } else
             ++gs_builtin_inputs;
 
-#if 1
+#if 0
          debug_printf("input map at %d = %d\n",
                       slot + gs_array_offset, stgp->input_map[slot + gs_array_offset]);
 #endif
@@ -794,37 +836,35 @@ st_translate_geometry_program(struct st_context *st,
       st_free_tokens(stgp->tgsi.tokens);
       stgp->tgsi.tokens = NULL;
    }
-   if (stgp->driver_shader) {
-      cso_delete_geometry_shader(st->cso_context, stgp->driver_shader);
-      stgp->driver_shader = NULL;
-   }
 
    ureg_property_gs_input_prim(ureg, stgp->Base.InputType);
    ureg_property_gs_output_prim(ureg, stgp->Base.OutputType);
    ureg_property_gs_max_vertices(ureg, stgp->Base.VerticesOut);
 
-   error  = st_translate_mesa_program(st->ctx,
-                                      TGSI_PROCESSOR_GEOMETRY,
-                                      ureg,
-                                      &stgp->Base.Base,
-                                      /* inputs */
-                                      gs_num_inputs,
-                                      inputMapping,
-                                      stgp->input_semantic_name,
-                                      stgp->input_semantic_index,
-                                      NULL,
-                                      /* outputs */
-                                      gs_num_outputs,
-                                      outputMapping,
-                                      gs_output_semantic_name,
-                                      gs_output_semantic_index,
-                                      FALSE);
-
+   error = st_translate_mesa_program(st->ctx,
+                                     TGSI_PROCESSOR_GEOMETRY,
+                                     ureg,
+                                     &stgp->Base.Base,
+                                     /* inputs */
+                                     gs_num_inputs,
+                                     inputMapping,
+                                     stgp->input_semantic_name,
+                                     stgp->input_semantic_index,
+                                     NULL,
+                                     /* outputs */
+                                     gs_num_outputs,
+                                     outputMapping,
+                                     gs_output_semantic_name,
+                                     gs_output_semantic_index,
+                                     FALSE);
 
    stgp->num_inputs = gs_num_inputs;
    stgp->tgsi.tokens = ureg_get_tokens( ureg, NULL );
    ureg_destroy( ureg );
-   stgp->driver_shader = pipe->create_gs_state(pipe, &stgp->tgsi);
+
+   /* fill in new varient */
+   gpv->driver_shader = pipe->create_gs_state(pipe, &stgp->tgsi);
+   gpv->key = *key;
 
    if ((ST_DEBUG & DEBUG_TGSI) && (ST_DEBUG & DEBUG_MESA)) {
       _mesa_print_program(&stgp->Base.Base);
@@ -835,7 +875,43 @@ st_translate_geometry_program(struct st_context *st,
       tgsi_dump(stgp->tgsi.tokens, 0);
       debug_printf("\n");
    }
+
+   return gpv;
 }
+
+
+/**
+ * Get/create geometry program variant.
+ */
+struct st_gp_varient *
+st_get_gp_varient(struct st_context *st,
+                  struct st_geometry_program *stgp,
+                  const struct st_gp_varient_key *key)
+{
+   struct st_gp_varient *gpv;
+
+   /* Search for existing varient */
+   for (gpv = stgp->varients; gpv; gpv = gpv->next) {
+      if (memcmp(&gpv->key, key, sizeof(*key)) == 0) {
+         break;
+      }
+   }
+
+   if (!gpv) {
+      /* create new */
+      gpv = st_translate_geometry_program(st, stgp, key);
+      if (gpv) {
+         /* insert into list */
+         gpv->next = stgp->varients;
+         stgp->varients = gpv;
+      }
+   }
+
+   return gpv;
+}
+
+
+
 
 /**
  * Debug- print current shader text

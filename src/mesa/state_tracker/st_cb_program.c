@@ -150,12 +150,10 @@ st_delete_program(struct gl_context *ctx, struct gl_program *prog)
       break;
    case MESA_GEOMETRY_PROGRAM:
       {
-         struct st_geometry_program *stgp = (struct st_geometry_program *) prog;
+         struct st_geometry_program *stgp =
+            (struct st_geometry_program *) prog;
 
-         if (stgp->driver_shader) {
-            cso_delete_geometry_shader(st->cso_context, stgp->driver_shader);
-            stgp->driver_shader = NULL;
-         }
+         st_gp_release_varients(st, stgp);
 
          if (stgp->tgsi.tokens) {
             st_free_tokens((void *) stgp->tgsi.tokens);
@@ -167,26 +165,13 @@ st_delete_program(struct gl_context *ctx, struct gl_program *prog)
       {
          struct st_fragment_program *stfp =
             (struct st_fragment_program *) prog;
-         st_fp_release_varients(st, stfp);
-#if 0
 
-         if (stfp->driver_shader) {
-            cso_delete_fragment_shader(st->cso_context, stfp->driver_shader);
-            stfp->driver_shader = NULL;
-         }
+         st_fp_release_varients(st, stfp);
          
          if (stfp->tgsi.tokens) {
             st_free_tokens(stfp->tgsi.tokens);
             stfp->tgsi.tokens = NULL;
          }
-
-         if (stfp->bitmap_program) {
-            struct gl_program *prg = &stfp->bitmap_program->Base.Base;
-            _mesa_reference_program(ctx, &prg, NULL);
-            stfp->bitmap_program = NULL;
-         }
-#endif
-
       }
       break;
    default:
@@ -230,10 +215,7 @@ static GLboolean st_program_string_notify( struct gl_context *ctx,
 
       stgp->serialNo++;
 
-      if (stgp->driver_shader) {
-         cso_delete_geometry_shader(st->cso_context, stgp->driver_shader);
-         stgp->driver_shader = NULL;
-      }
+      st_gp_release_varients(st, stgp);
 
       if (stgp->tgsi.tokens) {
          st_free_tokens((void *) stgp->tgsi.tokens);

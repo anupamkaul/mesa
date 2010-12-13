@@ -132,6 +132,7 @@ struct st_context
 
    struct st_vp_varient *vp_varient;
    struct st_fp_varient *fp_varient;
+   struct st_gp_varient *gp_varient;
 
    struct gl_texture_object *default_texture;
 

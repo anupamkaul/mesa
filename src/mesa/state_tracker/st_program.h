@@ -154,6 +154,29 @@ struct st_vertex_program
    struct st_vp_varient *varients;
 };
 
+
+
+struct st_gp_varient_key
+{
+   struct st_context *st;          /**< variants are per-context */
+   /* no other fields yet */
+};
+
+
+/**
+ * Geometry program variant.
+ */
+struct st_gp_varient
+{
+   /* Parameters which generated this translated version of a vertex */
+   struct st_gp_varient_key key;
+
+   void *driver_shader;
+
+   struct st_gp_varient *next;
+};
+
+
 /**
  * Derived from Mesa gl_geometry_program:
  */
@@ -179,8 +202,11 @@ struct st_geometry_program
    ubyte input_semantic_index[PIPE_MAX_SHADER_INPUTS];
 
    struct pipe_shader_state tgsi;
-   void *driver_shader;
+
+   struct st_gp_varient *varients;
 };
+
+
 
 static INLINE struct st_fragment_program *
 st_fragment_program( struct gl_fragment_program *fp )
@@ -233,19 +259,17 @@ st_reference_fragprog(struct st_context *st,
 
 
 extern struct st_fp_varient *
-st_translate_fragment_program(struct st_context *st,
-                              struct st_fragment_program *fp,
-                              const struct st_fp_varient_key *key);
-
-extern struct st_fp_varient *
 st_get_fp_varient(struct st_context *st,
                   struct st_fragment_program *stfp,
                   const struct st_fp_varient_key *key);
 
 
-extern void
-st_translate_geometry_program(struct st_context *st,
-                              struct st_geometry_program *stgp);
+extern struct st_gp_varient *
+st_get_gp_varient(struct st_context *st,
+                  struct st_geometry_program *stgp,
+                  const struct st_gp_varient_key *key);
+
+
 
 /* Called after program string change, discard all previous
  * compilation results.
@@ -259,13 +283,19 @@ st_translate_vertex_program(struct st_context *st,
                             struct st_vertex_program *stvp,
                             const struct st_vp_varient_key *key);
 
-void
+
+extern void
 st_vp_release_varients( struct st_context *st,
                         struct st_vertex_program *stvp );
 
 extern void
 st_fp_release_varients( struct st_context *st,
                         struct st_fragment_program *stfp );
+
+extern void
+st_gp_release_varients(struct st_context *st,
+                       struct st_geometry_program *stgp);
+
 
 extern void
 st_print_shaders(struct gl_context *ctx);
