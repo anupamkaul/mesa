@@ -1,0 +1,10 @@
+Import('*')
+
+env = env.Clone()
+
+thalloc = env.ConvenienceLibrary(
+    target = 'thalloc',
+    source = ['halloc.c'],
+)
+
+Export('thalloc')
