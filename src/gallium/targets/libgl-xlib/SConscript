@@ -23,7 +23,7 @@ env.Prepend(LIBS = [
     mesa,
     glsl,
     gallium,
-    'talloc'
+    thalloc,
 ])
 
 sources = [
