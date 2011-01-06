@@ -9,8 +9,7 @@ env.Prepend(CPPPATH = [
     '#src/mesa',
 ])
 
-if env['platform'] == 'windows':
-    env.Prepend(CPPPATH = ['#src/talloc'])
+env.Prepend(CPPPATH = ['#src/thalloc'])
 
 sources = [
     'glcpp/glcpp-lex.c',

@@ -4,7 +4,9 @@ env = env.Clone()
 
 thalloc = env.ConvenienceLibrary(
     target = 'thalloc',
-    source = ['halloc.c'],
+    source = [
+        'halloc.c',
+    ],
 )
 
 Export('thalloc')
