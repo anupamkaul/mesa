@@ -101,7 +101,10 @@ void * halloc(void * ptr, size_t len)
 		if (! p)
 			return NULL;
 
-		hlist_relink(&p->siblings);
+		if (!p->parent)
+			hlist_init_item(&p->siblings);
+		else
+			hlist_relink(&p->siblings);
 		hlist_relink_head(&p->children);
 
 		hlist_for_each_safe(i, tmp, &p->children)
