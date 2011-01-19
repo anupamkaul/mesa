@@ -14,6 +14,7 @@
 
 #include <malloc.h>  /* realloc */
 #include <string.h>  /* memset & co */
+#include <stdlib.h>  /* atexit */
 
 #include "halloc.h"
 #include "align.h"
@@ -30,6 +31,8 @@ typedef struct hblock
 #endif
 	hlist_item_t  siblings; /* 2 pointers */
 	hlist_head_t  children; /* 1 pointer  */
+	int (*dtor)(void *ptr);
+	void *parent;
 	max_align_t   data[1];  /* not allocated, see below */
 	
 } hblock_t;
@@ -51,6 +54,7 @@ static void * _realloc(void * ptr, size_t n);
 
 static int  _relate(hblock_t * b, hblock_t * p);
 static void _free_children(hblock_t * p);
+static void _destruct(hblock_t * p);
 
 /*
  *	Core API
@@ -58,6 +62,7 @@ static void _free_children(hblock_t * p);
 void * halloc(void * ptr, size_t len)
 {
 	hblock_t * p;
+	hlist_item_t * i, * tmp;
 
 	/* set up default allocator */
 	if (! allocator)
@@ -80,6 +85,8 @@ void * halloc(void * ptr, size_t len)
 #endif
 		hlist_init(&p->children);
 		hlist_init_item(&p->siblings);
+		p->parent = NULL;
+		p->dtor = NULL;
 
 		return p->data;
 	}
@@ -96,11 +103,18 @@ void * halloc(void * ptr, size_t len)
 
 		hlist_relink(&p->siblings);
 		hlist_relink_head(&p->children);
-		
+
+		hlist_for_each_safe(i, tmp, &p->children)
+		{
+			hblock_t * q = structof(i, hblock_t, siblings);
+			q->parent = p->data;
+		}
+
 		return p->data;
 	}
 
 	/* free */
+	_destruct(p);
 	_free_children(p);
 	hlist_del(&p->siblings);
 	allocator(p, 0);
@@ -123,6 +137,7 @@ void hattach(void * block, void * parent)
 	assert(b->magic == HH_MAGIC);
 
 	hlist_del(&b->siblings);
+	b->parent = NULL;
 
 	if (! parent)
 		return;
@@ -136,6 +151,7 @@ void hattach(void * block, void * parent)
 	assert(! _relate(p, b)); /* heavy ! */
 
 	hlist_add(&p->children, &b->siblings);
+	b->parent = p->data;
 }
 
 /*
@@ -247,8 +263,63 @@ static void _free_children(hblock_t * p)
 	hlist_for_each_safe(i, tmp, &p->children)
 	{
 		hblock_t * q = structof(i, hblock_t, siblings);
+		_destruct(q);
 		_free_children(q);
 		allocator(q, 0);
 	}
 }
 
+static void _destruct(hblock_t * p)
+{
+	if (p->dtor)
+		assert(p->dtor(&p->data) == 0);
+}
+
+
+/*
+ * new stuff
+ */
+static void *atexit_ctx = NULL;
+
+static void halloc_atexit()
+{
+	halloc(atexit_ctx, 0);
+}
+
+void *
+h_autofree_context(void) {
+	void *ret;
+
+	if (atexit_ctx == NULL) {
+		atexit_ctx = halloc(NULL, 1);
+		atexit(halloc_atexit);
+	}
+
+	ret = halloc(NULL, 1);
+	if (ret)
+		hattach(ret, atexit_ctx);
+
+	return ret;
+}
+
+void * h_get_parent(const void *block)
+{
+	hblock_t * b;
+	
+	if (! block)
+		return NULL;
+
+	b = structof(block, hblock_t, data);
+	return b->parent;
+}
+
+void h_set_destructor(void *block, int (*destructor)(void *block))
+{
+	hblock_t * b;
+	
+	if (! block)
+		return;
+
+	b = structof(block, hblock_t, data);
+	b->dtor = destructor;
+}

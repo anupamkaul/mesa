@@ -13,11 +13,7 @@
 
 #include "halloc.h"
 
-static inline void *
-talloc_autofree_context(void) {
-   assert(0);
-   return NULL;
-}
+#define talloc_autofree_context h_autofree_context
 
 static inline int
 talloc_free(void *ptr) {
@@ -31,11 +27,7 @@ talloc_init(const char *fmt, ...) {
    return halloc(NULL, 1);
 }
 
-static inline void *
-talloc_parent(const void *ptr) {
-   assert(0);
-   return NULL;
-}
+#define talloc_parent(_ptr) h_get_parent(_ptr)
 
 static inline void *
 talloc_realloc_size(const void *ctx, void *ptr, size_t size) {
@@ -54,10 +46,7 @@ talloc_reference(const void *ctx, const void *ptr) {
    return NULL;
 }
 
-static inline void 
-talloc_set_destructor(void *ctx, int (*destructor)(void*)) {
-   assert(0);
-}
+#define talloc_set_destructor(_ctx, _des) h_set_destructor(_ctx, _des)
 
 static inline void *
 talloc_size(const void *ctx, size_t size) {

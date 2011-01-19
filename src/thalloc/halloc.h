@@ -39,5 +39,12 @@ typedef void * (* realloc_t)(void * ptr, size_t len);
 
 extern realloc_t halloc_allocator;
 
+/*
+ *      new additions
+ */
+void * h_autofree_context(void);
+void * h_get_parent(const void *ptr);
+void h_set_destructor(void *ptr, int (*destructor)(void *ptr));
+
 #endif
 
