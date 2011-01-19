@@ -9,6 +9,8 @@
 #include <string.h>
 #include <stdarg.h>
 
+#include "halloc.h"
+
 static inline char *
 talloc_asprintf(const void *t, const char *fmt, ...) {
    assert(0);
@@ -29,14 +31,14 @@ talloc_autofree_context(void) {
 
 static inline int
 talloc_free(void *ptr) {
-   assert(0);
+   halloc(ptr, 0);
    return 0;
 }
    
 static inline void *
 talloc_init(const char *fmt, ...) {
-   assert(0);
-   return NULL;
+   /* XXX can't create empty allocations */
+   return halloc(NULL, 1);
 }
 
 static inline void *
@@ -47,8 +49,13 @@ talloc_parent(const void *ptr) {
 
 static inline void *
 talloc_realloc_size(const void *ctx, void *ptr, size_t size) {
-   assert(0);
-   return NULL;
+   /* talloc_realloc works like c realloc and matches halloc behaviour */
+   void *ret = halloc(ptr, size);
+
+   if (!ptr)
+      hattach(ret, (void *)ctx);
+
+   return ret;
 }
 
 static inline void *
@@ -64,8 +71,19 @@ talloc_set_destructor(void *ctx, int (*destructor)(void*)) {
 
 static inline void *
 talloc_size(const void *ctx, size_t size) {
-   assert(0);
-   return NULL;
+   void *ptr;
+
+   /* XXX can't create empty allocations */
+   if (size == 0)
+      size = 1;
+
+   ptr = halloc(NULL, size);
+   if (!ptr)
+      return NULL;
+
+   hattach(ptr, (void*)ctx);
+
+   return ptr;
 }
 
 #define talloc_new(_ctx) talloc_strdup(_ctx, __FILE__ )
@@ -78,17 +96,19 @@ talloc_size(const void *ctx, size_t size) {
 static inline void *
 talloc_steal(const void *new_ctx, const void *ptr)
 {
-   assert(0);
+   /* halloc will assert if new_ctx != NULL */
+   if (!ptr)
+      return NULL;
+
+   hattach((void*)ptr, (void*)new_ctx);
    return (void*)ptr;
 }
 
 static inline char *
 talloc_strdup(const void *ctx, const char *p) {
-   size_t size = strlen(p) + 1;
-   char *ptr = (char *)talloc_size(ctx, size);
-   if (ptr) {
-      memcpy(ptr, p, size);
-   }
+   char *ptr = h_strdup(p);
+   if (ptr)
+      hattach(ptr, (void *)ctx);
    return ptr;
 }
 
@@ -112,7 +132,8 @@ talloc_strndup_append(char *s, const char *p, size_t n) {
 
 static inline int
 talloc_unlink(const void *ctx, const void *ptr) {
-   assert(0);
+   /* XXX check ctx is parent */
+   hattach((void*)ptr, NULL);
    return 0;
 }
 
