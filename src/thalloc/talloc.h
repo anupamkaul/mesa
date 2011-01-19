@@ -8,20 +8,10 @@
 #include <assert.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 #include "halloc.h"
-
-static inline char *
-talloc_asprintf(const void *t, const char *fmt, ...) {
-   assert(0);
-   return NULL;
-}
-
-static inline char *
-talloc_asprintf_append(char *s, const char *fmt, ...) {
-   assert(0);
-   return NULL;
-}
 
 static inline void *
 talloc_autofree_context(void) {
@@ -104,32 +94,6 @@ talloc_steal(const void *new_ctx, const void *ptr)
    return (void*)ptr;
 }
 
-static inline char *
-talloc_strdup(const void *ctx, const char *p) {
-   char *ptr = h_strdup(p);
-   if (ptr)
-      hattach(ptr, (void *)ctx);
-   return ptr;
-}
-
-static inline char *
-talloc_strdup_append(const void *t, const char *p) {
-   assert(0);
-   return NULL;
-}
-
-static inline char *
-talloc_strndup(const void *t, const char *p, size_t n) {
-   assert(0);
-   return NULL;
-}
-
-static inline char *
-talloc_strndup_append(char *s, const char *p, size_t n) {
-   assert(0);
-   return NULL;
-}
-
 static inline int
 talloc_unlink(const void *ctx, const void *ptr) {
    /* XXX check ctx is parent */
@@ -138,9 +102,135 @@ talloc_unlink(const void *ctx, const void *ptr) {
 }
 
 static inline char *
+talloc_strdup(const void *ctx, const char *p) {
+   char *ptr;
+
+   if (!p)
+      return NULL;
+
+   ptr = h_strdup(p);
+   if (ptr)
+      hattach(ptr, (void *)ctx);
+
+   return ptr;
+}
+
+static inline char *
+talloc_strdup_append(char *s, const char *p) {
+   size_t old_size;
+   size_t p_size;
+
+   if (!p)
+      return s;
+
+   if (!s)
+      return h_strdup(p);
+
+   p_size = strlen(p);
+   old_size = strlen(s);
+
+   s = (char*)talloc_realloc_size(NULL, s, old_size + p_size + 1);
+
+   memcpy(&s[old_size], p, p_size);
+   s[old_size + p_size] = 0;
+
+   return s;
+}
+
+static inline char *
+talloc_strndup(const void *t, const char *p, size_t n) {
+   char *ret;
+   size_t len;
+
+   if (!p)
+      return NULL;
+
+   len = strlen(p);
+
+   /* sigh no min */
+   if (len < n)
+      n = len;
+
+   ret = (char *)talloc_size(t, n + 1);
+   memcpy(ret, p, n);
+   ret[n] = 0;
+
+   return ret;
+}
+
+static inline char *
+talloc_strndup_append(char *s, const char *p, size_t n) {
+   size_t old_size = 0;
+   size_t p_size;
+
+   if (!p)
+      return s;
+
+   p_size = strlen(p);
+
+   /* sigh no min */
+   if (n < p_size)
+      p_size = n;
+
+   if (s)
+      old_size = strlen(s);
+
+   s = (char*)talloc_realloc_size(NULL, s, old_size + p_size + 1);
+
+   memcpy(&s[old_size], p, p_size);
+   s[old_size + p_size] = 0;
+
+   return s;
+}
+
+static inline char *
+talloc_vasprintf(const void *t, const char *fmt, va_list ap) {
+   char *ret;
+   char *tmp = NULL;
+
+   vasprintf(&tmp, fmt, ap);
+
+   ret = talloc_strdup(t, tmp);
+   free(tmp);
+
+   return ret;
+}
+
+static inline char *
 talloc_vasprintf_append(char *s, const char *fmt, va_list ap) {
-   assert(0);
-   return NULL;
+   char *ret;
+   char *tmp = NULL;
+
+   vasprintf(&tmp, fmt, ap);
+
+   ret = talloc_strdup_append(s, tmp);
+   free(tmp);
+
+   return ret;
+}
+
+static inline char *
+talloc_asprintf(const void *t, const char *fmt, ...) {
+   char *ret;
+   va_list ap;
+
+   va_start(ap, fmt);
+   ret = talloc_vasprintf(t, fmt, ap);
+   va_end(ap);
+
+   return ret;
+}
+
+static inline char *
+talloc_asprintf_append(char *s, const char *fmt, ...) {
+   char *ret;
+   va_list ap;
+
+   va_start(ap, fmt);
+   ret = talloc_vasprintf_append(s, fmt, ap);
+   va_end(ap);
+
+   return ret;
 }
 
 static inline void *
