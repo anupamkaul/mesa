@@ -9,4 +9,6 @@ thalloc = env.ConvenienceLibrary(
     ],
 )
 
+env.Alias('thalloc', thalloc)
+
 Export('thalloc')
