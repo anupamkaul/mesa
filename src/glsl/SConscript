@@ -83,6 +83,8 @@ glsl = env.ConvenienceLibrary(
     source = sources,
 )
 
+env.Alias('glsl', glsl)
+
 Export('glsl')
 
 # FIXME: We can't build the programs because there's a cyclic dependency between tis directory and src/mesa
