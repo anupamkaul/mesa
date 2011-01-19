@@ -73,6 +73,7 @@ talloc_size(const void *ctx, size_t size) {
 #define talloc(_ctx, _type) (_type *)talloc_size(_ctx, sizeof(_type))
 #define talloc_array_size(_ctx, _size, _count) talloc_size(_ctx, _size * _count)
 #define talloc_array(_ctx, _type, _count) (_type *)talloc_size(_ctx, sizeof(_type) * _count)
+#define talloc_realloc(_ctx, _ptr, _type, _count) (_type *)talloc_realloc_size(_ctx, _ptr, sizeof(_type) * _count)
 
 static inline void *
 talloc_steal(const void *new_ctx, const void *ptr)
