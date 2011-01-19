@@ -74,7 +74,12 @@ talloc_size(const void *ctx, size_t size) {
 #define talloc_array_size(_ctx, _size, _count) talloc_size(_ctx, _size * _count)
 #define talloc_array(_ctx, _type, _count) (_type *)talloc_size(_ctx, sizeof(_type) * _count)
 
-#define talloc_steal(new_ctx, _ptr) _ptr /* FIXME */
+static inline void *
+talloc_steal(const void *new_ctx, const void *ptr)
+{
+   assert(0);
+   return (void*)ptr;
+}
 
 static inline char *
 talloc_strdup(const void *ctx, const char *p) {
