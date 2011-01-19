@@ -5,7 +5,6 @@
 #ifndef _TALLOC_H_
 #define _TALLOC_H_
 
-#include <assert.h>
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -38,12 +37,6 @@ talloc_realloc_size(const void *ctx, void *ptr, size_t size) {
       hattach(ret, (void *)ctx);
 
    return ret;
-}
-
-static inline void *
-talloc_reference(const void *ctx, const void *ptr) {
-   assert(0);
-   return NULL;
 }
 
 #define talloc_set_destructor(_ctx, _des) h_set_destructor(_ctx, _des)
