@@ -288,14 +288,11 @@ version_statement:
 	   }
 
 	   state->language_version = $2;
-	   state->version_string =
-              glsl_compute_version_string(state, state->es_shader,
-                                          state->language_version);
 
 	   if (!supported) {
 	      _mesa_glsl_error(& @2, state, "%s is not supported. "
 			       "Supported versions are: %s\n",
-			       state->version_string,
+			       state->get_version_string(),
 			       state->supported_version_string);
 	   }
 
@@ -315,7 +312,7 @@ pragma_statement:
 	   if (state->language_version == 110) {
 	      _mesa_glsl_warning(& @1, state,
 				 "pragma `invariant(all)' not supported in %s",
-				 state->version_string);
+				 state->get_version_string());
 	   } else {
 	      state->all_invariant = true;
 	   }
@@ -1496,7 +1493,7 @@ precision_qualifier:
 				         "precision qualifier forbidden "
 					 "in %s (1.30 or later "
 					 "required)\n",
-					 state->version_string);
+					 state->get_version_string());
 
 		     $$ = ast_precision_high;
 		  }
@@ -1506,7 +1503,7 @@ precision_qualifier:
 					 "precision qualifier forbidden "
 					 "in %s (1.30 or later "
 					 "required)\n",
-					 state->version_string);
+					 state->get_version_string());
 
 		     $$ = ast_precision_medium;
 		  }
@@ -1516,7 +1513,7 @@ precision_qualifier:
 					 "precision qualifier forbidden "
 					 "in %s (1.30 or later "
 					 "required)\n",
-					 state->version_string);
+					 state->get_version_string());
 
 		     $$ = ast_precision_low;
 		  }
