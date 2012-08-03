@@ -2465,6 +2465,7 @@ link_shaders(struct gl_context *ctx, struct gl_shader_program *prog)
    }
 
    prog->Version = max_version;
+   prog->IsEsProg = is_es_prog;
 
    for (unsigned int i = 0; i < MESA_SHADER_TYPES; i++) {
       if (prog->_LinkedShaders[i] != NULL)
