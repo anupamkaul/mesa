@@ -2184,6 +2184,7 @@ struct gl_shader
    struct gl_sl_pragmas Pragmas;
 
    unsigned Version;       /**< GLSL version used for linking */
+   GLboolean IsEsShader; /**< True if this shader uses GLSL ES */
 
    /**
     * \name Sampler tracking
