@@ -89,6 +89,24 @@ static int classify_identifier(struct _mesa_glsl_parse_state *, const char *);
  * A macro for handling keywords that have been present in GLSL since
  * its origin, but were changed into reserved words in GLSL 3.00 ES.
  */
+#define DEPRECATED_KEYWORD(token)					\
+   do {									\
+      if ((yyextra->ctx->API == API_OPENGL_CORE				\
+	   && yyextra->is_version(130, 0))				\
+	 || yyextra->is_version(0, 300)) {				\
+	 _mesa_glsl_error(yylloc, yyextra,				\
+			  "Illegal use of deprecated word `%s'",	\
+			  yytext);					\
+	 return ERROR_TOK;						\
+      } else {								\
+         return token;							\
+      }									\
+   } while (0)
+
+/**
+ * A macro for handling keywords that have been present in GLSL since
+ * its origin, but were changed into reserved words in GLSL 3.00 ES.
+ */
 #define DEPRECATED_ES_KEYWORD(token)					\
    do {									\
       if (yyextra->is_version(0, 300)) {				\
@@ -238,7 +256,7 @@ HASH		^{SPC}#{SPC}
 
 \n		{ yylineno++; yycolumn = 0; }
 
-attribute	DEPRECATED_ES_KEYWORD(ATTRIBUTE);
+attribute	DEPRECATED_KEYWORD(ATTRIBUTE);
 const		return CONST_TOK;
 bool		return BOOL_TOK;
 float		return FLOAT_TOK;
@@ -284,7 +302,7 @@ in		return IN_TOK;
 out		return OUT_TOK;
 inout		return INOUT_TOK;
 uniform		return UNIFORM;
-varying		DEPRECATED_ES_KEYWORD(VARYING);
+varying		DEPRECATED_KEYWORD(VARYING);
 centroid	KEYWORD(120, 300, 120, 300, CENTROID);
 invariant	KEYWORD(120, 100, 120, 100, INVARIANT);
 flat		KEYWORD(130, 100, 130, 300, FLAT);

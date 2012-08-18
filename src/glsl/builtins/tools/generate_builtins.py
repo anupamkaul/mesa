@@ -280,10 +280,14 @@ _mesa_glsl_initialize_functions(struct _mesa_glsl_parse_state *state)
 
         version = re.sub(r'_(glsl|vert|frag)$', '', profile)
         if version[0].isdigit():
+            is_forward = version.endswith('fc')
             is_es = version.endswith('es')
-            if is_es:
+            if is_es or is_forward:
                 version = version[:-2]
+
             check += 'state->language_version == ' + version
+            if version == "130":
+                check += ' && state->ctx->API {0} API_OPENGL_CORE'.format('==' if is_forward else '!=')
             check += ' && {0}state->es_shader'.format('' if is_es else '!')
         else: # an extension name
             check += 'state->' + version + '_enable'

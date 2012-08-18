@@ -54,11 +54,11 @@ static const builtin_variable builtin_core_vs_variables[] = {
 static const builtin_variable builtin_core_fs_variables[] = {
    { ir_var_in,  FRAG_ATTRIB_WPOS,  "vec4",  "gl_FragCoord" },
    { ir_var_in,  FRAG_ATTRIB_FACE,  "bool",  "gl_FrontFacing" },
-   { ir_var_out, FRAG_RESULT_COLOR, "vec4",  "gl_FragColor" },
 };
 
 static const builtin_variable builtin_100ES_fs_variables[] = {
    { ir_var_in,  FRAG_ATTRIB_PNTC,   "vec2",   "gl_PointCoord" },
+   { ir_var_out, FRAG_RESULT_COLOR,  "vec4",   "gl_FragColor" },
 };
 
 static const builtin_variable builtin_300ES_vs_variables[] = {
@@ -80,6 +80,7 @@ static const builtin_variable builtin_110_deprecated_fs_variables[] = {
    { ir_var_in,  FRAG_ATTRIB_COL0,  "vec4",  "gl_Color" },
    { ir_var_in,  FRAG_ATTRIB_COL1,  "vec4",  "gl_SecondaryColor" },
    { ir_var_in,  FRAG_ATTRIB_FOGC,  "float", "gl_FogFragCoord" },
+   { ir_var_out, FRAG_RESULT_COLOR, "vec4",  "gl_FragColor" },
 };
 
 static const builtin_variable builtin_110_deprecated_vs_variables[] = {
@@ -594,13 +595,13 @@ generate_110_uniforms(exec_list *instructions,
 			   state->Const.MaxTextureUnits);
       add_builtin_constant(instructions, symtab, "gl_MaxTextureCoords",
 			   state->Const.MaxTextureCoords);
+      add_builtin_constant(instructions, symtab, "gl_MaxVaryingFloats",
+			   state->Const.MaxVaryingFloats);
    }
    add_builtin_constant(instructions, symtab, "gl_MaxVertexAttribs",
 			state->Const.MaxVertexAttribs);
    add_builtin_constant(instructions, symtab, "gl_MaxVertexUniformComponents",
 			state->Const.MaxVertexUniformComponents);
-   add_builtin_constant(instructions, symtab, "gl_MaxVaryingFloats",
-			state->Const.MaxVaryingFloats);
    add_builtin_constant(instructions, symtab, "gl_MaxVertexTextureImageUnits",
 			state->Const.MaxVertexTextureImageUnits);
    add_builtin_constant(instructions, symtab, "gl_MaxCombinedTextureImageUnits",
@@ -843,7 +844,8 @@ initialize_vs_variables(exec_list *instructions,
          generate_120_vs_variables(instructions, state, true);
          break;
       case 130:
-         generate_130_vs_variables(instructions, state, true);
+         generate_130_vs_variables(instructions, state,
+				   state->ctx->API != API_OPENGL_CORE);
          break;
       case 140:
          generate_130_vs_variables(instructions, state, false);
@@ -959,9 +961,10 @@ generate_ARB_draw_buffers_variables(exec_list *instructions,
       mdb->warn_extension = "GL_ARB_draw_buffers";
 
    /* gl_FragData is only available in the fragment shader.
-    * It is not present in GLSL 3.00 ES.
+    * It is not present in core context or GLSL 3.00 ES.
     */
-   if (target == fragment_shader && !state->is_version(0, 300)) {
+   if (target == fragment_shader && !state->is_version(0, 300)
+       && state->ctx->API != API_OPENGL_CORE) {
       const glsl_type *const vec4_array_type =
 	 glsl_type::get_array_instance(glsl_type::vec4_type,
 				       state->Const.MaxDrawBuffers);
@@ -1091,7 +1094,8 @@ static void
 generate_130_fs_variables(exec_list *instructions,
 			  struct _mesa_glsl_parse_state *state)
 {
-   generate_120_fs_variables(instructions, state, true);
+   generate_120_fs_variables(instructions, state,
+			     state->ctx->API != API_OPENGL_CORE);
 
    generate_130_uniforms(instructions, state);
    generate_fs_clipdistance(instructions, state);
