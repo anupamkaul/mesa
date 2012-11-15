@@ -130,6 +130,7 @@ enum value_extra {
    EXTRA_VERSION_32,
    EXTRA_API_GL,
    EXTRA_API_ES2,
+   EXTRA_API_ES3,
    EXTRA_NEW_BUFFERS, 
    EXTRA_NEW_FRAG_CLAMP,
    EXTRA_VALID_DRAW_BUFFER,
@@ -869,6 +870,12 @@ check_extra(struct gl_context *ctx, const char *func, const struct value_desc *d
          break;
       case EXTRA_API_ES2:
 	 if (ctx->API == API_OPENGLES2) {
+	    total++;
+	    enabled++;
+	 }
+	 break;
+      case EXTRA_API_ES3:
+	 if (_mesa_is_gles3(ctx)) {
 	    total++;
 	    enabled++;
 	 }
