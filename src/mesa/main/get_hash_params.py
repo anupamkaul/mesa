@@ -536,10 +536,6 @@ descriptor=[
   [ "SECONDARY_COLOR_ARRAY_BUFFER_BINDING_ARB", "LOC_CUSTOM, TYPE_INT, offsetof(struct gl_array_object, VertexAttrib[VERT_ATTRIB_COLOR1].BufferObj), NO_EXTRA" ],
   [ "FOG_COORDINATE_ARRAY_BUFFER_BINDING_ARB", "LOC_CUSTOM, TYPE_INT, offsetof(struct gl_array_object, VertexAttrib[VERT_ATTRIB_FOG].BufferObj), NO_EXTRA" ],
 
-# GL_EXT_pixel_buffer_object
-  [ "PIXEL_PACK_BUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_pixel_buffer_object" ],
-  [ "PIXEL_UNPACK_BUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_pixel_buffer_object" ],
-
 # GL_ARB_vertex_program
 # == GL_VERTEX_PROGRAM_NV
   [ "VERTEX_PROGRAM_ARB", "CONTEXT_BOOL(VertexProgram.Enabled), extra_ARB_vertex_program" ],
@@ -681,6 +677,10 @@ descriptor=[
 ]},
 
 { "apis": ["GL", "GL_CORE", "GLES2"], "params": [
+# GL_EXT_pixel_buffer_object
+  [ "PIXEL_PACK_BUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_pixel_buffer_object_api_es3" ],
+  [ "PIXEL_UNPACK_BUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_pixel_buffer_object_api_es3" ],
+
 # GL_ARB_uniform_buffer_object
   [ "MAX_VERTEX_UNIFORM_BLOCKS", "CONTEXT_INT(Const.VertexProgram.MaxUniformBlocks), extra_ARB_uniform_buffer_object_api_es3" ],
   [ "MAX_FRAGMENT_UNIFORM_BLOCKS", "CONTEXT_INT(Const.FragmentProgram.MaxUniformBlocks), extra_ARB_uniform_buffer_object_api_es3" ],
