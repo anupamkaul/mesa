@@ -289,6 +289,12 @@ static const int extra_texture_buffer_object[] = {
    EXTRA_END
 };
 
+static const int extra_ARB_uniform_buffer_object_api_es3[] = {
+   EXT(ARB_uniform_buffer_object),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
 static const int extra_ARB_uniform_buffer_object_and_geometry_shader[] = {
    EXT(ARB_uniform_buffer_object),
    EXT(ARB_geometry_shader4),
