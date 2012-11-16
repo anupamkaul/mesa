@@ -593,13 +593,6 @@ descriptor=[
 # GL_EXT_texture_integer
   [ "RGBA_INTEGER_MODE_EXT", "BUFFER_BOOL(_IntegerColor), extra_EXT_texture_integer" ],
 
-# GL_EXT_transform_feedback
-  [ "TRANSFORM_FEEDBACK_BUFFER_BINDING", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_transform_feedback" ],
-  [ "RASTERIZER_DISCARD", "CONTEXT_BOOL(RasterDiscard), extra_EXT_transform_feedback" ],
-  [ "MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS", "CONTEXT_INT(Const.MaxTransformFeedbackInterleavedComponents), extra_EXT_transform_feedback" ],
-  [ "MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS", "CONTEXT_INT(Const.MaxTransformFeedbackBuffers), extra_EXT_transform_feedback" ],
-  [ "MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS", "CONTEXT_INT(Const.MaxTransformFeedbackSeparateComponents), extra_EXT_transform_feedback" ],
-
 # GL_ARB_transform_feedback2
   [ "TRANSFORM_FEEDBACK_BUFFER_PAUSED", "LOC_CUSTOM, TYPE_BOOLEAN, 0, extra_ARB_transform_feedback2" ],
   [ "TRANSFORM_FEEDBACK_BUFFER_ACTIVE", "LOC_CUSTOM, TYPE_BOOLEAN, 0, extra_ARB_transform_feedback2" ],
@@ -677,6 +670,13 @@ descriptor=[
 # GL_EXT_pixel_buffer_object
   [ "PIXEL_PACK_BUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_pixel_buffer_object_api_es3" ],
   [ "PIXEL_UNPACK_BUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_pixel_buffer_object_api_es3" ],
+
+# GL_EXT_transform_feedback
+  [ "TRANSFORM_FEEDBACK_BUFFER_BINDING", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_transform_feedback_api_es3" ],
+  [ "RASTERIZER_DISCARD", "CONTEXT_BOOL(RasterDiscard), extra_EXT_transform_feedback_api_es3" ],
+  [ "MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS", "CONTEXT_INT(Const.MaxTransformFeedbackInterleavedComponents), extra_EXT_transform_feedback_api_es3" ],
+  [ "MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS", "CONTEXT_INT(Const.MaxTransformFeedbackBuffers), extra_EXT_transform_feedback_api_es3" ],
+  [ "MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS", "CONTEXT_INT(Const.MaxTransformFeedbackSeparateComponents), extra_EXT_transform_feedback_api_es3" ],
 
 # GL_ARB_sync
   [ "MAX_SERVER_WAIT_TIMEOUT", "CONTEXT_INT64(Const.MaxServerWaitTimeout), extra_ARB_sync_api_es3" ],

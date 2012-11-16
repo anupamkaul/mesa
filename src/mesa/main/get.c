@@ -273,6 +273,12 @@ static const int extra_EXT_fog_coord_flush_current[] = {
    EXTRA_END
 };
 
+static const int extra_EXT_transform_feedback_api_es3[] = {
+   EXT(EXT_transform_feedback),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
 static const int extra_EXT_pixel_buffer_object_api_es3[] = {
    EXT(EXT_pixel_buffer_object),
    EXTRA_API_ES3,
@@ -337,7 +343,6 @@ EXTRA_EXT2(ARB_framebuffer_object, EXT_framebuffer_multisample);
 EXTRA_EXT(EXT_framebuffer_object);
 EXTRA_EXT(ARB_seamless_cube_map);
 EXTRA_EXT(ARB_vertex_shader);
-EXTRA_EXT(EXT_transform_feedback);
 EXTRA_EXT(ARB_transform_feedback2);
 EXTRA_EXT(ARB_transform_feedback3);
 EXTRA_EXT(ARB_vertex_program);
