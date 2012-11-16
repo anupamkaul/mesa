@@ -646,8 +646,6 @@ st_api_create_context(struct st_api *stapi, struct st_manager *smapi,
 
    /* need to perform version check */
    if (attribs->major > 1 || attribs->minor > 0) {
-      _mesa_compute_version(st->ctx);
-
       /* Is the actual version less than the requested version?  Mesa can't
        * yet enforce the added restrictions of a forward-looking context, so
        * fail that too.

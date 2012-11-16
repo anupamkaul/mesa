@@ -30,9 +30,12 @@
   */
 
 
+#include "main/api_exec.h"
 #include "main/imports.h"
 #include "main/macros.h"
 #include "main/simple_list.h"
+#include "main/version.h"
+#include "main/vtxfmt.h"
 
 #include "vbo/vbo_context.h"
 
@@ -382,6 +385,11 @@ brwCreateContext(int api,
       ctx->Const.ContextFlags |= GL_CONTEXT_FLAG_DEBUG_BIT;
 
    brw_fs_alloc_reg_sets(brw);
+
+   _mesa_compute_version(ctx);
+
+   _mesa_initialize_exec_table(ctx);
+   _mesa_initialize_vbo_vtxfmt(ctx);
 
    return true;
 }
