@@ -232,13 +232,6 @@ descriptor=[
 # GL_OES_point_sprite
   [ "POINT_SPRITE_NV", "CONTEXT_BOOL(Point.PointSprite), extra_NV_point_sprite_ARB_point_sprite" ],
 
-# GL_ARB_fragment_shader
-  [ "MAX_FRAGMENT_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.FragmentProgram.MaxUniformComponents), extra_ARB_fragment_shader" ],
-
-# GL_ARB_vertex_shader
-  [ "MAX_VERTEX_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.VertexProgram.MaxUniformComponents), extra_ARB_vertex_shader" ],
-  [ "MAX_VARYING_FLOATS_ARB", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_vertex_shader" ],
-
 # GL_EXT_texture_lod_bias
   [ "MAX_TEXTURE_LOD_BIAS_EXT", "CONTEXT_FLOAT(Const.MaxTextureLodBias), NO_EXTRA" ],
 ]},
@@ -669,6 +662,13 @@ descriptor=[
   [ "MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS", "CONTEXT_INT(Const.MaxTransformFeedbackInterleavedComponents), extra_EXT_transform_feedback_api_es3" ],
   [ "MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS", "CONTEXT_INT(Const.MaxTransformFeedbackBuffers), extra_EXT_transform_feedback_api_es3" ],
   [ "MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS", "CONTEXT_INT(Const.MaxTransformFeedbackSeparateComponents), extra_EXT_transform_feedback_api_es3" ],
+
+# GL_ARB_fragment_shader
+  [ "MAX_FRAGMENT_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.FragmentProgram.MaxUniformComponents), extra_ARB_fragment_shader_api_es3" ],
+
+# GL_ARB_vertex_shader
+  [ "MAX_VERTEX_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.VertexProgram.MaxUniformComponents), extra_ARB_vertex_shader_api_es3" ],
+  [ "MAX_VARYING_FLOATS_ARB", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_vertex_shader" ],
 
 # GL_ARB_framebuffer_object
   [ "MAX_SAMPLES", "CONTEXT_INT(Const.MaxSamples), extra_ARB_framebuffer_object_EXT_framebuffer_multisample_api_es3" ],

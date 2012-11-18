@@ -301,6 +301,12 @@ static const int extra_texture_buffer_object[] = {
    EXTRA_END
 };
 
+static const int extra_ARB_fragment_shader_api_es3[] = {
+   EXT(ARB_fragment_shader),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
 static const int extra_ARB_framebuffer_object_EXT_framebuffer_multisample_api_es3[] = {
    EXT(ARB_framebuffer_object),
    EXT(EXT_framebuffer_multisample),
@@ -332,6 +338,11 @@ static const int extra_ARB_uniform_buffer_object_and_geometry_shader[] = {
    EXTRA_END
 };
 
+static const int extra_ARB_vertex_shader_api_es3[] = {
+   EXT(ARB_vertex_shader),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
 
 EXTRA_EXT(ARB_ES2_compatibility);
 EXTRA_EXT(ARB_texture_cube_map);
