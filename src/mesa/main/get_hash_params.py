@@ -569,10 +569,6 @@ descriptor=[
   [ "NUM_LOOPBACK_COMPONENTS_ATI", "CONST(3), extra_ATI_fragment_shader" ],
   [ "NUM_INPUT_INTERPOLATOR_COMPONENTS_ATI", "CONST(3), extra_ATI_fragment_shader" ],
 
-# GL_EXT_framebuffer_blit
-# NOTE: GL_DRAW_FRAMEBUFFER_BINDING_EXT == GL_FRAMEBUFFER_BINDING_EXT
-  [ "READ_FRAMEBUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_framebuffer_blit" ],
-
 # GL_EXT_provoking_vertex
   [ "PROVOKING_VERTEX_EXT", "CONTEXT_ENUM(Light.ProvokingVertex), extra_EXT_provoking_vertex" ],
   [ "QUADS_FOLLOW_PROVOKING_VERTEX_CONVENTION_EXT", "CONTEXT_BOOL(Const.QuadsFollowProvokingVertexConvention), extra_EXT_provoking_vertex" ],
@@ -669,6 +665,10 @@ descriptor=[
 # GL_ARB_vertex_shader
   [ "MAX_VERTEX_UNIFORM_COMPONENTS_ARB", "CONTEXT_INT(Const.VertexProgram.MaxUniformComponents), extra_ARB_vertex_shader_api_es3" ],
   [ "MAX_VARYING_FLOATS_ARB", "LOC_CUSTOM, TYPE_INT, 0, extra_ARB_vertex_shader" ],
+
+# GL_EXT_framebuffer_blit
+# NOTE: GL_DRAW_FRAMEBUFFER_BINDING_EXT == GL_FRAMEBUFFER_BINDING_EXT
+  [ "READ_FRAMEBUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_framebuffer_blit_api_es3" ],
 
 # GL_ARB_framebuffer_object
   [ "MAX_SAMPLES", "CONTEXT_INT(Const.MaxSamples), extra_ARB_framebuffer_object_EXT_framebuffer_multisample_api_es3" ],

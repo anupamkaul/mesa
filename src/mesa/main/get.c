@@ -307,6 +307,12 @@ static const int extra_ARB_fragment_shader_api_es3[] = {
    EXTRA_END
 };
 
+static const int extra_EXT_framebuffer_blit_api_es3[] = {
+   EXT(EXT_framebuffer_blit),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
 static const int extra_ARB_framebuffer_object_EXT_framebuffer_multisample_api_es3[] = {
    EXT(ARB_framebuffer_object),
    EXT(EXT_framebuffer_multisample),
@@ -358,7 +364,6 @@ EXTRA_EXT(EXT_stencil_two_side);
 EXTRA_EXT(EXT_depth_bounds_test);
 EXTRA_EXT(ARB_depth_clamp);
 EXTRA_EXT(ATI_fragment_shader);
-EXTRA_EXT(EXT_framebuffer_blit);
 EXTRA_EXT(ARB_shader_objects);
 EXTRA_EXT(EXT_provoking_vertex);
 EXTRA_EXT(ARB_fragment_shader);
