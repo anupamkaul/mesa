@@ -609,9 +609,6 @@ descriptor=[
   [ "SAMPLER_BINDING", "LOC_CUSTOM, TYPE_INT, GL_SAMPLER_BINDING, NO_EXTRA" ],
 
 # GL 3.0
-  [ "NUM_EXTENSIONS", "LOC_CUSTOM, TYPE_INT, 0, extra_version_30" ],
-  [ "MAJOR_VERSION", "LOC_CUSTOM, TYPE_INT, 0, extra_version_30" ],
-  [ "MINOR_VERSION", "LOC_CUSTOM, TYPE_INT, 0, extra_version_30" ],
   [ "CONTEXT_FLAGS", "CONTEXT_INT(Const.ContextFlags), extra_version_30" ],
 
 # GL3.0 / GL_EXT_framebuffer_sRGB
@@ -648,6 +645,11 @@ descriptor=[
 ]},
 
 { "apis": ["GL", "GL_CORE", "GLES2"], "params": [
+# GL 3.0 / GLES3
+  [ "NUM_EXTENSIONS", "LOC_CUSTOM, TYPE_INT, 0, extra_gl30_es3" ],
+  [ "MAJOR_VERSION", "LOC_CUSTOM, TYPE_INT, 0, extra_gl30_es3" ],
+  [ "MINOR_VERSION", "LOC_CUSTOM, TYPE_INT, 0, extra_gl30_es3" ],
+
 # GL_EXT_pixel_buffer_object
   [ "PIXEL_PACK_BUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_pixel_buffer_object_api_es3" ],
   [ "PIXEL_UNPACK_BUFFER_BINDING_EXT", "LOC_CUSTOM, TYPE_INT, 0, extra_EXT_pixel_buffer_object_api_es3" ],
