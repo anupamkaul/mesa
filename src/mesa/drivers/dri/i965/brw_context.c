@@ -108,7 +108,7 @@ brwCreateContext(int api,
       max_supported_version = 11;
       break;
    case API_OPENGLES2:
-      max_supported_version = 20;
+      max_supported_version = supports_gl30 ? 30 : 20;
       break;
    case API_OPENGL_CORE:
       max_supported_version = supports_gl30 ? 31 : 0;
