@@ -231,9 +231,6 @@ descriptor=[
 
 # GL_OES_point_sprite
   [ "POINT_SPRITE_NV", "CONTEXT_BOOL(Point.PointSprite), extra_NV_point_sprite_ARB_point_sprite" ],
-
-# GL_EXT_texture_lod_bias
-  [ "MAX_TEXTURE_LOD_BIAS_EXT", "CONTEXT_FLOAT(Const.MaxTextureLodBias), NO_EXTRA" ],
 ]},
 
 
@@ -642,6 +639,11 @@ descriptor=[
 
 # GL_ARB_texture_cube_map_array
   [ "TEXTURE_BINDING_CUBE_MAP_ARRAY_ARB", "LOC_CUSTOM, TYPE_INT, TEXTURE_CUBE_ARRAY_INDEX, extra_ARB_texture_cube_map_array" ],
+]},
+
+{ "apis": ["GL", "GL_CORE", "GLES", "GLES2"], "params": [
+# GL_EXT_texture_lod_bias
+  [ "MAX_TEXTURE_LOD_BIAS_EXT", "CONTEXT_FLOAT(Const.MaxTextureLodBias), extra_EXT_texture_lod_bias_api_es3" ],
 ]},
 
 { "apis": ["GL", "GL_CORE", "GLES2"], "params": [

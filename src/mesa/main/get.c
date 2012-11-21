@@ -129,6 +129,7 @@ enum value_extra {
    EXTRA_VERSION_31,
    EXTRA_VERSION_32,
    EXTRA_API_GL,
+   EXTRA_API_ES1,
    EXTRA_API_ES2,
    EXTRA_API_ES3,
    EXTRA_NEW_BUFFERS, 
@@ -281,6 +282,16 @@ static const int extra_EXT_transform_feedback_api_es3[] = {
 
 static const int extra_EXT_pixel_buffer_object_api_es3[] = {
    EXT(EXT_pixel_buffer_object),
+   EXTRA_API_ES3,
+   EXTRA_END
+};
+
+static const int extra_EXT_texture_lod_bias_api_es3[] = {
+   /* There is no EXT_texture_lod_bias field in ctx->Extensions
+    * so check for presence by looking at the API.
+    */
+   EXTRA_API_GL,
+   EXTRA_API_ES1,
    EXTRA_API_ES3,
    EXTRA_END
 };
@@ -922,6 +933,12 @@ check_extra(struct gl_context *ctx, const char *func, const struct value_desc *d
          if (ctx->NewState & (_NEW_BUFFERS | _NEW_FRAG_CLAMP))
             _mesa_update_state(ctx);
          break;
+      case EXTRA_API_ES1:
+	 if (ctx->API == API_OPENGLES) {
+	    total++;
+	    enabled++;
+	 }
+	 break;
       case EXTRA_API_ES2:
 	 if (ctx->API == API_OPENGLES2) {
 	    total++;
